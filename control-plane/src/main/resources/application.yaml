@@ -25,6 +25,36 @@ spring:
     # V1 creates one schema per module.
     default-schema: flyway
     schemas: flyway
+  ssl:
+    bundle:
+      pem:
+        # The agents' gRPC port (ADR 0010): our own server certificate, issued by
+        # our intermediate with serverAuth only, and our root as the only trust
+        # anchor for agents' client certificates. TLS 1.3 only. Each value is PEM
+        # content or a location, from the environment.
+        agent-grpc:
+          keystore:
+            certificate: ${AGENT_GRPC_TLS_CERTIFICATE}
+            private-key: ${AGENT_GRPC_TLS_PRIVATE_KEY}
+          truststore:
+            certificate: ${HOSTS_CA_ROOT_CERTIFICATE}
+          options:
+            enabled-protocols: TLSv1.3
+  grpc:
+    server:
+      # One TLS port for every agent call. The load balancer passes TLS through
+      # untouched (TCP mode); terminating it there would break mutual TLS.
+      port: 9443
+      ssl:
+        bundle: agent-grpc
+        # Requested, not required: Enroll needs none; the agent stream will
+        # require one through an interceptor.
+        client-auth: optional
+      # Nothing to advertise and no health clients yet: deny by default.
+      reflection:
+        enabled: false
+      health:
+        enabled: false
 
 server:
   shutdown: graceful
@@ -52,3 +82,12 @@ logging:
   structured:
     format:
       console: ecs
+
+hosts:
+  ca:
+    # Our online intermediate CA (ADR 0010), from the environment: PEM content
+    # or a location. The root's private key is never here, only its certificate.
+    root-certificate: ${HOSTS_CA_ROOT_CERTIFICATE}
+    intermediate-certificate: ${HOSTS_CA_INTERMEDIATE_CERTIFICATE}
+    intermediate-private-key: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY}
+    intermediate-private-key-password: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY_PASSWORD:}

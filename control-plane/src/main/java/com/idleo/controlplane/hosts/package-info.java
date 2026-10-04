@@ -1,7 +1,11 @@
 /**
  * The hosts module. Owns: hosts, their enrolment codes and the client certificates issued to their
  * agents, and later GPUs, inventory, availability, price listings and the host score. Its tables
- * live in the {@code hosts} database schema, and no other module reads them.
+ * live in the {@code hosts} database schema, and no other module reads them. It is the only module
+ * that issues or reads host certificates (ADR 0010).
+ *
+ * <p>Public API for other modules: {@link com.idleo.controlplane.hosts.HostEnrolment}, which trades
+ * a one-time enrolment code and a certificate signing request for a host certificate.
  *
  * <p>Endpoints, every one owner-only; another user's host is a 404, so ids can't be probed. Every
  * error is an RFC 9457 problem detail.

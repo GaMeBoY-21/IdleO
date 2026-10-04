@@ -3,3 +3,8 @@ spring:
   datasource:
     hikari:
       connection-timeout: 2000
+  # The certificates and the CA come from the in-memory test PKI.
+  grpc:
+    server:
+      port: 0
+

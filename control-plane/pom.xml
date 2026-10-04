@@ -25,10 +25,24 @@
         <palantir-java-format.version>2.101.0</palantir-java-format.version>
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
+        <bouncycastle.version>1.86</bouncycastle.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- gRPC's Google libraries disagree on these; the enforcer's convergence
+                 rule makes us choose. The server JVM takes Guava's jre flavour, and the
+                 newest annotations. -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>33.6.0-jre</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_annotations</artifactId>
+                <version>2.50.0</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.modulith</groupId>
                 <artifactId>spring-modulith-bom</artifactId>
@@ -63,6 +77,15 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-grpc-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.uuid</groupId>
@@ -103,6 +126,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-grpc-server-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -214,6 +242,18 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <!-- Generates Java from ../proto at build time. Spring Boot's parent pins
+                     protoc (it downloads it itself, never a protoc from PATH) and the
+                     grpc-java generator. Nothing generated is committed. -->
+                <groupId>io.github.ascopes</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
+                <configuration>
+                    <sourceDirectories>
+                        <sourceDirectory>${project.basedir}/../proto</sourceDirectory>
+                    </sourceDirectories>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

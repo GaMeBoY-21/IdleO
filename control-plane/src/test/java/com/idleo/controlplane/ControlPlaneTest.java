@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Import;
 @Import({
     TestcontainersConfiguration.class,
     TestIssuersConfiguration.class,
+    TestPkiConfiguration.class,
     TestClockConfiguration.class,
     ThrowingController.class
 })

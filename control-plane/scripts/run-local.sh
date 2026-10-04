@@ -22,4 +22,9 @@ for var in SPRING_PROFILES_ACTIVE SPRING_PROFILES_INCLUDE; do
   fi
 done
 
+if [[ ! -f ../private/dev-ca/root.pem ]]; then
+  echo "run-local: no development CA yet. Run scripts/dev-ca.sh first." >&2
+  exit 1
+fi
+
 exec ./mvnw spring-boot:run -Dspring-boot.run.profiles=local "$@"

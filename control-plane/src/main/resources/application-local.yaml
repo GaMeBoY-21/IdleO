@@ -1,4 +1,4 @@
-# Local development: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+# Local development: scripts/run-local.sh
 spring:
   docker:
     compose:
@@ -10,3 +10,20 @@ logging:
     format:
       # Human-readable logs on a developer's machine.
       console: ""
+
+# The throwaway development CA from scripts/dev-ca.sh, under the gitignored
+# private/dev-ca/. Development only: production reads every value from the
+# environment (application.yaml).
+hosts:
+  ca:
+    root-certificate: file:../private/dev-ca/root.pem
+    intermediate-certificate: file:../private/dev-ca/intermediate.pem
+    intermediate-private-key: file:../private/dev-ca/intermediate.key
+    intermediate-private-key-password: ""
+spring.ssl.bundle.pem.agent-grpc:
+  keystore:
+    certificate: file:../private/dev-ca/server-chain.pem
+    private-key: file:../private/dev-ca/server.key
+  truststore:
+    certificate: file:../private/dev-ca/root.pem
+
