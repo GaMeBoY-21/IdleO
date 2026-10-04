@@ -42,3 +42,5 @@ Each prompt is a short brief, written as prose, in this order:
 
 - Commits are authored by Nikki's own git identity and read like a person wrote them: one plain line, lowercase, no prefixes, no trailing period. Example: `add heartbeat handling to the agent gateway`.
 - No `Co-authored-by` trailers, no "Generated with" lines, no session links. `.claude/settings.json` turns Claude Code's attribution off; do not override it.
+- Commit messages never mention phases, steps or prompts. They say what changed.
+- A prompt file is committed together with the first piece of work it asks for, never in a commit of its own. Prompt files are named by topic (for example `identity-sign-in.md`), not by phase or step.

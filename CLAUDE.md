@@ -46,6 +46,8 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Never add Co-authored-by trailers, "Generated with" lines or session links. Attribution is off in .claude/settings.json; leave it off.
 - Use the git identity already configured on this machine. Never change git config.
 - Push only when a remote exists and the prompt says to.
+- Never mention phases, steps or prompts in a commit message. Say what changed.
+- A prompt file is committed together with the first piece of work it asks for, never in a commit of its own. Prompt files are named by topic (for example identity-sign-in.md), not by phase or step.
 
 ## Working rules
 - Measure before fixing; report numbers, not impressions.
