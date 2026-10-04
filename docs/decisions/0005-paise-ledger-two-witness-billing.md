@@ -31,5 +31,5 @@ Neither the agent nor the control plane alone should be able to inflate a bill (
 - Each payout carries its own idempotency key (line 374).
 
 Open question: the plan does not say who works the one-witness review queue, or how its minutes are resolved.
-Open question: the worked example and the settlement code use a 20% commission (lines 376, 403); the plan does not say whether the rate is fixed or configurable.
-Open question: the plan does not name the columns of the ledger's unique key (line 388).
+The worked example and the settlement code use a 20% commission (lines 376, 403), and execution plan line 311 says to test 15–25% during the pilot, so the rate must be configurable.
+The ledger's unique key is `UNIQUE NULLS NOT DISTINCT (txn_id, account, owner_id)` (line 172), so retries cannot double-post (line 388).

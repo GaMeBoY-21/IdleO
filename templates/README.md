@@ -2,4 +2,4 @@
 
 Template images renters can start from: Jupyter, vLLM, QLoRA, Blender.
 
-Starts in Phase 2 (interactive and billing): notebooks and endpoints.
+Batch templates start in Phase 1 (compute MVP): the batch flow starts from a template such as `qlora-unsloth`, and the first one is built in `phase0/qlora-test/`. Notebook and endpoint templates start in Phase 2.
