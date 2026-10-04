@@ -1,0 +1,7 @@
+# Shell and Python must keep LF line endings when the repo is cloned on
+# Windows and run inside WSL; bash fails on CRLF.
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
+*.proposed text eol=lf
+*.pdf binary
