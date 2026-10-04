@@ -60,6 +60,7 @@ message SessionSpec {
   // Container image, always pinned by digest: the reference must include
   // "@sha256:", so a tag change can never swap the image. Example:
   // "registry.example/templates/qlora@sha256:0123...".
+  // Empty is invalid; the receiver rejects the message.
   string image = 2;
   // Arguments passed to the image's entrypoint.
   repeated string args = 3;
@@ -67,18 +68,25 @@ message SessionSpec {
   // secrets travel in Credentials and are never put here.
   map<string, string> env = 4;
   // GPU memory the job needs, in MB.
+  // Zero is invalid; the receiver rejects the message.
   int32 vram_needed_mb = 5;
   // Container memory limit, in MB.
+  // Zero is invalid; the receiver rejects the message.
   int32 memory_mb = 6;
   // Container CPU limit, in thousandths of a CPU.
+  // Zero is invalid; the receiver rejects the message.
   int32 cpu_millicores = 7;
   // Maximum number of processes inside the container.
+  // Zero is invalid; the receiver rejects the message.
   int32 pids_limit = 8;
   // Size of the fixed-size scratch disk mounted at /work, in MB.
+  // Zero is invalid; the receiver rejects the message.
   int32 scratch_mb = 9;
   // How often the job should checkpoint.
+  // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration checkpoint_interval = 10;
   // Hard cap on how long this attempt may run, whatever the lease says.
+  // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration max_runtime = 11;
 }
 
@@ -100,24 +108,31 @@ enum StoragePermission {
 message StorageGrant {
   // S3-compatible endpoint URL, for example
   // "https://example-account.r2.cloudflarestorage.com".
+  // Empty is invalid; the receiver rejects the message.
   string endpoint = 1;
   // The bucket the grant covers.
+  // Empty is invalid; the receiver rejects the message.
   string bucket = 2;
   // Access key id. secret: never log.
+  // Empty is invalid; the receiver rejects the message.
   string access_key_id = 3;
   // Secret access key. secret: never log.
+  // Empty is invalid; the receiver rejects the message.
   string secret_access_key = 4;
   // Session token that goes with the temporary keys. secret: never log.
+  // Empty is invalid; the receiver rejects the message.
   string session_token = 5;
   // Key prefixes the grant covers, each ending in "/", for example
   // "sessions/0190f3a2-0000-7000-8000-000000000000/attempt-2/". The storage
   // layout is in proto/README.md.
+  // Empty is invalid; the receiver rejects the message.
   repeated string prefixes = 6;
   // What the grant allows on those prefixes.
   StoragePermission permission = 7;
   // How long the credentials stay valid, counted from receipt on the agent's
   // lease clock (see StartSession.lease_ttl). The agent stops using them at
   // that point; storage enforces the real expiry.
+  // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration expires_in = 8;
 }
 
@@ -135,6 +150,7 @@ message Credentials {
   // "sessions/{session_id}/attempt-{n}/", where the agent writes checkpoints
   // and outputs. It can't write the input or another attempt's folder.
   // secret: never log.
+  // Absent is invalid; the receiver rejects the message.
   StorageGrant attempt_grant = 6;
   // Read-only on the session's input, "sessions/{session_id}/input/", and on
   // the checkpoint named in StartSession.resume_from, if any.
@@ -147,17 +163,21 @@ message Credentials {
 message CheckpointRef {
   // The checkpoints prefix of the attempt that wrote it, for example
   // "sessions/0190f3a2-0000-7000-8000-000000000000/attempt-1/checkpoints/".
+  // Empty is invalid; the receiver rejects the message.
   string prefix = 1;
   // The checkpoint's sequence number within that attempt, starting at 1.
+  // Zero is invalid; the receiver rejects the message.
   int32 seq = 2;
 }
 
 // One session as the agent sees it right now. Shared by Hello and Heartbeat.
 message RunningSession {
   // The session's UUIDv7, in canonical text form.
+  // Empty is invalid; the receiver rejects the message.
   string session_id = 1;
   // The attempt this agent is running. The control plane ignores snapshots
   // whose attempt isn't the current one.
+  // Zero is invalid; the receiver rejects the message.
   int32 attempt = 2;
   // The agent's local state for this attempt.
   SessionState state = 3;
@@ -167,6 +187,7 @@ message RunningSession {
 // output, which hold renter data.
 message SessionError {
   // Stable machine-readable code, for example "image_pull_failed".
+  // Empty is invalid; the receiver rejects the message.
   string code = 1;
   // One short human-readable line.
   string message = 2;
@@ -176,11 +197,14 @@ message SessionError {
 // OfferReply. Not acked: the OfferReply is the answer.
 message Offer {
   // Unique id for this offer, a UUIDv7 in canonical text form.
+  // Empty is invalid; the receiver rejects the message.
   string offer_id = 1;
   // What would run. Lets the agent check it fits before accepting.
+  // Absent is invalid; the receiver rejects the message.
   SessionSpec spec = 2;
   // How long the offer stays open, counted from receipt on the agent's lease
   // clock (see StartSession.lease_ttl). A reply after this is ignored.
+  // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration expires_in = 3;
 }
 
@@ -205,6 +229,7 @@ enum OfferDeclineReason {
 // Agent to control plane: the answer to an Offer. Acked.
 message OfferReply {
   // The offer being answered.
+  // Empty is invalid; the receiver rejects the message.
   string offer_id = 1;
   // True if the agent accepts the offer.
   bool accepted = 2;
@@ -215,19 +240,24 @@ message OfferReply {
 // Control plane to agent: start one attempt of a session. Acked.
 message StartSession {
   // The session's UUIDv7, in canonical text form.
+  // Empty is invalid; the receiver rejects the message.
   string session_id = 1;
   // Business idempotency key for this command, a UUIDv7. It survives
   // reconnects and outbox re-sends: a StartSession whose command_id the agent
   // has seen before is acked and never run twice. Not the same as the
   // envelope's message_id, which only identifies one delivery.
+  // Empty is invalid; the receiver rejects the message.
   string command_id = 2;
   // Which attempt this is, starting at 1 and increasing on every re-match.
   // The agent puts it on every message about this session; the control plane
   // acks and then ignores any message whose attempt isn't the current one.
+  // Zero is invalid; the receiver rejects the message.
   int32 attempt = 3;
   // What to run.
+  // Absent is invalid; the receiver rejects the message.
   SessionSpec spec = 4;
   // Secrets for this attempt. secret: never log.
+  // Absent is invalid; the receiver rejects the message.
   Credentials credentials = 5;
   // How long the lease lasts, counted from receipt on the agent's lease
   // clock: a clock that keeps counting while the machine sleeps
@@ -238,14 +268,18 @@ message StartSession {
   // doing anything else. Receipt is always after the send, so the agent can
   // only stop early, never late. Never compared with wall-clock time, which
   // the owner can change. How deadlines survive restarts: proto/README.md.
+  // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration lease_ttl = 6;
   // The session-wide minute index of this attempt's first minute, set by the
   // control plane from its own clock. The agent counts minutes from zero on
   // its own and reports minute_index_base plus that count, so attempt 2's
-  // first minute never lands on attempt 1's minute 0.
-  int32 minute_index_base = 7;
+  // first minute never lands on attempt 1's minute 0. Optional so that
+  // "not sent" can't pass for zero: absent is invalid and the receiver rejects
+  // the message, while zero is valid (the first attempt starts at minute 0).
+  optional int32 minute_index_base = 7;
   // UUIDs of the GPUs this attempt may use, as listed in GpuInfo.uuid. Only
   // these are passed into the container.
+  // Empty is invalid; the receiver rejects the message.
   repeated string gpu_uuids = 8;
   // The checkpoint to resume from, chosen by the control plane after it has
   // checked that the checkpoint's completion marker exists. Absent when the
@@ -258,13 +292,16 @@ message StartSession {
 // reconnect if a grant is close to expiring. Acked.
 message RefreshCredentials {
   // The session the credentials are for.
+  // Empty is invalid; the receiver rejects the message.
   string session_id = 1;
   // The attempt the credentials are for. The agent ignores credentials for
   // any other attempt; the control plane never refreshes an attempt that
   // isn't current.
+  // Zero is invalid; the receiver rejects the message.
   int32 attempt = 2;
   // The new credentials. They replace the old ones as a whole.
   // secret: never log.
+  // Absent is invalid; the receiver rejects the message.
   Credentials credentials = 3;
 }
 
@@ -272,24 +309,30 @@ message RefreshCredentials {
 // it is sent every 30 seconds and the lease survives three missed renewals.
 message LeaseRenew {
   // The session being renewed.
+  // Empty is invalid; the receiver rejects the message.
   string session_id = 1;
   // The attempt being renewed. The agent ignores a renewal for any other
   // attempt; the control plane never renews an attempt that isn't current.
+  // Zero is invalid; the receiver rejects the message.
   int32 attempt = 2;
   // The new lease length, counted from receipt on the agent's lease clock
   // (the sleep-counting clock in StartSession.lease_ttl), exactly as there.
+  // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration lease_ttl = 3;
 }
 
 // Control plane to agent: stop one attempt of a session. Acked.
 message StopSession {
   // The session to stop.
+  // Empty is invalid; the receiver rejects the message.
   string session_id = 1;
   // The attempt to stop. The control plane acks and then ignores any reply
   // about an attempt that isn't the current one.
+  // Zero is invalid; the receiver rejects the message.
   int32 attempt = 2;
   // Business idempotency key, as in StartSession.command_id: a repeated
   // StopSession is acked and acted on once.
+  // Empty is invalid; the receiver rejects the message.
   string command_id = 3;
   // Why the session stops.
   StopReason reason = 4;
@@ -297,6 +340,7 @@ message StopSession {
   bool checkpoint_first = 5;
   // How long the agent may spend checkpointing before it kills the
   // container anyway. Ignored when checkpoint_first is false.
+  // Absent or zero is invalid when checkpoint_first is true; the receiver rejects the message.
   google.protobuf.Duration grace_period = 6;
 }
 
@@ -304,18 +348,22 @@ message StopSession {
 // Acked; kept on disk until acked.
 message SessionStatus {
   // The session this is about.
+  // Empty is invalid; the receiver rejects the message.
   string session_id = 1;
   // The attempt this is about. The control plane acks and then ignores a
   // status whose attempt isn't the current one, such as a late report from a
   // host that was replaced.
+  // Zero is invalid; the receiver rejects the message.
   int32 attempt = 2;
   // Number of a field removed before v1 was released.
   reserved 4;
 
   // The attempt's state now.
   SessionState state = 3;
-  // The container's exit code. Set only in SUCCEEDED and FAILED.
-  int32 exit_code = 5;
+  // The container's exit code. Present only when the container exited, in
+  // SUCCEEDED and FAILED; absent when a failure left no exit code. Zero means
+  // the job exited successfully, so it must never stand in for "absent".
+  optional int32 exit_code = 5;
   // What went wrong, when state is FAILED, STOPPED or LEASE_EXPIRED.
   SessionError error = 6;
   // The seq of this attempt's newest completed checkpoint, the one whose
@@ -328,14 +376,18 @@ message SessionStatus {
 // control plane's lease record is the other. Acked; kept on disk until acked.
 message UsageReport {
   // The session this minute belongs to.
+  // Empty is invalid; the receiver rejects the message.
   string session_id = 1;
   // The attempt that ran this minute. The control plane acks and then ignores
   // reports whose attempt isn't the current one, so a host that comes back
   // after a re-match can't mark a minute it never ran.
+  // Zero is invalid; the receiver rejects the message.
   int32 attempt = 2;
   // Session-wide minute index: StartSession.minute_index_base plus the
-  // minutes this attempt has run, counted from zero.
-  int32 minute_index = 3;
+  // minutes this attempt has run, counted from zero. Optional so that "not
+  // sent" can't pass for zero: absent is invalid and the receiver rejects the
+  // message, while zero is the session's first minute.
+  optional int32 minute_index = 3;
   // Seconds within this minute that the GPU was in use by the session.
   int32 gpu_seconds = 4;
   // Average GPU utilisation over the minute, in percent.

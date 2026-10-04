@@ -16,6 +16,7 @@ service EnrollmentService {
 // A client certificate issued to a host, with its chain.
 message IssuedCertificate {
   // DER-encoded certificates, the host's own first, then any intermediates.
+  // Empty is invalid; the receiver rejects the message.
   repeated bytes certificate_chain_der = 1;
   // When the host certificate expires. Mirrors the certificate's own
   // notAfter field, for display and logging; the agent schedules renewal
@@ -28,9 +29,11 @@ message EnrollRequest {
   // The one-time enrolment code shown in the web app when the host registers
   // the machine. Single-use and short-lived: it stops working after one
   // successful enrolment or when it expires. secret: never log.
+  // Empty is invalid; the receiver rejects the message.
   string enrollment_code = 1;
   // A DER-encoded PKCS#10 certificate signing request. The agent generates
   // the key pair itself; the private key never leaves the host.
+  // Empty is invalid; the receiver rejects the message.
   bytes csr_der = 2;
 }
 

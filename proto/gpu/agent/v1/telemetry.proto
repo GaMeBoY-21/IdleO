@@ -18,10 +18,12 @@ enum OperatingSystem {
 message GpuInfo {
   // The GPU's UUID as nvidia-smi reports it, for example "GPU-00000000-...".
   // Telemetry and StartSession refer to GPUs by this value.
+  // Empty is invalid; the receiver rejects the message.
   string uuid = 1;
   // Marketing name, for example "NVIDIA GeForce RTX 4080 Laptop GPU".
   string name = 2;
   // Total GPU memory, in MB.
+  // Zero is invalid; the receiver rejects the message.
   int32 vram_mb = 3;
   // NVIDIA driver version, for example "572.16".
   string driver_version = 4;
@@ -34,6 +36,7 @@ message GpuInfo {
 // One GPU's readings at heartbeat time.
 message GpuTelemetry {
   // Which GPU, matching GpuInfo.uuid.
+  // Empty is invalid; the receiver rejects the message.
   string uuid = 1;
   // Core temperature, in degrees Celsius.
   int32 temp_c = 2;
@@ -41,8 +44,9 @@ message GpuTelemetry {
   int32 util_pct = 3;
   // GPU memory in use, in MB.
   int32 vram_used_mb = 4;
-  // Power draw, in watts. Zero if the GPU doesn't report it.
-  int32 power_w = 5;
+  // Power draw, in watts. Absent if the GPU doesn't report it, which laptop
+  // GPUs often don't; zero would wrongly read as drawing no power.
+  optional int32 power_w = 5;
 }
 
 // Agent to control plane: liveness and telemetry, sent every heartbeat

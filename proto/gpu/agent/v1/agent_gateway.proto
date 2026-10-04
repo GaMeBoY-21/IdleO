@@ -27,6 +27,7 @@ message OpenStreamRequest {
   // Identifies this delivery: a UUIDv7 in canonical text form. A retry of the
   // same message reuses the same message_id, so the receiver can drop
   // duplicates. Business idempotency is command_id's job, not this field's.
+  // Empty is invalid; the receiver rejects the message.
   string message_id = 1;
   // The message itself.
   oneof body {
@@ -51,6 +52,7 @@ message OpenStreamResponse {
   // Identifies this delivery: a UUIDv7 in canonical text form. A retry of the
   // same message reuses the same message_id, so the receiver can drop
   // duplicates. Business idempotency is command_id's job, not this field's.
+  // Empty is invalid; the receiver rejects the message.
   string message_id = 1;
   // The message itself.
   oneof body {
@@ -77,6 +79,7 @@ message OpenStreamResponse {
 // host id: the control plane derives the host from the client certificate.
 message Hello {
   // The agent's version, semantic versioning, for example "1.4.2".
+  // Empty is invalid; the receiver rejects the message.
   string agent_version = 1;
   // The host's operating system.
   OperatingSystem os = 2;
@@ -92,11 +95,14 @@ message Hello {
 // Rules the control plane sets for this agent.
 message AgentPolicy {
   // How often the agent sends Heartbeat.
+  // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration heartbeat_interval = 1;
   // GPU temperature cap, in degrees Celsius. The agent throttles or declines
   // work at or above it.
+  // Zero is invalid; the receiver rejects the message.
   int32 gpu_temp_cap_c = 2;
   // The most sessions the agent may run at once.
+  // Zero is invalid; the receiver rejects the message.
   int32 max_concurrent_sessions = 3;
 }
 
@@ -106,6 +112,7 @@ message Welcome {
   AgentPolicy policy = 1;
   // The oldest agent version the control plane still supports (the last
   // three releases). An older agent updates before taking work.
+  // Empty is invalid; the receiver rejects the message.
   string minimum_agent_version = 2;
 }
 
@@ -115,6 +122,7 @@ message Welcome {
 // are never acked.
 message Ack {
   // The message_id of the envelope being acknowledged.
+  // Empty is invalid; the receiver rejects the message.
   string acked_message_id = 1;
 }
 
@@ -122,14 +130,18 @@ message Ack {
 // received; the agent installs it once no session is running.
 message UpdateAgent {
   // The version to install, semantic versioning.
+  // Empty is invalid; the receiver rejects the message.
   string version = 1;
   // Where to download the build.
+  // Empty is invalid; the receiver rejects the message.
   string download_url = 2;
   // SHA-256 of the download, as lowercase hex. The agent checks it before
   // anything else.
+  // Empty is invalid; the receiver rejects the message.
   string sha256 = 3;
   // cosign signature over the build. The agent installs only builds that
   // verify against the release key built into it.
+  // Empty is invalid; the receiver rejects the message.
   bytes cosign_signature = 4;
 }
 
@@ -137,6 +149,7 @@ message UpdateAgent {
 message RenewCertificateRequest {
   // A DER-encoded PKCS#10 certificate signing request for a new key pair.
   // The private key never leaves the host.
+  // Empty is invalid; the receiver rejects the message.
   bytes csr_der = 1;
 }
 
