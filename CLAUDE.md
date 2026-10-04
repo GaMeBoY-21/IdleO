@@ -61,7 +61,7 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 Control plane, run from control-plane/ (needs Java 25 and Docker):
 - ./mvnw verify: compile with -Werror, enforcer, all tests (Testcontainers, modularity), Spotless check, JaCoCo report
 - ./mvnw spotless:apply: fix formatting
-- ./mvnw spring-boot:run -Dspring-boot.run.profiles=local: run against compose.yaml's PostgreSQL
+- scripts/run-local.sh: run locally against compose.yaml's PostgreSQL; loads .env, always uses the local profile, refuses any prod profile
 
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions

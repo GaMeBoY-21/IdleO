@@ -39,15 +39,14 @@ Sign-in redirects and email links work only for these domains.
    ```
    cp .env.example .env
    ```
-3. Edit `.env` and replace `demo-project` in both lines with your project id:
+3. Edit `.env` and replace `demo-project` in both lines of the "Local" section with your project id:
    ```
    IDENTITY_ISSUERS_0_ISSUERURI=https://securetoken.google.com/<your-project-id>
    IDENTITY_ISSUERS_0_AUDIENCE=<your-project-id>
    ```
-4. Load it before running the app:
+4. Start the app with the local script, which loads `.env` and always uses the local profile:
    ```
-   set -a && . ./.env && set +a
-   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+   scripts/run-local.sh
    ```
 
 `.env` is gitignored. Run `git status` and confirm it never shows up. For production, set the same two variables in the platform's environment settings, never in a file in the repo.

@@ -32,12 +32,13 @@ That one command runs everything, and any failure fails the build:
 
 ## Run locally
 
-The app needs at least one trusted ID token issuer. Copy `.env.example` to `.env` (gitignored), set the identity variables (see `docs/runbooks/identity-provider-setup.md`), then:
+The app needs at least one trusted ID token issuer. Copy `.env.example` to `.env` (gitignored) and fill in its "Local" section (see `docs/runbooks/identity-provider-setup.md`). Then run:
 
 ```
-set -a && . ./.env && set +a
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+scripts/run-local.sh
 ```
+
+The script loads `.env`, always uses the `local` profile, and refuses to start if `SPRING_PROFILES_ACTIVE` or `SPRING_PROFILES_INCLUDE` asks for `prod`. Production sets its profile and secrets in its deployment, never in a file.
 
 Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrations. Readiness is then UP at `http://localhost:8080/actuator/health/readiness`. Stopping the app stops the database container; `docker compose down` removes it.
 
@@ -53,7 +54,7 @@ Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrati
 
 Every variable is listed, with a fake value, in `.env.example`; a real `.env` stays out of git.
 - **Identity issuers:** `IDENTITY_ISSUERS_0_ISSUERURI` and `IDENTITY_ISSUERS_0_AUDIENCE`. Every profile except `test` needs them, and the app refuses to start without one.
-- **Database:** the `prod` profile reads it from the environment.
+- **Database:** the `prod` profile reads it from the deployment's environment. It's not in `.env`.
 
 ## What's here so far
 
