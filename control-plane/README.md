@@ -1,6 +1,6 @@
 # control-plane
 
-The Java 25 Spring Boot 4 control plane, built as Spring Modulith modules. The eleven modules and what each owns are listed in docs/plan/technical-design.md lines 533–545. It also holds the agents' gRPC streams.
+The Java 25 Spring Boot 4 control plane, built as Spring Modulith modules. The eleven modules and what each owns are listed in docs/plan/technical-design.md lines 534–546. It also holds the agents' gRPC streams.
 
 Starts in Phase 1 (compute core): sessions, scheduler and leases.
 
@@ -32,15 +32,16 @@ That one command runs everything, and any failure fails the build:
 
 ## Run locally
 
-The app needs at least one trusted ID token issuer. Copy `.env.example` to `.env` (gitignored) and fill in its "Local" section (see `docs/runbooks/identity-provider-setup.md`). Then run:
+The app needs at least one trusted ID token issuer. Copy `.env.example` to `.env` (gitignored) and fill in its "Local" section (see `docs/runbooks/identity-provider-setup.md`). Create the throwaway development CA once, then run:
 
 ```
+scripts/dev-ca.sh
 scripts/run-local.sh
 ```
 
 The script loads `.env`, always uses the `local` profile, and refuses to start if `SPRING_PROFILES_ACTIVE` or `SPRING_PROFILES_INCLUDE` asks for `prod`. Production sets its profile and secrets in its deployment, never in a file.
 
-Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrations. Readiness is then UP at `http://localhost:8080/actuator/health/readiness`. Stopping the app stops the database container; `docker compose down` removes it.
+Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrations. Readiness is then UP at `http://localhost:8080/actuator/health/readiness`, and the agents' gRPC port listens on 9443 (TLS 1.3, with the dev CA's `localhost` certificate). Stopping the app stops the database container; `docker compose down` removes it.
 
 ## Profiles
 
@@ -54,11 +55,11 @@ Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrati
 
 Every variable is listed, with a fake value, in `.env.example`; a real `.env` stays out of git.
 - **Identity issuers:** `IDENTITY_ISSUERS_0_ISSUERURI` and `IDENTITY_ISSUERS_0_AUDIENCE`. Every profile except `test` needs them, and the app refuses to start without one.
-- **Database:** the `prod` profile reads it from the deployment's environment. It's not in `.env`.
+- **Database, CA and gRPC TLS:** the `prod` profile reads them from the deployment's environment (see `docs/runbooks/certificate-authority.md`). They're not in `.env`; locally the dev CA stands in.
 
 ## What's here so far
 
-- **Modules.** Eleven modules, one package each, with `@ApplicationModule`. Identity has code; the other ten are still empty.
+- **Modules.** Eleven modules, one package each, with `@ApplicationModule`. Identity, hosts and agentgateway have code; the other eight are still empty.
 - **Database.** One database schema per module, created by `db/migration/V1__create_module_schemas.sql`. Migrations always name their schema. Flyway owns all DDL and keeps its history in the `flyway` schema.
 - **Errors.** Every error is RFC 9457 problem details (`application/problem+json`), including 401 and 403.
 - **Security.** Deny by default: only `/actuator/health/liveness` and `/actuator/health/readiness` are open.
@@ -66,7 +67,10 @@ Every variable is listed, with a fake value, in `.env.example`; a real `.env` st
   - Users are created on first sign-in.
   - `GET /v1/me` and `PATCH /v1/me` serve the signed-in user's own account.
   - The provider's ids never leave the identity module.
-- **Shared kernel**, in the root package: the one `Clock`, and the one UUIDv7 generator (`IdGenerator`).
+- **Shared kernel**, in the root package: the one `Clock`, the one UUIDv7 generator (`IdGenerator`), and the `Idempotency-Key` helper (`IdempotentRequests`).
+- **Hosts** (ADR 0010). `POST /v1/hosts` (with an `Idempotency-Key`), `GET /v1/hosts`, `GET /v1/hosts/{id}`, and `POST /v1/hosts/{id}/enrolment-code` for a one-time code.
+- **Agent enrolment.** `EnrollmentService.Enroll` over gRPC on port 9443: TLS 1.3 only, client certificates optional. It trades a code and a CSR for a 30-day certificate from our own CA.
+- **Generated code.** Java for `../proto` is generated during the build into `target/generated-sources/protobuf`, by a `protoc` the build downloads itself. Nothing generated is committed.
 - **Health.** Readiness includes the database; liveness doesn't.
 
 Other business features, the outbox and Valkey arrive with the modules that need them.

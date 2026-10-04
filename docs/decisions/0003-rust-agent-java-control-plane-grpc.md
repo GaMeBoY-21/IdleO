@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-04
 
-Sources: docs/plan/technical-design.md lines 3 and 219–241; docs/plan/execution-plan.md lines 142–169.
+Sources: docs/plan/technical-design.md lines 3 and 219–242; docs/plan/execution-plan.md lines 142–169.
 
 ## Context
 
@@ -26,8 +26,8 @@ Fast languages go only where every millisecond or megabyte counts: the game stre
 
 - The agent is a small single binary with low CPU and RAM, memory-safe on machines we do not control (execution plan 153).
 - Typed contracts are shared by Rust and Java through .proto files (execution plan 157).
-- When the stream drops, the agent reconnects with exponential backoff, 1 second doubling to 60 seconds, plus random jitter (technical design 239).
-- A repeated StartSession with a known command\_id is acknowledged, never run twice (technical design 239).
+- When the stream drops, the agent reconnects with exponential backoff, 1 second doubling to 60 seconds, plus random jitter (technical design 240).
+- A repeated StartSession with a known command\_id is acknowledged, never run twice (technical design 240).
 - Welcome forces an update if the agent is older than the last three releases (technical design 226).
 
 Answered: the control plane builds with Maven (ADR 0008).

@@ -37,6 +37,8 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL. Persistence is Spring Data JDBC with explicit SQL (JdbcClient where needed), no JPA (ADR 0009). Valkey (Redis-compatible) only for state that is allowed to expire.
 - Migrations name the schema of every object they create or change (identity.users, never users). Flyway's default schema is flyway, so an unqualified name lands there silently; a test fails if any table other than Flyway's history table appears in the flyway schema.
 - API errors use RFC 9457 Problem Details.
+- Only the hosts module issues or reads host certificates and enrolment codes; other modules go through its public API (ADR 0010). Agents trust only our own root CA.
+- Create requests take an Idempotency-Key through the shared IdempotentRequests helper, with a <schema>.idempotency_keys table in each module.
 - Tests: JUnit 5 and Testcontainers for Java, cargo test for Rust. New behaviour ships with tests.
 - Secrets never go in code or git; use a gitignored .env locally. Never ask for passwords or keys.
 - Real personal data lives only in the gitignored private/ folder, never in commits, fixtures or tests.
@@ -61,7 +63,9 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 Control plane, run from control-plane/ (needs Java 25 and Docker):
 - ./mvnw verify: compile with -Werror, enforcer, all tests (Testcontainers, modularity), Spotless check, JaCoCo report
 - ./mvnw spotless:apply: fix formatting
-- scripts/run-local.sh: run locally against compose.yaml's PostgreSQL; loads .env, always uses the local profile, refuses any prod profile
+- scripts/dev-ca.sh: create the throwaway development CA under the gitignored private/dev-ca/ (--force to replace it)
+- scripts/run-local.sh: run locally against compose.yaml's PostgreSQL and the dev CA; loads .env, always uses the local profile, refuses any prod profile
+- Java code for proto/ is generated during the build (target/generated-sources); never commit it
 
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions
