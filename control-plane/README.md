@@ -32,7 +32,10 @@ That one command runs everything, and any failure fails the build:
 
 ## Run locally
 
+The app needs at least one trusted ID token issuer. Copy `.env.example` to `.env` (gitignored), set the identity variables (see `docs/runbooks/identity-provider-setup.md`), then:
+
 ```
+set -a && . ./.env && set +a
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
@@ -48,14 +51,21 @@ Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrati
 
 ## Environment variables
 
-Only the `prod` profile reads environment variables. Every one is listed, with a fake value, in `.env.example`; a real `.env` stays out of git.
+Every variable is listed, with a fake value, in `.env.example`; a real `.env` stays out of git.
+- **Identity issuers:** `IDENTITY_ISSUERS_0_ISSUERURI` and `IDENTITY_ISSUERS_0_AUDIENCE`. Every profile except `test` needs them, and the app refuses to start without one.
+- **Database:** the `prod` profile reads it from the environment.
 
 ## What's here so far
 
-- **Modules.** Eleven empty modules, one package each, with `@ApplicationModule`.
-- **Database.** One database schema per module, created by `db/migration/V1__create_module_schemas.sql`. Flyway owns all DDL and keeps its history in the `flyway` schema.
+- **Modules.** Eleven modules, one package each, with `@ApplicationModule`. Identity has code; the other ten are still empty.
+- **Database.** One database schema per module, created by `db/migration/V1__create_module_schemas.sql`. Migrations always name their schema. Flyway owns all DDL and keeps its history in the `flyway` schema.
 - **Errors.** Every error is RFC 9457 problem details (`application/problem+json`), including 401 and 403.
 - **Security.** Deny by default: only `/actuator/health/liveness` and `/actuator/health/readiness` are open.
+- **Identity** (ADR 0009). Every other request needs an ID token from a trusted issuer, belonging to an active user.
+  - Users are created on first sign-in.
+  - `GET /v1/me` and `PATCH /v1/me` serve the signed-in user's own account.
+  - The provider's ids never leave the identity module.
+- **Shared kernel**, in the root package: the one `Clock`, and the one UUIDv7 generator (`IdGenerator`).
 - **Health.** Readiness includes the database; liveness doesn't.
 
-Business features, the outbox and Valkey arrive with the modules that need them.
+Other business features, the outbox and Valkey arrive with the modules that need them.

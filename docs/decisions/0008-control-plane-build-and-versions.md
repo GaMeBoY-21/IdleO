@@ -37,7 +37,7 @@ A production service built to ADR 0006's bar can't start on a line that's alread
 5. **One database schema per module, created by Flyway.**
    - Each of the eleven modules (technical design lines 535–545) gets its own schema, created in `V1`. The rule "none reads another module's tables" (line 531) then shows up in every query, and a module can later be extracted without untangling its tables.
    - Flyway keeps its history table in its own `flyway` schema.
-   - Flyway owns all DDL; nothing else creates or changes tables. JPA isn't on the classpath yet, because no module has an entity. When it arrives, `spring.jpa.hibernate.ddl-auto` is `validate`: Hibernate never changes the schema, and the app refuses to start if an entity and its migration disagree. `none` was rejected, because it would let that drift reach production silently.
+   - Flyway owns all DDL; nothing else creates or changes tables. (Superseded in part by ADR 0009: persistence is Spring Data JDBC, with no JPA, so the `ddl-auto` rule below never applies.) JPA isn't on the classpath yet, because no module has an entity. When it arrives, `spring.jpa.hibernate.ddl-auto` is `validate`: Hibernate never changes the schema, and the app refuses to start if an entity and its migration disagree. `none` was rejected, because it would let that drift reach production silently.
 6. **Tables arrive with the first code that uses them.**
    - The outbox (technical design line 112) comes with the first module that publishes to agents or the payment gateway.
    - Spring Modulith's event publication table comes with the first module that publishes an application event.

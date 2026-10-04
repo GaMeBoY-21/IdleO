@@ -34,7 +34,7 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Money is integer paise (Java long, Rust i64, SQL bigint). Never floating point.
 - IDs are UUIDv7. Times are UTC (timestamptz). Never trust agent clocks for billing; every "now" comes from an injected clock.
 - Control plane: Java 25, Spring Boot 4, Spring Modulith, built with Maven through ./mvnw (ADR 0008). One Spring Modulith module per bounded context (identity, hosts, agentgateway, overlay, scheduling, sessions, metering, billing, payouts, trust, notifications). Modules talk only through public APIs or events and never read another module's tables.
-- Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL, and Hibernate never creates or changes tables (ddl-auto validate once JPA arrives). Valkey (Redis-compatible) only for state that is allowed to expire.
+- Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL. Persistence is Spring Data JDBC with explicit SQL (JdbcClient where needed), no JPA (ADR 0009). Valkey (Redis-compatible) only for state that is allowed to expire.
 - Migrations name the schema of every object they create or change (identity.users, never users). Flyway's default schema is flyway, so an unqualified name lands there silently; a test fails if any table other than Flyway's history table appears in the flyway schema.
 - API errors use RFC 9457 Problem Details.
 - Tests: JUnit 5 and Testcontainers for Java, cargo test for Rust. New behaviour ships with tests.
