@@ -15,15 +15,15 @@ service AgentGatewayService {
   // and sends Hello first; the control plane answers with Welcome. When the
   // stream drops, the agent reconnects with exponential backoff (1 second
   // doubling to 60 seconds, plus random jitter).
-  rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
+  rpc OpenStream(stream OpenStreamRequest) returns (stream OpenStreamResponse);
   // Renews the host's client certificate. The agent calls it after 20 of the
   // certificate's 30 days. An expired certificate can't renew: the host
   // re-enrols with a new code from the web app.
   rpc RenewCertificate(RenewCertificateRequest) returns (RenewCertificateResponse);
 }
 
-// Agent to control plane: one message on the Connect stream.
-message ConnectRequest {
+// Agent to control plane: one message on the OpenStream stream.
+message OpenStreamRequest {
   // Identifies this delivery: a UUIDv7 in canonical text form. A retry of the
   // same message reuses the same message_id, so the receiver can drop
   // duplicates. Business idempotency is command_id's job, not this field's.
@@ -46,8 +46,8 @@ message ConnectRequest {
   }
 }
 
-// Control plane to agent: one message on the Connect stream.
-message ConnectResponse {
+// Control plane to agent: one message on the OpenStream stream.
+message OpenStreamResponse {
   // Identifies this delivery: a UUIDv7 in canonical text form. A retry of the
   // same message reuses the same message_id, so the receiver can drop
   // duplicates. Business idempotency is command_id's job, not this field's.

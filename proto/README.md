@@ -10,7 +10,7 @@ A buf v2 module. `buf.yaml` sits here, and package `gpu.agent.v1` sits in `gpu/a
 
 | File | What it holds |
 | --- | --- |
-| `agent_gateway.proto` | `AgentGatewayService` (`Connect` stream, `RenewCertificate`); the `ConnectRequest` and `ConnectResponse` envelopes; `Hello`, `Welcome`, `Ack`, `UpdateAgent` |
+| `agent_gateway.proto` | `AgentGatewayService` (`OpenStream` stream, `RenewCertificate`); the `OpenStreamRequest` and `OpenStreamResponse` envelopes; `Hello`, `Welcome`, `Ack`, `UpdateAgent` |
 | `session.proto` | `SessionSpec`, `Credentials`, `StorageGrant`, `CheckpointRef`, session states; `Offer`, `OfferReply`, `StartSession`, `LeaseRenew`, `RefreshCredentials`, `StopSession`, `SessionStatus`, `UsageReport`; `RunningSession`, the one snapshot type shared by `Hello` and `Heartbeat` |
 | `telemetry.proto` | `GpuInfo`, `GpuTelemetry`, `Heartbeat`, `OperatingSystem` |
 | `enrollment.proto` | `EnrollmentService` (`Enroll`, server-TLS only); `IssuedCertificate`, shared with `RenewCertificate` |
@@ -38,15 +38,7 @@ It runs only when `proto/**` changes.
 
 ### Code generation notes
 
-No generated code is committed. Each side generates its own when it's built.
-
-**Rust (tonic) must disable the transport helper:**
-```rust
-tonic_prost_build::configure()
-    .build_transport(false)
-    .compile_protos(...)
-```
-Our RPC is named `Connect`, and tonic's generated `connect()` constructor collides with it (error E0592). The agent builds its client on its own mTLS channel with `AgentGatewayServiceClient::new(channel)`, so it never needs the helper.
+No generated code is committed. Each side generates its own when it's built, with default settings. The stream is named `OpenStream` rather than `Connect`, so it doesn't collide with the `connect()` constructor that tonic generates on every Rust client.
 
 ## Compatibility rules
 

@@ -21,10 +21,10 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 
 1. **Names follow the linter.**
    - `AgentGateway` becomes `AgentGatewayService`.
-   - `AgentMessage` becomes `ConnectRequest`, and `ControlMessage` becomes `ConnectResponse`.
+   - `rpc Connect` becomes `rpc OpenStream`. `AgentMessage` becomes `OpenStreamRequest`, and `ControlMessage` becomes `OpenStreamResponse`. The envelopes keep their contents.
    - Every enum has a `_UNSPECIFIED = 0` value and prefixed values.
 
-   Why: buf `STANDARD`, with no exceptions.
+   Why: buf `STANDARD`, with no exceptions. The stream is `OpenStream`, not `Connect`, so Rust's tonic generates it with default settings (see Consequences).
 2. **Leases are a duration, `lease_ttl`**, on `StartSession` and `LeaseRenew`. It replaces `int64 lease_expires_at_unix_ms`. The agent's deadline is its lease clock at receipt plus `lease_ttl`.
 
     The lease clock keeps counting while the machine sleeps:
@@ -124,7 +124,7 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 
 ## Consequences
 
-- **Rust code generation must call `.build_transport(false)`.** tonic generates a `connect()` constructor on every client, which collides with our `Connect` RPC (error E0592). The agent builds its client on its own mTLS channel with `AgentGatewayServiceClient::new(channel)`, so it loses nothing. Java has no collision.
+- **Both languages generate code with default settings.** In Step 1 the stream was named `Connect`, which collided with the `connect()` constructor that tonic generates on every Rust client (error E0592). That forced `.build_transport(false)` into every Rust build. Renaming the stream to `OpenStream` removed the special case.
 - **The one absolute time left is `IssuedCertificate.not_after`** (a `Timestamp`). It mirrors the certificate's own expiry and is for display only. No `int64 ..._unix_ms` fields remain.
 - **CI checks the contract.** `buf lint`, `buf format` and `buf breaking` (`FILE`) run on every pull request that touches `proto/`.
 
