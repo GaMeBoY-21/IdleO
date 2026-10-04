@@ -44,6 +44,15 @@ class FlywayMigrationTests {
     }
 
     @Test
+    void flywaySchemaHoldsOnlyFlywaysHistoryTable() {
+        // Migrations must name their schema; an unqualified table would land here.
+        var tables = jdbc.queryForList(
+                "select table_name from information_schema.tables where table_schema = 'flyway'", String.class);
+
+        assertThat(tables).containsExactly("flyway_schema_history");
+    }
+
+    @Test
     void runsOnThePinnedPostgresMajorVersion() {
         var version = jdbc.queryForObject("show server_version", String.class);
 
