@@ -14,7 +14,7 @@ The model, tokenizer and dataset are pinned to exact Hugging Face revisions in `
 ## On the Asus, inside gpu-host-dev
 
 ```
-cd phase0/qlora-test        # or /root/phase0/qlora-test once wsl.conf.proposed is applied
+cd /root/phase0/qlora-test  # inside the locked-down distribution, after verify-lockdown.sh passes
 ./run.sh                    # full run: 100 steps, batch 4 x 4 accumulation, 512 tokens
 ./resume-test.sh            # kill-and-resume test on the GPU
 ```

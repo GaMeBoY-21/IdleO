@@ -7,7 +7,7 @@ Feasibility work, done before any product code. Phase 0 runs in October 2026, fo
 Phase 1 starts only after both pass.
 
 1. **A game is playable over the internet.** On the phone-hotspot run, the median round trip is under 30 ms (technical design line 714), 1080p60 holds, and fewer than 1% of frames drop.
-2. **A QLoRA job finishes inside a container.** It runs under the same sandbox flags renters will get, and survives being killed and resumed.
+2. **A QLoRA job finishes inside the sandbox we'll ship.** It runs in the locked-down distribution (`verify-lockdown.sh` passes), under the same sandbox flags renters will get, and survives being killed and resumed.
 
 ## Who runs what
 
@@ -20,13 +20,18 @@ Phase 1 starts only after both pass.
 
 1. **`wsl/setup-wsl.ps1`** in an admin PowerShell on the Asus. Creates the `gpu-host-dev` distribution. See `wsl/README.md`.
 2. **`wsl/setup-docker-nvidia.sh`** inside `gpu-host-dev`. Installs Docker Engine and the NVIDIA Container Toolkit, and checks `nvidia-smi` in a container.
+3. **Apply the lockdown and prove it (required).** Follow `wsl/README.md`:
+   - Copy `qlora-test/` and `wsl/` into the distribution.
+   - Copy `wsl/wsl.conf.proposed` to `/etc/wsl.conf`.
+   - Run `wsl --terminate gpu-host-dev`.
+   - Run `bash /root/phase0/wsl/verify-lockdown.sh` as root.
 
-   Optionally, apply `wsl/wsl.conf.proposed` now, as described in `wsl/README.md`, so the QLoRA test runs in the locked-down distribution we'll ship. Record whether you did.
-3. **The QLoRA run and resume test, with the logger running.** See `qlora-test/README.md`.
+   Every check must say PASS before going on. If any says FAIL, stop and report the output: a QLoRA run outside the lockdown doesn't count toward the gate.
+4. **The QLoRA run and resume test, with the logger running.** See `qlora-test/README.md`.
    - **Logger:** on Windows, run `python telemetry\gpu_logger.py --out results\qlora-gpu.csv`.
-   - **Full run:** inside `gpu-host-dev`, run `./run.sh` in `qlora-test/`.
+   - **Full run:** inside `gpu-host-dev`, run `./run.sh` in `/root/phase0/qlora-test/`.
    - **Resume test:** run `./resume-test.sh`, with the logger writing to `results\qlora-resume-gpu.csv`.
-4. **The streaming checklist, with the logger running:** `streaming/CHECKLIST.md`. Two people, both machines.
+5. **The streaming checklist, with the logger running:** `streaming/CHECKLIST.md`. Two people, both machines.
 
 Record everything in `RESULTS.md`. Raw CSVs and `results.json` files go in `results/` and are committed; they hold measurements only.
 
