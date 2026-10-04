@@ -7,7 +7,7 @@ A peer-to-peer GPU marketplace for India. Hosts with RTX gaming laptops and desk
 ## Layout
 
 ```text
-control-plane/   Java 21, Spring Boot, Spring Modulith modules
+control-plane/   Java 25, Spring Boot 4, Spring Modulith modules
 agent/           Rust host agent and the WSL2 distribution build
 edge/            Rust edge proxy on Pingora; DERP relay configuration
 cli/             Rust command-line client

@@ -11,7 +11,7 @@ The system ships as seven deployable units (line 20). The control plane handles 
 
 ## Decision
 
-The control plane starts as one modular Spring Boot application on Java 21 (lines 20, 24). Spring Modulith enforces module boundaries (line 32).
+The control plane starts as one modular Spring Boot application on Java 25 (lines 20, 24). Spring Modulith enforces module boundaries (line 32).
 
 Each agent's stream lands on one control-plane instance. Redis records which instance holds each host, and commands for that host, stored durably in agent\_commands, are published to that instance's channel. If an instance dies, its agents reconnect elsewhere within seconds and the map updates (line 34).
 

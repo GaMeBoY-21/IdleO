@@ -12,7 +12,7 @@ Fast languages go only where every millisecond or megabyte counts: the game stre
 ## Decision
 
 - **Host agent:** Rust, with tonic for gRPC, bollard for Docker and nvml-wrapper for GPU stats (execution plan 153).
-- **Control plane:** Java 21, Spring Boot 3, virtual threads, Spring Modulith (execution plan 156). It is never in the live data path (execution plan 144).
+- **Control plane:** Java 25, Spring Boot 4, virtual threads, Spring Modulith (execution plan 156). It is never in the live data path (execution plan 144).
 - **Edge and CLI:** Rust (technical design 3; execution plan 152, 163).
 - **Link:** one gRPC bidirectional stream over TLS per agent carries every message, with grpc-java on the server (execution plan 157; technical design 221). The hosts open these links themselves (technical design 3).
 - **Contracts:** messages are defined once in a .proto file and compiled for both Rust and Java (technical design 221; execution plan 157).
@@ -30,4 +30,4 @@ Fast languages go only where every millisecond or megabyte counts: the game stre
 - A repeated StartSession with a known command\_id is acknowledged, never run twice (technical design 239).
 - Welcome forces an update if the agent is older than the last three releases (technical design 226).
 
-Open question: the plan does not choose Maven or Gradle for the control plane.
+Answered: the control plane builds with Maven (ADR 0008).
