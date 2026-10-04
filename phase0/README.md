@@ -1,5 +1,41 @@
 # phase0
 
-Feasibility work, run before any product code: Moonlight over Tailscale between the two laptops, dGPU or virtual-display capture, Docker in WSL2 with the GPU, a QLoRA test job, and temperature and upload logs.
+Feasibility work, done before any product code. Phase 0 runs in October 2026, for 2 weeks, on the two laptops we own.
 
-Phase 0 (Oct 2026, 2 weeks). Gate: a game is playable over the internet, and a QLoRA job finishes inside a container.
+## The two gates (execution plan line 528)
+
+Phase 1 starts only after both pass.
+
+1. **A game is playable over the internet.** On the phone-hotspot run, the median round trip is under 30 ms (technical design line 714), 1080p60 holds, and fewer than 1% of frames drop.
+2. **A QLoRA job finishes inside a container.** It runs under the same sandbox flags renters will get, and survives being killed and resumed.
+
+## Who runs what
+
+| Machine | Who | Runs |
+| --- | --- | --- |
+| Asus: RTX 4080 Laptop GPU (12 GB), Windows 11 | Co-founder | `wsl/setup-wsl.ps1`, `wsl/setup-docker-nvidia.sh`, the QLoRA run and resume test, Sunshine, `telemetry/gpu_logger.py` |
+| Mac | Nikki | Moonlight, and the CPU smoke test of the QLoRA resume logic |
+
+## Order
+
+1. **`wsl/setup-wsl.ps1`** in an admin PowerShell on the Asus. Creates the `gpu-host-dev` distribution. See `wsl/README.md`.
+2. **`wsl/setup-docker-nvidia.sh`** inside `gpu-host-dev`. Installs Docker Engine and the NVIDIA Container Toolkit, and checks `nvidia-smi` in a container.
+
+   Optionally, apply `wsl/wsl.conf.proposed` now, as described in `wsl/README.md`, so the QLoRA test runs in the locked-down distribution we'll ship. Record whether you did.
+3. **The QLoRA run and resume test, with the logger running.** See `qlora-test/README.md`.
+   - **Logger:** on Windows, run `python telemetry\gpu_logger.py --out results\qlora-gpu.csv`.
+   - **Full run:** inside `gpu-host-dev`, run `./run.sh` in `qlora-test/`.
+   - **Resume test:** run `./resume-test.sh`, with the logger writing to `results\qlora-resume-gpu.csv`.
+4. **The streaming checklist, with the logger running:** `streaming/CHECKLIST.md`. Two people, both machines.
+
+Record everything in `RESULTS.md`. Raw CSVs and `results.json` files go in `results/` and are committed; they hold measurements only.
+
+The logger needs Python 3 on Windows (python.org or the Microsoft Store) and `nvidia-smi` on PATH, which the NVIDIA driver installs. It also works inside WSL.
+
+## Folders
+
+- `streaming/`: the manual game-streaming test.
+- `wsl/`: the WSL2 distribution and Docker GPU setup.
+- `qlora-test/`: the QLoRA job, which is also our first batch template.
+- `telemetry/`: the GPU temperature and power logger.
+- `results/`: raw evidence.
