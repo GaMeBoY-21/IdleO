@@ -50,8 +50,6 @@ Once it's applied, the distribution can no longer see `C:` (no `/mnt/c`), and it
 
 To undo the lockdown, edit `/etc/wsl.conf` inside the distribution (set both `enabled` values back to `true`), then run `wsl --terminate gpu-host-dev`.
 
-Not verified yet: the file keeps the design's inline `#` comments. If WSL warns about `/etc/wsl.conf` on start, or `/mnt/c` is still there, move each comment onto its own line and record it in `RESULTS.md` as a finding.
-
 ## Not in Phase 0
 
 - **The firewall rules** in technical design lines 488–497 (blocking private ranges from containers) aren't applied yet.

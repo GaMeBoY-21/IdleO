@@ -1,10 +1,10 @@
 # /etc/wsl.conf inside our distribution
 [automount]
-enabled = false            # no C: or other Windows drives inside the VM
-
+# no C: or other Windows drives inside the VM
+enabled = false
 [interop]
-enabled = false            # Linux cannot launch Windows programs
+# Linux cannot launch Windows programs
+enabled = false
 appendWindowsPath = false
-
 [boot]
 systemd = true
