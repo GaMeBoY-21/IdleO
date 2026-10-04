@@ -13,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 @ControlPlaneTest
@@ -35,9 +34,9 @@ class ProblemDetailsTests {
     }
 
     @Test
-    @WithMockUser
     void unknownPathGets404ProblemDetail() throws Exception {
-        mvc.perform(get("/no-such-path"))
+        mvc.perform(get("/no-such-path")
+                        .header("Authorization", "Bearer " + TestIssuers.get().validToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(404))
@@ -54,9 +53,9 @@ class ProblemDetailsTests {
     }
 
     @Test
-    @WithMockUser
     void unexpectedFailureGets500WithoutMessageOrStackTrace() throws Exception {
-        var body = mvc.perform(get(ThrowingController.PATH))
+        var body = mvc.perform(get(ThrowingController.PATH)
+                        .header("Authorization", "Bearer " + TestIssuers.get().validToken()))
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(500))

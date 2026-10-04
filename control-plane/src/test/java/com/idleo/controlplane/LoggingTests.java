@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Import;
  */
 @ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest(properties = "test.context=logging")
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, TestIssuersConfiguration.class})
 class LoggingTests {
 
     @Test
