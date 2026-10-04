@@ -10,7 +10,7 @@ Sources:
 
 ## Context
 
-The plan named Java 21 and Spring Boot 3 for the control plane (execution plan line 156). Before the first line of control-plane code, three things were still open:
+The plan named the previous Java LTS (21) and the Spring Boot 3.x line for the control plane (execution plan line 156). Before the first line of control-plane code, three things were still open:
 - which versions to start on
 - which build tool to use (ADR 0003 left this open)
 - how the database is laid out between modules
@@ -21,10 +21,10 @@ A production service built to ADR 0006's bar can't start on a line that's alread
 
 1. **Java 25**, the current LTS.
    - The control plane runs on virtual threads (execution plan line 156).
-   - From Java 24, a virtual thread that blocks inside `synchronized` no longer pins its carrier thread: [JEP 491](https://openjdk.org/jeps/491), "Synchronize Virtual Threads without Pinning", was delivered in release 24. On Java 21, every library that synchronizes around I/O would quietly remove the benefit.
+   - From Java 24, a virtual thread that blocks inside `synchronized` no longer pins its carrier thread: [JEP 491](https://openjdk.org/jeps/491), "Synchronize Virtual Threads without Pinning", was delivered in release 24. On the previous LTS (21), every library that synchronizes around I/O would quietly remove the benefit.
    - Java 25 also has the longer support window.
 2. **Spring Boot 4.1.1 and Spring Modulith 2.1.1**, the newest GA releases.
-   - Spring Boot 3.5.x reached the end of open-source support on 2026-06-30. 4.1.x is supported in open source until 2027-07-31 ([spring.io support dates](https://spring.io/projects/spring-boot#support)).
+   - The 3.5.x line, the last of Spring Boot 3.x, reached the end of open-source support on 2026-06-30. 4.1.x is supported in open source until 2027-07-31 ([spring.io support dates](https://spring.io/projects/spring-boot#support)).
    - Spring Initializr pairs Modulith 2.1.1 with Spring Boot ≥ 4.1.0-M1 and < 4.2.0-M1 ([spring.io/projects/spring-modulith](https://spring.io/projects/spring-modulith)).
    - Flyway, Testcontainers, the PostgreSQL driver, Hibernate and Jackson come from the Spring Boot 4.1.1 dependency management, not from our own pins.
 3. **Maven, with the Maven wrapper** pinning Maven 3.9.16. This answers ADR 0003's open question.
@@ -48,8 +48,8 @@ A production service built to ADR 0006's bar can't start on a line that's alread
 
 ## Alternatives considered
 
-- **Stay on Java 21:** rejected, because of JEP 491 and the shorter support window.
-- **Spring Boot 3.5:** rejected, because its open-source support has ended.
+- **Stay on the previous LTS (21):** rejected, because of JEP 491 and the shorter support window.
+- **Stay on the Spring Boot 3.x line (3.5):** rejected, because its open-source support has ended.
 - **Gradle:** rejected, for the reasons in item 3.
 - **One shared `public` schema with a table-name prefix per module:** rejected. Nothing would stop a query from reading another module's tables.
 - **Hibernate `ddl-auto: update` for speed:** rejected. Flyway owns DDL, with expand, then migrate, then contract.
