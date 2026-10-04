@@ -1,0 +1,54 @@
+# Real personal data: never committed
+private/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Claude Code: settings.json is committed, local overrides are not
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*~
+
+# Java, Maven, Gradle
+*.class
+*.log
+hs_err_pid*
+target/
+.gradle/
+build/
+
+# Rust (target/ is covered above)
+**/*.rs.bk
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.next/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
