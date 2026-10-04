@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package gpu.agent.v1;
+
+import "gpu/agent/v1/session.proto";
+
+// The host's operating system.
+enum OperatingSystem {
+  // Never sent. A receiver treats it as an error.
+  OPERATING_SYSTEM_UNSPECIFIED = 0;
+  // Windows, with work running in the agent's WSL2 distribution.
+  OPERATING_SYSTEM_WINDOWS = 1;
+  // Linux, with work running in Docker directly.
+  OPERATING_SYSTEM_LINUX = 2;
+}
+
+// One GPU's fixed facts, sent once per connection in Hello.
+message GpuInfo {
+  // The GPU's UUID as nvidia-smi reports it, for example "GPU-00000000-...".
+  // Telemetry and StartSession refer to GPUs by this value.
+  string uuid = 1;
+  // Marketing name, for example "NVIDIA GeForce RTX 4080 Laptop GPU".
+  string name = 2;
+  // Total GPU memory, in MB.
+  int32 vram_mb = 3;
+  // NVIDIA driver version, for example "572.16".
+  string driver_version = 4;
+  // Highest CUDA version the driver supports, for example "12.8".
+  string cuda_driver_version = 5;
+  // CUDA compute capability, for example "8.9".
+  string compute_capability = 6;
+}
+
+// One GPU's readings at heartbeat time.
+message GpuTelemetry {
+  // Which GPU, matching GpuInfo.uuid.
+  string uuid = 1;
+  // Core temperature, in degrees Celsius.
+  int32 temp_c = 2;
+  // Utilisation, in percent.
+  int32 util_pct = 3;
+  // GPU memory in use, in MB.
+  int32 vram_used_mb = 4;
+  // Power draw, in watts. Zero if the GPU doesn't report it.
+  int32 power_w = 5;
+}
+
+// Agent to control plane: liveness and telemetry, sent every heartbeat
+// interval (Welcome.policy). Not acked: the next one is only seconds away.
+message Heartbeat {
+  // Readings for every GPU listed in Hello, keyed by uuid.
+  repeated GpuTelemetry gpus = 1;
+  // Host upload rate, in kilobits per second.
+  int32 net_up_kbps = 2;
+  // True if the owner is using the machine right now.
+  bool owner_active = 3;
+  // Every session the agent is running, with its attempt and state.
+  repeated RunningSession sessions = 4;
+}

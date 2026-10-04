@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package gpu.agent.v1;
+
+import "google/protobuf/duration.proto";
+import "gpu/agent/v1/enrollment.proto";
+import "gpu/agent/v1/session.proto";
+import "gpu/agent/v1/telemetry.proto";
+
+// The control plane's endpoint for enrolled agents. Every call uses mutual
+// TLS: the control plane identifies the host from its client certificate,
+// never from a field in a message.
+service AgentGatewayService {
+  // One long-lived bidirectional stream per agent. The agent always opens it
+  // and sends Hello first; the control plane answers with Welcome. When the
+  // stream drops, the agent reconnects with exponential backoff (1 second
+  // doubling to 60 seconds, plus random jitter).
+  rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
+  // Renews the host's client certificate. The agent calls it after 20 of the
+  // certificate's 30 days. An expired certificate can't renew: the host
+  // re-enrols with a new code from the web app.
+  rpc RenewCertificate(RenewCertificateRequest) returns (RenewCertificateResponse);
+}
+
+// Agent to control plane: one message on the Connect stream.
+message ConnectRequest {
+  // Identifies this delivery: a UUIDv7 in canonical text form. A retry of the
+  // same message reuses the same message_id, so the receiver can drop
+  // duplicates. Business idempotency is command_id's job, not this field's.
+  string message_id = 1;
+  // The message itself.
+  oneof body {
+    // First message after connecting. Not acked: answered by Welcome.
+    Hello hello = 10;
+    // Liveness and telemetry. Not acked: the next one is seconds away.
+    Heartbeat heartbeat = 11;
+    // The answer to an Offer. Acked.
+    OfferReply offer_reply = 12;
+    // A session attempt's state changed. Acked.
+    SessionStatus session_status = 13;
+    // One minute of usage. Acked.
+    UsageReport usage_report = 14;
+    // Acknowledges a StartSession, StopSession or UpdateAgent.
+    Ack ack = 15;
+  }
+}
+
+// Control plane to agent: one message on the Connect stream.
+message ConnectResponse {
+  // Identifies this delivery: a UUIDv7 in canonical text form. A retry of the
+  // same message reuses the same message_id, so the receiver can drop
+  // duplicates. Business idempotency is command_id's job, not this field's.
+  string message_id = 1;
+  // The message itself.
+  oneof body {
+    // The answer to Hello. Not acked.
+    Welcome welcome = 10;
+    // A proposed session. Not acked: answered by OfferReply.
+    Offer offer = 11;
+    // Start a session attempt. Acked.
+    StartSession start_session = 12;
+    // Extend a lease. Not acked: the lease survives three missed renewals.
+    LeaseRenew lease_renew = 13;
+    // Stop a session attempt. Acked.
+    StopSession stop_session = 14;
+    // Install a newer agent build. Acked.
+    UpdateAgent update_agent = 15;
+    // Acknowledges an OfferReply, SessionStatus or UsageReport.
+    Ack ack = 16;
+  }
+}
+
+// Agent to control plane: the first message on every new stream. Carries no
+// host id: the control plane derives the host from the client certificate.
+message Hello {
+  // The agent's version, semantic versioning, for example "1.4.2".
+  string agent_version = 1;
+  // The host's operating system.
+  OperatingSystem os = 2;
+  // Operating system version, for example "Windows 11 26100".
+  string os_version = 3;
+  // Every GPU on the host. Desktops can have more than one.
+  repeated GpuInfo gpus = 4;
+  // Sessions still running locally, so the control plane can reconcile them
+  // after a reconnect or an agent restart.
+  repeated RunningSession running_sessions = 5;
+}
+
+// Rules the control plane sets for this agent.
+message AgentPolicy {
+  // How often the agent sends Heartbeat.
+  google.protobuf.Duration heartbeat_interval = 1;
+  // GPU temperature cap, in degrees Celsius. The agent throttles or declines
+  // work at or above it.
+  int32 gpu_temp_cap_c = 2;
+  // The most sessions the agent may run at once.
+  int32 max_concurrent_sessions = 3;
+}
+
+// Control plane to agent: the answer to Hello.
+message Welcome {
+  // Rules for this agent.
+  AgentPolicy policy = 1;
+  // The oldest agent version the control plane still supports (the last
+  // three releases). An older agent updates before taking work.
+  string minimum_agent_version = 2;
+}
+
+// Confirms that a message was received and durably recorded. It doesn't mean
+// the message was accepted: a StartSession for a stale attempt is acked and
+// then ignored. The sender keeps its retry copy until the ack arrives. Acks
+// are never acked.
+message Ack {
+  // The message_id of the envelope being acknowledged.
+  string acked_message_id = 1;
+}
+
+// Control plane to agent: install a newer, signed agent build. Acked when
+// received; the agent installs it once no session is running.
+message UpdateAgent {
+  // The version to install, semantic versioning.
+  string version = 1;
+  // Where to download the build.
+  string download_url = 2;
+  // SHA-256 of the download, as lowercase hex. The agent checks it before
+  // anything else.
+  string sha256 = 3;
+  // cosign signature over the build. The agent installs only builds that
+  // verify against the release key built into it.
+  bytes cosign_signature = 4;
+}
+
+// Asks for a fresh client certificate.
+message RenewCertificateRequest {
+  // A DER-encoded PKCS#10 certificate signing request for a new key pair.
+  // The private key never leaves the host.
+  bytes csr_der = 1;
+}
+
+// The renewed client certificate.
+message RenewCertificateResponse {
+  // The new certificate and its chain.
+  IssuedCertificate certificate = 1;
+}

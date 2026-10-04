@@ -1,0 +1,265 @@
+syntax = "proto3";
+
+package gpu.agent.v1;
+
+import "google/protobuf/duration.proto";
+
+// The kind of work a session runs. Phase 1 runs batch jobs only; notebooks,
+// endpoints and games add their values later.
+enum SessionType {
+  // Never sent. A receiver treats it as an error.
+  SESSION_TYPE_UNSPECIFIED = 0;
+  // A container that runs to completion, checkpointing as it goes.
+  SESSION_TYPE_BATCH = 1;
+}
+
+// The agent's view of one session attempt. This is the agent's local state,
+// not the control plane's session state machine.
+enum SessionState {
+  // Never sent. A receiver treats it as an error.
+  SESSION_STATE_UNSPECIFIED = 0;
+  // Pulling the image by digest and downloading inputs.
+  SESSION_STATE_PREPARING = 1;
+  // The container is running.
+  SESSION_STATE_RUNNING = 2;
+  // Writing and uploading a checkpoint; the job may be paused.
+  SESSION_STATE_CHECKPOINTING = 3;
+  // The container exited; outputs are uploading.
+  SESSION_STATE_UPLOADING = 4;
+  // Terminal: the job exited 0 and its outputs are uploaded. Sandbox wiped.
+  SESSION_STATE_SUCCEEDED = 5;
+  // Terminal: the job or its setup failed. Sandbox wiped.
+  SESSION_STATE_FAILED = 6;
+  // Terminal: stopped by a StopSession or by the host owner. Sandbox wiped.
+  SESSION_STATE_STOPPED = 7;
+  // Terminal: the lease ran out before it was renewed, so the agent fenced
+  // the work itself. Sandbox wiped.
+  SESSION_STATE_LEASE_EXPIRED = 8;
+}
+
+// Why the control plane stops a session.
+enum StopReason {
+  // Never sent. A receiver treats it as an error.
+  STOP_REASON_UNSPECIFIED = 0;
+  // The renter asked to stop.
+  STOP_REASON_RENTER_REQUESTED = 1;
+  // The renter's reserved credit ran out.
+  STOP_REASON_CREDIT_EXHAUSTED = 2;
+  // The session broke the acceptable-use rules.
+  STOP_REASON_ABUSE = 3;
+  // A dispute froze the session.
+  STOP_REASON_DISPUTE = 4;
+  // The session moved to another host or attempt; this attempt must end.
+  STOP_REASON_SUPERSEDED = 5;
+}
+
+// What to run. Carries no secrets: everything secret is in Credentials.
+message SessionSpec {
+  // The kind of session.
+  SessionType type = 1;
+  // Container image, always pinned by digest: the reference must include
+  // "@sha256:", so a tag change can never swap the image. Example:
+  // "registry.example/templates/qlora@sha256:0123...".
+  string image = 2;
+  // Arguments passed to the image's entrypoint.
+  repeated string args = 3;
+  // Environment variables for the container. Non-secret values only:
+  // secrets travel in Credentials and are never put here.
+  map<string, string> env = 4;
+  // GPU memory the job needs, in MB.
+  int32 vram_needed_mb = 5;
+  // Container memory limit, in MB.
+  int32 memory_mb = 6;
+  // Container CPU limit, in thousandths of a CPU.
+  int32 cpu_millicores = 7;
+  // Maximum number of processes inside the container.
+  int32 pids_limit = 8;
+  // Size of the fixed-size scratch disk mounted at /work, in MB.
+  int32 scratch_mb = 9;
+  // How often the job should checkpoint.
+  google.protobuf.Duration checkpoint_interval = 10;
+  // Hard cap on how long this attempt may run, whatever the lease says.
+  google.protobuf.Duration max_runtime = 11;
+}
+
+// Every secret a session needs, in one message so the agent can redact one
+// type instead of hunting through fields.
+// secret: never log.
+message Credentials {
+  // Token for pulling SessionSpec.image from the registry. secret: never log.
+  string registry_token = 1;
+  // Pre-signed URL to download the job's input. Empty if the job has none.
+  // secret: never log.
+  string input_download_url = 2;
+  // Pre-signed URL to upload checkpoints for this attempt only. Each attempt
+  // gets its own object, so two attempts never write the same place.
+  // secret: never log.
+  string checkpoint_upload_url = 3;
+  // Pre-signed URL to download the newest valid checkpoint from an earlier
+  // attempt. Empty on the first attempt. secret: never log.
+  string resume_checkpoint_url = 4;
+  // Pre-signed URL to upload the job's outputs. secret: never log.
+  string output_upload_url = 5;
+}
+
+// One session as the agent sees it right now. Shared by Hello and Heartbeat.
+message RunningSession {
+  // The session's UUIDv7, in canonical text form.
+  string session_id = 1;
+  // The attempt this agent is running. The control plane ignores snapshots
+  // whose attempt isn't the current one.
+  int32 attempt = 2;
+  // The agent's local state for this attempt.
+  SessionState state = 3;
+}
+
+// A short error: a code plus a one-line message. Never container logs or
+// output, which hold renter data.
+message SessionError {
+  // Stable machine-readable code, for example "image_pull_failed".
+  string code = 1;
+  // One short human-readable line.
+  string message = 2;
+}
+
+// Control plane to agent: a proposed session. The agent replies with
+// OfferReply. Not acked: the OfferReply is the answer.
+message Offer {
+  // Unique id for this offer, a UUIDv7 in canonical text form.
+  string offer_id = 1;
+  // What would run. Lets the agent check it fits before accepting.
+  SessionSpec spec = 2;
+  // How long the offer stays open, counted from receipt on the agent's
+  // monotonic clock. A reply after this is ignored.
+  google.protobuf.Duration expires_in = 3;
+}
+
+// Why an agent declines an offer.
+enum OfferDeclineReason {
+  // Not a decline. Used when the offer is accepted.
+  OFFER_DECLINE_REASON_UNSPECIFIED = 0;
+  // The owner is using the machine.
+  OFFER_DECLINE_REASON_OWNER_ACTIVE = 1;
+  // Not enough free GPU memory, RAM, CPU or disk for the spec.
+  OFFER_DECLINE_REASON_INSUFFICIENT_RESOURCES = 2;
+  // The GPU is at or above the temperature cap.
+  OFFER_DECLINE_REASON_TOO_HOT = 3;
+  // The agent is already running its maximum number of sessions.
+  OFFER_DECLINE_REASON_AT_CAPACITY = 4;
+  // The agent is shutting down or updating.
+  OFFER_DECLINE_REASON_SHUTTING_DOWN = 5;
+  // The offer had already expired when the agent looked at it.
+  OFFER_DECLINE_REASON_EXPIRED = 6;
+}
+
+// Agent to control plane: the answer to an Offer. Acked.
+message OfferReply {
+  // The offer being answered.
+  string offer_id = 1;
+  // True if the agent accepts the offer.
+  bool accepted = 2;
+  // Why the offer was declined. UNSPECIFIED when accepted is true.
+  OfferDeclineReason decline_reason = 3;
+}
+
+// Control plane to agent: start one attempt of a session. Acked.
+message StartSession {
+  // The session's UUIDv7, in canonical text form.
+  string session_id = 1;
+  // Business idempotency key for this command, a UUIDv7. It survives
+  // reconnects and outbox re-sends: a StartSession whose command_id the agent
+  // has seen before is acked and never run twice. Not the same as the
+  // envelope's message_id, which only identifies one delivery.
+  string command_id = 2;
+  // Which attempt this is, starting at 1 and increasing on every re-match.
+  // The agent puts it on every message about this session; the control plane
+  // acks and then ignores any message whose attempt isn't the current one.
+  int32 attempt = 3;
+  // What to run.
+  SessionSpec spec = 4;
+  // Secrets for this attempt. secret: never log.
+  Credentials credentials = 5;
+  // How long the lease lasts. The agent sets its deadline to its monotonic
+  // clock at receipt plus lease_ttl, and stops the work when the deadline
+  // passes without a LeaseRenew. Receipt is always after the send, so the
+  // agent can only stop early, never late. Never compared with wall-clock
+  // time, which the agent's owner can change.
+  google.protobuf.Duration lease_ttl = 6;
+  // The session-wide minute index of this attempt's first minute, set by the
+  // control plane from its own clock. The agent counts minutes from zero on
+  // its own and reports minute_index_base plus that count, so attempt 2's
+  // first minute never lands on attempt 1's minute 0.
+  int32 minute_index_base = 7;
+  // UUIDs of the GPUs this attempt may use, as listed in GpuInfo.uuid. Only
+  // these are passed into the container.
+  repeated string gpu_uuids = 8;
+}
+
+// Control plane to agent: extend the lease of a running attempt. Not acked:
+// it is sent every 30 seconds and the lease survives three missed renewals.
+message LeaseRenew {
+  // The session being renewed.
+  string session_id = 1;
+  // The attempt being renewed. The agent ignores a renewal for any other
+  // attempt; the control plane never renews an attempt that isn't current.
+  int32 attempt = 2;
+  // The new lease length, counted from receipt on the agent's monotonic
+  // clock, exactly as in StartSession.lease_ttl.
+  google.protobuf.Duration lease_ttl = 3;
+}
+
+// Control plane to agent: stop one attempt of a session. Acked.
+message StopSession {
+  // The session to stop.
+  string session_id = 1;
+  // The attempt to stop. The control plane acks and then ignores any reply
+  // about an attempt that isn't the current one.
+  int32 attempt = 2;
+  // Business idempotency key, as in StartSession.command_id: a repeated
+  // StopSession is acked and acted on once.
+  string command_id = 3;
+  // Why the session stops.
+  StopReason reason = 4;
+  // True if the agent should write and upload a checkpoint before stopping.
+  bool checkpoint_first = 5;
+  // How long the agent may spend checkpointing before it kills the
+  // container anyway. Ignored when checkpoint_first is false.
+  google.protobuf.Duration grace_period = 6;
+}
+
+// Agent to control plane: an attempt changed state or uploaded a checkpoint.
+// Acked; kept on disk until acked.
+message SessionStatus {
+  // The session this is about.
+  string session_id = 1;
+  // The attempt this is about. The control plane acks and then ignores a
+  // status whose attempt isn't the current one, such as a late report from a
+  // host that was replaced.
+  int32 attempt = 2;
+  // The attempt's state now.
+  SessionState state = 3;
+  // How many checkpoints this attempt has uploaded so far.
+  int32 checkpoints_uploaded = 4;
+  // The container's exit code. Set only in SUCCEEDED and FAILED.
+  int32 exit_code = 5;
+  // What went wrong, when state is FAILED, STOPPED or LEASE_EXPIRED.
+  SessionError error = 6;
+}
+
+// Agent to control plane: one minute of work. One witness for billing; the
+// control plane's lease record is the other. Acked; kept on disk until acked.
+message UsageReport {
+  // The session this minute belongs to.
+  string session_id = 1;
+  // The attempt that ran this minute. The control plane acks and then ignores
+  // reports whose attempt isn't the current one, so a host that comes back
+  // after a re-match can't mark a minute it never ran.
+  int32 attempt = 2;
+  // Session-wide minute index: StartSession.minute_index_base plus the
+  // minutes this attempt has run, counted from zero.
+  int32 minute_index = 3;
+  // Seconds within this minute that the GPU was in use by the session.
+  int32 gpu_seconds = 4;
+  // Average GPU utilisation over the minute, in percent.
+  int32 avg_util_pct = 5;
+}

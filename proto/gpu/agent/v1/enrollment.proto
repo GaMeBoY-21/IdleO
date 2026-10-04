@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package gpu.agent.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Trades a one-time enrolment code for the host's first client certificate.
+// Served on a server-TLS-only endpoint, because the agent has no client
+// certificate yet. Every other call uses mutual TLS.
+service EnrollmentService {
+  // Signs the agent's certificate signing request if the enrolment code is
+  // valid, and records the certificate's fingerprint against the host.
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+}
+
+// A client certificate issued to a host, with its chain.
+message IssuedCertificate {
+  // DER-encoded certificates, the host's own first, then any intermediates.
+  repeated bytes certificate_chain_der = 1;
+  // When the host certificate expires. Mirrors the certificate's own
+  // notAfter field, for display and logging; the agent schedules renewal
+  // from the certificate itself.
+  google.protobuf.Timestamp not_after = 2;
+}
+
+// The agent's request to enrol.
+message EnrollRequest {
+  // The one-time enrolment code shown in the web app when the host registers
+  // the machine. Single-use and short-lived: it stops working after one
+  // successful enrolment or when it expires. secret: never log.
+  string enrollment_code = 1;
+  // A DER-encoded PKCS#10 certificate signing request. The agent generates
+  // the key pair itself; the private key never leaves the host.
+  bytes csr_der = 2;
+}
+
+// The signed certificate for a newly enrolled host.
+message EnrollResponse {
+  // The host's client certificate and its chain.
+  IssuedCertificate certificate = 1;
+}
