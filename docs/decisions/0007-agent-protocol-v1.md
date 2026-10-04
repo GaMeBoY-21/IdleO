@@ -110,11 +110,27 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 
     Why: grants are short-lived, and long jobs outlive them. This closes Step 1's open question about pre-signed URLs expiring after 7 days.
 
+20. **`optional` where zero means two things.**
+    - `exit_code`: 0 is success.
+    - `minute_index_base` and `minute_index`: 0 is the first minute.
+    - `power_w`: 0 W versus "not reported".
+
+    All four are `optional`. Every field where zero, empty or absent is never valid says so in its comment: "the receiver rejects the message".
+
+    Why: in proto3 a plain scalar can't tell "not set" from zero.
+
 **Deliberate omissions.** Phase 1 runs batch jobs only, and proto changes are additive, so later phases add their fields:
 - `installed_games`, and every game field
 - the overlay access grant
 - endpoint and notebook fields; `SessionType` has only `UNSPECIFIED` and `BATCH`
 - `cached_images`, which waits for the Phase 2 image and model cache
+
+**Freeze rule.** v1 stays open to breaking changes until the first agent build is released. From that release on, changes are additive only, and the pull-request breaking check is the guard. Step 2's breaking changes were made under this rule, before any release:
+- `rpc Connect` became `rpc OpenStream`; `ConnectRequest` and `ConnectResponse` became `OpenStreamRequest` and `OpenStreamResponse`.
+- `Credentials` lost `input_download_url`, `checkpoint_upload_url`, `resume_checkpoint_url` and `output_upload_url` (numbers 2–5 reserved), and gained `attempt_grant` and `read_grant`.
+- `SessionStatus.checkpoints_uploaded` was removed (number 4 reserved), replaced by `latest_checkpoint_seq`.
+- `StartSession.minute_index_base`, `SessionStatus.exit_code`, `UsageReport.minute_index` and `GpuTelemetry.power_w` became `optional`.
+- New `StorageGrant`, `StoragePermission`, `CheckpointRef`, `RefreshCredentials` and `StartSession.resume_from`. These are additive.
 
 ## Alternatives considered
 

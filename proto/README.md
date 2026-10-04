@@ -34,13 +34,15 @@ CI (`.github/workflows/proto.yml`) runs:
 - **On pull requests:** lint, format and the breaking check against the base branch.
 - **On pushes to main:** lint and format.
 
-It runs only when `proto/**` changes.
+It runs only when `proto/**` or the workflow itself changes.
 
 ### Code generation notes
 
 No generated code is committed. Each side generates its own when it's built, with default settings. The stream is named `OpenStream` rather than `Connect`, so it doesn't collide with the `connect()` constructor that tonic generates on every Rust client.
 
 ## Compatibility rules
+
+**When v1 freezes.** v1 stays open to breaking changes until the first agent build is released. From that release on, these rules apply, and the pull-request breaking check (`buf breaking`, `FILE` rules) is the guard.
 
 - **Additive only.** Add new fields, messages, enum values and RPCs. Never change a field's type, name, number or meaning.
 - **Removed fields are `reserved`**, both number and name, so they can never come back with another meaning.
