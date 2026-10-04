@@ -1,0 +1,34 @@
+name: proto
+
+on:
+  push:
+    branches: [main]
+    paths: ["proto/**"]
+  pull_request:
+    paths: ["proto/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history, so the breaking check can read the base branch
+          # from the local .git (the repository is private).
+          fetch-depth: 0
+      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
+        with:
+          version: 1.73.0
+          input: proto
+          lint: true
+          format: true
+          # Pull requests only: compare against the base branch.
+          breaking: ${{ github.event_name == 'pull_request' }}
+          breaking_against: ${{ github.event_name == 'pull_request' && format('.git#commit={0},subdir=proto', github.event.pull_request.base.sha) || '' }}
+          # No Buf Schema Registry: never push or archive.
+          push: false
+          archive: false
+          pr_comment: false
