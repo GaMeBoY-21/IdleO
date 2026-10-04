@@ -1,6 +1,6 @@
 # wsl: the GPU sandbox distribution
 
-Sets up a dedicated WSL2 distribution, `gpu-host-dev`, on the Asus with Docker Engine and the NVIDIA Container Toolkit. Containers on hosts will run in a distribution like this one (technical design lines 441 and 457–472).
+Sets up a dedicated WSL2 distribution, `gpu-host-dev`, on the Asus with Docker Engine and the NVIDIA Container Toolkit. Containers on hosts will run in a distribution like this one (technical design lines 461 and 477–492).
 
 ## Order
 
@@ -26,7 +26,7 @@ The distribution runs as `root` by default, because imported distributions do. T
 
 ## wsl.conf.proposed: the shipped lockdown, applied by hand
 
-`wsl.conf.proposed` is copied from technical design lines 462–471. It turns off drive mounting and Windows interop, and keeps systemd on. **It isn't applied automatically.**
+`wsl.conf.proposed` is copied from technical design lines 482–491. It turns off drive mounting and Windows interop, and keeps systemd on. **It isn't applied automatically.**
 
 Once it's applied, the distribution can no longer see `C:` (no `/mnt/c`), and it can't launch Windows programs. So:
 
@@ -59,5 +59,5 @@ To undo the lockdown, edit `/etc/wsl.conf` inside the distribution (set both `en
 
 ## Not in Phase 0
 
-- **The firewall rules** in technical design lines 488–497 (blocking private ranges from containers) aren't applied yet.
-- **The idle shutdown** after 5 minutes (line 459) is the agent's job, in Phase 1.
+- **The firewall rules** in technical design lines 508–517 (blocking private ranges from containers) aren't applied yet.
+- **The idle shutdown** after 5 minutes (line 479) is the agent's job, in Phase 1.
