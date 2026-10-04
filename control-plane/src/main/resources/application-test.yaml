@@ -1,0 +1,5 @@
+# Tests: the database comes from Testcontainers (@ServiceConnection).
+spring:
+  datasource:
+    hikari:
+      connection-timeout: 2000

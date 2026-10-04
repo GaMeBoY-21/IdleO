@@ -1,0 +1,7 @@
+# Production: every secret comes from the environment, never from a file.
+# The variables are listed, with fake values, in .env.example.
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}

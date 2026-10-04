@@ -1,0 +1,54 @@
+# Shared by every profile. Profiles: local (compose.yaml, readable logs),
+# test (Testcontainers) and prod (everything secret from the environment).
+spring:
+  application:
+    name: control-plane
+  autoconfigure:
+    # No users until the identity module. Without this, Spring Boot creates an
+    # in-memory user and logs its generated password at startup.
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  docker:
+    compose:
+      # Only the local profile starts compose.yaml.
+      enabled: false
+  datasource:
+    hikari:
+      # Milliseconds. Fail fast, so readiness reports DOWN within seconds.
+      connection-timeout: 5000
+  flyway:
+    # Flyway owns every table. Its history table lives in its own schema;
+    # V1 creates one schema per module.
+    default-schema: flyway
+    schemas: flyway
+
+server:
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-exception: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        # Readiness needs the database; liveness doesn't, so a database blip
+        # takes the instance out of rotation without restarting it.
+        readiness:
+          include: readinessState, db
+
+logging:
+  structured:
+    format:
+      console: ecs

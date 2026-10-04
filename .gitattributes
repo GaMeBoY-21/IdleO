@@ -5,3 +5,5 @@
 Dockerfile text eol=lf
 *.proposed text eol=lf
 *.pdf binary
+mvnw text eol=lf
+*.cmd text eol=crlf

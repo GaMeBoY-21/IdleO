@@ -1,0 +1,12 @@
+# Local development: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+spring:
+  docker:
+    compose:
+      enabled: true
+      file: compose.yaml
+
+logging:
+  structured:
+    format:
+      # Human-readable logs on a developer's machine.
+      console: ""
