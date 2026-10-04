@@ -10,8 +10,10 @@
 # access, so this script refuses to run if it finds one.
 set -euo pipefail
 
-DISTRO="gpu-host-dev"
-CUDA_IMAGE="nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=gpu-common.sh
+. "$HERE/gpu-common.sh"
+DISTRO="$GPU_DISTRO"
 
 step() { printf '==> %s\n' "$*"; }
 ok() { printf '    ok: %s\n' "$*"; }
@@ -33,18 +35,8 @@ ok "$PRETTY_NAME in $DISTRO, as root"
 
 # --- The GPU must come from the Windows driver --------------------------------
 step "Checking the GPU driver comes from Windows"
-[[ -e /usr/lib/wsl/lib/libcuda.so.1 ]] \
-  || die "/usr/lib/wsl/lib/libcuda.so.1 is missing. Install or update the NVIDIA driver on Windows (not in Linux), then run 'wsl --terminate $DISTRO' and try again."
-linux_driver=$(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 2>/dev/null \
-  | awk '$1 ~ /^.i/ {print $2}' \
-  | grep -E '^(nvidia-driver-|nvidia-dkms-|nvidia-kernel-|nvidia-utils-|libnvidia-compute-|libnvidia-gl-|cuda-drivers)' || true)
-if [[ -n "$linux_driver" ]]; then
-  die "a Linux NVIDIA driver is installed inside WSL ($(echo "$linux_driver" | tr '\n' ' ')). It breaks GPU access. Remove it with 'apt-get purge' and use only the Windows driver."
-fi
-stray=$(ldconfig -p | awk '/libcuda\.so/ {print $NF}' | grep -v '^/usr/lib/wsl/' || true)
-[[ -z "$stray" ]] || die "found libcuda outside /usr/lib/wsl/lib: $stray. A Linux driver install is shadowing the Windows one; remove it."
-/usr/lib/wsl/lib/nvidia-smi -L >/dev/null || die "nvidia-smi from the Windows driver does not run. Update the NVIDIA driver on Windows."
-ok "$(/usr/lib/wsl/lib/nvidia-smi -L | head -1)"
+gpu=$(check_wsl_gpu_driver) || die "$gpu"
+ok "$gpu"
 
 # --- systemd -------------------------------------------------------------------
 step "Checking systemd"
@@ -109,7 +101,8 @@ ok "$(nvidia-ctk --version | head -1)"
 
 # --- Prove it -------------------------------------------------------------------
 step "Running nvidia-smi in a CUDA container"
-if ! docker run --rm --gpus all "$CUDA_IMAGE" nvidia-smi; then
+# shellcheck disable=SC2119  # no arguments on purpose: the full nvidia-smi table
+if ! cuda_container_nvidia_smi; then
   die "the container could not see the GPU. Check the Windows driver version and 'docker info | grep -i runtime'."
 fi
 echo
