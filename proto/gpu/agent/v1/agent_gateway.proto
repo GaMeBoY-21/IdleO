@@ -40,7 +40,8 @@ message ConnectRequest {
     SessionStatus session_status = 13;
     // One minute of usage. Acked.
     UsageReport usage_report = 14;
-    // Acknowledges a StartSession, StopSession or UpdateAgent.
+    // Acknowledges a StartSession, StopSession, UpdateAgent or
+    // RefreshCredentials.
     Ack ack = 15;
   }
 }
@@ -67,6 +68,8 @@ message ConnectResponse {
     UpdateAgent update_agent = 15;
     // Acknowledges an OfferReply, SessionStatus or UsageReport.
     Ack ack = 16;
+    // Fresh storage credentials for a running attempt. Acked.
+    RefreshCredentials refresh_credentials = 17;
   }
 }
 

@@ -69,18 +69,22 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 12. **`UpdateAgent` carries `sha256` and `cosign_signature`** (was `signature`), and `Welcome` keeps `minimum_agent_version`.
 
     Why: both must ship in v1 even though the updater comes later (lines 226, 236, 742). Without them, the first agents in the field could never be moved forward.
-13. **All secrets live in one `Credentials` message**, commented `secret: never log`:
-    - the registry token
-    - the input download URL
-    - a per-attempt checkpoint upload URL
-    - a separate resume URL for the newest earlier checkpoint
-    - the output upload URL
+13. **All secrets live in one `Credentials` message**, commented `secret: never log`. It holds the registry token and two `StorageGrant`s: short-lived S3-compatible credentials (R2 temporary access credentials today) scoped to prefixes, with `expires_in`.
+    - `attempt_grant` is read-write on `sessions/{session_id}/attempt-{n}/` only.
+    - `read_grant` is read-only on the session's input and on the checkpoint named in `StartSession.resume_from`.
 
     `SessionSpec.env` is for non-secret values only.
 
-    Why: the agent redacts one type instead of hunting fields. Each attempt writes checkpoints to its own object, so two attempts never write the same place (lines 103, 685).
-14. **`SessionStatus` is reworked.**
-    - `checkpoint_key` becomes `checkpoints_uploaded`. The control plane chose the object when it signed the URL, so the agent doesn't name keys.
+    Why: Step 1 used one pre-signed URL per checkpoint and per output, and that breaks three ways:
+    - A single upload caps at about 5 GB, and a 7B fine-tune checkpoint with optimizer state is bigger.
+    - Every checkpoint overwrote the same object, so a bad but complete checkpoint destroyed the last good one.
+    - Pre-signed URLs die after 7 days on R2.
+
+    With grants, storage enforces fencing: an attempt can never write its input or another attempt's folder (line 685). The input moved onto `read_grant` too, because the read grant is needed for resume anyway, so each job uses one mechanism, not two. The registry token stays a plain token, because it's used once, to pull the image.
+14. **Checkpoints are numbered folders with a completion marker, and `SessionStatus` is reworked.**
+    - Each checkpoint goes in its own folder, `attempt-{n}/checkpoints/{seq}/`, with `_COMPLETE` written last. A folder without the marker doesn't exist for resume. The layout is in `proto/README.md`.
+    - `StartSession.resume_from` (a `CheckpointRef`: prefix and seq) names the checkpoint to resume from. The control plane chooses it after checking the marker exists. It replaces `resume_checkpoint_url`.
+    - `SessionStatus.latest_checkpoint_seq` replaces `checkpoints_uploaded`. The control plane checks the marker before trusting it.
     - `error` is a `SessionError` with a short code and a one-line message, never container logs, which hold renter data.
     - `progress` is dropped, because a batch container has no defined progress.
 15. **Enums replace free-text fields:**
@@ -94,6 +98,9 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 16. **One snapshot type.** `RunningSession` (session_id, attempt, state) is shared by `Hello.running_sessions` and `Heartbeat.sessions`.
 17. **The image is pinned by digest.** `SessionSpec.image` must include `@sha256:` (line 83).
 18. **No language options in the `.proto` files.** There's no `java_package` or `go_package`; buf managed mode will set them once the product name is decided.
+19. **`RefreshCredentials`** (control plane → agent: `session_id`, `attempt`, `credentials`) is acked. The control plane sends it once a grant is past half its lifetime, and straight after a reconnect if a grant is close to expiring.
+
+    Why: grants are short-lived, and long jobs outlive them. This closes Step 1's open question about pre-signed URLs expiring after 7 days.
 
 **Deliberate omissions.** Phase 1 runs batch jobs only, and proto changes are additive, so later phases add their fields:
 - `installed_games`, and every game field
@@ -114,5 +121,4 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 - **CI checks the contract.** `buf lint`, `buf format` and `buf breaking` (`FILE`) run on every pull request that touches `proto/`.
 
 **Open questions:**
-- Pre-signed URLs expire, at most 7 days on R2. The plan doesn't say how a job that outlives its URLs gets fresh ones. Adding refreshed `Credentials` to `LeaseRenew` is an additive change.
 - The plan doesn't say how an agent that restarts mid-session restores a lease deadline measured on a monotonic clock, which doesn't survive a reboot.

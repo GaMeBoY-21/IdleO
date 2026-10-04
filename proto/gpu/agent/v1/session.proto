@@ -82,24 +82,74 @@ message SessionSpec {
   google.protobuf.Duration max_runtime = 11;
 }
 
+// What a StorageGrant allows.
+enum StoragePermission {
+  // Never sent. A receiver treats it as an error.
+  STORAGE_PERMISSION_UNSPECIFIED = 0;
+  // List and read objects under the grant's prefixes.
+  STORAGE_PERMISSION_READ_ONLY = 1;
+  // List, read and write objects under the grant's prefixes.
+  STORAGE_PERMISSION_READ_WRITE = 2;
+}
+
+// Short-lived, S3-compatible credentials scoped to a few prefixes of one
+// bucket, such as R2 temporary access credentials. Storage itself enforces
+// the scope, so an agent can't write outside it even if it misbehaves. The
+// control plane refreshes grants with RefreshCredentials before they expire.
+// secret: never log.
+message StorageGrant {
+  // S3-compatible endpoint URL, for example
+  // "https://example-account.r2.cloudflarestorage.com".
+  string endpoint = 1;
+  // The bucket the grant covers.
+  string bucket = 2;
+  // Access key id. secret: never log.
+  string access_key_id = 3;
+  // Secret access key. secret: never log.
+  string secret_access_key = 4;
+  // Session token that goes with the temporary keys. secret: never log.
+  string session_token = 5;
+  // Key prefixes the grant covers, each ending in "/", for example
+  // "sessions/0190f3a2-0000-7000-8000-000000000000/attempt-2/". The storage
+  // layout is in proto/README.md.
+  repeated string prefixes = 6;
+  // What the grant allows on those prefixes.
+  StoragePermission permission = 7;
+  // How long the credentials stay valid, counted from receipt on the agent's
+  // lease clock (see StartSession.lease_ttl). The agent stops using them at
+  // that point; storage enforces the real expiry.
+  google.protobuf.Duration expires_in = 8;
+}
+
 // Every secret a session needs, in one message so the agent can redact one
 // type instead of hunting through fields.
 // secret: never log.
 message Credentials {
-  // Token for pulling SessionSpec.image from the registry. secret: never log.
+  // Numbers of the pre-signed URL fields removed before v1 was released.
+  reserved 2, 3, 4, 5;
+
+  // Token for pulling SessionSpec.image from the registry. Used once, when
+  // the attempt starts. secret: never log.
   string registry_token = 1;
-  // Pre-signed URL to download the job's input. Empty if the job has none.
+  // Read-write on this attempt's own prefix only,
+  // "sessions/{session_id}/attempt-{n}/", where the agent writes checkpoints
+  // and outputs. It can't write the input or another attempt's folder.
   // secret: never log.
-  string input_download_url = 2;
-  // Pre-signed URL to upload checkpoints for this attempt only. Each attempt
-  // gets its own object, so two attempts never write the same place.
+  StorageGrant attempt_grant = 6;
+  // Read-only on the session's input, "sessions/{session_id}/input/", and on
+  // the checkpoint named in StartSession.resume_from, if any.
   // secret: never log.
-  string checkpoint_upload_url = 3;
-  // Pre-signed URL to download the newest valid checkpoint from an earlier
-  // attempt. Empty on the first attempt. secret: never log.
-  string resume_checkpoint_url = 4;
-  // Pre-signed URL to upload the job's outputs. secret: never log.
-  string output_upload_url = 5;
+  StorageGrant read_grant = 7;
+}
+
+// Names one completed checkpoint: the folder prefix + seq + "/" in the
+// layout in proto/README.md.
+message CheckpointRef {
+  // The checkpoints prefix of the attempt that wrote it, for example
+  // "sessions/0190f3a2-0000-7000-8000-000000000000/attempt-1/checkpoints/".
+  string prefix = 1;
+  // The checkpoint's sequence number within that attempt, starting at 1.
+  int32 seq = 2;
 }
 
 // One session as the agent sees it right now. Shared by Hello and Heartbeat.
@@ -193,6 +243,25 @@ message StartSession {
   // UUIDs of the GPUs this attempt may use, as listed in GpuInfo.uuid. Only
   // these are passed into the container.
   repeated string gpu_uuids = 8;
+  // The checkpoint to resume from, chosen by the control plane after it has
+  // checked that the checkpoint's completion marker exists. Absent when the
+  // job starts fresh. Readable through Credentials.read_grant.
+  CheckpointRef resume_from = 9;
+}
+
+// Control plane to agent: fresh storage credentials for a running attempt.
+// Sent once a grant is past half its lifetime, and straight after a
+// reconnect if a grant is close to expiring. Acked.
+message RefreshCredentials {
+  // The session the credentials are for.
+  string session_id = 1;
+  // The attempt the credentials are for. The agent ignores credentials for
+  // any other attempt; the control plane never refreshes an attempt that
+  // isn't current.
+  int32 attempt = 2;
+  // The new credentials. They replace the old ones as a whole.
+  // secret: never log.
+  Credentials credentials = 3;
 }
 
 // Control plane to agent: extend the lease of a running attempt. Not acked:
@@ -236,14 +305,19 @@ message SessionStatus {
   // status whose attempt isn't the current one, such as a late report from a
   // host that was replaced.
   int32 attempt = 2;
+  // Number of a field removed before v1 was released.
+  reserved 4;
+
   // The attempt's state now.
   SessionState state = 3;
-  // How many checkpoints this attempt has uploaded so far.
-  int32 checkpoints_uploaded = 4;
   // The container's exit code. Set only in SUCCEEDED and FAILED.
   int32 exit_code = 5;
   // What went wrong, when state is FAILED, STOPPED or LEASE_EXPIRED.
   SessionError error = 6;
+  // The seq of this attempt's newest completed checkpoint, the one whose
+  // completion marker the agent has written. Zero means none yet; seqs start
+  // at 1. The control plane checks the marker exists before trusting it.
+  int32 latest_checkpoint_seq = 7;
 }
 
 // Agent to control plane: one minute of work. One witness for billing; the

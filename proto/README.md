@@ -11,7 +11,7 @@ A buf v2 module. `buf.yaml` sits here, and package `gpu.agent.v1` sits in `gpu/a
 | File | What it holds |
 | --- | --- |
 | `agent_gateway.proto` | `AgentGatewayService` (`Connect` stream, `RenewCertificate`); the `ConnectRequest` and `ConnectResponse` envelopes; `Hello`, `Welcome`, `Ack`, `UpdateAgent` |
-| `session.proto` | `SessionSpec`, `Credentials`, session states; `Offer`, `OfferReply`, `StartSession`, `LeaseRenew`, `StopSession`, `SessionStatus`, `UsageReport`; `RunningSession`, the one snapshot type shared by `Hello` and `Heartbeat` |
+| `session.proto` | `SessionSpec`, `Credentials`, `StorageGrant`, `CheckpointRef`, session states; `Offer`, `OfferReply`, `StartSession`, `LeaseRenew`, `RefreshCredentials`, `StopSession`, `SessionStatus`, `UsageReport`; `RunningSession`, the one snapshot type shared by `Hello` and `Heartbeat` |
 | `telemetry.proto` | `GpuInfo`, `GpuTelemetry`, `Heartbeat`, `OperatingSystem` |
 | `enrollment.proto` | `EnrollmentService` (`Enroll`, server-TLS only); `IssuedCertificate`, shared with `RenewCertificate` |
 
@@ -75,6 +75,7 @@ Our RPC is named `Connect`, and tonic's generated `connect()` constructor collid
 | `UsageReport` | agent → control plane | Yes | Kept on disk until acked |
 | `StopSession` | control plane → agent | Yes | |
 | `UpdateAgent` | control plane → agent | Yes | |
+| `RefreshCredentials` | control plane → agent | Yes | |
 | `Ack` | both | No | Acks are never acked |
 
 ## Time and attempts
@@ -85,3 +86,57 @@ Our RPC is named `Connect`, and tonic's generated `connect()` constructor collid
   - The one `Timestamp`, `IssuedCertificate.not_after`, mirrors the certificate's own expiry, for display only.
 - **Every session-scoped message carries `attempt`.** The control plane acks and then ignores any message whose attempt isn't the current one.
 - **`StartSession.minute_index_base`** maps this attempt's first minute onto the session-wide minute index.
+
+## Storage layout
+
+Jobs move data through S3-compatible object storage (R2 today). There are no pre-signed URLs. Each attempt gets short-lived credentials (`StorageGrant`), scoped to prefixes and enforced by storage, and the control plane refreshes them with `RefreshCredentials`. One bucket holds:
+
+```
+sessions/{session_id}/
+  input/                     the job's input; agents can only read it
+  attempt-{n}/               one folder per attempt; only attempt n can write here
+    checkpoints/
+      {seq}/                 one folder per checkpoint, seq = 1, 2, 3 ...,
+        ...                  written as 8 zero-padded digits (00000001)
+        _COMPLETE            completion marker, written last
+    outputs/
+      ...
+      _COMPLETE              completion marker, written last
+```
+
+### Grants
+
+Each attempt gets exactly two grants, inside `Credentials`:
+
+| Grant | Permission | Prefixes |
+| --- | --- | --- |
+| `attempt_grant` | read-write | `sessions/{session_id}/attempt-{n}/` |
+| `read_grant` | read-only | `sessions/{session_id}/input/` and the folder of `StartSession.resume_from`, if any |
+
+An attempt can't write its input or another attempt's folder. That's fencing enforced by storage, not just by the agent behaving.
+
+### Rules
+
+**Completion markers**
+- `_COMPLETE` is written last, after every other file in the folder has uploaded.
+- It's a JSON manifest that lists each file's path, relative to the folder, and its size in bytes.
+- A folder without `_COMPLETE` doesn't exist as far as resume or outputs are concerned. A crash mid-upload leaves no usable half-checkpoint.
+
+**Checkpoints**
+- Each checkpoint goes in a new folder, numbered one higher than the last.
+- A completed checkpoint folder is never overwritten or deleted by the agent. A bad checkpoint can never destroy the last good one.
+- Old checkpoints are cleaned up by the control plane, 7 days after the session ends.
+
+**Resume**
+- The control plane picks the checkpoint to resume from: the newest folder that has `_COMPLETE`.
+- It checks the marker exists, then names the checkpoint in `StartSession.resume_from` (prefix and seq).
+- `SessionStatus.latest_checkpoint_seq` reports the agent's newest completed checkpoint. The control plane checks the marker before trusting it.
+
+**Outputs**
+- A job's outputs are complete only when `outputs/_COMPLETE` exists.
+- The agent reports `SESSION_STATE_SUCCEEDED` only after writing it.
+
+**Downloads**
+- The input is read through `read_grant`, not a separate URL. The read grant is needed for resume anyway, so each job uses one storage mechanism, not two.
+- `registry_token` stays a plain token, because it's used once, to pull the image when the attempt starts.
+
