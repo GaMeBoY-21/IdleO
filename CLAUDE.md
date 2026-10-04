@@ -33,8 +33,8 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 ## Conventions
 - Money is integer paise (Java long, Rust i64, SQL bigint). Never floating point.
 - IDs are UUIDv7. Times are UTC (timestamptz). Never trust agent clocks for billing; every "now" comes from an injected clock.
-- Control plane: one Spring Modulith module per bounded context (identity, hosts, agentgateway, overlay, scheduling, sessions, metering, billing, payouts, trust, notifications). Modules talk only through public APIs or events and never read another module's tables.
-- Database: PostgreSQL with Flyway migrations, expand then migrate then contract. Valkey (Redis-compatible) only for state that is allowed to expire.
+- Control plane: Java 25, Spring Boot 4, Spring Modulith, built with Maven through ./mvnw (ADR 0008). One Spring Modulith module per bounded context (identity, hosts, agentgateway, overlay, scheduling, sessions, metering, billing, payouts, trust, notifications). Modules talk only through public APIs or events and never read another module's tables.
+- Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL, and Hibernate never creates or changes tables (ddl-auto validate once JPA arrives). Valkey (Redis-compatible) only for state that is allowed to expire.
 - API errors use RFC 9457 Problem Details.
 - Tests: JUnit 5 and Testcontainers for Java, cargo test for Rust. New behaviour ships with tests.
 - Secrets never go in code or git; use a gitignored .env locally. Never ask for passwords or keys.
@@ -55,6 +55,11 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Update this file when commands, layout or conventions change.
 
 ## Commands
+Control plane, run from control-plane/ (needs Java 25 and Docker):
+- ./mvnw verify: compile with -Werror, enforcer, all tests (Testcontainers, modularity), Spotless check, JaCoCo report
+- ./mvnw spotless:apply: fix formatting
+- ./mvnw spring-boot:run -Dspring-boot.run.profiles=local: run against compose.yaml's PostgreSQL
+
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions
 - buf format -d: must print nothing (buf format -w fixes it)
