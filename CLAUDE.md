@@ -55,4 +55,8 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Update this file when commands, layout or conventions change.
 
 ## Commands
-(filled in as modules are created)
+Agent protocol, run from proto/:
+- buf lint: STANDARD + COMMENTS, no exceptions
+- buf format -d: must print nothing (buf format -w fixes it)
+- buf build
+- buf breaking --against '../.git#branch=main,subdir=proto': FILE rules
