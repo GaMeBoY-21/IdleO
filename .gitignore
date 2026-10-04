@@ -52,3 +52,6 @@ venv/
 *.egg-info/
 .pytest_cache/
 .ipynb_checkpoints/
+
+# Phase 0 QLoRA scratch: checkpoints, model cache, results of local runs
+phase0/qlora-test/work/
