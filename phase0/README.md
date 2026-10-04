@@ -1,6 +1,6 @@
 # phase0
 
-Feasibility work, done before any product code. Phase 0 runs in October 2026, for 2 weeks, on the two laptops we own.
+Feasibility work, done before any product code. Phase 0 runs in October 2026, for 2 weeks, on a borrowed Windows RTX laptop and Nikki's Mac.
 
 ## The two gates (execution plan line 528)
 
@@ -13,8 +13,10 @@ Phase 1 starts only after both pass.
 
 | Machine | Who | Runs |
 | --- | --- | --- |
-| Asus: RTX 4080 Laptop GPU (12 GB), Windows 11 | Co-founder | `wsl/setup-wsl.ps1`, `wsl/setup-docker-nvidia.sh`, the QLoRA run and resume test, Sunshine, `telemetry/gpu_logger.py` |
+| Asus: RTX 4080 Laptop GPU (12 GB), Windows 11 | Nikki, on a borrowed laptop | `wsl/setup-wsl.ps1`, `wsl/setup-docker-nvidia.sh`, the QLoRA run and resume test, Sunshine, `telemetry/gpu_logger.py` |
 | Mac | Nikki | Moonlight, and the CPU smoke test of the QLoRA resume logic |
+
+The scripts aren't tied to the Asus: any Windows 11 laptop or desktop with an NVIDIA RTX GPU works.
 
 ## Order
 

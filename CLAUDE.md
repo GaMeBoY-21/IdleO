@@ -7,7 +7,7 @@ Read docs/WORKFLOW.md before every task. You are the builder: build, run all tes
 A peer-to-peer GPU marketplace for India. Hosts (people with RTX gaming laptops and desktops) rent out GPU time by the minute; renters (students, developers, small startups) run AI jobs on them. Cloud gaming comes later, and only for legally cleared titles. Full plan: docs/plan/execution-plan.md and docs/plan/technical-design.md. The PDFs beside them contain the diagrams.
 
 ## Current phase
-Phase 0 (feasibility), then Phase 1 (compute core: batch jobs end to end, built to production standard; free credits until the company and payment partner exist).
+Phase 1 (compute core: batch jobs end to end, built to production standard; free credits until the company and payment partner exist). Phase 0's hardware runs wait for a borrowed Windows RTX laptop; Phase 1 work that needs no GPU goes ahead now.
 Do NOT build yet: real payments, gaming runtime, notebooks or endpoints, multi-region.
 
 ## Architecture rules (never break these)
