@@ -82,10 +82,45 @@ Our RPC is named `Connect`, and tonic's generated `connect()` constructor collid
 
 - **No message carries an absolute time for the agent to act on.**
   - Spans are `google.protobuf.Duration`.
-  - The lease is `lease_ttl`: the agent's deadline is its monotonic clock at receipt plus `lease_ttl`, so it can only stop early, never late.
+  - The lease is `lease_ttl`: the agent's deadline is its lease clock at receipt plus `lease_ttl`, so it can only stop early, never late. The lease clock keeps counting while the machine sleeps; see below.
   - The one `Timestamp`, `IssuedCertificate.not_after`, mirrors the certificate's own expiry, for display only.
 - **Every session-scoped message carries `attempt`.** The control plane acks and then ignores any message whose attempt isn't the current one.
 - **`StartSession.minute_index_base`** maps this attempt's first minute onto the session-wide minute index.
+
+## The lease clock
+
+A laptop that sleeps must not run past its lease. Say a lid closes mid-job, the control plane re-matches the job elsewhere, and the laptop wakes 20 minutes later. A clock that paused during sleep would let the old attempt keep running beside the new one. So the agent follows these rules. The agent itself is built later.
+
+**1. Deadlines use a clock that keeps counting while the machine sleeps.**
+- **Linux:** `clock_gettime(CLOCK_BOOTTIME)`. The man page says it "also includes any time that the system is suspended". `CLOCK_MONOTONIC` "does not count time that the system is suspended", so it's never used for deadlines.
+- **Windows:** `QueryPerformanceCounter`. Microsoft's documentation says it returns the ticks since Windows started, "including the time when the machine was in a sleep state such as standby, hibernate, or connected standby". `QueryUnbiasedInterruptTime` excludes sleep, so it's never used.
+- **Not Rust's `std::time::Instant`.**
+  - It uses `CLOCK_MONOTONIC` on Linux, which stops during suspend, and `QueryPerformanceCounter` on Windows.
+  - Rust's documentation says whether suspends count "varies across platforms and Rust versions".
+  - So the agent calls the OS clock directly.
+- **On Windows hosts, the clock is read in the agent's Windows process, never inside the WSL2 VM.** Nothing documents that the VM's clocks count the host's sleep.
+
+**2. On wake, check every deadline first.** When the OS reports a resume, the agent checks every deadline before doing anything else. It stops each attempt whose deadline has passed.
+
+**3. Deadlines survive a process restart, but never a reboot.**
+- The agent persists each deadline as the **boot id** plus that clock's value.
+  - Linux boot id: `/proc/sys/kernel/random/boot_id`.
+  - Windows boot id: `Win32_OperatingSystem.LastBootUpTime`.
+- **Same boot id after a process restart:** restore the deadlines and check them at once.
+- **Different boot id, or one it can't read:** treat it as a reboot. Nothing the agent started can still be running, because the WSL2 VM restarted with the machine. So the agent:
+  - restores nothing
+  - stops and removes any session container it finds
+  - reports those attempts as `SESSION_STATE_LEASE_EXPIRED`
+
+  Any doubt counts as a reboot, because stopping is the safe direction.
+
+Sources:
+- clock_gettime(2): https://man7.org/linux/man-pages/man2/clock_gettime.2.html
+- Linux boot_id: https://docs.kernel.org/admin-guide/sysctl/kernel.html
+- Acquiring high-resolution time stamps: https://learn.microsoft.com/en-us/windows/win32/sysinfo/acquiring-high-resolution-time-stamps
+- Interrupt time: https://learn.microsoft.com/en-us/windows/win32/sysinfo/interrupt-time
+- Win32_OperatingSystem: https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-operatingsystem
+- Rust's std::time::Instant: https://doc.rust-lang.org/std/time/struct.Instant.html
 
 ## Storage layout
 

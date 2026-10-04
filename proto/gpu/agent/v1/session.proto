@@ -179,8 +179,8 @@ message Offer {
   string offer_id = 1;
   // What would run. Lets the agent check it fits before accepting.
   SessionSpec spec = 2;
-  // How long the offer stays open, counted from receipt on the agent's
-  // monotonic clock. A reply after this is ignored.
+  // How long the offer stays open, counted from receipt on the agent's lease
+  // clock (see StartSession.lease_ttl). A reply after this is ignored.
   google.protobuf.Duration expires_in = 3;
 }
 
@@ -229,11 +229,15 @@ message StartSession {
   SessionSpec spec = 4;
   // Secrets for this attempt. secret: never log.
   Credentials credentials = 5;
-  // How long the lease lasts. The agent sets its deadline to its monotonic
-  // clock at receipt plus lease_ttl, and stops the work when the deadline
-  // passes without a LeaseRenew. Receipt is always after the send, so the
-  // agent can only stop early, never late. Never compared with wall-clock
-  // time, which the agent's owner can change.
+  // How long the lease lasts, counted from receipt on the agent's lease
+  // clock: a clock that keeps counting while the machine sleeps
+  // (CLOCK_BOOTTIME on Linux, QueryPerformanceCounter on Windows; never
+  // CLOCK_MONOTONIC, which stops during suspend). The agent's deadline is
+  // that clock at receipt plus lease_ttl; it stops the work when the deadline
+  // passes without a LeaseRenew, and on wake it checks every deadline before
+  // doing anything else. Receipt is always after the send, so the agent can
+  // only stop early, never late. Never compared with wall-clock time, which
+  // the owner can change. How deadlines survive restarts: proto/README.md.
   google.protobuf.Duration lease_ttl = 6;
   // The session-wide minute index of this attempt's first minute, set by the
   // control plane from its own clock. The agent counts minutes from zero on
@@ -272,8 +276,8 @@ message LeaseRenew {
   // The attempt being renewed. The agent ignores a renewal for any other
   // attempt; the control plane never renews an attempt that isn't current.
   int32 attempt = 2;
-  // The new lease length, counted from receipt on the agent's monotonic
-  // clock, exactly as in StartSession.lease_ttl.
+  // The new lease length, counted from receipt on the agent's lease clock
+  // (the sleep-counting clock in StartSession.lease_ttl), exactly as there.
   google.protobuf.Duration lease_ttl = 3;
 }
 

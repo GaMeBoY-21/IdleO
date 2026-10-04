@@ -25,9 +25,17 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
    - Every enum has a `_UNSPECIFIED = 0` value and prefixed values.
 
    Why: buf `STANDARD`, with no exceptions.
-2. **Leases are a duration, `lease_ttl`**, on `StartSession` and `LeaseRenew`. It replaces `int64 lease_expires_at_unix_ms`. The agent's deadline is its monotonic clock at receipt plus `lease_ttl`.
+2. **Leases are a duration, `lease_ttl`**, on `StartSession` and `LeaseRenew`. It replaces `int64 lease_expires_at_unix_ms`. The agent's deadline is its lease clock at receipt plus `lease_ttl`.
 
-   Why: agent clocks are never trusted (line 369). A clock running 3 minutes slow would keep work running 3 minutes past the lease and break fencing (line 685). Receipt is always after the send, so the agent can only stop early, never late.
+    The lease clock keeps counting while the machine sleeps:
+    - Linux: `CLOCK_BOOTTIME`. `CLOCK_MONOTONIC` stops during suspend.
+    - Windows: `QueryPerformanceCounter`, which Microsoft documents as counting standby, hibernate and connected standby.
+    - Never Rust's `std::time::Instant`, which doesn't specify whether suspends count.
+    - On Windows hosts, the clock is read in the agent's Windows process, not inside the WSL2 VM.
+
+    On wake, the agent checks every deadline before doing anything else. The full rules and sources are in `proto/README.md`.
+
+   Why: agent clocks are never trusted (line 369). A clock that paused during sleep would let a laptop that slept through its lease's end wake up and keep working beside the attempt that replaced it. A clock running 3 minutes slow would keep work running 3 minutes past the lease and break fencing (line 685). Receipt is always after the send, so the agent can only stop early, never late.
 3. **Every span is a `google.protobuf.Duration`.** That covers `Offer.expires_in` (was `expires_in_s`), `AgentPolicy.heartbeat_interval`, `SessionSpec.checkpoint_interval`, `SessionSpec.max_runtime` and `StopSession.grace_period`.
 
    Why: no message carries an absolute time for the agent to act on.
@@ -120,5 +128,8 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 - **The one absolute time left is `IssuedCertificate.not_after`** (a `Timestamp`). It mirrors the certificate's own expiry and is for display only. No `int64 ..._unix_ms` fields remain.
 - **CI checks the contract.** `buf lint`, `buf format` and `buf breaking` (`FILE`) run on every pull request that touches `proto/`.
 
-**Open questions:**
-- The plan doesn't say how an agent that restarts mid-session restores a lease deadline measured on a monotonic clock, which doesn't survive a reboot.
+- **Lease deadlines survive a process restart, never a reboot.** The agent persists each deadline as the boot id plus the lease-clock value.
+  - Same boot id after a restart: it restores them.
+  - Different or unreadable boot id: nothing it started can still be running, since the WSL2 VM restarted. So it restores nothing, stops any container it finds, and reports those attempts as lease expired.
+
+  This closes Step 1's open question about agent restarts.
