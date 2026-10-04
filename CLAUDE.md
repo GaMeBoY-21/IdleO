@@ -7,8 +7,8 @@ Read docs/WORKFLOW.md before every task. You are the builder: build, run all tes
 A peer-to-peer GPU marketplace for India. Hosts (people with RTX gaming laptops and desktops) rent out GPU time by the minute; renters (students, developers, small startups) run AI jobs on them. Cloud gaming comes later, and only for legally cleared titles. Full plan: docs/plan/execution-plan.md and docs/plan/technical-design.md. The PDFs beside them contain the diagrams.
 
 ## Current phase
-Phase 0 (feasibility), then Phase 1 (compute MVP: batch jobs end to end, free credits only).
-Do NOT build yet: real payments, gaming runtime, notebooks or endpoints, web UI polish, multi-region.
+Phase 0 (feasibility), then Phase 1 (compute core: batch jobs end to end, built to production standard; free credits until the company and payment partner exist).
+Do NOT build yet: real payments, gaming runtime, notebooks or endpoints, multi-region.
 
 ## Architecture rules (never break these)
 1. Nothing at home is exposed: agents dial out over gRPC with TLS; host services listen only on the overlay network.
@@ -19,6 +19,16 @@ Do NOT build yet: real payments, gaming runtime, notebooks or endpoints, web UI 
 6. Least privilege: containers run non-root, read-only root, no host mounts, all capabilities dropped, LAN egress blocked.
 7. Reuse proven open source for hard problems: Tailscale/Headscale, Sunshine/Moonlight, Docker, Pingora.
 8. Compatible by default: .proto changes are additive only; the control plane supports the last three agent releases.
+
+## Quality bar
+We are building the final product, not an MVP (ADR 0006). Every piece meets this bar from the start:
+- No temporary hacks or dead features.
+- Tests: unit, integration (Testcontainers), contract and end-to-end, plus failure drills.
+- Security: mTLS, short-lived tokens, secrets never in code, signed releases, rate limits.
+- Data: Flyway migrations and restore-tested backups.
+- Operations: metrics, logs and traces, with an alert and a runbook for every user-facing failure.
+- Delivery: CI on every change, staging, one-click deploy and rollback.
+- Web app: a real design system, accessible and mobile-friendly, with proper loading, error and empty states.
 
 ## Conventions
 - Money is integer paise (Java long, Rust i64, SQL bigint). Never floating point.
