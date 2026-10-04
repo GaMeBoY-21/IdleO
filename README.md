@@ -2,7 +2,7 @@
 
 A peer-to-peer GPU marketplace for India. Hosts with RTX gaming laptops and desktops rent out GPU time by the minute, and renters (students, developers, small startups) run AI jobs on them. A Java control plane books, schedules and bills; a Rust agent on each host runs the work; hosts connect outward over gRPC and an encrypted overlay, so nothing at home is exposed. Cloud gaming comes later, only for legally cleared titles.
 
-**Current phase:** Phase 0 (feasibility), then Phase 1 (compute MVP).
+**Current phase:** Phase 0 (feasibility), then Phase 1 (compute core).
 
 ## Layout
 
