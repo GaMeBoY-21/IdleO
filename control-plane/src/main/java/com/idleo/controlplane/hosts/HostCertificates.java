@@ -18,10 +18,12 @@ public interface HostCertificates {
 
     /**
      * Issues a new 30-day certificate for the host, if the calling certificate has 10 days or fewer
-     * left. The CSR rules are enrolment's: EC P-256 only, a valid signature, and only the public key
-     * is used. The calling certificate stays valid until it expires.
+     * left and is the host's newest unrevoked certificate. The CSR rules are enrolment's: EC P-256
+     * only, a valid signature, and only the public key is used. The calling certificate stays valid
+     * until it expires.
      *
      * @throws RenewalNotOpenException if the calling certificate has more than 10 days left
+     * @throws AlreadyRenewedException if a newer, unrevoked certificate already exists for the host
      * @throws InvalidCertificateRequestException if the CSR is refused
      */
     EnrolledCertificate renew(UUID hostId, byte[] currentFingerprintSha256, byte[] csrDer);

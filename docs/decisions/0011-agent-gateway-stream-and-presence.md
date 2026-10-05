@@ -38,7 +38,7 @@ Hosts can enrol and get a client certificate (ADR 0010). Every later feature (of
 4. **`RenewCertificate` is allowed only in a certificate's last 10 days** (renew after 20 of 30, line 752). Earlier gets `FAILED_PRECONDITION` with the time renewal opens, which stops a broken or hostile agent from minting certificates in a loop.
    - The CSR rules and the issuing code are enrolment's (one `CertificateIssuer`).
    - The old certificate stays valid until it expires, and both are recorded in `hosts.host_certificates`.
-   - Known gap: within the last 10 days, an agent can renew more than once from the same certificate. A per-certificate renewal limit can come with agent releases if it's needed.
+   - **Only from the newest certificate.** If the host already has a newer, unrevoked certificate, renewal gets `FAILED_PRECONDITION` ("This certificate was already renewed; use the newer certificate."). The calling certificate's row is locked for the check (`select … for update`), so two concurrent renewals from it yield exactly one new certificate. Together with the 10-day window, a host can hold at most two valid certificates at once, and a leaked old key can't mint a fresh one after the agent has renewed.
 
 ### The stream
 

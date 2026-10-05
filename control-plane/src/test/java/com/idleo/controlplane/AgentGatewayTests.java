@@ -403,6 +403,26 @@ class AgentGatewayTests {
     }
 
     @Test
+    void renewalWorksOnlyFromTheNewestCertificate() throws Exception {
+        var agent = TestAgent.enrol(mvc, grpcPort);
+        clock.advance(Duration.ofDays(21));
+        var stub = AgentGatewayServiceGrpc.newBlockingStub(track(agent.channel(grpcPort)));
+        var request = RenewCertificateRequest.newBuilder()
+                .setCsrDer(com.google.protobuf.ByteString.copyFrom(AgentClient.p256Csr(AgentClient.newP256Keys())))
+                .build();
+        stub.renewCertificate(request);
+
+        var refusal = refusal(() -> stub.renewCertificate(request));
+
+        assertThat(refusal.getCode()).isEqualTo(Status.Code.FAILED_PRECONDITION);
+        assertThat(refusal.getDescription())
+                .isEqualTo("This certificate was already renewed; use the newer certificate.");
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from hosts.host_certificates where host_id = ?", Integer.class, agent.hostId))
+                .isEqualTo(2);
+    }
+
+    @Test
     void renewalBeforeTheWindowIsRefusedWithWhenItOpens() throws Exception {
         var agent = TestAgent.enrol(mvc, grpcPort);
         var stub = AgentGatewayServiceGrpc.newBlockingStub(track(agent.channel(grpcPort)));

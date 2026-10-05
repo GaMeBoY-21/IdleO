@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
+import com.idleo.controlplane.hosts.AlreadyRenewedException;
 import com.idleo.controlplane.hosts.HostCertificates;
 import com.idleo.controlplane.hosts.InvalidCertificateRequestException;
 import com.idleo.controlplane.hosts.RenewalNotOpenException;
@@ -64,7 +65,7 @@ class AgentGatewayGrpcService extends AgentGatewayServiceGrpc.AgentGatewayServic
                     .setCertificate(certificate)
                     .build());
             responses.onCompleted();
-        } catch (RenewalNotOpenException e) {
+        } catch (RenewalNotOpenException | AlreadyRenewedException e) {
             responses.onError(
                     Status.FAILED_PRECONDITION.withDescription(e.getMessage()).asRuntimeException());
         } catch (InvalidCertificateRequestException e) {

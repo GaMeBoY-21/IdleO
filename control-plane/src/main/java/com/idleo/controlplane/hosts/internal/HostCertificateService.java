@@ -1,8 +1,10 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.hosts.AlreadyRenewedException;
 import com.idleo.controlplane.hosts.EnrolledCertificate;
 import com.idleo.controlplane.hosts.HostCertificates;
 import com.idleo.controlplane.hosts.RenewalNotOpenException;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -14,8 +16,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Agent authentication by certificate fingerprint, and renewal in a certificate's last 10 days
- * (technical design line 752: renewed after 20 of 30 days). The renewal window stops a broken or
- * hostile agent from minting certificates in a loop.
+ * (technical design line 752: renewed after 20 of 30 days), and only from the host's newest
+ * unrevoked certificate. Together they stop a broken or hostile agent from minting certificates in a
+ * loop.
  */
 @Service
 class HostCertificateService implements HostCertificates {
@@ -55,15 +58,39 @@ class HostCertificateService implements HostCertificates {
     @Override
     public EnrolledCertificate renew(UUID hostId, byte[] currentFingerprintSha256, byte[] csrDer) {
         var publicKey = CertificateIssuer.verifiedPublicKey(csrDer);
-        var current = find(currentFingerprintSha256)
-                .filter(row -> row.hostId().equals(hostId) && !row.revoked())
-                .orElseThrow(() -> new IllegalStateException("renewal from a certificate that didn't authenticate"));
-        var now = Instant.now(clock);
-        var opensAt = current.notAfter().minus(RENEWAL_WINDOW);
-        if (now.isBefore(opensAt)) {
-            throw new RenewalNotOpenException(opensAt);
-        }
-        return transactions.execute(status -> issuer.issueAndRecord(hostId, publicKey, now));
+        return transactions.execute(status -> {
+            // Locking the calling certificate's row makes concurrent renewals from it take turns, so
+            // the newer-certificate check below can't be raced.
+            var current = jdbc.sql("""
+                            select not_after from hosts.host_certificates
+                            where fingerprint_sha256 = :fingerprint and host_id = :hostId and revoked_at is null
+                            for update
+                            """)
+                    .param("fingerprint", currentFingerprintSha256)
+                    .param("hostId", hostId)
+                    .query((rs, n) -> rs.getTimestamp("not_after").toInstant())
+                    .optional()
+                    .orElseThrow(
+                            () -> new IllegalStateException("renewal from a certificate that didn't authenticate"));
+            var now = Instant.now(clock);
+            var opensAt = current.minus(RENEWAL_WINDOW);
+            if (now.isBefore(opensAt)) {
+                throw new RenewalNotOpenException(opensAt);
+            }
+            boolean newerExists = jdbc.sql("""
+                            select exists (
+                                select 1 from hosts.host_certificates
+                                where host_id = :hostId and revoked_at is null and not_after > :notAfter)
+                            """)
+                    .param("hostId", hostId)
+                    .param("notAfter", Timestamp.from(current))
+                    .query(Boolean.class)
+                    .single();
+            if (newerExists) {
+                throw new AlreadyRenewedException();
+            }
+            return issuer.issueAndRecord(hostId, publicKey, now);
+        });
     }
 
     private Optional<CertificateRow> find(byte[] fingerprintSha256) {
