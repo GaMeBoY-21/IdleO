@@ -56,21 +56,25 @@ No generated code is committed. Each side generates its own when it's built, wit
 - **`command_id`**, on `StartSession` and `StopSession`, is business idempotency. It survives reconnects and outbox re-sends, and a repeated command is acked and never run twice.
 - **`Ack.acked_message_id`** names the envelope being acked. An ack means "received and durably recorded", not "accepted". The sender keeps its retry copy until the ack arrives. Acks are never acked.
 
-| Message | Direction | Acked? | Why |
-| --- | --- | --- | --- |
-| `Hello` | agent → control plane | No | Answered by `Welcome` |
-| `Welcome` | control plane → agent | No | Sent again on every new stream |
-| `Heartbeat` | agent → control plane | No | The next one is 5 seconds away |
-| `Offer` | control plane → agent | No | Answered by `OfferReply` |
-| `OfferReply` | agent → control plane | Yes | |
-| `StartSession` | control plane → agent | Yes | |
-| `LeaseRenew` | control plane → agent | No | The lease survives three missed renewals |
-| `SessionStatus` | agent → control plane | Yes | Kept on disk until acked |
-| `UsageReport` | agent → control plane | Yes | Kept on disk until acked |
-| `StopSession` | control plane → agent | Yes | |
-| `UpdateAgent` | control plane → agent | Yes | |
-| `RefreshCredentials` | control plane → agent | Yes | |
-| `Ack` | both | No | Acks are never acked |
+| Message | Direction | Acked? | Why | Handled by the control plane today |
+| --- | --- | --- | --- | --- |
+| `Hello` | agent → control plane | No | Answered by `Welcome` | Yes: validated, GPUs and versions recorded |
+| `Welcome` | control plane → agent | No | Sent again on every new stream | Yes: sent after a valid `Hello` |
+| `Heartbeat` | agent → control plane | No | The next one is 5 seconds away | Yes: validated, refreshes presence in Valkey |
+| `Offer` | control plane → agent | No | Answered by `OfferReply` | Not yet (scheduling) |
+| `OfferReply` | agent → control plane | Yes | | Not yet: counted in `agents.messages.unhandled` and dropped, never acked |
+| `StartSession` | control plane → agent | Yes | | Not yet (sessions) |
+| `LeaseRenew` | control plane → agent | No | The lease survives three missed renewals | Not yet (sessions) |
+| `SessionStatus` | agent → control plane | Yes | Kept on disk until acked | Not yet: counted and dropped, never acked |
+| `UsageReport` | agent → control plane | Yes | Kept on disk until acked | Not yet: counted and dropped, never acked |
+| `StopSession` | control plane → agent | Yes | | Not yet (sessions) |
+| `UpdateAgent` | control plane → agent | Yes | | Not yet (agent releases) |
+| `RefreshCredentials` | control plane → agent | Yes | | Not yet (sessions) |
+| `Ack` | both | No | Acks are never acked | Not yet: counted and dropped |
+
+Messages that aren't handled yet arrive with their features. Until then the control plane counts them and drops them; it never acks them, so an agent keeps its on-disk copies.
+
+The unary calls: `EnrollmentService.Enroll` is handled (ADR 0010). `AgentGatewayService.RenewCertificate` is handled in a certificate's last 10 days (ADR 0011).
 
 ## Time and attempts
 

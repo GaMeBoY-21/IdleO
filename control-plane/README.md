@@ -41,7 +41,7 @@ scripts/run-local.sh
 
 The script loads `.env`, always uses the `local` profile, and refuses to start if `SPRING_PROFILES_ACTIVE` or `SPRING_PROFILES_INCLUDE` asks for `prod`. Production sets its profile and secrets in its deployment, never in a file.
 
-Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrations. Readiness is then UP at `http://localhost:8080/actuator/health/readiness`, and the agents' gRPC port listens on 9443 (TLS 1.3, with the dev CA's `localhost` certificate). Stopping the app stops the database container; `docker compose down` removes it.
+Spring Boot starts PostgreSQL and Valkey from `compose.yaml` and applies the Flyway migrations. Readiness is then UP at `http://localhost:8080/actuator/health/readiness`, and the agents' gRPC port listens on 9443 (TLS 1.3, with the dev CA's `localhost` certificate). Stopping the app stops the database container; `docker compose down` removes it.
 
 ## Profiles
 
@@ -55,7 +55,7 @@ Spring Boot starts PostgreSQL from `compose.yaml` and applies the Flyway migrati
 
 Every variable is listed, with a fake value, in `.env.example`; a real `.env` stays out of git.
 - **Identity issuers:** `IDENTITY_ISSUERS_0_ISSUERURI` and `IDENTITY_ISSUERS_0_AUDIENCE`. Every profile except `test` needs them, and the app refuses to start without one.
-- **Database, CA and gRPC TLS:** the `prod` profile reads them from the deployment's environment (see `docs/runbooks/certificate-authority.md`). They're not in `.env`; locally the dev CA stands in.
+- **Database, Valkey, CA and gRPC TLS:** the `prod` profile reads them from the deployment's environment (see `docs/runbooks/certificate-authority.md`). They're not in `.env`; locally the dev CA stands in.
 
 ## What's here so far
 
@@ -70,7 +70,11 @@ Every variable is listed, with a fake value, in `.env.example`; a real `.env` st
 - **Shared kernel**, in the root package: the one `Clock`, the one UUIDv7 generator (`IdGenerator`), and the `Idempotency-Key` helper (`IdempotentRequests`).
 - **Hosts** (ADR 0010). `POST /v1/hosts` (with an `Idempotency-Key`), `GET /v1/hosts`, `GET /v1/hosts/{id}`, and `POST /v1/hosts/{id}/enrolment-code` for a one-time code.
 - **Agent enrolment.** `EnrollmentService.Enroll` over gRPC on port 9443: TLS 1.3 only, client certificates optional. It trades a code and a CSR for a 30-day certificate from our own CA.
+- **Agent stream** (ADR 0011). On the same port, `AgentGatewayService` requires a client certificate from our CA, for a live, unrevoked certificate of an unsuspended host.
+  - `OpenStream` takes `Hello` (recording the host's OS, agent version and GPUs) and answers `Welcome`.
+  - Heartbeats keep host presence in Valkey alive for 15 seconds.
+  - `RenewCertificate` works in a certificate's last 10 days.
 - **Generated code.** Java for `../proto` is generated during the build into `target/generated-sources/protobuf`, by a `protoc` the build downloads itself. Nothing generated is committed.
 - **Health.** Readiness includes the database; liveness doesn't.
 
-Other business features, the outbox and Valkey arrive with the modules that need them.
+Other business features and the outbox arrive with the modules that need them.
