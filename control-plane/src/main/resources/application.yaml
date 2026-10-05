@@ -40,6 +40,12 @@ spring:
             certificate: ${HOSTS_CA_ROOT_CERTIFICATE}
           options:
             enabled-protocols: TLSv1.3
+  data:
+    redis:
+      # Valkey (ADR 0011). Fail fast when it's down: heartbeats are counted as
+      # not recorded and streams stay open, so time out in a second.
+      timeout: 1s
+      connect-timeout: 1s
   grpc:
     server:
       # One TLS port for every agent call. The load balancer passes TLS through
@@ -91,3 +97,12 @@ hosts:
     intermediate-certificate: ${HOSTS_CA_INTERMEDIATE_CERTIFICATE}
     intermediate-private-key: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY}
     intermediate-private-key-password: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY_PASSWORD:}
+
+agentgateway:
+  # The agent stream (ADR 0011).
+  hello-timeout: 10s
+  presence-ttl: 15s
+  heartbeat-interval: 5s
+  gpu-temp-cap-c: 85
+  max-concurrent-sessions: 1
+  minimum-agent-version: 0.1.0

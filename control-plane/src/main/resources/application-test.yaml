@@ -8,3 +8,7 @@ spring:
     server:
       port: 0
 
+# Short enough to watch real Valkey expiry and the hello timeout in tests.
+agentgateway:
+  hello-timeout: 1s
+  presence-ttl: 2s

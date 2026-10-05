@@ -51,11 +51,12 @@ final class TestPki {
     final String encryptedIntermediateKeyPem;
     final String serverChainPem;
     final String serverKeyPem;
+    private final KeyPair intermediateKeys;
 
     private TestPki() {
         try {
             var rootKeys = p256();
-            var intermediateKeys = p256();
+            intermediateKeys = p256();
             var serverKeys = p256();
             var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
             root = sign(
@@ -120,6 +121,69 @@ final class TestPki {
 
     static TestPki get() {
         return INSTANCE;
+    }
+
+    /**
+     * A client certificate for {@code subjectKey} naming {@code uri}, signed by our test intermediate,
+     * for tests that need a certificate the control plane didn't issue itself.
+     */
+    X509Certificate clientCertificateFromOurIntermediate(java.security.PublicKey subjectKey, String uri) {
+        return clientCertificate(intermediate, intermediateKeys, subjectKey, uri);
+    }
+
+    /** A client certificate for {@code subjectKey} from a CA we don't trust, plus that CA's root. */
+    static X509Certificate[] clientCertificateFromAnotherCa(java.security.PublicKey subjectKey, String uri) {
+        try {
+            var otherRootKeys = p256();
+            var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+            var otherRoot = sign(
+                    new JcaX509v3CertificateBuilder(
+                                    new X500Name("CN=Some Other CA"),
+                                    BigInteger.valueOf(7),
+                                    Date.from(now.minusSeconds(60)),
+                                    Date.from(now.plus(365, ChronoUnit.DAYS)),
+                                    new X500Name("CN=Some Other CA"),
+                                    otherRootKeys.getPublic())
+                            .addExtension(Extension.basicConstraints, true, new BasicConstraints(1))
+                            .addExtension(
+                                    Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign)),
+                    otherRootKeys);
+            return new X509Certificate[] {clientCertificate(otherRoot, otherRootKeys, subjectKey, uri), otherRoot};
+        } catch (GeneralSecurityException | OperatorCreationException e) {
+            throw new IllegalStateException(e);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static X509Certificate clientCertificate(
+            X509Certificate issuer, KeyPair issuerKeys, java.security.PublicKey subjectKey, String uri) {
+        try {
+            var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+            return sign(
+                    new JcaX509v3CertificateBuilder(
+                                    issuer,
+                                    new BigInteger(127, new java.security.SecureRandom()),
+                                    Date.from(now.minusSeconds(60)),
+                                    Date.from(now.plus(30, ChronoUnit.DAYS)),
+                                    new X500Name(new org.bouncycastle.asn1.x500.RDN[0]),
+                                    subjectKey)
+                            .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
+                            .addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature))
+                            .addExtension(
+                                    Extension.extendedKeyUsage,
+                                    false,
+                                    new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth))
+                            .addExtension(
+                                    Extension.subjectAlternativeName,
+                                    true,
+                                    new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, uri))),
+                    issuerKeys);
+        } catch (GeneralSecurityException | OperatorCreationException e) {
+            throw new IllegalStateException(e);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     static KeyPair p256() throws GeneralSecurityException {

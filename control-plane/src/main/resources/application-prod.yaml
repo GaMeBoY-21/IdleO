@@ -5,3 +5,6 @@ spring:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
+  data:
+    redis:
+      url: ${VALKEY_URL}

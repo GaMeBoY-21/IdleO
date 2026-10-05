@@ -10,9 +10,10 @@ import org.junit.jupiter.api.Test;
 class ComposeImageTests {
 
     @Test
-    void localComposeUsesTheSamePinnedImageAsTheTests() throws IOException {
+    void localComposeUsesTheSamePinnedImagesAsTheTests() throws IOException {
         var compose = Files.readString(Path.of("compose.yaml"));
 
         assertThat(compose).contains("image: " + TestcontainersConfiguration.POSTGRES_IMAGE);
+        assertThat(compose).contains("image: " + TestcontainersConfiguration.VALKEY_IMAGE);
     }
 }

@@ -4,8 +4,16 @@
  * live in the {@code hosts} database schema, and no other module reads them. It is the only module
  * that issues or reads host certificates (ADR 0010).
  *
- * <p>Public API for other modules: {@link com.idleo.controlplane.hosts.HostEnrolment}, which trades
- * a one-time enrolment code and a certificate signing request for a host certificate.
+ * <p>Public API for other modules:
+ *
+ * <ul>
+ *   <li>{@link com.idleo.controlplane.hosts.HostEnrolment} trades a one-time enrolment code and a
+ *       certificate signing request for a host certificate;
+ *   <li>{@link com.idleo.controlplane.hosts.HostCertificates} authenticates an agent by its
+ *       certificate and renews certificates in their last 10 days;
+ *   <li>{@link com.idleo.controlplane.hosts.HostAgentReports} records the OS, agent version and GPUs
+ *       an agent reports, and when it was last seen.
+ * </ul>
  *
  * <p>Endpoints, every one owner-only; another user's host is a 404, so ids can't be probed. Every
  * error is an RFC 9457 problem detail.
