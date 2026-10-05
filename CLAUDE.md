@@ -67,6 +67,16 @@ Control plane, run from control-plane/ (needs Java 25 and Docker):
 - scripts/run-local.sh: run locally against compose.yaml's PostgreSQL and the dev CA; loads .env, always uses the local profile, refuses any prod profile
 - Java code for proto/ is generated during the build (target/generated-sources); never commit it
 
+Host agent, run from agent/ (Rust; rustup installs the toolchain pinned in rust-toolchain.toml):
+- cargo fmt --all --check
+- cargo clippy --workspace --all-targets -- -D warnings: pedantic is on for the whole workspace; allow a single lint only with a comment saying why
+- cargo test --workspace: unit tests, and integration tests against an in-process mutual-TLS control plane
+- cargo deny check: permissive licences only (no GPL in the agent) and RustSec advisories
+- cargo run -p agent -- run --fake-gpu: run on a Mac with invented GPUs (needs agent.toml and an enrolment; see agent/README.md)
+- Rust code for proto/ is generated at build time by protox (agent-proto/build.rs), never by a system protoc; never commit it
+- #![forbid(unsafe_code)] everywhere except the agent-windows crate, the one documented place for Windows API calls (ADR 0012)
+- Never fall back to fake telemetry silently: fake GPUs only with --fake-gpu, and a missing NVML is an error
+
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions
 - buf format -d: must print nothing (buf format -w fixes it)
