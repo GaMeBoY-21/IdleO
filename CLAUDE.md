@@ -31,7 +31,8 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Web app: a real design system, accessible and mobile-friendly, with proper loading, error and empty states.
 
 ## Conventions
-- Money is integer paise (Java long, Rust i64, SQL bigint). Never floating point.
+- Money is integer paise (Java long, Rust i64, SQL bigint). Never floating point. In Java, money is the shared kernel's Paise type, whose arithmetic throws on overflow.
+- Money moves only through billing's Ledger.post: one balanced transaction of two or more entries, with the wallet cache updated in the same database transaction. txn_id is derived from what caused the posting, so a retry is a no-op. Ledger entries are never edited or deleted; a correction is a new reversing transaction. The database enforces balance, append-only and non-negative wallets, and a test fails if anything but Ledger writes billing.ledger_entries or billing.wallets (ADR 0014).
 - IDs are UUIDv7. Times are UTC (timestamptz). Never trust agent clocks for billing; every "now" comes from an injected clock.
 - Control plane: Java 25, Spring Boot 4, Spring Modulith, built with Maven through ./mvnw (ADR 0008). One Spring Modulith module per bounded context (identity, hosts, agentgateway, overlay, scheduling, sessions, metering, billing, payouts, trust, notifications). Modules talk only through public APIs or events and never read another module's tables.
 - Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL. Persistence is Spring Data JDBC with explicit SQL (JdbcClient where needed), no JPA (ADR 0009). Valkey 9 (Redis-compatible, via Spring Data Redis) only for state that is allowed to expire, and never in readiness. Only the agentgateway module writes host presence, always conditional on the connection that owns the record (ADR 0011); others ask whether a host is online through the hosts module's HostPresence port, which agentgateway implements, so the dependency never points back from hosts (ADR 0013).
@@ -81,6 +82,11 @@ End to end, run from the repository root (needs Docker, Java 25 and Rust; docs/r
 - scripts/e2e/agent-online.sh: the compatibility test. Starts the local stack (PostgreSQL, Valkey, the development sign-in server, the control plane), enrols the real agent with a fake GPU, checks the host goes online and then offline, and tears everything down. CI runs it on every control-plane, agent or proto change
 - scripts/e2e/agent-online.sh --keep-running: only the stack, with a ready curl and a fresh token, until Ctrl-C
 - Development-only behaviour is a setting, never a code path (for example agentgateway.allow-development-hosts, or trusting the local sign-in issuer). Every new development setting must be added to ProductionSettingsGuard, which refuses to start the prod profile with any of them (ADR 0013)
+
+Operator commands, the control plane in the ops profile (runs once, starts no web or gRPC server, exits with 0 done, 2 bad command line, 3 refused; docs/runbooks/granting-credits.md):
+- OPERATOR=<you> java -jar control-plane.jar --spring.profiles.active=prod,ops grant-credits --user <id> --paise <n> --reason "<why>" --key <key>
+- OPERATOR=<you> ... reverse-grant --grant <id> --reason "<why>"
+- Locally: COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<you> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="…", against the scripts/e2e/agent-online.sh --keep-running stack
 
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions
