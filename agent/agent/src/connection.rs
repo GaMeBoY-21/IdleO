@@ -234,8 +234,14 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
     let gpus = read_gpus(&options.gpus).await.map_err(RunError::Gpu)?;
     tracing::info!(gpus = gpus.len(), version = AGENT_VERSION, "agent starting");
 
+    let readings = Arc::new(Readings::default());
+    let utilisation: supervisor::Utilisation = {
+        let readings = Arc::clone(&readings);
+        Arc::new(move |gpus: &[String]| readings.take_mean_utilisation(gpus))
+    };
     let (sessions, reports) = supervisor::new(
         Arc::clone(&options.lease_clock),
+        utilisation,
         options.runner.clone(),
         gpus.iter().map(|gpu| gpu.uuid.clone()),
     )
@@ -246,7 +252,6 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
         options.timing.deadline_check_every,
     )));
 
-    let readings = Arc::new(Readings::default());
     let sampler = AbortOnDrop(tokio::spawn(sample(
         Arc::clone(&options.gpus),
         Arc::clone(&readings),

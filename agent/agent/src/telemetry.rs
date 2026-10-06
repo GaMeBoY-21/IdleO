@@ -107,6 +107,9 @@ struct Summary {
     max_power_w: Option<i32>,
     latest_temp_c: i32,
     last: Option<GpuReading>,
+    /// Utilisation since a session last took it, for its per-minute usage report.
+    usage_util_total: i64,
+    usage_samples: u32,
 }
 
 impl Readings {
@@ -124,6 +127,8 @@ impl Readings {
                     max_power_w: None,
                     latest_temp_c: reading.temp_c,
                     last: None,
+                    usage_util_total: 0,
+                    usage_samples: 0,
                 });
                 summaries.len() - 1
             });
@@ -131,10 +136,26 @@ impl Readings {
             summary.samples += 1;
             summary.max_temp_c = summary.max_temp_c.max(reading.temp_c);
             summary.util_total += i64::from(reading.util_pct);
+            summary.usage_util_total += i64::from(reading.util_pct);
+            summary.usage_samples += 1;
             summary.vram_used_mb = reading.vram_used_mb;
             summary.latest_temp_c = reading.temp_c;
             summary.max_power_w = summary.max_power_w.max(reading.power_w);
         }
+    }
+
+    /// The mean utilisation of `uuids` since the last call for them, in percent, and starts counting
+    /// again: a session's usage report for the minute just ended. 0 with no readings.
+    pub fn take_mean_utilisation(&self, uuids: &[String]) -> i32 {
+        let mut summaries = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let (mut total, mut samples) = (0i64, 0i64);
+        for summary in summaries.iter_mut().filter(|summary| uuids.contains(&summary.uuid)) {
+            total += summary.usage_util_total;
+            samples += i64::from(summary.usage_samples);
+            summary.usage_util_total = 0;
+            summary.usage_samples = 0;
+        }
+        if samples == 0 { 0 } else { i32::try_from(total / samples).unwrap_or(100) }
     }
 
     /// The hottest GPU's latest reading, if any GPU has been read.
@@ -173,6 +194,24 @@ impl Readings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utilisation_is_taken_per_gpu_and_starts_again() {
+        let readings = Readings::default();
+        let reading = |uuid: &str, util_pct| GpuReading {
+            uuid: uuid.to_owned(),
+            temp_c: 60,
+            util_pct,
+            vram_used_mb: 1,
+            power_w: None,
+        };
+        readings.record(&[reading("a", 90), reading("b", 10)]);
+        readings.record(&[reading("a", 70), reading("b", 10)]);
+        assert_eq!(readings.take_mean_utilisation(&["a".to_owned()]), 80);
+        assert_eq!(readings.take_mean_utilisation(&["a".to_owned()]), 0, "taken");
+        assert_eq!(readings.take_mean_utilisation(&["b".to_owned()]), 10, "b untouched by a's take");
+        assert_eq!(readings.summarise().len(), 2, "heartbeats unaffected");
+    }
 
     fn reading(uuid: &str, temp_c: i32, util_pct: i32, vram_used_mb: i32, power_w: Option<i32>) -> GpuReading {
         GpuReading { uuid: uuid.to_owned(), temp_c, util_pct, vram_used_mb, power_w }

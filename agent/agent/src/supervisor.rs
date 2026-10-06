@@ -12,6 +12,11 @@
 //! - **Statuses** go out on every state change and checkpoint, kept until acked and resent, and all
 //!   resent on a new stream. They're in memory for now; the persistent store comes with the Docker
 //!   runner.
+//! - **Usage** (ADR 0017): one `UsageReport` per whole minute of each attempt, counted on the lease
+//!   clock from its first RUNNING, with `minute_index` = `minute_index_base` plus the minute's count,
+//!   and the last, partial minute when the job ends, with its real seconds. Nothing after a lease
+//!   lapses: only the minutes that ended before the deadline are reported. Usage reports wait in the
+//!   same queue as statuses. The agent meters, never the runner.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -20,7 +25,7 @@ use std::time::Duration;
 use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::{
     Ack, LeaseRenew, OpenStreamRequest, RunningSession, SessionError, SessionState, SessionStatus, StartSession,
-    StopReason, StopSession,
+    StopReason, StopSession, UsageReport,
 };
 use tokio::sync::{Notify, mpsc};
 use tokio::task::{AbortHandle, JoinHandle};
@@ -81,6 +86,14 @@ struct Attempt {
     tasks: Vec<AbortHandle>,
     state: SessionState,
     latest_seq: i32,
+    /// `StartSession.minute_index_base`.
+    minute_index_base: i32,
+    /// The GPUs it runs on, whose utilisation goes in its usage reports.
+    gpus: Vec<String>,
+    /// The lease clock at its first RUNNING, from which its minutes count.
+    running_since: Option<Duration>,
+    /// Whole minutes already reported.
+    minutes_reported: i32,
 }
 
 impl Attempt {
@@ -98,9 +111,16 @@ struct Queued {
     sent_at: Option<Instant>,
 }
 
+/// Mean GPU utilisation of the given GPUs since the last call for them, in percent.
+pub type Utilisation = Arc<dyn Fn(&[String]) -> i32 + Send + Sync>;
+
+/// One minute on the lease clock.
+const MINUTE: Duration = Duration::from_secs(60);
+
 /// The sessions this agent runs.
 pub struct Supervisor {
     clock: Arc<dyn LeaseClock>,
+    utilisation: Utilisation,
     runner: Option<Arc<dyn SessionRunner>>,
     http: Option<reqwest::Client>,
     gpus: HashSet<String>,
@@ -117,6 +137,7 @@ pub struct Supervisor {
 /// If a runner is given but the storage client can't be built.
 pub fn new(
     clock: Arc<dyn LeaseClock>,
+    utilisation: Utilisation,
     runner: Option<Arc<dyn SessionRunner>>,
     gpus: impl IntoIterator<Item = String>,
 ) -> Result<(Shared, mpsc::UnboundedReceiver<Tagged>), String> {
@@ -128,6 +149,7 @@ pub fn new(
     let changed = Arc::new(Notify::new());
     let supervisor = Supervisor {
         clock,
+        utilisation,
         runner,
         http,
         gpus: gpus.into_iter().collect(),
@@ -213,6 +235,10 @@ impl Supervisor {
                         tasks: Vec::new(),
                         state: SessionState::Preparing,
                         latest_seq: 0,
+                        minute_index_base: 0,
+                        gpus: Vec::new(),
+                        running_since: None,
+                        minutes_reported: 0,
                     },
                 );
                 let code = if self.runner.is_none() { "no_runner" } else { "invalid_start_session" };
@@ -241,9 +267,8 @@ impl Supervisor {
         }
         positive(spec.checkpoint_interval).ok_or("the checkpoint interval is missing or zero")?;
         let max_runtime = positive(spec.max_runtime).ok_or("max_runtime is missing or zero")?;
-        if start.minute_index_base.is_none_or(|base| base < 0) {
-            return Err("minute_index_base is missing".to_owned());
-        }
+        let minute_index_base =
+            start.minute_index_base.filter(|base| *base >= 0).ok_or("minute_index_base is missing")?;
         if start.gpu_uuids.is_empty() || start.gpu_uuids.iter().any(|uuid| !self.gpus.contains(uuid)) {
             return Err("gpu_uuids must name this host's GPUs".to_owned());
         }
@@ -290,6 +315,10 @@ impl Supervisor {
                 tasks,
                 state: SessionState::Preparing,
                 latest_seq: 0,
+                minute_index_base,
+                gpus: start.gpu_uuids,
+                running_since: None,
+                minutes_reported: 0,
             },
         );
         Ok(())
@@ -366,28 +395,23 @@ impl Supervisor {
         }
     }
 
-    /// Stops every attempt whose lease or runtime cap has passed.
+    /// Stops every attempt whose lease or runtime cap has passed, and reports every whole minute
+    /// that has ended.
     pub fn check_deadlines(&mut self) {
         let now = self.clock.now();
-        let lapsed: Vec<(Uuid, bool)> = self
+        let live: Vec<(Uuid, Duration, Duration)> = self
             .attempts
             .iter()
             .filter(|(_, attempt)| attempt.is_live())
-            .filter_map(|(session_id, attempt)| {
-                if now >= attempt.deadline {
-                    Some((*session_id, true))
-                } else if now >= attempt.runtime_cap {
-                    Some((*session_id, false))
-                } else {
-                    None
-                }
-            })
+            .map(|(session_id, attempt)| (*session_id, attempt.deadline, attempt.runtime_cap))
             .collect();
-        for (session_id, lease) in lapsed {
-            if lease {
+        for (session_id, deadline, runtime_cap) in live {
+            if now >= deadline {
+                // Only the minutes that ended inside the lease; nothing after it, ever.
+                self.report_minutes(session_id, deadline);
                 tracing::warn!(%session_id, "the lease ran out before it was renewed; the work is stopped");
                 self.end(session_id, SessionState::LeaseExpired, Some(("lease_expired", "the lease ran out")), None);
-            } else {
+            } else if now >= runtime_cap {
                 tracing::warn!(%session_id, "the attempt reached its maximum runtime; the work is stopped");
                 self.end(
                     session_id,
@@ -395,8 +419,58 @@ impl Supervisor {
                     Some(("max_runtime_exceeded", "ran past max_runtime")),
                     None,
                 );
+            } else {
+                self.report_minutes(session_id, now);
             }
         }
+    }
+
+    /// Queues a usage report for every whole minute of the attempt that ended by `until`.
+    fn report_minutes(&mut self, session_id: Uuid, until: Duration) {
+        loop {
+            let Some(attempt) = self.attempts.get_mut(&session_id) else { return };
+            let Some(since) = attempt.running_since else { return };
+            let minute = u32::try_from(attempt.minutes_reported).unwrap_or(u32::MAX);
+            if since + MINUTE * (minute + 1) > until {
+                return;
+            }
+            attempt.minutes_reported += 1;
+            let index = attempt.minute_index_base + attempt.minutes_reported - 1;
+            self.queue_usage(session_id, index, 60);
+        }
+    }
+
+    /// The last, partial minute of an attempt that just ended, with the seconds it ran.
+    fn report_last_minute(&mut self, session_id: Uuid) {
+        let now = self.clock.now();
+        self.report_minutes(session_id, now);
+        let Some(attempt) = self.attempts.get(&session_id) else { return };
+        let Some(since) = attempt.running_since else { return };
+        let minute = u32::try_from(attempt.minutes_reported).unwrap_or(u32::MAX);
+        let ran = now.saturating_sub(since + MINUTE * minute);
+        if ran.is_zero() {
+            return;
+        }
+        let seconds = i32::try_from(ran.as_secs() + u64::from(ran.subsec_nanos() > 0)).unwrap_or(60).clamp(1, 60);
+        let index = attempt.minute_index_base + attempt.minutes_reported;
+        self.queue_usage(session_id, index, seconds);
+    }
+
+    fn queue_usage(&mut self, session_id: Uuid, minute_index: i32, gpu_seconds: i32) {
+        let Some(attempt) = self.attempts.get(&session_id) else { return };
+        let report = UsageReport {
+            session_id: session_id.to_string(),
+            attempt: attempt.number,
+            minute_index: Some(minute_index),
+            gpu_seconds,
+            avg_util_pct: (self.utilisation)(&attempt.gpus),
+        };
+        self.outbox.push(Queued {
+            request: OpenStreamRequest { message_id: new_message_id(), body: Some(AgentBody::UsageReport(report)) },
+            session_id,
+            sent_at: None,
+        });
+        self.changed.notify_one();
     }
 
     /// What a runner reported. Anything about an attempt that has ended, or been replaced, is dropped.
@@ -409,6 +483,9 @@ impl Supervisor {
         match tagged.reported {
             Reported::Report(Report::State(state)) => {
                 attempt.state = state;
+                if state == SessionState::Running && attempt.running_since.is_none() {
+                    attempt.running_since = Some(self.clock.now());
+                }
                 self.queue_status(tagged.session_id, None, None);
             }
             Reported::Report(Report::Checkpoint(seq)) => {
@@ -430,8 +507,12 @@ impl Supervisor {
         }
     }
 
-    /// Ends an attempt in `state`: fence down, its tasks aborted, and the status queued.
+    /// Ends an attempt in `state`: fence down, its tasks aborted, its last minute reported (unless its
+    /// lease lapsed, when the caller has reported what ended inside it), and the status queued.
     fn end(&mut self, session_id: Uuid, state: SessionState, error: Option<(&str, &str)>, exit_code: Option<i32>) {
+        if state != SessionState::LeaseExpired {
+            self.report_last_minute(session_id);
+        }
         let Some(attempt) = self.attempts.get_mut(&session_id) else { return };
         attempt.fence.take_down();
         for task in attempt.tasks.drain(..) {
@@ -539,6 +620,7 @@ mod tests {
         let runner = Arc::new(FakeRunner::default());
         let (shared, received) = new(
             Arc::clone(&clock) as Arc<dyn LeaseClock>,
+            Arc::new(|_: &[String]| 42),
             Some(Arc::clone(&runner) as Arc<dyn SessionRunner>),
             HashSet::from([GPU.to_owned()]),
         )
@@ -765,10 +847,114 @@ mod tests {
         assert_eq!(sent[0].error.as_ref().unwrap().code, "superseded");
     }
 
+    fn usage(shared: &Shared) -> Vec<UsageReport> {
+        shared
+            .lock()
+            .due(Instant::now(), Duration::from_secs(3600))
+            .into_iter()
+            .filter_map(|request| match request.body {
+                Some(AgentBody::UsageReport(report)) => Some(report),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Starts an attempt whose minutes begin at `base`, and reports it RUNNING at the clock's now.
+    async fn running(setup: &mut Setup, session: Uuid, base: i32) {
+        let mut message = start(session, 1, "c1");
+        message.minute_index_base = Some(base);
+        setup.shared.lock().start("m1", message, setup.clock.now());
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        reports.send(Report::State(SessionState::Running)).unwrap();
+        let tagged = setup.received.recv().await.unwrap();
+        setup.shared.lock().apply(tagged);
+    }
+
+    fn renew_now(setup: &Setup, session: Uuid) {
+        setup.shared.lock().renew(
+            &LeaseRenew { session_id: session.to_string(), attempt: 1, lease_ttl: Some(seconds(120)) },
+            setup.clock.now(),
+        );
+    }
+
+    #[tokio::test]
+    async fn each_whole_minute_is_reported_from_running_then_the_partial_last_one() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        setup.clock.advance(Duration::from_secs(7)); // PREPARING takes 7 s; minutes count from RUNNING
+        running(&mut setup, session, 4).await;
+
+        setup.clock.advance(Duration::from_secs(59));
+        setup.shared.lock().check_deadlines();
+        assert_eq!(usage(&setup.shared), Vec::new(), "not yet a minute");
+        setup.clock.advance(Duration::from_secs(1));
+        renew_now(&setup, session);
+        setup.clock.advance(Duration::from_secs(60));
+        setup.shared.lock().check_deadlines();
+        let whole = usage(&setup.shared);
+        assert_eq!(
+            whole.iter().map(|r| (r.minute_index, r.gpu_seconds)).collect::<Vec<_>>(),
+            vec![(Some(4), 60), (Some(5), 60)]
+        );
+        assert_eq!(whole[0].avg_util_pct, 42);
+        assert_eq!(whole[0].attempt, 1);
+
+        setup.clock.advance(Duration::from_millis(30_500));
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        reports.send(Report::Succeeded).unwrap();
+        let tagged = setup.received.recv().await.unwrap();
+        setup.shared.lock().apply(tagged);
+
+        let queued = setup.shared.lock().due(Instant::now(), Duration::from_secs(3600));
+        let Some(AgentBody::UsageReport(last)) = &queued[0].body else { panic!("usage before the final status") };
+        assert_eq!((last.minute_index, last.gpu_seconds), (Some(6), 31), "a started second counts");
+        assert!(
+            matches!(&queued[1].body, Some(AgentBody::SessionStatus(status)) if status.state() == SessionState::Succeeded)
+        );
+    }
+
+    #[tokio::test]
+    async fn after_the_lease_lapses_nothing_more_is_reported() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        running(&mut setup, session, 0).await;
+
+        // Asleep through the deadline at 120 s: the minutes ending at 60 s and 120 s ran inside the
+        // lease; nothing after it is reported, not even a partial minute.
+        setup.clock.advance(Duration::from_secs(400));
+        setup.shared.lock().check_deadlines();
+
+        let indexes: Vec<_> = usage(&setup.shared).iter().map(|r| r.minute_index).collect();
+        assert_eq!(indexes, vec![Some(0), Some(1)]);
+        setup.clock.advance(Duration::from_secs(120));
+        setup.shared.lock().check_deadlines();
+        assert_eq!(usage(&setup.shared), Vec::new());
+    }
+
+    #[tokio::test]
+    async fn unacked_usage_is_resent_on_a_new_stream_and_dropped_once_acked() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        running(&mut setup, session, 0).await;
+        setup.clock.advance(Duration::from_secs(61));
+        setup.shared.lock().check_deadlines();
+        let first = usage(&setup.shared);
+        assert_eq!(first.len(), 1);
+
+        setup.shared.lock().unsend_all();
+        let resent = setup.shared.lock().due(Instant::now(), Duration::from_secs(3600));
+        let usage_message =
+            resent.iter().find(|request| matches!(request.body, Some(AgentBody::UsageReport(_)))).unwrap().clone();
+        setup.shared.lock().acked(&usage_message.message_id);
+        setup.shared.lock().unsend_all();
+        assert_eq!(usage(&setup.shared), Vec::new());
+    }
+
     #[tokio::test]
     async fn without_a_runner_a_start_fails_rather_than_hanging() {
         let (shared, _received) =
-            new(Arc::new(FakeLeaseClock::default()), None, HashSet::from([GPU.to_owned()])).unwrap();
+            new(Arc::new(FakeLeaseClock::default()), Arc::new(|_: &[String]| 0), None, HashSet::from([GPU.to_owned()]))
+                .unwrap();
         let session = Uuid::now_v7();
 
         shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
