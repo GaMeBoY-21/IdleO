@@ -17,6 +17,7 @@ final class FakeMeteredSessions implements MeteredSessions {
     final Map<UUID, Session> sessions = new HashMap<>();
     final Map<UUID, List<Attempt>> attempts = new HashMap<>();
     final Map<UUID, List<Stretch>> leases = new HashMap<>();
+    final Map<String, Instant> checkpoints = new HashMap<>();
 
     void put(Session session, Attempt... attempts) {
         sessions.put(session.sessionId(), session);
@@ -35,6 +36,15 @@ final class FakeMeteredSessions implements MeteredSessions {
     @Override
     public List<Attempt> attempts(UUID sessionId) {
         return attempts.getOrDefault(sessionId, List.of());
+    }
+
+    void checkpoint(UUID sessionId, int attempt, Instant completedAt) {
+        checkpoints.put(sessionId + ":" + attempt, completedAt);
+    }
+
+    @Override
+    public Optional<Instant> lastCompleteCheckpointAt(UUID sessionId, int attempt) {
+        return Optional.ofNullable(checkpoints.get(sessionId + ":" + attempt));
     }
 
     @Override

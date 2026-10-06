@@ -1,6 +1,5 @@
 package com.idleo.controlplane.sessions.internal;
 
-import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.agentgateway.SessionStatuses;
 import com.idleo.controlplane.sessions.SessionStarted;
 import gpu.agent.v1.Session.SessionStatus;
@@ -50,7 +49,7 @@ class SessionProgress implements SessionStatuses {
     private final SessionHolds holds;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
-    private final IdGenerator ids;
+    private final Checkpoints checkpoints;
     private final Duration outputsWait;
 
     SessionProgress(
@@ -62,7 +61,7 @@ class SessionProgress implements SessionStatuses {
             SessionHolds holds,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
-            IdGenerator ids,
+            Checkpoints checkpoints,
             @Value("${sessions.outputs-wait}") Duration outputsWait) {
         this.store = store;
         this.stops = stops;
@@ -72,7 +71,7 @@ class SessionProgress implements SessionStatuses {
         this.holds = holds;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
-        this.ids = ids;
+        this.checkpoints = checkpoints;
         this.outputsWait = outputsWait;
     }
 
@@ -100,7 +99,7 @@ class SessionProgress implements SessionStatuses {
             return;
         }
         if (status.getLatestCheckpointSeq() > 0) {
-            recordCheckpoint(sessionId, session.attempt(), status.getLatestCheckpointSeq());
+            checkpoints.record(sessionId, session.attempt(), status.getLatestCheckpointSeq());
         }
         if (session.state() == SessionState.FINISHING) {
             whileFinishing(session, status);
@@ -233,44 +232,6 @@ class SessionProgress implements SessionStatuses {
                     .update();
         }
         holds.releaseUnlessMetered(sessionId);
-    }
-
-    /** Records the checkpoint if its completion marker is in storage and it's newer than any recorded. */
-    private void recordCheckpoint(UUID sessionId, int attempt, int seq) {
-        var known = jdbc.sql("""
-                        select exists (select 1 from sessions.checkpoints
-                                       where session_id = :id and attempt = :attempt and step >= :seq)
-                        """)
-                .param("id", sessionId)
-                .param("attempt", attempt)
-                .param("seq", seq)
-                .query(Boolean.class)
-                .single();
-        if (known) {
-            return;
-        }
-        var folder = StorageLayout.checkpointFolder(sessionId, attempt, seq);
-        if (!storage.exists(folder + StorageLayout.COMPLETE)) {
-            log.warn(
-                    "Session {} attempt {} reported checkpoint {}, but its completion marker isn't in storage; not "
-                            + "recorded",
-                    sessionId,
-                    attempt,
-                    seq);
-            return;
-        }
-        jdbc.sql("""
-                        insert into sessions.checkpoints (id, session_id, attempt, object_key, step, created_at)
-                        values (:id, :sessionId, :attempt, :key, :step, :now)
-                        on conflict (session_id, attempt, step) do nothing
-                        """)
-                .param("id", ids.newId())
-                .param("sessionId", sessionId)
-                .param("attempt", attempt)
-                .param("key", folder)
-                .param("step", seq)
-                .param("now", Timestamp.from(store.now()))
-                .update();
     }
 
     /**

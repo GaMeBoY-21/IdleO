@@ -20,12 +20,24 @@ class MeteredSessionService implements MeteredSessions {
     private final LeaseBook leases;
     private final LeaseProperties leaseProperties;
     private final JdbcClient jdbc;
+    private final Checkpoints checkpoints;
 
-    MeteredSessionService(SessionStore store, LeaseBook leases, LeaseProperties leaseProperties, JdbcClient jdbc) {
+    MeteredSessionService(
+            SessionStore store,
+            LeaseBook leases,
+            LeaseProperties leaseProperties,
+            JdbcClient jdbc,
+            Checkpoints checkpoints) {
         this.store = store;
         this.leases = leases;
         this.leaseProperties = leaseProperties;
         this.jdbc = jdbc;
+        this.checkpoints = checkpoints;
+    }
+
+    @Override
+    public Optional<Instant> lastCompleteCheckpointAt(UUID sessionId, int attempt) {
+        return checkpoints.newest(sessionId, attempt).map(Checkpoints.Complete::completedAt);
     }
 
     @Override
@@ -50,9 +62,7 @@ class MeteredSessionService implements MeteredSessions {
     public List<Attempt> attempts(UUID sessionId) {
         return jdbc.sql("""
                         select a.attempt, a.host_id, a.price_paise_per_min, a.minute_index_base, a.start_delivered_at,
-                               a.running_at, a.ended_at,
-                               (select max(c.created_at) from sessions.checkpoints c
-                                where c.session_id = a.session_id and c.attempt = a.attempt) as last_checkpoint_at
+                               a.running_at, a.ended_at
                         from sessions.attempts a
                         where a.session_id = :sessionId
                         order by a.attempt
@@ -75,8 +85,7 @@ class MeteredSessionService implements MeteredSessions {
                 rs.getInt("minute_index_base"),
                 instant(rs.getTimestamp("start_delivered_at")),
                 instant(rs.getTimestamp("running_at")),
-                instant(rs.getTimestamp("ended_at")),
-                instant(rs.getTimestamp("last_checkpoint_at")));
+                instant(rs.getTimestamp("ended_at")));
     }
 
     private static @Nullable Instant instant(@Nullable Timestamp timestamp) {

@@ -50,6 +50,9 @@ class HostLossTests {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    StorageProperties storage;
+
     @LocalGrpcServerPort
     int grpcPort;
 
@@ -207,6 +210,48 @@ class HostLossTests {
                         Integer.class,
                         booked.sessionId()))
                 .isEqualTo(1);
+    }
+
+    @Test
+    void aLostAttemptsMinutesAfterItsNewestCompleteCheckpointAreWaivedFromStoragesTime() throws Exception {
+        var booked = bookings.bookAndAccept();
+        var first = run(booked);
+        writeCheckpoint(first, 1, true);
+        report(
+                booked.host().stream(),
+                booked.sessionId(),
+                SessionStatus.newBuilder()
+                        .setAttempt(1)
+                        .setState(SessionState.SESSION_STATE_RUNNING)
+                        .setLatestCheckpointSeq(1));
+        // Finished just before the host died, never reported: it still counts.
+        writeCheckpoint(first, 2, true);
+        Instant completedAt;
+        try (var s3 = TestS3.root(storage)) {
+            completedAt = s3.headObject(request -> request.bucket(storage.bucket())
+                            .key("sessions/%s/attempt-1/checkpoints/00000002/_COMPLETE".formatted(booked.sessionId())))
+                    .lastModified();
+        }
+
+        booked.host().disconnect();
+        leaseEndsAt(booked.sessionId(), Instant.now().minusSeconds(5));
+
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        java.util.Map<String, Object> waiver = null;
+        while (waiver == null && System.nanoTime() < deadline) {
+            var rows = jdbc.queryForList(
+                    "select checkpoint_at, waived_from, host_id from metering.waivers where session_id = ? and attempt = 1",
+                    booked.sessionId());
+            waiver = rows.isEmpty() ? null : rows.getFirst();
+            Thread.sleep(50);
+        }
+        assertThat(waiver).as("the lost attempt is waived").isNotNull();
+        var checkpointAt = ((Timestamp) waiver.get("checkpoint_at")).toInstant();
+        assertThat(checkpointAt.truncatedTo(java.time.temporal.ChronoUnit.SECONDS))
+                .as("when storage finished the newest marker, on storage's clock")
+                .isEqualTo(completedAt.truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+        assertThat(((Timestamp) waiver.get("waived_from")).toInstant()).isEqualTo(checkpointAt);
+        assertThat(waiver.get("host_id")).isEqualTo(booked.host().id());
     }
 
     @Test

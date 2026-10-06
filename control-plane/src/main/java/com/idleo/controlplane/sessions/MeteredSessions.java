@@ -32,7 +32,6 @@ public interface MeteredSessions {
      *
      * @param runningAt its first RUNNING, received by the control plane; null if it never ran
      * @param endedAt when it stopped running, as the control plane learned it; null while it runs
-     * @param lastCheckpointAt when its newest complete checkpoint was written; null if it has none
      */
     record Attempt(
             int attempt,
@@ -41,13 +40,18 @@ public interface MeteredSessions {
             int minuteIndexBase,
             @Nullable Instant startDeliveredAt,
             @Nullable Instant runningAt,
-            @Nullable Instant endedAt,
-            @Nullable Instant lastCheckpointAt) {}
+            @Nullable Instant endedAt) {}
 
     Optional<Session> session(UUID sessionId);
 
     /** The session's attempts, first first. */
     List<Attempt> attempts(UUID sessionId);
+
+    /**
+     * When the attempt's newest complete checkpoint was written, on storage's clock: storage is listed, so one
+     * finished just before its host died counts though the agent never reported it. Empty if it has none.
+     */
+    Optional<Instant> lastCompleteCheckpointAt(UUID sessionId, int attempt);
 
     /** Whether one unbroken stretch of the attempt's lease, as the control plane recorded it, covers [from, until]. */
     boolean leaseCovered(UUID sessionId, int attempt, Instant from, Instant until);

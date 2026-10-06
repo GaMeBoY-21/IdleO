@@ -21,7 +21,14 @@ public interface SessionCharges {
      */
     record Charge(UUID sessionId, UUID renterId, UUID txnId, List<Part> parts, Paise holdTarget) {}
 
-    record Charged(Paise amount, Paise hostShare, Paise commission) {}
+    /** An amount split into the host's share and the platform's commission. */
+    record Split(Paise amount, Paise hostShare, Paise commission) {}
+
+    /** One host's part of a settlement: what it was charged for, and its share of that. */
+    record HostShare(UUID hostId, Paise amount, Paise share) {}
+
+    /** What a settlement charged, in all and for each host. */
+    record Charged(Paise amount, Paise hostShare, Paise commission, List<HostShare> hosts) {}
 
     /** Settles a charge; its parts must add up to more than zero. */
     Charged settle(Charge charge);
@@ -39,8 +46,8 @@ public interface SessionCharges {
     int commissionPercent();
 
     /** Splits {@code amount} into the host's share, rounded down, and the commission, which keeps the rest. */
-    static Charged split(Paise amount, int commissionPercent) {
+    static Split split(Paise amount, int commissionPercent) {
         var hostShare = Paise.of(Math.multiplyExact(amount.value(), 100 - commissionPercent) / 100);
-        return new Charged(amount, hostShare, amount.minus(hostShare));
+        return new Split(amount, hostShare, amount.minus(hostShare));
     }
 }

@@ -132,6 +132,17 @@ class Settlements {
                 .param("commission", charged.commission().value())
                 .param("now", Timestamp.from(now))
                 .update();
+        for (var host : charged.hosts()) {
+            jdbc.sql("""
+                            insert into metering.settlement_parts (txn_id, host_id, amount_paise, host_share_paise)
+                            values (:txnId, :hostId, :amount, :share)
+                            """)
+                    .param("txnId", txnId)
+                    .param("hostId", host.hostId())
+                    .param("amount", host.amount().value())
+                    .param("share", host.share().value())
+                    .update();
+        }
         jdbc.sql("update metering.metered_sessions set settlements = :number where session_id = :sessionId")
                 .param("number", number)
                 .param("sessionId", session.sessionId())
@@ -169,23 +180,30 @@ class Settlements {
         return target.isNegative() ? Paise.ZERO : target;
     }
 
-    /** What the session has been charged so far. */
+    /** What the session has been charged so far, less what lost minutes gave back. */
     Paise chargedNet(UUID sessionId) {
         return Paise.of(
                 jdbc.sql("""
-                        select coalesce(sum(amount_paise), 0) from metering.settlements where session_id = :sessionId
+                        select (select coalesce(sum(amount_paise), 0) from metering.settlements
+                                where session_id = :sessionId)
+                             - (select coalesce(sum(refunded_paise), 0) from metering.waivers
+                                where session_id = :sessionId)
                         """).param("sessionId", sessionId).query(Long.class).single());
     }
 
-    /** Billable, unbilled, unwaived minutes before {@code windowEnd}, oldest first. */
+    /**
+     * Billable, unbilled, unwaived minutes before {@code windowEnd}, oldest first; a lost attempt's minutes after its
+     * checkpoint count as waived even before they're marked.
+     */
     private List<Minute> billable(UUID sessionId, @Nullable Instant windowEnd) {
         return jdbc.sql("""
-                        select minute_index, minute_at, agent_attempt from metering.usage_minutes
-                        where session_id = :sessionId and agent_reported and lease_alive
-                          and agent_attempt = lease_attempt and not billed and not waived
-                          and (cast(:windowEnd as timestamptz) is null or minute_at < cast(:windowEnd as timestamptz))
-                        order by minute_index
-                        """)
+                        select u.minute_index, u.minute_at, u.agent_attempt from metering.usage_minutes u
+                        where u.session_id = :sessionId and u.agent_reported and u.lease_alive
+                          and u.agent_attempt = u.lease_attempt and not u.billed and not u.waived
+                          and (cast(:windowEnd as timestamptz) is null or u.minute_at < cast(:windowEnd as timestamptz))
+                          and not exists (select 1 from metering.waivers w where w.session_id = u.session_id and %s)
+                        order by u.minute_index
+                        """.formatted(Waivers.WAIVED))
                 .param("sessionId", sessionId)
                 .param("windowEnd", windowEnd == null ? null : Timestamp.from(windowEnd))
                 .query((rs, n) -> new Minute(

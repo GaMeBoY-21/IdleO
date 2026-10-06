@@ -1,6 +1,7 @@
 package com.idleo.controlplane.metering.internal;
 
 import com.idleo.controlplane.billing.CreditReservations;
+import com.idleo.controlplane.sessions.AttemptLost;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import com.idleo.controlplane.sessions.SessionEnded;
 import com.idleo.controlplane.sessions.SessionStarted;
@@ -37,6 +38,7 @@ class MeteringJobs {
     private final Witnesses witnesses;
     private final Settlements settlements;
     private final CreditGuard credit;
+    private final Waivers waivers;
     private final CreditReservations reservations;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -49,6 +51,7 @@ class MeteringJobs {
             Witnesses witnesses,
             Settlements settlements,
             CreditGuard credit,
+            Waivers waivers,
             CreditReservations reservations,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
@@ -59,6 +62,7 @@ class MeteringJobs {
         this.witnesses = witnesses;
         this.settlements = settlements;
         this.credit = credit;
+        this.waivers = waivers;
         this.reservations = reservations;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
@@ -85,6 +89,20 @@ class MeteringJobs {
                     .param("now", Timestamp.from(now()))
                     .param("sessionId", event.sessionId())
                     .update();
+        });
+    }
+
+    /**
+     * An attempt lost its host: its minutes after its newest complete checkpoint are given back. Storage is asked
+     * for that checkpoint first, outside the transaction; if storage can't answer, the event is retried.
+     */
+    @Async
+    @TransactionalEventListener
+    void on(AttemptLost event) {
+        var checkpointAt = sessions.lastCompleteCheckpointAt(event.sessionId(), event.attempt());
+        transactions.executeWithoutResult(tx -> {
+            track(event.sessionId());
+            waivers.waive(event.sessionId(), event.attempt(), checkpointAt.orElse(null), now());
         });
     }
 
@@ -142,6 +160,7 @@ class MeteringJobs {
         }
         var now = now();
         witnesses.decide(sessionId, row.startedAt(), now);
+        waivers.waiveLateMinutes(sessionId);
         var nextWindowAt = row.nextWindowAt();
         while (!nextWindowAt.isAfter(now)) {
             settlements.settle(metered(sessionId), nextWindowAt, now);

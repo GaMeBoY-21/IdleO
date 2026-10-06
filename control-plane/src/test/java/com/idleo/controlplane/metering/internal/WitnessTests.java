@@ -60,7 +60,7 @@ class WitnessTests {
         var id = UUID.randomUUID();
         sessions.put(
                 new MeteredSessions.Session(id, UUID.randomUUID(), 10_000, startedAt, 1, HOST, endedAt == null),
-                new MeteredSessions.Attempt(1, HOST, 2, 0, runningAt.minusSeconds(3), runningAt, endedAt, null));
+                new MeteredSessions.Attempt(1, HOST, 2, 0, runningAt.minusSeconds(3), runningAt, endedAt));
         jdbcTemplate.update(
                 "insert into metering.metered_sessions"
                         + " (session_id, renter_id, started_at, max_spend_paise, next_window_at, created_at)"
@@ -209,7 +209,7 @@ class WitnessTests {
         var id = UUID.randomUUID();
         sessions.put(
                 new MeteredSessions.Session(id, UUID.randomUUID(), 10_000, startedAt, 2, HOST, true),
-                new MeteredSessions.Attempt(2, HOST, 2, 5, runningAt.minusSeconds(3), runningAt, null, null));
+                new MeteredSessions.Attempt(2, HOST, 2, 5, runningAt.minusSeconds(3), runningAt, null));
 
         report(id, 2, 4, 60);
 

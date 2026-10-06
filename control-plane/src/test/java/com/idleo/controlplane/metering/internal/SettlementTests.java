@@ -84,7 +84,7 @@ class SettlementTests {
         }
         sessions.put(
                 new MeteredSessions.Session(sessionId, renterId, maxSpend, startedAt, 1, hostId, true),
-                new MeteredSessions.Attempt(1, hostId, price, 0, startedAt, startedAt, null, null));
+                new MeteredSessions.Attempt(1, hostId, price, 0, startedAt, startedAt, null));
         jdbcTemplate.update(
                 "insert into metering.metered_sessions"
                         + " (session_id, renter_id, started_at, max_spend_paise, next_window_at, created_at)"
@@ -145,6 +145,7 @@ class SettlementTests {
                         settlements,
                         new Costs(sessions, settlements, jdbc),
                         jdbc),
+                new Waivers(sessions, charges, jdbc),
                 reservations,
                 jdbc,
                 transactionManager,
@@ -278,19 +279,19 @@ class SettlementTests {
     @Test
     void theHostsShareIsRoundedDownAndThePlatformKeepsTheRest() {
         assertThat(SessionCharges.split(Paise.of(7), 20))
-                .isEqualTo(new SessionCharges.Charged(Paise.of(7), Paise.of(5), Paise.of(2)));
+                .isEqualTo(new SessionCharges.Split(Paise.of(7), Paise.of(5), Paise.of(2)));
         assertThat(SessionCharges.split(Paise.of(1200), 20))
-                .isEqualTo(new SessionCharges.Charged(Paise.of(1200), Paise.of(960), Paise.of(240)));
+                .isEqualTo(new SessionCharges.Split(Paise.of(1200), Paise.of(960), Paise.of(240)));
         assertThat(SessionCharges.split(Paise.of(6), 20))
-                .isEqualTo(new SessionCharges.Charged(Paise.of(6), Paise.of(4), Paise.of(2)));
+                .isEqualTo(new SessionCharges.Split(Paise.of(6), Paise.of(4), Paise.of(2)));
         assertThat(SessionCharges.split(Paise.of(1), 20))
-                .isEqualTo(new SessionCharges.Charged(Paise.of(1), Paise.ZERO, Paise.of(1)));
+                .isEqualTo(new SessionCharges.Split(Paise.of(1), Paise.ZERO, Paise.of(1)));
         assertThat(SessionCharges.split(Paise.of(7), 15))
-                .isEqualTo(new SessionCharges.Charged(Paise.of(7), Paise.of(5), Paise.of(2)));
+                .isEqualTo(new SessionCharges.Split(Paise.of(7), Paise.of(5), Paise.of(2)));
         assertThat(SessionCharges.split(Paise.of(99), 25))
-                .isEqualTo(new SessionCharges.Charged(Paise.of(99), Paise.of(74), Paise.of(25)));
+                .isEqualTo(new SessionCharges.Split(Paise.of(99), Paise.of(74), Paise.of(25)));
         assertThat(SessionCharges.split(Paise.of(10), 0))
-                .isEqualTo(new SessionCharges.Charged(Paise.of(10), Paise.of(10), Paise.ZERO));
+                .isEqualTo(new SessionCharges.Split(Paise.of(10), Paise.of(10), Paise.ZERO));
     }
 
     @Test

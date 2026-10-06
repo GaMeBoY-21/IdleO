@@ -44,6 +44,7 @@ class SessionStarts implements SessionCredentials {
     private final IdGenerator ids;
     private final SessionStore store;
     private final LeaseBook leaseBook;
+    private final Checkpoints checkpoints;
 
     SessionStarts(
             JdbcClient jdbc,
@@ -54,7 +55,8 @@ class SessionStarts implements SessionCredentials {
             LeaseProperties leases,
             IdGenerator ids,
             SessionStore store,
-            LeaseBook leaseBook) {
+            LeaseBook leaseBook,
+            Checkpoints checkpoints) {
         this.jdbc = jdbc;
         this.commands = commands;
         this.catalog = catalog;
@@ -64,6 +66,7 @@ class SessionStarts implements SessionCredentials {
         this.ids = ids;
         this.store = store;
         this.leaseBook = leaseBook;
+        this.checkpoints = checkpoints;
     }
 
     /** Records the session's current attempt on its host and queues the attempt's StartSession. */
@@ -137,30 +140,9 @@ class SessionStarts implements SessionCredentials {
      */
     private StorageGrants.@Nullable ResumeFrom newestCompleteCheckpoint(UUID sessionId, int attempt) {
         for (int earlier = attempt - 1; earlier >= 1; earlier--) {
-            var prefix = StorageLayout.checkpointsPrefix(sessionId, earlier);
-            int newest = storage.list(prefix).stream()
-                    .map(SessionStorage.StoredObject::key)
-                    .filter(key -> key.endsWith("/" + StorageLayout.COMPLETE))
-                    .map(key -> key.substring(prefix.length(), key.length() - StorageLayout.COMPLETE.length() - 1))
-                    .filter(seq -> seq.matches("\\d{8}"))
-                    .mapToInt(Integer::parseInt)
-                    .filter(seq -> seq >= 1)
-                    .max()
-                    .orElse(0);
-            if (newest > 0) {
-                jdbc.sql("""
-                                insert into sessions.checkpoints (id, session_id, attempt, object_key, step, created_at)
-                                values (:id, :sessionId, :attempt, :key, :step, :now)
-                                on conflict (session_id, attempt, step) do nothing
-                                """)
-                        .param("id", ids.newId())
-                        .param("sessionId", sessionId)
-                        .param("attempt", earlier)
-                        .param("key", StorageLayout.checkpointFolder(sessionId, earlier, newest))
-                        .param("step", newest)
-                        .param("now", Timestamp.from(store.now()))
-                        .update();
-                return new StorageGrants.ResumeFrom(earlier, newest);
+            var newest = checkpoints.newest(sessionId, earlier);
+            if (newest.isPresent()) {
+                return new StorageGrants.ResumeFrom(earlier, newest.get().seq());
             }
         }
         return null;

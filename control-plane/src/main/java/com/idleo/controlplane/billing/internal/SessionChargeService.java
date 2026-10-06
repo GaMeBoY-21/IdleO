@@ -54,10 +54,12 @@ class SessionChargeService implements SessionCharges {
         var amount = Paise.ZERO;
         var hostShare = Paise.ZERO;
         var entries = new ArrayList<LedgerEntry>();
+        var hosts = new ArrayList<HostShare>();
         for (var part : byHost.entrySet()) {
             var split = SessionCharges.split(part.getValue(), commissionPercent);
             amount = amount.plus(part.getValue());
             hostShare = hostShare.plus(split.hostShare());
+            hosts.add(new HostShare(part.getKey(), part.getValue(), split.hostShare()));
             if (split.hostShare().isPositive()) {
                 entries.add(LedgerEntry.credit(Account.HOST_PAYABLE, part.getKey(), split.hostShare()));
             }
@@ -75,7 +77,7 @@ class SessionChargeService implements SessionCharges {
             ledger.post(new LedgerTransaction(charge.txnId(), CHARGE_REF, charge.sessionId(), entries));
             reservations.topUp(charge.sessionId(), charge.holdTarget());
         }
-        return new Charged(amount, hostShare, commission);
+        return new Charged(amount, hostShare, commission, List.copyOf(hosts));
     }
 
     @Override

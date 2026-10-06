@@ -2,8 +2,10 @@ package com.idleo.controlplane.sessions.internal;
 
 import java.net.URL;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -30,17 +32,24 @@ class SessionStorage {
         this.properties = properties;
     }
 
-    record StoredObject(String key, long size) {}
+    /** @param lastModified when storage finished writing it, on storage's clock, never an agent's */
+    record StoredObject(String key, long size, Instant lastModified) {}
 
     boolean exists(String key) {
+        return lastModified(key).isPresent();
+    }
+
+    /** When storage finished writing {@code key}, on storage's clock; empty if it isn't there. */
+    Optional<Instant> lastModified(String key) {
         try {
-            s3.headObject(request -> request.bucket(properties.bucket()).key(key));
-            return true;
+            return Optional.of(
+                    s3.headObject(request -> request.bucket(properties.bucket()).key(key))
+                            .lastModified());
         } catch (NoSuchKeyException missing) {
-            return false;
+            return Optional.empty();
         } catch (S3Exception e) {
             if (e.statusCode() == 404) {
-                return false;
+                return Optional.empty();
             }
             throw e;
         }
@@ -58,7 +67,9 @@ class SessionStorage {
         var objects = new ArrayList<StoredObject>();
         for (var page : s3.listObjectsV2Paginator(
                 request -> request.bucket(properties.bucket()).prefix(prefix))) {
-            page.contents().forEach(object -> objects.add(new StoredObject(object.key(), object.size())));
+            page.contents()
+                    .forEach(object ->
+                            objects.add(new StoredObject(object.key(), object.size(), object.lastModified())));
         }
         return objects;
     }
