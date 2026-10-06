@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.hosts.HostAgentReports;
+import com.idleo.controlplane.hosts.HostListings;
 import java.time.Clock;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -14,6 +15,7 @@ import tools.jackson.databind.json.JsonMapper;
 class AgentStreamServices implements DisposableBean {
 
     private final HostAgentReports reports;
+    private final HostListings listings;
     private final Presence presence;
     private final ConnectedAgents connected;
     private final AgentGatewayMetrics metrics;
@@ -31,6 +33,7 @@ class AgentStreamServices implements DisposableBean {
 
     AgentStreamServices(
             HostAgentReports reports,
+            HostListings listings,
             Presence presence,
             ConnectedAgents connected,
             AgentGatewayMetrics metrics,
@@ -40,6 +43,7 @@ class AgentStreamServices implements DisposableBean {
             JsonMapper json,
             Clock clock) {
         this.reports = reports;
+        this.listings = listings;
         this.presence = presence;
         this.connected = connected;
         this.metrics = metrics;
@@ -54,6 +58,10 @@ class AgentStreamServices implements DisposableBean {
 
     HostAgentReports reports() {
         return reports;
+    }
+
+    HostListings listings() {
+        return listings;
     }
 
     Presence presence() {

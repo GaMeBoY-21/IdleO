@@ -1,6 +1,7 @@
 package com.idleo.controlplane.agentgateway.internal;
 
 import com.google.protobuf.Duration;
+import com.idleo.controlplane.hosts.HostListings;
 import gpu.agent.v1.AgentGateway.AgentPolicy;
 import gpu.agent.v1.AgentGateway.OpenStreamRequest;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
@@ -118,6 +119,11 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
     private void welcome(AgentMessages.ValidHello hello) {
         services.reports().recordHello(hostId, hello.hello());
         var properties = services.properties();
+        // The owner's listing sets the temperature cap (ADR 0015); config is the default until they list.
+        int tempCap = services.listings()
+                .listing(hostId)
+                .map(HostListings.Listing::gpuTempCapC)
+                .orElse(properties.gpuTempCapC());
         synchronized (this) {
             if (state != State.AWAITING_HELLO) {
                 return;
@@ -147,7 +153,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                                 .setHeartbeatInterval(Duration.newBuilder()
                                         .setSeconds(
                                                 properties.heartbeatInterval().toSeconds()))
-                                .setGpuTempCapC(properties.gpuTempCapC())
+                                .setGpuTempCapC(tempCap)
                                 .setMaxConcurrentSessions(properties.maxConcurrentSessions()))
                         .setMinimumAgentVersion(properties.minimumAgentVersion()))
                 .build());

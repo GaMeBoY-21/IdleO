@@ -36,13 +36,13 @@ import tools.jackson.databind.json.JsonMapper;
  * A pretend agent for tests: it enrols for real (sign in, register a host, get a code, Enroll) and
  * then talks to AgentGatewayService over mutual TLS with the certificate it was given.
  */
-final class TestAgent {
+public final class TestAgent {
 
-    static final String GPU_A = "GPU-11111111-2222-3333-4444-555555555555";
-    static final String GPU_B = "GPU-66666666-7777-8888-9999-000000000000";
+    public static final String GPU_A = "GPU-11111111-2222-3333-4444-555555555555";
+    public static final String GPU_B = "GPU-66666666-7777-8888-9999-000000000000";
 
-    final UUID hostId;
-    final String bearer;
+    public final UUID hostId;
+    public final String bearer;
     final KeyPair keys;
     final X509Certificate[] chain;
 
@@ -53,7 +53,7 @@ final class TestAgent {
         this.chain = chain;
     }
 
-    static TestAgent enrol(MockMvc mvc, int grpcPort) throws Exception {
+    public static TestAgent enrol(MockMvc mvc, int grpcPort) throws Exception {
         var json = JsonMapper.builder().build();
         var bearer = "Bearer " + TestIssuers.get().validToken();
         var host = mvc.perform(post("/v1/hosts")
@@ -92,7 +92,7 @@ final class TestAgent {
     }
 
     /** A channel presenting this agent's own certificate. */
-    ManagedChannel channel(int grpcPort) {
+    public ManagedChannel channel(int grpcPort) {
         return channel(grpcPort, keys.getPrivate(), chain);
     }
 
@@ -168,17 +168,17 @@ final class TestAgent {
     }
 
     /** Opens OpenStream on the channel; the returned stream collects everything the server sends. */
-    static Stream open(ManagedChannel channel) {
+    public static Stream open(ManagedChannel channel) {
         var stream = new Stream();
         stream.requests = AgentGatewayServiceGrpc.newStub(channel).openStream(stream);
         return stream;
     }
 
-    static OpenStreamRequest hello(String agentVersion, String... gpuUuids) {
+    public static OpenStreamRequest hello(String agentVersion, String... gpuUuids) {
         return hello(OperatingSystem.OPERATING_SYSTEM_WINDOWS, agentVersion, gpuUuids);
     }
 
-    static OpenStreamRequest hello(OperatingSystem os, String agentVersion, String... gpuUuids) {
+    public static OpenStreamRequest hello(OperatingSystem os, String agentVersion, String... gpuUuids) {
         var hello = Hello.newBuilder()
                 .setAgentVersion(agentVersion)
                 .setOs(os)
@@ -195,7 +195,7 @@ final class TestAgent {
         return request().setHello(hello).build();
     }
 
-    static OpenStreamRequest heartbeat(String gpuUuid, int tempC, int utilPct) {
+    public static OpenStreamRequest heartbeat(String gpuUuid, int tempC, int utilPct) {
         return request()
                 .setHeartbeat(Heartbeat.newBuilder()
                         .addGpus(GpuTelemetry.newBuilder()
@@ -209,22 +209,22 @@ final class TestAgent {
                 .build();
     }
 
-    static OpenStreamRequest.Builder request() {
+    public static OpenStreamRequest.Builder request() {
         return OpenStreamRequest.newBuilder().setMessageId(UUID.randomUUID().toString());
     }
 
     /** One open stream, as the agent sees it. */
-    static final class Stream implements StreamObserver<OpenStreamResponse> {
+    public static final class Stream implements StreamObserver<OpenStreamResponse> {
 
         private final BlockingQueue<Object> received = new LinkedBlockingQueue<>();
         StreamObserver<OpenStreamRequest> requests;
 
-        void send(OpenStreamRequest request) {
+        public void send(OpenStreamRequest request) {
             requests.onNext(request);
         }
 
         /** The next message, or fails if the stream ended or nothing came in time. */
-        OpenStreamResponse next(Duration timeout) throws InterruptedException {
+        public OpenStreamResponse next(Duration timeout) throws InterruptedException {
             var item = received.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (item instanceof OpenStreamResponse response) {
                 return response;
@@ -234,7 +234,7 @@ final class TestAgent {
 
         /** How the server ended the stream, or null if it is still open after {@code timeout}. */
         @Nullable
-        Status endStatus(Duration timeout) throws InterruptedException {
+        public Status endStatus(Duration timeout) throws InterruptedException {
             var deadline = System.nanoTime() + timeout.toNanos();
             while (System.nanoTime() < deadline) {
                 var item = received.poll(10, TimeUnit.MILLISECONDS);
@@ -245,7 +245,7 @@ final class TestAgent {
             return null;
         }
 
-        void close() {
+        public void close() {
             requests.onCompleted();
         }
 
