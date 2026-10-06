@@ -69,7 +69,9 @@ class WalletReconciliationTests {
         try {
             var result = reconciliation.run();
 
-            assertThat(result.mismatches()).containsExactly(new WalletReconciliation.Mismatch(user, 25_001, 25_000));
+            assertThat(result.mismatches())
+                    .containsExactly(
+                            new WalletReconciliation.Mismatch(WalletReconciliation.Kind.BALANCE, user, 25_001, 25_000));
             assertThat(result.ledgerBalanced()).isTrue();
             assertThat(mismatchCount()).isEqualTo(before + 1);
         } finally {

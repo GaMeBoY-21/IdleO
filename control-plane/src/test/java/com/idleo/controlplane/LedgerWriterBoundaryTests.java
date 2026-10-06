@@ -11,8 +11,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Only {@code Ledger} may write the ledger or the wallet cache (ADR 0014). Scans every main source file
- * for SQL that inserts into, updates, deletes from or truncates either table.
+ * Only {@code Ledger} may write the ledger or the wallet cache (ADR 0014), and only {@code
+ * CreditReservationService} may write credit holds (ADR 0015). Scans every main source file for SQL that
+ * inserts into, updates, deletes from or truncates those tables.
  */
 class LedgerWriterBoundaryTests {
 
@@ -20,24 +21,33 @@ class LedgerWriterBoundaryTests {
             "(insert\\s+into|update|delete\\s+from|truncate)\\s+billing\\.(ledger_entries|wallets)\\b",
             Pattern.CASE_INSENSITIVE);
 
-    private static final Path LEDGER = Path.of("src/main/java/com/idleo/controlplane/billing/internal/Ledger.java");
+    private static final Pattern RESERVATION_WRITE = Pattern.compile(
+            "(insert\\s+into|update|delete\\s+from|truncate)\\s+billing\\.reservations\\b", Pattern.CASE_INSENSITIVE);
 
-    @Test
-    void onlyTheLedgerWritesLedgerEntriesOrWallets() throws IOException {
-        List<Path> writers;
+    private static final Path BILLING = Path.of("src/main/java/com/idleo/controlplane/billing/internal");
+
+    private static List<Path> writers(Pattern write) throws IOException {
         try (Stream<Path> files = Files.walk(Path.of("src/main/java"))) {
-            writers = files.filter(file -> file.toString().endsWith(".java"))
+            return files.filter(file -> file.toString().endsWith(".java"))
                     .filter(file -> {
                         try {
-                            return WRITE.matcher(Files.readString(file)).find();
+                            return write.matcher(Files.readString(file)).find();
                         } catch (IOException e) {
                             throw new IllegalStateException(e);
                         }
                     })
                     .toList();
         }
+    }
 
-        assertThat(writers).containsExactly(LEDGER);
+    @Test
+    void onlyTheLedgerWritesLedgerEntriesOrWallets() throws IOException {
+        assertThat(writers(WRITE)).containsExactly(BILLING.resolve("Ledger.java"));
+    }
+
+    @Test
+    void onlyCreditReservationsWritesHolds() throws IOException {
+        assertThat(writers(RESERVATION_WRITE)).containsExactly(BILLING.resolve("CreditReservationService.java"));
     }
 
     @Test

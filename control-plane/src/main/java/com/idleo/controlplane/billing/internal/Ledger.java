@@ -82,6 +82,23 @@ class Ledger {
                 .single();
     }
 
+    /**
+     * Moves the wallet's reserved amount by {@code change}, for {@code CreditReservationService} only.
+     * The caller holds the wallet's lock ({@link #lockWallet}); the database refuses a reservation below
+     * zero or above the balance.
+     */
+    void adjustReserved(UUID userId, Paise change) {
+        jdbc.sql("""
+                        update billing.wallets
+                        set reserved_paise = reserved_paise + :change, version = version + 1, updated_at = :now
+                        where user_id = :userId
+                        """)
+                .param("change", change.value())
+                .param("now", Timestamp.from(now()))
+                .param("userId", userId)
+                .update();
+    }
+
     static void validate(LedgerTransaction transaction) {
         var entries = transaction.entries();
         if (entries.size() < 2) {

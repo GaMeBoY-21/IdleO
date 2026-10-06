@@ -19,8 +19,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The nightly proof that the wallet cache equals the ledger (technical design line 405, ADR 0014): for
- * every renter, the cached balance must equal their {@code renter_wallet} credits minus debits, and the
- * whole ledger must balance. One control-plane instance runs it at a time, under a PostgreSQL advisory
+ * every renter, the cached balance must equal their {@code renter_wallet} credits minus debits, the cached
+ * reservation must equal the sum of their active holds (ADR 0015), and the whole ledger must balance. One control-plane instance runs it at a time, under a PostgreSQL advisory
  * lock; the others skip. Mismatches are logged (user id and both values, nothing more) and counted in
  * {@code billing.reconciliation.mismatches}; {@code billing.reconciliation.last_success} is when the
  * last complete run finished.
@@ -55,7 +55,13 @@ class WalletReconciliation {
                 .register(registry);
     }
 
-    record Mismatch(UUID userId, long walletPaise, long ledgerPaise) {}
+    /** What disagrees: the balance with the ledger, or the reservation with the active holds. */
+    enum Kind {
+        BALANCE,
+        RESERVED
+    }
+
+    record Mismatch(Kind kind, UUID userId, long walletPaise, long expectedPaise) {}
 
     /** {@code ran} is false when another instance held the lock. */
     record Result(boolean ran, List<Mismatch> mismatches, long ledgerDebitsPaise, long ledgerCreditsPaise) {
@@ -96,9 +102,31 @@ class WalletReconciliation {
                             order by 1
                             """)
                     .query((rs, n) -> new Mismatch(
+                            Kind.BALANCE,
                             rs.getObject("user_id", UUID.class),
                             rs.getLong("wallet_paise"),
                             rs.getLong("ledger_paise")))
+                    .list();
+            var reservedMismatches = jdbc.sql("""
+                            with held as (
+                                select user_id, sum(amount_paise) as paise
+                                from billing.reservations
+                                where status = 'active'
+                                group by user_id
+                            )
+                            select coalesce(w.user_id, h.user_id) as user_id,
+                                   coalesce(w.reserved_paise, 0) as wallet_paise,
+                                   coalesce(h.paise, 0) as held_paise
+                            from billing.wallets w
+                            full join held h on h.user_id = w.user_id
+                            where coalesce(w.reserved_paise, 0) <> coalesce(h.paise, 0)
+                            order by 1
+                            """)
+                    .query((rs, n) -> new Mismatch(
+                            Kind.RESERVED,
+                            rs.getObject("user_id", UUID.class),
+                            rs.getLong("wallet_paise"),
+                            rs.getLong("held_paise")))
                     .list();
             var totals = jdbc.sql("""
                             select coalesce(sum(amount_paise) filter (where direction = 'debit'), 0) as debits,
@@ -107,7 +135,9 @@ class WalletReconciliation {
                             """)
                     .query((rs, n) -> new long[] {rs.getLong("debits"), rs.getLong("credits")})
                     .single();
-            return new Result(true, walletMismatches, totals[0], totals[1]);
+            var mismatches = new java.util.ArrayList<Mismatch>(walletMismatches);
+            mismatches.addAll(reservedMismatches);
+            return new Result(true, List.copyOf(mismatches), totals[0], totals[1]);
         }));
         if (!result.ran()) {
             log.info("Wallet reconciliation skipped: another instance is running it");
@@ -115,10 +145,12 @@ class WalletReconciliation {
         }
         for (var mismatch : result.mismatches()) {
             log.error(
-                    "Wallet {} disagrees with the ledger: wallet {} paise, ledger {} paise",
+                    mismatch.kind() == Kind.BALANCE
+                            ? "Wallet {} disagrees with the ledger: wallet {} paise, ledger {} paise"
+                            : "Wallet {} reserves {} paise, but its active holds sum to {} paise",
                     mismatch.userId(),
                     mismatch.walletPaise(),
-                    mismatch.ledgerPaise());
+                    mismatch.expectedPaise());
         }
         int problems = result.mismatches().size();
         if (!result.ledgerBalanced()) {
