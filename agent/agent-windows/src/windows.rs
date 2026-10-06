@@ -15,6 +15,7 @@ use windows::Win32::Security::{DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, 
 use windows::Win32::Storage::FileSystem::{
     CREATE_NEW, CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_NONE,
 };
+use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW};
 use windows::Win32::System::SystemInformation::GetTickCount;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
@@ -45,6 +46,32 @@ pub fn idle_time() -> io::Result<Duration> {
 /// Milliseconds between two 32-bit tick counts, which wrap every 49.7 days.
 fn idle_since(now: u32, last_input: u32) -> Duration {
     Duration::from_millis(u64::from(now.wrapping_sub(last_input)))
+}
+
+/// Time since Windows started, from `QueryPerformanceCounter`. Microsoft documents that it counts
+/// "including the time when the machine was in a sleep state such as standby, hibernate, or connected
+/// standby", which is what a session lease needs (ADR 0007). Never `QueryUnbiasedInterruptTime`,
+/// which leaves sleep out.
+///
+/// # Errors
+/// If Windows can't say.
+pub fn performance_counter() -> io::Result<Duration> {
+    let mut frequency = 0i64;
+    let mut count = 0i64;
+    // SAFETY: both pointers are to valid, writable i64s, as the APIs require; they write one value.
+    unsafe {
+        QueryPerformanceFrequency(&raw mut frequency).map_err(io::Error::other)?;
+        QueryPerformanceCounter(&raw mut count).map_err(io::Error::other)?;
+    }
+    ticks(count, frequency).ok_or_else(|| io::Error::other("the performance counter frequency is zero"))
+}
+
+/// `count` ticks at `frequency` ticks a second, without overflow for any 64-bit count.
+fn ticks(count: i64, frequency: i64) -> Option<Duration> {
+    let count = u64::try_from(count).ok()?;
+    let frequency = u64::try_from(frequency).ok().filter(|frequency| *frequency > 0)?;
+    let nanos = u128::from(count % frequency) * 1_000_000_000 / u128::from(frequency);
+    Some(Duration::new(count / frequency, u32::try_from(nanos).ok()?))
 }
 
 /// The Windows build number, for example 26100.
@@ -198,6 +225,22 @@ mod tests {
     fn idle_time_handles_the_tick_count_wrapping() {
         assert_eq!(idle_since(5_000, 2_000), Duration::from_secs(3));
         assert_eq!(idle_since(1_000, u32::MAX - 999), Duration::from_secs(2));
+    }
+
+    #[test]
+    fn ticks_convert_exactly() {
+        assert_eq!(ticks(30_000_000, 10_000_000), Some(Duration::from_secs(3)));
+        assert_eq!(ticks(15_000_001, 10_000_000), Some(Duration::new(1, 500_000_100)));
+        assert_eq!(ticks(i64::MAX, 10_000_000).map(|d| d.as_secs()), Some(922_337_203_685));
+        assert_eq!(ticks(1, 0), None);
+        assert_eq!(ticks(-1, 10_000_000), None);
+    }
+
+    #[test]
+    fn the_performance_counter_moves_forward() {
+        let first = performance_counter().unwrap();
+        std::thread::sleep(Duration::from_millis(20));
+        assert!(performance_counter().unwrap() >= first + Duration::from_millis(15));
     }
 
     #[test]

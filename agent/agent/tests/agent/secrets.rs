@@ -2,12 +2,16 @@ use std::io::Write;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
+use agent_proto::v1::SessionState;
+use agent_proto::v1::open_stream_response::Body as ServerBody;
 use idleo_agent::connection::Event;
 use idleo_agent::enrol::{self, EnrolmentCode};
+use idleo_agent::runner::dev::DevRunner;
 use idleo_agent::state::KEY_FILE;
 use tracing_subscriber::fmt::MakeWriter;
 
-use crate::support::{DAY, TestServer, VALID_CODE, next_event, spawn_agent, timing};
+use crate::sessions::{start_session, statuses};
+use crate::support::{DAY, Stream, TestServer, VALID_CODE, next_event, spawn_agent, timing};
 
 #[derive(Clone, Default)]
 struct Captured(Arc<Mutex<Vec<u8>>>);
@@ -105,4 +109,40 @@ async fn no_key_csr_or_code_appears_in_the_logs() {
         assert!(!logs.contains(secret.as_str()), "a secret appears in the logs: {secret}");
     }
     println!("checked {} secret fragments against {} bytes of trace-level logs", secrets.len(), logs.len());
+}
+
+#[tokio::test]
+async fn no_storage_credential_appears_in_the_logs() {
+    let captured = capture();
+    let server = TestServer::tcp().await;
+    server.behave(|b| {
+        b.default_stream = Stream::Scripted;
+        b.ack_statuses = true;
+    });
+    let dir = tempfile::tempdir().unwrap();
+    server.enrol(dir.path()).await;
+    let (mut options, _events) = server.run_options(dir.path(), timing());
+    options.runner = Some(std::sync::Arc::new(DevRunner));
+    let (_stop, _agent) = spawn_agent(options);
+    server.wait_until(Duration::from_secs(10), |r| r.connections.first().is_some_and(|c| c.welcomed.is_some())).await;
+    // Storage that refuses every connection, so each upload fails and is logged.
+    let mut start = start_session(uuid::Uuid::now_v7(), "command-secrets", 120);
+    let Some(ServerBody::StartSession(message)) = start.body.as_mut() else { unreachable!() };
+    message.spec.as_mut().unwrap().args = vec!["--duration".to_owned(), "100ms".to_owned()];
+    let grant = message.credentials.as_mut().unwrap().attempt_grant.as_mut().unwrap();
+    grant.endpoint = "http://127.0.0.1:9".to_owned();
+    let secrets = [grant.access_key_id.clone(), grant.secret_access_key.clone(), grant.session_token.clone()];
+
+    server.send(start).await;
+
+    server
+        .wait_until(Duration::from_secs(20), |r| statuses(r, 0).iter().any(|(_, s)| s.state() == SessionState::Failed))
+        .await;
+    let failed = statuses(&server.recorded(), 0).pop().unwrap().1;
+    assert_eq!(failed.error.unwrap().code, "outputs_upload_failed");
+    let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
+    assert!(logs.contains("an output upload failed"), "the capture works");
+    for secret in &secrets {
+        assert!(!logs.contains(secret.as_str()), "a storage secret appears in the logs: {secret}");
+    }
 }

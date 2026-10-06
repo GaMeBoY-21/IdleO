@@ -12,7 +12,10 @@ use clap::{Parser, Subcommand};
 use idleo_agent::config::{self, Config, LogFormat};
 use idleo_agent::connection::{self, RunOptions, Timing};
 use idleo_agent::enrol::{self, EnrolmentCode};
+use idleo_agent::lease_clock::SystemLeaseClock;
 use idleo_agent::owner::SystemOwner;
+use idleo_agent::runner::SessionRunner;
+use idleo_agent::runner::dev::DevRunner;
 use idleo_agent::telemetry::{self, FakeGpus, GpuSource};
 use idleo_agent::{pki, state, tls};
 use tokio::sync::watch;
@@ -57,6 +60,10 @@ enum Command {
         /// Use N invented GPUs instead of NVML, for development and tests [default: 1].
         #[arg(long, value_name = "N", num_args = 0..=1, default_missing_value = "1")]
         fake_gpu: Option<u8>,
+        /// Run sessions with the development runner, which simulates jobs against real object storage.
+        /// Only with --fake-gpu: a real host never runs it. Without a runner the agent declines offers.
+        #[arg(long, requires = "fake_gpu")]
+        dev_runner: bool,
     },
 }
 
@@ -75,7 +82,7 @@ fn main() -> ExitCode {
     runtime.block_on(async move {
         match cli.command {
             Command::Enrol { code, force } => enrol_command(&config, &code, force).await,
-            Command::Run { fake_gpu } => run_command(config, fake_gpu).await,
+            Command::Run { fake_gpu, dev_runner } => run_command(config, fake_gpu, dev_runner).await,
         }
     })
 }
@@ -106,7 +113,17 @@ async fn enrol_command(config: &Config, code: &str, force: bool) -> ExitCode {
     }
 }
 
-async fn run_command(config: Config, fake_gpu: Option<u8>) -> ExitCode {
+async fn run_command(config: Config, fake_gpu: Option<u8>, dev_runner: bool) -> ExitCode {
+    // clap already refuses --dev-runner alone; this keeps the rule even if the parser changes.
+    if dev_runner && fake_gpu.is_none() {
+        return fail(exit::CONFIG, &"--dev-runner needs --fake-gpu");
+    }
+    let runner: Option<Arc<dyn SessionRunner>> = if dev_runner {
+        tracing::warn!("running sessions with the development runner, as asked by --dev-runner");
+        Some(Arc::new(DevRunner))
+    } else {
+        None
+    };
     let gpus: Arc<dyn GpuSource> = match fake_gpu {
         Some(count) => {
             tracing::warn!(count, "using fake GPUs, as asked by --fake-gpu");
@@ -136,6 +153,8 @@ async fn run_command(config: Config, fake_gpu: Option<u8>) -> ExitCode {
         data_dir: config.data_dir,
         gpus,
         owner: Arc::new(SystemOwner),
+        lease_clock: Arc::new(SystemLeaseClock),
+        runner,
         timing: Timing { welcome_timeout: config.welcome_timeout, ..Timing::default() },
         events: None,
     };

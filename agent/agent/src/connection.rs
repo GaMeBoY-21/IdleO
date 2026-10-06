@@ -1,5 +1,7 @@
 //! `idleo-agent run`: keeps one mutual-TLS stream open to the control plane, sends heartbeats,
-//! reconnects with capped backoff, and renews the certificate before it expires.
+//! reconnects with capped backoff, and renews the certificate before it expires. Sessions run in the
+//! [`supervisor`](crate::supervisor), which outlives any one stream: this loop hands it commands and
+//! carries its statuses.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -25,10 +27,13 @@ use tonic::{Code, Status, Streaming};
 use uuid::Uuid;
 
 use crate::backoff::{Backoff, full_jitter};
+use crate::lease_clock::LeaseClock;
 use crate::offers::{self, OfferFacts};
 use crate::owner::OwnerActivity;
 use crate::pki::{self, NewKey};
+use crate::runner::SessionRunner;
 use crate::state::{self, StateError};
+use crate::supervisor::{self, Shared};
 use crate::telemetry::{GpuError, GpuInfo, GpuSource, Readings};
 use crate::tls::{self, Target};
 use crate::{AGENT_VERSION, new_message_id, system, version};
@@ -61,6 +66,10 @@ pub struct Timing {
     pub shutdown_grace: Duration,
     /// An `OfferReply` without an `Ack` is resent after this long.
     pub reply_resend_after: Duration,
+    /// A `SessionStatus` without an `Ack` is resent after this long.
+    pub status_resend_after: Duration,
+    /// How often lease deadlines are checked, stream or no stream.
+    pub deadline_check_every: Duration,
 }
 
 impl Default for Timing {
@@ -77,6 +86,8 @@ impl Default for Timing {
             sample_every: Duration::from_secs(1),
             shutdown_grace: Duration::from_secs(3),
             reply_resend_after: Duration::from_secs(3),
+            status_resend_after: Duration::from_secs(5),
+            deadline_check_every: Duration::from_millis(250),
         }
     }
 }
@@ -93,6 +104,10 @@ pub struct RunOptions {
     pub gpus: Arc<dyn GpuSource>,
     /// Whether the owner is at the machine.
     pub owner: Arc<dyn OwnerActivity>,
+    /// The clock leases and offer expiries count on: one that keeps counting during sleep.
+    pub lease_clock: Arc<dyn LeaseClock>,
+    /// What runs sessions; `None` for an agent that can't run any yet, which declines offers.
+    pub runner: Option<Arc<dyn SessionRunner>>,
     /// Intervals and limits.
     pub timing: Timing,
     /// Receives an [`Event`] at each step, for tests and diagnostics.
@@ -174,6 +189,8 @@ pub enum RunError {
     State(StateError),
     /// The GPUs can't be read at start.
     Gpu(GpuError),
+    /// Sessions can't be set up, for example storage TLS.
+    Sessions(String),
 }
 
 impl fmt::Display for RunError {
@@ -181,6 +198,7 @@ impl fmt::Display for RunError {
         match self {
             Self::State(e) => e.fmt(f),
             Self::Gpu(e) => e.fmt(f),
+            Self::Sessions(e) => f.write_str(e),
         }
     }
 }
@@ -195,6 +213,7 @@ impl RunError {
             Self::State(StateError::NotEnrolled(_)) => 8,
             Self::State(_) => 6,
             Self::Gpu(_) => 7,
+            Self::Sessions(_) => 1,
         }
     }
 }
@@ -215,6 +234,18 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
     let gpus = read_gpus(&options.gpus).await.map_err(RunError::Gpu)?;
     tracing::info!(gpus = gpus.len(), version = AGENT_VERSION, "agent starting");
 
+    let (sessions, reports) = supervisor::new(
+        Arc::clone(&options.lease_clock),
+        options.runner.clone(),
+        gpus.iter().map(|gpu| gpu.uuid.clone()),
+    )
+    .map_err(RunError::Sessions)?;
+    let supervising = AbortOnDrop(tokio::spawn(supervisor::supervise(
+        sessions.clone(),
+        reports,
+        options.timing.deadline_check_every,
+    )));
+
     let readings = Arc::new(Readings::default());
     let sampler = AbortOnDrop(tokio::spawn(sample(
         Arc::clone(&options.gpus),
@@ -225,10 +256,12 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
         backoff: Backoff::new(options.timing.backoff_base, options.timing.backoff_cap),
         next_renewal_check: Instant::now(),
         readings,
+        sessions,
         options,
     };
     let result = manager.run(&mut shutdown).await;
     drop(sampler);
+    drop(supervising);
     result
 }
 
@@ -237,6 +270,7 @@ struct Manager {
     backoff: Backoff,
     next_renewal_check: Instant,
     readings: Arc<Readings>,
+    sessions: Shared,
 }
 
 impl Manager {
@@ -314,7 +348,7 @@ impl Manager {
         };
         let largest_gpu_vram_mb = gpus.iter().map(|gpu| gpu.vram_mb).max().unwrap_or(0);
         let (outbound, requests) = mpsc::channel(16);
-        let hello = hello(gpus);
+        let hello = hello(gpus, self.sessions.lock().running());
         tracing::debug!(?hello, "sending Hello");
         // Hello goes in before the call starts: the control plane answers nothing until it has it.
         if outbound.send(envelope(AgentBody::Hello(hello))).await.is_err() {
@@ -350,6 +384,12 @@ impl Manager {
         let mut unacked: HashMap<String, (OpenStreamRequest, Instant)> = HashMap::new();
         let mut resends = tokio::time::interval(Duration::from_secs(1));
         resends.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        // Every status not yet acked goes out again on this new stream (ADR 0016).
+        self.sessions.lock().unsend_all();
+        let due = self.sessions.lock().due(Instant::now(), self.options.timing.status_resend_after);
+        for status in due {
+            let _ = outbound.send(status).await;
+        }
 
         loop {
             tokio::select! {
@@ -370,14 +410,23 @@ impl Manager {
                         // Measured by the onboarding benchmark, which doesn't exist yet.
                         net_up_kbps: 0,
                         owner_active: self.options.owner.is_active(),
-                        // No sessions run until the session runner exists.
-                        sessions: Vec::new(),
+                        sessions: self.sessions.lock().running(),
                     };
                     // A send fails only once the stream has ended; the next read says why.
                     let _ = outbound.send(envelope(AgentBody::Heartbeat(heartbeat))).await;
                 }
-                _ = resends.tick(), if !unacked.is_empty() => {
+                () = self.sessions.changed() => {
+                    let due = self.sessions.lock().due(Instant::now(), self.options.timing.status_resend_after);
+                    for status in due {
+                        let _ = outbound.send(status).await;
+                    }
+                }
+                _ = resends.tick() => {
                     let now = Instant::now();
+                    let due = self.sessions.lock().due(now, self.options.timing.status_resend_after);
+                    for status in due {
+                        let _ = outbound.send(status).await;
+                    }
                     for (request, sent_at) in unacked.values_mut() {
                         if now.duration_since(*sent_at) >= self.options.timing.reply_resend_after {
                             tracing::debug!(message_id = %request.message_id, "resending an unacked offer reply");
@@ -388,12 +437,16 @@ impl Manager {
                 }
                 message = inbound.message() => match message {
                     Ok(Some(OpenStreamResponse { body: Some(ServerBody::Offer(offer)), .. })) => {
-                        let received_at = Instant::now();
+                        let received_at = self.options.lease_clock.now();
+                        let (running_sessions, can_run) = {
+                            let mut sessions = self.sessions.lock();
+                            (i32::try_from(sessions.running().len()).unwrap_or(i32::MAX), sessions.can_run())
+                        };
                         let facts = |vram_needed_mb, expired| OfferFacts {
                             expired,
                             shutting_down: *shutdown.borrow(),
-                            // No sessions run until the session runner exists.
-                            running_sessions: 0,
+                            can_run,
+                            running_sessions,
                             max_concurrent_sessions: policy.max_concurrent_sessions,
                             owner_active: self.options.owner.is_active(),
                             hottest_gpu_c: self.readings.hottest_latest_c(),
@@ -406,8 +459,27 @@ impl Manager {
                             let _ = outbound.send(reply).await;
                         }
                     }
+                    Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::StartSession(start)) })) => {
+                        let received_at = self.options.lease_clock.now();
+                        let ack = self.sessions.lock().start(&message_id, start, received_at);
+                        if let Some(ack) = ack {
+                            let _ = outbound.send(ack).await;
+                        }
+                    }
+                    Ok(Some(OpenStreamResponse { body: Some(ServerBody::LeaseRenew(renew)), .. })) => {
+                        let received_at = self.options.lease_clock.now();
+                        self.sessions.lock().renew(&renew, received_at);
+                    }
+                    Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::StopSession(stop)) })) => {
+                        let ack = self.sessions.lock().stop(&message_id, &stop);
+                        if let Some(ack) = ack {
+                            let _ = outbound.send(ack).await;
+                        }
+                    }
                     Ok(Some(OpenStreamResponse { body: Some(ServerBody::Ack(ack)), .. })) => {
-                        unacked.remove(&ack.acked_message_id);
+                        if unacked.remove(&ack.acked_message_id).is_none() {
+                            self.sessions.lock().acked(&ack.acked_message_id);
+                        }
                     }
                     Ok(Some(message)) => log_unhandled(&message),
                     Ok(None) => return Outcome::Ended {
@@ -458,7 +530,7 @@ impl Manager {
     fn answer(
         &self,
         offer: Offer,
-        received_at: Instant,
+        received_at: Duration,
         facts: impl Fn(i32, bool) -> OfferFacts,
     ) -> Option<OpenStreamRequest> {
         let expires_in =
@@ -471,7 +543,7 @@ impl Manager {
             tracing::warn!("ignored an offer without an id");
             return None;
         }
-        let expired = Instant::now() > received_at + expires_in;
+        let expired = self.options.lease_clock.now() > received_at + expires_in;
         let decision = offers::decide(&facts(spec.vram_needed_mb, expired));
         let declined = decision.err();
         match declined {
@@ -535,7 +607,7 @@ fn envelope(body: AgentBody) -> OpenStreamRequest {
     OpenStreamRequest { message_id: new_message_id(), body: Some(body) }
 }
 
-fn hello(gpus: Vec<GpuInfo>) -> Hello {
+fn hello(gpus: Vec<GpuInfo>, running_sessions: Vec<agent_proto::v1::RunningSession>) -> Hello {
     Hello {
         agent_version: AGENT_VERSION.to_owned(),
         os: system::os().into(),
@@ -551,8 +623,7 @@ fn hello(gpus: Vec<GpuInfo>) -> Hello {
                 compute_capability: gpu.compute_capability,
             })
             .collect(),
-        // No sessions run until the session runner exists.
-        running_sessions: Vec::new(),
+        running_sessions,
     }
 }
 

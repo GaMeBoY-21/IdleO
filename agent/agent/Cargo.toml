@@ -28,7 +28,12 @@ getrandom = "0.4.3"
 hyper-util = { version = "0.1.21", default-features = false, features = ["tokio"] }
 pem = "4.0.0"
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "pem", "ring"] }
+# HTTP for object storage, over our own rustls config (ring, the operating system's roots).
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
+rustls-platform-verifier = "0.7.1"
+# Signs S3 requests with a storage grant's temporary keys; does no I/O of its own (ADR 0016).
+rusty-s3 = { version = "0.10.2", default-features = false, features = ["rustcrypto", "full"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 time = { version = "0.3.55", features = ["formatting", "parsing", "serde"] }
@@ -45,6 +50,10 @@ x509-parser = "0.18.1"
 
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 nvml-wrapper = { version = "0.13.0", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+# The lease clock: CLOCK_BOOTTIME on Linux, CLOCK_MONOTONIC on macOS, without unsafe code.
+rustix = { version = "1.1.5", default-features = false, features = ["std", "time"] }
 
 [target.'cfg(windows)'.dependencies]
 agent-windows = { path = "../agent-windows" }

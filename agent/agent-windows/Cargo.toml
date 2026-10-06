@@ -1,6 +1,6 @@
 [package]
 name = "agent-windows"
-description = "The agent's only unsafe code: Windows API calls for owner activity, the OS build and key-file protection"
+description = "The agent's only unsafe code: Windows API calls for owner activity, the OS build, key-file protection and the lease clock"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,6 +15,7 @@ windows = { version = "0.62.2", features = [
     "Win32_Security",
     "Win32_Security_Authorization",
     "Win32_Storage_FileSystem",
+    "Win32_System_Performance",
     "Win32_System_Registry",
     "Win32_System_SystemInformation",
     "Win32_UI_Input_KeyboardAndMouse",

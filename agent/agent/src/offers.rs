@@ -4,11 +4,14 @@ use agent_proto::v1::OfferDeclineReason;
 
 /// What the agent knows when an offer arrives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // Facts the decision reads, each its own condition, not mode flags.
 pub struct OfferFacts {
     /// The offer's `expires_in` has already run out.
     pub expired: bool,
     /// Ctrl-C or a service stop is under way.
     pub shutting_down: bool,
+    /// The agent has a session runner at all.
+    pub can_run: bool,
     /// Sessions running now, and the most the control plane allows (`Welcome.policy`).
     pub running_sessions: i32,
     pub max_concurrent_sessions: i32,
@@ -34,6 +37,9 @@ pub fn decide(facts: &OfferFacts) -> Result<(), OfferDeclineReason> {
     if facts.shutting_down {
         return Err(OfferDeclineReason::ShuttingDown);
     }
+    if !facts.can_run {
+        return Err(OfferDeclineReason::InsufficientResources);
+    }
     if facts.running_sessions >= facts.max_concurrent_sessions {
         return Err(OfferDeclineReason::AtCapacity);
     }
@@ -56,6 +62,7 @@ mod tests {
     const FITS: OfferFacts = OfferFacts {
         expired: false,
         shutting_down: false,
+        can_run: true,
         running_sessions: 0,
         max_concurrent_sessions: 1,
         owner_active: false,
@@ -76,6 +83,7 @@ mod tests {
         let cases = [
             (OfferFacts { expired: true, ..FITS }, OfferDeclineReason::Expired),
             (OfferFacts { shutting_down: true, ..FITS }, OfferDeclineReason::ShuttingDown),
+            (OfferFacts { can_run: false, ..FITS }, OfferDeclineReason::InsufficientResources),
             (OfferFacts { running_sessions: 1, ..FITS }, OfferDeclineReason::AtCapacity),
             (OfferFacts { owner_active: true, ..FITS }, OfferDeclineReason::OwnerActive),
             (OfferFacts { hottest_gpu_c: Some(85), ..FITS }, OfferDeclineReason::TooHot),

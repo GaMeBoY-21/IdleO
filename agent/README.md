@@ -75,9 +75,18 @@ The three are replaced together: new files are staged as `*.new`, `host.json.new
 ## Commands and exit codes
 
 - `idleo-agent enrol --code <code> [--force]`: generates a key pair, sends the code and a CSR over TLS 1.3, checks the certificate (it chains to `ca_root`, it's for our key, its only name is one host URN), and only then saves it. A malformed code is refused before any network call.
-- `idleo-agent run [--fake-gpu [N]]`: connects with mutual TLS, sends `Hello`, waits for `Welcome`, then sends a heartbeat every interval the control plane sets. GPUs are read every second; each heartbeat carries, per GPU, the highest temperature and power, the mean utilisation and the latest memory in use. `net_up_kbps` is 0 until the onboarding benchmark exists, `owner_active` is keyboard or mouse input in the last 2 minutes on Windows and always false on Linux and macOS for now, and `sessions` is empty until the session runner exists.
+- `idleo-agent run [--fake-gpu [N] [--dev-runner]]`: connects with mutual TLS, sends `Hello`, waits for `Welcome`, then sends a heartbeat every interval the control plane sets. GPUs are read every second; each heartbeat carries, per GPU, the highest temperature and power, the mean utilisation and the latest memory in use. `net_up_kbps` is 0 until the onboarding benchmark exists, `owner_active` is keyboard or mouse input in the last 2 minutes on Windows and always false on Linux and macOS for now, and `sessions` lists the attempts running.
   - Reconnects: backoff from 1 second doubling to 60, with full jitter, reset only after a connection stays up 60 seconds past `Welcome`. `UNAUTHENTICATED` or `PERMISSION_DENIED` (revoked certificate or suspended host) and an expired certificate retry every 10 minutes (plus up to 1 minute of jitter), so a reinstated host recovers by itself. `ABORTED` (another connection for this host replaced ours) is normal backoff with a warning.
+  - Sessions (ADR 0016): see below.
   - Renewal: checked after the first `Welcome` and every 6 hours; with 10 days or fewer left, a new key pair and CSR go to `RenewCertificate` over the current connection, the reply gets the same checks as enrolment, and the agent reconnects with the new certificate. `FAILED_PRECONDITION` (too early, or already renewed) waits for the next check.
+
+### Sessions
+
+- **Runners.** An agent runs sessions only with a runner. The one runner today is the development runner, `--dev-runner`, which the agent refuses without `--fake-gpu`: it simulates a job for the `--duration` in the spec's arguments (`--duration 20s`), writing a checkpoint every `checkpoint_interval` and then its outputs, to real object storage through the session's grants. Without a runner the agent declines every offer (`INSUFFICIENT_RESOURCES`) and fails any `StartSession` with `no_runner`; it never pretends. The Docker runner, with the sandbox, comes with the Windows host.
+- **StartSession** is acked once recorded. A repeated `command_id` is acked and never run twice. A malformed one is acked and reported `FAILED` with `invalid_start_session`.
+- **Leases.** Each attempt's deadline is the lease clock at receipt plus `lease_ttl`; a `LeaseRenew` for the current attempt extends it, one for any other attempt is ignored. The lease clock counts while the machine sleeps: `CLOCK_BOOTTIME` on Linux, `QueryPerformanceCounter` on Windows, `CLOCK_MONOTONIC` on macOS (Apple: it "will continue to increment while the system is asleep"); never `std::time::Instant`. Deadlines are checked every 250 ms, connected or not, and before handling anything else, so on waking from sleep a lapsed attempt is stopped first. A lapsed attempt stops at once, is reported `LEASE_EXPIRED`, and never resumes. `max_runtime` is a hard cap the same way.
+- **Storage.** Every key is checked against the grant's prefixes (and read-only grants refuse writes) before any request; storage enforces the same scope. Grants are never logged. Requests are signed by `rusty-s3` and sent with `reqwest` over rustls (ring) and the operating system's trust store.
+- **Statuses** go out on every state change and checkpoint, kept until acked, resent every 5 seconds, and all resent on a new stream. They're kept in memory: an agent restart loses them, and the control plane's lease handles that attempt. The persistent store comes with the Docker runner.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -119,7 +128,11 @@ Each is here for one reason. Versions are locked in `Cargo.lock`.
 | getrandom | 0.4.3 | Backoff jitter and the fake GPUs' drift, from the system's random source |
 | tracing, tracing-subscriber | 0.1.44, 0.3.23 | Structured logs, as text or JSON |
 | nvml-wrapper | 0.13.0 | Reads NVIDIA GPUs through NVML, loaded at run time from the driver (feature `nvml`, Windows and Linux only) |
-| windows | 0.62.2 | `GetLastInputInfo`, the build number and file access lists (`agent-windows`, Windows only) |
+| windows | 0.62.2 | `GetLastInputInfo`, the build number, file access lists and `QueryPerformanceCounter` (`agent-windows`, Windows only) |
+| rusty-s3 | 0.10.2 | Signs S3 requests (SigV4, with the grant's session token); does no I/O and never looks for credentials of its own, so an agent can't pick up ambient cloud keys |
+| reqwest | 0.13.5 | HTTP for object storage, over our own rustls config |
+| rustls-platform-verifier | 0.7.1 | Storage's public certificate is checked against the operating system's trust store, not a bundled one |
+| rustix | 1.1.5 | `clock_gettime(CLOCK_BOOTTIME)` on Linux and `CLOCK_MONOTONIC` on macOS without unsafe code (Unix only) |
 | tempfile | 3.27.0 | Temporary directories in tests (tests only) |
 
 **The rustls provider is `ring`**, not `aws-lc-rs`. ring builds with only a C compiler on all three systems (aws-lc-rs can need extra build tools, such as NASM on Windows), is smaller, and is the same library rcgen already uses, so the agent carries one crypto library instead of two. Its licence is plain Apache-2.0 and ISC. What we give up is `aws-lc-rs`'s post-quantum hybrid key exchange and its FIPS option; switching is a feature flag in two crates if we need them (ADR 0012).

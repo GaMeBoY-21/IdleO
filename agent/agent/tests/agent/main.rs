@@ -7,5 +7,6 @@ mod enrolment;
 mod offers;
 mod renewal;
 mod secrets;
+mod sessions;
 mod stream;
 mod trust;

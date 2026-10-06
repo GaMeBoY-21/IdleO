@@ -4,8 +4,11 @@
 //! where real sockets would let the clock jump while waiting.
 
 use std::collections::VecDeque;
+use std::future::Future;
 use std::io;
 use std::path::Path;
+use std::pin::Pin;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -15,11 +18,13 @@ use agent_proto::v1::open_stream_request::Body;
 use agent_proto::v1::open_stream_response::Body as ServerBody;
 use agent_proto::v1::{
     Ack, AgentPolicy, EnrollRequest, EnrollResponse, IssuedCertificate, Offer, OpenStreamRequest, OpenStreamResponse,
-    RenewCertificateRequest, RenewCertificateResponse, SessionSpec, SessionType, Welcome,
+    RenewCertificateRequest, RenewCertificateResponse, SessionSpec, SessionState, SessionType, Welcome,
 };
 use idleo_agent::connection::{Event, RunOptions, Timing};
 use idleo_agent::enrol::{self, Enrolled, EnrolmentCode};
+use idleo_agent::lease_clock::SystemLeaseClock;
 use idleo_agent::owner::OwnerActivity;
+use idleo_agent::runner::{Job, Report, SessionRunner};
 use idleo_agent::telemetry::FakeGpus;
 use idleo_agent::tls::{Dialer, Io, Target};
 use rcgen::{
@@ -150,6 +155,9 @@ pub enum Stream {
     /// Welcome with this temperature cap, then one offer; replies are acked from the `ack_from`-th
     /// reply on (1 acks the first).
     Offer { temp_cap_c: i32, vram_needed_mb: i32, expires_in: Duration, ack_from: usize },
+    /// Welcome, then whatever the test sends with [`TestServer::send`]; `SessionStatus` messages are
+    /// acked if `Behaviour::ack_statuses`.
+    Scripted,
 }
 
 impl Stream {
@@ -188,6 +196,8 @@ pub struct Behaviour {
     pub renew: Renew,
     pub streams: VecDeque<Stream>,
     pub default_stream: Stream,
+    /// Ack every `SessionStatus` on a scripted stream.
+    pub ack_statuses: bool,
 }
 
 #[derive(Default)]
@@ -200,6 +210,8 @@ pub struct Recorded {
 pub struct Shared {
     pub behaviour: Mutex<Behaviour>,
     recorded: Mutex<Recorded>,
+    /// The latest scripted stream's way to the agent.
+    current: Mutex<Option<mpsc::Sender<Result<OpenStreamResponse, Status>>>>,
     changed: Notify,
     pki: Pki,
 }
@@ -324,8 +336,10 @@ impl TestServer {
                 renew: Renew::Sign,
                 streams: VecDeque::new(),
                 default_stream: Stream::welcome(Duration::from_secs(5)),
+                ack_statuses: false,
             }),
             recorded: Mutex::new(Recorded::default()),
+            current: Mutex::new(None),
             changed: Notify::new(),
             pki,
         });
@@ -360,6 +374,18 @@ impl TestServer {
 
     pub fn host_id(&self) -> Uuid {
         self.shared.behaviour.lock().unwrap().host_id
+    }
+
+    /// Sends `message` down the latest scripted stream.
+    pub async fn send(&self, message: OpenStreamResponse) {
+        let current = self.shared.current.lock().unwrap().clone().expect("no scripted stream is open");
+        current.send(Ok(message)).await.expect("the scripted stream has closed");
+    }
+
+    /// Ends the latest scripted stream with `code`.
+    pub async fn end_stream(&self, code: Code) {
+        let current = self.shared.current.lock().unwrap().take().expect("no scripted stream is open");
+        let _ = current.send(Err(Status::new(code, "ended by the test"))).await;
     }
 
     pub fn behave(&self, change: impl FnOnce(&mut Behaviour)) {
@@ -402,10 +428,31 @@ impl TestServer {
             data_dir: data_dir.to_owned(),
             gpus: Arc::new(FakeGpus::new(1)),
             owner: Arc::new(Owner(false)),
+            lease_clock: Arc::new(SystemLeaseClock),
+            runner: Some(Arc::new(TestRunner::default())),
             timing,
             events: Some(events),
         };
         (options, received)
+    }
+}
+
+/// A runner for tests: reports PREPARING, RUNNING and checkpoint 1, then runs until fenced. Counts
+/// the attempts it was given.
+#[derive(Debug, Default)]
+pub struct TestRunner {
+    pub started: Arc<AtomicUsize>,
+}
+
+impl SessionRunner for TestRunner {
+    fn run(&self, _job: Job, reports: mpsc::UnboundedSender<Report>) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        self.started.fetch_add(1, Ordering::SeqCst);
+        Box::pin(async move {
+            let _ = reports.send(Report::State(SessionState::Preparing));
+            let _ = reports.send(Report::State(SessionState::Running));
+            let _ = reports.send(Report::Checkpoint(1));
+            std::future::pending::<()>().await;
+        })
     }
 }
 
@@ -536,6 +583,14 @@ impl AgentGatewayService for Service {
             let mut replies = 0;
             while let Ok(Some(message)) = inbound.message().await {
                 let now = Instant::now();
+                let ack_statuses = shared.behaviour.lock().unwrap().ack_statuses;
+                if let (Some(Body::SessionStatus(_)), Stream::Scripted, true) = (&message.body, &stream, ack_statuses) {
+                    let ack = OpenStreamResponse {
+                        message_id: Uuid::now_v7().to_string(),
+                        body: Some(ServerBody::Ack(Ack { acked_message_id: message.message_id.clone() })),
+                    };
+                    let _ = outbound.send(Ok(ack)).await;
+                }
                 if let (Some(Body::OfferReply(_)), Stream::Offer { ack_from, .. }) = (&message.body, &stream) {
                     replies += 1;
                     if replies >= *ack_from {
@@ -566,6 +621,11 @@ impl AgentGatewayService for Service {
                         }
                         Stream::Fail(code) => {
                             let _ = outbound.send(Err(Status::new(*code, "refused by the test"))).await;
+                        }
+                        Stream::Scripted => {
+                            let _ = outbound.send(Ok(welcome(Duration::from_secs(5)))).await;
+                            *shared.current.lock().unwrap() = Some(outbound.clone());
+                            shared.record(|r| r.connections[index].welcomed = Some(Instant::now()));
                         }
                         Stream::Offer { temp_cap_c, vram_needed_mb, expires_in, .. } => {
                             let _ = outbound.send(Ok(welcome_with_cap(Duration::from_secs(5), *temp_cap_c))).await;
