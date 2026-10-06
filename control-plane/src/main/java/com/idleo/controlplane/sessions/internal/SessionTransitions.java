@@ -6,6 +6,7 @@ import static com.idleo.controlplane.sessions.internal.SessionEvent.FINISH;
 import static com.idleo.controlplane.sessions.internal.SessionEvent.GAME_LOST;
 import static com.idleo.controlplane.sessions.internal.SessionEvent.JOB_FAILED;
 import static com.idleo.controlplane.sessions.internal.SessionEvent.LEASE_LAPSED;
+import static com.idleo.controlplane.sessions.internal.SessionEvent.LOST_REPEATEDLY;
 import static com.idleo.controlplane.sessions.internal.SessionEvent.MATCH;
 import static com.idleo.controlplane.sessions.internal.SessionEvent.NO_CANDIDATE;
 import static com.idleo.controlplane.sessions.internal.SessionEvent.OFFERS_EXHAUSTED;
@@ -35,7 +36,9 @@ import java.util.Optional;
  * refused. Beyond the design's table: a declined or expired offer sends a session back to REQUESTED for the
  * next candidate (ADR 0015); a session no host can take goes from REQUESTED straight to NO_HOST_FREE (ADR
  * 0015); a job that fails while running goes straight to FAILED, and so does one whose outputs never appear
- * (ADR 0016).
+ * (ADR 0016); a host can be lost while provisioning, not only while running, once the agent holds a lease;
+ * a lost batch session goes back to REQUESTED, through the scheduler as booking, rather than straight to
+ * MATCHED; and one that lost its host too often fails (ADR 0016).
  */
 final class SessionTransitions {
 
@@ -52,10 +55,12 @@ final class SessionTransitions {
             Map.entry(new Key(PROVISIONING, START), RUNNING),
             Map.entry(new Key(PROVISIONING, START_FAILED), FAILED),
             Map.entry(new Key(PROVISIONING, CANCEL), CANCELLED),
+            Map.entry(new Key(PROVISIONING, LEASE_LAPSED), HOST_LOST),
             Map.entry(new Key(RUNNING, LEASE_LAPSED), HOST_LOST),
             Map.entry(new Key(RUNNING, FINISH), FINISHING),
             Map.entry(new Key(RUNNING, JOB_FAILED), FAILED),
-            Map.entry(new Key(HOST_LOST, REMATCH), MATCHED),
+            Map.entry(new Key(HOST_LOST, REMATCH), REQUESTED),
+            Map.entry(new Key(HOST_LOST, LOST_REPEATEDLY), FAILED),
             Map.entry(new Key(HOST_LOST, GAME_LOST), ENDED_REFUNDED),
             Map.entry(new Key(FINISHING, COMPLETE), COMPLETED),
             Map.entry(new Key(FINISHING, OUTPUTS_MISSING), FAILED));

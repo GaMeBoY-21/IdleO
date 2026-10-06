@@ -195,6 +195,18 @@ class SessionStore {
                 .optional();
     }
 
+    /** Whether the attempt's StartSession has gone down its host's stream. */
+    boolean startDelivered(UUID sessionId, int attempt) {
+        return jdbc.sql("""
+                        select exists (select 1 from sessions.attempts
+                                       where session_id = :id and attempt = :attempt and start_delivered_at is not null)
+                        """)
+                .param("id", sessionId)
+                .param("attempt", attempt)
+                .query(Boolean.class)
+                .single();
+    }
+
     Optional<Session> find(UUID sessionId) {
         return jdbc.sql("select * from sessions.sessions where id = :id")
                 .param("id", sessionId)

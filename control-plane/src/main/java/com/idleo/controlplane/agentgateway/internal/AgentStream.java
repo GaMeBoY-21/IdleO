@@ -7,6 +7,7 @@ import gpu.agent.v1.AgentGateway.AgentPolicy;
 import gpu.agent.v1.AgentGateway.OpenStreamRequest;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.AgentGateway.Welcome;
+import gpu.agent.v1.Session.RunningSession;
 import gpu.agent.v1.Telemetry.Heartbeat;
 import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
@@ -53,6 +54,8 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
     private boolean updateRequired;
     private @Nullable Instant lastSeenRecordedAt;
     private @Nullable Instant lastHeardAt;
+    /** Welcome has gone out: only then may anything else be sent. */
+    private boolean welcomed;
 
     AgentStream(
             UUID hostId,
@@ -118,11 +121,12 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                         Status.INVALID_ARGUMENT.withDescription("Invalid Hello: " + invalid.reason() + "."),
                         "invalid_hello");
             }
-            case AgentMessages.HelloResult.Valid valid -> welcome(valid.hello());
+            case AgentMessages.HelloResult.Valid valid ->
+                welcome(valid.hello(), request.getHello().getRunningSessionsList());
         }
     }
 
-    private void welcome(AgentMessages.ValidHello hello) {
+    private void welcome(AgentMessages.ValidHello hello, java.util.List<RunningSession> running) {
         services.reports().recordHello(hostId, hello.hello());
         var properties = services.properties();
         // The owner's listing sets the temperature cap (ADR 0015); config is the default until they list.
@@ -144,6 +148,15 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             lastHeardAt = lastSeenRecordedAt;
             state = State.OPEN;
         }
+        // Before this stream can carry anything: compare what the agent runs with our records (ADR 0016).
+        var reconciliation = services.reconciliation();
+        if (reconciliation != null) {
+            try {
+                reconciliation.reconcile(hostId, running, connectedAt);
+            } catch (RuntimeException e) {
+                log.warn("Couldn't reconcile host {}'s running sessions; lapsed leases will catch any loss", hostId, e);
+            }
+        }
         var replaced = services.connected().register(this);
         if (replaced != null && replaced != this) {
             replaced.close(Status.ABORTED.withDescription("Replaced by a newer connection."), "replaced");
@@ -164,6 +177,9 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                                 .setMaxConcurrentSessions(properties.maxConcurrentSessions()))
                         .setMinimumAgentVersion(properties.minimumAgentVersion()))
                 .build());
+        synchronized (this) {
+            welcomed = true;
+        }
         // Anything queued while the agent was away (ADR 0015).
         var delivery = services.delivery();
         if (delivery != null) {
@@ -259,9 +275,13 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         return state == State.OPEN && lastHeardAt != null && lastHeardAt.isAfter(instant);
     }
 
-    /** Sends a queued command; false if the stream has closed. */
+    /**
+     * Sends a queued command; false if the stream has closed, or hasn't sent its Welcome yet (the stream is
+     * registered just before, and Welcome must always be first). Anything refused before Welcome is delivered
+     * right after it.
+     */
     synchronized boolean deliver(OpenStreamResponse message) {
-        if (state != State.OPEN) {
+        if (state != State.OPEN || !welcomed) {
             return false;
         }
         responses.onNext(message);

@@ -69,9 +69,8 @@ class SessionStarts implements SessionCredentials {
         var template = catalog.find(session.templateId())
                 .orElseThrow(() -> new IllegalStateException("No template " + session.templateId()));
         var commandId = ids.newId();
-        // The first attempt starts at the session's minute 0.
-        int minuteIndexBase = 0;
-        StorageGrants.@Nullable ResumeFrom resumeFrom = null;
+        int minuteIndexBase = minuteIndexBase(session);
+        var resumeFrom = session.attempt() == 1 ? null : newestCompleteCheckpoint(session.id(), session.attempt());
         jdbc.sql("""
                         insert into sessions.attempts
                             (session_id, attempt, host_id, gpu_uuids, command_id, minute_index_base,
@@ -110,6 +109,56 @@ class SessionStarts implements SessionCredentials {
                 OpenStreamResponse.newBuilder().setStartSession(start),
                 null,
                 true);
+    }
+
+    /**
+     * The session-wide minute index of this attempt's first minute, from the control plane's own clock (ADR
+     * 0007): 0 until any attempt has run; after that, one past the minutes since the session's minute 0, so
+     * it never lands on a minute an earlier attempt may have reported.
+     */
+    private int minuteIndexBase(SessionStore.Session session) {
+        if (session.startedAt() == null) {
+            return 0;
+        }
+        return Math.toIntExact(
+                Duration.between(session.startedAt(), store.now()).toMinutes() + 1);
+    }
+
+    /**
+     * The newest checkpoint of an earlier attempt whose completion marker is in storage (proto/README.md
+     * "Resume"): storage is listed, not the agent's word or only what was reported, so a checkpoint finished
+     * just before its host died still counts. A later attempt only starts after the earlier one is fenced,
+     * so a higher attempt's checkpoint is always newer. It's recorded if it wasn't yet.
+     */
+    private StorageGrants.@Nullable ResumeFrom newestCompleteCheckpoint(UUID sessionId, int attempt) {
+        for (int earlier = attempt - 1; earlier >= 1; earlier--) {
+            var prefix = StorageLayout.checkpointsPrefix(sessionId, earlier);
+            int newest = storage.list(prefix).stream()
+                    .map(SessionStorage.StoredObject::key)
+                    .filter(key -> key.endsWith("/" + StorageLayout.COMPLETE))
+                    .map(key -> key.substring(prefix.length(), key.length() - StorageLayout.COMPLETE.length() - 1))
+                    .filter(seq -> seq.matches("\\d{8}"))
+                    .mapToInt(Integer::parseInt)
+                    .filter(seq -> seq >= 1)
+                    .max()
+                    .orElse(0);
+            if (newest > 0) {
+                jdbc.sql("""
+                                insert into sessions.checkpoints (id, session_id, attempt, object_key, step, created_at)
+                                values (:id, :sessionId, :attempt, :key, :step, :now)
+                                on conflict (session_id, attempt, step) do nothing
+                                """)
+                        .param("id", ids.newId())
+                        .param("sessionId", sessionId)
+                        .param("attempt", earlier)
+                        .param("key", StorageLayout.checkpointFolder(sessionId, earlier, newest))
+                        .param("step", newest)
+                        .param("now", Timestamp.from(store.now()))
+                        .update();
+                return new StorageGrants.ResumeFrom(earlier, newest);
+            }
+        }
+        return null;
     }
 
     @Override

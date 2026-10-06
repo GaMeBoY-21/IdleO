@@ -21,6 +21,8 @@ sessions:
   provisioning-timeout: 5s
   leases:
     renew-every: 500ms
+    transit-allowance: 1s
+    lapse-sweep-every: 200ms
   outputs-wait: 2s
   finishing-sweep-interval: 200ms
 
@@ -28,6 +30,9 @@ scheduling:
   # Short enough to watch offers expire in tests.
   offer-ttl: 2s
   offer-sweep-interval: 200ms
+  rematch-retry-every: 500ms
+  # Short, so a session another test left waiting for a host doesn't linger.
+  rematch-wait: 5s
 
 events:
   retry-every: 1s

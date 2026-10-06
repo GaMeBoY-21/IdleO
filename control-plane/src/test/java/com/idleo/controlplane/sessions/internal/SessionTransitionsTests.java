@@ -19,10 +19,12 @@ class SessionTransitionsTests {
             Map.entry("PROVISIONING+START", SessionState.RUNNING),
             Map.entry("PROVISIONING+START_FAILED", SessionState.FAILED),
             Map.entry("PROVISIONING+CANCEL", SessionState.CANCELLED),
+            Map.entry("PROVISIONING+LEASE_LAPSED", SessionState.HOST_LOST),
             Map.entry("RUNNING+LEASE_LAPSED", SessionState.HOST_LOST),
             Map.entry("RUNNING+FINISH", SessionState.FINISHING),
             Map.entry("RUNNING+JOB_FAILED", SessionState.FAILED),
-            Map.entry("HOST_LOST+REMATCH", SessionState.MATCHED),
+            Map.entry("HOST_LOST+REMATCH", SessionState.REQUESTED),
+            Map.entry("HOST_LOST+LOST_REPEATEDLY", SessionState.FAILED),
             Map.entry("HOST_LOST+GAME_LOST", SessionState.ENDED_REFUNDED),
             Map.entry("FINISHING+COMPLETE", SessionState.COMPLETED),
             Map.entry("FINISHING+OUTPUTS_MISSING", SessionState.FAILED));

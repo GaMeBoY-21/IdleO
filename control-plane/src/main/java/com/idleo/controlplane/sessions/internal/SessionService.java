@@ -5,6 +5,7 @@ import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.SessionCancelled;
 import com.idleo.controlplane.sessions.SessionRequested;
+import gpu.agent.v1.Session.StopReason;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -25,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 class SessionService {
 
     private final SessionStore store;
+    private final SessionStops stops;
     private final TemplateCatalog catalog;
     private final CreditReservations reservations;
     private final ApplicationEventPublisher events;
@@ -33,12 +35,14 @@ class SessionService {
 
     SessionService(
             SessionStore store,
+            SessionStops stops,
             TemplateCatalog catalog,
             CreditReservations reservations,
             ApplicationEventPublisher events,
             PlatformTransactionManager transactionManager,
             IdGenerator ids) {
         this.store = store;
+        this.stops = stops;
         this.catalog = catalog;
         this.reservations = reservations;
         this.events = events;
@@ -146,9 +150,17 @@ class SessionService {
                         HttpStatus.CONFLICT, "A session can't be cancelled once it's " + session.state() + ".");
             }
             reservations.release(sessionId);
+            if (session.state() == SessionState.PROVISIONING && session.hostId() != null && startDelivered(session)) {
+                // The agent may have started it: tell it to stop rather than wait for the lease.
+                stops.queue(session.hostId(), sessionId, session.attempt(), StopReason.STOP_REASON_RENTER_REQUESTED);
+            }
             events.publishEvent(new SessionCancelled(sessionId));
             return store.find(sessionId).orElseThrow();
         }));
+    }
+
+    private boolean startDelivered(SessionStore.Session session) {
+        return store.startDelivered(session.id(), session.attempt());
     }
 
     SessionStore.Session owned(UUID renterId, UUID sessionId) {

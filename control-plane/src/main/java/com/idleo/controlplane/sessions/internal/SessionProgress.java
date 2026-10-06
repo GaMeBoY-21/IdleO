@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>SUCCEEDED moves RUNNING to FINISHING; the outputs' marker then moves it to COMPLETED, or its absence
  *       after the outputs wait to FAILED with {@code outputs_missing}.
  *   <li>FAILED, or a non-zero exit, moves it to FAILED, keeping the error code.
+ *   <li>LEASE_EXPIRED or STOPPED means the host is lost ({@link HostLosses}).
  * </ul>
  *
  * Every end state releases the hold; nothing is charged until metering exists.
@@ -40,6 +41,7 @@ class SessionProgress implements SessionStatuses {
     private static final int BATCH = 50;
 
     private final SessionStore store;
+    private final HostLosses losses;
     private final SessionStorage storage;
     private final CreditReservations reservations;
     private final JdbcClient jdbc;
@@ -49,6 +51,7 @@ class SessionProgress implements SessionStatuses {
 
     SessionProgress(
             SessionStore store,
+            HostLosses losses,
             SessionStorage storage,
             CreditReservations reservations,
             JdbcClient jdbc,
@@ -56,6 +59,7 @@ class SessionProgress implements SessionStatuses {
             IdGenerator ids,
             @Value("${sessions.outputs-wait}") Duration outputsWait) {
         this.store = store;
+        this.losses = losses;
         this.storage = storage;
         this.reservations = reservations;
         this.jdbc = jdbc;
@@ -99,6 +103,9 @@ class SessionProgress implements SessionStatuses {
                 }
             }
             case SESSION_STATE_FAILED -> failed(session, errorCode(status));
+            // The agent fenced the attempt itself, or its owner took the machine back: the host is lost.
+            case SESSION_STATE_LEASE_EXPIRED -> losses.lost(sessionId, "lease_expired_on_host");
+            case SESSION_STATE_STOPPED -> losses.lost(sessionId, "stopped_on_host");
             default -> {
                 // PREPARING changes nothing here.
             }

@@ -217,6 +217,7 @@ public final class TestAgent {
     public static final class Stream implements StreamObserver<OpenStreamResponse> {
 
         private final BlockingQueue<Object> received = new LinkedBlockingQueue<>();
+        private boolean closed;
         StreamObserver<OpenStreamRequest> requests;
 
         /** Synchronized: a heartbeat thread and the test may send at the same time. */
@@ -278,8 +279,12 @@ public final class TestAgent {
             received.clear();
         }
 
-        public void close() {
-            requests.onCompleted();
+        /** Half-closes the stream; closing it again does nothing. */
+        public synchronized void close() {
+            if (!closed) {
+                closed = true;
+                requests.onCompleted();
+            }
         }
 
         @Override

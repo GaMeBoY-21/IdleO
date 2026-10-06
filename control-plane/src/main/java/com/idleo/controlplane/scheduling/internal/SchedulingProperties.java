@@ -13,10 +13,15 @@ import org.springframework.validation.annotation.Validated;
  * @param offerTtl how long an offer stays open (technical design line 232: 10 seconds)
  * @param maxOffers offers per session before it's NO_HOST_FREE (line 214: 3)
  * @param offerSweepInterval how often expired offers are looked for
+ * @param rematchRetryEvery how often a session being matched again after a lost host, with no candidate yet,
+ *     is tried again
+ * @param rematchWait how long such a session waits for a host before it's NO_HOST_FREE (ADR 0016)
  */
 @ConfigurationProperties("scheduling")
 @Validated
 record SchedulingProperties(
         @NotNull Duration offerTtl,
         @Min(1) @Max(3) int maxOffers,
-        @NotNull Duration offerSweepInterval) {}
+        @NotNull Duration offerSweepInterval,
+        @NotNull Duration rematchRetryEvery,
+        @NotNull Duration rematchWait) {}

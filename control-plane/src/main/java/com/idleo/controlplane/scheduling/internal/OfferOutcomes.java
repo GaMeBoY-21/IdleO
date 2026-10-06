@@ -15,8 +15,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * What an offer's answer does (ADR 0015). Accepted in time: the session moves to PROVISIONING. Declined or
- * expired: in one transaction the offer is closed with its reason, the hold is released, and the session
- * goes back to REQUESTED for the next candidate, or to NO_HOST_FREE after the third offer. A late reply,
+ * expired: in one transaction the offer is closed with its reason, the hold is released (a first attempt's
+ * only), and the session goes back to REQUESTED for the next candidate, or to NO_HOST_FREE after the third
+ * offer for the attempt. A late reply,
  * a reply to a withdrawn offer, or one for an unknown offer is ignored (but still acked).
  */
 @Component
@@ -97,15 +98,23 @@ class OfferOutcomes implements OfferReplies {
         transactions.executeWithoutResult(status -> offers.withdrawPending(sessionId, Instant.now(clock)));
     }
 
+    /**
+     * A first attempt's hold is released with each declined offer and taken again with the next match. A
+     * session being matched again after a lost host keeps its one hold across offers (ADR 0016); it's
+     * released only if no host takes it.
+     */
     private void close(OfferStore.Offer offer, String status, String reason, Instant now) {
         offers.answer(offer.id(), status, reason, now);
         metrics.offerAnswered(status);
-        reservations.release(offer.sessionId());
         if (offers.count(offer.sessionId(), offer.sessionAttempt()) >= properties.maxOffers()) {
             if (sessions.noHostFree(offer.sessionId(), "offers_exhausted")) {
+                reservations.release(offer.sessionId());
                 metrics.outcome("no_host_free");
             }
             return;
+        }
+        if (offer.sessionAttempt() == 1) {
+            reservations.release(offer.sessionId());
         }
         if (sessions.offerDeclined(offer.sessionId(), "offer_" + reason)) {
             events.publishEvent(new MatchRequested(offer.sessionId()));

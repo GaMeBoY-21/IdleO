@@ -123,6 +123,11 @@ class SessionMatcher {
                 }
             }
         }
+        if (request.attempt() > 1) {
+            // A session that already ran waits for a host rather than ending; the re-match retries try again.
+            metrics.outcome("waiting_for_host");
+            return;
+        }
         endWithoutHost(sessionId, "no_candidate");
     }
 
@@ -194,7 +199,7 @@ class SessionMatcher {
     }
 
     /** No host can take it: NO_HOST_FREE, with any hold released. */
-    private void endWithoutHost(UUID sessionId, String reason) {
+    void endWithoutHost(UUID sessionId, String reason) {
         transactions.executeWithoutResult(status -> {
             if (sessions.noHostFree(sessionId, reason)) {
                 reservations.release(sessionId);

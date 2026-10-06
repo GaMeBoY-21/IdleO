@@ -22,12 +22,17 @@ enum SessionEvent {
     JOB_FAILED,
     /** The job succeeded but its outputs' completion marker never appeared in storage. */
     OUTPUTS_MISSING,
-    /** The lease lapsed while running. */
+    /**
+     * The host was lost while provisioning or running: its lease lapsed, its agent fenced or stopped the
+     * attempt, or it reconnected without it.
+     */
     LEASE_LAPSED,
     /** The job ended, the renter stopped it, credit ran out, or abuse. */
     FINISH,
-    /** A batch job or endpoint whose host was lost is matched again. */
+    /** A batch job or endpoint whose host was lost goes back to the scheduler as its next attempt. */
     REMATCH,
+    /** A session lost its host too many times (3 by default) and fails. */
+    LOST_REPEATEDLY,
     /** A game whose host was lost ends with a refund. */
     GAME_LOST,
     /** Outputs were uploaded and acknowledged. */

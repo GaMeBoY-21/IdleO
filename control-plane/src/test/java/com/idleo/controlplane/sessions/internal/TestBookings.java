@@ -4,15 +4,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.TestAgent;
 import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestHosts.ConnectedHost;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
 import com.idleo.controlplane.billing.internal.TestCredit;
 import gpu.agent.v1.Session.OfferDeclineReason;
+import gpu.agent.v1.Session.SessionError;
+import gpu.agent.v1.Session.SessionState;
+import gpu.agent.v1.Session.SessionStatus;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
@@ -33,6 +39,7 @@ final class TestBookings implements AutoCloseable {
     private final JdbcTemplate jdbc;
     private final int grpcPort;
     private final List<ConnectedHost> hosts = new ArrayList<>();
+    private final Map<UUID, TestUser> owners = new LinkedHashMap<>();
 
     TestBookings(MockMvc mvc, ApplicationContext context, JdbcTemplate jdbc, int grpcPort) {
         this.mvc = mvc;
@@ -69,7 +76,9 @@ final class TestBookings implements AutoCloseable {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        return UUID.fromString(JSON.readTree(body).get("id").asString());
+        var id = UUID.fromString(JSON.readTree(body).get("id").asString());
+        owners.put(id, renter);
+        return id;
     }
 
     /** Books a new host for a new renter; the host accepts. */
@@ -101,9 +110,87 @@ final class TestBookings implements AutoCloseable {
         throw new AssertionError("session " + id + " never reached " + state + "; it's " + session);
     }
 
+    /**
+     * Ends what the test left behind, then disconnects, so nothing of this test is ever matched onto another
+     * test's hosts. A session not yet running is cancelled by its renter. A running one fails, reported by
+     * its agent as a real one would; if its host is gone, its lease is made to lapse, and once it's back in
+     * REQUESTED it's cancelled.
+     */
     @Override
     public void close() {
-        hosts.forEach(ConnectedHost::disconnect);
-        hosts.clear();
+        try {
+            var deadline = System.nanoTime() + Duration.ofSeconds(8).toNanos();
+            while (!settle() && System.nanoTime() < deadline) {
+                Thread.sleep(100);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            hosts.forEach(ConnectedHost::disconnect);
+            hosts.clear();
+            owners.clear();
+        }
+    }
+
+    /** One round of tidying; true once every session of this test has ended. */
+    private boolean settle() {
+        boolean settled = true;
+        for (var entry : owners.entrySet()) {
+            var sessionId = entry.getKey();
+            var row = jdbc.queryForMap("select state, host_id, attempt from sessions.sessions where id = ?", sessionId);
+            var state = (String) row.get("state");
+            switch (state) {
+                case "REQUESTED", "MATCHED", "PROVISIONING" -> {
+                    settled = false;
+                    try {
+                        mvc.perform(post("/v1/sessions/" + sessionId + "/cancel")
+                                .header("Authorization", entry.getValue().bearer()));
+                    } catch (Exception e) {
+                        // Tried again next round.
+                    }
+                }
+                case "RUNNING" -> {
+                    settled = false;
+                    var host = hosts.stream()
+                            .filter(candidate -> candidate.id().equals(row.get("host_id")))
+                            .findFirst();
+                    if (host.isEmpty() || !abandon(host.get(), sessionId, (Integer) row.get("attempt"))) {
+                        jdbc.update(
+                                "update sessions.sessions set lease_expires_at = now() - interval '1 hour' where id = ?",
+                                sessionId);
+                    }
+                }
+                case "HOST_LOST", "FINISHING" -> settled = false;
+                default -> {
+                    // Ended.
+                }
+            }
+        }
+        return settled;
+    }
+
+    /** The host's agent reports the attempt failed; false if its stream is gone. */
+    private static boolean abandon(ConnectedHost host, UUID sessionId, int attempt) {
+        var request = TestAgent.request()
+                .setSessionStatus(SessionStatus.newBuilder()
+                        .setSessionId(sessionId.toString())
+                        .setAttempt(attempt)
+                        .setState(SessionState.SESSION_STATE_FAILED)
+                        .setError(SessionError.newBuilder().setCode("test_finished")))
+                .build();
+        try {
+            host.stream().send(request);
+            host.stream()
+                    .await(
+                            message -> message.hasAck()
+                                    && message.getAck().getAckedMessageId().equals(request.getMessageId()),
+                            Duration.ofSeconds(1));
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (AssertionError | RuntimeException streamGone) {
+            return false;
+        }
     }
 }

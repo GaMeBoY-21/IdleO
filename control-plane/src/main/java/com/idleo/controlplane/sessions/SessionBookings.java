@@ -1,7 +1,9 @@
 package com.idleo.controlplane.sessions;
 
 import gpu.agent.v1.Session.SessionSpec;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -49,6 +51,12 @@ public interface SessionBookings {
 
     /** REQUESTED to CANCELLED by the system, for example when the renter's credit no longer covers the hold. */
     boolean cancel(UUID sessionId, String reason);
+
+    /** A session being matched again after a lost host, REQUESTED since {@code since}. */
+    record AwaitingRematch(UUID sessionId, Instant since) {}
+
+    /** Sessions being matched again after a lost host (attempt 2 or later) that are waiting in REQUESTED. */
+    List<AwaitingRematch> awaitingRematch();
 
     /** The hosts among {@code hostIds} that have a live session. */
     Set<UUID> hostsWithLiveSessions(Collection<UUID> hostIds);

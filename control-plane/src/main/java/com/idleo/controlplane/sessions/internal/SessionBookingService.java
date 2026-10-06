@@ -4,6 +4,7 @@ import com.idleo.controlplane.sessions.SessionBookings;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -90,6 +91,20 @@ class SessionBookingService implements SessionBookings {
     public boolean cancel(UUID sessionId, String reason) {
         return store.transition(sessionId, SessionEvent.CANCEL, reason, null, SessionStore.KEEP)
                 == SessionStore.Outcome.APPLIED;
+    }
+
+    @Override
+    public List<AwaitingRematch> awaitingRematch() {
+        return jdbc.sql("""
+                        select id, state_changed_at from sessions.sessions
+                        where state = 'REQUESTED' and attempt > 1
+                        order by state_changed_at
+                        limit 100
+                        """)
+                .query((rs, n) -> new AwaitingRematch(
+                        rs.getObject("id", UUID.class),
+                        rs.getTimestamp("state_changed_at").toInstant()))
+                .list();
     }
 
     @Override

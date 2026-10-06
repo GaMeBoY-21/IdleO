@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.agentgateway.OfferReplies;
+import com.idleo.controlplane.agentgateway.SessionReconciliation;
 import com.idleo.controlplane.agentgateway.SessionStatuses;
 import com.idleo.controlplane.hosts.HostAgentReports;
 import com.idleo.controlplane.hosts.HostListings;
@@ -23,6 +24,7 @@ class AgentStreamServices implements DisposableBean {
     private final AgentCommandService commands;
     private final ObjectProvider<OfferReplies> offerReplies;
     private final ObjectProvider<SessionStatuses> sessionStatuses;
+    private final ObjectProvider<SessionReconciliation> reconciliation;
     private final ObjectProvider<CommandDelivery> delivery;
     private final Presence presence;
     private final ConnectedAgents connected;
@@ -45,6 +47,7 @@ class AgentStreamServices implements DisposableBean {
             AgentCommandService commands,
             ObjectProvider<OfferReplies> offerReplies,
             ObjectProvider<SessionStatuses> sessionStatuses,
+            ObjectProvider<SessionReconciliation> reconciliation,
             ObjectProvider<CommandDelivery> delivery,
             Presence presence,
             ConnectedAgents connected,
@@ -59,6 +62,7 @@ class AgentStreamServices implements DisposableBean {
         this.commands = commands;
         this.offerReplies = offerReplies;
         this.sessionStatuses = sessionStatuses;
+        this.reconciliation = reconciliation;
         this.delivery = delivery;
         this.presence = presence;
         this.connected = connected;
@@ -92,6 +96,11 @@ class AgentStreamServices implements DisposableBean {
     @Nullable
     SessionStatuses sessionStatuses() {
         return sessionStatuses.getIfAvailable();
+    }
+
+    @Nullable
+    SessionReconciliation reconciliation() {
+        return reconciliation.getIfAvailable();
     }
 
     @Nullable

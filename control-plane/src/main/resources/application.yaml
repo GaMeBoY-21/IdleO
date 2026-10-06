@@ -141,6 +141,14 @@ sessions:
   leases:
     ttl: 2m
     renew-every: 30s
+    # The agent counts its lease from receipt, at most 50 seconds after the
+    # send (its keepalive drops a stalled connection by then), so a host only
+    # counts as lost this long after the lease the control plane recorded.
+    transit-allowance: 50s
+    lapse-sweep-every: 5s
+  # A batch session whose host is lost is matched again, resuming from its
+  # newest complete checkpoint; after this many lost attempts it fails.
+  max-lost-attempts: 3
   # A job that succeeded is COMPLETED once its outputs' completion marker is in
   # storage, checked this often; without it after the wait, it's FAILED with
   # outputs_missing (ADR 0016).
@@ -154,6 +162,10 @@ scheduling:
   offer-ttl: 10s
   max-offers: 3
   offer-sweep-interval: 1s
+  # A session being matched again after a lost host, with no candidate yet,
+  # is tried this often, for up to this long, then it's NO_HOST_FREE (ADR 0016).
+  rematch-retry-every: 5s
+  rematch-wait: 10m
 
 events:
   # Publications whose listener failed are retried this often, once this old.
