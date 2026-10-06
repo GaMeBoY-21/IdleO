@@ -23,4 +23,4 @@ import org.springframework.context.annotation.Import;
     TestClockConfiguration.class,
     ThrowingController.class
 })
-@interface ControlPlaneTest {}
+public @interface ControlPlaneTest {}
