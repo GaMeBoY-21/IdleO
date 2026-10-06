@@ -1,0 +1,33 @@
+{
+  "interactiveLogin": false,
+  "tokenCallbacks": [
+    {
+      "issuerId": "idleo-local",
+      "tokenExpiry": 3600,
+      "requestMappings": [
+        {
+          "requestParam": "grant_type",
+          "match": "client_credentials",
+          "claims": {
+            "sub": "${clientId}",
+            "user_id": "${clientId}",
+            "aud": [
+              "idleo-local"
+            ],
+            "email": "${clientId}@example.com",
+            "email_verified": true,
+            "name": "Local Developer",
+            "firebase": {
+              "sign_in_provider": "password",
+              "identities": {
+                "email": [
+                  "${clientId}@example.com"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

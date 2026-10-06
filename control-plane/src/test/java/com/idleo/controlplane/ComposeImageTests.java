@@ -15,5 +15,6 @@ class ComposeImageTests {
 
         assertThat(compose).contains("image: " + TestcontainersConfiguration.POSTGRES_IMAGE);
         assertThat(compose).contains("image: " + TestcontainersConfiguration.VALKEY_IMAGE);
+        assertThat(compose).contains("image: " + LocalSignInContainer.IMAGE);
     }
 }

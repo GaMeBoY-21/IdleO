@@ -11,6 +11,14 @@ logging:
       # Human-readable logs on a developer's machine.
       console: ""
 
+# The development sign-in server from compose.yaml (ADR 0013). To test against
+# a real Identity Platform project instead, set IDENTITY_ISSUERS_0_ISSUERURI and
+# IDENTITY_ISSUERS_0_AUDIENCE, which replace this list.
+identity:
+  issuers:
+    - issuer-uri: http://localhost:${LOCAL_SIGN_IN_PORT:8099}/idleo-local
+      audience: idleo-local
+
 # A Mac with the agent's fake GPUs can connect (ADR 0013).
 agentgateway:
   allow-development-hosts: true

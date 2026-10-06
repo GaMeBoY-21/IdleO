@@ -18,3 +18,16 @@ services:
       org.springframework.boot.service-connection: redis
     ports:
       - "127.0.0.1::6379"
+  sign-in:
+    # A development sign-in server (navikt/mock-oauth2-server) issuing ID tokens
+    # shaped like Identity Platform's for invented users (ADR 0013). The local
+    # profile trusts it; the prod profile refuses to start with such an issuer.
+    image: ghcr.io/navikt/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
+    environment:
+      JSON_CONFIG_PATH: /config/local-sign-in.json
+    volumes:
+      - ./local-sign-in.json:/config/local-sign-in.json:ro
+    ports:
+      # A fixed port, because the issuer URL in every token includes it.
+      # LOCAL_SIGN_IN_PORT moves it; the local profile reads the same variable.
+      - "127.0.0.1:${LOCAL_SIGN_IN_PORT:-8099}:8080"

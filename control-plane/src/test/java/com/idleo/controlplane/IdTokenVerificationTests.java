@@ -30,6 +30,20 @@ class IdTokenVerificationTests {
         call("Bearer " + issuers.validToken()).andExpect(status().isOk());
     }
 
+    /** auth_time is optional (ADR 0009); Spring Security 7's claim validator would make it required. */
+    @Test
+    void aTokenWithoutAuthTimeIsAccepted() throws Exception {
+        call("Bearer " + issuers.token(claims -> claims.claim("auth_time", null)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void authTimeInTheFutureIsRejected() throws Exception {
+        rejected(call("Bearer "
+                + issuers.token(claims ->
+                        claims.claim("auth_time", Instant.now().plusSeconds(300).getEpochSecond()))));
+    }
+
     @Test
     void wrongSignatureIsRejected() throws Exception {
         // Issuer A's claims and key id, signed with a key issuer A never published.
