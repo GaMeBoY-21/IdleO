@@ -5,7 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
 
 /**
- * The agent gateway's meters (ADR 0011). Technical design line 798 alerts on hosts online; this is
+ * The agent gateway's meters (ADR 0011). Technical design line 801 alerts on hosts online; this is
  * the data it reads.
  */
 @Component

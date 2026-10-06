@@ -22,7 +22,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Matches a REQUESTED session to a host (technical design lines 329-386, ADR 0015). Candidates are tried in
+ * Matches a REQUESTED session to a host (technical design lines 332-389, ADR 0015). Candidates are tried in
  * score order, each in its own short transaction that locks the host's row (skipping a host another
  * booking holds), moves the session to MATCHED guarded by its version, holds 30 minutes of credit, and
  * queues the offer for the host's agent. If a step changes nothing, that transaction rolls back and the

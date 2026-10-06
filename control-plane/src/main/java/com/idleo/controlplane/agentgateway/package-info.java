@@ -1,11 +1,26 @@
 /**
- * The agent gateway module. Owns: the agents' gRPC transport, and later their streams, presence,
- * durable agent commands and routing to the right instance.
+ * The agent gateway module. Owns: the agents' gRPC transport, their streams, presence, the durable agent
+ * command queue and routing to the right instance.
  *
- * <p>So far it serves {@code EnrollmentService.Enroll} on the control plane's one gRPC TLS port
- * (ADR 0010) and hands each request to the hosts module's {@link
- * com.idleo.controlplane.hosts.HostEnrolment}; it never touches codes, keys or certificate records
- * itself.
+ * <p>It serves {@code EnrollmentService.Enroll} (ADR 0010) and {@code AgentGatewayService} (ADR 0011) on the
+ * control plane's one gRPC TLS port, handing enrolment and certificates to the hosts module; it never
+ * touches codes, keys or certificate records itself.
+ *
+ * <p>Public API for other modules:
+ *
+ * <ul>
+ *   <li>{@link com.idleo.controlplane.agentgateway.AgentCommands}: the durable queue for everything sent to an
+ *       agent (ADR 0015);
+ *   <li>{@link com.idleo.controlplane.agentgateway.AgentStreams}: unqueued messages, such as LeaseRenew, down
+ *       a stream this instance holds (ADR 0016);
+ *   <li>{@link com.idleo.controlplane.agentgateway.AgentPresence}: live agents, for the scheduler.
+ * </ul>
+ *
+ * <p>Ports it declares and other modules implement, so dependencies point one way: {@link
+ * com.idleo.controlplane.agentgateway.OfferReplies} (scheduling), and {@link
+ * com.idleo.controlplane.agentgateway.SessionCredentials}, {@link
+ * com.idleo.controlplane.agentgateway.SessionStatuses} and {@link
+ * com.idleo.controlplane.agentgateway.SessionReconciliation} (sessions).
  */
 @ApplicationModule
 package com.idleo.controlplane.agentgateway;

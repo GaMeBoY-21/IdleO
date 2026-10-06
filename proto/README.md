@@ -61,16 +61,16 @@ No generated code is committed. Each side generates its own when it's built, wit
 | `Hello` | agent → control plane | No | Answered by `Welcome` | Yes: validated, GPUs and versions recorded |
 | `Welcome` | control plane → agent | No | Sent again on every new stream | Yes: sent after a valid `Hello` |
 | `Heartbeat` | agent → control plane | No | The next one is 5 seconds away | Yes: validated, refreshes presence in Valkey |
-| `Offer` | control plane → agent | No | Answered by `OfferReply` | Not yet (scheduling) |
-| `OfferReply` | agent → control plane | Yes | | Not yet: counted in `agents.messages.unhandled` and dropped, never acked |
-| `StartSession` | control plane → agent | Yes | | Not yet (sessions) |
-| `LeaseRenew` | control plane → agent | No | The lease survives three missed renewals | Not yet (sessions) |
-| `SessionStatus` | agent → control plane | Yes | Kept on disk until acked | Not yet: counted and dropped, never acked |
+| `Offer` | control plane → agent | No | Answered by `OfferReply` | Yes: sent by the scheduler through the command queue (ADR 0015) |
+| `OfferReply` | agent → control plane | Yes | | Yes: recorded by the scheduler, then acked (ADR 0015) |
+| `StartSession` | control plane → agent | Yes | | Yes: queued without credentials; fresh grants minted at each delivery (ADR 0016) |
+| `LeaseRenew` | control plane → agent | No | The lease survives three missed renewals | Yes: every 30 s by the instance holding the stream (ADR 0016) |
+| `SessionStatus` | agent → control plane | Yes | Kept on disk until acked (in memory until the agent's store exists) | Yes: applied by the sessions module, then acked (ADR 0016) |
 | `UsageReport` | agent → control plane | Yes | Kept on disk until acked | Not yet: counted and dropped, never acked |
-| `StopSession` | control plane → agent | Yes | | Not yet (sessions) |
+| `StopSession` | control plane → agent | Yes | | Yes: `SUPERSEDED` on reconnect, `RENTER_REQUESTED` on a cancel after the start (ADR 0016) |
 | `UpdateAgent` | control plane → agent | Yes | | Not yet (agent releases) |
 | `RefreshCredentials` | control plane → agent | Yes | | Not yet (sessions) |
-| `Ack` | both | No | Acks are never acked | Not yet: counted and dropped |
+| `Ack` | both | No | Acks are never acked | Yes: marks the agent's command acked |
 
 Messages that aren't handled yet arrive with their features. Until then the control plane counts them and drops them; it never acks them, so an agent keeps its on-disk copies.
 
@@ -87,7 +87,7 @@ The unary calls: `EnrollmentService.Enroll` is handled (ADR 0010). `AgentGateway
 
 ## The lease clock
 
-A laptop that sleeps must not run past its lease. Say a lid closes mid-job, the control plane re-matches the job elsewhere, and the laptop wakes 20 minutes later. A clock that paused during sleep would let the old attempt keep running beside the new one. So the agent follows these rules. The agent itself is built later.
+A laptop that sleeps must not run past its lease. Say a lid closes mid-job, the control plane re-matches the job elsewhere, and the laptop wakes 20 minutes later. A clock that paused during sleep would let the old attempt keep running beside the new one. So the agent follows these rules (agent/agent/src/lease_clock.rs and supervisor.rs, ADR 0016).
 
 **1. Deadlines use a clock that keeps counting while the machine sleeps.**
 - **Linux:** `clock_gettime(CLOCK_BOOTTIME)`. The man page says it "also includes any time that the system is suspended". `CLOCK_MONOTONIC` "does not count time that the system is suspended", so it's never used for deadlines.
@@ -98,9 +98,12 @@ A laptop that sleeps must not run past its lease. Say a lid closes mid-job, the 
   - So the agent calls the OS clock directly.
 - **On Windows hosts, the clock is read in the agent's Windows process, never inside the WSL2 VM.** Nothing documents that the VM's clocks count the host's sleep.
 
+- **macOS (development only):** `CLOCK_MONOTONIC`. Apple's `clock_gettime(3)` says it "will continue to increment while the system is asleep", unlike `CLOCK_UPTIME_RAW`; Linux's `CLOCK_MONOTONIC` doesn't, which is why Linux uses `CLOCK_BOOTTIME` (ADR 0016).
+- **The control plane's side:** it records each lease as its send time plus `lease_ttl`. The agent counts from receipt, after the send, so the control plane counts a host as lost only a transit allowance (50 s) after its own record: the most a message can be in flight before the agent's keepalive drops the connection (ADR 0016).
+
 **2. On wake, check every deadline first.** When the OS reports a resume, the agent checks every deadline before doing anything else. It stops each attempt whose deadline has passed.
 
-**3. Deadlines survive a process restart, but never a reboot.**
+**3. Deadlines survive a process restart, but never a reboot.** (Not built yet: the agent keeps its attempts in memory until its persistent store exists, so a restart loses them and the control plane's lease handles them, ADR 0016.)
 - The agent persists each deadline as the **boot id** plus that clock's value.
   - Linux boot id: `/proc/sys/kernel/random/boot_id`.
   - Windows boot id: `Win32_OperatingSystem.LastBootUpTime`.
@@ -119,6 +122,7 @@ Sources:
 - Interrupt time: https://learn.microsoft.com/en-us/windows/win32/sysinfo/interrupt-time
 - Win32_OperatingSystem: https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-operatingsystem
 - Rust's std::time::Instant: https://doc.rust-lang.org/std/time/struct.Instant.html
+- Apple clock_gettime(3): https://opensource.apple.com/source/Libc/Libc-1244.1.7/gen/clock_gettime.3.auto.html
 
 ## Storage layout
 

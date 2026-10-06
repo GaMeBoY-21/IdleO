@@ -8,25 +8,26 @@ From the repository root, it:
 
 1. Creates the development CA under `private/dev-ca/` if it doesn't exist yet (`control-plane/scripts/dev-ca.sh`), including the gRPC port's certificate for `localhost`.
 2. Starts the control plane on the `local` profile (`./mvnw spring-boot:run`).
-   - Spring Boot starts `control-plane/compose.yaml`: PostgreSQL, Valkey, and the development sign-in server, under the compose project name `idleo-e2e`.
+   - Spring Boot starts `control-plane/compose.yaml`: PostgreSQL, Valkey, MinIO (object storage) and the development sign-in server, under the compose project name `idleo-e2e`.
+   - It uses the development template catalog (`templates/development.yaml`: the smoke test runs 20 s and checkpoints every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
    - The script waits for readiness to be UP.
 3. Gets an ID token for an invented user (`e2e-…@example.com`) from the development sign-in server.
 4. Registers a host (`POST /v1/hosts` with an `Idempotency-Key`) and gets its enrolment code (`POST /v1/hosts/{id}/enrolment-code`). The code is never printed or logged.
 5. Builds the agent (`cargo build --release`), writes `private/e2e/agent.toml`, and enrols it into `private/e2e/agent/`.
-6. Runs `idleo-agent run --fake-gpu`, and polls `GET /v1/hosts/{id}` every 500 ms until `online` is true (30 s at most). It also checks that the fake GPU is listed.
+6. Runs `idleo-agent run --fake-gpu --dev-runner`, and polls `GET /v1/hosts/{id}` every 500 ms until `online` is true (30 s at most). It also checks that the fake GPU is listed.
 7. **Books a session** (ADR 0015):
    - gives the user ₹500 with the `grant-credits` operator command;
    - sets the host's listing to 2 paise a minute, and activates it with `activate-host`;
    - books the smoke template (`POST /v1/sessions`).
 
-   The real agent accepts the offer, so the session reaches `PROVISIONING`, and the wallet shows 60 paise held (30 minutes at 2 paise). The script records the time from the POST to `MATCHED` and to `PROVISIONING`, from the session's own events.
-8. **Waits for the provisioning timeout** (`E2E_PROVISIONING_TIMEOUT`, 10 s here, 3 minutes in production). Nothing starts sessions yet, so the session fails with `start_timeout`, and the wallet is back to ₹500 exactly. Its `session_events` are printed in the summary.
-9. **Books again and cancels while `PROVISIONING`:** the state is `CANCELLED`, and the hold is released.
+   The real agent accepts the offer and gets the StartSession with scoped storage grants and a lease (ADR 0016). Its development runner runs the job, checkpointing to MinIO, while the wallet shows 60 paise held (30 minutes at 2 paise). The session moves `PROVISIONING`, `RUNNING`, `FINISHING`, `COMPLETED`; the script records the time from the POST to each, from the session's own events.
+8. **Downloads the output** through `GET /v1/sessions/{id}/outputs` and its pre-signed link into `private/e2e/output-normal.json`, and checks it: attempt 1, no resume, three checkpoints. The wallet is back to ₹500 exactly (nothing is charged until metering exists), and three checkpoints are recorded.
+9. **Loses the host mid-run:** books again, waits for `RUNNING` and two recorded checkpoints, and `kill -9`s the agent. The lease lapses and the session goes `HOST_LOST`, then `REQUESTED` as attempt 2, waiting for a host. The script restarts the agent; it's matched again, resumes from the last complete checkpoint and completes. The output (`private/e2e/output-resumed.json`) must say attempt 2 and name that checkpoint. The script checks that attempt 2 only ran after attempt 1 was declared lost, prints the session's `session_events`, and checks that no storage credential appears in either log.
 10. Stops the agent with SIGTERM, and polls until `online` is false (30 s at most). Under 5 seconds means the clean close removed presence; anything longer would mean only the 15-second presence expiry did, and the script says which.
 11. Prints a summary, with each timing and PASS or FAIL, and exits non-zero on any failure.
 12. On exit, even after a failure or Ctrl-C, it stops the agent and the control plane and removes the compose services. It then checks that no container, control plane or agent is still running.
 
-Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log`, `ops.log` (the operator commands) and `compose.log`. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
+Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log`, `ops.log` (the operator commands) and `compose.log`, with the two downloaded outputs beside them. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
 
 ## What you need
 
@@ -42,7 +43,7 @@ Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log`, 
 scripts/e2e/agent-online.sh
 ```
 
-The first run downloads the images, the Maven dependencies and the crates, and builds both sides. After that, a run takes about 35 seconds on a Mac: starting the control plane, two operator commands, and the 10-second provisioning timeout.
+The first run downloads the images, the Maven dependencies and the crates, and builds both sides. After that, a run takes about a minute and a half on a Mac: starting the control plane, two operator commands, two 20-second jobs, and the lost host's 10-second lease.
 
 ## Keep the stack up and try things by hand
 
@@ -67,6 +68,7 @@ It also prints the command for a new token; tokens last an hour. Any `client_id`
 | 8080 | The control plane's HTTP API | `E2E_HTTP_PORT` |
 | 9443 | The agents' gRPC port (TLS) | `E2E_GRPC_PORT` |
 | 8099 | The development sign-in server. The issuer URL in every token includes it, so it's fixed rather than random | `LOCAL_SIGN_IN_PORT` (compose and the `local` profile read the same variable) |
+| 9100 | MinIO's S3 API. Agents' grants and renters' download links carry this endpoint, so it's fixed | `LOCAL_STORAGE_PORT` (compose and the `local` profile read the same variable) |
 
 PostgreSQL and Valkey get random ports. If a port is busy, the script stops before starting anything and names the port. A stack already started by `control-plane/scripts/run-local.sh` uses the same fixed ports, so stop it first.
 
@@ -74,6 +76,7 @@ PostgreSQL and Valkey get random ports. If a port is busy, the script stops befo
 
 - **"the control plane exited during startup":** read `private/e2e/control-plane.log`. Docker not running, or a port taken inside Docker, are the usual causes.
 - **"the host didn't come online":** read `private/e2e/agent.log`. A TLS error there usually means a stale development CA: run `control-plane/scripts/dev-ca.sh --force`, then run the script again.
+- **A session doesn't reach `RUNNING` or `COMPLETED`:** read `private/e2e/agent.log` for the agent's view (a refused StartSession, a storage failure) and `control-plane.log` for "Couldn't mint storage credentials". MinIO is reached at `http://localhost:9100`. Object storage is described in docs/runbooks/object-storage.md.
 - **"the host didn't go offline within 30 s":** the agent didn't close its stream, and presence also didn't expire. Compare the agent's and the control plane's logs around the SIGTERM.
 
 ## Nothing here can reach production

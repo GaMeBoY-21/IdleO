@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the QLoRA test image and run it with the renter sandbox flags from
-# technical design lines 479-489. Extra arguments go to train.py, for example:
+# technical design lines 482-492. Extra arguments go to train.py, for example:
 #   ./run.sh               full 4-bit QLoRA run on the GPU
 #   ./run.sh --resume      continue from the newest checkpoint
 #   ./run.sh --smoke       tiny CPU run, same code path
@@ -34,7 +34,7 @@ if [[ "$(uname -s)" == Linux && "$(stat -c %u "$WORK_DIR")" != 10001 ]]; then
     || die "$WORK_DIR must be owned by uid 10001. Run: sudo chown 10001:10001 '$WORK_DIR'"
 fi
 
-# Own bridge network from the session pool (technical design line 491). The
+# Own bridge network from the session pool (technical design line 494). The
 # DOCKER-USER firewall rules are not applied in Phase 0.
 if ! docker network inspect "$NETWORK" >/dev/null 2>&1; then
   docker network create --driver bridge --subnet 172.30.0.0/24 "$NETWORK" >/dev/null

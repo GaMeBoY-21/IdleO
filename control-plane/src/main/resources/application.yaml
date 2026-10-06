@@ -156,7 +156,7 @@ sessions:
   finishing-sweep-interval: 5s
 
 scheduling:
-  # Booking (ADR 0015): offers stay open 10 seconds (technical design line 232),
+  # Booking (ADR 0015): offers stay open 10 seconds (technical design line 235),
   # at most three per session (line 214); the sweeper looks for expired offers
   # this often.
   offer-ttl: 10s

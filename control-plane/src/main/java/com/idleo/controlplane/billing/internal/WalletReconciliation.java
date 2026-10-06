@@ -18,7 +18,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The nightly proof that the wallet cache equals the ledger (technical design line 408, ADR 0014): for
+ * The nightly proof that the wallet cache equals the ledger (technical design line 411, ADR 0014): for
  * every renter, the cached balance must equal their {@code renter_wallet} credits minus debits, the cached
  * reservation must equal the sum of their active holds (ADR 0015), and the whole ledger must balance. One control-plane instance runs it at a time, under a PostgreSQL advisory
  * lock; the others skip. Mismatches are logged (user id and both values, nothing more) and counted in

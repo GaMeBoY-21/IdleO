@@ -13,7 +13,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Activating and suspending hosts by operator command (ADR 0015), until onboarding's benchmark and
- * canary job exist (technical design line 641). Every change is an append-only row in {@code
+ * canary job exist (technical design line 644). Every change is an append-only row in {@code
  * hosts.status_changes}; asking for the status a host already has changes nothing.
  */
 @Service

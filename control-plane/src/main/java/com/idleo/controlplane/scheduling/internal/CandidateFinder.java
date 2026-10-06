@@ -9,7 +9,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
- * Hosts that could take a session (technical design line 333), each fact from the module that owns it:
+ * Hosts that could take a session (technical design line 336), each fact from the module that owns it:
  * active, listed and big enough (hosts); online, current, owner away and every GPU below the cap (agent
  * gateway presence); no live session (sessions); and not already offered this session.
  */
