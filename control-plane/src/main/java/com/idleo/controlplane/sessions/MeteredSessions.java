@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -50,4 +51,27 @@ public interface MeteredSessions {
 
     /** Whether one unbroken stretch of the attempt's lease, as the control plane recorded it, covers [from, until]. */
     boolean leaseCovered(UUID sessionId, int attempt, Instant from, Instant until);
+
+    /** How long each lease lasts: the credit must always cover the next one (technical design rule 2). */
+    Duration leaseTtl();
+
+    /**
+     * The minutes a lease sent at {@code sentAt} would let the attempt start beyond those it has already started:
+     * what the credit must still cover before that lease is sent (ADR 0017). The attempt's current minute is
+     * already counted against the credit, so only minutes starting after it count; before its first RUNNING, every
+     * minute the lease spans does.
+     */
+    static long minutesALeaseStarts(@Nullable Instant runningAt, Instant sentAt, Duration ttl) {
+        var leaseEnd = sentAt.plus(ttl);
+        if (runningAt == null || sentAt.isBefore(runningAt)) {
+            return (ttl.toSeconds() + 59) / 60;
+        }
+        var currentMinuteEnd = runningAt.plus(
+                Duration.ofMinutes(Duration.between(runningAt, sentAt).toMinutes() + 1));
+        if (!leaseEnd.isAfter(currentMinuteEnd)) {
+            return 0;
+        }
+        var beyond = Duration.between(currentMinuteEnd, leaseEnd);
+        return (beyond.toSeconds() + 59) / 60;
+    }
 }

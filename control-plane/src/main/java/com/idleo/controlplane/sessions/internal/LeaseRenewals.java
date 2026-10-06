@@ -1,12 +1,17 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.agentgateway.AgentStreams;
+import com.idleo.controlplane.billing.CreditReservations;
+import com.idleo.controlplane.sessions.MeteredSessions;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.Session.LeaseRenew;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -18,7 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Renews the lease of every attempt that holds one (ADR 0016): the session is PROVISIONING or RUNNING, its
  * StartSession has been delivered, and its host's stream is live on this instance. Only the instance
- * holding a stream renews through it, so several instances never send twice. Each renewal moves {@code
+ * holding a stream renews through it, so several instances never send twice. A lease is renewed only while the
+ * session's hold, less what it has used and not yet settled, covers the lease's length at its price (ADR 0017). Each renewal moves {@code
  * sessions.lease_expires_at} to the send time plus the lease's length, as the agent counts from receipt.
  */
 @Component
@@ -32,7 +38,9 @@ class LeaseRenewals {
     private final LeaseProperties leases;
     private final LeaseBook leaseBook;
     private final TransactionTemplate transactions;
+    private final CreditReservations reservations;
     private final Counter renewed;
+    private final Counter notRenewed;
 
     LeaseRenewals(
             JdbcClient jdbc,
@@ -41,6 +49,7 @@ class LeaseRenewals {
             LeaseProperties leases,
             LeaseBook leaseBook,
             PlatformTransactionManager transactionManager,
+            CreditReservations reservations,
             MeterRegistry meters) {
         this.jdbc = jdbc;
         this.streams = streams;
@@ -48,12 +57,31 @@ class LeaseRenewals {
         this.leases = leases;
         this.leaseBook = leaseBook;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.reservations = reservations;
+        this.notRenewed = Counter.builder("sessions.leases.not_renewed")
+                .description("Leases not renewed because the hold no longer covered one")
+                .register(meters);
         this.renewed = Counter.builder("sessions.leases.renewed")
                 .description("LeaseRenew messages sent")
                 .register(meters);
     }
 
-    private record Lease(UUID sessionId, int attempt, UUID hostId) {}
+    private record Lease(
+            UUID sessionId,
+            int attempt,
+            UUID hostId,
+            int pricePaisePerMin,
+            @Nullable Instant runningAt) {}
+
+    /**
+     * What a lease sent now costs: the minutes it would let the attempt start, at its price. The hold, less what's
+     * committed, must cover it before the lease is sent, so the lease never outruns the credit (technical design
+     * rule 2).
+     */
+    private Paise leaseCost(Lease lease, Instant now) {
+        return Paise.of(lease.pricePaisePerMin())
+                .times(MeteredSessions.minutesALeaseStarts(lease.runningAt(), now, leases.ttl()));
+    }
 
     @Scheduled(fixedDelayString = "${sessions.leases.renew-every}")
     void renew() {
@@ -63,7 +91,7 @@ class LeaseRenewals {
                 return;
             }
             var held = jdbc.sql("""
-                            select s.id, s.attempt, s.host_id
+                            select s.id, s.attempt, s.host_id, a.price_paise_per_min, a.running_at
                             from sessions.sessions s
                             join sessions.attempts a on a.session_id = s.id and a.attempt = s.attempt
                             where s.state in ('PROVISIONING', 'RUNNING') and a.start_delivered_at is not null
@@ -71,9 +99,20 @@ class LeaseRenewals {
                             """)
                     .param("hosts", here)
                     .query((rs, n) -> new Lease(
-                            rs.getObject("id", UUID.class), rs.getInt("attempt"), rs.getObject("host_id", UUID.class)))
+                            rs.getObject("id", UUID.class),
+                            rs.getInt("attempt"),
+                            rs.getObject("host_id", UUID.class),
+                            rs.getInt("price_paise_per_min"),
+                            rs.getTimestamp("running_at") == null
+                                    ? null
+                                    : rs.getTimestamp("running_at").toInstant()))
                     .list();
             for (var lease : held) {
+                if (!reservations.covers(lease.sessionId(), leaseCost(lease, store.now()))) {
+                    notRenewed.increment();
+                    log.info("Not renewing session {}'s lease: its hold doesn't cover one", lease.sessionId());
+                    continue;
+                }
                 var message = OpenStreamResponse.newBuilder()
                         .setLeaseRenew(LeaseRenew.newBuilder()
                                 .setSessionId(lease.sessionId().toString())

@@ -27,7 +27,8 @@ class SessionTransitionsTests {
             Map.entry("HOST_LOST+LOST_REPEATEDLY", SessionState.FAILED),
             Map.entry("HOST_LOST+GAME_LOST", SessionState.ENDED_REFUNDED),
             Map.entry("FINISHING+COMPLETE", SessionState.COMPLETED),
-            Map.entry("FINISHING+OUTPUTS_MISSING", SessionState.FAILED));
+            Map.entry("FINISHING+OUTPUTS_MISSING", SessionState.FAILED),
+            Map.entry("FINISHING+JOB_FAILED", SessionState.FAILED));
 
     @Test
     void everyAllowedMoveGoesWhereTheDesignSays() {

@@ -4,6 +4,7 @@ import com.idleo.controlplane.sessions.MeteredSessions;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -17,12 +18,19 @@ class MeteredSessionService implements MeteredSessions {
 
     private final SessionStore store;
     private final LeaseBook leases;
+    private final LeaseProperties leaseProperties;
     private final JdbcClient jdbc;
 
-    MeteredSessionService(SessionStore store, LeaseBook leases, JdbcClient jdbc) {
+    MeteredSessionService(SessionStore store, LeaseBook leases, LeaseProperties leaseProperties, JdbcClient jdbc) {
         this.store = store;
         this.leases = leases;
+        this.leaseProperties = leaseProperties;
         this.jdbc = jdbc;
+    }
+
+    @Override
+    public Duration leaseTtl() {
+        return leaseProperties.ttl();
     }
 
     @Override

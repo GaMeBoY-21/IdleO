@@ -38,7 +38,8 @@ import java.util.Optional;
  * 0015); a job that fails while running goes straight to FAILED, and so does one whose outputs never appear
  * (ADR 0016); a host can be lost while provisioning, not only while running, once the agent holds a lease;
  * a lost batch session goes back to REQUESTED, through the scheduler as booking, rather than straight to
- * MATCHED; and one that lost its host too often fails (ADR 0016).
+ * MATCHED; and one that lost its host too often fails (ADR 0016); a stopped job that fails while checkpointing
+ * fails (ADR 0017).
  */
 final class SessionTransitions {
 
@@ -63,7 +64,8 @@ final class SessionTransitions {
             Map.entry(new Key(HOST_LOST, LOST_REPEATEDLY), FAILED),
             Map.entry(new Key(HOST_LOST, GAME_LOST), ENDED_REFUNDED),
             Map.entry(new Key(FINISHING, COMPLETE), COMPLETED),
-            Map.entry(new Key(FINISHING, OUTPUTS_MISSING), FAILED));
+            Map.entry(new Key(FINISHING, OUTPUTS_MISSING), FAILED),
+            Map.entry(new Key(FINISHING, JOB_FAILED), FAILED));
 
     private SessionTransitions() {}
 

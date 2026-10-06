@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,6 +43,7 @@ class SessionProgress implements SessionStatuses {
     private static final int BATCH = 50;
 
     private final SessionStore store;
+    private final RunningStops stops;
     private final ApplicationEventPublisher events;
     private final HostLosses losses;
     private final SessionStorage storage;
@@ -53,6 +55,7 @@ class SessionProgress implements SessionStatuses {
 
     SessionProgress(
             SessionStore store,
+            RunningStops stops,
             ApplicationEventPublisher events,
             HostLosses losses,
             SessionStorage storage,
@@ -62,6 +65,7 @@ class SessionProgress implements SessionStatuses {
             IdGenerator ids,
             @Value("${sessions.outputs-wait}") Duration outputsWait) {
         this.store = store;
+        this.stops = stops;
         this.events = events;
         this.losses = losses;
         this.storage = storage;
@@ -89,12 +93,18 @@ class SessionProgress implements SessionStatuses {
                     status.getAttempt());
             return;
         }
-        if (session.state() != SessionState.PROVISIONING && session.state() != SessionState.RUNNING) {
+        if (session.state() != SessionState.PROVISIONING
+                && session.state() != SessionState.RUNNING
+                && session.state() != SessionState.FINISHING) {
             log.info("Ignored a {} for session {}: it's {}", status.getState(), sessionId, session.state());
             return;
         }
         if (status.getLatestCheckpointSeq() > 0) {
             recordCheckpoint(sessionId, session.attempt(), status.getLatestCheckpointSeq());
+        }
+        if (session.state() == SessionState.FINISHING) {
+            whileFinishing(session, status);
+            return;
         }
         switch (status.getState()) {
             case SESSION_STATE_RUNNING, SESSION_STATE_CHECKPOINTING, SESSION_STATE_UPLOADING -> started(session);
@@ -113,6 +123,45 @@ class SessionProgress implements SessionStatuses {
             default -> {
                 // PREPARING changes nothing here.
             }
+        }
+    }
+
+    /**
+     * A report while FINISHING. After a stop (ADR 0017), the attempt ends when its agent reports STOPPED (or its
+     * lease ran out, or the job ended anyway), and the session completes with reason {@code stopped}, whatever
+     * outputs exist; one that failed is FAILED. After SUCCEEDED, the outputs decide, as before.
+     */
+    private void whileFinishing(SessionStore.Session session, SessionStatus status) {
+        boolean stopping = stops.stopRequested(session.id(), session.attempt());
+        switch (status.getState()) {
+            case SESSION_STATE_STOPPED, SESSION_STATE_LEASE_EXPIRED, SESSION_STATE_SUCCEEDED -> {
+                if (!stopping) {
+                    return;
+                }
+                store.endAttempt(session.id(), session.attempt());
+                if (!completeIfOutputsExist(session.id(), session.attempt())) {
+                    completeStopped(session.id(), session.attempt());
+                }
+            }
+            case SESSION_STATE_FAILED -> {
+                store.endAttempt(session.id(), session.attempt());
+                var code = errorCode(status);
+                if (store.transition(session.id(), SessionEvent.JOB_FAILED, code, null, SessionStore.KEEP)
+                        == SessionStore.Outcome.APPLIED) {
+                    end(session.id(), code);
+                }
+            }
+            default -> {
+                // Still checkpointing or uploading.
+            }
+        }
+    }
+
+    private void completeStopped(UUID sessionId, int attempt) {
+        if (store.transition(sessionId, SessionEvent.COMPLETE, "stopped", null, SessionStore.KEEP)
+                == SessionStore.Outcome.APPLIED) {
+            end(sessionId, null);
+            log.info("Session {} completed on attempt {}, stopped", sessionId, attempt);
         }
     }
 
@@ -232,21 +281,35 @@ class SessionProgress implements SessionStatuses {
     void checkFinishing() {
         try {
             transactions.executeWithoutResult(tx -> {
-                record Finishing(UUID id, int attempt, java.time.Instant since) {}
+                record Finishing(
+                        UUID id, int attempt, java.time.Instant since, java.time.@Nullable Instant stopDeadline) {}
                 var finishing = jdbc.sql("""
-                                select id, attempt, state_changed_at from sessions.sessions
-                                where state = 'FINISHING'
-                                order by state_changed_at
+                                select s.id, s.attempt, s.state_changed_at, a.stop_deadline
+                                from sessions.sessions s
+                                left join sessions.attempts a on a.session_id = s.id and a.attempt = s.attempt
+                                where s.state = 'FINISHING'
+                                order by s.state_changed_at
                                 limit :limit
-                                for update skip locked
+                                for update of s skip locked
                                 """)
                         .param("limit", BATCH)
                         .query((rs, n) -> new Finishing(
                                 rs.getObject("id", UUID.class),
                                 rs.getInt("attempt"),
-                                rs.getTimestamp("state_changed_at").toInstant()))
+                                rs.getTimestamp("state_changed_at").toInstant(),
+                                rs.getTimestamp("stop_deadline") == null
+                                        ? null
+                                        : rs.getTimestamp("stop_deadline").toInstant()))
                         .list();
                 for (var session : finishing) {
+                    if (session.stopDeadline() != null) {
+                        // Stopping: done when the agent says so, or once its lease has certainly ended.
+                        if (!session.stopDeadline().isAfter(store.now())) {
+                            store.endAttempt(session.id(), session.attempt());
+                            completeStopped(session.id(), session.attempt());
+                        }
+                        continue;
+                    }
                     if (completeIfOutputsExist(session.id(), session.attempt())) {
                         continue;
                     }

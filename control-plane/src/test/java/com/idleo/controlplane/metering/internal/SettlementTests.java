@@ -10,6 +10,7 @@ import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.billing.SessionCharges;
 import com.idleo.controlplane.billing.internal.TestCredit;
 import com.idleo.controlplane.sessions.MeteredSessions;
+import com.idleo.controlplane.sessions.SessionControl;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -132,6 +133,26 @@ class SettlementTests {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> work.run());
     }
 
+    private MeteringJobs jobs() {
+        return new MeteringJobs(
+                sessions,
+                new Witnesses(sessions, jdbc),
+                settlements,
+                new CreditGuard(
+                        sessions,
+                        context.getBean(SessionControl.class),
+                        reservations,
+                        settlements,
+                        new Costs(sessions, settlements, jdbc),
+                        jdbc),
+                reservations,
+                jdbc,
+                transactionManager,
+                java.time.Clock.systemUTC(),
+                Duration.ofMinutes(15),
+                Duration.ofMinutes(5));
+    }
+
     private Map<String, Object> wallet(UUID renterId) {
         return jdbcTemplate.queryForMap(
                 "select balance_paise, reserved_paise from billing.wallets where user_id = ?", renterId);
@@ -197,16 +218,7 @@ class SettlementTests {
     void twoSettlersAtOnceSettleOnce() throws Exception {
         var fixture = session(10_000, 2, 100_000);
         minutes(fixture.sessionId(), 0, 10, true, true);
-        var jobs = new MeteringJobs(
-                sessions,
-                new Witnesses(sessions, jdbc),
-                settlements,
-                reservations,
-                jdbc,
-                transactionManager,
-                java.time.Clock.systemUTC(),
-                Duration.ofMinutes(15),
-                Duration.ofMinutes(5));
+        var jobs = jobs();
         var barrier = new CyclicBarrier(2);
         Runnable settler = () -> {
             try {
@@ -291,16 +303,7 @@ class SettlementTests {
                 Timestamp.from(Instant.now().minus(Duration.ofMinutes(6))),
                 Timestamp.from(Instant.now().plus(Duration.ofHours(1))),
                 fixture.sessionId());
-        var jobs = new MeteringJobs(
-                sessions,
-                new Witnesses(sessions, jdbc),
-                settlements,
-                reservations,
-                jdbc,
-                transactionManager,
-                java.time.Clock.systemUTC(),
-                Duration.ofMinutes(15),
-                Duration.ofMinutes(5));
+        var jobs = jobs();
 
         tx(() -> jobs.meter(fixture.sessionId()));
 

@@ -38,6 +38,11 @@ final class FakeMeteredSessions implements MeteredSessions {
     }
 
     @Override
+    public java.time.Duration leaseTtl() {
+        return java.time.Duration.ofMinutes(2);
+    }
+
+    @Override
     public boolean leaseCovered(UUID sessionId, int attempt, Instant from, Instant until) {
         return leases.getOrDefault(sessionId, List.of()).stream()
                 .anyMatch(stretch -> stretch.attempt() == attempt

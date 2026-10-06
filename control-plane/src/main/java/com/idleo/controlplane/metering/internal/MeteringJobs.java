@@ -24,7 +24,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * How metering follows sessions (ADR 0017): from durable events (a session's minute 0, and its end), and a tick
- * that decides each open session's minutes, settles every 15-minute window, and closes a session once it ends. Each session is handled under its own row lock, skipping one another
+ * that decides each open session's minutes, settles every 15-minute window, keeps its credit ahead while it runs,
+ * and closes it once it ends. Each session is handled under its own row lock, skipping one another
  * instance holds, so several instances never meter one session twice.
  */
 @Component
@@ -35,6 +36,7 @@ class MeteringJobs {
     private final MeteredSessions sessions;
     private final Witnesses witnesses;
     private final Settlements settlements;
+    private final CreditGuard credit;
     private final CreditReservations reservations;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -46,6 +48,7 @@ class MeteringJobs {
             MeteredSessions sessions,
             Witnesses witnesses,
             Settlements settlements,
+            CreditGuard credit,
             CreditReservations reservations,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
@@ -55,6 +58,7 @@ class MeteringJobs {
         this.sessions = sessions;
         this.witnesses = witnesses;
         this.settlements = settlements;
+        this.credit = credit;
         this.reservations = reservations;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
@@ -148,8 +152,9 @@ class MeteringJobs {
                     .update();
         }
         var endedAt = row.endedAt();
-        if (endedAt != null
-                && (allDecided(sessionId) || !endedAt.plus(reviewAfter).isAfter(now))) {
+        if (endedAt == null) {
+            credit.check(metered(sessionId), now, () -> metered(sessionId));
+        } else if (allDecided(sessionId) || !endedAt.plus(reviewAfter).isAfter(now)) {
             close(sessionId, now);
         }
     }

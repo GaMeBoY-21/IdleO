@@ -23,6 +23,16 @@ class Costs implements SessionCosts {
 
     @Override
     public Cost of(UUID sessionId) {
+        boolean lowCredit = jdbc.sql("select low_credit from metering.metered_sessions where session_id = :sessionId")
+                .param("sessionId", sessionId)
+                .query(Boolean.class)
+                .optional()
+                .orElse(false);
+        return new Cost(settlements.chargedNet(sessionId).value(), accruedPaise(sessionId), lowCredit);
+    }
+
+    /** What both witnesses saw that isn't settled yet, at each minute's attempt's price. */
+    long accruedPaise(UUID sessionId) {
         var prices = new HashMap<Integer, Integer>();
         sessions.attempts(sessionId).forEach(attempt -> prices.put(attempt.attempt(), attempt.pricePaisePerMin()));
         long accrued = jdbc.sql("""
@@ -32,11 +42,6 @@ class Costs implements SessionCosts {
                         """).param("sessionId", sessionId).query(Integer.class).list().stream()
                 .mapToLong(attempt -> prices.getOrDefault(attempt, 0))
                 .sum();
-        boolean lowCredit = jdbc.sql("select low_credit from metering.metered_sessions where session_id = :sessionId")
-                .param("sessionId", sessionId)
-                .query(Boolean.class)
-                .optional()
-                .orElse(false);
-        return new Cost(settlements.chargedNet(sessionId).value(), accrued, lowCredit);
+        return accrued;
     }
 }

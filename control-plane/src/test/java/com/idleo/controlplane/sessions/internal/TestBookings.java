@@ -59,19 +59,27 @@ final class TestBookings implements AutoCloseable {
     }
 
     TestUser renter() throws Exception {
+        return renter(50_000);
+    }
+
+    TestUser renter(long credit) throws Exception {
         var renter = TestUsers.signUp(mvc);
-        TestCredit.grant(context, renter.id(), 50_000);
+        TestCredit.grant(context, renter.id(), credit);
         return renter;
     }
 
     UUID book(TestUser renter) throws Exception {
-        var body = mvc.perform(
-                        post("/v1/sessions")
-                                .header("Authorization", renter.bearer())
-                                .header("Idempotency-Key", "\"" + UUID.randomUUID() + "\"")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        "{\"templateId\": \"cuda-smoke-test\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000}"))
+        return book(renter, 5, 10_000);
+    }
+
+    UUID book(TestUser renter, int maxPrice, long maxSpend) throws Exception {
+        var body = mvc.perform(post("/v1/sessions")
+                        .header("Authorization", renter.bearer())
+                        .header("Idempotency-Key", "\"" + UUID.randomUUID() + "\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"templateId\": \"cuda-smoke-test\", \"maxPricePaisePerMin\": %d, \"maxSpendPaise\": %d}"
+                                        .formatted(maxPrice, maxSpend)))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
