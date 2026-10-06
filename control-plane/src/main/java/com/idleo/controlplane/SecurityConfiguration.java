@@ -1,6 +1,7 @@
 package com.idleo.controlplane;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
@@ -18,6 +19,7 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
  * plain Spring Security beans, so this shared code never depends on it.
  */
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnWebApplication
 class SecurityConfiguration {
 
     static final String[] OPEN_PATHS = {"/actuator/health/liveness", "/actuator/health/readiness"};

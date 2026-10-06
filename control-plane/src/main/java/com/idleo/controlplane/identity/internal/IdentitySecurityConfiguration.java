@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.ClientAccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
@@ -14,6 +15,7 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
  * Security beans, so the shared security code never depends on this module.
  */
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnWebApplication
 class IdentitySecurityConfiguration {
 
     /** Verifies ID tokens: one decoder per trusted issuer, each with its own audience. */

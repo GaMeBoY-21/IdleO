@@ -1,0 +1,21 @@
+# Operator commands (billing's grant-credits and reverse-grant, ADR 0014):
+# combined with prod or local, the application runs one command, prints the
+# result and exits. No web server, no agents' gRPC server, and only warnings
+# in the log, so the command's own output stands out.
+spring:
+  main:
+    web-application-type: none
+    banner-mode: "off"
+  grpc:
+    server:
+      enabled: false
+  docker:
+    compose:
+      # Locally, never stop a stack that's already running for someone else.
+      lifecycle-management: start-only
+
+logging:
+  level:
+    root: warn
+    # Netty's notice that macOS DNS falls back to defaults: noise on a Mac.
+    io.netty.resolver.dns: error

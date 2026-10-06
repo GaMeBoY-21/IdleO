@@ -1,5 +1,6 @@
 package com.idleo.controlplane.agentgateway.internal;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.grpc.server.GlobalServerInterceptor;
@@ -13,6 +14,8 @@ import org.springframework.grpc.server.security.GrpcSecurity;
  * method is refused until it is added here with its own rule.
  */
 @Configuration(proxyBeanMethods = false)
+// Only with the agents' gRPC server, which operator commands don't start (ADR 0014).
+@ConditionalOnBooleanProperty(name = "spring.grpc.server.enabled", matchIfMissing = true)
 class AgentGrpcSecurityConfiguration {
 
     static final String ENROLL = "gpu.agent.v1.EnrollmentService/Enroll";

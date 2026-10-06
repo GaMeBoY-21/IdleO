@@ -131,14 +131,20 @@ class LedgerDatabaseGuardTests {
         var user = UUID.randomUUID();
         jdbc.update("insert into billing.wallets values (?, 1000, 0, 0, ?)", user, Timestamp.from(Instant.now()));
 
-        assertThatThrownBy(() -> jdbc.update("update billing.wallets set balance_paise = -1 where user_id = ?", user))
-                .hasMessageContaining("wallets_never_negative");
-        assertThatThrownBy(
-                        () -> jdbc.update("update billing.wallets set reserved_paise = 1001 where user_id = ?", user))
-                .hasMessageContaining("wallets_never_negative");
-        assertThatThrownBy(() -> jdbc.update("update billing.wallets set reserved_paise = -1 where user_id = ?", user))
-                .hasMessageContaining("wallets_never_negative");
-        jdbc.update("delete from billing.wallets where user_id = ?", user);
+        try {
+            assertThatThrownBy(
+                            () -> jdbc.update("update billing.wallets set balance_paise = -1 where user_id = ?", user))
+                    .hasMessageContaining("wallets_never_negative");
+            assertThatThrownBy(() ->
+                            jdbc.update("update billing.wallets set reserved_paise = 1001 where user_id = ?", user))
+                    .hasMessageContaining("wallets_never_negative");
+            assertThatThrownBy(
+                            () -> jdbc.update("update billing.wallets set reserved_paise = -1 where user_id = ?", user))
+                    .hasMessageContaining("wallets_never_negative");
+        } finally {
+            // A wallet with no ledger behind it would be a mismatch for the nightly check.
+            jdbc.update("delete from billing.wallets where user_id = ?", user);
+        }
     }
 
     @Test

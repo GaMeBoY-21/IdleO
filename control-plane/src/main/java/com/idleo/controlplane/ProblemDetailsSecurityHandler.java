@@ -3,6 +3,7 @@ package com.idleo.controlplane;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -22,6 +23,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
  * description is left out on purpose, so a rejection never explains which check failed.
  */
 @Component
+@ConditionalOnWebApplication
 class ProblemDetailsSecurityHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
 
     private final HandlerExceptionResolver resolver;

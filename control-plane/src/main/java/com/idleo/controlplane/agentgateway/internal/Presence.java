@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Component;
  * exists (ADR 0013).
  */
 @Component
+@EnableConfigurationProperties(AgentGatewayProperties.class)
 class Presence implements HostPresence {
 
     static final String KEY_PREFIX = "agentgateway:presence:";

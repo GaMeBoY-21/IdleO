@@ -6,7 +6,8 @@
  * verifies the provider's ID token on every request and maps it to our own user, creating the user
  * on first use. The provider's issuer and subject stay inside this module: every other module, and
  * every API response, sees only our UUIDv7 user id, through {@link
- * com.idleo.controlplane.identity.CurrentUser}.
+ * com.idleo.controlplane.identity.CurrentUser}. Other modules ask whether a user exists through {@link
+ * com.idleo.controlplane.identity.UserDirectory}.
  *
  * <p>Endpoints. Every error is an RFC 9457 problem detail.
  *

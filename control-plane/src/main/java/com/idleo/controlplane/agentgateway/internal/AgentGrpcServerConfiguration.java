@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.boot.grpc.server.autoconfigure.GrpcServerProperties;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.ApplicationEventPublisher;
@@ -47,7 +47,8 @@ import org.springframework.grpc.server.service.GrpcServiceDiscoverer;
  * </ul>
  */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(AgentGatewayProperties.class)
+// Off with Spring gRPC's own switch, as the ops profile sets for operator commands (ADR 0014).
+@ConditionalOnBooleanProperty(name = "spring.grpc.server.enabled", matchIfMissing = true)
 class AgentGrpcServerConfiguration {
 
     static final long KEEPALIVE_TIME_SECONDS = 60;

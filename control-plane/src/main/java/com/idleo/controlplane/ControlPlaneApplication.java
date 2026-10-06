@@ -12,6 +12,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class ControlPlaneApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(ControlPlaneApplication.class, args);
+        var context = SpringApplication.run(ControlPlaneApplication.class, args);
+        // An operator command (the ops profile) has run by now: exit with its status (ADR 0014).
+        if (context.getEnvironment().matchesProfiles("ops")) {
+            System.exit(SpringApplication.exit(context));
+        }
     }
 }

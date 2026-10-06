@@ -98,6 +98,13 @@ hosts:
     intermediate-private-key: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY}
     intermediate-private-key-password: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY_PASSWORD:}
 
+billing:
+  # Free credit limits (ADR 0014): one grant at most ₹5,000, and no grant may
+  # take a wallet above ₹20,000.
+  credits:
+    max-grant-paise: 500000
+    max-wallet-paise: 2000000
+
 agentgateway:
   # The agent stream (ADR 0011).
   hello-timeout: 10s
