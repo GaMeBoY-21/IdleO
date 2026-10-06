@@ -11,6 +11,10 @@ logging:
       # Human-readable logs on a developer's machine.
       console: ""
 
+# A Mac with the agent's fake GPUs can connect (ADR 0013).
+agentgateway:
+  allow-development-hosts: true
+
 # The throwaway development CA from scripts/dev-ca.sh, under the gitignored
 # private/dev-ca/. Development only: production reads every value from the
 # environment (application.yaml).

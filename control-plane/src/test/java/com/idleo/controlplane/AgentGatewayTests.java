@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import gpu.agent.v1.AgentGateway.RenewCertificateRequest;
 import gpu.agent.v1.AgentGatewayServiceGrpc;
 import gpu.agent.v1.Session.UsageReport;
+import gpu.agent.v1.Telemetry.OperatingSystem;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -302,6 +303,19 @@ class AgentGatewayTests {
             stream.send(bad);
             assertThat(stream.endStatus(WAIT).getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);
         }
+    }
+
+    /** The test profile, like local, allows development hosts; production refuses them (AgentMessagesTests). */
+    @Test
+    void aMacWithAFakeGpuConnectsWhenDevelopmentHostsAreAllowed() throws Exception {
+        var agent = TestAgent.enrol(mvc, grpcPort);
+        var stream = TestAgent.open(track(agent.channel(grpcPort)));
+        stream.send(TestAgent.hello(
+                OperatingSystem.OPERATING_SYSTEM_MACOS, "0.1.0", "GPU-00000000-fake-0000-000000000000"));
+
+        assertThat(stream.next(WAIT).hasWelcome()).isTrue();
+        assertThat(jdbc.queryForObject("select os from hosts.hosts where id = ?", String.class, agent.hostId))
+                .isEqualTo("macos");
     }
 
     @Test

@@ -12,6 +12,9 @@ enum OperatingSystem {
   OPERATING_SYSTEM_WINDOWS = 1;
   // Linux, with work running in Docker directly.
   OPERATING_SYSTEM_LINUX = 2;
+  // Development only: a macOS machine has no NVIDIA GPU and is never
+  // scheduled. Production control planes refuse it.
+  OPERATING_SYSTEM_MACOS = 3;
 }
 
 // One GPU's fixed facts, sent once per connection in Hello.

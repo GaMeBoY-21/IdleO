@@ -34,7 +34,7 @@ async fn hello_is_the_first_message_and_shutdown_closes_the_stream() {
     } else if cfg!(target_os = "linux") {
         OperatingSystem::Linux
     } else {
-        OperatingSystem::Unspecified
+        OperatingSystem::Macos
     };
     assert_eq!(hello.os(), os);
     assert_ne!(hello.os_version, "");

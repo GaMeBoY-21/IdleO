@@ -2,14 +2,16 @@
 
 use agent_proto::v1::OperatingSystem;
 
-/// This build's operating system. macOS has no protocol value (agents run on Windows and Linux),
-/// so a development build on a Mac reports unspecified.
+/// This build's operating system. macOS is for development only: a production control plane
+/// refuses it, because a Mac has no NVIDIA GPU to rent out.
 #[must_use]
 pub fn os() -> OperatingSystem {
     if cfg!(windows) {
         OperatingSystem::Windows
     } else if cfg!(target_os = "linux") {
         OperatingSystem::Linux
+    } else if cfg!(target_os = "macos") {
+        OperatingSystem::Macos
     } else {
         OperatingSystem::Unspecified
     }

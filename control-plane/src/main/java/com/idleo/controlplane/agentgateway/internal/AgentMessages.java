@@ -16,6 +16,9 @@ import org.jspecify.annotations.Nullable;
 /** Validation of agent messages, following the proto comments ("Empty is invalid…"). */
 final class AgentMessages {
 
+    /** The uuid prefix of the agent's invented GPUs (`--fake-gpu`), for development only. */
+    static final String FAKE_GPU_PREFIX = "GPU-00000000-fake";
+
     private AgentMessages() {}
 
     /** A Hello that passed validation, ready to record. */
@@ -28,7 +31,11 @@ final class AgentMessages {
         record Invalid(String reason) implements HelloResult {}
     }
 
-    static HelloResult validate(Hello hello) {
+    /**
+     * Validates a Hello. Unless {@code allowDevelopmentHosts}, a Mac or a fake GPU is refused: neither can
+     * ever be rented out.
+     */
+    static HelloResult validate(Hello hello, boolean allowDevelopmentHosts) {
         var version = SemanticVersion.parse(hello.getAgentVersion());
         if (version.isEmpty()) {
             return new HelloResult.Invalid("agent_version must be a semantic version");
@@ -36,6 +43,9 @@ final class AgentMessages {
         var os = osName(hello.getOs());
         if (os == null) {
             return new HelloResult.Invalid("os must be set");
+        }
+        if (hello.getOs() == OperatingSystem.OPERATING_SYSTEM_MACOS && !allowDevelopmentHosts) {
+            return new HelloResult.Invalid("macOS hosts are for development only");
         }
         if (hello.getGpusCount() == 0) {
             return new HelloResult.Invalid("at least one GPU is required");
@@ -51,6 +61,9 @@ final class AgentMessages {
             }
             if (!uuids.add(gpu.getUuid())) {
                 return new HelloResult.Invalid("a GPU uuid appears twice");
+            }
+            if (gpu.getUuid().startsWith(FAKE_GPU_PREFIX) && !allowDevelopmentHosts) {
+                return new HelloResult.Invalid("fake GPUs are for development only");
             }
             gpus.add(new ReportedGpu(
                     gpu.getUuid(),
@@ -91,7 +104,7 @@ final class AgentMessages {
 
     private static @Nullable String osName(OperatingSystem os) {
         return switch (os) {
-            case OPERATING_SYSTEM_WINDOWS, OPERATING_SYSTEM_LINUX ->
+            case OPERATING_SYSTEM_WINDOWS, OPERATING_SYSTEM_LINUX, OPERATING_SYSTEM_MACOS ->
                 os.name().substring("OPERATING_SYSTEM_".length()).toLowerCase(Locale.ROOT);
             default -> null;
         };

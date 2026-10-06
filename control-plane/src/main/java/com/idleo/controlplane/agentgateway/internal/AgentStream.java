@@ -104,7 +104,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                 return;
             }
         }
-        switch (AgentMessages.validate(request.getHello())) {
+        switch (AgentMessages.validate(request.getHello(), services.properties().allowDevelopmentHosts())) {
             case AgentMessages.HelloResult.Invalid invalid -> {
                 log.warn("Invalid Hello from host {}: {}", hostId, invalid.reason());
                 close(

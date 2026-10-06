@@ -175,10 +175,14 @@ final class TestAgent {
     }
 
     static OpenStreamRequest hello(String agentVersion, String... gpuUuids) {
+        return hello(OperatingSystem.OPERATING_SYSTEM_WINDOWS, agentVersion, gpuUuids);
+    }
+
+    static OpenStreamRequest hello(OperatingSystem os, String agentVersion, String... gpuUuids) {
         var hello = Hello.newBuilder()
                 .setAgentVersion(agentVersion)
-                .setOs(OperatingSystem.OPERATING_SYSTEM_WINDOWS)
-                .setOsVersion("Windows 11 26100");
+                .setOs(os)
+                .setOsVersion(os == OperatingSystem.OPERATING_SYSTEM_MACOS ? "macOS 26.0" : "Windows 11 26100");
         for (var uuid : gpuUuids) {
             hello.addGpus(GpuInfo.newBuilder()
                     .setUuid(uuid)

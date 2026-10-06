@@ -106,3 +106,6 @@ agentgateway:
   gpu-temp-cap-c: 85
   max-concurrent-sessions: 1
   minimum-agent-version: 0.1.0
+  # Accept a Hello from a Mac or with fake GPUs (ADR 0013). Only the local and
+  # test profiles turn it on; the application refuses to start with it in prod.
+  allow-development-hosts: false

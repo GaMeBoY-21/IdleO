@@ -10,5 +10,6 @@ spring:
 
 # Short enough to watch real Valkey expiry and the hello timeout in tests.
 agentgateway:
+  allow-development-hosts: true
   hello-timeout: 1s
   presence-ttl: 2s

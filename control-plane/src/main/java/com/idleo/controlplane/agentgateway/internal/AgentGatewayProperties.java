@@ -16,6 +16,8 @@ import org.springframework.validation.annotation.Validated;
  * @param gpuTempCapC the GPU temperature cap sent in Welcome, until host listings set one per host
  * @param maxConcurrentSessions the session limit sent in Welcome, until host listings set one per host
  * @param minimumAgentVersion older agents are welcomed but marked update_required in presence
+ * @param allowDevelopmentHosts accept a Hello from a Mac or with fake GPUs; on only in the local and
+ *     test profiles, and the application refuses to start with it in prod (ADR 0013)
  */
 @ConfigurationProperties("agentgateway")
 @Validated
@@ -25,4 +27,5 @@ record AgentGatewayProperties(
         @NotNull Duration heartbeatInterval,
         @Positive int gpuTempCapC,
         @Positive int maxConcurrentSessions,
-        @NotNull @Pattern(regexp = SemanticVersion.PATTERN) String minimumAgentVersion) {}
+        @NotNull @Pattern(regexp = SemanticVersion.PATTERN) String minimumAgentVersion,
+        boolean allowDevelopmentHosts) {}

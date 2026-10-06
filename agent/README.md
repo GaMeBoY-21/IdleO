@@ -44,7 +44,7 @@ macOS has no NVML, so use `--fake-gpu` (one invented GPU; `--fake-gpu 2` for two
 2. `idleo-agent enrol --code XXXXX-XXXXX-XXXXX-XXXXX` with a code from the web app.
 3. `idleo-agent run --fake-gpu`. Ctrl-C closes the stream within 5 seconds.
 
-A Mac reports `OPERATING_SYSTEM_UNSPECIFIED` in `Hello`, because the protocol has values only for Windows and Linux.
+A Mac reports `OPERATING_SYSTEM_MACOS` in `Hello`. That value is for development only: a control plane accepts it, and fake GPUs, only with `agentgateway.allow-development-hosts` on, which the `local` profile sets and production refuses (ADR 0013).
 
 ## Config: `agent.toml`
 
