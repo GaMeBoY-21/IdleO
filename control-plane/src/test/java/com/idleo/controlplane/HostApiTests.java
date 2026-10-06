@@ -59,7 +59,10 @@ class HostApiTests {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("/v1/hosts/")))
                 .andExpect(jsonPath("$.name").value("Gaming laptop"))
-                .andExpect(jsonPath("$.status").value("pending"));
+                .andExpect(jsonPath("$.status").value("pending"))
+                .andExpect(jsonPath("$.online").value(false))
+                .andExpect(jsonPath("$.lastSeenAt").doesNotExist())
+                .andExpect(jsonPath("$.gpus").isEmpty());
     }
 
     @Test

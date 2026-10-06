@@ -1,6 +1,9 @@
 package com.idleo.controlplane;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import gpu.agent.v1.AgentGateway.RenewCertificateRequest;
 import gpu.agent.v1.AgentGatewayServiceGrpc;
@@ -119,6 +122,38 @@ class AgentGatewayTests {
         System.out.printf("presence gone %.2f s after the last heartbeat (test TTL 2 s)%n", goneAfter);
         assertThat(goneAfter).isBetween(1.5, 4.0);
         stream.close();
+    }
+
+    /** The host view reads presence through the hosts module's port (ADR 0013); a clean close ends it at once. */
+    @Test
+    void theHostShowsOnlineWithItsGpusWhileTheStreamIsOpen() throws Exception {
+        var agent = TestAgent.enrol(mvc, grpcPort);
+        var host = "/v1/hosts/" + agent.hostId;
+        mvc.perform(get(host).header("Authorization", agent.bearer))
+                .andExpect(jsonPath("$.online").value(false));
+
+        var stream = TestAgent.open(track(agent.channel(grpcPort)));
+        stream.send(TestAgent.hello("1.2.3", TestAgent.GPU_A));
+        stream.next(WAIT);
+
+        mvc.perform(get(host).header("Authorization", agent.bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.online").value(true))
+                .andExpect(jsonPath("$.lastSeenAt").exists())
+                .andExpect(jsonPath("$.gpus.length()").value(1))
+                .andExpect(jsonPath("$.gpus[0].model").value("NVIDIA GeForce RTX 4080 Laptop GPU"))
+                .andExpect(jsonPath("$.gpus[0].vramMb").value(12282))
+                .andExpect(jsonPath("$.gpus[0].gone").value(false));
+        mvc.perform(get("/v1/hosts").header("Authorization", agent.bearer))
+                .andExpect(jsonPath("$.hosts[0].online").value(true));
+
+        stream.close();
+        var deadline = System.nanoTime() + Duration.ofSeconds(1).toNanos();
+        while (redis.hasKey("agentgateway:presence:" + agent.hostId) && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
+        mvc.perform(get(host).header("Authorization", agent.bearer))
+                .andExpect(jsonPath("$.online").value(false));
     }
 
     @Test

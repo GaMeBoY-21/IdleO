@@ -1,10 +1,18 @@
 package com.idleo.controlplane.agentgateway.internal;
 
+import com.idleo.controlplane.hosts.HostPresence;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
@@ -14,9 +22,12 @@ import org.springframework.stereotype.Component;
  * heartbeat. Only the agent gateway writes it. Each record names the connection and instance that
  * own it, and every write is conditional on that, so an old stream's late heartbeat or cleanup can
  * never touch a newer stream's record.
+ *
+ * <p>It also answers the hosts module's {@link HostPresence} port: a host is online while its record
+ * exists (ADR 0013).
  */
 @Component
-class Presence {
+class Presence implements HostPresence {
 
     static final String KEY_PREFIX = "agentgateway:presence:";
 
@@ -50,12 +61,41 @@ class Presence {
             return 0
             """, Long.class);
 
+    private static final Logger log = LoggerFactory.getLogger(Presence.class);
+
     private final StringRedisTemplate redis;
     private final AgentGatewayProperties properties;
+    private final AgentGatewayMetrics metrics;
 
-    Presence(StringRedisTemplate redis, AgentGatewayProperties properties) {
+    Presence(StringRedisTemplate redis, AgentGatewayProperties properties, AgentGatewayMetrics metrics) {
         this.redis = redis;
         this.properties = properties;
+        this.metrics = metrics;
+    }
+
+    /** One round trip for all the hosts. If Valkey can't answer, none is online, and the miss is counted. */
+    @Override
+    public Set<UUID> online(Collection<UUID> hostIds) {
+        var ids = List.copyOf(hostIds);
+        try {
+            var exists = redis.executePipelined((RedisCallback<Object>) connection -> {
+                for (var id : ids) {
+                    connection.keyCommands().exists(key(id).getBytes(StandardCharsets.UTF_8));
+                }
+                return null;
+            });
+            var online = new HashSet<UUID>();
+            for (int i = 0; i < ids.size(); i++) {
+                if (Boolean.TRUE.equals(exists.get(i))) {
+                    online.add(ids.get(i));
+                }
+            }
+            return online;
+        } catch (RuntimeException e) {
+            metrics.presenceUnavailable();
+            log.debug("Presence lookup failed; reporting {} hosts offline", ids.size(), e);
+            return Set.of();
+        }
     }
 
     /** What a presence record holds. */

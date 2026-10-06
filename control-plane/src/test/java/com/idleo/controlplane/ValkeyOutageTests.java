@@ -86,6 +86,14 @@ class ValkeyOutageTests {
             mvc.perform(get("/actuator/health/readiness"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("UP"));
+
+            // The host page still answers, showing the host offline, and the miss is counted (ADR 0013).
+            var unavailableBefore =
+                    meters.counter("agents.presence.unavailable").count();
+            mvc.perform(get("/v1/hosts/" + agent.hostId).header("Authorization", agent.bearer))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.online").value(false));
+            assertThat(meters.counter("agents.presence.unavailable").count()).isEqualTo(unavailableBefore + 1);
         } finally {
             channel.shutdownNow();
         }

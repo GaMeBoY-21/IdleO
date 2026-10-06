@@ -6,7 +6,11 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -34,6 +38,9 @@ class HostService {
 
     record IssuedCode(String code, Instant expiresAt) {}
 
+    /** A GPU the host's agent reported; gone once a later Hello left it out. */
+    record ReportedGpu(String model, int vramMb, boolean gone) {}
+
     Host create(UUID ownerUserId, String name) {
         return hosts.save(Host.newHost(ids.newId(), ownerUserId, name, Instant.now(clock)));
     }
@@ -44,6 +51,24 @@ class HostService {
 
     List<Host> list(UUID ownerUserId) {
         return hosts.findAllByOwnerUserIdOrderByCreatedAt(ownerUserId);
+    }
+
+    /** The GPUs each of these hosts reported, in the order they were first seen. */
+    Map<UUID, List<ReportedGpu>> gpus(Collection<UUID> hostIds) {
+        if (hostIds.isEmpty()) {
+            return Map.of();
+        }
+        var gpus = new HashMap<UUID, List<ReportedGpu>>();
+        jdbc.sql("""
+                        select host_id, model, vram_mb, gone_at from hosts.host_gpus
+                        where host_id in (:hostIds)
+                        order by first_seen_at, gpu_uuid
+                        """).param("hostIds", hostIds).query(rs -> {
+            gpus.computeIfAbsent(rs.getObject("host_id", UUID.class), id -> new ArrayList<>())
+                    .add(new ReportedGpu(
+                            rs.getString("model"), rs.getInt("vram_mb"), rs.getTimestamp("gone_at") != null));
+        });
+        return gpus;
     }
 
     /** A new one-time code for the host, replacing any earlier one; empty if it isn't the owner's. */

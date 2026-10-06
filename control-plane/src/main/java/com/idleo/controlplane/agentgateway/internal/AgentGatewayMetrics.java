@@ -36,6 +36,11 @@ class AgentGatewayMetrics {
         registry.counter("agents.streams.closed", "reason", reason).increment();
     }
 
+    /** A host page asked whether hosts are online and Valkey couldn't answer; they showed as offline. */
+    void presenceUnavailable() {
+        registry.counter("agents.presence.unavailable").increment();
+    }
+
     void unhandledMessage(String type) {
         registry.counter("agents.messages.unhandled", "type", type).increment();
     }

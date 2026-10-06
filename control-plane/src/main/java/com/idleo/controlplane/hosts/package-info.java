@@ -15,6 +15,9 @@
  *       an agent reports, and when it was last seen.
  * </ul>
  *
+ * <p>A port other modules implement: {@link com.idleo.controlplane.hosts.HostPresence}, whether a host
+ * is online, answered by the agent gateway (ADR 0013).
+ *
  * <p>Endpoints, every one owner-only; another user's host is a 404, so ids can't be probed. Every
  * error is an RFC 9457 problem detail.
  *
@@ -24,7 +27,8 @@
  *       is reused with a different body, and 409 while the first request is still running.
  *   <li>{@code POST /v1/hosts/{id}/enrolment-code}: issues a one-time code for the host's agent and
  *       replaces any earlier one. The code is shown once, works once, and expires after an hour.
- *   <li>{@code GET /v1/hosts}: my hosts. {@code GET /v1/hosts/{id}}: one of my hosts.
+ *   <li>{@code GET /v1/hosts}: my hosts. {@code GET /v1/hosts/{id}}: one of my hosts. Each says whether
+ *       it is online now, when its agent was last seen (to the minute), and the GPUs it reported.
  * </ul>
  */
 @ApplicationModule

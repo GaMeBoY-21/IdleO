@@ -1,6 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
+import com.idleo.controlplane.hosts.HostPresence;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -8,6 +9,7 @@ import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.CacheControl;
@@ -31,19 +33,43 @@ class HostController {
     static final String IDEMPOTENCY_TABLE = "hosts.idempotency_keys";
 
     private final HostService hosts;
+    private final HostPresence presence;
     private final IdempotentRequests idempotency;
 
-    HostController(HostService hosts, IdempotentRequests idempotency) {
+    HostController(HostService hosts, HostPresence presence, IdempotentRequests idempotency) {
         this.hosts = hosts;
+        this.presence = presence;
         this.idempotency = idempotency;
     }
 
     record CreateHostRequest(@NotBlank @Size(max = 100) String name) {}
 
-    record HostResponse(UUID id, String name, String status, Instant createdAt) {
+    record GpuResponse(String model, int vramMb, boolean gone) {}
 
-        static HostResponse of(Host host) {
-            return new HostResponse(host.id(), host.name(), host.status(), host.createdAt());
+    /**
+     * A host as its owner sees it. {@code online} is whether its agent has a live stream now; {@code
+     * lastSeenAt} is when the agent was last seen, to the minute.
+     */
+    record HostResponse(
+            UUID id,
+            String name,
+            String status,
+            boolean online,
+            @Nullable Instant lastSeenAt,
+            List<GpuResponse> gpus,
+            Instant createdAt) {
+
+        static HostResponse of(Host host, boolean online, List<HostService.ReportedGpu> gpus) {
+            return new HostResponse(
+                    host.id(),
+                    host.name(),
+                    host.status(),
+                    online,
+                    host.lastSeenAt(),
+                    gpus.stream()
+                            .map(gpu -> new GpuResponse(gpu.model(), gpu.vramMb(), gpu.gone()))
+                            .toList(),
+                    host.createdAt());
         }
     }
 
@@ -58,18 +84,30 @@ class HostController {
             @Valid @RequestBody CreateHostRequest request) {
         return idempotency.execute(IDEMPOTENCY_TABLE, user.id(), idempotencyKey, request, () -> {
             var host = hosts.create(user.id(), request.name().strip());
-            return ResponseEntity.created(URI.create("/v1/hosts/" + host.id())).body(HostResponse.of(host));
+            return ResponseEntity.created(URI.create("/v1/hosts/" + host.id()))
+                    .body(HostResponse.of(host, false, List.of()));
         });
     }
 
     @GetMapping
     HostList list(@AuthenticationPrincipal CurrentUser user) {
-        return new HostList(hosts.list(user.id()).stream().map(HostResponse::of).toList());
+        return new HostList(views(hosts.list(user.id())));
     }
 
     @GetMapping("/{id}")
     HostResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
-        return hosts.find(user.id(), id).map(HostResponse::of).orElseThrow(HostController::notFound);
+        var host = hosts.find(user.id(), id).orElseThrow(HostController::notFound);
+        return views(List.of(host)).getFirst();
+    }
+
+    /** One presence lookup and one GPU query for the whole list. */
+    private List<HostResponse> views(List<Host> list) {
+        var ids = list.stream().map(Host::id).toList();
+        var online = ids.isEmpty() ? Set.<UUID>of() : presence.online(ids);
+        var gpus = hosts.gpus(ids);
+        return list.stream()
+                .map(host -> HostResponse.of(host, online.contains(host.id()), gpus.getOrDefault(host.id(), List.of())))
+                .toList();
     }
 
     /** The code is shown once and never stored, so the response must not be cached either. */

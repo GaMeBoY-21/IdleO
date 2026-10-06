@@ -16,9 +16,10 @@ record Host(
         String status,
         Instant createdAt,
         Instant updatedAt,
+        @Nullable Instant lastSeenAt,
         @Version @Nullable Long version) {
 
     static Host newHost(UUID id, UUID ownerUserId, String name, Instant now) {
-        return new Host(id, ownerUserId, name, HostStatus.PENDING.dbValue(), now, now, null);
+        return new Host(id, ownerUserId, name, HostStatus.PENDING.dbValue(), now, now, null, null);
     }
 }
