@@ -30,11 +30,14 @@ class SessionController {
     static final int LIST_LIMIT = 50;
 
     private final SessionService sessions;
+    private final SessionOutputs outputs;
     private final SessionStore store;
     private final CreditReservations reservations;
 
-    SessionController(SessionService sessions, SessionStore store, CreditReservations reservations) {
+    SessionController(
+            SessionService sessions, SessionOutputs outputs, SessionStore store, CreditReservations reservations) {
         this.sessions = sessions;
+        this.outputs = outputs;
         this.store = store;
         this.reservations = reservations;
     }
@@ -99,6 +102,11 @@ class SessionController {
     @GetMapping("/{id}")
     SessionResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return view(sessions.owned(user.id(), id));
+    }
+
+    @GetMapping("/{id}/outputs")
+    SessionOutputs.Outputs outputs(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+        return outputs.of(user.id(), id);
     }
 
     @PostMapping("/{id}/cancel")
