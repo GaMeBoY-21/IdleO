@@ -184,7 +184,9 @@ summary+=("host registered: $host_id")
 
 # 5. Build and enrol the agent.
 log "building the agent"
-cargo build --release --locked --quiet --manifest-path agent/Cargo.toml >"$out/agent-build.log" 2>&1 ||
+# From inside agent/, so rustup uses the toolchain pinned in agent/rust-toolchain.toml; it looks in
+# the current directory, not at --manifest-path.
+(cd agent && cargo build --release --locked --quiet) >"$out/agent-build.log" 2>&1 ||
   fail "cargo build failed; see private/e2e/agent-build.log"
 agent="$root/agent/target/release/idleo-agent"
 rm -rf "$out/agent"
