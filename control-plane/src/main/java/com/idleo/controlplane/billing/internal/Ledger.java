@@ -5,6 +5,7 @@ import com.idleo.controlplane.Paise;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -68,7 +69,7 @@ class Ledger {
                         on conflict (user_id) do nothing
                         """)
                 .param("userId", userId)
-                .param("now", Timestamp.from(Instant.now(clock)))
+                .param("now", Timestamp.from(now()))
                 .update();
         return jdbc.sql("""
                         select balance_paise, reserved_paise from billing.wallets
@@ -128,7 +129,7 @@ class Ledger {
             wallets.add(lockWallet(userId));
         }
 
-        var now = Instant.now(clock);
+        var now = now();
         int inserted = 0;
         for (var entry : transaction.entries()) {
             inserted += jdbc.sql("""
@@ -217,5 +218,10 @@ class Ledger {
                     "ledger transaction " + transaction.txnId() + " is already posted with different entries");
         }
         return new Posting(transaction.txnId(), false, stored.getFirst().createdAt());
+    }
+
+    /** Now, to the microsecond PostgreSQL stores, so a returned time equals the stored one on every OS. */
+    private Instant now() {
+        return Instant.now(clock).truncatedTo(ChronoUnit.MICROS);
     }
 }

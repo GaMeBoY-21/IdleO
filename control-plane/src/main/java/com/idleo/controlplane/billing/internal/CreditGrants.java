@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -108,14 +109,7 @@ class CreditGrants {
         return Objects.requireNonNull(transactions.execute(status -> {
             var txnId = derivedId(GRANT_REF, idempotencyKey);
             var grant = new Grant(
-                    ids.newId(),
-                    userId,
-                    amount,
-                    reason.strip(),
-                    operator.strip(),
-                    idempotencyKey,
-                    txnId,
-                    Instant.now(clock));
+                    ids.newId(), userId, amount, reason.strip(), operator.strip(), idempotencyKey, txnId, now());
             int inserted = jdbc.sql("""
                             insert into billing.credit_grants
                                 (id, user_id, amount_paise, reason, granted_by, idempotency_key, txn_id, created_at)
@@ -171,7 +165,7 @@ class CreditGrants {
                     reason.strip(),
                     operator.strip(),
                     derivedId(REVERSAL_REF, grantId.toString()),
-                    Instant.now(clock));
+                    now());
             int inserted = jdbc.sql("""
                             insert into billing.credit_grant_reversals
                                 (id, grant_id, reason, reversed_by, txn_id, created_at)
@@ -257,5 +251,10 @@ class CreditGrants {
                 rs.getString("idempotency_key"),
                 rs.getObject("txn_id", UUID.class),
                 rs.getTimestamp("created_at").toInstant());
+    }
+
+    /** Now, to the microsecond PostgreSQL stores, so a returned time equals the stored one on every OS. */
+    private Instant now() {
+        return Instant.now(clock).truncatedTo(ChronoUnit.MICROS);
     }
 }
