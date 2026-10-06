@@ -104,6 +104,10 @@ billing:
   credits:
     max-grant-paise: 500000
     max-wallet-paise: 2000000
+  # The nightly check that every wallet equals the ledger (ADR 0014).
+  reconciliation:
+    cron: "0 30 2 * * *"
+    zone: Asia/Kolkata
 
 agentgateway:
   # The agent stream (ADR 0011).
