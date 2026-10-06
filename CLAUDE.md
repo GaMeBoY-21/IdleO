@@ -34,7 +34,7 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Money is integer paise (Java long, Rust i64, SQL bigint). Never floating point.
 - IDs are UUIDv7. Times are UTC (timestamptz). Never trust agent clocks for billing; every "now" comes from an injected clock.
 - Control plane: Java 25, Spring Boot 4, Spring Modulith, built with Maven through ./mvnw (ADR 0008). One Spring Modulith module per bounded context (identity, hosts, agentgateway, overlay, scheduling, sessions, metering, billing, payouts, trust, notifications). Modules talk only through public APIs or events and never read another module's tables.
-- Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL. Persistence is Spring Data JDBC with explicit SQL (JdbcClient where needed), no JPA (ADR 0009). Valkey 9 (Redis-compatible, via Spring Data Redis) only for state that is allowed to expire, and never in readiness. Only the agentgateway module writes host presence, always conditional on the connection that owns the record (ADR 0011).
+- Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL. Persistence is Spring Data JDBC with explicit SQL (JdbcClient where needed), no JPA (ADR 0009). Valkey 9 (Redis-compatible, via Spring Data Redis) only for state that is allowed to expire, and never in readiness. Only the agentgateway module writes host presence, always conditional on the connection that owns the record (ADR 0011); others ask whether a host is online through the hosts module's HostPresence port, which agentgateway implements, so the dependency never points back from hosts (ADR 0013).
 - Migrations name the schema of every object they create or change (identity.users, never users). Flyway's default schema is flyway, so an unqualified name lands there silently; a test fails if any table other than Flyway's history table appears in the flyway schema.
 - API errors use RFC 9457 Problem Details.
 - Only the hosts module issues or reads host certificates and enrolment codes; other modules go through its public API (ADR 0010). Agents trust only our own root CA, and the gRPC port trusts only our root for client certificates (ADR 0011).
@@ -76,6 +76,11 @@ Host agent, run from agent/ (Rust; rustup installs the toolchain pinned in rust-
 - Rust code for proto/ is generated at build time by protox (agent-proto/build.rs), never by a system protoc; never commit it
 - #![forbid(unsafe_code)] everywhere except the agent-windows crate, the one documented place for Windows API calls (ADR 0012)
 - Never fall back to fake telemetry silently: fake GPUs only with --fake-gpu, and a missing NVML is an error
+
+End to end, run from the repository root (needs Docker, Java 25 and Rust; docs/runbooks/local-stack.md):
+- scripts/e2e/agent-online.sh: the compatibility test. Starts the local stack (PostgreSQL, Valkey, the development sign-in server, the control plane), enrols the real agent with a fake GPU, checks the host goes online and then offline, and tears everything down. CI runs it on every control-plane, agent or proto change
+- scripts/e2e/agent-online.sh --keep-running: only the stack, with a ready curl and a fresh token, until Ctrl-C
+- Development-only behaviour is a setting, never a code path (for example agentgateway.allow-development-hosts, or trusting the local sign-in issuer). Every new development setting must be added to ProductionSettingsGuard, which refuses to start the prod profile with any of them (ADR 0013)
 
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions
