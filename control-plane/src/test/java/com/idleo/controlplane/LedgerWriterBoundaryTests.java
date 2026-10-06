@@ -22,7 +22,8 @@ class LedgerWriterBoundaryTests {
             Pattern.CASE_INSENSITIVE);
 
     private static final Pattern RESERVATION_WRITE = Pattern.compile(
-            "(insert\\s+into|update|delete\\s+from|truncate)\\s+billing\\.reservations\\b", Pattern.CASE_INSENSITIVE);
+            "(insert\\s+into|update|delete\\s+from|truncate)\\s+billing\\.(reservations|reservation_changes)\\b",
+            Pattern.CASE_INSENSITIVE);
 
     private static final Path BILLING = Path.of("src/main/java/com/idleo/controlplane/billing/internal");
 

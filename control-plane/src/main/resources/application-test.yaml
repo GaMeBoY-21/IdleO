@@ -40,3 +40,4 @@ events:
 
 metering:
   tick-every: 200ms
+  review-after: 3s

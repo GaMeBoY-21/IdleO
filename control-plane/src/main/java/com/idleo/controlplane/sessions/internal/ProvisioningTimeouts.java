@@ -1,6 +1,5 @@
 package com.idleo.controlplane.sessions.internal;
 
-import com.idleo.controlplane.billing.CreditReservations;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.UUID;
@@ -25,19 +24,19 @@ class ProvisioningTimeouts {
     private static final int BATCH = 50;
 
     private final SessionStore store;
-    private final CreditReservations reservations;
+    private final SessionHolds holds;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final Duration timeout;
 
     ProvisioningTimeouts(
             SessionStore store,
-            CreditReservations reservations,
+            SessionHolds holds,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             @Value("${sessions.provisioning-timeout}") Duration timeout) {
         this.store = store;
-        this.reservations = reservations;
+        this.holds = holds;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.timeout = timeout;
@@ -61,7 +60,7 @@ class ProvisioningTimeouts {
                 for (var sessionId : stale) {
                     if (store.transition(sessionId, SessionEvent.START_FAILED, "start_timeout", null, SessionStore.KEEP)
                             == SessionStore.Outcome.APPLIED) {
-                        reservations.release(sessionId);
+                        holds.releaseUnlessMetered(sessionId);
                         log.info("Session {} didn't start within {}: failed, hold released", sessionId, timeout);
                     }
                 }

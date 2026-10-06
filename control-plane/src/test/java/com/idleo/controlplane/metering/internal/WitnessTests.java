@@ -62,11 +62,13 @@ class WitnessTests {
                 new MeteredSessions.Session(id, UUID.randomUUID(), 10_000, startedAt, 1, HOST, endedAt == null),
                 new MeteredSessions.Attempt(1, HOST, 2, 0, runningAt.minusSeconds(3), runningAt, endedAt, null));
         jdbcTemplate.update(
-                "insert into metering.metered_sessions (session_id, renter_id, started_at, max_spend_paise, created_at)"
-                        + " values (?, ?, ?, 10000, now())",
+                "insert into metering.metered_sessions"
+                        + " (session_id, renter_id, started_at, max_spend_paise, next_window_at, created_at)"
+                        + " values (?, ?, ?, 10000, ?, now())",
                 id,
                 UUID.randomUUID(),
-                Timestamp.from(startedAt));
+                Timestamp.from(startedAt),
+                Timestamp.from(startedAt.plus(Duration.ofMinutes(15))));
         return id;
     }
 

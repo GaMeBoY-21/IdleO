@@ -20,13 +20,21 @@ class SessionBookingService implements SessionBookings {
     private final SessionStore store;
     private final TemplateCatalog catalog;
     private final SessionStarts starts;
+    private final SessionHolds holds;
     private final JdbcClient jdbc;
 
-    SessionBookingService(SessionStore store, TemplateCatalog catalog, SessionStarts starts, JdbcClient jdbc) {
+    SessionBookingService(
+            SessionStore store, TemplateCatalog catalog, SessionStarts starts, SessionHolds holds, JdbcClient jdbc) {
         this.store = store;
         this.catalog = catalog;
         this.starts = starts;
+        this.holds = holds;
         this.jdbc = jdbc;
+    }
+
+    @Override
+    public boolean hasRun(UUID sessionId) {
+        return holds.hasRun(sessionId);
     }
 
     @Override

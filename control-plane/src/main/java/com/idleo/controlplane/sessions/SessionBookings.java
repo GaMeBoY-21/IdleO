@@ -58,6 +58,12 @@ public interface SessionBookings {
     /** Sessions being matched again after a lost host (attempt 2 or later) that are waiting in REQUESTED. */
     List<AwaitingRematch> awaitingRematch();
 
+    /**
+     * Whether the session has run (it has a minute 0). A session that ran keeps its hold to the end, when metering
+     * settles and releases it (ADR 0017); one that never ran has its hold released by whoever ends it.
+     */
+    boolean hasRun(UUID sessionId);
+
     /** The hosts among {@code hostIds} that have a live session. */
     Set<UUID> hostsWithLiveSessions(Collection<UUID> hostIds);
 }

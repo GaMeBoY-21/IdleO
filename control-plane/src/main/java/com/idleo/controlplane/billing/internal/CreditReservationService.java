@@ -9,14 +9,16 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The only writer of {@code billing.reservations} (a test checks). The wallet's {@code reserved_paise}
- * moves with every hold, through {@link Ledger}, in the same transaction, under the wallet's lock.
+ * The only writer of {@code billing.reservations} and {@code billing.reservation_changes} (a test checks). The
+ * wallet's {@code reserved_paise} moves with every hold, through {@link Ledger}, in the same transaction, under
+ * the wallet's lock. Every change to a hold's amount is recorded, with its reason (ADR 0017).
  */
 @Service
 class CreditReservationService implements CreditReservations {
@@ -33,6 +35,9 @@ class CreditReservationService implements CreditReservations {
         this.clock = clock;
     }
 
+    /** A session's active hold. */
+    record ActiveHold(UUID id, UUID userId, Paise amount, Paise committed) {}
+
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean reserve(UUID userId, UUID sessionId, Paise amount) {
@@ -46,16 +51,18 @@ class CreditReservationService implements CreditReservations {
         if (amount.isGreaterThan(wallet.available())) {
             return false;
         }
+        var id = ids.newId();
         jdbc.sql("""
                         insert into billing.reservations (id, user_id, session_id, amount_paise, status, created_at)
                         values (:id, :userId, :sessionId, :amount, 'active', :now)
                         """)
-                .param("id", ids.newId())
+                .param("id", id)
                 .param("userId", userId)
                 .param("sessionId", sessionId)
                 .param("amount", amount.value())
                 .param("now", Timestamp.from(now()))
                 .update();
+        change(id, sessionId, "reserved", Paise.ZERO, amount, null);
         ledger.adjustReserved(userId, amount);
         return true;
     }
@@ -63,17 +70,7 @@ class CreditReservationService implements CreditReservations {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean release(UUID sessionId) {
-        record Hold(UUID id, UUID userId, long amount) {}
-        var hold = jdbc.sql("""
-                        select id, user_id, amount_paise from billing.reservations
-                        where session_id = :sessionId and status = 'active'
-                        """)
-                .param("sessionId", sessionId)
-                .query((rs, n) -> new Hold(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("user_id", UUID.class),
-                        rs.getLong("amount_paise")))
-                .optional();
+        var hold = active(sessionId);
         if (hold.isEmpty()) {
             return false;
         }
@@ -89,8 +86,80 @@ class CreditReservationService implements CreditReservations {
         if (released == 0) {
             return false;
         }
-        ledger.adjustReserved(hold.get().userId(), Paise.of(hold.get().amount()).negate());
+        change(hold.get().id(), sessionId, "released", hold.get().amount(), Paise.ZERO, null);
+        ledger.adjustReserved(hold.get().userId(), hold.get().amount().negate());
         return true;
+    }
+
+    /**
+     * For a settlement, under the wallet's lock: the hold shrinks by {@code charged}, never below zero, and so
+     * does what's committed against it. Returns false, changing nothing, if this settlement already shrank it.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    boolean shrinkForSettlement(UUID sessionId, Paise charged, UUID txnId) {
+        if (jdbc.sql("select exists (select 1 from billing.reservation_changes where txn_id = :txnId)")
+                .param("txnId", txnId)
+                .query(Boolean.class)
+                .single()) {
+            return false;
+        }
+        var hold = active(sessionId);
+        if (hold.isEmpty()) {
+            return true;
+        }
+        var before = hold.get().amount();
+        var after = charged.isGreaterThan(before) ? Paise.ZERO : before.minus(charged);
+        var committed = charged.isGreaterThan(hold.get().committed())
+                ? Paise.ZERO
+                : hold.get().committed().minus(charged);
+        update(hold.get().id(), after, committed);
+        change(hold.get().id(), sessionId, "settled", before, after, txnId);
+        ledger.adjustReserved(hold.get().userId(), after.minus(before));
+        return true;
+    }
+
+    /**
+     * After a settlement, under the wallet's lock: the hold grows back towards {@code target}, as far as the
+     * renter's available balance allows. It never shrinks here.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    void topUp(UUID sessionId, Paise target) {
+        var hold = active(sessionId);
+        if (hold.isEmpty() || !target.isGreaterThan(hold.get().amount())) {
+            return;
+        }
+        var wallet = ledger.lockWallet(hold.get().userId());
+        var wanted = target.minus(hold.get().amount());
+        var added = wanted.isGreaterThan(wallet.available()) ? wallet.available() : wanted;
+        if (!added.isPositive()) {
+            return;
+        }
+        var after = hold.get().amount().plus(added);
+        update(hold.get().id(), after, hold.get().committed());
+        change(hold.get().id(), sessionId, "topped_up", hold.get().amount(), after, null);
+        ledger.adjustReserved(hold.get().userId(), added);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void markCommitted(UUID sessionId, Paise committed) {
+        if (committed.isNegative()) {
+            throw new IllegalArgumentException("committed use can't be negative");
+        }
+        jdbc.sql("""
+                        update billing.reservations set committed_paise = :committed
+                        where session_id = :sessionId and status = 'active' and committed_paise <> :committed
+                        """)
+                .param("committed", committed.value())
+                .param("sessionId", sessionId)
+                .update();
+    }
+
+    @Override
+    public boolean covers(UUID sessionId, Paise needed) {
+        return active(sessionId)
+                .map(hold -> !needed.isGreaterThan(hold.amount().minus(hold.committed())))
+                .orElse(false);
     }
 
     @Override
@@ -105,12 +174,47 @@ class CreditReservationService implements CreditReservations {
 
     @Override
     public Optional<Paise> held(UUID sessionId) {
-        return jdbc.sql(
-                        "select amount_paise from billing.reservations where session_id = :sessionId and status = 'active'")
+        return active(sessionId).map(ActiveHold::amount);
+    }
+
+    Optional<ActiveHold> active(UUID sessionId) {
+        return jdbc.sql("""
+                        select id, user_id, amount_paise, committed_paise from billing.reservations
+                        where session_id = :sessionId and status = 'active'
+                        """)
                 .param("sessionId", sessionId)
-                .query(Long.class)
-                .optional()
-                .map(Paise::of);
+                .query((rs, n) -> new ActiveHold(
+                        rs.getObject("id", UUID.class),
+                        rs.getObject("user_id", UUID.class),
+                        Paise.of(rs.getLong("amount_paise")),
+                        Paise.of(rs.getLong("committed_paise"))))
+                .optional();
+    }
+
+    private void update(UUID id, Paise amount, Paise committed) {
+        jdbc.sql("update billing.reservations set amount_paise = :amount, committed_paise = :committed where id = :id")
+                .param("amount", amount.value())
+                .param("committed", committed.value())
+                .param("id", id)
+                .update();
+    }
+
+    private void change(
+            UUID reservationId, UUID sessionId, String reason, Paise before, Paise after, @Nullable UUID txnId) {
+        jdbc.sql("""
+                        insert into billing.reservation_changes
+                            (id, reservation_id, session_id, reason, before_paise, after_paise, txn_id, created_at)
+                        values (:id, :reservationId, :sessionId, :reason, :before, :after, :txnId, :now)
+                        """)
+                .param("id", ids.newId())
+                .param("reservationId", reservationId)
+                .param("sessionId", sessionId)
+                .param("reason", reason)
+                .param("before", before.value())
+                .param("after", after.value())
+                .param("txnId", txnId)
+                .param("now", Timestamp.from(now()))
+                .update();
     }
 
     private Instant now() {

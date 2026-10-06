@@ -100,7 +100,8 @@ class WalletController {
         return switch (refType) {
             case CreditGrants.GRANT_REF -> "free_credit";
             case CreditGrants.REVERSAL_REF -> "free_credit_reversed";
-            case "session" -> "session_charge";
+            case SessionChargeService.CHARGE_REF -> "session_charge";
+            case SessionChargeService.REFUND_REF -> "session_refund";
             default -> refType;
         };
     }

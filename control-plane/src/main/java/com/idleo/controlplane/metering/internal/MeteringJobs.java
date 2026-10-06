@@ -1,15 +1,19 @@
 package com.idleo.controlplane.metering.internal;
 
+import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import com.idleo.controlplane.sessions.SessionEnded;
 import com.idleo.controlplane.sessions.SessionStarted;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,7 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * How metering follows sessions (ADR 0017): from durable events (a session's minute 0, and its end), and a tick
- * that decides each open session's minutes. Each session is handled under its own row lock, skipping one another
+ * that decides each open session's minutes, settles every 15-minute window, and closes a session once it ends. Each session is handled under its own row lock, skipping one another
  * instance holds, so several instances never meter one session twice.
  */
 @Component
@@ -30,21 +34,33 @@ class MeteringJobs {
 
     private final MeteredSessions sessions;
     private final Witnesses witnesses;
+    private final Settlements settlements;
+    private final CreditReservations reservations;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final Duration window;
+    private final Duration reviewAfter;
 
     MeteringJobs(
             MeteredSessions sessions,
             Witnesses witnesses,
+            Settlements settlements,
+            CreditReservations reservations,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
-            Clock clock) {
+            Clock clock,
+            @Value("${metering.settlement-window}") Duration window,
+            @Value("${metering.review-after}") Duration reviewAfter) {
         this.sessions = sessions;
         this.witnesses = witnesses;
+        this.settlements = settlements;
+        this.reservations = reservations;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.clock = clock;
+        this.window = window;
+        this.reviewAfter = reviewAfter;
     }
 
     @Async
@@ -75,14 +91,16 @@ class MeteringJobs {
             return;
         }
         jdbc.sql("""
-                        insert into metering.metered_sessions (session_id, renter_id, started_at, max_spend_paise, created_at)
-                        values (:sessionId, :renterId, :startedAt, :maxSpend, :now)
+                        insert into metering.metered_sessions
+                            (session_id, renter_id, started_at, max_spend_paise, next_window_at, created_at)
+                        values (:sessionId, :renterId, :startedAt, :maxSpend, :nextWindow, :now)
                         on conflict do nothing
                         """)
                 .param("sessionId", sessionId)
                 .param("renterId", session.renterId())
                 .param("startedAt", Timestamp.from(session.startedAt()))
                 .param("maxSpend", session.maxSpendPaise())
+                .param("nextWindow", Timestamp.from(session.startedAt().plus(window)))
                 .param("now", Timestamp.from(now()))
                 .update();
     }
@@ -101,20 +119,114 @@ class MeteringJobs {
         }
     }
 
-    /** One session's turn, under its row lock; skipped if another instance has it. */
+    private record Row(
+            UUID renterId,
+            long maxSpendPaise,
+            Instant startedAt,
+            int settlements,
+            Instant nextWindowAt,
+            @Nullable Instant endedAt) {}
+
+    /**
+     * One session's turn, under its row lock; skipped if another instance has it: decide its minutes, settle
+     * every window that has ended, and close it once it has ended and its minutes are settled or waited for.
+     */
     void meter(UUID sessionId) {
-        var startedAt = jdbc.sql("""
-                        select started_at from metering.metered_sessions
+        var row = lock(sessionId);
+        if (row == null) {
+            return;
+        }
+        var now = now();
+        witnesses.decide(sessionId, row.startedAt(), now);
+        var nextWindowAt = row.nextWindowAt();
+        while (!nextWindowAt.isAfter(now)) {
+            settlements.settle(metered(sessionId), nextWindowAt, now);
+            nextWindowAt = nextWindowAt.plus(window);
+            jdbc.sql("update metering.metered_sessions set next_window_at = :next where session_id = :sessionId")
+                    .param("next", Timestamp.from(nextWindowAt))
+                    .param("sessionId", sessionId)
+                    .update();
+        }
+        var endedAt = row.endedAt();
+        if (endedAt != null
+                && (allDecided(sessionId) || !endedAt.plus(reviewAfter).isAfter(now))) {
+            close(sessionId, now);
+        }
+    }
+
+    /**
+     * The session has ended: settle everything both witnesses saw, send whatever only one saw (or couldn't be
+     * paid for) to review, release the hold, and stop metering it.
+     */
+    private void close(UUID sessionId, Instant now) {
+        settlements.settle(metered(sessionId), null, now);
+        int reviewed = jdbc.sql("""
+                        insert into metering.review_minutes (session_id, minute_index, minute_at, attempt, reason, created_at)
+                        select session_id, minute_index, minute_at, coalesce(agent_attempt, lease_attempt),
+                               case when agent_reported and lease_alive and agent_attempt = lease_attempt then 'over_limit'
+                                    when agent_reported then 'agent_only'
+                                    else 'lease_only' end,
+                               :now
+                        from metering.usage_minutes
+                        where session_id = :sessionId and not billed and not waived and (agent_reported or lease_alive)
+                        on conflict do nothing
+                        """)
+                .param("sessionId", sessionId)
+                .param("now", Timestamp.from(now))
+                .update();
+        reservations.release(sessionId);
+        jdbc.sql("update metering.metered_sessions set closed_at = :now where session_id = :sessionId")
+                .param("now", Timestamp.from(now))
+                .param("sessionId", sessionId)
+                .update();
+        log.info("Closed session {}'s usage; {} minutes went to review", sessionId, reviewed);
+    }
+
+    /** Every minute either witness saw is billable, billed or waived: nothing waits on the other witness. */
+    private boolean allDecided(UUID sessionId) {
+        return !jdbc.sql("""
+                        select exists (
+                            select 1 from metering.usage_minutes
+                            where session_id = :sessionId and not billed and not waived
+                              and (agent_reported or lease_alive)
+                              and not (agent_reported and lease_alive and agent_attempt = lease_attempt))
+                        """).param("sessionId", sessionId).query(Boolean.class).single();
+    }
+
+    private @Nullable Row lock(UUID sessionId) {
+        return jdbc.sql("""
+                        select renter_id, max_spend_paise, started_at, settlements, next_window_at, ended_at
+                        from metering.metered_sessions
                         where session_id = :sessionId and closed_at is null
                         for update skip locked
                         """)
                 .param("sessionId", sessionId)
-                .query(Timestamp.class)
-                .optional();
-        if (startedAt.isEmpty()) {
-            return;
-        }
-        witnesses.decide(sessionId, startedAt.get().toInstant(), now());
+                .query((rs, n) -> new Row(
+                        rs.getObject("renter_id", UUID.class),
+                        rs.getLong("max_spend_paise"),
+                        rs.getTimestamp("started_at").toInstant(),
+                        rs.getInt("settlements"),
+                        rs.getTimestamp("next_window_at").toInstant(),
+                        rs.getTimestamp("ended_at") == null
+                                ? null
+                                : rs.getTimestamp("ended_at").toInstant()))
+                .optional()
+                .orElse(null);
+    }
+
+    /** The session as a settlement needs it, read again, since each settlement counts. */
+    private Settlements.Metered metered(UUID sessionId) {
+        return jdbc.sql("""
+                        select renter_id, max_spend_paise, settlements from metering.metered_sessions
+                        where session_id = :sessionId
+                        """)
+                .param("sessionId", sessionId)
+                .query((rs, n) -> new Settlements.Metered(
+                        sessionId,
+                        rs.getObject("renter_id", UUID.class),
+                        rs.getLong("max_spend_paise"),
+                        rs.getInt("settlements")))
+                .single();
     }
 
     private Instant now() {

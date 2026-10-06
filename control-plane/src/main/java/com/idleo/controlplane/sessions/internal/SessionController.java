@@ -3,6 +3,7 @@ package com.idleo.controlplane.sessions.internal;
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.sessions.SessionCosts;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,13 +35,19 @@ class SessionController {
     private final SessionOutputs outputs;
     private final SessionStore store;
     private final CreditReservations reservations;
+    private final ObjectProvider<SessionCosts> costs;
 
     SessionController(
-            SessionService sessions, SessionOutputs outputs, SessionStore store, CreditReservations reservations) {
+            SessionService sessions,
+            SessionOutputs outputs,
+            SessionStore store,
+            CreditReservations reservations,
+            ObjectProvider<SessionCosts> costs) {
         this.sessions = sessions;
         this.outputs = outputs;
         this.store = store;
         this.reservations = reservations;
+        this.costs = costs;
     }
 
     record CreateSessionRequest(
@@ -64,6 +72,9 @@ class SessionController {
             int vramNeededMb,
             int maxRuntimeSeconds,
             long reservedPaise,
+            long chargedPaise,
+            long accruedPaise,
+            boolean lowCredit,
             List<EventResponse> events,
             Instant createdAt,
             @Nullable Instant startedAt) {}
@@ -115,6 +126,8 @@ class SessionController {
     }
 
     private SessionResponse view(SessionStore.Session session) {
+        var costs = this.costs.getIfAvailable();
+        var cost = costs == null ? new SessionCosts.Cost(0, 0, false) : costs.of(session.id());
         boolean matched = session.state() != SessionState.REQUESTED && session.hostId() != null;
         return new SessionResponse(
                 session.id(),
@@ -129,6 +142,9 @@ class SessionController {
                 session.vramNeededMb(),
                 session.maxRuntimeSeconds(),
                 reservations.held(session.id()).map(held -> held.value()).orElse(0L),
+                cost.chargedPaise(),
+                cost.accruedPaise(),
+                cost.lowCredit(),
                 store.events(session.id()).stream()
                         .map(event -> new EventResponse(event.toState(), event.reason(), event.at()))
                         .toList(),

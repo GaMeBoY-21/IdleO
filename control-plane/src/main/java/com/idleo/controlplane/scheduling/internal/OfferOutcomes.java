@@ -100,15 +100,17 @@ class OfferOutcomes implements OfferReplies {
 
     /**
      * A first attempt's hold is released with each declined offer and taken again with the next match. A
-     * session being matched again after a lost host keeps its one hold across offers (ADR 0016); it's
-     * released only if no host takes it.
+     * session being matched again after a lost host keeps its one hold across offers (ADR 0016); if no host takes
+     * it, it's released then, or by metering when it closes the usage of a session that ran (ADR 0017).
      */
     private void close(OfferStore.Offer offer, String status, String reason, Instant now) {
         offers.answer(offer.id(), status, reason, now);
         metrics.offerAnswered(status);
         if (offers.count(offer.sessionId(), offer.sessionAttempt()) >= properties.maxOffers()) {
             if (sessions.noHostFree(offer.sessionId(), "offers_exhausted")) {
-                reservations.release(offer.sessionId());
+                if (!sessions.hasRun(offer.sessionId())) {
+                    reservations.release(offer.sessionId());
+                }
                 metrics.outcome("no_host_free");
             }
             return;

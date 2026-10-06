@@ -99,21 +99,29 @@ class CreditReservationsTests {
     }
 
     @Test
-    void theDatabaseOnlyLetsAnActiveHoldBeReleased() throws Exception {
+    void theDatabaseOnlyLetsAnActiveHoldChangeItsAmountOrBeReleased() throws Exception {
         var user = userWith(1_000);
         var session = UUID.randomUUID();
         inTransaction(() -> reservations.reserve(user, session, Paise.of(100)));
 
-        assertThatThrownBy(() ->
-                        jdbc.update("update billing.reservations set amount_paise = 1 where session_id = ?", session))
-                .hasMessageContaining("only allows releasing");
+        assertThatThrownBy(() -> jdbc.update(
+                        "update billing.reservations set session_id = ? where session_id = ?",
+                        UUID.randomUUID(),
+                        session))
+                .hasMessageContaining("only allows changing an active hold's amount, or releasing it");
         assertThatThrownBy(() -> jdbc.update("delete from billing.reservations where session_id = ?", session))
+                .hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.update("delete from billing.reservation_changes where session_id = ?", session))
                 .hasMessageContaining("append-only");
         inTransaction(() -> reservations.release(session));
         assertThatThrownBy(() -> jdbc.update(
                         "update billing.reservations set status = 'active', released_at = null where session_id = ?",
                         session))
-                .hasMessageContaining("only allows releasing");
+                .hasMessageContaining("only allows changing an active hold's amount, or releasing it");
+        assertThatThrownBy(() ->
+                        jdbc.update("update billing.reservations set amount_paise = 1 where session_id = ?", session))
+                .as("a released hold never changes")
+                .hasMessageContaining("only allows changing an active hold's amount, or releasing it");
     }
 
     @Test

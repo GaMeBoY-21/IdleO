@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * Credit held for a booked session (ADR 0015). A hold isn't spent money: it's released when the session
- * ends without running, and later consumed by settlement. {@link #reserve} and {@link #release} only run
+ * ends, and in between each settlement charges from it and tops it back up (ADR 0017). {@link #reserve} and {@link #release} only run
  * inside the caller's database transaction, because a booking is one atomic unit (technical design line
  * 32); called outside one, they throw.
  */
@@ -36,4 +36,13 @@ public interface CreditReservations {
 
     /** The session's active hold, if any. */
     Optional<Paise> held(UUID sessionId);
+
+    /**
+     * Records what the session has used but not yet settled, as metering counts it (ADR 0017), so lease renewal
+     * can tell whether the hold still covers a lease. Does nothing without an active hold.
+     */
+    void markCommitted(UUID sessionId, Paise committed);
+
+    /** Whether the session's active hold, less what's committed against it, covers {@code needed}. */
+    boolean covers(UUID sessionId, Paise needed);
 }

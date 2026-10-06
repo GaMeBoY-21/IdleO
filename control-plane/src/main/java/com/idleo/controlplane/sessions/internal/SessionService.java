@@ -29,6 +29,7 @@ class SessionService {
     private final SessionStops stops;
     private final TemplateCatalog catalog;
     private final CreditReservations reservations;
+    private final SessionHolds holds;
     private final ApplicationEventPublisher events;
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
@@ -38,6 +39,7 @@ class SessionService {
             SessionStops stops,
             TemplateCatalog catalog,
             CreditReservations reservations,
+            SessionHolds holds,
             ApplicationEventPublisher events,
             PlatformTransactionManager transactionManager,
             IdGenerator ids) {
@@ -45,6 +47,7 @@ class SessionService {
         this.stops = stops;
         this.catalog = catalog;
         this.reservations = reservations;
+        this.holds = holds;
         this.events = events;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
@@ -150,7 +153,7 @@ class SessionService {
                         HttpStatus.CONFLICT, "A session can't be cancelled once it's " + session.state() + ".");
             }
             store.endAttempt(sessionId, session.attempt());
-            reservations.release(sessionId);
+            holds.releaseUnlessMetered(sessionId);
             if (session.state() == SessionState.PROVISIONING && session.hostId() != null && startDelivered(session)) {
                 // The agent may have started it: tell it to stop rather than wait for the lease.
                 stops.queue(session.hostId(), sessionId, session.attempt(), StopReason.STOP_REASON_RENTER_REQUESTED);

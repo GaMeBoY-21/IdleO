@@ -156,7 +156,7 @@ class SessionProgressTests {
         var completed = bookings.awaitState(started.renter(), started.id(), "COMPLETED");
         assertThat(completed.get("events").findValuesAsString("state"))
                 .containsSubsequence("PROVISIONING", "RUNNING", "FINISHING", "COMPLETED");
-        assertThat(completed.get("reservedPaise").asLong()).isZero();
+        bookings.awaitHoldReleased(started.id());
         assertThat(wallet(started.renter()).get("availablePaise").asLong())
                 .as("nothing charged yet")
                 .isEqualTo(50_000);
@@ -189,7 +189,7 @@ class SessionProgressTests {
         var failed = bookings.awaitState(started.renter(), started.id(), "FAILED");
 
         assertThat(failed.get("errorCode").asString()).isEqualTo("outputs_missing");
-        assertThat(failed.get("reservedPaise").asLong()).isZero();
+        bookings.awaitHoldReleased(started.id());
     }
 
     @Test
@@ -206,7 +206,7 @@ class SessionProgressTests {
         var failed = bookings.awaitState(started.renter(), started.id(), "FAILED");
         assertThat(failed.get("errorCode").asString()).isEqualTo("oom_killed");
         assertThat(failed.get("events").findValuesAsString("reason")).last().isEqualTo("oom_killed");
-        assertThat(failed.get("reservedPaise").asLong()).isZero();
+        bookings.awaitHoldReleased(started.id());
     }
 
     @Test

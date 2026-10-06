@@ -201,7 +201,7 @@ class SessionMatcher {
     /** No host can take it: NO_HOST_FREE, with any hold released. */
     void endWithoutHost(UUID sessionId, String reason) {
         transactions.executeWithoutResult(status -> {
-            if (sessions.noHostFree(sessionId, reason)) {
+            if (sessions.noHostFree(sessionId, reason) && !sessions.hasRun(sessionId)) {
                 reservations.release(sessionId);
             }
         });

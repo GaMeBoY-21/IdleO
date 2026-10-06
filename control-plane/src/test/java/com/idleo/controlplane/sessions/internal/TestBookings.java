@@ -111,6 +111,25 @@ final class TestBookings implements AutoCloseable {
     }
 
     /**
+     * Waits until the session holds no credit. A session that ran keeps its hold until metering closes its usage,
+     * a moment after it ends (ADR 0017).
+     */
+    void awaitHoldReleased(UUID sessionId) throws InterruptedException {
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        while (System.nanoTime() < deadline) {
+            if (jdbc.queryForObject(
+                            "select count(*) from billing.reservations where session_id = ? and status = 'active'",
+                            Integer.class,
+                            sessionId)
+                    == 0) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("session " + sessionId + " still holds credit");
+    }
+
+    /**
      * Ends what the test left behind, then disconnects, so nothing of this test is ever matched onto another
      * test's hosts. A session not yet running is cancelled by its renter. A running one fails, reported by
      * its agent as a real one would; if its host is gone, its lease is made to lapse, and once it's back in

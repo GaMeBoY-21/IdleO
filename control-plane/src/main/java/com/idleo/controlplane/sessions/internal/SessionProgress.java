@@ -2,7 +2,6 @@ package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.agentgateway.SessionStatuses;
-import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.SessionStarted;
 import gpu.agent.v1.Session.SessionStatus;
 import java.sql.Timestamp;
@@ -46,7 +45,7 @@ class SessionProgress implements SessionStatuses {
     private final ApplicationEventPublisher events;
     private final HostLosses losses;
     private final SessionStorage storage;
-    private final CreditReservations reservations;
+    private final SessionHolds holds;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
@@ -57,7 +56,7 @@ class SessionProgress implements SessionStatuses {
             ApplicationEventPublisher events,
             HostLosses losses,
             SessionStorage storage,
-            CreditReservations reservations,
+            SessionHolds holds,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
@@ -66,7 +65,7 @@ class SessionProgress implements SessionStatuses {
         this.events = events;
         this.losses = losses;
         this.storage = storage;
-        this.reservations = reservations;
+        this.holds = holds;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
@@ -184,7 +183,7 @@ class SessionProgress implements SessionStatuses {
                     .param("id", sessionId)
                     .update();
         }
-        reservations.release(sessionId);
+        holds.releaseUnlessMetered(sessionId);
     }
 
     /** Records the checkpoint if its completion marker is in storage and it's newer than any recorded. */

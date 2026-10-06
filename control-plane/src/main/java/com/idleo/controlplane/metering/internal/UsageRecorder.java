@@ -80,6 +80,22 @@ class UsageRecorder implements UsageReports {
     }
 
     private void record(UUID sessionId, Instant minuteAt, UsageReport report) {
+        if (closed(sessionId)) {
+            // Its usage is settled and closed: a late minute is never charged automatically.
+            jdbc.sql("""
+                            insert into metering.review_minutes
+                                (session_id, minute_index, minute_at, attempt, reason, created_at)
+                            values (:sessionId, :index, :minuteAt, :attempt, 'late_report', :now)
+                            on conflict do nothing
+                            """)
+                    .param("sessionId", sessionId)
+                    .param("index", report.getMinuteIndex())
+                    .param("minuteAt", Timestamp.from(minuteAt))
+                    .param("attempt", report.getAttempt())
+                    .param("now", Timestamp.from(Instant.now(clock)))
+                    .update();
+            return;
+        }
         jdbc.sql("""
                         insert into metering.usage_minutes
                             (session_id, minute_index, minute_at, agent_reported, agent_attempt, gpu_seconds, avg_util_pct)
@@ -96,6 +112,14 @@ class UsageRecorder implements UsageReports {
                 .param("seconds", report.getGpuSeconds())
                 .param("util", report.getAvgUtilPct())
                 .update();
+    }
+
+    private boolean closed(UUID sessionId) {
+        return jdbc.sql(
+                        "select exists (select 1 from metering.metered_sessions where session_id = :sessionId and closed_at is not null)")
+                .param("sessionId", sessionId)
+                .query(Boolean.class)
+                .single();
     }
 
     private void dropped(String reason, UUID sessionId, UsageReport report) {

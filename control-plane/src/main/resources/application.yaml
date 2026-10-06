@@ -112,6 +112,9 @@ billing:
   credits:
     max-grant-paise: 500000
     max-wallet-paise: 2000000
+  # The platform's commission on session charges, in percent (ADR 0017;
+  # execution plan line 311: test 15–25). The host's share is rounded down.
+  commission-percent: 20
   # The nightly check that every wallet equals the ledger (ADR 0014).
   reconciliation:
     cron: "0 30 2 * * *"
@@ -159,6 +162,10 @@ metering:
   # Minutes and their two witnesses (ADR 0017): each open session's minutes are
   # decided this often.
   tick-every: 5s
+  # Each running session is settled every 15 minutes, and once when it ends;
+  # minutes only one witness saw this long after the end go to review.
+  settlement-window: 15m
+  review-after: 5m
   # usage_minutes keeps partitions three months ahead, checked daily (UTC).
   partitions:
     cron: "0 15 3 * * *"

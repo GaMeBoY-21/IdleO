@@ -324,7 +324,7 @@ class HostLossTests {
         var failed = bookings.awaitState(booked.renter(), booked.sessionId(), "FAILED");
         assertThat(failed.get("errorCode").asString()).isEqualTo("host_lost_repeatedly");
         assertThat(failed.get("attempt").asInt()).isEqualTo(3);
-        assertThat(activeHolds(booked.sessionId())).isZero();
+        bookings.awaitHoldReleased(booked.sessionId());
     }
 
     @Test

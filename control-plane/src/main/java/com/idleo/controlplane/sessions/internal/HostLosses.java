@@ -1,7 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.agentgateway.SessionReconciliation;
-import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.SessionRequested;
 import gpu.agent.v1.Session.RunningSession;
 import gpu.agent.v1.Session.StopReason;
@@ -43,7 +42,7 @@ class HostLosses implements SessionReconciliation {
 
     private final SessionStore store;
     private final SessionStops stops;
-    private final CreditReservations reservations;
+    private final SessionHolds holds;
     private final ApplicationEventPublisher events;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -54,7 +53,7 @@ class HostLosses implements SessionReconciliation {
     HostLosses(
             SessionStore store,
             SessionStops stops,
-            CreditReservations reservations,
+            SessionHolds holds,
             ApplicationEventPublisher events,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
@@ -63,7 +62,7 @@ class HostLosses implements SessionReconciliation {
             @Value("${sessions.max-lost-attempts}") int maxLostAttempts) {
         this.store = store;
         this.stops = stops;
-        this.reservations = reservations;
+        this.holds = holds;
         this.events = events;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
@@ -114,7 +113,7 @@ class HostLosses implements SessionReconciliation {
             jdbc.sql("update sessions.sessions set error_code = 'host_lost_repeatedly' where id = :id")
                     .param("id", sessionId)
                     .update();
-            reservations.release(sessionId);
+            holds.releaseUnlessMetered(sessionId);
             log.warn("Session {} lost its host on attempt {} ({}): failed", sessionId, session.attempt(), reason);
             return true;
         }

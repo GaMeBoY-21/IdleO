@@ -114,5 +114,29 @@ class MeteringFlowTests {
                 .containsEntry("agent_reported", true)
                 .containsEntry("lease_alive", true)
                 .containsEntry("gpu_seconds", 60);
+        var view = bookings.session(booked.renter(), booked.sessionId());
+        assertThat(view.get("accruedPaise").asLong())
+                .as("one minute at 2 paise")
+                .isEqualTo(2);
+        assertThat(view.get("chargedPaise").asLong()).isZero();
+
+        // The job ends; with no outputs it fails, and the session's usage is settled and closed.
+        send(
+                booked,
+                TestAgent.request()
+                        .setSessionStatus(SessionStatus.newBuilder()
+                                .setSessionId(booked.sessionId().toString())
+                                .setAttempt(1)
+                                .setState(SessionState.SESSION_STATE_FAILED))
+                        .build());
+        bookings.awaitHoldReleased(booked.sessionId());
+        var ended = bookings.session(booked.renter(), booked.sessionId());
+        assertThat(ended.get("chargedPaise").asLong()).isEqualTo(2);
+        assertThat(ended.get("accruedPaise").asLong()).isZero();
+        assertThat(jdbc.queryForObject(
+                        "select balance_paise from billing.wallets where user_id = ?",
+                        Long.class,
+                        booked.renter().id()))
+                .isEqualTo(50_000L - 2);
     }
 }
