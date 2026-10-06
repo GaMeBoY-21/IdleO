@@ -66,6 +66,16 @@ class TemplateCatalogTests {
     }
 
     @Test
+    void theDevelopmentCatalogRunsTheSmokeTestWithTheDevelopmentRunner() throws Exception {
+        try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
+            var smoke = TemplateCatalog.parse(in).get("cuda-smoke-test");
+            assertThat(smoke.args()).containsExactly("--duration", "20s");
+            assertThat(smoke.checkpointInterval()).isEqualTo(Duration.ofSeconds(5));
+            assertThat(smoke.image()).contains("@sha256:");
+        }
+    }
+
+    @Test
     void aWellFormedEntryLoads() {
         assertThat(parse(entry("")).get("smoke").minVramMb()).isEqualTo(1024);
     }

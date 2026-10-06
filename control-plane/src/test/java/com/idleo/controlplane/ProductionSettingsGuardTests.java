@@ -54,6 +54,21 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
+    void prodRefusesToStartWithADevelopmentTemplateCatalog() {
+        prod(
+                        "sessions.templates.catalog=file:../templates/development.yaml",
+                        "identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(
+                        context -> assertThat(context)
+                                .hasFailed()
+                                .getFailure()
+                                .hasMessageContaining(
+                                        "sessions.templates.catalog is file:../templates/development.yaml, not the bundled catalog"));
+        prod("sessions.templates.catalog=classpath:templates/catalog.yaml", "identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
     void prodStartsWithProductionSettings() {
         prod("agentgateway.allow-development-hosts=false", "identity.issuers[0].issuer-uri=" + GOOGLE)
                 .run(context -> assertThat(context).hasNotFailed());

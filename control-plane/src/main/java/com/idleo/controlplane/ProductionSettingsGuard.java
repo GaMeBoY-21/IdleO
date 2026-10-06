@@ -18,7 +18,9 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@code agentgateway.allow-development-hosts}, which lets a Mac or fake GPUs connect;
  *   <li>a trusted identity issuer that is plain HTTP or on this machine, like the local sign-in server;
- *   <li>{@code sessions.storage.provider: minio}, the local object storage (ADR 0016).
+ *   <li>{@code sessions.storage.provider: minio}, the local object storage (ADR 0016);
+ *   <li>a {@code sessions.templates.catalog} other than the bundled one, such as templates/development.yaml
+ *       for the agent's development runner (ADR 0016).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Component;
 class ProductionSettingsGuard implements BeanFactoryPostProcessor {
 
     private static final List<String> LOCAL_HOSTS = List.of("localhost", "127.0.0.1", "[::1]", "::1");
+    static final String BUNDLED_CATALOG = "classpath:templates/catalog.yaml";
 
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
@@ -54,6 +57,10 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
                 .equalsIgnoreCase(
                         binder.bind("sessions.storage.provider", String.class).orElse(""))) {
             problems.add("sessions.storage.provider is minio");
+        }
+        var catalog = binder.bind("sessions.templates.catalog", String.class).orElse(BUNDLED_CATALOG);
+        if (!BUNDLED_CATALOG.equals(catalog.strip())) {
+            problems.add("sessions.templates.catalog is " + catalog + ", not the bundled catalog");
         }
         for (var issuer : binder.bind("identity.issuers", Bindable.listOf(IssuerUri.class))
                 .orElse(List.of())) {

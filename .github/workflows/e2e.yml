@@ -5,9 +5,9 @@ name: e2e
 on:
   push:
     branches: [main]
-    paths: ["control-plane/**", "agent/**", "proto/**", "templates/catalog.yaml", "scripts/e2e/**", ".github/workflows/e2e.yml"]
+    paths: ["control-plane/**", "agent/**", "proto/**", "templates/**", "scripts/e2e/**", ".github/workflows/e2e.yml"]
   pull_request:
-    paths: ["control-plane/**", "agent/**", "proto/**", "templates/catalog.yaml", "scripts/e2e/**", ".github/workflows/e2e.yml"]
+    paths: ["control-plane/**", "agent/**", "proto/**", "templates/**", "scripts/e2e/**", ".github/workflows/e2e.yml"]
   workflow_dispatch:
     inputs:
       upload_logs:
@@ -37,7 +37,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: agent
-      - name: The agent comes online and goes offline
+      - name: The agent comes online, runs, loses and resumes sessions, and goes offline
         run: scripts/e2e/agent-online.sh
       # Logs only: the agent's keys, its config and every token stay out of the artifact.
       - name: Upload the logs

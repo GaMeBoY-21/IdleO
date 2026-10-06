@@ -1,0 +1,20 @@
+# Local runs and the end-to-end test only (ADR 0016): the smoke test as the
+# agent's development runner (--dev-runner) runs it on a machine without a GPU.
+# The development runner simulates the job for the --duration in its arguments
+# against real object storage, checkpointing every checkpoint_interval. Chosen
+# with SESSIONS_TEMPLATES_CATALOG=file:<path to this file>; the control plane
+# refuses to start the prod profile with any catalog but the bundled one, and
+# this file isn't bundled. Same fields as catalog.yaml.
+templates:
+  - id: cuda-smoke-test
+    name: CUDA smoke test (development runner)
+    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
+    args: ["--duration", "20s"]
+    min_vram_mb: 1024
+    default_max_runtime: 5m
+    max_runtime_cap: 15m
+    memory_mb: 2048
+    cpu_millicores: 2000
+    pids_limit: 256
+    scratch_mb: 1024
+    checkpoint_interval: 5s
