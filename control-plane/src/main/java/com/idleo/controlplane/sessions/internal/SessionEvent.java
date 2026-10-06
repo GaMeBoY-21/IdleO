@@ -18,6 +18,10 @@ enum SessionEvent {
     START,
     /** The start failed after retries, or didn't happen in time. */
     START_FAILED,
+    /** The job failed, or exited with a non-zero code, while running. */
+    JOB_FAILED,
+    /** The job succeeded but its outputs' completion marker never appeared in storage. */
+    OUTPUTS_MISSING,
     /** The lease lapsed while running. */
     LEASE_LAPSED,
     /** The job ended, the renter stopped it, credit ran out, or abuse. */

@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.agentgateway.OfferReplies;
+import com.idleo.controlplane.agentgateway.SessionStatuses;
 import com.idleo.controlplane.hosts.HostAgentReports;
 import com.idleo.controlplane.hosts.HostListings;
 import java.time.Clock;
@@ -21,6 +22,7 @@ class AgentStreamServices implements DisposableBean {
     private final HostListings listings;
     private final AgentCommandService commands;
     private final ObjectProvider<OfferReplies> offerReplies;
+    private final ObjectProvider<SessionStatuses> sessionStatuses;
     private final ObjectProvider<CommandDelivery> delivery;
     private final Presence presence;
     private final ConnectedAgents connected;
@@ -42,6 +44,7 @@ class AgentStreamServices implements DisposableBean {
             HostListings listings,
             AgentCommandService commands,
             ObjectProvider<OfferReplies> offerReplies,
+            ObjectProvider<SessionStatuses> sessionStatuses,
             ObjectProvider<CommandDelivery> delivery,
             Presence presence,
             ConnectedAgents connected,
@@ -55,6 +58,7 @@ class AgentStreamServices implements DisposableBean {
         this.listings = listings;
         this.commands = commands;
         this.offerReplies = offerReplies;
+        this.sessionStatuses = sessionStatuses;
         this.delivery = delivery;
         this.presence = presence;
         this.connected = connected;
@@ -83,6 +87,11 @@ class AgentStreamServices implements DisposableBean {
     @Nullable
     OfferReplies offerReplies() {
         return offerReplies.getIfAvailable();
+    }
+
+    @Nullable
+    SessionStatuses sessionStatuses() {
+        return sessionStatuses.getIfAvailable();
     }
 
     @Nullable

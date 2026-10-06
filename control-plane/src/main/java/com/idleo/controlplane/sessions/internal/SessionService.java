@@ -109,7 +109,9 @@ class SessionService {
                     hash,
                     now,
                     0,
-                    now);
+                    now,
+                    null,
+                    null);
             if (!store.insert(session)) {
                 // A concurrent request with the same key got there first.
                 return repeat(store.findByKey(renterId, idempotencyKey).orElseThrow(), hash);

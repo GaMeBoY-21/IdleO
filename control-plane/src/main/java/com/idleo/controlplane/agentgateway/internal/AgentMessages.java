@@ -3,6 +3,8 @@ package com.idleo.controlplane.agentgateway.internal;
 import com.idleo.controlplane.hosts.HostAgentReports.AgentHello;
 import com.idleo.controlplane.hosts.HostAgentReports.ReportedGpu;
 import gpu.agent.v1.AgentGateway.Hello;
+import gpu.agent.v1.Session.SessionState;
+import gpu.agent.v1.Session.SessionStatus;
 import gpu.agent.v1.Telemetry.GpuTelemetry;
 import gpu.agent.v1.Telemetry.Heartbeat;
 import gpu.agent.v1.Telemetry.OperatingSystem;
@@ -98,6 +100,26 @@ final class AgentMessages {
             if (gpu.hasPowerW() && gpu.getPowerW() < 0) {
                 return Optional.of("power_out_of_range");
             }
+        }
+        return Optional.empty();
+    }
+
+    /** Why a SessionStatus breaks the protocol, or empty if it's well formed. */
+    static Optional<String> invalidSessionStatus(SessionStatus status) {
+        try {
+            java.util.UUID.fromString(status.getSessionId());
+        } catch (IllegalArgumentException e) {
+            return Optional.of("session_id must be a UUID");
+        }
+        if (status.getAttempt() <= 0) {
+            return Optional.of("attempt must be above zero");
+        }
+        if (status.getState() == SessionState.SESSION_STATE_UNSPECIFIED
+                || status.getState() == SessionState.UNRECOGNIZED) {
+            return Optional.of("state must be set");
+        }
+        if (status.getLatestCheckpointSeq() < 0) {
+            return Optional.of("latest_checkpoint_seq must not be negative");
         }
         return Optional.empty();
     }

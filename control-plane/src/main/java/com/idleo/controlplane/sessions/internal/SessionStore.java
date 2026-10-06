@@ -55,7 +55,9 @@ class SessionStore {
             String requestHash,
             Instant stateChangedAt,
             int version,
-            Instant createdAt) {}
+            Instant createdAt,
+            @Nullable Instant startedAt,
+            @Nullable String errorCode) {}
 
     record Event(@Nullable String fromState, String toState, String reason, Instant at) {}
 
@@ -184,6 +186,15 @@ class SessionStore {
                 .update();
     }
 
+    /** The session, locked for the rest of the caller's transaction. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    Optional<Session> lock(UUID sessionId) {
+        return jdbc.sql("select * from sessions.sessions where id = :id for update")
+                .param("id", sessionId)
+                .query(SessionStore::session)
+                .optional();
+    }
+
     Optional<Session> find(UUID sessionId) {
         return jdbc.sql("select * from sessions.sessions where id = :id")
                 .param("id", sessionId)
@@ -243,6 +254,13 @@ class SessionStore {
                 rs.getString("request_hash"),
                 rs.getTimestamp("state_changed_at").toInstant(),
                 rs.getInt("version"),
-                rs.getTimestamp("created_at").toInstant());
+                rs.getTimestamp("created_at").toInstant(),
+                instant(rs, "started_at"),
+                rs.getString("error_code"));
+    }
+
+    private static @Nullable Instant instant(ResultSet rs, String column) throws SQLException {
+        var timestamp = rs.getTimestamp(column);
+        return timestamp == null ? null : timestamp.toInstant();
     }
 }

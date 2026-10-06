@@ -51,6 +51,8 @@ class SessionController {
     record SessionResponse(
             UUID id,
             String state,
+            int attempt,
+            @Nullable String errorCode,
             String templateId,
             @Nullable UUID hostId,
             @Nullable Integer pricePaisePerMin,
@@ -60,7 +62,8 @@ class SessionController {
             int maxRuntimeSeconds,
             long reservedPaise,
             List<EventResponse> events,
-            Instant createdAt) {}
+            Instant createdAt,
+            @Nullable Instant startedAt) {}
 
     record SessionList(List<SessionResponse> sessions) {}
 
@@ -108,6 +111,8 @@ class SessionController {
         return new SessionResponse(
                 session.id(),
                 session.state().name(),
+                session.attempt(),
+                session.errorCode(),
                 session.templateId(),
                 matched ? session.hostId() : null,
                 session.pricePaisePerMin(),
@@ -119,6 +124,7 @@ class SessionController {
                 store.events(session.id()).stream()
                         .map(event -> new EventResponse(event.toState(), event.reason(), event.at()))
                         .toList(),
-                session.createdAt());
+                session.createdAt(),
+                session.startedAt());
     }
 }

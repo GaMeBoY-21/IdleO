@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** The whole table of allowed transitions, and every move it doesn't allow (ADR 0015). */
+/** The whole table of allowed transitions, and every move it doesn't allow (ADRs 0015, 0016). */
 class SessionTransitionsTests {
 
     private static final Map<String, SessionState> ALLOWED = Map.ofEntries(
@@ -21,9 +21,11 @@ class SessionTransitionsTests {
             Map.entry("PROVISIONING+CANCEL", SessionState.CANCELLED),
             Map.entry("RUNNING+LEASE_LAPSED", SessionState.HOST_LOST),
             Map.entry("RUNNING+FINISH", SessionState.FINISHING),
+            Map.entry("RUNNING+JOB_FAILED", SessionState.FAILED),
             Map.entry("HOST_LOST+REMATCH", SessionState.MATCHED),
             Map.entry("HOST_LOST+GAME_LOST", SessionState.ENDED_REFUNDED),
-            Map.entry("FINISHING+COMPLETE", SessionState.COMPLETED));
+            Map.entry("FINISHING+COMPLETE", SessionState.COMPLETED),
+            Map.entry("FINISHING+OUTPUTS_MISSING", SessionState.FAILED));
 
     @Test
     void everyAllowedMoveGoesWhereTheDesignSays() {

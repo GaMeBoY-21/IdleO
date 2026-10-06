@@ -32,7 +32,9 @@ final class SessionTestData {
                         "hash",
                         now,
                         0,
-                        now)));
+                        now,
+                        null,
+                        null)));
         return id;
     }
 }

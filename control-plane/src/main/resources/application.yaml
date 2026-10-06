@@ -141,6 +141,11 @@ sessions:
   leases:
     ttl: 2m
     renew-every: 30s
+  # A job that succeeded is COMPLETED once its outputs' completion marker is in
+  # storage, checked this often; without it after the wait, it's FAILED with
+  # outputs_missing (ADR 0016).
+  outputs-wait: 2m
+  finishing-sweep-interval: 5s
 
 scheduling:
   # Booking (ADR 0015): offers stay open 10 seconds (technical design line 232),

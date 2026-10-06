@@ -98,6 +98,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             case HELLO -> onHello(request);
             case HEARTBEAT -> onHeartbeat(request.getHeartbeat());
             case OFFER_REPLY -> onOfferReply(request);
+            case SESSION_STATUS -> onSessionStatus(request);
             case ACK -> onAck(request.getAck().getAckedMessageId());
             default -> services.metrics().unhandledMessage(body.name().toLowerCase(java.util.Locale.ROOT));
         }
@@ -204,6 +205,41 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             log.warn("Couldn't record host {}'s reply to offer {}; it will resend", hostId, offerId, e);
             return;
         }
+        ack(request);
+    }
+
+    /**
+     * A report on a session attempt (ADR 0016): handed to the sessions module through the {@code
+     * SessionStatuses} port, then acked. If it can't be recorded now, there's no ack, and the agent resends.
+     * One that breaks the protocol is counted and dropped.
+     */
+    private void onSessionStatus(OpenStreamRequest request) {
+        var status = request.getSessionStatus();
+        var problem = AgentMessages.invalidSessionStatus(status);
+        if (problem.isPresent()) {
+            log.warn("Invalid SessionStatus from host {}: {}", hostId, problem.get());
+            services.metrics().unhandledMessage("invalid_session_status");
+            return;
+        }
+        var handler = services.sessionStatuses();
+        if (handler == null) {
+            services.metrics().unhandledMessage("session_status");
+            return;
+        }
+        try {
+            handler.onStatus(hostId, status);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Couldn't record host {}'s status for session {}; it will resend",
+                    hostId,
+                    status.getSessionId(),
+                    e);
+            return;
+        }
+        ack(request);
+    }
+
+    private void ack(OpenStreamRequest request) {
         send(OpenStreamResponse.newBuilder()
                 .setMessageId(services.ids().newId().toString())
                 .setAck(Ack.newBuilder().setAckedMessageId(request.getMessageId()))

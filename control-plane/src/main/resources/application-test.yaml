@@ -21,6 +21,8 @@ sessions:
   provisioning-timeout: 5s
   leases:
     renew-every: 500ms
+  outputs-wait: 2s
+  finishing-sweep-interval: 200ms
 
 scheduling:
   # Short enough to watch offers expire in tests.
