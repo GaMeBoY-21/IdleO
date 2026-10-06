@@ -50,6 +50,13 @@ class CreditCommandProcessTests {
                 "--spring.datasource.password=" + POSTGRES.getPassword(),
                 "--identity.issuers[0].issuer-uri=https://issuer.example.invalid",
                 "--identity.issuers[0].audience=example",
+                // Storage isn't used by these commands; it only has to be configured.
+                "--sessions.storage.provider=minio",
+                "--sessions.storage.endpoint=http://127.0.0.1:9",
+                "--sessions.storage.bucket=unused",
+                "--sessions.storage.region=us-east-1",
+                "--sessions.storage.access-key-id=unused",
+                "--sessions.storage.secret-access-key=unused",
                 // Startup at info, so a server that started would say so.
                 "--logging.level.root=info",
                 "--logging.structured.format.console="));

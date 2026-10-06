@@ -15,7 +15,12 @@ import org.springframework.context.annotation.Import;
  */
 @ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest(properties = "test.context=logging")
-@Import({TestcontainersConfiguration.class, TestIssuersConfiguration.class, TestPkiConfiguration.class})
+@Import({
+    TestcontainersConfiguration.class,
+    TestIssuersConfiguration.class,
+    TestPkiConfiguration.class,
+    TestStorageConfiguration.class
+})
 class LoggingTests {
 
     @Test
@@ -29,6 +34,7 @@ class LoggingTests {
     void startupLogsNoSecrets(CapturedOutput output) {
         assertThat(output.getAll())
                 .doesNotContain(TestcontainersConfiguration.DATABASE_PASSWORD)
+                .doesNotContain(TestStorageConfiguration.ROOT_PASSWORD)
                 .doesNotContainIgnoringCase("generated security password");
     }
 }

@@ -32,6 +32,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
     ValkeyOutageTests.DedicatedStores.class,
     TestIssuersConfiguration.class,
     TestPkiConfiguration.class,
+    TestStorageConfiguration.class,
     TestClockConfiguration.class
 })
 @DirtiesContext

@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 @AutoConfigureMockMvc
 @Import({
     TestcontainersConfiguration.class,
+    TestStorageConfiguration.class,
     TestIssuersConfiguration.class,
     TestPkiConfiguration.class,
     TestClockConfiguration.class,

@@ -45,6 +45,15 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
+    void prodRefusesToStartWithLocalObjectStorage() {
+        prod("sessions.storage.provider=minio", "identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("sessions.storage.provider is minio"));
+    }
+
+    @Test
     void prodStartsWithProductionSettings() {
         prod("agentgateway.allow-development-hosts=false", "identity.issuers[0].issuer-uri=" + GOOGLE)
                 .run(context -> assertThat(context).hasNotFailed());

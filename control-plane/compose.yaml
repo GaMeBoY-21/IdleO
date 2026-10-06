@@ -18,6 +18,18 @@ services:
       org.springframework.boot.service-connection: redis
     ports:
       - "127.0.0.1::6379"
+  storage:
+    # Object storage for sessions (ADR 0016): MinIO, as a maintained community
+    # fork's image (pgsty/minio), since MinIO stopped publishing images. The
+    # local profile uses its STS to mint scoped grants.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: local-storage-root
+      MINIO_ROOT_PASSWORD: local-only-not-a-secret
+    ports:
+      # A fixed port: agents and download links use this endpoint.
+      - "127.0.0.1:${LOCAL_STORAGE_PORT:-9100}:9000"
   sign-in:
     # A development sign-in server (navikt/mock-oauth2-server) issuing ID tokens
     # shaped like Identity Platform's for invented users (ADR 0013). The local

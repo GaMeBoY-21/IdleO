@@ -19,6 +19,17 @@ identity:
     - issuer-uri: http://localhost:${LOCAL_SIGN_IN_PORT:8099}/idleo-local
       audience: idleo-local
 
+# Object storage: MinIO from compose.yaml (ADR 0016). A fixed port, because the
+# grants agents get and renters' download links carry this endpoint.
+sessions:
+  storage:
+    provider: minio
+    endpoint: http://localhost:${LOCAL_STORAGE_PORT:9100}
+    bucket: idleo-local
+    region: us-east-1
+    access-key-id: local-storage-root
+    secret-access-key: local-only-not-a-secret
+
 # A Mac with the agent's fake GPUs can connect (ADR 0013).
 agentgateway:
   allow-development-hosts: true

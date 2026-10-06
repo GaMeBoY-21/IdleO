@@ -118,6 +118,17 @@ billing:
     zone: Asia/Kolkata
 
 sessions:
+  # Object storage (ADR 0016): R2 in production, from the environment (see
+  # application-prod.yaml and docs/runbooks/object-storage.md); MinIO locally.
+  storage:
+    provider: r2
+    endpoint: ${SESSIONS_STORAGE_ENDPOINT:}
+    bucket: ${SESSIONS_STORAGE_BUCKET:}
+    region: auto
+    access-key-id: ${SESSIONS_STORAGE_ACCESS_KEY_ID:}
+    secret-access-key: ${SESSIONS_STORAGE_SECRET_ACCESS_KEY:}
+    grant-ttl: 1h
+    download-link-ttl: 15m
   templates:
     # templates/catalog.yaml, bundled into the jar by the build (ADR 0015).
     catalog: classpath:templates/catalog.yaml

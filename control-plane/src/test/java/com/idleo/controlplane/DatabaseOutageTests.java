@@ -19,7 +19,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 /** Stops its own database mid-test, so it never shares a context or container with other tests. */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({DatabaseOutageTests.DedicatedDatabase.class, TestIssuersConfiguration.class, TestPkiConfiguration.class})
+@Import({
+    DatabaseOutageTests.DedicatedDatabase.class,
+    TestIssuersConfiguration.class,
+    TestPkiConfiguration.class,
+    TestStorageConfiguration.class
+})
 @DirtiesContext
 class DatabaseOutageTests {
 

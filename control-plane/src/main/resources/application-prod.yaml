@@ -8,3 +8,17 @@ spring:
   data:
     redis:
       url: ${VALKEY_URL}
+
+# Cloudflare R2 (ADR 0016, docs/runbooks/object-storage.md).
+sessions:
+  storage:
+    provider: r2
+    endpoint: ${SESSIONS_STORAGE_ENDPOINT}
+    bucket: ${SESSIONS_STORAGE_BUCKET}
+    access-key-id: ${SESSIONS_STORAGE_ACCESS_KEY_ID}
+    secret-access-key: ${SESSIONS_STORAGE_SECRET_ACCESS_KEY}
+    r2:
+      api-base-url: https://api.cloudflare.com/client/v4
+      account-id: ${SESSIONS_STORAGE_R2_ACCOUNT_ID}
+      api-token: ${SESSIONS_STORAGE_R2_API_TOKEN}
+      parent-access-key-id: ${SESSIONS_STORAGE_ACCESS_KEY_ID}
