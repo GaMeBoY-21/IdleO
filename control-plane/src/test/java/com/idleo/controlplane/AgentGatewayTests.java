@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import gpu.agent.v1.AgentGateway.RenewCertificateRequest;
 import gpu.agent.v1.AgentGatewayServiceGrpc;
-import gpu.agent.v1.Session.UsageReport;
 import gpu.agent.v1.Telemetry.OperatingSystem;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
@@ -394,23 +393,18 @@ class AgentGatewayTests {
     }
 
     @Test
-    void aMessageTypeNotHandledYetIsCountedNotCrashedOn() throws Exception {
+    void aMessageWithoutABodyIsCountedNotCrashedOn() throws Exception {
         var agent = TestAgent.enrol(mvc, grpcPort);
         var stream = TestAgent.open(track(agent.channel(grpcPort)));
         stream.send(TestAgent.hello("1.2.3", TestAgent.GPU_A));
         stream.next(WAIT);
-        var before = counter("agents.messages.unhandled", "type", "usage_report");
+        var before = counter("agents.messages.unhandled", "type", "body_not_set");
 
-        stream.send(TestAgent.request()
-                .setUsageReport(UsageReport.newBuilder()
-                        .setSessionId(UUID.randomUUID().toString())
-                        .setAttempt(1)
-                        .setMinuteIndex(0))
-                .build());
+        stream.send(TestAgent.request().build());
         stream.send(TestAgent.heartbeat(TestAgent.GPU_A, 60, 10));
 
         assertThat(stream.endStatus(Duration.ofMillis(800))).isNull();
-        assertThat(counter("agents.messages.unhandled", "type", "usage_report")).isEqualTo(before + 1);
+        assertThat(counter("agents.messages.unhandled", "type", "body_not_set")).isEqualTo(before + 1);
     }
 
     @Test

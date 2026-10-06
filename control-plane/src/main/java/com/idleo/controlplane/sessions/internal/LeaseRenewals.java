@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Renews the lease of every attempt that holds one (ADR 0016): the session is PROVISIONING or RUNNING, its
@@ -28,14 +30,24 @@ class LeaseRenewals {
     private final AgentStreams streams;
     private final SessionStore store;
     private final LeaseProperties leases;
+    private final LeaseBook leaseBook;
+    private final TransactionTemplate transactions;
     private final Counter renewed;
 
     LeaseRenewals(
-            JdbcClient jdbc, AgentStreams streams, SessionStore store, LeaseProperties leases, MeterRegistry meters) {
+            JdbcClient jdbc,
+            AgentStreams streams,
+            SessionStore store,
+            LeaseProperties leases,
+            LeaseBook leaseBook,
+            PlatformTransactionManager transactionManager,
+            MeterRegistry meters) {
         this.jdbc = jdbc;
         this.streams = streams;
         this.store = store;
         this.leases = leases;
+        this.leaseBook = leaseBook;
+        this.transactions = new TransactionTemplate(transactionManager);
         this.renewed = Counter.builder("sessions.leases.renewed")
                 .description("LeaseRenew messages sent")
                 .register(meters);
@@ -71,16 +83,23 @@ class LeaseRenewals {
                     continue;
                 }
                 renewed.increment();
-                jdbc.sql("""
-                                update sessions.sessions set lease_expires_at = greatest(lease_expires_at, :expiresAt)
-                                where id = :sessionId and attempt = :attempt and host_id = :hostId
-                                  and state in ('PROVISIONING', 'RUNNING')
-                                """)
-                        .param("expiresAt", Timestamp.from(store.now().plus(leases.ttl())))
-                        .param("sessionId", lease.sessionId())
-                        .param("attempt", lease.attempt())
-                        .param("hostId", lease.hostId())
-                        .update();
+                var sentAt = store.now();
+                transactions.executeWithoutResult(tx -> {
+                    if (jdbc.sql("""
+                                            update sessions.sessions
+                                            set lease_expires_at = greatest(lease_expires_at, :expiresAt)
+                                            where id = :sessionId and attempt = :attempt and host_id = :hostId
+                                              and state in ('PROVISIONING', 'RUNNING')
+                                            """)
+                                    .param("expiresAt", Timestamp.from(sentAt.plus(leases.ttl())))
+                                    .param("sessionId", lease.sessionId())
+                                    .param("attempt", lease.attempt())
+                                    .param("hostId", lease.hostId())
+                                    .update()
+                            == 1) {
+                        leaseBook.record(lease.sessionId(), lease.attempt(), sentAt, leases.ttl());
+                    }
+                });
             }
         } catch (RuntimeException e) {
             log.warn("Lease renewal failed; it runs again shortly", e);

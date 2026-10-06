@@ -149,6 +149,7 @@ class SessionService {
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT, "A session can't be cancelled once it's " + session.state() + ".");
             }
+            store.endAttempt(sessionId, session.attempt());
             reservations.release(sessionId);
             if (session.state() == SessionState.PROVISIONING && session.hostId() != null && startDelivered(session)) {
                 // The agent may have started it: tell it to stop rather than wait for the lease.

@@ -107,6 +107,7 @@ class HostLosses implements SessionReconciliation {
                         != SessionStore.Outcome.APPLIED) {
             return false;
         }
+        store.endAttempt(sessionId, session.attempt());
         meters.counter("sessions.hosts.lost", "reason", reason).increment();
         if (session.attempt() >= maxLostAttempts) {
             store.transition(sessionId, SessionEvent.LOST_REPEATEDLY, "host_lost_repeatedly", null, SessionStore.KEEP);

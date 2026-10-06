@@ -3,6 +3,7 @@ package com.idleo.controlplane.sessions.internal;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.agentgateway.SessionStatuses;
 import com.idleo.controlplane.billing.CreditReservations;
+import com.idleo.controlplane.sessions.SessionStarted;
 import gpu.agent.v1.Session.SessionStatus;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -12,6 +13,7 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -41,6 +43,7 @@ class SessionProgress implements SessionStatuses {
     private static final int BATCH = 50;
 
     private final SessionStore store;
+    private final ApplicationEventPublisher events;
     private final HostLosses losses;
     private final SessionStorage storage;
     private final CreditReservations reservations;
@@ -51,6 +54,7 @@ class SessionProgress implements SessionStatuses {
 
     SessionProgress(
             SessionStore store,
+            ApplicationEventPublisher events,
             HostLosses losses,
             SessionStorage storage,
             CreditReservations reservations,
@@ -59,6 +63,7 @@ class SessionProgress implements SessionStatuses {
             IdGenerator ids,
             @Value("${sessions.outputs-wait}") Duration outputsWait) {
         this.store = store;
+        this.events = events;
         this.losses = losses;
         this.storage = storage;
         this.reservations = reservations;
@@ -122,10 +127,13 @@ class SessionProgress implements SessionStatuses {
             return;
         }
         var now = Timestamp.from(store.now());
-        jdbc.sql("update sessions.sessions set started_at = coalesce(started_at, :now) where id = :id")
-                .param("now", now)
-                .param("id", session.id())
-                .update();
+        if (jdbc.sql("update sessions.sessions set started_at = :now where id = :id and started_at is null")
+                        .param("now", now)
+                        .param("id", session.id())
+                        .update()
+                == 1) {
+            events.publishEvent(new SessionStarted(session.id()));
+        }
         jdbc.sql("""
                         update sessions.attempts set running_at = coalesce(running_at, :now)
                         where session_id = :id and attempt = :attempt
@@ -138,6 +146,7 @@ class SessionProgress implements SessionStatuses {
     }
 
     private void finished(SessionStore.Session session) {
+        store.endAttempt(session.id(), session.attempt());
         if (store.transition(session.id(), SessionEvent.FINISH, "job_succeeded", null, SessionStore.KEEP)
                 == SessionStore.Outcome.APPLIED) {
             completeIfOutputsExist(session.id(), session.attempt());
@@ -145,6 +154,7 @@ class SessionProgress implements SessionStatuses {
     }
 
     private void failed(SessionStore.Session session, String errorCode) {
+        store.endAttempt(session.id(), session.attempt());
         var event = session.state() == SessionState.PROVISIONING ? SessionEvent.START_FAILED : SessionEvent.JOB_FAILED;
         if (store.transition(session.id(), event, errorCode, null, SessionStore.KEEP) == SessionStore.Outcome.APPLIED) {
             end(session.id(), errorCode);

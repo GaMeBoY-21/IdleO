@@ -8,15 +8,15 @@ import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** The system clock, plus an offset tests can move forward, for expiry tests. */
-final class MutableClock extends Clock {
+public final class MutableClock extends Clock {
 
     private final AtomicReference<Duration> offset = new AtomicReference<>(Duration.ZERO);
 
-    void advance(Duration amount) {
+    public void advance(Duration amount) {
         offset.updateAndGet(current -> current.plus(amount));
     }
 
-    void reset() {
+    public void reset() {
         offset.set(Duration.ZERO);
     }
 

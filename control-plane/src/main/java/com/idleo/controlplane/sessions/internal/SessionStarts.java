@@ -42,6 +42,7 @@ class SessionStarts implements SessionCredentials {
     private final LeaseProperties leases;
     private final IdGenerator ids;
     private final SessionStore store;
+    private final LeaseBook leaseBook;
 
     SessionStarts(
             JdbcClient jdbc,
@@ -51,7 +52,8 @@ class SessionStarts implements SessionCredentials {
             SessionStorage storage,
             LeaseProperties leases,
             IdGenerator ids,
-            SessionStore store) {
+            SessionStore store,
+            LeaseBook leaseBook) {
         this.jdbc = jdbc;
         this.commands = commands;
         this.catalog = catalog;
@@ -60,6 +62,7 @@ class SessionStarts implements SessionCredentials {
         this.leases = leases;
         this.ids = ids;
         this.store = store;
+        this.leaseBook = leaseBook;
     }
 
     /** Records the session's current attempt on its host and queues the attempt's StartSession. */
@@ -74,9 +77,9 @@ class SessionStarts implements SessionCredentials {
         jdbc.sql("""
                         insert into sessions.attempts
                             (session_id, attempt, host_id, gpu_uuids, command_id, minute_index_base,
-                             resume_from_attempt, resume_from_seq, created_at)
+                             resume_from_attempt, resume_from_seq, price_paise_per_min, created_at)
                         values (:sessionId, :attempt, :hostId, :gpuUuids, :commandId, :base,
-                                :resumeAttempt, :resumeSeq, :now)
+                                :resumeAttempt, :resumeSeq, :price, :now)
                         """)
                 .param("sessionId", session.id())
                 .param("attempt", session.attempt())
@@ -86,6 +89,7 @@ class SessionStarts implements SessionCredentials {
                 .param("base", minuteIndexBase)
                 .param("resumeAttempt", resumeFrom == null ? null : resumeFrom.attempt())
                 .param("resumeSeq", resumeFrom == null ? null : resumeFrom.seq())
+                .param("price", Objects.requireNonNull(session.pricePaisePerMin(), "an accepted session has a price"))
                 .param("now", Timestamp.from(store.now()))
                 .update();
         var start = StartSession.newBuilder()
@@ -213,16 +217,19 @@ class SessionStarts implements SessionCredentials {
                 .param("commandId", UUID.fromString(start.getCommandId()))
                 .update();
         // The agent counts its lease from receipt, which is after this send. A redelivery never shortens it.
-        jdbc.sql("""
-                        update sessions.sessions set lease_expires_at = greatest(lease_expires_at, :expiresAt)
-                        where id = :sessionId and attempt = :attempt and host_id = :hostId
-                          and state in ('PROVISIONING', 'RUNNING')
-                        """)
-                .param("expiresAt", Timestamp.from(at.plus(leases.ttl())))
-                .param("sessionId", sessionId)
-                .param("attempt", start.getAttempt())
-                .param("hostId", hostId)
-                .update();
+        if (jdbc.sql("""
+                                update sessions.sessions set lease_expires_at = greatest(lease_expires_at, :expiresAt)
+                                where id = :sessionId and attempt = :attempt and host_id = :hostId
+                                  and state in ('PROVISIONING', 'RUNNING')
+                                """)
+                        .param("expiresAt", Timestamp.from(at.plus(leases.ttl())))
+                        .param("sessionId", sessionId)
+                        .param("attempt", start.getAttempt())
+                        .param("hostId", hostId)
+                        .update()
+                == 1) {
+            leaseBook.record(sessionId, start.getAttempt(), at, leases.ttl());
+        }
     }
 
     private static gpu.agent.v1.Session.StorageGrant message(StorageGrant grant) {

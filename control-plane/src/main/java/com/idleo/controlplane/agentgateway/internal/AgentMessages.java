@@ -5,6 +5,7 @@ import com.idleo.controlplane.hosts.HostAgentReports.ReportedGpu;
 import gpu.agent.v1.AgentGateway.Hello;
 import gpu.agent.v1.Session.SessionState;
 import gpu.agent.v1.Session.SessionStatus;
+import gpu.agent.v1.Session.UsageReport;
 import gpu.agent.v1.Telemetry.GpuTelemetry;
 import gpu.agent.v1.Telemetry.Heartbeat;
 import gpu.agent.v1.Telemetry.OperatingSystem;
@@ -120,6 +121,25 @@ final class AgentMessages {
         }
         if (status.getLatestCheckpointSeq() < 0) {
             return Optional.of("latest_checkpoint_seq must not be negative");
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Why a UsageReport can't even name its minute, or empty. Values out of range are the metering
+     * module's to judge: it acks and drops them with a counted reason.
+     */
+    static Optional<String> invalidUsageReport(UsageReport report) {
+        try {
+            java.util.UUID.fromString(report.getSessionId());
+        } catch (IllegalArgumentException e) {
+            return Optional.of("session_id must be a UUID");
+        }
+        if (report.getAttempt() <= 0) {
+            return Optional.of("attempt must be above zero");
+        }
+        if (!report.hasMinuteIndex()) {
+            return Optional.of("minute_index must be set");
         }
         return Optional.empty();
     }

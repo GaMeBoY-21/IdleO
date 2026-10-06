@@ -37,3 +37,6 @@ scheduling:
 events:
   retry-every: 1s
   retry-older-than: 2s
+
+metering:
+  tick-every: 200ms

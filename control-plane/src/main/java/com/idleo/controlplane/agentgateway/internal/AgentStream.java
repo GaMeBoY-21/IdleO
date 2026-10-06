@@ -102,6 +102,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             case HEARTBEAT -> onHeartbeat(request.getHeartbeat());
             case OFFER_REPLY -> onOfferReply(request);
             case SESSION_STATUS -> onSessionStatus(request);
+            case USAGE_REPORT -> onUsageReport(request);
             case ACK -> onAck(request.getAck().getAckedMessageId());
             default -> services.metrics().unhandledMessage(body.name().toLowerCase(java.util.Locale.ROOT));
         }
@@ -250,6 +251,31 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                     hostId,
                     status.getSessionId(),
                     e);
+            return;
+        }
+        ack(request);
+    }
+
+    /**
+     * One minute of work (ADR 0017): handed to the metering module through the {@code UsageReports} port,
+     * then acked. One without a session, attempt or minute index is counted and dropped.
+     */
+    private void onUsageReport(OpenStreamRequest request) {
+        var report = request.getUsageReport();
+        if (AgentMessages.invalidUsageReport(report).isPresent()) {
+            services.metrics().unhandledMessage("invalid_usage_report");
+            return;
+        }
+        var handler = services.usageReports();
+        if (handler == null) {
+            services.metrics().unhandledMessage("usage_report");
+            return;
+        }
+        try {
+            handler.onUsage(hostId, report);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Couldn't record host {}'s usage for session {}; it will resend", hostId, report.getSessionId(), e);
             return;
         }
         ack(request);

@@ -1,6 +1,8 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.sessions.AttemptLost;
+import com.idleo.controlplane.sessions.SessionEnded;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -13,6 +15,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -30,11 +33,13 @@ class SessionStore {
     private final JdbcClient jdbc;
     private final IdGenerator ids;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    SessionStore(JdbcClient jdbc, IdGenerator ids, Clock clock) {
+    SessionStore(JdbcClient jdbc, IdGenerator ids, Clock clock, ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.ids = ids;
         this.clock = clock;
+        this.events = events;
     }
 
     record Session(
@@ -129,9 +134,15 @@ class SessionStore {
             String reason,
             @Nullable Integer expectedVersion,
             HostChange hostChange) {
-        var current = jdbc.sql("select state, version from sessions.sessions where id = :id for update")
+        var current = jdbc.sql(
+                        "select state, version, attempt, started_at from sessions.sessions where id = :id for update")
                 .param("id", sessionId)
-                .query((rs, n) -> new Object[] {SessionState.valueOf(rs.getString("state")), rs.getInt("version")})
+                .query((rs, n) -> new Object[] {
+                    SessionState.valueOf(rs.getString("state")),
+                    rs.getInt("version"),
+                    rs.getInt("attempt"),
+                    rs.getTimestamp("started_at") != null
+                })
                 .optional();
         if (current.isEmpty()) {
             return Outcome.MISSING;
@@ -169,7 +180,27 @@ class SessionStore {
                 .param("id", sessionId)
                 .update();
         event(sessionId, from, to.get(), reason, now);
+        // Metering follows the attempts and closes a session's usage once it ends (ADR 0017).
+        if (to.get() == SessionState.HOST_LOST) {
+            events.publishEvent(new AttemptLost(sessionId, (Integer) current.get()[2]));
+        }
+        if (to.get().isFinal && (Boolean) current.get()[3]) {
+            events.publishEvent(new SessionEnded(sessionId));
+        }
         return Outcome.APPLIED;
+    }
+
+    /** The attempt stopped running now, on the control plane's clock; the first time counts. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    void endAttempt(UUID sessionId, int attempt) {
+        jdbc.sql("""
+                        update sessions.attempts set ended_at = coalesce(ended_at, :now)
+                        where session_id = :sessionId and attempt = :attempt
+                        """)
+                .param("now", Timestamp.from(now()))
+                .param("sessionId", sessionId)
+                .param("attempt", attempt)
+                .update();
     }
 
     private void event(UUID sessionId, @Nullable SessionState from, SessionState to, String reason, Instant at) {
