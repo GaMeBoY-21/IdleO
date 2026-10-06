@@ -80,7 +80,7 @@ The unary calls: `EnrollmentService.Enroll` is handled (ADR 0010). `AgentGateway
 
 - **No message carries an absolute time for the agent to act on.**
   - Spans are `google.protobuf.Duration`.
-  - The lease is `lease_ttl`: the agent's deadline is its lease clock at receipt plus `lease_ttl`, so it can only stop early, never late. The lease clock keeps counting while the machine sleeps; see below.
+  - The lease is `lease_ttl`: the agent's deadline is its lease clock at receipt plus `lease_ttl`. A wrong or paused agent clock can't make it stop late. Transit can, by at most the transit allowance, which the control plane waits out before re-matching (ADR 0016). The lease clock keeps counting while the machine sleeps; see below.
   - The one `Timestamp`, `IssuedCertificate.not_after`, mirrors the certificate's own expiry, for display only.
 - **Every session-scoped message carries `attempt`.** The control plane acks and then ignores any message whose attempt isn't the current one.
 - **`StartSession.minute_index_base`** maps this attempt's first minute onto the session-wide minute index.

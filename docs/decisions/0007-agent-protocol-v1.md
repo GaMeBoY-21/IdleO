@@ -35,7 +35,7 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 
     On wake, the agent checks every deadline before doing anything else. The full rules and sources are in `proto/README.md`.
 
-   Why: agent clocks are never trusted (line 396). A clock that paused during sleep would let a laptop that slept through its lease's end wake up and keep working beside the attempt that replaced it. A clock running 3 minutes slow would keep work running 3 minutes past the lease and break fencing (line 715). Receipt is always after the send, so the agent can only stop early, never late.
+   Why: agent clocks are never trusted (line 396). A clock that paused during sleep would let a laptop that slept through its lease's end wake up and keep working beside the attempt that replaced it. A clock running 3 minutes slow would keep work running 3 minutes past the lease and break fencing (line 715). A wrong or paused agent clock can't make it stop late. Transit can, by at most the transit allowance, which the control plane waits out before re-matching (ADR 0016).
 3. **Every span is a `google.protobuf.Duration`.** That covers `Offer.expires_in` (was `expires_in_s`), `AgentPolicy.heartbeat_interval`, `SessionSpec.checkpoint_interval`, `SessionSpec.max_runtime` and `StopSession.grace_period`.
 
    Why: no message carries an absolute time for the agent to act on.

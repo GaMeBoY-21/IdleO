@@ -262,12 +262,14 @@ message StartSession {
   // How long the lease lasts, counted from receipt on the agent's lease
   // clock: a clock that keeps counting while the machine sleeps
   // (CLOCK_BOOTTIME on Linux, QueryPerformanceCounter on Windows; never
-  // CLOCK_MONOTONIC, which stops during suspend). The agent's deadline is
-  // that clock at receipt plus lease_ttl; it stops the work when the deadline
-  // passes without a LeaseRenew, and on wake it checks every deadline before
-  // doing anything else. Receipt is always after the send, so the agent can
-  // only stop early, never late. Never compared with wall-clock time, which
-  // the owner can change. How deadlines survive restarts: proto/README.md.
+  // Linux's CLOCK_MONOTONIC, which stops during suspend). The agent's deadline
+  // is that clock at receipt plus lease_ttl; it stops the work when the
+  // deadline passes without a LeaseRenew, and on wake it checks every deadline
+  // before doing anything else. A wrong or paused agent clock can't make it
+  // stop late. Transit can, by at most the transit allowance, which the
+  // control plane waits out before re-matching (ADR 0016). Never compared
+  // with wall-clock time, which the owner can change. How deadlines survive
+  // restarts: proto/README.md.
   // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration lease_ttl = 6;
   // The session-wide minute index of this attempt's first minute, set by the
