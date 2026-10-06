@@ -152,9 +152,27 @@
             <artifactId>spring-modulith-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Reads templates/catalog.yaml (ADR 0015); Spring Boot already ships it for its own YAML. -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- The template catalog lives at the repository root, reviewed in git, and ships in the jar. -->
+            <resource>
+                <directory>${project.basedir}/../templates</directory>
+                <targetPath>templates</targetPath>
+                <includes>
+                    <include>catalog.yaml</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

@@ -1,0 +1,29 @@
+# What renters can run in Phase 1 (ADR 0015): the only source, reviewed in git.
+# The control plane bundles this file, refuses to start on a malformed entry,
+# and serves it at GET /v1/templates. Every image is pinned by digest; cosign
+# signatures are verified once the registry exists (technical design line 83).
+#
+# Fields:
+#   id, name               stable id and display name
+#   image                  container image, always with @sha256:<digest>
+#   args                   arguments to the image's entrypoint
+#   min_vram_mb            the least GPU memory it needs; a renter may ask for more
+#   default_max_runtime    how long a session may run unless the renter says otherwise
+#   max_runtime_cap        the most a renter may ask for
+#   memory_mb, cpu_millicores, pids_limit, scratch_mb   container limits (technical design, compute sandbox)
+#   checkpoint_interval    how often the job checkpoints
+templates:
+  - id: cuda-smoke-test
+    name: CUDA smoke test
+    # The CUDA base image Phase 0 pins (phase0/wsl/gpu-common.sh): prints the
+    # GPU it sees, proving the GPU reaches the container.
+    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
+    args: ["nvidia-smi"]
+    min_vram_mb: 1024
+    default_max_runtime: 5m
+    max_runtime_cap: 15m
+    memory_mb: 2048
+    cpu_millicores: 2000
+    pids_limit: 256
+    scratch_mb: 1024
+    checkpoint_interval: 5m

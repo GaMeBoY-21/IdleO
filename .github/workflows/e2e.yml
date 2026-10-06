@@ -5,9 +5,9 @@ name: e2e
 on:
   push:
     branches: [main]
-    paths: ["control-plane/**", "agent/**", "proto/**", "scripts/e2e/**", ".github/workflows/e2e.yml"]
+    paths: ["control-plane/**", "agent/**", "proto/**", "templates/catalog.yaml", "scripts/e2e/**", ".github/workflows/e2e.yml"]
   pull_request:
-    paths: ["control-plane/**", "agent/**", "proto/**", "scripts/e2e/**", ".github/workflows/e2e.yml"]
+    paths: ["control-plane/**", "agent/**", "proto/**", "templates/catalog.yaml", "scripts/e2e/**", ".github/workflows/e2e.yml"]
   workflow_dispatch:
     inputs:
       upload_logs:

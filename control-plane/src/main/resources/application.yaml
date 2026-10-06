@@ -109,6 +109,11 @@ billing:
     cron: "0 30 2 * * *"
     zone: Asia/Kolkata
 
+sessions:
+  templates:
+    # templates/catalog.yaml, bundled into the jar by the build (ADR 0015).
+    catalog: classpath:templates/catalog.yaml
+
 agentgateway:
   # The agent stream (ADR 0011).
   hello-timeout: 10s
