@@ -120,6 +120,17 @@ class SessionController {
         return outputs.of(user.id(), id);
     }
 
+    record StopRequest(@Nullable Boolean checkpointFirst) {}
+
+    @PostMapping("/{id}/stop")
+    SessionResponse stop(
+            @AuthenticationPrincipal CurrentUser user,
+            @PathVariable UUID id,
+            @RequestBody(required = false) @Nullable StopRequest request) {
+        boolean checkpointFirst = request == null || request.checkpointFirst() == null || request.checkpointFirst();
+        return view(sessions.stop(user.id(), id, checkpointFirst));
+    }
+
     @PostMapping("/{id}/cancel")
     SessionResponse cancel(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return view(sessions.cancel(user.id(), id));

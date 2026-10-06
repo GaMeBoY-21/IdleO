@@ -27,6 +27,7 @@ class SessionService {
 
     private final SessionStore store;
     private final SessionStops stops;
+    private final RunningStops runningStops;
     private final TemplateCatalog catalog;
     private final CreditReservations reservations;
     private final SessionHolds holds;
@@ -37,6 +38,7 @@ class SessionService {
     SessionService(
             SessionStore store,
             SessionStops stops,
+            RunningStops runningStops,
             TemplateCatalog catalog,
             CreditReservations reservations,
             SessionHolds holds,
@@ -45,6 +47,7 @@ class SessionService {
             IdGenerator ids) {
         this.store = store;
         this.stops = stops;
+        this.runningStops = runningStops;
         this.catalog = catalog;
         this.reservations = reservations;
         this.holds = holds;
@@ -135,6 +138,32 @@ class SessionService {
                     "This Idempotency-Key was already used for a different session request.");
         }
         return new Created(existing, false);
+    }
+
+    /**
+     * Stops the renter's running session (ADR 0017): RUNNING to FINISHING, and its agent told to stop, after a
+     * checkpoint unless {@code checkpointFirst} is false. It completes, with reason {@code stopped}, when the agent
+     * reports it stopped. Repeating it changes nothing. A session that hasn't started running is cancelled
+     * instead, and one that has ended can't be stopped: both are 409.
+     */
+    SessionStore.Session stop(UUID renterId, UUID sessionId, boolean checkpointFirst) {
+        return Objects.requireNonNull(transactions.execute(status -> {
+            var session = owned(renterId, sessionId);
+            var outcome = runningStops.stop(
+                    sessionId, "renter_stopped", StopReason.STOP_REASON_RENTER_REQUESTED, checkpointFirst);
+            if (outcome == RunningStops.Outcome.NOT_RUNNING) {
+                var notYet = session.state() == SessionState.REQUESTED
+                        || session.state() == SessionState.MATCHED
+                        || session.state() == SessionState.PROVISIONING;
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        notYet
+                                ? "This session hasn't started running: cancel it with POST /v1/sessions/" + sessionId
+                                        + "/cancel."
+                                : "A session can't be stopped once it's " + session.state() + ".");
+            }
+            return store.find(sessionId).orElseThrow();
+        }));
     }
 
     /**

@@ -6,7 +6,8 @@
 //! `checkpoint_interval`: a numbered folder holding `state.json`, then its `_COMPLETE` manifest,
 //! written last. On resume it reads the `resume_from` checkpoint through the read grant and carries
 //! on from the time it records. At the end it writes `outputs/result.json`, naming the attempt and
-//! the checkpoint it resumed from, then `outputs/_COMPLETE`, and succeeds with exit code 0.
+//! the checkpoint it resumed from, then `outputs/_COMPLETE`, and succeeds with exit code 0. Asked to stop,
+//! it writes one more checkpoint with the time so far and stops.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -65,6 +66,8 @@ struct ResumedFrom {
 enum Stop {
     /// The fence went down: stop at once, report nothing.
     Fenced,
+    /// The control plane asked for a stop; the last checkpoint is written.
+    Requested,
     Failed {
         code: &'static str,
         message: String,
@@ -83,6 +86,9 @@ impl SessionRunner for DevRunner {
             match run(&job, &reports).await {
                 Ok(()) => {
                     let _ = reports.send(Report::Succeeded);
+                }
+                Err(Stop::Requested) => {
+                    let _ = reports.send(Report::Stopped);
                 }
                 Err(Stop::Fenced) => {}
                 Err(Stop::Failed { code, message }) => {
@@ -118,18 +124,39 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
     tracing::info!(session_id = %job.session_id, attempt = job.attempt, ?duration, "the job is running");
 
     let mut seq = 0;
+    let mut stop_requested = job.stop_requested.clone();
     while elapsed < duration {
         let step = interval.min(duration.saturating_sub(elapsed));
-        tokio::time::sleep(step).await;
-        elapsed += step;
+        let started = tokio::time::Instant::now();
+        let asked_to_stop = *stop_requested.borrow_and_update()
+            || tokio::select! {
+                () = tokio::time::sleep(step) => false,
+                // A closed channel disables this branch: with nobody left to ask, no stop is coming.
+                Ok(_) = stop_requested.wait_for(|stop| *stop) => true,
+            };
+        elapsed += started.elapsed().min(step);
         fenced(job)?;
+        if asked_to_stop {
+            // The last checkpoint, if storage takes it; the stop happens either way.
+            match write_checkpoint(job, seq + 1, elapsed).await {
+                Ok(()) => {
+                    let _ = reports.send(Report::Checkpoint(seq + 1));
+                    tracing::info!(session_id = %job.session_id, attempt = job.attempt, seq = seq + 1, "stopped after a last checkpoint");
+                }
+                Err(Stop::Failed { message, .. }) => {
+                    tracing::warn!(session_id = %job.session_id, %message, "the last checkpoint failed to upload; stopping anyway");
+                }
+                Err(ended) => return Err(ended),
+            }
+            return Err(Stop::Requested);
+        }
         if elapsed < duration {
             seq += 1;
             match write_checkpoint(job, seq, elapsed).await {
                 Ok(()) => {
                     let _ = reports.send(Report::Checkpoint(seq));
                 }
-                Err(Stop::Fenced) => return Err(Stop::Fenced),
+                Err(ended @ (Stop::Fenced | Stop::Requested)) => return Err(ended),
                 // The job goes on; the next checkpoint may work, and resume uses the last complete one.
                 Err(Stop::Failed { message, .. }) => {
                     tracing::warn!(session_id = %job.session_id, seq, %message, "a checkpoint failed to upload");
@@ -328,6 +355,7 @@ mod tests {
             read_store,
             resume_from,
             fence: Fence::new(),
+            stop_requested: tokio::sync::watch::channel(false).1,
         }
     }
 
@@ -418,6 +446,31 @@ mod tests {
         }
         assert_eq!(all.last(), Some(&Report::Checkpoint(1)));
         assert!(!objects.lock().unwrap().keys().any(|key| key.contains("outputs/")));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn asked_to_stop_it_writes_a_last_checkpoint_with_the_time_so_far_and_stops() {
+        let objects = Arc::default();
+        let session = Uuid::now_v7();
+        let (stop, stop_requested) = tokio::sync::watch::channel(false);
+        let job = Job { stop_requested, ..job(session, 1, &objects, None) };
+        let (reports, mut received) = mpsc::unbounded_channel();
+        let running = tokio::spawn(DevRunner.run(job, reports));
+        tokio::time::sleep(Duration::from_secs(7)).await;
+        stop.send(true).unwrap();
+        running.await.unwrap();
+
+        let mut all = Vec::new();
+        while let Ok(report) = received.try_recv() {
+            all.push(report);
+        }
+        assert_eq!(all[all.len() - 3..], [Report::Checkpoint(1), Report::Checkpoint(2), Report::Stopped]);
+        let objects = objects.lock().unwrap();
+        let folder = format!("sessions/{session}/attempt-1/checkpoints/00000002/");
+        assert!(objects.contains_key(&format!("{folder}_COMPLETE")));
+        let state: State = serde_json::from_slice(&objects[&format!("{folder}state.json")]).unwrap();
+        assert_eq!(state.elapsed_ms, 7_000, "the time actually run, not a whole interval");
+        assert!(!objects.keys().any(|key| key.contains("outputs/")));
     }
 
     #[test]

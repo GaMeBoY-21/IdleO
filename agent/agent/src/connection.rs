@@ -39,6 +39,8 @@ use crate::tls::{self, Target};
 use crate::{AGENT_VERSION, new_message_id, system, version};
 
 const RENEW_TIMEOUT: Duration = Duration::from_secs(30);
+/// The least time an offer must have left for the agent to accept it.
+const REPLY_MARGIN: Duration = Duration::from_millis(10);
 
 /// Every interval and limit the connection manager uses. [`Timing::default`] is production.
 #[derive(Debug, Clone)]
@@ -471,6 +473,13 @@ impl Manager {
                             let _ = outbound.send(ack).await;
                         }
                     }
+                    Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::RefreshCredentials(refresh)) })) => {
+                        let received_at = self.options.lease_clock.now();
+                        let ack = self.sessions.lock().refresh(&message_id, &refresh, received_at);
+                        if let Some(ack) = ack {
+                            let _ = outbound.send(ack).await;
+                        }
+                    }
                     Ok(Some(OpenStreamResponse { body: Some(ServerBody::LeaseRenew(renew)), .. })) => {
                         let received_at = self.options.lease_clock.now();
                         self.sessions.lock().renew(&renew, received_at);
@@ -548,7 +557,8 @@ impl Manager {
             tracing::warn!("ignored an offer without an id");
             return None;
         }
-        let expired = self.options.lease_clock.now() > received_at + expires_in;
+        // A reply needs time to arrive: one sent with less than this left counts as too late.
+        let expired = self.options.lease_clock.now() + REPLY_MARGIN >= received_at + expires_in;
         let decision = offers::decide(&facts(spec.vram_needed_mb, expired));
         let declined = decision.err();
         match declined {

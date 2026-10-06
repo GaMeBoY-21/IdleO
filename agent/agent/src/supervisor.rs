@@ -24,10 +24,10 @@ use std::time::Duration;
 
 use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::{
-    Ack, LeaseRenew, OpenStreamRequest, RunningSession, SessionError, SessionState, SessionStatus, StartSession,
-    StopReason, StopSession, UsageReport,
+    Ack, LeaseRenew, OpenStreamRequest, RefreshCredentials, RunningSession, SessionError, SessionState, SessionStatus,
+    StartSession, StopReason, StopSession, UsageReport,
 };
-use tokio::sync::{Notify, mpsc};
+use tokio::sync::{Notify, mpsc, watch};
 use tokio::task::{AbortHandle, JoinHandle};
 use tokio::time::Instant;
 use uuid::Uuid;
@@ -94,6 +94,12 @@ struct Attempt {
     running_since: Option<Duration>,
     /// Whole minutes already reported.
     minutes_reported: i32,
+    /// Tells the runner to checkpoint and stop.
+    stop_signal: Option<watch::Sender<bool>>,
+    /// A checkpoint-first stop under way: when its grace ends on the lease clock, and why it was asked.
+    stopping: Option<(Duration, String)>,
+    /// The job's storage, attempt and read, whose grants `RefreshCredentials` replaces.
+    stores: Option<(Arc<S3Store>, Option<Arc<S3Store>>)>,
 }
 
 impl Attempt {
@@ -113,6 +119,10 @@ struct Queued {
 
 /// Mean GPU utilisation of the given GPUs since the last call for them, in percent.
 pub type Utilisation = Arc<dyn Fn(&[String]) -> i32 + Send + Sync>;
+
+/// A live attempt's deadlines, read before acting on them: its session, lease end, runtime cap, and the
+/// grace end and reason of a stop under way.
+type LiveAttempt = (Uuid, Duration, Duration, Option<(Duration, String)>);
 
 /// One minute on the lease clock.
 const MINUTE: Duration = Duration::from_secs(60);
@@ -239,6 +249,9 @@ impl Supervisor {
                         gpus: Vec::new(),
                         running_since: None,
                         minutes_reported: 0,
+                        stop_signal: None,
+                        stopping: None,
+                        stores: None,
                     },
                 );
                 let code = if self.runner.is_none() { "no_runner" } else { "invalid_start_session" };
@@ -287,13 +300,15 @@ impl Supervisor {
         if start.resume_from.is_some() && read_grant.is_none() {
             return Err("resume_from without a read grant".to_owned());
         }
-        let attempt_store: Arc<dyn ObjectStore> =
-            Arc::new(S3Store::new(attempt_grant, http.clone(), Arc::clone(&self.clock))?);
-        let read_store = match read_grant {
-            Some(grant) => Some(Arc::new(S3Store::new(grant, http, Arc::clone(&self.clock))?) as Arc<dyn ObjectStore>),
+        let attempt_s3 = Arc::new(S3Store::new(attempt_grant, http.clone(), Arc::clone(&self.clock))?);
+        let read_s3 = match read_grant {
+            Some(grant) => Some(Arc::new(S3Store::new(grant, http, Arc::clone(&self.clock))?)),
             None => None,
         };
+        let attempt_store: Arc<dyn ObjectStore> = Arc::clone(&attempt_s3) as Arc<dyn ObjectStore>;
+        let read_store = read_s3.clone().map(|store| store as Arc<dyn ObjectStore>);
         let fence = Fence::new();
+        let (stop_signal, stop_requested) = watch::channel(false);
         let job = Job {
             session_id,
             attempt: start.attempt,
@@ -303,6 +318,7 @@ impl Supervisor {
             read_store,
             resume_from: start.resume_from,
             fence: fence.clone(),
+            stop_requested,
         };
         let tasks = spawn(runner.as_ref(), job, self.reports.clone());
         self.attempts.insert(
@@ -319,6 +335,9 @@ impl Supervisor {
                 gpus: start.gpu_uuids,
                 running_since: None,
                 minutes_reported: 0,
+                stop_signal: Some(stop_signal),
+                stopping: None,
+                stores: Some((attempt_s3, read_s3)),
             },
         );
         Ok(())
@@ -343,7 +362,9 @@ impl Supervisor {
         }
     }
 
-    /// A `StopSession`: acked; a repeated `command_id` is acked and acted on once.
+    /// A `StopSession`: acked; a repeated `command_id` is acked and acted on once. With `checkpoint_first`,
+    /// the runner is asked to write a last checkpoint and stop, and the attempt ends when it has, or when
+    /// the grace period runs out, whichever is first; without, it ends at once.
     pub fn stop(&mut self, message_id: &str, stop: &StopSession) -> Option<OpenStreamRequest> {
         self.check_deadlines();
         let (Ok(session_id), false) = (Uuid::parse_str(&stop.session_id), stop.command_id.is_empty()) else {
@@ -361,8 +382,57 @@ impl Supervisor {
                 StopReason::Superseded => "superseded",
                 StopReason::Unspecified => "stopped",
             };
-            self.end(session_id, SessionState::Stopped, Some((reason, "stopped by the control plane")), None);
-            tracing::info!(%session_id, attempt = stop.attempt, reason, "stopped an attempt");
+            if let Some(grace) = positive(stop.grace_period).filter(|_| stop.checkpoint_first) {
+                let deadline = self.clock.now() + grace;
+                if let Some(attempt) = self.attempts.get_mut(&session_id) {
+                    attempt.stopping = Some((deadline, reason.to_owned()));
+                    if let Some(signal) = &attempt.stop_signal {
+                        let _ = signal.send(true);
+                    }
+                }
+                tracing::info!(%session_id, attempt = stop.attempt, reason, ?grace, "stopping an attempt after a checkpoint");
+            } else {
+                self.end(session_id, SessionState::Stopped, Some((reason, "stopped by the control plane")), None);
+                tracing::info!(%session_id, attempt = stop.attempt, reason, "stopped an attempt");
+            }
+        }
+        Some(ack(message_id))
+    }
+
+    /// A `RefreshCredentials`, received at `received_at` on the lease clock: the running attempt's grants are
+    /// replaced in place, without restarting its job. Acked; credentials for any other attempt are ignored.
+    pub fn refresh(
+        &mut self,
+        message_id: &str,
+        refresh: &RefreshCredentials,
+        received_at: Duration,
+    ) -> Option<OpenStreamRequest> {
+        self.check_deadlines();
+        let Ok(session_id) = Uuid::parse_str(&refresh.session_id) else {
+            tracing::warn!("ignored a RefreshCredentials without a valid session id");
+            return None;
+        };
+        let stores = self
+            .attempts
+            .get(&session_id)
+            .filter(|attempt| attempt.number == refresh.attempt && attempt.is_live())
+            .and_then(|attempt| attempt.stores.clone());
+        let Some((attempt_store, read_store)) = stores else {
+            tracing::info!(%session_id, attempt = refresh.attempt, "ignored fresh credentials for an attempt not running here");
+            return Some(ack(message_id));
+        };
+        let result = (|| {
+            let credentials = refresh.credentials.as_ref().ok_or("no credentials")?;
+            let grant = credentials.attempt_grant.as_ref().ok_or("no attempt grant")?;
+            attempt_store.replace(Grant::from_message(grant, received_at)?)?;
+            if let (Some(store), Some(grant)) = (read_store, credentials.read_grant.as_ref()) {
+                store.replace(Grant::from_message(grant, received_at)?)?;
+            }
+            Ok::<(), String>(())
+        })();
+        match result {
+            Ok(()) => tracing::info!(%session_id, attempt = refresh.attempt, "storage credentials refreshed"),
+            Err(reason) => tracing::warn!(%session_id, %reason, "refused fresh credentials; keeping the current ones"),
         }
         Some(ack(message_id))
     }
@@ -399,13 +469,13 @@ impl Supervisor {
     /// that has ended.
     pub fn check_deadlines(&mut self) {
         let now = self.clock.now();
-        let live: Vec<(Uuid, Duration, Duration)> = self
+        let live: Vec<LiveAttempt> = self
             .attempts
             .iter()
             .filter(|(_, attempt)| attempt.is_live())
-            .map(|(session_id, attempt)| (*session_id, attempt.deadline, attempt.runtime_cap))
+            .map(|(session_id, attempt)| (*session_id, attempt.deadline, attempt.runtime_cap, attempt.stopping.clone()))
             .collect();
-        for (session_id, deadline, runtime_cap) in live {
+        for (session_id, deadline, runtime_cap, stopping) in live {
             if now >= deadline {
                 // Only the minutes that ended inside the lease; nothing after it, ever.
                 self.report_minutes(session_id, deadline);
@@ -419,6 +489,10 @@ impl Supervisor {
                     Some(("max_runtime_exceeded", "ran past max_runtime")),
                     None,
                 );
+            } else if let Some((grace_end, reason)) = stopping.filter(|(grace_end, _)| now >= *grace_end) {
+                tracing::warn!(%session_id, "no checkpoint within the grace period; stopping anyway");
+                let _ = grace_end;
+                self.end(session_id, SessionState::Stopped, Some((&reason, "stopped by the control plane")), None);
             } else {
                 self.report_minutes(session_id, now);
             }
@@ -493,6 +567,16 @@ impl Supervisor {
                 self.queue_status(tagged.session_id, None, None);
             }
             Reported::Report(Report::Succeeded) => self.end(tagged.session_id, SessionState::Succeeded, None, Some(0)),
+            Reported::Report(Report::Stopped) => {
+                let reason =
+                    attempt.stopping.as_ref().map_or_else(|| "stopped".to_owned(), |(_, reason)| reason.clone());
+                self.end(
+                    tagged.session_id,
+                    SessionState::Stopped,
+                    Some((&reason, "stopped by the control plane")),
+                    None,
+                );
+            }
             Reported::Report(Report::Failed { code, message, exit_code }) => {
                 self.end(tagged.session_id, SessionState::Failed, Some((&code, &message)), exit_code);
             }
@@ -599,11 +683,13 @@ mod tests {
     #[derive(Default)]
     struct FakeRunner {
         started: Mutex<Vec<(Fence, mpsc::UnboundedSender<Report>)>>,
+        stops: Mutex<Vec<watch::Receiver<bool>>>,
     }
 
     impl SessionRunner for FakeRunner {
         fn run(&self, job: Job, reports: mpsc::UnboundedSender<Report>) -> Pin<Box<dyn Future<Output = ()> + Send>> {
             self.started.lock().unwrap().push((job.fence, reports));
+            self.stops.lock().unwrap().push(job.stop_requested);
             Box::pin(std::future::pending())
         }
     }
@@ -948,6 +1034,73 @@ mod tests {
         setup.shared.lock().acked(&usage_message.message_id);
         setup.shared.lock().unsend_all();
         assert_eq!(usage(&setup.shared), Vec::new());
+    }
+
+    fn stop_after_checkpoint(session: Uuid, command_id: &str) -> StopSession {
+        StopSession {
+            session_id: session.to_string(),
+            attempt: 1,
+            command_id: command_id.to_owned(),
+            reason: StopReason::RenterRequested.into(),
+            checkpoint_first: true,
+            grace_period: Some(seconds(60)),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_checkpoint_first_stop_waits_for_the_runners_last_checkpoint() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
+
+        setup.shared.lock().stop("m2", &stop_after_checkpoint(session, "s1"));
+
+        assert!(*setup.runner.stops.lock().unwrap()[0].borrow(), "the runner was asked");
+        assert_eq!(setup.shared.lock().running().len(), 1, "still running while it checkpoints");
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        reports.send(Report::Checkpoint(3)).unwrap();
+        reports.send(Report::Stopped).unwrap();
+        for _ in 0..2 {
+            let tagged = setup.received.recv().await.unwrap();
+            setup.shared.lock().apply(tagged);
+        }
+        let last = statuses(&setup.shared).pop().unwrap();
+        assert_eq!(last.state(), SessionState::Stopped);
+        assert_eq!(last.latest_checkpoint_seq, 3);
+        assert_eq!(last.error.unwrap().code, "renter_requested");
+    }
+
+    #[tokio::test]
+    async fn a_runner_that_doesnt_checkpoint_in_time_is_stopped_when_the_grace_ends() {
+        let setup = setup();
+        let session = Uuid::now_v7();
+        setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
+        let fence = setup.runner.started.lock().unwrap()[0].0.clone();
+        setup.shared.lock().stop("m2", &stop_after_checkpoint(session, "s1"));
+
+        setup.clock.advance(Duration::from_secs(59));
+        setup.shared.lock().check_deadlines();
+        assert!(fence.is_up());
+        setup.clock.advance(Duration::from_secs(1));
+        setup.shared.lock().check_deadlines();
+
+        assert!(!fence.is_up());
+        assert_eq!(statuses(&setup.shared).pop().unwrap().state(), SessionState::Stopped);
+    }
+
+    #[tokio::test]
+    async fn fresh_credentials_are_acked_and_ignored_for_another_attempt() {
+        let setup = setup();
+        let session = Uuid::now_v7();
+        let message = start(session, 1, "c1");
+        let credentials = message.credentials.clone();
+        setup.shared.lock().start("m1", message, Duration::ZERO);
+
+        let refresh =
+            |attempt| RefreshCredentials { session_id: session.to_string(), attempt, credentials: credentials.clone() };
+        assert!(acked(setup.shared.lock().refresh("m2", &refresh(1), Duration::from_mins(30)), "m2"));
+        assert!(acked(setup.shared.lock().refresh("m3", &refresh(2), Duration::from_mins(30)), "m3"));
+        assert_eq!(setup.shared.lock().running().len(), 1, "the job carries on");
     }
 
     #[tokio::test]

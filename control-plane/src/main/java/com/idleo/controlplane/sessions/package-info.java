@@ -29,10 +29,15 @@
  *       spend), before anything is created. The same key and body again returns the session (200); a
  *       different body is 422.
  *   <li>{@code GET /v1/sessions}, {@code GET /v1/sessions/{id}}: state, host once matched, price, the credit
- *       held, and every state change with its reason and time.
+ *       held, {@code chargedPaise} (settled), {@code accruedPaise} (billable, not yet settled), {@code lowCredit},
+ *       and every state change with its reason and time.
  *   <li>{@code POST /v1/sessions/{id}/cancel}: in REQUESTED, MATCHED or PROVISIONING; releases the hold,
  *       withdraws any offer, tells a started agent to stop, bills nothing; repeating it changes nothing. 409 in
  *       any other state.
+ *   <li>{@code POST /v1/sessions/{id}/stop}, body {@code {"checkpointFirst"?}} (default true): stops a RUNNING
+ *       session; its agent writes a checkpoint first within a 60-second grace period, and the session completes
+ *       with reason {@code stopped}. Repeating it changes nothing; 409 before it runs (cancel instead) or after it
+ *       ends (ADR 0017).
  *   <li>{@code GET /v1/sessions/{id}/outputs}: a COMPLETED session's output files, each with a pre-signed
  *       download link valid for 15 minutes (ADR 0016). 409 before COMPLETED.
  * </ul>

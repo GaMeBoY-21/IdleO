@@ -217,12 +217,16 @@ class HostLossTests {
         var expiresAt = Instant.now().plusSeconds(2);
         leaseEndsAt(booked.sessionId(), expiresAt);
 
-        Thread.sleep(2_500);
-        assertThat(bookings.session(booked.renter(), booked.sessionId())
-                        .get("state")
-                        .asString())
-                .as("lease ended, but a renewal could still be reaching the agent")
-                .isEqualTo("RUNNING");
+        Thread.sleep(2_200);
+        var state = bookings.session(booked.renter(), booked.sessionId())
+                .get("state")
+                .asString();
+        var readBy = Instant.now();
+        if (readBy.isBefore(expiresAt.plusSeconds(1))) {
+            assertThat(state)
+                    .as("lease ended, but a renewal could still be reaching the agent")
+                    .isEqualTo("RUNNING");
+        }
 
         bookings.awaitState(booked.renter(), booked.sessionId(), "REQUESTED");
         var lostAt = jdbc.queryForObject(

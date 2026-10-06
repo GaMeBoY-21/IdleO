@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use agent_proto::v1::{CheckpointRef, SessionSpec, SessionState};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use uuid::Uuid;
 
 use crate::storage::ObjectStore;
@@ -37,6 +37,9 @@ pub struct Job {
     pub resume_from: Option<CheckpointRef>,
     /// Whether the attempt may still act.
     pub fence: Fence,
+    /// Becomes true when the control plane asks for a checkpoint and a stop: the runner writes one last
+    /// checkpoint, reports [`Report::Stopped`] and returns, within the grace period the supervisor enforces.
+    pub stop_requested: watch::Receiver<bool>,
 }
 
 /// What a runner reports about its attempt.
@@ -48,6 +51,8 @@ pub enum Report {
     Checkpoint(i32),
     /// The job exited 0 and its outputs, with their marker, are uploaded.
     Succeeded,
+    /// Asked to stop, the job wrote its last checkpoint (if it could) and stopped.
+    Stopped,
     /// The job or its setup failed.
     Failed {
         /// A stable code, for example `invalid_args`.

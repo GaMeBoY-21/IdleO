@@ -11,7 +11,7 @@
 use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, PoisonError, RwLock};
 use std::time::Duration;
 
 use agent_proto::v1::{StorageGrant, StoragePermission};
@@ -185,13 +185,32 @@ pub fn http_client() -> Result<reqwest::Client, String> {
         .map_err(|e| format!("the storage client couldn't be built: {e}"))
 }
 
-/// S3-compatible storage through one grant.
+/// S3-compatible storage through one grant, which `RefreshCredentials` can replace while the job runs.
 pub struct S3Store {
+    signed: RwLock<Signed>,
+    http: reqwest::Client,
+    clock: Arc<dyn LeaseClock>,
+}
+
+/// A grant and what it signs with.
+#[derive(Clone)]
+struct Signed {
     grant: Grant,
     bucket: Bucket,
     credentials: Credentials,
-    http: reqwest::Client,
-    clock: Arc<dyn LeaseClock>,
+}
+
+impl Signed {
+    fn new(grant: Grant) -> Result<Self, String> {
+        let bucket = Bucket::new(grant.endpoint.clone(), UrlStyle::Path, grant.bucket.clone(), REGION)
+            .map_err(|e| format!("the grant's bucket isn't usable: {e}"))?;
+        let credentials = Credentials::new_with_token(
+            grant.access_key_id.clone(),
+            grant.secret_access_key.clone(),
+            grant.session_token.clone(),
+        );
+        Ok(Self { grant, bucket, credentials })
+    }
 }
 
 impl S3Store {
@@ -200,14 +219,25 @@ impl S3Store {
     /// # Errors
     /// If the grant's endpoint and bucket don't make a bucket URL.
     pub fn new(grant: Grant, http: reqwest::Client, clock: Arc<dyn LeaseClock>) -> Result<Self, String> {
-        let bucket = Bucket::new(grant.endpoint.clone(), UrlStyle::Path, grant.bucket.clone(), REGION)
-            .map_err(|e| format!("the grant's bucket isn't usable: {e}"))?;
-        let credentials = Credentials::new_with_token(
-            grant.access_key_id.clone(),
-            grant.secret_access_key.clone(),
-            grant.session_token.clone(),
-        );
-        Ok(Self { grant, bucket, credentials, http, clock })
+        Ok(Self { signed: RwLock::new(Signed::new(grant)?), http, clock })
+    }
+
+    /// Swaps in fresh credentials for the same scope. Requests already under way finish with the old ones.
+    ///
+    /// # Errors
+    /// If the new grant covers different prefixes or a different permission, or isn't usable.
+    pub fn replace(&self, grant: Grant) -> Result<(), String> {
+        let mut signed = self.signed.write().unwrap_or_else(PoisonError::into_inner);
+        if grant.prefixes != signed.grant.prefixes || grant.writable != signed.grant.writable {
+            return Err("the new grant doesn't cover the same prefixes with the same permission".to_owned());
+        }
+        *signed = Signed::new(grant)?;
+        Ok(())
+    }
+
+    /// The current grant, for one request.
+    fn current(&self) -> Signed {
+        self.signed.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     async fn send(&self, request: reqwest::RequestBuilder, key: &str) -> Result<reqwest::Response, StorageError> {
@@ -245,18 +275,20 @@ fn describe(error: &reqwest::Error) -> String {
 impl ObjectStore for S3Store {
     fn put<'a>(&'a self, key: &'a str, body: Vec<u8>) -> StorageFuture<'a, ()> {
         Box::pin(async move {
-            self.grant.check(key, true)?;
-            self.grant.live(self.clock.as_ref())?;
-            let url = self.bucket.put_object(Some(&self.credentials), key).sign(SIGNED_FOR);
+            let signed = self.current();
+            signed.grant.check(key, true)?;
+            signed.grant.live(self.clock.as_ref())?;
+            let url = signed.bucket.put_object(Some(&signed.credentials), key).sign(SIGNED_FOR);
             self.send(self.http.put(url).body(body), key).await.map(|_| ())
         })
     }
 
     fn get<'a>(&'a self, key: &'a str) -> StorageFuture<'a, Vec<u8>> {
         Box::pin(async move {
-            self.grant.check(key, false)?;
-            self.grant.live(self.clock.as_ref())?;
-            let url = self.bucket.get_object(Some(&self.credentials), key).sign(SIGNED_FOR);
+            let signed = self.current();
+            signed.grant.check(key, false)?;
+            signed.grant.live(self.clock.as_ref())?;
+            let url = signed.bucket.get_object(Some(&signed.credentials), key).sign(SIGNED_FOR);
             let response = self.send(self.http.get(url), key).await?;
             let body = response.bytes().await.map_err(|e| StorageError::Failed(describe(&e)))?;
             Ok(body.to_vec())
@@ -265,12 +297,13 @@ impl ObjectStore for S3Store {
 
     fn list<'a>(&'a self, prefix: &'a str) -> StorageFuture<'a, Vec<String>> {
         Box::pin(async move {
-            self.grant.check(prefix, false)?;
             let mut keys = Vec::new();
             let mut token: Option<String> = None;
             loop {
-                self.grant.live(self.clock.as_ref())?;
-                let mut action = self.bucket.list_objects_v2(Some(&self.credentials));
+                let signed = self.current();
+                signed.grant.check(prefix, false)?;
+                signed.grant.live(self.clock.as_ref())?;
+                let mut action = signed.bucket.list_objects_v2(Some(&signed.credentials));
                 action.with_prefix(prefix);
                 if let Some(token) = &token {
                     action.with_continuation_token(token.clone());
@@ -363,6 +396,29 @@ mod tests {
         let printed = format!("{grant:?}");
         assert!(printed.contains(ATTEMPT));
         assert!(!printed.contains("never-logged") && !printed.contains("TESTACCESSKEY"), "{printed}");
+    }
+
+    #[tokio::test]
+    async fn refreshed_credentials_replace_an_expired_grant_in_place() {
+        let clock = Arc::new(FakeLeaseClock::default());
+        let with_token = |token: &str| StorageGrant {
+            endpoint: "http://127.0.0.1:9".to_owned(),
+            session_token: token.to_owned(),
+            expires_in: Some(prost_types::Duration { seconds: 60, nanos: 0 }),
+            ..message(StoragePermission::ReadWrite, &[ATTEMPT])
+        };
+        let first = Grant::from_message(&with_token("first-token"), clock.now()).unwrap();
+        let store = S3Store::new(first, http_client().unwrap(), Arc::clone(&clock) as Arc<dyn LeaseClock>).unwrap();
+        let key = format!("{ATTEMPT}checkpoints/00000001/state.json");
+
+        clock.advance(Duration::from_secs(61));
+        assert_eq!(store.put(&key, b"x".to_vec()).await, Err(StorageError::Expired));
+
+        store.replace(Grant::from_message(&with_token("second-token"), clock.now()).unwrap()).unwrap();
+        // Past the grant check now; the closed port refuses the connection.
+        assert!(matches!(store.put(&key, b"x".to_vec()).await, Err(StorageError::Failed(_))));
+        let other = Grant::from_message(&message(StoragePermission::ReadOnly, &[ATTEMPT]), clock.now()).unwrap();
+        assert!(store.replace(other).is_err(), "a different permission");
     }
 
     #[test]
