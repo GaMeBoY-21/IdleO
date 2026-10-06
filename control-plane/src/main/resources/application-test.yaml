@@ -19,6 +19,10 @@ agentgateway:
 
 sessions:
   provisioning-timeout: 5s
+  # Short, so tests see grants refreshed (MinIO's own credentials still last 15 minutes).
+  storage:
+    grant-ttl: 4s
+    refresh-check-every: 200ms
   leases:
     renew-every: 500ms
     transit-allowance: 1s

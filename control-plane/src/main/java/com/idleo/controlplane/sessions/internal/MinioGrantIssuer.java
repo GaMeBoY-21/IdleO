@@ -13,6 +13,12 @@ import tools.jackson.databind.json.JsonMapper;
  */
 class MinioGrantIssuer implements GrantIssuer {
 
+    /**
+     * STS refuses anything shorter than 15 minutes. A shorter configured lifetime (the tests') still holds for the
+     * agent, which stops using a grant once its {@code expires_in} has passed.
+     */
+    static final long MIN_STS_SECONDS = 900;
+
     private final StsClient sts;
     private final StorageProperties properties;
     private final JsonMapper json;
@@ -29,7 +35,8 @@ class MinioGrantIssuer implements GrantIssuer {
                         // MinIO ignores the role; AWS's request shape needs one.
                         .roleArn("arn:minio:iam:::role/idleo-session")
                         .roleSessionName("idleo-session")
-                        .durationSeconds(Math.toIntExact(properties.grantTtl().toSeconds()))
+                        .durationSeconds(Math.toIntExact(
+                                Math.max(MIN_STS_SECONDS, properties.grantTtl().toSeconds())))
                         .policy(policy(prefixes, readWrite)))
                 .credentials();
         return new StorageGrant(

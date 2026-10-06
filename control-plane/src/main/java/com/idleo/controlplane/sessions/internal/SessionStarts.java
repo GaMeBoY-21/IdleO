@@ -6,6 +6,7 @@ import com.idleo.controlplane.agentgateway.SessionCredentials;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.Session.CheckpointRef;
 import gpu.agent.v1.Session.Credentials;
+import gpu.agent.v1.Session.RefreshCredentials;
 import gpu.agent.v1.Session.StartSession;
 import gpu.agent.v1.Session.StoragePermission;
 import java.sql.Timestamp;
@@ -188,18 +189,62 @@ class SessionStarts implements SessionCredentials {
         if (current.isEmpty()) {
             return Optional.empty();
         }
-        var resumeAttempt = current.get().resumeAttempt();
-        var resumeSeq = current.get().resumeSeq();
+        return Optional.of(credentials(
+                sessionId,
+                start.getAttempt(),
+                current.get().resumeAttempt(),
+                current.get().resumeSeq()));
+    }
+
+    /** Fresh grants for the attempt: its own folder, and its input and resume checkpoint to read. */
+    private Credentials credentials(
+            UUID sessionId, int attempt, @Nullable Integer resumeAttempt, @Nullable Integer resumeSeq) {
         var resumeFrom = resumeAttempt == null || resumeSeq == null
                 ? null
                 : new StorageGrants.ResumeFrom(resumeAttempt, resumeSeq);
-        var minted = grants.mint(
-                sessionId, start.getAttempt(), resumeFrom, storage.hasAny(StorageLayout.inputPrefix(sessionId)));
+        var minted = grants.mint(sessionId, attempt, resumeFrom, storage.hasAny(StorageLayout.inputPrefix(sessionId)));
         var credentials = Credentials.newBuilder().setAttemptGrant(message(minted.attemptGrant()));
         if (minted.readGrant() != null) {
             credentials.setReadGrant(message(minted.readGrant()));
         }
-        return Optional.of(credentials.build());
+        return credentials.build();
+    }
+
+    @Override
+    public Optional<Credentials> mintRefresh(UUID hostId, RefreshCredentials refresh) {
+        var sessionId = UUID.fromString(refresh.getSessionId());
+        record Current(
+                @Nullable Integer resumeAttempt, @Nullable Integer resumeSeq) {}
+        return jdbc.sql("""
+                        select a.resume_from_attempt, a.resume_from_seq
+                        from sessions.sessions s
+                        join sessions.attempts a on a.session_id = s.id and a.attempt = s.attempt
+                        where s.id = :sessionId and s.attempt = :attempt and s.host_id = :hostId
+                          and s.state in ('PROVISIONING', 'RUNNING', 'FINISHING') and a.ended_at is null
+                        """)
+                .param("sessionId", sessionId)
+                .param("attempt", refresh.getAttempt())
+                .param("hostId", hostId)
+                .query((rs, n) -> new Current(
+                        rs.getObject("resume_from_attempt", Integer.class),
+                        rs.getObject("resume_from_seq", Integer.class)))
+                .optional()
+                .map(current ->
+                        credentials(sessionId, refresh.getAttempt(), current.resumeAttempt(), current.resumeSeq()));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void refreshed(UUID hostId, RefreshCredentials refresh, Instant sentAt) {
+        jdbc.sql("""
+                        update sessions.attempts set grants_minted_at = :at, refresh_queued_at = null
+                        where session_id = :sessionId and attempt = :attempt and host_id = :hostId
+                        """)
+                .param("at", Timestamp.from(sentAt.truncatedTo(ChronoUnit.MICROS)))
+                .param("sessionId", UUID.fromString(refresh.getSessionId()))
+                .param("attempt", refresh.getAttempt())
+                .param("hostId", hostId)
+                .update();
     }
 
     @Override
@@ -208,7 +253,8 @@ class SessionStarts implements SessionCredentials {
         var sessionId = UUID.fromString(start.getSessionId());
         var at = sentAt.truncatedTo(ChronoUnit.MICROS);
         jdbc.sql("""
-                        update sessions.attempts set start_delivered_at = coalesce(start_delivered_at, :at)
+                        update sessions.attempts
+                        set start_delivered_at = coalesce(start_delivered_at, :at), grants_minted_at = :at
                         where session_id = :sessionId and attempt = :attempt and command_id = :commandId
                         """)
                 .param("at", Timestamp.from(at))

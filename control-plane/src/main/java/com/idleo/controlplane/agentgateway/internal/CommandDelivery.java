@@ -121,7 +121,7 @@ class CommandDelivery implements MessageListener {
                 } catch (com.google.protobuf.InvalidProtocolBufferException e) {
                     throw new IllegalStateException("A queued command doesn't parse", e);
                 }
-                if (message.hasStartSession()) {
+                if (message.hasStartSession() || message.hasRefreshCredentials()) {
                     var filled = withCredentials(hostId, id, message);
                     if (filled == null) {
                         continue;
@@ -139,25 +139,35 @@ class CommandDelivery implements MessageListener {
                                 """).param("now", Timestamp.from(now)).param("id", id).update();
                 if (message.hasStartSession()) {
                     credentials.getObject().delivered(hostId, message.getStartSession(), sentAt);
+                } else if (message.hasRefreshCredentials()) {
+                    credentials.getObject().refreshed(hostId, message.getRefreshCredentials(), sentAt);
                 }
             }
         });
     }
 
     /**
-     * The StartSession with freshly minted credentials; null if it mustn't go now: withdrawn because its
-     * attempt is no longer current, or left queued because storage couldn't mint them.
+     * The StartSession or RefreshCredentials with freshly minted credentials; null if it mustn't go now:
+     * withdrawn because its attempt is no longer current, or left queued because storage couldn't mint them.
      */
     private @Nullable OpenStreamResponse withCredentials(UUID hostId, UUID commandId, OpenStreamResponse message) {
-        var start = message.getStartSession();
+        boolean start = message.hasStartSession();
+        var sessionId = start
+                ? message.getStartSession().getSessionId()
+                : message.getRefreshCredentials().getSessionId();
+        int attempt = start
+                ? message.getStartSession().getAttempt()
+                : message.getRefreshCredentials().getAttempt();
         java.util.Optional<gpu.agent.v1.Session.Credentials> minted;
         try {
-            minted = credentials.getObject().mint(hostId, start);
+            minted = start
+                    ? credentials.getObject().mint(hostId, message.getStartSession())
+                    : credentials.getObject().mintRefresh(hostId, message.getRefreshCredentials());
         } catch (RuntimeException e) {
             log.warn(
                     "Couldn't mint storage credentials for session {} attempt {}; delivery retries shortly",
-                    start.getSessionId(),
-                    start.getAttempt(),
+                    sessionId,
+                    attempt,
                     e);
             return null;
         }
@@ -166,14 +176,20 @@ class CommandDelivery implements MessageListener {
                     .param("id", commandId)
                     .update();
             log.info(
-                    "Withdrew the StartSession for session {} attempt {}: it's no longer current",
-                    start.getSessionId(),
-                    start.getAttempt());
+                    "Withdrew the {} for session {} attempt {}: it's no longer current",
+                    start ? "StartSession" : "RefreshCredentials",
+                    sessionId,
+                    attempt);
             return null;
         }
-        return message.toBuilder()
-                .setStartSession(start.toBuilder().setCredentials(minted.get()))
-                .build();
+        return start
+                ? message.toBuilder()
+                        .setStartSession(message.getStartSession().toBuilder().setCredentials(minted.get()))
+                        .build()
+                : message.toBuilder()
+                        .setRefreshCredentials(
+                                message.getRefreshCredentials().toBuilder().setCredentials(minted.get()))
+                        .build();
     }
 
     /** Catches anything a hint missed, and marks commands that expired undelivered. */

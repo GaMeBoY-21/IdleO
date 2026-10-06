@@ -91,7 +91,9 @@ class SessionStartTests {
         assertThat(grant.getPrefixesList()).containsExactly(attemptPrefix);
         assertThat(grant.getPermission()).isEqualTo(StoragePermission.STORAGE_PERMISSION_READ_WRITE);
         assertThat(grant.getBucket()).isEqualTo(storage.bucket());
-        assertThat(grant.getExpiresIn().getSeconds()).isEqualTo(3600);
+        assertThat(grant.getExpiresIn().getSeconds())
+                .as("the test profile's short grants")
+                .isEqualTo(4);
         assertThat(start.getCredentials().hasReadGrant())
                 .as("no input and nothing to resume")
                 .isFalse();

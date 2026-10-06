@@ -131,6 +131,8 @@ sessions:
     access-key-id: ${SESSIONS_STORAGE_ACCESS_KEY_ID:}
     secret-access-key: ${SESSIONS_STORAGE_SECRET_ACCESS_KEY:}
     grant-ttl: 1h
+    # Grants past half their lifetime are refreshed; checked this often.
+    refresh-check-every: 5s
     download-link-ttl: 15m
   templates:
     # templates/catalog.yaml, bundled into the jar by the build (ADR 0015).

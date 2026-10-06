@@ -53,6 +53,7 @@ class R2GrantIssuerTests {
                 "fixture-parent-key",
                 "fixture-parent-secret",
                 Duration.ofHours(1),
+                Duration.ofSeconds(5),
                 Duration.ofMinutes(15),
                 new StorageProperties.R2(
                         URI.create(cloudflare.baseUrl() + "/client/v4"),

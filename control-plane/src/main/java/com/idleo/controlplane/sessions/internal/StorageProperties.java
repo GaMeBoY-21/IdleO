@@ -17,7 +17,8 @@ import org.springframework.validation.annotation.Validated;
  * @param region the S3 signing region ({@code auto} for R2)
  * @param accessKeyId the control plane's own key: STS parent for MinIO, and checks, listings and
  *     download links on either
- * @param grantTtl how long a storage grant lasts
+ * @param grantTtl how long a storage grant lasts; past half of it, the grant is refreshed
+ * @param refreshCheckEvery how often grants past half their lifetime are looked for
  * @param downloadLinkTtl how long a renter's output download link lasts
  * @param r2 Cloudflare R2's temporary-credentials API, for the {@code r2} provider
  */
@@ -31,6 +32,7 @@ record StorageProperties(
         @NotBlank String accessKeyId,
         @NotBlank String secretAccessKey,
         @NotNull Duration grantTtl,
+        @NotNull Duration refreshCheckEvery,
         @NotNull Duration downloadLinkTtl,
         @Nullable R2 r2) {
 
