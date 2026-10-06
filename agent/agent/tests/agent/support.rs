@@ -11,10 +11,11 @@ use std::time::Duration;
 
 use agent_proto::v1::agent_gateway_service_server::{AgentGatewayService, AgentGatewayServiceServer};
 use agent_proto::v1::enrollment_service_server::{EnrollmentService, EnrollmentServiceServer};
+use agent_proto::v1::open_stream_request::Body;
 use agent_proto::v1::open_stream_response::Body as ServerBody;
 use agent_proto::v1::{
-    AgentPolicy, EnrollRequest, EnrollResponse, IssuedCertificate, OpenStreamRequest, OpenStreamResponse,
-    RenewCertificateRequest, RenewCertificateResponse, Welcome,
+    Ack, AgentPolicy, EnrollRequest, EnrollResponse, IssuedCertificate, Offer, OpenStreamRequest, OpenStreamResponse,
+    RenewCertificateRequest, RenewCertificateResponse, SessionSpec, SessionType, Welcome,
 };
 use idleo_agent::connection::{Event, RunOptions, Timing};
 use idleo_agent::enrol::{self, Enrolled, EnrolmentCode};
@@ -146,6 +147,9 @@ pub enum Stream {
     ZeroInterval,
     /// Fail with this status right after Hello.
     Fail(Code),
+    /// Welcome with this temperature cap, then one offer; replies are acked from the `ack_from`-th
+    /// reply on (1 acks the first).
+    Offer { temp_cap_c: i32, vram_needed_mb: i32, expires_in: Duration, ack_from: usize },
 }
 
 impl Stream {
@@ -479,12 +483,16 @@ impl EnrollmentService for Service {
 type ResponseStream = ReceiverStream<Result<OpenStreamResponse, Status>>;
 
 fn welcome(interval: Duration) -> OpenStreamResponse {
+    welcome_with_cap(interval, 85)
+}
+
+fn welcome_with_cap(interval: Duration, temp_cap_c: i32) -> OpenStreamResponse {
     OpenStreamResponse {
         message_id: Uuid::now_v7().to_string(),
         body: Some(ServerBody::Welcome(Welcome {
             policy: Some(AgentPolicy {
                 heartbeat_interval: Some(prost_types::Duration::try_from(interval).unwrap()),
-                gpu_temp_cap_c: 85,
+                gpu_temp_cap_c: temp_cap_c,
                 max_concurrent_sessions: 1,
             }),
             minimum_agent_version: "0.1.0".to_owned(),
@@ -525,8 +533,19 @@ impl AgentGatewayService for Service {
         let shared = Arc::clone(&self.0);
         tokio::spawn(async move {
             let mut first = true;
+            let mut replies = 0;
             while let Ok(Some(message)) = inbound.message().await {
                 let now = Instant::now();
+                if let (Some(Body::OfferReply(_)), Stream::Offer { ack_from, .. }) = (&message.body, &stream) {
+                    replies += 1;
+                    if replies >= *ack_from {
+                        let ack = OpenStreamResponse {
+                            message_id: Uuid::now_v7().to_string(),
+                            body: Some(ServerBody::Ack(Ack { acked_message_id: message.message_id.clone() })),
+                        };
+                        let _ = outbound.send(Ok(ack)).await;
+                    }
+                }
                 shared.record(|r| r.connections[index].messages.push((now, message)));
                 if first {
                     first = false;
@@ -547,6 +566,11 @@ impl AgentGatewayService for Service {
                         }
                         Stream::Fail(code) => {
                             let _ = outbound.send(Err(Status::new(*code, "refused by the test"))).await;
+                        }
+                        Stream::Offer { temp_cap_c, vram_needed_mb, expires_in, .. } => {
+                            let _ = outbound.send(Ok(welcome_with_cap(Duration::from_secs(5), *temp_cap_c))).await;
+                            shared.record(|r| r.connections[index].welcomed = Some(Instant::now()));
+                            let _ = outbound.send(Ok(offer(*vram_needed_mb, *expires_in))).await;
                         }
                     }
                 }
@@ -582,6 +606,30 @@ impl AgentGatewayService for Service {
                 }))
             }
         }
+    }
+}
+
+/// An offer for the smoke template, as the scheduler sends it.
+fn offer(vram_needed_mb: i32, expires_in: Duration) -> OpenStreamResponse {
+    OpenStreamResponse {
+        message_id: Uuid::now_v7().to_string(),
+        body: Some(ServerBody::Offer(Offer {
+            offer_id: Uuid::now_v7().to_string(),
+            spec: Some(SessionSpec {
+                r#type: SessionType::Batch.into(),
+                image: format!("nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:{}", "1".repeat(64)),
+                args: vec!["nvidia-smi".to_owned()],
+                env: std::collections::HashMap::new(),
+                vram_needed_mb,
+                memory_mb: 2048,
+                cpu_millicores: 2000,
+                pids_limit: 256,
+                scratch_mb: 1024,
+                checkpoint_interval: Some(prost_types::Duration { seconds: 300, nanos: 0 }),
+                max_runtime: Some(prost_types::Duration { seconds: 300, nanos: 0 }),
+            }),
+            expires_in: Some(prost_types::Duration::try_from(expires_in).unwrap()),
+        })),
     }
 }
 

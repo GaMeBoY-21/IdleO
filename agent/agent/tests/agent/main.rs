@@ -4,6 +4,7 @@ mod support;
 
 mod backoff;
 mod enrolment;
+mod offers;
 mod renewal;
 mod secrets;
 mod stream;

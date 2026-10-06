@@ -105,6 +105,7 @@ struct Summary {
     util_total: i64,
     vram_used_mb: i32,
     max_power_w: Option<i32>,
+    latest_temp_c: i32,
     last: Option<GpuReading>,
 }
 
@@ -121,6 +122,7 @@ impl Readings {
                     util_total: 0,
                     vram_used_mb: 0,
                     max_power_w: None,
+                    latest_temp_c: reading.temp_c,
                     last: None,
                 });
                 summaries.len() - 1
@@ -130,8 +132,15 @@ impl Readings {
             summary.max_temp_c = summary.max_temp_c.max(reading.temp_c);
             summary.util_total += i64::from(reading.util_pct);
             summary.vram_used_mb = reading.vram_used_mb;
+            summary.latest_temp_c = reading.temp_c;
             summary.max_power_w = summary.max_power_w.max(reading.power_w);
         }
+    }
+
+    /// The hottest GPU's latest reading, if any GPU has been read.
+    pub fn hottest_latest_c(&self) -> Option<i32> {
+        let summaries = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        summaries.iter().map(|summary| summary.latest_temp_c).max()
     }
 
     /// The summary since the last call, per GPU. A GPU with no new reading repeats its last
@@ -188,6 +197,16 @@ mod tests {
         assert_eq!(readings.summarise(), first);
         readings.record(&[reading("a", 50, 90, 900, Some(70))]);
         assert_eq!(readings.summarise(), [reading("a", 50, 90, 900, Some(70))]);
+    }
+
+    #[test]
+    fn the_hottest_latest_reading_is_kept_across_summaries() {
+        let readings = Readings::default();
+        assert_eq!(readings.hottest_latest_c(), None);
+        readings.record(&[reading("a", 90, 10, 1000, None), reading("b", 40, 0, 10, None)]);
+        readings.record(&[reading("a", 70, 10, 1000, None), reading("b", 45, 0, 10, None)]);
+        readings.summarise();
+        assert_eq!(readings.hottest_latest_c(), Some(70));
     }
 
     #[test]

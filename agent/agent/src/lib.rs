@@ -9,6 +9,7 @@ pub mod backoff;
 pub mod config;
 pub mod connection;
 pub mod enrol;
+pub mod offers;
 pub mod owner;
 pub mod pki;
 pub mod state;

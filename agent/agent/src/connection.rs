@@ -1,6 +1,7 @@
 //! `idleo-agent run`: keeps one mutual-TLS stream open to the control plane, sends heartbeats,
 //! reconnects with capped backoff, and renews the certificate before it expires.
 
+use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,7 +11,8 @@ use agent_proto::v1::agent_gateway_service_client::AgentGatewayServiceClient;
 use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::open_stream_response::Body as ServerBody;
 use agent_proto::v1::{
-    GpuTelemetry, Heartbeat, Hello, OpenStreamRequest, OpenStreamResponse, RenewCertificateRequest, Welcome,
+    GpuTelemetry, Heartbeat, Hello, Offer, OfferDeclineReason, OfferReply, OpenStreamRequest, OpenStreamResponse,
+    RenewCertificateRequest, Welcome,
 };
 use rustls::RootCertStore;
 use time::OffsetDateTime;
@@ -23,6 +25,7 @@ use tonic::{Code, Status, Streaming};
 use uuid::Uuid;
 
 use crate::backoff::{Backoff, full_jitter};
+use crate::offers::{self, OfferFacts};
 use crate::owner::OwnerActivity;
 use crate::pki::{self, NewKey};
 use crate::state::{self, StateError};
@@ -56,6 +59,8 @@ pub struct Timing {
     pub sample_every: Duration,
     /// How long to wait for the control plane to close the stream on shutdown.
     pub shutdown_grace: Duration,
+    /// An `OfferReply` without an `Ack` is resent after this long.
+    pub reply_resend_after: Duration,
 }
 
 impl Default for Timing {
@@ -71,6 +76,7 @@ impl Default for Timing {
             renew_within: Duration::from_hours(10 * 24),
             sample_every: Duration::from_secs(1),
             shutdown_grace: Duration::from_secs(3),
+            reply_resend_after: Duration::from_secs(3),
         }
     }
 }
@@ -119,6 +125,13 @@ pub enum Event {
     },
     /// The control plane wouldn't renew yet (`FAILED_PRECONDITION`).
     RenewalDeclined,
+    /// The agent answered an offer.
+    OfferAnswered {
+        /// The offer.
+        offer_id: String,
+        /// The decline reason, or `None` when accepted.
+        declined: Option<OfferDeclineReason>,
+    },
 }
 
 /// Why a connection attempt ended.
@@ -299,6 +312,7 @@ impl Manager {
             Ok(gpus) => gpus,
             Err(e) => return failed(format!("couldn't read the GPUs: {e}")),
         };
+        let largest_gpu_vram_mb = gpus.iter().map(|gpu| gpu.vram_mb).max().unwrap_or(0);
         let (outbound, requests) = mpsc::channel(16);
         let hello = hello(gpus);
         tracing::debug!(?hello, "sending Hello");
@@ -314,15 +328,16 @@ impl Manager {
             let first = inbound.message().await?;
             Ok::<_, Status>((inbound, first))
         });
-        let (mut inbound, interval) = match welcome.await {
+        let (mut inbound, policy) = match welcome.await {
             Err(_) => return bad_welcome(format!("no Welcome within {:?}", self.options.timing.welcome_timeout)),
             Ok(Err(status)) => return ended_by(&status, None),
             Ok(Ok((_, None))) => return failed("the stream closed before Welcome".to_owned()),
             Ok(Ok((inbound, Some(message)))) => match check_welcome(message) {
-                Ok(interval) => (inbound, interval),
+                Ok(policy) => (inbound, policy),
                 Err(e) => return bad_welcome(e),
             },
         };
+        let interval = policy.heartbeat_interval;
         let welcomed_at = Instant::now();
         tracing::info!(%host_id, heartbeat_interval = ?interval, "connected");
         self.emit(Event::Welcomed { heartbeat_interval: interval });
@@ -331,6 +346,10 @@ impl Manager {
         heartbeats.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut renewal: Option<JoinHandle<Renewal>> = None;
         let healthy_for = || Some(welcomed_at.elapsed());
+        // Offer replies kept until acked, by message id, with when they were last sent (ADR 0015).
+        let mut unacked: HashMap<String, (OpenStreamRequest, Instant)> = HashMap::new();
+        let mut resends = tokio::time::interval(Duration::from_secs(1));
+        resends.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         loop {
             tokio::select! {
@@ -357,7 +376,39 @@ impl Manager {
                     // A send fails only once the stream has ended; the next read says why.
                     let _ = outbound.send(envelope(AgentBody::Heartbeat(heartbeat))).await;
                 }
+                _ = resends.tick(), if !unacked.is_empty() => {
+                    let now = Instant::now();
+                    for (request, sent_at) in unacked.values_mut() {
+                        if now.duration_since(*sent_at) >= self.options.timing.reply_resend_after {
+                            tracing::debug!(message_id = %request.message_id, "resending an unacked offer reply");
+                            *sent_at = now;
+                            let _ = outbound.send(request.clone()).await;
+                        }
+                    }
+                }
                 message = inbound.message() => match message {
+                    Ok(Some(OpenStreamResponse { body: Some(ServerBody::Offer(offer)), .. })) => {
+                        let received_at = Instant::now();
+                        let facts = |vram_needed_mb, expired| OfferFacts {
+                            expired,
+                            shutting_down: *shutdown.borrow(),
+                            // No sessions run until the session runner exists.
+                            running_sessions: 0,
+                            max_concurrent_sessions: policy.max_concurrent_sessions,
+                            owner_active: self.options.owner.is_active(),
+                            hottest_gpu_c: self.readings.hottest_latest_c(),
+                            gpu_temp_cap_c: policy.gpu_temp_cap_c,
+                            largest_gpu_vram_mb,
+                            vram_needed_mb,
+                        };
+                        if let Some(reply) = self.answer(offer, received_at, facts) {
+                            unacked.insert(reply.message_id.clone(), (reply.clone(), Instant::now()));
+                            let _ = outbound.send(reply).await;
+                        }
+                    }
+                    Ok(Some(OpenStreamResponse { body: Some(ServerBody::Ack(ack)), .. })) => {
+                        unacked.remove(&ack.acked_message_id);
+                    }
                     Ok(Some(message)) => log_unhandled(&message),
                     Ok(None) => return Outcome::Ended {
                         reason: EndReason::Failed("the control plane closed the stream".to_owned()),
@@ -398,6 +449,41 @@ impl Manager {
                 }
             }
         }
+    }
+}
+
+impl Manager {
+    /// Decides on an offer within its `expires_in`, counted from receipt; the reply to send, or `None`
+    /// for an invalid offer, which is ignored (it expires at the control plane).
+    fn answer(
+        &self,
+        offer: Offer,
+        received_at: Instant,
+        facts: impl Fn(i32, bool) -> OfferFacts,
+    ) -> Option<OpenStreamRequest> {
+        let expires_in =
+            offer.expires_in.and_then(|value| Duration::try_from(value).ok()).filter(|value| !value.is_zero());
+        let (Some(spec), Some(expires_in)) = (offer.spec.as_ref(), expires_in) else {
+            tracing::warn!(offer_id = %offer.offer_id, "ignored an offer without a spec or an expiry");
+            return None;
+        };
+        if offer.offer_id.is_empty() {
+            tracing::warn!("ignored an offer without an id");
+            return None;
+        }
+        let expired = Instant::now() > received_at + expires_in;
+        let decision = offers::decide(&facts(spec.vram_needed_mb, expired));
+        let declined = decision.err();
+        match declined {
+            None => tracing::info!(offer_id = %offer.offer_id, image = %spec.image, "accepted an offer"),
+            Some(reason) => tracing::info!(offer_id = %offer.offer_id, ?reason, "declined an offer"),
+        }
+        self.emit(Event::OfferAnswered { offer_id: offer.offer_id.clone(), declined });
+        Some(envelope(AgentBody::OfferReply(OfferReply {
+            offer_id: offer.offer_id,
+            accepted: declined.is_none(),
+            decline_reason: declined.unwrap_or(OfferDeclineReason::Unspecified).into(),
+        })))
     }
 }
 
@@ -470,8 +556,16 @@ fn hello(gpus: Vec<GpuInfo>) -> Hello {
     }
 }
 
-/// Checks `Welcome` against ADR 0007 and returns the heartbeat interval.
-fn check_welcome(message: OpenStreamResponse) -> Result<Duration, String> {
+/// The rules `Welcome` sets for this connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Policy {
+    heartbeat_interval: Duration,
+    gpu_temp_cap_c: i32,
+    max_concurrent_sessions: i32,
+}
+
+/// Checks `Welcome` against ADR 0007 and returns its policy.
+fn check_welcome(message: OpenStreamResponse) -> Result<Policy, String> {
     if message.message_id.is_empty() {
         return Err("the message has no message_id".to_owned());
     }
@@ -499,7 +593,11 @@ fn check_welcome(message: OpenStreamResponse) -> Result<Duration, String> {
         Some(false) => {}
         None => tracing::warn!(minimum = %minimum_agent_version, "minimum_agent_version isn't a semantic version"),
     }
-    Ok(interval)
+    Ok(Policy {
+        heartbeat_interval: interval,
+        gpu_temp_cap_c: policy.gpu_temp_cap_c,
+        max_concurrent_sessions: policy.max_concurrent_sessions,
+    })
 }
 
 fn log_unhandled(message: &OpenStreamResponse) {
@@ -625,7 +723,10 @@ mod tests {
     #[test]
     fn a_valid_welcome_gives_the_interval() {
         let five = prost_types::Duration { seconds: 5, nanos: 0 };
-        assert_eq!(check_welcome(welcome(Some(five), "0.1.0")), Ok(Duration::from_secs(5)));
+        assert_eq!(
+            check_welcome(welcome(Some(five), "0.1.0")),
+            Ok(Policy { heartbeat_interval: Duration::from_secs(5), gpu_temp_cap_c: 85, max_concurrent_sessions: 1 })
+        );
     }
 
     #[test]
