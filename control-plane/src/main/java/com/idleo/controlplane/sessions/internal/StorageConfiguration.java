@@ -1,8 +1,10 @@
 package com.idleo.controlplane.sessions.internal;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -18,6 +20,21 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(StorageProperties.class)
 class StorageConfiguration {
+
+    /**
+     * Grants are minted while a StartSession is being delivered, so storage that hangs must fail fast; the
+     * command stays queued and is tried again.
+     */
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+
+    private static software.amazon.awssdk.http.SdkHttpClient http() {
+        return UrlConnectionHttpClient.builder()
+                .connectionTimeout(CONNECT_TIMEOUT)
+                .socketTimeout(READ_TIMEOUT)
+                .build();
+    }
 
     private static StaticCredentialsProvider credentials(StorageProperties properties) {
         return StaticCredentialsProvider.create(
@@ -36,7 +53,7 @@ class StorageConfiguration {
                 .region(Region.of(properties.region()))
                 .credentialsProvider(credentials(properties))
                 .serviceConfiguration(pathStyle())
-                .httpClient(UrlConnectionHttpClient.create())
+                .httpClient(http())
                 .build();
     }
 
@@ -68,11 +85,16 @@ class StorageConfiguration {
                                 .endpointOverride(properties.endpoint())
                                 .region(Region.of(properties.region()))
                                 .credentialsProvider(credentials(properties))
-                                .httpClient(UrlConnectionHttpClient.create())
+                                .httpClient(http())
                                 .build(),
                         properties,
                         json);
-            case R2 -> new R2GrantIssuer(RestClient.builder(), properties);
+            case R2 -> {
+                var requests = new SimpleClientHttpRequestFactory();
+                requests.setConnectTimeout(CONNECT_TIMEOUT);
+                requests.setReadTimeout(READ_TIMEOUT);
+                yield new R2GrantIssuer(RestClient.builder().requestFactory(requests), properties);
+            }
         };
     }
 }

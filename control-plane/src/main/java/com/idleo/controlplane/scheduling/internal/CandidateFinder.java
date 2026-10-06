@@ -47,7 +47,7 @@ class CandidateFinder {
                             && !busy.contains(candidate.hostId());
                 })
                 .map(candidate -> new Scoring.Scored(
-                        new Scoring.Candidate(candidate.hostId(), candidate.pricePaisePerMin()),
+                        new Scoring.Candidate(candidate.hostId(), candidate.pricePaisePerMin(), candidate.gpuUuid()),
                         Scoring.score(candidate.pricePaisePerMin(), request.maxPricePaisePerMin())))
                 .sorted(Scoring.BEST_FIRST)
                 .toList();

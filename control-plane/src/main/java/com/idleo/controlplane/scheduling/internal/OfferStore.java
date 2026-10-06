@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
-/** {@code scheduling.offers}: up to three per session. */
+/** {@code scheduling.offers}: up to three per attempt of a session. */
 @Component
 class OfferStore {
 
@@ -25,6 +25,8 @@ class OfferStore {
             UUID id,
             UUID sessionId,
             UUID hostId,
+            int sessionAttempt,
+            String gpuUuid,
             int attemptNumber,
             String status,
             @Nullable String declineReason,
@@ -34,13 +36,17 @@ class OfferStore {
     void insert(Offer offer) {
         jdbc.sql("""
                         insert into scheduling.offers
-                            (id, session_id, host_id, attempt_number, status, expires_at, created_at)
-                        values (:id, :sessionId, :hostId, :attempt, 'pending', :expiresAt, :createdAt)
+                            (id, session_id, host_id, session_attempt, gpu_uuid, attempt_number, status, expires_at,
+                             created_at)
+                        values (:id, :sessionId, :hostId, :sessionAttempt, :gpuUuid, :number, 'pending', :expiresAt,
+                                :createdAt)
                         """)
                 .param("id", offer.id())
                 .param("sessionId", offer.sessionId())
                 .param("hostId", offer.hostId())
-                .param("attempt", offer.attemptNumber())
+                .param("sessionAttempt", offer.sessionAttempt())
+                .param("gpuUuid", offer.gpuUuid())
+                .param("number", offer.attemptNumber())
                 .param("expiresAt", Timestamp.from(offer.expiresAt()))
                 .param("createdAt", Timestamp.from(offer.createdAt()))
                 .update();
@@ -54,16 +60,26 @@ class OfferStore {
                 .optional();
     }
 
-    int count(UUID sessionId) {
-        return jdbc.sql("select count(*) from scheduling.offers where session_id = :sessionId")
+    /** Offers made for this attempt of the session. */
+    int count(UUID sessionId, int sessionAttempt) {
+        return jdbc.sql("""
+                        select count(*) from scheduling.offers
+                        where session_id = :sessionId and session_attempt = :sessionAttempt
+                        """)
                 .param("sessionId", sessionId)
+                .param("sessionAttempt", sessionAttempt)
                 .query(Integer.class)
                 .single();
     }
 
-    List<UUID> hostsOffered(UUID sessionId) {
-        return jdbc.sql("select host_id from scheduling.offers where session_id = :sessionId")
+    /** Hosts already offered this attempt of the session. */
+    List<UUID> hostsOffered(UUID sessionId, int sessionAttempt) {
+        return jdbc.sql("""
+                        select host_id from scheduling.offers
+                        where session_id = :sessionId and session_attempt = :sessionAttempt
+                        """)
                 .param("sessionId", sessionId)
+                .param("sessionAttempt", sessionAttempt)
                 .query(UUID.class)
                 .list();
     }
@@ -110,6 +126,8 @@ class OfferStore {
                 rs.getObject("id", UUID.class),
                 rs.getObject("session_id", UUID.class),
                 rs.getObject("host_id", UUID.class),
+                rs.getInt("session_attempt"),
+                rs.getString("gpu_uuid"),
                 rs.getInt("attempt_number"),
                 rs.getString("status"),
                 rs.getString("decline_reason"),

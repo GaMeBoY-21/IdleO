@@ -6,12 +6,15 @@ import java.util.UUID;
 /** What the scheduler needs from hosts (ADR 0015). */
 public interface SchedulableHosts {
 
-    /** An active host listed for batch work, with a GPU big enough. */
-    record Candidate(UUID hostId, int pricePaisePerMin, int gpuTempCapC, int largestGpuVramMb) {}
+    /**
+     * An active host listed for batch work, and the GPU a session would run on: its largest reported GPU
+     * that isn't gone (ties by uuid).
+     */
+    record Candidate(UUID hostId, int pricePaisePerMin, int gpuTempCapC, String gpuUuid, int gpuVramMb) {}
 
     /**
-     * Active hosts listed for batch work at or under {@code maxPricePaisePerMin}, with a reported GPU that
-     * isn't gone and has at least {@code vramNeededMb}.
+     * Active hosts listed for batch work at or under {@code maxPricePaisePerMin}, whose largest reported GPU
+     * that isn't gone has at least {@code vramNeededMb}.
      */
     List<Candidate> batchCandidates(int maxPricePaisePerMin, int vramNeededMb);
 

@@ -20,13 +20,16 @@ class SchedulableHostService implements SchedulableHosts {
     @Override
     public List<Candidate> batchCandidates(int maxPricePaisePerMin, int vramNeededMb) {
         return jdbc.sql("""
-                        select h.id, l.price_paise_per_min, h.gpu_temp_cap_c, max(g.vram_mb) as largest_vram_mb
-                        from hosts.hosts h
-                        join hosts.price_listings l on l.host_id = h.id and l.workload_type = 'batch'
-                        join hosts.host_gpus g on g.host_id = h.id and g.gone_at is null
-                        where h.status = 'active' and l.price_paise_per_min <= :maxPrice
-                        group by h.id, l.price_paise_per_min, h.gpu_temp_cap_c
-                        having max(g.vram_mb) >= :vram
+                        select * from (
+                            select distinct on (h.id) h.id, l.price_paise_per_min, h.gpu_temp_cap_c, g.gpu_uuid,
+                                   g.vram_mb
+                            from hosts.hosts h
+                            join hosts.price_listings l on l.host_id = h.id and l.workload_type = 'batch'
+                            join hosts.host_gpus g on g.host_id = h.id and g.gone_at is null
+                            where h.status = 'active' and l.price_paise_per_min <= :maxPrice
+                            order by h.id, g.vram_mb desc, g.gpu_uuid
+                        ) largest
+                        where vram_mb >= :vram
                         """)
                 .param("maxPrice", maxPricePaisePerMin)
                 .param("vram", vramNeededMb)
@@ -34,7 +37,8 @@ class SchedulableHostService implements SchedulableHosts {
                         rs.getObject("id", UUID.class),
                         rs.getInt("price_paise_per_min"),
                         rs.getInt("gpu_temp_cap_c"),
-                        rs.getInt("largest_vram_mb")))
+                        rs.getString("gpu_uuid"),
+                        rs.getInt("vram_mb")))
                 .list();
     }
 

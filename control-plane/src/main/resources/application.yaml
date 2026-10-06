@@ -136,6 +136,10 @@ sessions:
   # start_timeout, its hold released (ADR 0015).
   provisioning-timeout: 3m
   provisioning-sweep-interval: 1s
+  # Leases (ADR 0016): every running attempt holds one, 2 minutes for batch
+  # (technical design "Design principles"), counted by the agent from receipt.
+  leases:
+    ttl: 2m
 
 scheduling:
   # Booking (ADR 0015): offers stay open 10 seconds (technical design line 232),

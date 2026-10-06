@@ -210,7 +210,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
 
     private void onAck(String ackedMessageId) {
         try {
-            services.commands().acked(UUID.fromString(ackedMessageId));
+            services.commands().acked(hostId, UUID.fromString(ackedMessageId));
         } catch (IllegalArgumentException e) {
             services.metrics().unhandledMessage("invalid_ack");
         }

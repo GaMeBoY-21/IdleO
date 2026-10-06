@@ -111,7 +111,7 @@ class BookingTests {
     }
 
     @Test
-    void anAcceptedOfferHoldsCreditUntilTheSessionFailsToStart() throws Exception {
+    void anAcceptedOfferHoldsCreditUntilAnAgentThatAckedButNeverStartedTimesOut() throws Exception {
         var host = host(2);
         var renter = renter(50_000);
 
@@ -128,6 +128,10 @@ class BookingTests {
         host.stream().await(OpenStreamResponse::hasAck, WAIT);
         awaitState(renter, id, "PROVISIONING");
         assertThat(wallet(renter).get("reservedPaise").asLong()).isEqualTo(60);
+        // The agent acks the StartSession, then never reports RUNNING.
+        var start = host.awaitStart(WAIT);
+        assertThat(start.getStartSession().getSpec()).isEqualTo(offer.getSpec());
+        host.ack(start);
 
         var failed = awaitState(renter, id, "FAILED");
         assertThat(failed.get("events").findValuesAsString("reason")).contains("start_timeout");

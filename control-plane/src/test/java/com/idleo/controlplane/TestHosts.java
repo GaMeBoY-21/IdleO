@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import gpu.agent.v1.AgentGateway.Ack;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.Session.Offer;
 import gpu.agent.v1.Session.OfferDeclineReason;
@@ -49,6 +50,18 @@ public final class TestHosts {
         /** The next offer this host receives. */
         public Offer awaitOffer(Duration timeout) throws InterruptedException {
             return stream.await(OpenStreamResponse::hasOffer, timeout).getOffer();
+        }
+
+        /** The next StartSession this host receives, with its envelope (for the message id). */
+        public OpenStreamResponse awaitStart(Duration timeout) throws InterruptedException {
+            return stream.await(OpenStreamResponse::hasStartSession, timeout);
+        }
+
+        /** Acknowledges a message, as the agent does once it has durably recorded it. */
+        public void ack(OpenStreamResponse message) {
+            stream.send(TestAgent.request()
+                    .setAck(Ack.newBuilder().setAckedMessageId(message.getMessageId()))
+                    .build());
         }
     }
 

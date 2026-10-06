@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.Paise;
+import com.idleo.controlplane.TestAgent;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
 import com.idleo.controlplane.billing.CreditReservations;
@@ -175,7 +176,7 @@ class SessionApiTests {
                     bookings.match(session, 0, UUID.randomUUID(), 10);
                     reservations.reserve(renter.id(), session, Paise.of(300));
                     if (target == SessionState.PROVISIONING) {
-                        bookings.offerAccepted(session);
+                        bookings.offerAccepted(session, TestAgent.GPU_A);
                     }
                 });
             }

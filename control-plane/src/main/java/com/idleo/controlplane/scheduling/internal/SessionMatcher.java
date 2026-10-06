@@ -9,8 +9,6 @@ import com.idleo.controlplane.hosts.SchedulableHosts;
 import com.idleo.controlplane.sessions.SessionBookings;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.Session.Offer;
-import gpu.agent.v1.Session.SessionSpec;
-import gpu.agent.v1.Session.SessionType;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -101,11 +99,11 @@ class SessionMatcher {
         if (request == null || !request.state().equals("REQUESTED")) {
             return;
         }
-        if (offers.count(sessionId) >= properties.maxOffers()) {
+        if (offers.count(sessionId, request.attempt()) >= properties.maxOffers()) {
             endWithoutHost(sessionId, "offers_exhausted");
             return;
         }
-        var ranked = candidates.find(request, offers.hostsOffered(sessionId));
+        var ranked = candidates.find(request, offers.hostsOffered(sessionId, request.attempt()));
         for (var scored : ranked) {
             var attempt = tryCandidate(request, scored.candidate());
             switch (attempt) {
@@ -156,7 +154,9 @@ class SessionMatcher {
                 ids.newId(),
                 request.sessionId(),
                 candidate.hostId(),
-                offers.count(request.sessionId()) + 1,
+                request.attempt(),
+                candidate.gpuUuid(),
+                offers.count(request.sessionId(), request.attempt()) + 1,
                 "pending",
                 null,
                 now.plus(properties.offerTtl()),
@@ -180,20 +180,9 @@ class SessionMatcher {
     }
 
     private Offer.Builder offerMessage(UUID offerId, SessionBookings.BookingRequest request) {
-        var template = request.template();
         return Offer.newBuilder()
                 .setOfferId(offerId.toString())
-                .setSpec(SessionSpec.newBuilder()
-                        .setType(SessionType.SESSION_TYPE_BATCH)
-                        .setImage(template.image())
-                        .addAllArgs(template.args())
-                        .setVramNeededMb(request.vramNeededMb())
-                        .setMemoryMb(template.memoryMb())
-                        .setCpuMillicores(template.cpuMillicores())
-                        .setPidsLimit(template.pidsLimit())
-                        .setScratchMb(template.scratchMb())
-                        .setCheckpointInterval(duration(template.checkpointInterval()))
-                        .setMaxRuntime(duration(request.maxRuntime())))
+                .setSpec(request.spec())
                 .setExpiresIn(duration(properties.offerTtl()));
     }
 

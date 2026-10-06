@@ -68,7 +68,7 @@ class OfferOutcomes implements OfferReplies {
                 return;
             }
             if (accepted) {
-                if (sessions.offerAccepted(offer.sessionId())) {
+                if (sessions.offerAccepted(offer.sessionId(), offer.gpuUuid())) {
                     offers.answer(offerId, "accepted", null, now);
                     metrics.offerAnswered("accepted");
                 } else {
@@ -101,7 +101,7 @@ class OfferOutcomes implements OfferReplies {
         offers.answer(offer.id(), status, reason, now);
         metrics.offerAnswered(status);
         reservations.release(offer.sessionId());
-        if (offers.count(offer.sessionId()) >= properties.maxOffers()) {
+        if (offers.count(offer.sessionId(), offer.sessionAttempt()) >= properties.maxOffers()) {
             if (sessions.noHostFree(offer.sessionId(), "offers_exhausted")) {
                 metrics.outcome("no_host_free");
             }

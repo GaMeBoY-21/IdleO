@@ -27,7 +27,7 @@ final class Scoring {
 
     record Scored(Candidate candidate, double score) {}
 
-    record Candidate(java.util.UUID hostId, int pricePaisePerMin) {}
+    record Candidate(java.util.UUID hostId, int pricePaisePerMin, String gpuUuid) {}
 
     /** {@code maxPricePaisePerMin} is P_max: the renter's own maximum. */
     static double score(int pricePaisePerMin, int maxPricePaisePerMin) {

@@ -1,6 +1,6 @@
 package com.idleo.controlplane.sessions;
 
-import java.time.Duration;
+import gpu.agent.v1.Session.SessionSpec;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -13,25 +13,33 @@ import java.util.UUID;
  */
 public interface SessionBookings {
 
-    /** What a session needs from a host, and what the renter will pay. */
+    /**
+     * What a session needs from a host, and what the renter will pay.
+     *
+     * @param attempt the attempt being booked: 1, and one more after each lost host
+     * @param spec what it runs, as the agent's Offer and StartSession carry it
+     */
     record BookingRequest(
             UUID sessionId,
             UUID renterId,
             String state,
             int version,
-            Template template,
+            int attempt,
+            SessionSpec spec,
             int vramNeededMb,
             int maxPricePaisePerMin,
-            long maxSpendPaise,
-            Duration maxRuntime) {}
+            long maxSpendPaise) {}
 
     Optional<BookingRequest> bookingRequest(UUID sessionId);
 
     /** REQUESTED to MATCHED on {@code hostId} at {@code pricePaisePerMin}, if the session is still at {@code version}. */
     boolean match(UUID sessionId, int expectedVersion, UUID hostId, int pricePaisePerMin);
 
-    /** MATCHED to PROVISIONING: the host's agent accepted the offer. */
-    boolean offerAccepted(UUID sessionId);
+    /**
+     * MATCHED to PROVISIONING: the host's agent accepted the offer to run the session on {@code gpuUuid}. In
+     * the same transaction, the attempt is recorded and its StartSession queued for the host (ADR 0016).
+     */
+    boolean offerAccepted(UUID sessionId, String gpuUuid);
 
     /** MATCHED back to REQUESTED: the host declined or let the offer expire. */
     boolean offerDeclined(UUID sessionId, String reason);

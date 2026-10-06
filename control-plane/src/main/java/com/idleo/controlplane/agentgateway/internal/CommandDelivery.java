@@ -1,13 +1,16 @@
 package com.idleo.controlplane.agentgateway.internal;
 
+import com.idleo.controlplane.agentgateway.SessionCredentials;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
@@ -24,6 +27,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * host's stream, from its presence record; that instance sends the host's pending, unexpired commands in
  * creation order. The same happens right after a stream's Welcome, and every few seconds for every
  * connected host, so a lost hint costs seconds, never a command.
+ *
+ * <p>A StartSession is stored without credentials. At each delivery the sessions module mints fresh ones
+ * through {@link SessionCredentials} (ADR 0016); they exist only in the message on the wire.
  */
 @Component
 @ConditionalOnBooleanProperty(name = "spring.grpc.server.enabled", matchIfMissing = true)
@@ -39,6 +45,7 @@ class CommandDelivery implements MessageListener {
     private final Presence presence;
     private final StringRedisTemplate redis;
     private final AgentGatewayProperties properties;
+    private final ObjectProvider<SessionCredentials> credentials;
     private final Clock clock;
 
     CommandDelivery(
@@ -48,6 +55,7 @@ class CommandDelivery implements MessageListener {
             Presence presence,
             StringRedisTemplate redis,
             AgentGatewayProperties properties,
+            ObjectProvider<SessionCredentials> credentials,
             Clock clock) {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
@@ -55,6 +63,7 @@ class CommandDelivery implements MessageListener {
         this.presence = presence;
         this.redis = redis;
         this.properties = properties;
+        this.credentials = credentials;
         this.clock = clock;
     }
 
@@ -105,25 +114,66 @@ class CommandDelivery implements MessageListener {
                     .query((rs, n) -> new Object[] {rs.getObject("id", UUID.class), rs.getBytes("payload")})
                     .list();
             for (var command : due) {
+                var id = (UUID) command[0];
                 OpenStreamResponse message;
                 try {
                     message = OpenStreamResponse.parseFrom((byte[]) command[1]);
                 } catch (com.google.protobuf.InvalidProtocolBufferException e) {
                     throw new IllegalStateException("A queued command doesn't parse", e);
                 }
+                if (message.hasStartSession()) {
+                    var filled = withCredentials(hostId, id, message);
+                    if (filled == null) {
+                        continue;
+                    }
+                    message = filled;
+                }
                 if (!stream.deliver(message)) {
                     return;
                 }
+                var sentAt = Instant.now(clock);
                 jdbc.sql("""
                                 update agentgateway.agent_commands
                                 set status = 'sent', attempts = attempts + 1, sent_at = :now
                                 where id = :id
-                                """)
-                        .param("now", Timestamp.from(now))
-                        .param("id", command[0])
-                        .update();
+                                """).param("now", Timestamp.from(now)).param("id", id).update();
+                if (message.hasStartSession()) {
+                    credentials.getObject().delivered(hostId, message.getStartSession(), sentAt);
+                }
             }
         });
+    }
+
+    /**
+     * The StartSession with freshly minted credentials; null if it mustn't go now: withdrawn because its
+     * attempt is no longer current, or left queued because storage couldn't mint them.
+     */
+    private @Nullable OpenStreamResponse withCredentials(UUID hostId, UUID commandId, OpenStreamResponse message) {
+        var start = message.getStartSession();
+        java.util.Optional<gpu.agent.v1.Session.Credentials> minted;
+        try {
+            minted = credentials.getObject().mint(hostId, start);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Couldn't mint storage credentials for session {} attempt {}; delivery retries shortly",
+                    start.getSessionId(),
+                    start.getAttempt(),
+                    e);
+            return null;
+        }
+        if (minted.isEmpty()) {
+            jdbc.sql("update agentgateway.agent_commands set status = 'withdrawn' where id = :id")
+                    .param("id", commandId)
+                    .update();
+            log.info(
+                    "Withdrew the StartSession for session {} attempt {}: it's no longer current",
+                    start.getSessionId(),
+                    start.getAttempt());
+            return null;
+        }
+        return message.toBuilder()
+                .setStartSession(start.toBuilder().setCredentials(minted.get()))
+                .build();
     }
 
     /** Catches anything a hint missed, and marks commands that expired undelivered. */

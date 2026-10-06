@@ -81,14 +81,20 @@ class AgentCommandService implements AgentCommands {
                         """).param("sessionId", sessionId).param("type", type).update();
     }
 
-    /** The agent acknowledged a message that needed it. */
-    void acked(UUID messageId) {
+    /**
+     * The host's agent acknowledged a message that needed it. The ack can overtake the commit that marks the
+     * command sent, so a pending one matches too: the update then waits for that commit and checks the row
+     * again. Message ids are never shown to anyone but the host they're sent to.
+     */
+    void acked(UUID hostId, UUID messageId) {
         jdbc.sql("""
                         update agentgateway.agent_commands set status = 'acked', acked_at = :now
-                        where message_id = :messageId and requires_ack and status = 'sent'
+                        where message_id = :messageId and host_id = :hostId and requires_ack
+                          and status in ('pending', 'sent')
                         """)
                 .param("now", Timestamp.from(Instant.now(clock)))
                 .param("messageId", messageId)
+                .param("hostId", hostId)
                 .update();
     }
 }

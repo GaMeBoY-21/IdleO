@@ -18,11 +18,13 @@ class SessionBookingService implements SessionBookings {
 
     private final SessionStore store;
     private final TemplateCatalog catalog;
+    private final SessionStarts starts;
     private final JdbcClient jdbc;
 
-    SessionBookingService(SessionStore store, TemplateCatalog catalog, JdbcClient jdbc) {
+    SessionBookingService(SessionStore store, TemplateCatalog catalog, SessionStarts starts, JdbcClient jdbc) {
         this.store = store;
         this.catalog = catalog;
+        this.starts = starts;
         this.jdbc = jdbc;
     }
 
@@ -35,11 +37,14 @@ class SessionBookingService implements SessionBookings {
                                 session.renterId(),
                                 session.state().name(),
                                 session.version(),
-                                template,
+                                session.attempt(),
+                                SessionSpecs.batch(
+                                        template,
+                                        session.vramNeededMb(),
+                                        Duration.ofSeconds(session.maxRuntimeSeconds())),
                                 session.vramNeededMb(),
                                 session.maxPricePaisePerMin(),
-                                session.maxSpendPaise(),
-                                Duration.ofSeconds(session.maxRuntimeSeconds()))));
+                                session.maxSpendPaise())));
     }
 
     @Override
@@ -56,9 +61,13 @@ class SessionBookingService implements SessionBookings {
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public boolean offerAccepted(UUID sessionId) {
-        return store.transition(sessionId, SessionEvent.OFFER_ACCEPTED, "offer_accepted", null, SessionStore.KEEP)
-                == SessionStore.Outcome.APPLIED;
+    public boolean offerAccepted(UUID sessionId, String gpuUuid) {
+        if (store.transition(sessionId, SessionEvent.OFFER_ACCEPTED, "offer_accepted", null, SessionStore.KEEP)
+                != SessionStore.Outcome.APPLIED) {
+            return false;
+        }
+        starts.queue(store.find(sessionId).orElseThrow(), gpuUuid);
+        return true;
     }
 
     @Override
