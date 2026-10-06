@@ -19,6 +19,8 @@ agentgateway:
 
 sessions:
   provisioning-timeout: 5s
+  leases:
+    renew-every: 500ms
 
 scheduling:
   # Short enough to watch offers expire in tests.

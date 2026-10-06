@@ -273,6 +273,11 @@ public final class TestAgent {
             return null;
         }
 
+        /** Forgets everything received so far. */
+        public void clear() {
+            received.clear();
+        }
+
         public void close() {
             requests.onCompleted();
         }

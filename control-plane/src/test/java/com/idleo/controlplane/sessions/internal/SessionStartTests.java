@@ -7,13 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.SecretScan;
 import com.idleo.controlplane.TestAgent;
-import com.idleo.controlplane.TestHosts;
-import com.idleo.controlplane.TestHosts.ConnectedHost;
-import com.idleo.controlplane.TestUsers;
-import com.idleo.controlplane.TestUsers.TestUser;
-import com.idleo.controlplane.billing.internal.TestCredit;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
-import gpu.agent.v1.Session.OfferDeclineReason;
 import gpu.agent.v1.Session.StartSession;
 import gpu.agent.v1.Session.StoragePermission;
 import java.sql.Timestamp;
@@ -22,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,19 +24,15 @@ import org.springframework.boot.grpc.test.autoconfigure.LocalGrpcServerPort;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ApplicationContext;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.json.JsonMapper;
 
 /** An accepted offer starts the attempt on the host's agent, with fresh scoped credentials and a lease (ADR 0016). */
 @ControlPlaneTest
 @ExtendWith(OutputCaptureExtension.class)
 class SessionStartTests {
 
-    static final Duration WAIT = Duration.ofSeconds(10);
-    private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final OfferDeclineReason NONE = OfferDeclineReason.OFFER_DECLINE_REASON_UNSPECIFIED;
+    static final Duration WAIT = TestBookings.WAIT;
 
     @Autowired
     MockMvc mvc;
@@ -58,37 +49,20 @@ class SessionStartTests {
     @LocalGrpcServerPort
     int grpcPort;
 
-    private final List<ConnectedHost> hosts = new ArrayList<>();
+    private TestBookings bookings;
+
+    @BeforeEach
+    void bookings() {
+        bookings = new TestBookings(mvc, context, jdbc, grpcPort);
+    }
 
     @AfterEach
     void disconnect() {
-        hosts.forEach(ConnectedHost::disconnect);
-        hosts.clear();
+        bookings.close();
     }
 
-    /** A connected, listed, active host, and a renter who booked it; the host has accepted the offer. */
-    private record Booked(ConnectedHost host, TestUser renter, UUID sessionId) {}
-
-    private Booked bookAndAccept() throws Exception {
-        var host = TestHosts.ready(mvc, grpcPort, jdbc, 2);
-        hosts.add(host);
-        var renter = TestUsers.signUp(mvc);
-        TestCredit.grant(context, renter.id(), 50_000);
-        var body = mvc.perform(
-                        post("/v1/sessions")
-                                .header("Authorization", renter.bearer())
-                                .header("Idempotency-Key", "\"" + UUID.randomUUID() + "\"")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        "{\"templateId\": \"cuda-smoke-test\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000}"))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        var sessionId = UUID.fromString(JSON.readTree(body).get("id").asString());
-        var offer = host.awaitOffer(WAIT);
-        host.reply(offer.getOfferId(), true, NONE);
-        return new Booked(host, renter, sessionId);
+    private TestBookings.Booked bookAndAccept() throws Exception {
+        return bookings.bookAndAccept();
     }
 
     @Test
@@ -165,7 +139,7 @@ class SessionStartTests {
         var offerId = jdbc.queryForObject(
                 "select id from scheduling.offers where session_id = ?", UUID.class, booked.sessionId());
         // The agent resends its reply, as it does until acked.
-        booked.host().reply(offerId.toString(), true, NONE);
+        booked.host().reply(offerId.toString(), true, TestBookings.ACCEPT);
         booked.host().ack(booked.host().awaitStart(WAIT));
         awaitCommandStatus(booked.sessionId(), "acked");
 

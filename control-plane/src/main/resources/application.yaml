@@ -140,6 +140,7 @@ sessions:
   # (technical design "Design principles"), counted by the agent from receipt.
   leases:
     ttl: 2m
+    renew-every: 30s
 
 scheduling:
   # Booking (ADR 0015): offers stay open 10 seconds (technical design line 232),

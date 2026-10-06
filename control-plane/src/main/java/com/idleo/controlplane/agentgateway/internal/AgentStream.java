@@ -52,6 +52,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
     private String agentVersion = "";
     private boolean updateRequired;
     private @Nullable Instant lastSeenRecordedAt;
+    private @Nullable Instant lastHeardAt;
 
     AgentStream(
             UUID hostId,
@@ -139,6 +140,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             agentVersion = hello.hello().agentVersion();
             updateRequired = hello.version().compareTo(services.minimumAgentVersion()) < 0;
             lastSeenRecordedAt = Instant.now(services.clock());
+            lastHeardAt = lastSeenRecordedAt;
             state = State.OPEN;
         }
         var replaced = services.connected().register(this);
@@ -216,6 +218,11 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         }
     }
 
+    /** Whether the stream is open and its last Hello or valid heartbeat came after {@code instant}. */
+    synchronized boolean heardFromAfter(Instant instant) {
+        return state == State.OPEN && lastHeardAt != null && lastHeardAt.isAfter(instant);
+    }
+
     /** Sends a queued command; false if the stream has closed. */
     synchronized boolean deliver(OpenStreamResponse message) {
         if (state != State.OPEN) {
@@ -230,6 +237,9 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         if (problem.isPresent()) {
             services.metrics().invalidHeartbeat(problem.get());
             return;
+        }
+        synchronized (this) {
+            lastHeardAt = Instant.now(services.clock());
         }
         var readings = heartbeat.getGpusList().stream()
                 .<Map<String, Object>>map(gpu -> {
