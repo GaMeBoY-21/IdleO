@@ -1,6 +1,7 @@
 //! `idleo-agent`: the host agent's command line.
 #![forbid(unsafe_code)]
 
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::str::FromStr;
@@ -191,7 +192,14 @@ fn init_logging(format: LogFormat) {
         LogFormat::Json => {
             registry.with(tracing_subscriber::fmt::layer().json().with_writer(std::io::stderr)).try_init()
         }
-        LogFormat::Text => registry.with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr)).try_init(),
+        // Colours only on a terminal, never in log files or a service's journal.
+        LogFormat::Text => registry
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_ansi(std::io::stderr().is_terminal())
+                    .with_writer(std::io::stderr),
+            )
+            .try_init(),
     };
     if let Err(e) = result {
         eprintln!("idleo-agent: logging couldn't start: {e}");
