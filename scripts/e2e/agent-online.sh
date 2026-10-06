@@ -3,7 +3,9 @@
 #
 # Starts PostgreSQL, Valkey and the development sign-in server (compose.yaml) with the control plane
 # on the local profile, signs in, registers a host, enrols the agent with a fake GPU, and watches
-# GET /v1/hosts/{id} report it online, then offline once the agent stops. Everything it writes
+# GET /v1/hosts/{id} report it online. Then it books a session (ADR 0015): free credit, a listing,
+# activation, an offer the agent accepts, credit held, the provisioning timeout releasing it, and a
+# cancellation. Finally it watches the host go offline once the agent stops. Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
 #
@@ -28,6 +30,7 @@ http_port="${E2E_HTTP_PORT:-8080}"
 grpc_port="${E2E_GRPC_PORT:-9443}"
 sign_in_port="${LOCAL_SIGN_IN_PORT:-8099}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
+provisioning_timeout="${E2E_PROVISIONING_TIMEOUT:-10s}"
 out="$root/private/e2e"
 api="http://localhost:$http_port"
 sign_in="http://localhost:$sign_in_port/idleo-local"
@@ -50,6 +53,36 @@ fail() { printf 'e2e: FAIL: %s\n' "$*" >&2; exit 1; }
 # The string value of a JSON field that appears once, whatever the spacing or line breaks.
 json_field() { tr -d '\n' | sed -n "s/^[^{]*{.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"; }
 port_in_use() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+# A value from JSON on stdin, by a path like .wallet.reservedPaise.
+json_get() { python3 -c 'import json, sys
+value = json.load(sys.stdin)
+for key in sys.argv[1].strip(".").split("."):
+    value = value[int(key)] if isinstance(value, list) else value[key]
+print(value)' "$1"; }
+api_get() { curl -sf "$api$1" -H "Authorization: Bearer $token"; }
+api_post() { curl -sf -X POST "$api$1" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "${@:2}"; }
+# An operator command (docs/runbooks/granting-credits.md, hosts.md) against the running stack.
+ops() {
+  (
+    cd control-plane
+    LOCAL_SIGN_IN_PORT="$sign_in_port" COMPOSE_PROJECT_NAME="$compose_project" OPERATOR=e2e-script \
+      ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="$*"
+  ) >>"$out/ops.log" 2>&1
+}
+await_state() {
+  local session=$1 wanted=$2 limit=$3 state=""
+  local deadline=$((SECONDS + limit))
+  while ((SECONDS < deadline)); do
+    state="$(api_get "/v1/sessions/$session" | json_get .state)"
+    [[ "$state" == "$wanted" ]] && return 0
+    sleep 0.2
+  done
+  fail "session $session didn't reach $wanted within $limit s (it's $state)"
+}
+book() {
+  api_post /v1/sessions -H "Idempotency-Key: \"$user-$1\"" \
+    -d '{"templateId": "cuda-smoke-test", "maxPricePaisePerMin": 5, "maxSpendPaise": 10000}' | json_get .id
+}
 
 control_plane_pid=""
 agent_pid=""
@@ -135,6 +168,8 @@ set -m
   unset IDENTITY_ISSUERS_0_ISSUERURI IDENTITY_ISSUERS_0_AUDIENCE SPRING_PROFILES_ACTIVE SPRING_PROFILES_INCLUDE
   export SERVER_PORT="$http_port" SPRING_GRPC_SERVER_PORT="$grpc_port" LOCAL_SIGN_IN_PORT="$sign_in_port"
   export COMPOSE_PROJECT_NAME="$compose_project"
+  # Sessions nothing starts fail this soon, so the run can watch it (production: 3 minutes).
+  export SESSIONS_PROVISIONING_TIMEOUT="$provisioning_timeout"
   exec ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local
 ) >"$out/control-plane.log" 2>&1 &
 control_plane_pid=$!
@@ -225,7 +260,56 @@ printf '%s' "$host_view" | grep -q '"gpus":\[{"model":"IdleO Fake GPU","vramMb":
   fail "the host's GPUs aren't listed: $host_view"
 summary+=("fake GPU listed on the host: PASS")
 
-# 7. Stop the agent and wait for the host to go offline.
+# 7. Book a session (ADR 0015): the user gets ₹500 of free credit, the host lists at 2 paise a minute
+#    and is activated, the agent accepts the offer, and 30 minutes (60 paise) is held.
+user_id="$(api_get /v1/me | json_get .id)"
+ops grant-credits --user "$user_id" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$user_id" ||
+  fail "grant-credits failed; see private/e2e/ops.log"
+curl -sf -X PUT "$api/v1/hosts/$host_id/listing" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+  -d '{"batchPricePaisePerMin": 2, "gpuTempCapC": 85, "maxConcurrentSessions": 1}' >/dev/null || fail "PUT listing failed"
+ops activate-host --host "$host_id" --reason "'End-to-end test host'" || fail "activate-host failed; see private/e2e/ops.log"
+wallet_before="$(api_get /v1/wallet)"
+[[ "$(printf '%s' "$wallet_before" | json_get .availablePaise)" == 50000 ]] || fail "the wallet isn't ₹500: $wallet_before"
+
+session_id="$(book first)"
+await_state "$session_id" PROVISIONING 30
+session_json="$(api_get "/v1/sessions/$session_id")"
+timings="$(printf '%s' "$session_json" | python3 -c 'import json, sys
+from datetime import datetime
+events = {e["state"]: datetime.fromisoformat(e["at"].replace("Z", "+00:00")) for e in json.load(sys.stdin)["events"]}
+requested = events["REQUESTED"]
+print("%.3f %.3f" % ((events["MATCHED"] - requested).total_seconds(), (events["PROVISIONING"] - requested).total_seconds()))')"
+read -r to_matched to_provisioning <<<"$timings"
+summary+=("booking: POST to MATCHED ${to_matched} s, to PROVISIONING ${to_provisioning} s: PASS")
+wallet_held="$(api_get /v1/wallet)"
+[[ "$(printf '%s' "$wallet_held" | json_get .reservedPaise)" == 60 ]] || fail "expected 60 paise held: $wallet_held"
+summary+=("wallet before booking: $wallet_before")
+summary+=("wallet while held:     $wallet_held: PASS")
+
+# 8. Nothing starts the session yet (StartSession comes next), so the provisioning timeout fails it
+#    and releases the hold exactly.
+await_state "$session_id" FAILED 60
+failed_json="$(api_get "/v1/sessions/$session_id")"
+[[ "$(printf '%s' "$failed_json" | json_get .events.-1.reason)" == start_timeout ]] ||
+  fail "the session didn't fail with start_timeout: $failed_json"
+wallet_after="$(api_get /v1/wallet)"
+[[ "$(printf '%s' "$wallet_after" | json_get .availablePaise)" == 50000 &&
+  "$(printf '%s' "$wallet_after" | json_get .reservedPaise)" == 0 ]] || fail "the hold wasn't released: $wallet_after"
+summary+=("wallet after timeout:  $wallet_after: PASS")
+printf '%s' "$failed_json" | python3 -c 'import json, sys
+for e in json.load(sys.stdin)["events"]:
+    print("    session_event: %-12s %-16s %s" % (e["state"], e["reason"], e["at"]))' >"$out/session-events.txt"
+while IFS= read -r line; do summary+=("${line#    }"); done <"$out/session-events.txt"
+
+# 9. Book again and cancel while provisioning: CANCELLED, hold released.
+second_id="$(book second)"
+await_state "$second_id" PROVISIONING 30
+cancelled="$(api_post "/v1/sessions/$second_id/cancel" | json_get .state)"
+[[ "$cancelled" == CANCELLED ]] || fail "cancel gave $cancelled"
+[[ "$(api_get /v1/wallet | json_get .reservedPaise)" == 0 ]] || fail "the cancelled session's hold wasn't released"
+summary+=("booked again and cancelled while PROVISIONING, hold released: PASS")
+
+# 10. Stop the agent and wait for the host to go offline.
 stopped_at="$(now_ms)"
 kill -TERM "$agent_pid"
 agent_status=0

@@ -14,11 +14,19 @@ From the repository root, it:
 4. Registers a host (`POST /v1/hosts` with an `Idempotency-Key`) and gets its enrolment code (`POST /v1/hosts/{id}/enrolment-code`). The code is never printed or logged.
 5. Builds the agent (`cargo build --release`), writes `private/e2e/agent.toml`, and enrols it into `private/e2e/agent/`.
 6. Runs `idleo-agent run --fake-gpu`, and polls `GET /v1/hosts/{id}` every 500 ms until `online` is true (30 s at most). It also checks that the fake GPU is listed.
-7. Stops the agent with SIGTERM, and polls until `online` is false (30 s at most). Under 5 seconds means the clean close removed presence; anything longer would mean only the 15-second presence expiry did, and the script says which.
-8. Prints a summary, with each timing and PASS or FAIL, and exits non-zero on any failure.
-9. On exit, even after a failure or Ctrl-C, it stops the agent and the control plane and removes the compose services. It then checks that no container, control plane or agent is still running.
+7. **Books a session** (ADR 0015):
+   - gives the user ₹500 with the `grant-credits` operator command;
+   - sets the host's listing to 2 paise a minute, and activates it with `activate-host`;
+   - books the smoke template (`POST /v1/sessions`).
 
-Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log` and `compose.log`. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
+   The real agent accepts the offer, so the session reaches `PROVISIONING`, and the wallet shows 60 paise held (30 minutes at 2 paise). The script records the time from the POST to `MATCHED` and to `PROVISIONING`, from the session's own events.
+8. **Waits for the provisioning timeout** (`E2E_PROVISIONING_TIMEOUT`, 10 s here, 3 minutes in production). Nothing starts sessions yet, so the session fails with `start_timeout`, and the wallet is back to ₹500 exactly. Its `session_events` are printed in the summary.
+9. **Books again and cancels while `PROVISIONING`:** the state is `CANCELLED`, and the hold is released.
+10. Stops the agent with SIGTERM, and polls until `online` is false (30 s at most). Under 5 seconds means the clean close removed presence; anything longer would mean only the 15-second presence expiry did, and the script says which.
+11. Prints a summary, with each timing and PASS or FAIL, and exits non-zero on any failure.
+12. On exit, even after a failure or Ctrl-C, it stops the agent and the control plane and removes the compose services. It then checks that no container, control plane or agent is still running.
+
+Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log`, `ops.log` (the operator commands) and `compose.log`. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
 
 ## What you need
 
@@ -26,7 +34,7 @@ Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log` a
 - **Java 25.** On a Mac: `brew install openjdk@25`, then `export JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home`.
 - **Rust**, through rustup. It installs the toolchain pinned in `agent/rust-toolchain.toml` on first use. Homebrew's rustup (`/opt/homebrew/opt/rustup/bin`) is found even when it isn't on `PATH`.
 - **OpenSSL 3**, for the development CA. macOS ships LibreSSL: `brew install openssl@3`.
-- `curl` and `perl`, which macOS and Ubuntu both have.
+- `curl`, `perl` and `python3`, which macOS and Ubuntu both have.
 
 ## Run the check
 
@@ -34,7 +42,7 @@ Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log` a
 scripts/e2e/agent-online.sh
 ```
 
-The first run downloads the images, the Maven dependencies and the crates, and builds both sides. After that, a run takes about 15 seconds on a Mac (13 s measured), most of it starting the control plane.
+The first run downloads the images, the Maven dependencies and the crates, and builds both sides. After that, a run takes about 35 seconds on a Mac: starting the control plane, two operator commands, and the 10-second provisioning timeout.
 
 ## Keep the stack up and try things by hand
 
