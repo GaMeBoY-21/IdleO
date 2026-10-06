@@ -19,7 +19,8 @@
  * suspended by operator commands, audited in {@code hosts.status_changes} (docs/runbooks/hosts.md).
  *
  * <p>A port other modules implement: {@link com.idleo.controlplane.hosts.HostPresence}, whether a host
- * is online, answered by the agent gateway (ADR 0013).
+ * is online, answered by the agent gateway (ADR 0013). {@link com.idleo.controlplane.hosts.HostOwners} says who
+ * owns a host, for modules that show a host's data to its owner only.
  *
  * <p>Endpoints, every one owner-only; another user's host is a 404, so ids can't be probed. Every
  * error is an RFC 9457 problem detail.

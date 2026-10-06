@@ -1,6 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.hosts.HostOwners;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -19,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Hosts and their enrolment codes, always scoped to the owner. */
 @Service
-class HostService {
+class HostService implements HostOwners {
 
     static final Duration CODE_LIFETIME = Duration.ofHours(1);
 
@@ -43,6 +44,11 @@ class HostService {
 
     Host create(UUID ownerUserId, String name) {
         return hosts.save(Host.newHost(ids.newId(), ownerUserId, name, Instant.now(clock)));
+    }
+
+    @Override
+    public boolean owns(UUID userId, UUID hostId) {
+        return find(userId, hostId).isPresent();
     }
 
     Optional<Host> find(UUID ownerUserId, UUID hostId) {
