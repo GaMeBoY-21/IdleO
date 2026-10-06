@@ -10,8 +10,8 @@ import org.springframework.validation.annotation.Validated;
 /**
  * Booking settings (ADR 0015).
  *
- * @param offerTtl how long an offer stays open (technical design line 228: 10 seconds)
- * @param maxOffers offers per session before it's NO_HOST_FREE (line 211: 3)
+ * @param offerTtl how long an offer stays open (technical design line 232: 10 seconds)
+ * @param maxOffers offers per session before it's NO_HOST_FREE (line 214: 3)
  * @param offerSweepInterval how often expired offers are looked for
  */
 @ConfigurationProperties("scheduling")

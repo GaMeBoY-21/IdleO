@@ -12,7 +12,7 @@ import java.util.UUID;
  */
 public interface CreditReservations {
 
-    /** A booking holds this many minutes of credit at the session's price (technical design line 389). */
+    /** A booking holds this many minutes of credit at the session's price (technical design line 392). */
     int HOLD_MINUTES = 30;
 
     /** What a booking holds: 30 minutes at {@code pricePaisePerMin}, never more than {@code maxSpend}. */

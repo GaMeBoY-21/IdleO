@@ -6,7 +6,7 @@ Feasibility work, done before any product code. Phase 0 runs in October 2026, fo
 
 Phase 1 starts only after both pass.
 
-1. **A game is playable over the internet.** On the phone-hotspot run, the median round trip is under 30 ms (technical design line 735), 1080p60 holds, and fewer than 1% of frames drop.
+1. **A game is playable over the internet.** On the phone-hotspot run, the median round trip is under 30 ms (technical design line 741), 1080p60 holds, and fewer than 1% of frames drop.
 2. **A QLoRA job finishes inside the sandbox we'll ship.** It runs in the locked-down distribution (`verify-lockdown.sh` passes), under the same sandbox flags renters will get, and survives being killed and resumed.
 
 ## Who runs what

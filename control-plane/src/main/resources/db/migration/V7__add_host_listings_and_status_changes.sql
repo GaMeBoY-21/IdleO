@@ -1,6 +1,6 @@
 -- Host listings and activation (ADR 0015).
 
--- One price per workload type (technical design line 101); batch only for now.
+-- One price per workload type (technical design line 102); batch only for now.
 CREATE TABLE hosts.price_listings (
     host_id             uuid        NOT NULL REFERENCES hosts.hosts (id),
     workload_type       text        NOT NULL CHECK (workload_type IN ('batch')),
@@ -17,7 +17,7 @@ ALTER TABLE hosts.hosts
     ADD COLUMN max_concurrent_sessions integer CHECK (max_concurrent_sessions = 1);
 
 -- Every activation and suspension: who, why, from and to (technical design
--- line 769). Append-only.
+-- line 775). Append-only.
 CREATE TABLE hosts.status_changes (
     id          uuid        PRIMARY KEY,
     host_id     uuid        NOT NULL REFERENCES hosts.hosts (id),

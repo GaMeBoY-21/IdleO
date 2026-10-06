@@ -38,6 +38,8 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Database: PostgreSQL 18 with Flyway migrations, expand then migrate then contract. One schema per module; Flyway owns all DDL. Persistence is Spring Data JDBC with explicit SQL (JdbcClient where needed), no JPA (ADR 0009). Valkey 9 (Redis-compatible, via Spring Data Redis) only for state that is allowed to expire, and never in readiness. Only the agentgateway module writes host presence, always conditional on the connection that owns the record (ADR 0011); others ask whether a host is online through the hosts module's HostPresence port, which agentgateway implements, so the dependency never points back from hosts (ADR 0013).
 - Migrations name the schema of every object they create or change (identity.users, never users). Flyway's default schema is flyway, so an unqualified name lands there silently; a test fails if any table other than Flyway's history table appears in the flyway schema.
 - API errors use RFC 9457 Problem Details.
+- Module directions (ADR 0015): sessions publishes SessionRequested and SessionCancelled, and scheduling listens; scheduling reads hosts (SchedulableHosts), sessions (SessionBookings), presence (AgentPresence) and holds credit (CreditReservations), and queues agent messages through agentgateway's AgentCommands; agentgateway declares the OfferReplies port and scheduling implements it. Events are durable (Spring Modulith's JDBC registry, table modulith.event_publication, created by Flyway). Never add a dependency back from hosts, billing, sessions or agentgateway to scheduling.
+- Everything sent to an agent goes through agentgateway.agent_commands; Valkey pub/sub is only a hint, and a sweep delivers anyway.
 - Only the hosts module issues or reads host certificates and enrolment codes; other modules go through its public API (ADR 0010). Agents trust only our own root CA, and the gRPC port trusts only our root for client certificates (ADR 0011).
 - Create requests take an Idempotency-Key through the shared IdempotentRequests helper, with a <schema>.idempotency_keys table in each module.
 - Tests: JUnit 5 and Testcontainers for Java, cargo test for Rust. New behaviour ships with tests.
@@ -79,14 +81,16 @@ Host agent, run from agent/ (Rust; rustup installs the toolchain pinned in rust-
 - Never fall back to fake telemetry silently: fake GPUs only with --fake-gpu, and a missing NVML is an error
 
 End to end, run from the repository root (needs Docker, Java 25 and Rust; docs/runbooks/local-stack.md):
-- scripts/e2e/agent-online.sh: the compatibility test. Starts the local stack (PostgreSQL, Valkey, the development sign-in server, the control plane), enrols the real agent with a fake GPU, checks the host goes online and then offline, and tears everything down. CI runs it on every control-plane, agent or proto change
+- scripts/e2e/agent-online.sh: the compatibility test. Starts the local stack (PostgreSQL, Valkey, the development sign-in server, the control plane), enrols the real agent with a fake GPU, checks the host goes online, books a session the agent accepts (credit held, then released by the provisioning timeout, then a cancellation), checks the host goes offline, and tears everything down. CI runs it on every control-plane, agent or proto change
 - scripts/e2e/agent-online.sh --keep-running: only the stack, with a ready curl and a fresh token, until Ctrl-C
 - Development-only behaviour is a setting, never a code path (for example agentgateway.allow-development-hosts, or trusting the local sign-in issuer). Every new development setting must be added to ProductionSettingsGuard, which refuses to start the prod profile with any of them (ADR 0013)
 
-Operator commands, the control plane in the ops profile (runs once, starts no web or gRPC server, exits with 0 done, 2 bad command line, 3 refused; docs/runbooks/granting-credits.md):
+Operator commands, the control plane in the ops profile (runs once, starts no web or gRPC server, exits with 0 done, 2 bad command line, 3 refused; docs/runbooks/granting-credits.md, docs/runbooks/hosts.md):
 - OPERATOR=<you> java -jar control-plane.jar --spring.profiles.active=prod,ops grant-credits --user <id> --paise <n> --reason "<why>" --key <key>
 - OPERATOR=<you> ... reverse-grant --grant <id> --reason "<why>"
+- OPERATOR=<you> ... activate-host --host <id> --reason "<why>" and suspend-host --host <id> --reason "<why>" (docs/runbooks/hosts.md)
 - Locally: COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<you> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="…", against the scripts/e2e/agent-online.sh --keep-running stack
+- A module adds an operator command as an OperatorCommand bean in the ops profile; OperatorCommandRunner picks it by name
 
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions

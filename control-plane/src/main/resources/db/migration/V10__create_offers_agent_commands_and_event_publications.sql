@@ -23,7 +23,7 @@ CREATE INDEX event_publication_by_completion_date_idx ON modulith.event_publicat
 
 -- Everything the control plane sends an agent, kept until delivered (and, for
 -- commands that need one, acknowledged). Valkey only routes; this table is the
--- truth (technical design lines 34, 177-189). message_id is reused on every
+-- truth (technical design lines 34, 180-192). message_id is reused on every
 -- resend, so the agent can drop duplicates.
 CREATE TABLE agentgateway.agent_commands (
     id           uuid        PRIMARY KEY,
@@ -45,7 +45,7 @@ CREATE INDEX agent_commands_undelivered ON agentgateway.agent_commands (host_id,
     WHERE status IN ('pending', 'sent');
 
 -- Offers: up to three per session, each open for 10 seconds (technical design
--- lines 211, 228).
+-- lines 214, 232).
 CREATE TABLE scheduling.offers (
     id             uuid        PRIMARY KEY,
     session_id     uuid        NOT NULL,

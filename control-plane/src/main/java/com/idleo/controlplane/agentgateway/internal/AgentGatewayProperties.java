@@ -11,7 +11,7 @@ import org.springframework.validation.annotation.Validated;
  * The agent stream's settings (ADR 0011).
  *
  * @param helloTimeout how long a new stream may wait before its first message, which must be Hello
- * @param presenceTtl how long presence lives after the last heartbeat (technical design line 330)
+ * @param presenceTtl how long presence lives after the last heartbeat (technical design line 333)
  * @param heartbeatInterval how often agents send Heartbeat; sent in Welcome
  * @param gpuTempCapC the GPU temperature cap sent in Welcome, until host listings set one per host
  * @param maxConcurrentSessions the session limit sent in Welcome, until host listings set one per host

@@ -4,7 +4,7 @@
 - **Date:** 2026-10-05
 
 Sources:
-- docs/plan/technical-design.md lines 27, 64, 96–98, 221, 537, 561, 566, 629–636, 752, 762
+- docs/plan/technical-design.md lines 27, 64, 96–98, 224, 540, 567, 572, 635–642, 758, 768
 - `proto/gpu/agent/v1/enrollment.proto`
 - ADRs 0003, 0007, 0008, 0009
 - docs/prompts/hosts-and-enrolment.md
@@ -26,7 +26,7 @@ A host has to exist, and belong to a person, before its agent can connect. The a
    - `POST /v1/hosts` creates the host.
    - `POST /v1/hosts/{id}/enrolment-code` issues a code, and the latest replaces any earlier one.
 
-   This changes line 561, which had `POST /v1/hosts` return the code. Split, the code is never stored to replay an idempotent response. The code response carries `Cache-Control: no-store`.
+   This changes line 567, which had `POST /v1/hosts` return the code. Split, the code is never stored to replay an idempotent response. The code response carries `Cache-Control: no-store`.
 4. **Owner-only routes.** Another user's host is a 404, not a 403, so ids can't be probed.
 
 ### Idempotency-Key
@@ -51,7 +51,7 @@ A host has to exist, and belong to a person, before its agent can connect. The a
 
 ### Our certificate authority
 
-10. **Structure (line 762).** An offline root, and an online intermediate that signs everything and lives in the secret store.
+10. **Structure (line 768).** An offline root, and an online intermediate that signs everything and lives in the secret store.
     - The intermediate's certificate, encrypted key and password, and the root's certificate, come from the environment only. The root's key never reaches the server.
     - At startup the control plane checks that the intermediate is a CA, that its key matches its certificate, and that the root signed it.
 11. **Library.** [BouncyCastle](https://www.bouncycastle.org/) `bcpkix-jdk18on` 1.86. The CA lives in the hosts module's internal package, because hosts own which certificate belongs to which host. Only the hosts module issues or reads certificates.
@@ -80,7 +80,7 @@ A host has to exist, and belong to a person, before its agent can connect. The a
     - `EnrollmentService` needs none. `AgentGatewayService` will require one through an interceptor.
     - gRPC security denies by default: `Enroll` is open and every other method is refused until it gets its own rule.
     - Spring gRPC 1.1 builds server TLS from the SSL bundle's key and trust managers but drops the bundle's protocol options; a TLS 1.2 client could connect, and a test caught it. So the agent gateway defines the gRPC server factory itself, building the Netty TLS context from the same bundle with its `enabled-protocols`. Spring Boot's own Netty server configuration then backs off. Service discovery, global interceptors and the lifecycle are still Spring gRPC's.
-19. **Where the code lives.** The transport is in `agentgateway` (line 538). It calls the public `hosts` API, `HostEnrolment.enrol(code, csrDer)`.
+19. **Where the code lives.** The transport is in `agentgateway` (line 541). It calls the public `hosts` API, `HostEnrolment.enrol(code, csrDer)`.
     - **Unknown, malformed, used or expired codes** all get `UNAUTHENTICATED`, with the same message.
     - **A bad CSR or an empty field** gets `INVALID_ARGUMENT`.
     - **The reply** is the leaf, then the intermediate (never the root), plus `not_after`.

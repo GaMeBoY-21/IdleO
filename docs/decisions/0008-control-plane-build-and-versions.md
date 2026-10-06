@@ -4,7 +4,7 @@
 - **Date:** 2026-10-04
 
 Sources:
-- docs/plan/execution-plan.md line 156; docs/plan/technical-design.md lines 24, 80, 112, 532–546
+- docs/plan/execution-plan.md line 156; docs/plan/technical-design.md lines 24, 80, 115, 535–549
 - ADR 0001, ADR 0003 (open question on Maven or Gradle), ADR 0006
 - docs/prompts/phase1-step3-control-plane-foundation.md
 
@@ -35,13 +35,13 @@ A production service built to ADR 0006's bar can't start on a line that's alread
    - It's the newest major that DigitalOcean Managed PostgreSQL offers today: majors 14–18 are supported, 18 is the newest, and it's supported until 2030-11-08 ([DigitalOcean docs](https://docs.digitalocean.com/products/databases/postgresql/how-to/create/)).
    - Tests and local runs use the same major, pinned by tag and digest: `postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722`.
 5. **One database schema per module, created by Flyway.**
-   - Each of the eleven modules (technical design lines 536–546) gets its own schema, created in `V1`. The rule "none reads another module's tables" (line 532) then shows up in every query, and a module can later be extracted without untangling its tables.
+   - Each of the eleven modules (technical design lines 539–549) gets its own schema, created in `V1`. The rule "none reads another module's tables" (line 535) then shows up in every query, and a module can later be extracted without untangling its tables.
    - Flyway keeps its history table in its own `flyway` schema.
    - Flyway owns all DDL; nothing else creates or changes tables. (Superseded in part by ADR 0009: persistence is Spring Data JDBC, with no JPA, so the `ddl-auto` rule below never applies.) JPA isn't on the classpath yet, because no module has an entity. When it arrives, `spring.jpa.hibernate.ddl-auto` is `validate`: Hibernate never changes the schema, and the app refuses to start if an entity and its migration disagree. `none` was rejected, because it would let that drift reach production silently.
 6. **Tables arrive with the first code that uses them.**
-   - The outbox (technical design line 112) comes with the first module that publishes to agents or the payment gateway.
+   - The outbox (technical design line 115) comes with the first module that publishes to agents or the payment gateway.
    - Spring Modulith's event publication table comes with the first module that publishes an application event.
-   - Valkey comes with the agent gateway's presence (line 538).
+   - Valkey comes with the agent gateway's presence (line 541).
 
    None of them is added early.
 7. **"IdleO" is the internal codename**, the repository name. The base package is `com.idleo.controlplane`. The product brand isn't decided and can still be anything; nothing user-facing uses the codename.

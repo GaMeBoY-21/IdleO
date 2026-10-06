@@ -4,13 +4,13 @@
 - **Date:** 2026-10-06
 
 Sources:
-- docs/plan/technical-design.md lines 27, 64, 222, 240, 445–458, 752
+- docs/plan/technical-design.md lines 27, 64, 225, 243, 448–461, 758
 - ADRs 0007, 0010 and 0011
 - docs/prompts/agent-connect.md
 
 ## Context
 
-The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). Now the agent needs its first two jobs from the connection manager row (line 449): enrol with a one-time code, then hold one mutual-TLS stream with heartbeats, reconnects and certificate renewal. It runs on other people's Windows and Linux machines, so its supply chain, its trust rules and how it keeps its private key matter from the first line.
+The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). Now the agent needs its first two jobs from the connection manager row (line 452): enrol with a one-time code, then hold one mutual-TLS stream with heartbeats, reconnects and certificate renewal. It runs on other people's Windows and Linux machines, so its supply chain, its trust rules and how it keeps its private key matter from the first line.
 
 ## Decision
 
@@ -45,7 +45,7 @@ The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). 
 
    A renewed certificate must also name the same host.
 
-### Reconnects (line 240)
+### Reconnects (line 243)
 
 7. **Backoff:** the ceiling starts at 1 second and doubles to a 60-second cap. Each delay is uniformly random below the ceiling (full jitter), so agents that lost the control plane together come back spread out.
 8. **Reset only after 60 seconds healthy after `Welcome`.** A server that accepts and immediately drops would otherwise reset every agent's backoff on each attempt, and they would hammer it at 1-second intervals. A test shows 30 seconds up continuing the sequence (4 then 8), and 61 seconds up starting it again at 1.
@@ -59,7 +59,7 @@ The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). 
 | The certificate has expired (checked locally before dialing) | Slow retry, and the log says the host needs a new enrolment code |
 
 10. **Renewal:** checked after the first `Welcome` and every 6 hours.
-    - With 10 days or fewer left (renew after 20 of 30 days, line 752), the agent generates a new key pair and CSR and calls `RenewCertificate` over the current mutual-TLS connection.
+    - With 10 days or fewer left (renew after 20 of 30 days, line 758), the agent generates a new key pair and CSR and calls `RenewCertificate` over the current mutual-TLS connection.
     - It checks the reply as in item 6, saves it atomically, and reconnects at once with the new certificate. The reconnect is not a failure, so there's no backoff.
     - `FAILED_PRECONDITION` (too early, or already renewed; ADR 0011) waits for the next check.
 11. **Shutdown:** Ctrl-C, SIGTERM, or a Windows console close or shutdown half-closes the stream and waits up to 3 seconds for the control plane to finish it. A hard limit exits at 5 seconds.
@@ -84,12 +84,12 @@ The test suite runs the backoff tests on tokio's paused clock. They use an in-me
     - **`nvml`:** NVML through `nvml-wrapper`, loaded at run time from the driver. It's behind the `nvml` feature, which is on by default and present only in Windows and Linux builds. If NVML is missing or finds no GPU, `run` exits with code 7 and says why.
     - **Fake:** `--fake-gpu [N]` gives invented GPUs whose uuids are plainly fake (`GPU-00000000-fake-…`).
 
-    The agent never falls back to fake GPUs by itself. GPUs are read every second, and each heartbeat carries per GPU the highest temperature and power, the mean utilisation and the latest memory in use (line 450). `net_up_kbps` is 0 until the onboarding benchmark exists.
+    The agent never falls back to fake GPUs by itself. GPUs are read every second, and each heartbeat carries per GPU the highest temperature and power, the mean utilisation and the latest memory in use (line 453). `net_up_kbps` is 0 until the onboarding benchmark exists.
 15. **`OwnerActivity`:** on Windows, keyboard or mouse input within 2 minutes (`GetLastInputInfo`). On Linux and macOS, always false for now.
 
 ### Deliberately not built yet
 
-The lease clock, the local store (SQLite), the session runner, the cache manager, the policy enforcer, the watchdog, the updater, and installing as a Windows service or systemd unit (lines 445–458). The connection manager doesn't yet keep outgoing messages until they're acknowledged, because nothing it sends is acked: Hello and Heartbeat aren't, and the acked messages arrive with sessions.
+The lease clock, the local store (SQLite), the session runner, the cache manager, the policy enforcer, the watchdog, the updater, and installing as a Windows service or systemd unit (lines 448–461). The connection manager doesn't yet keep outgoing messages until they're acknowledged, because nothing it sends is acked: Hello and Heartbeat aren't, and the acked messages arrive with sessions.
 
 ## Alternatives considered
 

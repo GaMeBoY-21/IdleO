@@ -1,4 +1,4 @@
--- Sessions and their audit trail (technical design lines 129-149, ADR 0015).
+-- Sessions and their audit trail (technical design lines 132-152, ADR 0015).
 -- renter_id and host_id are other modules' ids, with no foreign keys across
 -- modules. price_paise_per_min is copied from the host's listing when the
 -- session is matched, so a later price change never changes a booked session.
@@ -28,7 +28,7 @@ CREATE TABLE sessions.sessions (
 );
 
 -- At most one live session per host: the second guard against double booking,
--- behind the scheduler's row lock (technical design line 147).
+-- behind the scheduler's row lock (technical design line 150).
 CREATE UNIQUE INDEX one_live_session_per_host ON sessions.sessions (host_id)
     WHERE state IN ('MATCHED', 'PROVISIONING', 'RUNNING', 'FINISHING');
 
