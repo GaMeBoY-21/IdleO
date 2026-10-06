@@ -1,5 +1,6 @@
 package com.idleo.controlplane.agentgateway.internal;
 
+import com.idleo.controlplane.agentgateway.AgentPresence;
 import com.idleo.controlplane.hosts.HostPresence;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -8,6 +9,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -17,6 +19,7 @@ import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Host presence in Valkey (ADR 0011): one hash per host, living for the presence TTL after the last
@@ -29,7 +32,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @EnableConfigurationProperties(AgentGatewayProperties.class)
-class Presence implements HostPresence {
+class Presence implements HostPresence, AgentPresence {
 
     static final String KEY_PREFIX = "agentgateway:presence:";
 
@@ -69,10 +72,17 @@ class Presence implements HostPresence {
     private final AgentGatewayProperties properties;
     private final AgentGatewayMetrics metrics;
 
-    Presence(StringRedisTemplate redis, AgentGatewayProperties properties, AgentGatewayMetrics metrics) {
+    private final JsonMapper json;
+
+    Presence(
+            StringRedisTemplate redis,
+            AgentGatewayProperties properties,
+            AgentGatewayMetrics metrics,
+            JsonMapper json) {
         this.redis = redis;
         this.properties = properties;
         this.metrics = metrics;
+        this.json = json;
     }
 
     /** One round trip for all the hosts. If Valkey can't answer, none is online, and the miss is counted. */
@@ -125,6 +135,71 @@ class Presence implements HostPresence {
                     "gpus", gpusJson,
                     "heartbeat_at", heartbeatAt.toString());
         }
+    }
+
+    /** The instance holding the host's stream, if it has one. */
+    Optional<UUID> instanceOf(UUID hostId) {
+        Object instance = redis.opsForHash().get(key(hostId), "instance_id");
+        return instance == null ? Optional.empty() : Optional.of(UUID.fromString(instance.toString()));
+    }
+
+    /** One round trip for all the hosts. If Valkey can't answer, none is live, and the miss is counted. */
+    @Override
+    public Map<UUID, LiveAgent> live(Collection<UUID> hostIds) {
+        var ids = List.copyOf(hostIds);
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            var records = redis.executePipelined((RedisCallback<Object>) connection -> {
+                for (var id : ids) {
+                    connection.hashCommands().hGetAll(key(id).getBytes(StandardCharsets.UTF_8));
+                }
+                return null;
+            });
+            var live = new java.util.HashMap<UUID, LiveAgent>();
+            for (int i = 0; i < ids.size(); i++) {
+                if (records.get(i) instanceof Map<?, ?> fields && !fields.isEmpty()) {
+                    live.put(ids.get(i), liveAgent(ids.get(i), fields));
+                }
+            }
+            return live;
+        } catch (RuntimeException e) {
+            metrics.presenceUnavailable();
+            log.debug("Presence lookup failed; no host counts as live", e);
+            return Map.of();
+        }
+    }
+
+    private LiveAgent liveAgent(UUID hostId, Map<?, ?> fields) {
+        var temps = new ArrayList<Integer>();
+        var gpus = text(fields, "gpus");
+        if (!gpus.isEmpty()) {
+            for (var reading : json.readTree(gpus)) {
+                if (reading.has("temp_c")) {
+                    temps.add(reading.get("temp_c").asInt());
+                }
+            }
+        }
+        return new LiveAgent(
+                hostId,
+                Boolean.parseBoolean(text(fields, "update_required")),
+                Boolean.parseBoolean(text(fields, "owner_active")),
+                List.copyOf(temps));
+    }
+
+    private static String text(Map<?, ?> fields, String name) {
+        for (var entry : fields.entrySet()) {
+            var key = entry.getKey() instanceof byte[] bytes
+                    ? new String(bytes, StandardCharsets.UTF_8)
+                    : String.valueOf(entry.getKey());
+            if (key.equals(name)) {
+                return entry.getValue() instanceof byte[] bytes
+                        ? new String(bytes, StandardCharsets.UTF_8)
+                        : String.valueOf(entry.getValue());
+            }
+        }
+        return "";
     }
 
     void register(Snapshot snapshot) {

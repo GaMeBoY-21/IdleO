@@ -25,6 +25,14 @@ spring:
     # V1 creates one schema per module.
     default-schema: flyway
     schemas: flyway
+  modulith:
+    events:
+      jdbc:
+        # Flyway creates modulith.event_publication (V10); Modulith's own schema
+        # creation stays off.
+        schema: modulith
+        schema-initialization:
+          enabled: false
   ssl:
     bundle:
       pem:
@@ -113,6 +121,23 @@ sessions:
   templates:
     # templates/catalog.yaml, bundled into the jar by the build (ADR 0015).
     catalog: classpath:templates/catalog.yaml
+  # A session accepted by its host but not RUNNING within this fails with
+  # start_timeout, its hold released (ADR 0015).
+  provisioning-timeout: 3m
+  provisioning-sweep-interval: 1s
+
+scheduling:
+  # Booking (ADR 0015): offers stay open 10 seconds (technical design line 228),
+  # at most three per session (line 211); the sweeper looks for expired offers
+  # this often.
+  offer-ttl: 10s
+  max-offers: 3
+  offer-sweep-interval: 1s
+
+events:
+  # Publications whose listener failed are retried this often, once this old.
+  retry-every: 30s
+  retry-older-than: 30s
 
 agentgateway:
   # The agent stream (ADR 0011).
@@ -122,6 +147,10 @@ agentgateway:
   gpu-temp-cap-c: 85
   max-concurrent-sessions: 1
   minimum-agent-version: 0.1.0
+  # Commands waiting for a connected agent are swept this often, in case a
+  # delivery hint was lost; a command needing an ack is resent after this long.
+  command-sweep-interval: 5s
+  command-resend-after: 10s
   # Accept a Hello from a Mac or with fake GPUs (ADR 0013). Only the local and
   # test profiles turn it on; the application refuses to start with it in prod.
   allow-development-hosts: false

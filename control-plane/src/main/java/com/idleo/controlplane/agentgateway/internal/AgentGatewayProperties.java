@@ -18,6 +18,9 @@ import org.springframework.validation.annotation.Validated;
  * @param minimumAgentVersion older agents are welcomed but marked update_required in presence
  * @param allowDevelopmentHosts accept a Hello from a Mac or with fake GPUs; on only in the local and
  *     test profiles, and the application refuses to start with it in prod (ADR 0013)
+ * @param commandSweepInterval how often queued commands for connected agents are swept, in case a
+ *     delivery hint was lost (ADR 0015)
+ * @param commandResendAfter a command needing an Ack is resent after this long without one
  */
 @ConfigurationProperties("agentgateway")
 @Validated
@@ -28,4 +31,6 @@ record AgentGatewayProperties(
         @Positive int gpuTempCapC,
         @Positive int maxConcurrentSessions,
         @NotNull @Pattern(regexp = SemanticVersion.PATTERN) String minimumAgentVersion,
-        boolean allowDevelopmentHosts) {}
+        boolean allowDevelopmentHosts,
+        @NotNull Duration commandSweepInterval,
+        @NotNull Duration commandResendAfter) {}

@@ -13,3 +13,18 @@ agentgateway:
   allow-development-hosts: true
   hello-timeout: 1s
   presence-ttl: 2s
+  # Short enough to watch in tests.
+  command-sweep-interval: 1s
+  command-resend-after: 1s
+
+sessions:
+  provisioning-timeout: 5s
+
+scheduling:
+  # Short enough to watch offers expire in tests.
+  offer-ttl: 2s
+  offer-sweep-interval: 200ms
+
+events:
+  retry-every: 1s
+  retry-older-than: 2s

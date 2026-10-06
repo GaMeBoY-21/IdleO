@@ -219,8 +219,36 @@ public final class TestAgent {
         private final BlockingQueue<Object> received = new LinkedBlockingQueue<>();
         StreamObserver<OpenStreamRequest> requests;
 
-        public void send(OpenStreamRequest request) {
+        /** Synchronized: a heartbeat thread and the test may send at the same time. */
+        public synchronized void send(OpenStreamRequest request) {
             requests.onNext(request);
+        }
+
+        /** The next message matching {@code wanted}, skipping others, or fails if none comes in time. */
+        public OpenStreamResponse await(java.util.function.Predicate<OpenStreamResponse> wanted, Duration timeout)
+                throws InterruptedException {
+            var deadline = System.nanoTime() + timeout.toNanos();
+            while (System.nanoTime() < deadline) {
+                var item = received.poll(20, TimeUnit.MILLISECONDS);
+                if (item instanceof OpenStreamResponse response && wanted.test(response)) {
+                    return response;
+                }
+                if (item instanceof Status status) {
+                    throw new AssertionError("the stream ended: " + status);
+                }
+            }
+            throw new AssertionError("no matching message within " + timeout);
+        }
+
+        /** Whether a message matching {@code wanted} arrives within {@code timeout}. */
+        public boolean receives(java.util.function.Predicate<OpenStreamResponse> wanted, Duration timeout)
+                throws InterruptedException {
+            try {
+                await(wanted, timeout);
+                return true;
+            } catch (AssertionError none) {
+                return false;
+            }
         }
 
         /** The next message, or fails if the stream ended or nothing came in time. */

@@ -26,4 +26,13 @@ class ConnectedAgents {
     int size() {
         return streams.size();
     }
+
+    @Nullable
+    AgentStream get(UUID hostId) {
+        return streams.get(hostId);
+    }
+
+    java.util.Set<UUID> hostIds() {
+        return java.util.Set.copyOf(streams.keySet());
+    }
 }

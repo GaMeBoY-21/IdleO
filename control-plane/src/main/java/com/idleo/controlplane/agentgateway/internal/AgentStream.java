@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.google.protobuf.Duration;
 import com.idleo.controlplane.hosts.HostListings;
+import gpu.agent.v1.AgentGateway.Ack;
 import gpu.agent.v1.AgentGateway.AgentPolicy;
 import gpu.agent.v1.AgentGateway.OpenStreamRequest;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
@@ -13,6 +14,7 @@ import io.grpc.stub.StreamObserver;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -94,6 +96,8 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         switch (body) {
             case HELLO -> onHello(request);
             case HEARTBEAT -> onHeartbeat(request.getHeartbeat());
+            case OFFER_REPLY -> onOfferReply(request);
+            case ACK -> onAck(request.getAck().getAckedMessageId());
             default -> services.metrics().unhandledMessage(body.name().toLowerCase(java.util.Locale.ROOT));
         }
     }
@@ -157,6 +161,68 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                                 .setMaxConcurrentSessions(properties.maxConcurrentSessions()))
                         .setMinimumAgentVersion(properties.minimumAgentVersion()))
                 .build());
+        // Anything queued while the agent was away (ADR 0015).
+        var delivery = services.delivery();
+        if (delivery != null) {
+            try {
+                delivery.deliverPending(hostId);
+            } catch (RuntimeException e) {
+                log.warn("Couldn't deliver host {}'s waiting commands after Welcome; the sweep will", hostId, e);
+            }
+        }
+    }
+
+    /**
+     * An answer to an offer (ADR 0015): handed to the scheduler through the {@code OfferReplies} port, then
+     * acked. If the scheduler can't take it now, there's no ack, and the agent resends.
+     */
+    private void onOfferReply(OpenStreamRequest request) {
+        var reply = request.getOfferReply();
+        UUID offerId;
+        try {
+            offerId = UUID.fromString(reply.getOfferId());
+        } catch (IllegalArgumentException e) {
+            services.metrics().unhandledMessage("invalid_offer_reply");
+            return;
+        }
+        var reason = reply.getAccepted()
+                ? ""
+                : reply.getDeclineReason()
+                        .name()
+                        .replaceFirst("^OFFER_DECLINE_REASON_", "")
+                        .toLowerCase(Locale.ROOT);
+        var handler = services.offerReplies();
+        if (handler == null) {
+            services.metrics().unhandledMessage("offer_reply");
+            return;
+        }
+        try {
+            handler.onReply(hostId, offerId, reply.getAccepted(), reason);
+        } catch (RuntimeException e) {
+            log.warn("Couldn't record host {}'s reply to offer {}; it will resend", hostId, offerId, e);
+            return;
+        }
+        send(OpenStreamResponse.newBuilder()
+                .setMessageId(services.ids().newId().toString())
+                .setAck(Ack.newBuilder().setAckedMessageId(request.getMessageId()))
+                .build());
+    }
+
+    private void onAck(String ackedMessageId) {
+        try {
+            services.commands().acked(UUID.fromString(ackedMessageId));
+        } catch (IllegalArgumentException e) {
+            services.metrics().unhandledMessage("invalid_ack");
+        }
+    }
+
+    /** Sends a queued command; false if the stream has closed. */
+    synchronized boolean deliver(OpenStreamResponse message) {
+        if (state != State.OPEN) {
+            return false;
+        }
+        responses.onNext(message);
+        return true;
     }
 
     private void onHeartbeat(Heartbeat heartbeat) {
