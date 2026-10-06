@@ -12,6 +12,15 @@ import java.util.UUID;
  */
 public interface CreditReservations {
 
+    /** A booking holds this many minutes of credit at the session's price (technical design line 389). */
+    int HOLD_MINUTES = 30;
+
+    /** What a booking holds: 30 minutes at {@code pricePaisePerMin}, never more than {@code maxSpend}. */
+    static Paise holdFor(long pricePaisePerMin, Paise maxSpend) {
+        var thirtyMinutes = Paise.of(pricePaisePerMin).times(HOLD_MINUTES);
+        return thirtyMinutes.isGreaterThan(maxSpend) ? maxSpend : thirtyMinutes;
+    }
+
     /**
      * Holds {@code amount} of the user's available credit for the session. False, changing nothing, if
      * the available balance (balance minus holds) is too low. Holding again for a session that already

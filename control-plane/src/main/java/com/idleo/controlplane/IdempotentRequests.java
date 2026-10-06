@@ -205,7 +205,7 @@ public class IdempotentRequests {
     }
 
     /** The header is a Structured Field String ("…"); a bare token is accepted too. */
-    static String parseKey(@Nullable String header) {
+    public static String parseKey(@Nullable String header) {
         if (header == null || header.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,

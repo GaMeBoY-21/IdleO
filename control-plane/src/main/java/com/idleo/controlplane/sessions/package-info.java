@@ -1,8 +1,35 @@
 /**
- * The sessions module. Owns: The session lifecycle, leases, attempts, checkpoints and per-session credentials.
+ * The sessions module. Owns: the session lifecycle, leases, attempts, checkpoints, per-session credentials,
+ * and the template catalog. Its tables live in the {@code sessions} database schema, and no other module
+ * reads them (ADR 0015).
  *
- * <p>Its tables live in the {@code sessions} database schema, and no other module reads them. See
- * docs/plan/technical-design.md, "Control plane modules and API".
+ * <p>Every session follows one state machine (technical design lines 194-218): every transition is checked
+ * against one table of allowed moves, bumps the session's version and writes an append-only {@code
+ * session_events} row, all in one transaction.
+ *
+ * <p>Public API for other modules:
+ *
+ * <ul>
+ *   <li>{@link com.idleo.controlplane.sessions.SessionBookings}: what the scheduler reads and changes while
+ *       booking a session;
+ *   <li>events: {@link com.idleo.controlplane.sessions.SessionRequested} when a renter books, and {@link
+ *       com.idleo.controlplane.sessions.SessionCancelled} when a session is cancelled before it runs.
+ * </ul>
+ *
+ * <p>Endpoints, owner-only; every error is an RFC 9457 problem detail.
+ *
+ * <ul>
+ *   <li>{@code GET /v1/templates}: what renters can run (templates/catalog.yaml).
+ *   <li>{@code POST /v1/sessions}, body {@code {"templateId", "maxPricePaisePerMin", "maxSpendPaise",
+ *       "vramNeededMb"?, "maxRuntimeSeconds"?}}, with an {@code Idempotency-Key}: books a batch session (201).
+ *       402 if the available credit can't cover the hold (30 minutes at the maximum price, up to the maximum
+ *       spend), before anything is created. The same key and body again returns the session (200); a
+ *       different body is 422.
+ *   <li>{@code GET /v1/sessions}, {@code GET /v1/sessions/{id}}: state, host once matched, price, the credit
+ *       held, and every state change with its reason and time.
+ *   <li>{@code POST /v1/sessions/{id}/cancel}: in REQUESTED, MATCHED or PROVISIONING; releases the hold,
+ *       withdraws any offer, bills nothing; repeating it changes nothing. 409 in any other state.
+ * </ul>
  */
 @ApplicationModule
 package com.idleo.controlplane.sessions;
