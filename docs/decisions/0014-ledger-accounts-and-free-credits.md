@@ -66,7 +66,12 @@ The kind of an account decides which side raises its balance:
   > "Closed System PPIs: These PPIs are issued by an entity for facilitating the purchase of goods and services from that entity only and do not permit cash withdrawal. These instruments cannot be used for payment or settlement for third party services. The issuance or operation of such instruments is not classified as a payment system requiring approval / authorisation by RBI and are, therefore, not regulated or supervised by RBI."
 
   Small and full-KYC PPIs are different: they can pay third parties, and full-KYC ones allow cash withdrawal and transfers. Those need RBI authorisation.
-- **To confirm with the lawyer and CA before paid top-ups.** Renters buy compute from us, but hosts, who are third parties, perform it and are paid out of what renters spend. Whether that still counts as a closed system, or the wallet has to be designed differently (for example, buying service from us rather than holding a balance that pays hosts), is the question. Free credit carries no paid money, so it's safe meanwhile.
+- **To confirm with the lawyer and CA before paid top-ups.** Renters buy compute from us, but hosts, who are third parties, perform it and are paid out of what renters spend. The closed-system definition excludes "payment or settlement for third party services", so the question is whether our structure keeps the wallet closed. Free credit carries no paid money, so it's safe meanwhile.
+- **The structure to put to them:**
+  - **The platform sells compute to renters, as merchant of record.** The renter's contract, price and invoice are with us, and the wallet buys only our service.
+  - **Hosts are the platform's suppliers.** We buy their GPU time, and owe it to them in `host_payable`, paid out weekly from our own account, never from a renter's wallet straight to a host.
+
+  Whether that makes the wallet a closed-system PPI, and what it means for GST, TDS on payouts and host contracts, stays an open question for the lawyer and CA.
 
 ### Money in code
 

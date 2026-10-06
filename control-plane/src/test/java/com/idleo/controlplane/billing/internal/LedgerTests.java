@@ -107,6 +107,22 @@ class LedgerTests {
     }
 
     @Test
+    void aRenterWalletEntryWithoutAnOwnerIsAValidationError() {
+        var transaction = new LedgerTransaction(
+                UUID.randomUUID(),
+                "credit_grant",
+                UUID.randomUUID(),
+                List.of(
+                        debit(Account.PROMOTIONS, null, Paise.of(100)),
+                        credit(Account.RENTER_WALLET, null, Paise.of(100))));
+
+        assertThatThrownBy(() -> ledger.post(transaction))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("renter_wallet needs an owner");
+        assertThat(entries(transaction.txnId())).isZero();
+    }
+
+    @Test
     void theCodeChecksATransactionBeforeTheDatabaseDoes() {
         var renter = UUID.randomUUID();
         var refused = List.of(

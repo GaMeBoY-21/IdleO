@@ -120,7 +120,9 @@ class Ledger {
         // turns and can't deadlock each other.
         var walletChanges = new TreeMap<UUID, Paise>();
         for (var entry : transaction.entries()) {
-            if (entry.account() == Account.RENTER_WALLET) {
+            // An owner-less renter entry never gets here past validate(); if it did, the database's
+            // ownership check refuses it rather than this map failing first.
+            if (entry.account() == Account.RENTER_WALLET && entry.ownerId() != null) {
                 walletChanges.merge(entry.ownerId(), entry.signedForCreditAccount(), Paise::plus);
             }
         }
