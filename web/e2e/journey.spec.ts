@@ -43,14 +43,14 @@ test("a booked session shows live on the home screen, through to its charge and 
   // session runs.
   await page.reload();
   const running = page.getByRole("region", { name: "Running now" });
-  await expect(running.getByText("Running")).toBeVisible({ timeout: 90_000 });
+  await expect(running.getByText("Running", { exact: true })).toBeVisible({ timeout: 90_000 });
   await expect(running.getByText("so far", { exact: true })).toBeVisible();
   await expect(page.getByText(/Live · updated/)).toBeVisible();
   await expectAccessible(page);
 
   // The smoke test runs 20 s: one started minute at 2 paise, charged once metering closes the session.
   const recent = page.getByRole("region", { name: "Recent" });
-  await expect(recent.getByText("Completed")).toBeVisible({ timeout: 120_000 });
+  await expect(recent.getByText("Completed", { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(recent.getByText("₹0.02")).toBeVisible({ timeout: 90_000 });
   await page.reload();
   await expect(credit.getByText("₹499.98").first()).toBeVisible({ timeout: 30_000 });
