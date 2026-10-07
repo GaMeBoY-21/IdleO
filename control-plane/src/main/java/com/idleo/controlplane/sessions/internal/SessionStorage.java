@@ -9,7 +9,6 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
@@ -39,20 +38,19 @@ class SessionStorage {
         return lastModified(key).isPresent();
     }
 
-    /** When storage finished writing {@code key}, on storage's clock; empty if it isn't there. */
+    /**
+     * When storage finished writing {@code key}, on storage's clock; empty if it isn't there. From a listing,
+     * which gives milliseconds, where a HEAD's Last-Modified gives only whole seconds.
+     */
     Optional<Instant> lastModified(String key) {
-        try {
-            return Optional.of(
-                    s3.headObject(request -> request.bucket(properties.bucket()).key(key))
-                            .lastModified());
-        } catch (NoSuchKeyException missing) {
-            return Optional.empty();
-        } catch (S3Exception e) {
-            if (e.statusCode() == 404) {
-                return Optional.empty();
-            }
-            throw e;
-        }
+        return s3
+                .listObjectsV2(request ->
+                        request.bucket(properties.bucket()).prefix(key).maxKeys(1))
+                .contents()
+                .stream()
+                .filter(object -> object.key().equals(key))
+                .findFirst()
+                .map(object -> object.lastModified());
     }
 
     /** Whether anything is stored under {@code prefix}. */
