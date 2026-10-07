@@ -1,17 +1,17 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostOwners;
 import com.idleo.controlplane.identity.CurrentUser;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * What a host has earned (ADR 0017), for its owner only: the balance of its {@code host_payable} account, which
@@ -41,7 +41,7 @@ class HostEarningsController {
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "" + LedgerPages.DEFAULT_PAGE) int limit) {
         if (!owners.owns(user.id(), hostId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such host.");
+            throw ApiProblem.of(Problem.NOT_FOUND, "No such host.");
         }
         long balance = jdbc.sql("""
                         select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0)

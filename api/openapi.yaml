@@ -762,7 +762,7 @@ components:
       - sessionId
     ProblemDetail:
       type: object
-      description: An RFC 9457 problem detail
+      description: An RFC 9457 problem detail (ADR 0019)
       properties:
         detail:
           type: string
@@ -787,7 +787,42 @@ components:
           type: string
         type:
           type: string
-          format: uri
+          format: uri-reference
+          description: "What kind of error it is: one of the types in docs/api/problems.md,\
+            \ /problems/<slug>. Clients branch on this, never on title or detail."
+          enum:
+          - /problems/validation-failed
+          - /problems/malformed-request
+          - /problems/unauthenticated
+          - /problems/account-suspended
+          - /problems/email-not-verified
+          - /problems/access-denied
+          - /problems/not-found
+          - /problems/method-not-allowed
+          - /problems/not-acceptable
+          - /problems/unsupported-media-type
+          - /problems/idempotency-key-invalid
+          - /problems/request-in-progress
+          - /problems/idempotency-key-reused
+          - /problems/version-required
+          - /problems/version-stale
+          - /problems/insufficient-credit
+          - /problems/session-not-cancellable
+          - /problems/session-not-running
+          - /problems/outputs-not-ready
+          - /problems/input-not-accepted
+          - /problems/input-required
+          - /problems/input-too-large
+          - /problems/upload-not-ready
+          - /problems/upload-parts-invalid
+          - /problems/upload-in-use
+          - /problems/upload-quota-exceeded
+          - /problems/too-many-streams
+          - /problems/internal-error
+      required:
+      - status
+      - title
+      - type
     SessionList:
       type: object
       properties:

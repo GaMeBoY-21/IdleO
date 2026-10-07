@@ -14,6 +14,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import java.util.Arrays;
 import java.util.List;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.customizers.OperationCustomizer;
@@ -129,8 +130,16 @@ class ApiContract {
         errors.setItems(fieldError);
         errors.setDescription("For a 400 with invalid fields: each field and what's wrong with it");
         var problem = new ObjectSchema();
-        problem.setDescription("An RFC 9457 problem detail");
-        problem.addProperty("type", new StringSchema().format("uri"));
+        problem.setDescription("An RFC 9457 problem detail (ADR 0019)");
+        problem.setRequired(List.of("type", "title", "status"));
+        var type = new StringSchema();
+        type.format("uri-reference");
+        type.setDescription("What kind of error it is: one of the types in docs/api/problems.md, /problems/<slug>. "
+                + "Clients branch on this, never on title or detail.");
+        type.setEnum(Arrays.stream(Problem.values())
+                .map(entry -> entry.type().toString())
+                .toList());
+        problem.addProperty("type", type);
         problem.addProperty("title", new StringSchema());
         problem.addProperty("status", new IntegerSchema());
         problem.addProperty("detail", new StringSchema());

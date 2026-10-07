@@ -1,5 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -15,7 +17,6 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 /** The signed-in user's own account. See the identity module's package documentation. */
 @RestController
@@ -84,8 +84,7 @@ class MeController {
             @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) @Nullable String ifMatch,
             @Valid @RequestBody UpdateMeRequest request) {
         if (ifMatch == null || ifMatch.isBlank() || ifMatch.trim().equals("*")) {
-            throw new ResponseStatusException(
-                    HttpStatus.PRECONDITION_REQUIRED, "Send If-Match with the ETag from GET /v1/me.");
+            throw ApiProblem.of(Problem.VERSION_REQUIRED, "Send If-Match with the ETag from GET /v1/me.");
         }
         var user = load(currentUser);
         if (!matches(ifMatch, etag(user))) {
@@ -112,8 +111,7 @@ class MeController {
         return Arrays.stream(ifMatch.split(",")).map(String::trim).anyMatch(etag::equals);
     }
 
-    private static ResponseStatusException stale() {
-        return new ResponseStatusException(
-                HttpStatus.PRECONDITION_FAILED, "The account changed since you read it. GET /v1/me and try again.");
+    private static ApiProblem stale() {
+        return ApiProblem.of(Problem.VERSION_STALE, "The account changed since you read it. GET /v1/me and try again.");
     }
 }

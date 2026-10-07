@@ -1,7 +1,9 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.SessionCancelled;
 import com.idleo.controlplane.sessions.SessionRequested;
@@ -15,11 +17,9 @@ import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.server.ResponseStatusException;
 
 /** Booking requests and cancellations from renters (ADR 0015). */
 @Service
@@ -74,17 +74,20 @@ class SessionService {
      */
     Created create(UUID renterId, String idempotencyKey, Request request) {
         var template = catalog.find(request.templateId())
-                .orElseThrow(() -> badRequest("There is no template " + request.templateId() + "."));
+                .orElseThrow(
+                        () -> ApiProblem.invalid("templateId", "There is no template " + request.templateId() + "."));
         int vram = request.vramNeededMb() == null ? template.minVramMb() : request.vramNeededMb();
         if (vram < template.minVramMb()) {
-            throw badRequest("vramNeededMb must be at least the template's " + template.minVramMb() + " MB.");
+            throw ApiProblem.invalid(
+                    "vramNeededMb", "must be at least the template's " + template.minVramMb() + " MB.");
         }
         var maxRuntime = request.maxRuntimeSeconds() == null
                 ? template.defaultMaxRuntime()
                 : Duration.ofSeconds(request.maxRuntimeSeconds());
         if (maxRuntime.compareTo(template.maxRuntimeCap()) > 0) {
-            throw badRequest("maxRuntimeSeconds must be at most the template's "
-                    + template.maxRuntimeCap().toSeconds() + " seconds.");
+            throw ApiProblem.invalid(
+                    "maxRuntimeSeconds",
+                    "must be at most the template's " + template.maxRuntimeCap().toSeconds() + " seconds.");
         }
         var hash = hash(request.templateId(), request.maxPricePaisePerMin(), request.maxSpendPaise(), vram, maxRuntime);
         return Objects.requireNonNull(transactions.execute(status -> {
@@ -95,8 +98,8 @@ class SessionService {
             var hold = CreditReservations.holdFor(request.maxPricePaisePerMin(), Paise.of(request.maxSpendPaise()));
             var available = reservations.available(renterId);
             if (hold.isGreaterThan(available)) {
-                throw new ResponseStatusException(
-                        HttpStatus.PAYMENT_REQUIRED,
+                throw ApiProblem.of(
+                        Problem.INSUFFICIENT_CREDIT,
                         "Booking holds " + hold.value() + " paise (30 minutes at your maximum price, up to your "
                                 + "maximum spend), but only " + available.value() + " paise of credit is available.");
             }
@@ -133,8 +136,8 @@ class SessionService {
 
     private static Created repeat(SessionStore.Session existing, String hash) {
         if (!existing.requestHash().equals(hash)) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNPROCESSABLE_CONTENT,
+            throw ApiProblem.of(
+                    Problem.IDEMPOTENCY_KEY_REUSED,
                     "This Idempotency-Key was already used for a different session request.");
         }
         return new Created(existing, false);
@@ -155,8 +158,8 @@ class SessionService {
                 var notYet = session.state() == SessionState.REQUESTED
                         || session.state() == SessionState.MATCHED
                         || session.state() == SessionState.PROVISIONING;
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
+                throw ApiProblem.of(
+                        Problem.SESSION_NOT_RUNNING,
                         notYet
                                 ? "This session hasn't started running: cancel it with POST /v1/sessions/" + sessionId
                                         + "/cancel."
@@ -178,8 +181,9 @@ class SessionService {
             }
             var outcome = store.transition(sessionId, SessionEvent.CANCEL, "renter_cancelled", null, SessionStore.KEEP);
             if (outcome != SessionStore.Outcome.APPLIED) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT, "A session can't be cancelled once it's " + session.state() + ".");
+                throw ApiProblem.of(
+                        Problem.SESSION_NOT_CANCELLABLE,
+                        "A session can't be cancelled once it's " + session.state() + ".");
             }
             store.endAttempt(sessionId, session.attempt());
             holds.releaseUnlessMetered(sessionId);
@@ -199,11 +203,7 @@ class SessionService {
     SessionStore.Session owned(UUID renterId, UUID sessionId) {
         return store.find(sessionId)
                 .filter(session -> session.renterId().equals(renterId))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such session."));
-    }
-
-    private static ResponseStatusException badRequest(String message) {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "No such session."));
     }
 
     private static String hash(String templateId, int maxPrice, long maxSpend, int vram, Duration maxRuntime) {

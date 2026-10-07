@@ -32,7 +32,9 @@ describe("the credit card", () => {
   it("says what went wrong and offers to try again", async () => {
     const refetch = vi.fn(async () => ({}) as never);
     render(
-      <CreditCard wallet={queryResult({ isError: true, error: new ApiError(503, null, null), refetch })} />,
+      <CreditCard
+        wallet={queryResult({ isError: true, error: new ApiError(503, null, null, null), refetch })}
+      />,
     );
     expect(screen.getByText(/problem on our side/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));

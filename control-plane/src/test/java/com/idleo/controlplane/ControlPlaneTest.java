@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Import;
     TestIssuersConfiguration.class,
     TestPkiConfiguration.class,
     TestClockConfiguration.class,
-    ThrowingController.class
+    ThrowingController.class,
+    TypedProblemsGuard.class
 })
 public @interface ControlPlaneTest {}

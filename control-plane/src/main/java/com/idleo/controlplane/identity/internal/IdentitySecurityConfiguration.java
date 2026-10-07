@@ -33,8 +33,8 @@ class IdentitySecurityConfiguration {
     AuthorizationManager<RequestAuthorizationContext> activeUserAuthorization() {
         return (authentication, context) -> {
             if (authentication.get() instanceof IdentityAuthenticationToken token) {
-                token.denial().ifPresent(reason -> {
-                    throw new ClientAccessDeniedException(reason);
+                token.denial().ifPresent(denial -> {
+                    throw new ClientAccessDeniedException(denial.problem(), denial.message());
                 });
                 return new AuthorizationDecision(true);
             }

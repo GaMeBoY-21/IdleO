@@ -1,5 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.ApiProblem;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -8,10 +9,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 import org.jspecify.annotations.Nullable;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * One owner's ledger entries, newest first, a page at a time (ADR 0014): a renter's wallet or a host's payable.
@@ -42,7 +41,7 @@ class LedgerPages {
      */
     HistoryPage page(Account account, UUID ownerId, @Nullable String cursor, int limit, UnaryOperator<String> kind) {
         if (limit < 1 || limit > MAX_PAGE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be from 1 to " + MAX_PAGE + ".");
+            throw ApiProblem.invalid("limit", "must be from 1 to " + MAX_PAGE + ".");
         }
         var after = cursor == null ? null : Cursor.decode(cursor);
         var sql = """
@@ -95,7 +94,7 @@ class LedgerPages {
                         Long.parseLong(raw.substring(0, dot)), Long.parseLong(raw.substring(dot + 1, colon)));
                 return new Cursor(instant, UUID.fromString(raw.substring(colon + 1)));
             } catch (RuntimeException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That cursor isn't valid.");
+                throw ApiProblem.invalid("cursor", "isn't a cursor this API gave out.");
             }
         }
     }

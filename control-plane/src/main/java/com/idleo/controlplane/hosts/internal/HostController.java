@@ -1,6 +1,8 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdempotentRequests;
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.hosts.HostPresence;
 import com.idleo.controlplane.identity.CurrentUser;
@@ -32,7 +34,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 /** The signed-in user's hosts. See the hosts module's package documentation. */
 @RestController
@@ -172,7 +173,7 @@ class HostController {
                 .body(new EnrolmentCodeResponse(issued.code(), issued.expiresAt()));
     }
 
-    private static ResponseStatusException notFound() {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, "No such host.");
+    private static ApiProblem notFound() {
+        return ApiProblem.of(Problem.NOT_FOUND, "No such host.");
     }
 }

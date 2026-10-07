@@ -1,11 +1,11 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Problem;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * A completed session's outputs for its renter (ADR 0016): the files the successful attempt wrote under
@@ -35,8 +35,8 @@ class SessionOutputs {
     Outputs of(UUID renterId, UUID sessionId) {
         var session = sessions.owned(renterId, sessionId);
         if (session.state() != SessionState.COMPLETED) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
+            throw ApiProblem.of(
+                    Problem.OUTPUTS_NOT_READY,
                     "Outputs can be downloaded once the session is COMPLETED; it's " + session.state() + ".");
         }
         var prefix = StorageLayout.outputsPrefix(sessionId, session.attempt());

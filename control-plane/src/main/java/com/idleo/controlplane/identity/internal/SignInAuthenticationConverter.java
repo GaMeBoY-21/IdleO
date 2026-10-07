@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
 import java.util.Objects;
 import org.springframework.core.convert.converter.Converter;
@@ -31,8 +32,9 @@ class SignInAuthenticationConverter implements Converter<Jwt, AbstractAuthentica
                 token.getClaimAsString("name"));
         return switch (signIn.signIn(claims)) {
             case SignInOutcome.Active active -> IdentityAuthenticationToken.allowed(new CurrentUser(active.userId()));
-            case SignInOutcome.Suspended _ -> IdentityAuthenticationToken.denied(SUSPENDED);
-            case SignInOutcome.EmailNotVerified _ -> IdentityAuthenticationToken.denied(EMAIL_NOT_VERIFIED);
+            case SignInOutcome.Suspended _ -> IdentityAuthenticationToken.denied(Problem.ACCOUNT_SUSPENDED, SUSPENDED);
+            case SignInOutcome.EmailNotVerified _ ->
+                IdentityAuthenticationToken.denied(Problem.EMAIL_NOT_VERIFIED, EMAIL_NOT_VERIFIED);
         };
     }
 }

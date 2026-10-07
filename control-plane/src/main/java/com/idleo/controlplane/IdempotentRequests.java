@@ -13,13 +13,11 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -28,10 +26,10 @@ import tools.jackson.databind.json.JsonMapper;
  * https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/).
  *
  * <ul>
- *   <li>A missing or malformed key gets 400.
+ *   <li>A missing or malformed key gets 400 {@code idempotency-key-invalid}.
  *   <li>The same key with the same request body returns the stored response, byte for byte.
- *   <li>The same key with a different body gets 422.
- *   <li>A request while the first with that key is still running gets 409.
+ *   <li>The same key with a different body gets 422 {@code idempotency-key-reused}.
+ *   <li>A request while the first with that key is still running gets 409 {@code request-in-progress}.
  *   <li>Keys are scoped to the user and expire after 24 hours.
  * </ul>
  *
@@ -84,19 +82,20 @@ public class IdempotentRequests {
 
         if (!claim(table, userId, key, fingerprint)) {
             var earlier = find(table, userId, key)
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.CONFLICT, "A request with this Idempotency-Key is still being processed."));
+                    .orElseThrow(() -> ApiProblem.of(
+                            Problem.REQUEST_IN_PROGRESS,
+                            "A request with this Idempotency-Key is still being processed."));
             if (!Arrays.equals(earlier.requestHash(), fingerprint)) {
-                throw new ResponseStatusException(
-                        HttpStatus.UNPROCESSABLE_CONTENT,
+                throw ApiProblem.of(
+                        Problem.IDEMPOTENCY_KEY_REUSED,
                         "This Idempotency-Key was already used with a different request body.");
             }
             if (earlier.completed()) {
                 return replay(earlier);
             }
             if (!takeOverAbandoned(table, userId, key)) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
+                throw ApiProblem.of(
+                        Problem.REQUEST_IN_PROGRESS,
                         "A request with this Idempotency-Key is still being processed. Retry shortly.");
             }
         }
@@ -207,8 +206,8 @@ public class IdempotentRequests {
     /** The header is a Structured Field String ("…"); a bare token is accepted too. */
     public static String parseKey(@Nullable String header) {
         if (header == null || header.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
+            throw ApiProblem.of(
+                    Problem.IDEMPOTENCY_KEY_INVALID,
                     "This request needs an Idempotency-Key header: a unique string of up to 255 characters.");
         }
         var value = header.strip();
@@ -216,8 +215,8 @@ public class IdempotentRequests {
             value = value.substring(1, value.length() - 1);
         }
         if (!KEY.matcher(value).matches()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
+            throw ApiProblem.of(
+                    Problem.IDEMPOTENCY_KEY_INVALID,
                     "The Idempotency-Key must be 1 to 255 visible ASCII characters, without spaces.");
         }
         return value;
