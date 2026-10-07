@@ -430,6 +430,189 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - template
+  /v1/uploads:
+    get:
+      operationId: uploadList
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - upload
+    post:
+      operationId: uploadCreate
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUploadRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewUpload"
+          description: "A repeat with the same Idempotency-Key: the same upload, with\
+            \ fresh links"
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewUpload"
+          description: "The new upload, with its part links"
+          headers:
+            Location:
+              description: The upload's URL
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - upload
+  /v1/uploads/{id}:
+    delete:
+      operationId: uploadDelete
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: "Deleted, or already gone"
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - upload
+    get:
+      operationId: uploadGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - upload
+  /v1/uploads/{id}/complete:
+    post:
+      operationId: uploadComplete
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteUploadRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - upload
+  /v1/uploads/{id}/part-urls:
+    post:
+      operationId: uploadPartUrls
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PartLinksRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadPartLinks"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - upload
   /v1/wallet:
     get:
       operationId: walletGet
@@ -481,6 +664,17 @@ paths:
       - wallet
 components:
   schemas:
+    CompleteUploadRequest:
+      type: object
+      properties:
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadedPart"
+          maxItems: 10000
+          minItems: 0
+      required:
+      - parts
     CreateHostRequest:
       type: object
       properties:
@@ -520,6 +714,19 @@ components:
       - maxPricePaisePerMin
       - maxSpendPaise
       - templateId
+    CreateUploadRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+          minLength: 1
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+      required:
+      - filename
+      - sizeBytes
     Earnings:
       type: object
       properties:
@@ -725,6 +932,55 @@ components:
       - createdAt
       - id
       - status
+    NewUpload:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        filename:
+          type: string
+        id:
+          type: string
+          format: uuid
+        partCount:
+          type: integer
+          format: int32
+        partSizeBytes:
+          type: integer
+          format: int64
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadPartLink"
+        sizeBytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - pending
+          - ready
+          - failed
+          - expired
+          - deleted
+        urlsExpireAt:
+          type: string
+          format: date-time
+      required:
+      - createdAt
+      - expiresAt
+      - filename
+      - id
+      - partCount
+      - partSizeBytes
+      - parts
+      - sizeBytes
+      - status
+      - urlsExpireAt
     Output:
       type: object
       properties:
@@ -760,6 +1016,20 @@ components:
       - files
       - linksExpireAt
       - sessionId
+    PartLinksRequest:
+      type: object
+      properties:
+        partNumbers:
+          type: array
+          items:
+            type: integer
+            format: int32
+            maximum: 10000
+            minimum: 1
+          maxItems: 10000
+          minItems: 0
+      required:
+      - partNumbers
     ProblemDetail:
       type: object
       description: An RFC 9457 problem detail (ADR 0019)
@@ -1098,6 +1368,102 @@ components:
           minLength: 0
       required:
       - displayName
+    UploadList:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        uploads:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadResponse"
+      required:
+      - uploads
+    UploadPartLink:
+      type: object
+      properties:
+        number:
+          type: integer
+          format: int32
+        url:
+          type: string
+      required:
+      - number
+      - url
+    UploadPartLinks:
+      type: object
+      properties:
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadPartLink"
+        urlsExpireAt:
+          type: string
+          format: date-time
+      required:
+      - parts
+      - urlsExpireAt
+    UploadResponse:
+      type: object
+      properties:
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        filename:
+          type: string
+        id:
+          type: string
+          format: uuid
+        partCount:
+          type: integer
+          format: int32
+        partSizeBytes:
+          type: integer
+          format: int64
+        sizeBytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - pending
+          - ready
+          - failed
+          - expired
+          - deleted
+      required:
+      - createdAt
+      - expiresAt
+      - filename
+      - id
+      - partCount
+      - partSizeBytes
+      - sizeBytes
+      - status
+    UploadedPart:
+      type: object
+      properties:
+        etag:
+          type: string
+          minLength: 1
+        number:
+          type: integer
+          format: int32
+          maximum: 10000
+          minimum: 1
+      required:
+      - etag
+      - number
     WalletResponse:
       type: object
       properties:

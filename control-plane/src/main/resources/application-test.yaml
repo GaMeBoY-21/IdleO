@@ -33,6 +33,10 @@ sessions:
   # input (ADR 0019). Tests run from control-plane/.
   templates:
     catalog: file:../templates/development.yaml
+  # Storage's smallest part, so a few MiB really upload in several parts.
+  uploads:
+    part-size: 5MB
+    quota: 64MB
   provisioning-timeout: 5s
   # Short, so tests see grants refreshed (MinIO's own credentials still last 15 minutes).
   storage:

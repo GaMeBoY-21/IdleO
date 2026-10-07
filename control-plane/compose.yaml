@@ -27,6 +27,10 @@ services:
     environment:
       MINIO_ROOT_USER: local-storage-root
       MINIO_ROOT_PASSWORD: local-only-not-a-secret
+      # Browsers PUT upload parts straight to storage (ADR 0019): only the web
+      # app's origins may, and MinIO exposes ETag, which completing needs.
+      # WEB_ALLOWED_ORIGINS is the control plane's own list, comma-separated.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     ports:
       # A fixed port: agents and download links use this endpoint.
       - "127.0.0.1:${LOCAL_STORAGE_PORT:-9100}:9000"

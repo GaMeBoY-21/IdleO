@@ -14,8 +14,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /**
  * What the control plane itself does in storage, with its own key (ADR 0016): check a completion marker
- * exists, list a folder, and sign a renter's download link. It never trusts an agent's word that a
- * checkpoint or the outputs are complete.
+ * exists, list a folder, read a log chunk, and sign a renter's download link; and for uploads (ADR 0019), open,
+ * sign, complete and abort multipart uploads, and delete objects. It never trusts an agent's word that a
+ * checkpoint or the outputs are complete, and never carries an upload's bytes.
  */
 class SessionStorage {
 
@@ -70,6 +71,101 @@ class SessionStorage {
                             objects.add(new StoredObject(object.key(), object.size(), object.lastModified())));
         }
         return objects;
+    }
+
+    /** Opens a multipart upload at {@code key}; its id. */
+    String openMultipart(String key) {
+        return s3.createMultipartUpload(
+                        request -> request.bucket(properties.bucket()).key(key))
+                .uploadId();
+    }
+
+    /** A link a client PUTs part {@code partNumber} to, for {@code ttl}. */
+    URL partLink(String key, String multipartId, int partNumber, Duration ttl) {
+        return presigner
+                .presignUploadPart(request -> request.signatureDuration(ttl)
+                        .uploadPartRequest(part -> part.bucket(properties.bucket())
+                                .key(key)
+                                .uploadId(multipartId)
+                                .partNumber(partNumber)))
+                .url();
+    }
+
+    /** A part as the client uploaded it: its number and the ETag storage gave it. */
+    record PartEtag(int number, String etag) {}
+
+    /**
+     * Joins the parts into the object; false if storage refuses them (a part missing, or an ETag that doesn't
+     * match), leaving the multipart upload open to try again.
+     */
+    boolean completeMultipart(String key, String multipartId, List<PartEtag> parts) {
+        try {
+            s3.completeMultipartUpload(request -> request.bucket(properties.bucket())
+                    .key(key)
+                    .uploadId(multipartId)
+                    .multipartUpload(upload -> upload.parts(parts.stream()
+                            .map(part -> software.amazon.awssdk.services.s3.model.CompletedPart.builder()
+                                    .partNumber(part.number())
+                                    .eTag(part.etag())
+                                    .build())
+                            .toList())));
+            return true;
+        } catch (S3Exception refused) {
+            if (refused.statusCode() >= 500) {
+                throw refused;
+            }
+            log.info(
+                    "Storage refused to complete multipart upload of {}: {}",
+                    key,
+                    refused.awsErrorDetails() == null
+                            ? refused.statusCode()
+                            : refused.awsErrorDetails().errorCode());
+            return false;
+        }
+    }
+
+    /** Aborts a multipart upload, dropping its parts; nothing if it's already gone. */
+    void abortMultipart(String key, String multipartId) {
+        try {
+            s3.abortMultipartUpload(
+                    request -> request.bucket(properties.bucket()).key(key).uploadId(multipartId));
+        } catch (S3Exception gone) {
+            if (gone.statusCode() != 404) {
+                throw gone;
+            }
+        }
+    }
+
+    /** The object's size, from storage; empty if it isn't there. */
+    Optional<Long> size(String key) {
+        try {
+            return Optional.of(
+                    s3.headObject(request -> request.bucket(properties.bucket()).key(key))
+                            .contentLength());
+        } catch (S3Exception missing) {
+            if (missing.statusCode() == 404) {
+                return Optional.empty();
+            }
+            throw missing;
+        }
+    }
+
+    /** Reads an object whole; empty if it isn't there. For small objects, such as log chunks. */
+    Optional<byte[]> read(String key) {
+        try {
+            return Optional.of(s3.getObjectAsBytes(
+                            request -> request.bucket(properties.bucket()).key(key))
+                    .asByteArray());
+        } catch (S3Exception missing) {
+            if (missing.statusCode() == 404) {
+                return Optional.empty();
+            }
+            throw missing;
+        }
+    }
+
+    void delete(String key) {
+        s3.deleteObject(request -> request.bucket(properties.bucket()).key(key));
     }
 
     URL downloadLink(String key, Duration ttl) {

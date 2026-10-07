@@ -1,10 +1,10 @@
 # Object storage for sessions (by Nikki)
 
-Jobs read their input and write checkpoints and outputs in S3-compatible object storage (ADR 0016):
+Renters upload inputs, and jobs read them and write checkpoints, outputs and logs, in S3-compatible object storage (ADR 0016, ADR 0019):
 - **Cloudflare R2** in production;
 - **MinIO**, from `control-plane/compose.yaml`, locally and in CI.
 
-Agents never get a long-lived key. For each delivery of a StartSession, the control plane mints two short-lived grants limited to the attempt's folders, and storage enforces the limit. Renters download outputs through pre-signed links valid for 15 minutes.
+Agents never get a long-lived key. For each delivery of a StartSession, the control plane mints two short-lived grants limited to the attempt's folders and its input, and storage enforces the limit. Renters upload through pre-signed multipart links valid for an hour, and download outputs through pre-signed links valid for 15 minutes; the control plane never carries the bytes.
 
 **Nothing is created yet.** This page is what to set up before the first production deployment. Never put a key or token in git, and never send one in chat: they go only into the deployment's secret store.
 
@@ -13,10 +13,13 @@ Agents never get a long-lived key. For each delivery of a StartSession, the cont
 One bucket per environment, laid out exactly as `proto/README.md` "Storage layout":
 
 ```
-sessions/{session_id}/input/                                  the job's input; agents read it only
+uploads/{upload_id}/{name}                                    a renter's upload; a session's input, agents read it only
 sessions/{session_id}/attempt-{n}/checkpoints/{seq:08}/...    a checkpoint, _COMPLETE written last
 sessions/{session_id}/attempt-{n}/outputs/...                 the outputs, _COMPLETE written last
+sessions/{session_id}/attempt-{n}/logs/{seq:08}.log           the job's logs, one chunk each
 ```
+
+Pending uploads are aborted after a day and ready ones deleted 30 days after they completed (`sessions.uploads.*`), never while a session that hasn't ended uses them.
 
 ## Setting up R2 (once per environment)
 
@@ -26,6 +29,26 @@ sessions/{session_id}/attempt-{n}/outputs/...                 the outputs, _COMP
    - It's also the parent that every temporary agent credential derives from. Temporary credentials can never exceed their parent, which is why it covers this one bucket.
 3. **An API token to mint temporary credentials.** Under My Profile (or the account), then API Tokens, create a token with **Account → Workers R2 Storage → Edit** for this account. It calls `POST /accounts/{account_id}/r2/temp-access-credentials`: https://developers.cloudflare.com/api/resources/r2/subresources/temporary_credentials/methods/create/. Put it in the secret store.
 4. **The account id** is on the R2 overview page. The S3 endpoint is `https://<account id>.r2.cloudflarestorage.com`.
+5. **CORS, for uploads from the browser.** The web app PUTs upload parts straight to the bucket and must read each part's `ETag` to complete the upload. On the bucket, open Settings, then CORS policy, and set exactly this, with the web app's own origins (the same list as `WEB_ALLOWED_ORIGINS`; never `*`, never plain `http`):
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://app.example"],
+       "AllowedMethods": ["PUT", "GET", "HEAD"],
+       "AllowedHeaders": ["content-type"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+   Check it from a terminal; the answer must include `Access-Control-Allow-Origin` with the web origin, and allow `PUT`:
+
+   ```
+   curl -si -X OPTIONS "https://<account id>.r2.cloudflarestorage.com/<bucket>/uploads/probe" \
+     -H "Origin: https://app.example" -H "Access-Control-Request-Method: PUT"
+   ```
 
 ## Environment variables (prod profile)
 
@@ -60,8 +83,8 @@ Common causes of a minting error:
 3. Redeploy.
 4. Delete the old one.
 
-Grants already issued keep working until they expire, at most an hour. Running jobs then lose storage access, and `RefreshCredentials` isn't built yet (ADR 0016), so rotate when no long job is running.
+Grants already issued keep working until they expire, at most an hour; running jobs get fresh ones through `RefreshCredentials` (ADR 0017), minted from the new key. Upload part links already handed out stop working with the old key, so a renter mid-upload asks for fresh ones (`POST /v1/uploads/{id}/part-urls`).
 
 ## Locally
 
-`compose.yaml` runs MinIO on `127.0.0.1:9100` (`LOCAL_STORAGE_PORT` moves it), with the throwaway root user `local-storage-root`. The control plane creates the `idleo-local` bucket at startup and mints grants with MinIO's STS. The MinIO console isn't exposed. To look inside, use any S3 client against `http://localhost:9100` with the root user from `compose.yaml`.
+`compose.yaml` runs MinIO on `127.0.0.1:9100` (`LOCAL_STORAGE_PORT` moves it), with the throwaway root user `local-storage-root`, allowing CORS from the web app's origins only (`MINIO_API_CORS_ALLOW_ORIGIN`, from `WEB_ALLOWED_ORIGINS`; `scripts/e2e/agent-online.sh` checks the preflight). The control plane creates the `idleo-local` bucket at startup and mints grants with MinIO's STS. The MinIO console isn't exposed. To look inside, use any S3 client against `http://localhost:9100` with the root user from `compose.yaml`.
