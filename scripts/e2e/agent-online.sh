@@ -7,33 +7,46 @@
 # one per host, and charges them (ADRs 0015, 0016, 0017): a two-and-a-half-minute run charged exactly
 # three minutes; a run the renter stops mid-way after a last checkpoint; a run whose agent is killed,
 # whose lease lapses, and which resumes as attempt 2, the minutes lost after attempt 1's checkpoint
-# given back; and a run stopped at its spending cap. It runs the wallet check, then watches the hosts
-# go offline once the agents stop. Everything it writes
+# given back; and a run stopped at its spending cap. A fifth agent serves the web app's journey
+# (ADR 0018): the renter signs in through the browser and watches a booked session to its charge on
+# the home screen. It runs the wallet check, then watches the hosts go offline once the agents stop.
+# Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
 #
 #   scripts/e2e/agent-online.sh                 run the check
 #   scripts/e2e/agent-online.sh --keep-running  start only the stack, print a curl with a fresh
 #                                               token, and keep it up until Ctrl-C
+#   scripts/e2e/agent-online.sh --web           the web app's checks (.github/workflows/web.yml): the
+#                                               stack and one agent, then every screen and state with
+#                                               axe and visual baselines, the Firebase screens, the
+#                                               journey, Lighthouse's budgets and the size budget
 #
 # Ports, from the environment: E2E_HTTP_PORT (8080), E2E_GRPC_PORT (9443), LOCAL_SIGN_IN_PORT (8099),
-# LOCAL_STORAGE_PORT (9100).
+# LOCAL_STORAGE_PORT (9100), E2E_WEB_PORT (3000), E2E_FIREBASE_WEB_PORT (3001).
+# --web compares screenshots with VISUAL_BASELINE_DIR (web/visual-baseline): an empty one is filled
+# first; otherwise every picture must match, and a new or changed picture fails until accepted with
+# E2E_UPDATE_SNAPSHOTS=all (Playwright's --update-snapshots; web/README.md "Screenshots").
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
 
 keep_running=false
+web_only=false
 case "${1:-}" in
   "") ;;
   --keep-running) keep_running=true ;;
-  *) echo "usage: $0 [--keep-running]" >&2; exit 2 ;;
+  --web) web_only=true ;;
+  *) echo "usage: $0 [--keep-running | --web]" >&2; exit 2 ;;
 esac
 
 http_port="${E2E_HTTP_PORT:-8080}"
 grpc_port="${E2E_GRPC_PORT:-9443}"
 sign_in_port="${LOCAL_SIGN_IN_PORT:-8099}"
 storage_port="${LOCAL_STORAGE_PORT:-9100}"
+web_port="${E2E_WEB_PORT:-3000}"
+firebase_web_port="${E2E_FIREBASE_WEB_PORT:-3001}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
 # A short lease, so losing the host shows within seconds (production: 2 minutes, renewed every 30 s).
 lease_ttl="${E2E_LEASE_TTL:-10s}"
@@ -46,6 +59,11 @@ compose_project=idleo-e2e
 for dir in "$HOME/.cargo/bin" /opt/homebrew/opt/rustup/bin; do
   [[ -d "$dir" ]] && PATH="$PATH:$dir"
 done
+# The web app pins Node 24 (web/.node-version); a Mac may keep it beside a newer Node.
+for dir in /opt/homebrew/opt/node@24/bin "$HOME/.local/node24-bin"; do
+  [[ -d "$dir" ]] && PATH="$dir:$PATH"
+done
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 if ! git check-ignore -q "$out/probe"; then
   echo "e2e: refusing to write keys and tokens: private/e2e/ is not gitignored." >&2
@@ -174,13 +192,17 @@ checkpointed_after_stop() {
 # Scenarios run in subshells, side by side; each writes its summary lines to its own file.
 note() { printf '%s\n' "$*" >>"$out/summary-$scenario.txt"; }
 
-agents=4
+# Four charged scenarios and the web journey, one host each; the web checks need one host.
+if $web_only; then agents=1; else agents=5; fi
 control_plane_pid=""
 summary=()
 
 cleanup() {
   local status=$?
   set +e
+  for pid_file in "$out"/web-*.pid; do
+    [[ -f "$pid_file" ]] && kill -TERM "$(cat "$pid_file")" 2>/dev/null
+  done
   for pid_file in "$out"/agent-*.pid; do
     [[ -f "$pid_file" ]] && kill -TERM "$(cat "$pid_file")" 2>/dev/null
   done
@@ -217,11 +239,14 @@ cleanup() {
   if pgrep -f "$out/agent-[0-9]*.toml" >/dev/null 2>&1; then
     leftovers+=" agent"
   fi
+  if pgrep -f "web/scripts/serve.ts" >/dev/null 2>&1; then
+    leftovers+=" web"
+  fi
   if [[ -n "$leftovers" ]]; then
     printf 'e2e: FAIL: still running after teardown:%s\n' "$leftovers" >&2
     status=1
   else
-    summary+=("teardown: nothing left running (containers, control plane, agents): PASS")
+    summary+=("teardown: nothing left running (containers, control plane, agents, web): PASS")
   fi
 
   if [[ ${#summary[@]} -gt 0 ]]; then
@@ -245,9 +270,9 @@ on_signal() {
 }
 trap on_signal INT TERM
 
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$web_port" "$firebase_web_port"; do
   if port_in_use "$port"; then
-    fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT or LOCAL_STORAGE_PORT"
+    fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, E2E_WEB_PORT or E2E_FIREBASE_WEB_PORT"
   fi
 done
 docker info >/dev/null 2>&1 || fail "Docker isn't running"
@@ -265,6 +290,8 @@ set -m
   unset IDENTITY_ISSUERS_0_ISSUERURI IDENTITY_ISSUERS_0_AUDIENCE SPRING_PROFILES_ACTIVE SPRING_PROFILES_INCLUDE
   export SERVER_PORT="$http_port" SPRING_GRPC_SERVER_PORT="$grpc_port" LOCAL_SIGN_IN_PORT="$sign_in_port"
   export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
+  # The web app's origin, which may call the API from a browser (ADR 0018).
+  export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
   # The smoke test as the development runner runs it: 20 s, a checkpoint every 5 s (ADR 0016).
   export SESSIONS_TEMPLATES_CATALOG="file:$root/templates/development.yaml"
   # A short lease, renewed every 3 s; a lost host counts as lost 2 s after it ends.
@@ -353,6 +380,40 @@ done
 unset codes code
 summary+=("agents enrolled: $agents")
 
+# 5b. Build the web app (ADR 0018) against this stack and serve it as a host would (web/scripts/serve.ts):
+#     the local sign-in adapter at :$web_port; for --web, also a Firebase build with placeholder settings
+#     at :$firebase_web_port, for the screens only that adapter has (its sign-in calls answered by fixtures).
+log "building the web app"
+web_started="$(now_ms)"
+(cd web && pnpm install --frozen-lockfile) >"$out/web-build.log" 2>&1 || fail "pnpm install failed; see private/e2e/web-build.log"
+(cd web && IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
+  VITE_OIDC_CLIENT_ID=idleo-local pnpm build) >>"$out/web-build.log" 2>&1 || fail "the web build failed; see private/e2e/web-build.log"
+if $web_only; then
+  (cd web && IDLEO_DIST=dist-firebase IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_AUTH=firebase \
+    VITE_FIREBASE_API_KEY=placeholder-not-a-key VITE_FIREBASE_AUTH_DOMAIN=placeholder.firebaseapp.com \
+    VITE_FIREBASE_PROJECT_ID=placeholder pnpm build) >>"$out/web-build.log" 2>&1 ||
+    fail "the Firebase web build failed; see private/e2e/web-build.log"
+fi
+serve_web() {
+  (cd web && IDLEO_DIST="$1" PORT="$2" exec node scripts/serve.ts) >>"$out/web-serve.log" 2>&1 &
+  echo $! >"$out/web-$2.pid"
+  local deadline=$((SECONDS + 15))
+  until curl -sf "http://localhost:$2/sign-in/" >/dev/null 2>&1; do
+    ((SECONDS < deadline)) || fail "the web app didn't start on :$2; see private/e2e/web-serve.log"
+    sleep 0.2
+  done
+}
+serve_web dist "$web_port"
+$web_only && serve_web dist-firebase "$firebase_web_port"
+(cd web && pnpm exec playwright install chromium) >>"$out/web-build.log" 2>&1 || fail "installing Playwright's browser failed"
+summary+=("web app built and served: $(seconds_since "$web_started") s")
+web_url="http://localhost:$web_port"
+# Playwright, with this stack's addresses (web/playwright.config.ts).
+web_test() {
+  (cd web && WEB_URL="$web_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
+    pnpm exec playwright test "$@")
+}
+
 host_online() {
   curl -sf "$api/v1/hosts/$1" -H "Authorization: Bearer $token" | grep -q "\"online\":$2"
 }
@@ -392,7 +453,17 @@ token_b="$(curl -sf -X POST "$sign_in/token" \
 [[ -n "$token_b" ]] || fail "no token for the second renter"
 user_b_id="$(token="$token_b" api_get /v1/me | json_get .id)"
 setup_started="$(now_ms)"
-for renter in "$user_id" "$user_b_id"; do
+# The web journey's renter (ADR 0018): created by a first request with the same invented identity the
+# browser signs in with, and given credit before the browser sees it.
+web_user="$user-web"
+web_token="$(curl -sf -X POST "$sign_in/token" \
+  -d grant_type=client_credentials -d "client_id=$web_user" -d client_secret=unused -d scope=openid |
+  json_field access_token)"
+[[ -n "$web_token" ]] || fail "no token for the web journey's renter"
+web_user_id="$(token="$web_token" api_get /v1/me | json_get .id)"
+renters=("$web_user_id")
+$web_only || renters+=("$user_id" "$user_b_id")
+for renter in "${renters[@]}"; do
   ops grant-credits --user "$renter" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$renter" ||
     fail "grant-credits failed; see private/e2e/ops.log"
 done
@@ -401,9 +472,11 @@ for id in "${host_ids[@]}"; do
     -d '{"batchPricePaisePerMin": 2, "gpuTempCapC": 85, "maxConcurrentSessions": 1}' >/dev/null || fail "PUT listing failed"
   ops activate-host --host "$id" --reason "'End-to-end test host'" || fail "activate-host failed; see private/e2e/ops.log"
 done
-summary+=("credit for 2 renters, $agents hosts listed and activated: $(seconds_since "$setup_started") s")
-wallet_before="$(api_get /v1/wallet)"
-[[ "$(printf '%s' "$wallet_before" | json_get .availablePaise)" == 50000 ]] || fail "the wallet isn't ₹500: $wallet_before"
+summary+=("credit for ${#renters[@]} renters, $agents hosts listed and activated: $(seconds_since "$setup_started") s")
+if ! $web_only; then
+  wallet_before="$(api_get /v1/wallet)"
+  [[ "$(printf '%s' "$wallet_before" | json_get .availablePaise)" == 50000 ]] || fail "the wallet isn't ₹500: $wallet_before"
+fi
 
 # 8. Four charged sessions at once, one per host (ADR 0017). Each scenario is a subshell; a failure
 #    ends it, and the script, with its message.
@@ -554,12 +627,51 @@ assert reasons[-2:] == ["max_spend_reached", "stopped"], reasons' || fail "the c
   note "spending cap: COMPLETED after max_spend_reached and a final checkpoint; charged $charged paise (cap 6) for the minutes it ran: PASS"
 }
 
+# The web journey (ADR 0018), on its own host: sign in through the browser, see the granted credit, book
+# a session through the API, and watch the home screen follow it live to COMPLETED, with its charge
+# and output (web/e2e/journey.spec.ts).
+scenario_web() {
+  E2E_WEB_USER="$web_user" SKIP_VISUAL=1 web_test --project=journey --reporter=line >>"$out/web-journey.log" 2>&1 ||
+    fail "the web journey failed; see private/e2e/web-journey.log"
+  note "web journey: signed in through the local adapter, booked through the API; home showed it live to COMPLETED, ₹0.02 charged, output downloaded: PASS"
+}
+
+# 8 (--web). The web app's checks (ADR 0018), against this stack: every screen and state with axe and
+#    the visual baselines, the Firebase screens, zero layout shift, the journey; then Lighthouse's
+#    budgets and the first-load size budget of the production (Firebase) build.
+if $web_only; then
+  checks_started="$(now_ms)"
+  baseline="${VISUAL_BASELINE_DIR:-$root/web/visual-baseline}"
+  snapshots="${E2E_UPDATE_SNAPSHOTS:-}"
+  if [[ -z "$snapshots" ]]; then
+    if [[ -n "$(ls -A "$baseline" 2>/dev/null)" ]]; then snapshots=none; else snapshots=all; fi
+  fi
+  summary+=("visual baselines: $baseline ($([[ $snapshots == none ]] && echo "compared" || echo "written: $snapshots"))")
+  E2E_WEB_USER="$web_user" VISUAL_BASELINE_DIR="$baseline" web_test --project='screens-*' --project=journey \
+    --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 ||
+    fail "the web app's browser tests failed; see private/e2e/web-playwright.log and web/playwright-report"
+  summary+=("web: $(grep -Eo '[0-9]+ passed' "$out/web-playwright.log" | tail -1) (every screen and state, light and dark, 390 and 1280 px; axe; layout shift; Firebase screens; journey) in $(seconds_since "$checks_started") s: PASS")
+  (cd web && rm -rf .lighthouseci .lighthouseci-desktop && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" \
+    pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || fail "a Lighthouse budget failed; see private/e2e/web-lighthouse.log"
+  while IFS= read -r line; do summary+=("lighthouse $line"); done < <(python3 - <<'PY'
+import json
+for page, m in json.load(open("web/.lighthouseci/summary.json")).items():
+    inp = ", INP %d ms" % m["inpMs"] if "inpMs" in m else ""
+    print("%s: LCP %d ms, TBT %d ms, CLS %s, accessibility %d%s" % (page, m["lcpMs"], m["tbtMs"], m["cls"], m["accessibility"], inp))
+PY
+)
+  summary+=("lighthouse budgets (mobile: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100, INP <= 200 ms): PASS")
+  first_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/first-load.ts | tail -1)" || fail "the first-load JavaScript budget failed"
+  summary+=("${first_load# }: PASS")
+fi
+
+if ! $web_only; then
 scenarios_started="$(now_ms)"
-scenarios=(normal stop loss cap)
+scenarios=(normal stop loss cap web)
 scenario_pids=()
 for scenario in "${scenarios[@]}"; do
   : >"$out/summary-$scenario.txt"
-  if [[ $scenario == normal ]]; then
+  if [[ $scenario == normal || $scenario == web ]]; then
     ( "scenario_$scenario" ) &
   else
     ( token="$token_b"; "scenario_$scenario" ) &
@@ -572,7 +684,7 @@ for i in "${!scenarios[@]}"; do
   while IFS= read -r line; do summary+=("$line"); done <"$out/summary-${scenarios[$i]}.txt"
 done
 [[ -z "$failed" ]] || fail "scenarios failed:$failed"
-summary+=("four charged scenarios side by side: $(seconds_since "$scenarios_started") s")
+summary+=("five scenarios side by side (four charged, and the web journey): $(seconds_since "$scenarios_started") s")
 
 wallet_b="$(token="$token_b" api_get /v1/wallet)"
 (($(printf '%s' "$wallet_b" | json_get .balancePaise) >= 0)) && [[ "$(printf '%s' "$wallet_b" | json_get .reservedPaise)" == 0 ]] ||
@@ -588,6 +700,7 @@ for field in secret_access_key session_token X-Amz-Security-Token X-Amz-Credenti
   fi
 done
 summary+=("no storage credentials in the agent or control-plane logs: PASS")
+fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.
 ops reconcile-wallets || fail "the wallet check found mismatches; see private/e2e/ops.log"

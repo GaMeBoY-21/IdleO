@@ -1,0 +1,7 @@
+/* A full-page picture would draw the phone's fixed tab bar halfway down; pin it to the page's end instead. */
+body {
+  position: relative;
+}
+nav.fixed {
+  position: absolute !important;
+}

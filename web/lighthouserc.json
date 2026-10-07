@@ -1,0 +1,13 @@
+{
+  "ci": {
+    "upload": { "target": "filesystem", "outputDir": ".lighthouseci/report" },
+    "assert": {
+      "assertions": {
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
+        "total-blocking-time": ["error", { "maxNumericValue": 150 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0 }],
+        "categories:accessibility": ["error", { "minScore": 1 }]
+      }
+    }
+  }
+}
