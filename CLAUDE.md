@@ -7,7 +7,7 @@ Read docs/WORKFLOW.md before every task. You are the builder: build, run all tes
 A peer-to-peer GPU marketplace for India. Hosts (people with RTX gaming laptops and desktops) rent out GPU time by the minute; renters (students, developers, small startups) run AI jobs on them. Cloud gaming comes later, and only for legally cleared titles. Full plan: docs/plan/execution-plan.md and docs/plan/technical-design.md. The PDFs beside them contain the diagrams.
 
 ## Current phase
-Phase 1 (compute core: batch jobs end to end, built to production standard; free credits until the company and payment partner exist). Phase 0's hardware runs wait for a borrowed Windows RTX laptop; Phase 1 work that needs no GPU goes ahead now.
+Phase 1 (compute core: batch jobs end to end, built to production standard; free credits until the company and payment partner exist). Phase 0's hardware runs wait for a borrowed Windows RTX laptop; Phase 1 work that needs no GPU goes ahead now. The web app is built in rounds, each reviewed by Nikki before the next: foundations and the renter's home first, then booking, then the host side.
 Do NOT build yet: real payments, gaming runtime, notebooks or endpoints, multi-region.
 
 ## Architecture rules (never break these)
@@ -56,6 +56,13 @@ We are building the final product, not an MVP (ADR 0006). Every piece meets this
 - Secrets never go in code or git; use a gitignored .env locally. Never ask for passwords or keys.
 - Real personal data lives only in the gitignored private/ folder, never in commits, fixtures or tests.
 - Sunshine and Moonlight are GPL-3.0: never copy their code into this repo.
+- Web app (ADR 0018), rules every change must keep:
+  - Every screen follows web/DESIGN.md and has its four states: loading (a skeleton exactly the content's height), empty, error with a retry, and stale. Zero axe violations, and no layout shift (CLS 0).
+  - Money is formatted only by formatPaise (web/src/lib/money.ts), from integer paise, never floating point, never optimistically.
+  - The sign-in SDKs (firebase, oidc-client-ts) are imported only inside web/src/auth/; a lint rule enforces it. Our code never stores a token.
+  - Colours, sizes and durations come only from web/src/design/tokens.ts (the accent from web/src/brand/); a lint rule refuses raw colours and arbitrary values.
+  - The budgets (web/README.md: LCP 2.0 s, INP 200 ms, CLS 0, TBT 150 ms, 150 KB first-load JavaScript, accessibility 100, on Lighthouse's mobile profile) are never loosened without Nikki's say; if one can't be met, stop and report it with numbers.
+  - The local sign-in adapter is for local builds only; a staging or production build refuses it (web/src/build-settings.ts).
 
 ## Commits
 - One line, plainly human, lowercase, no trailing period. Example: "add heartbeat handling to the agent gateway".
@@ -95,6 +102,7 @@ Host agent, run from agent/ (Rust; rustup installs the toolchain pinned in rust-
 End to end, run from the repository root (needs Docker, Java 25 and Rust; docs/runbooks/local-stack.md):
 - scripts/e2e/agent-online.sh: the compatibility test. Starts the local stack (PostgreSQL, Valkey, MinIO, the development sign-in server, the control plane with templates/development.yaml, a 10 s lease and 60 s storage grants), enrols four real agents with fake GPUs and the development runner, checks the hosts go online, then runs four charged sessions side by side, one per host: 150 s charged exactly 3 minutes (6 paise; host +4, platform +2), a renter stop at ~70 s, a kill -9 mid-run (attempt 2 resumes, attempt 1's minutes after its checkpoint waived), and a 6 paise spending cap. It runs reconcile-wallets (0 mismatches), checks the hosts go offline, and tears everything down. CI runs it on every control-plane, agent, proto or template change
 - scripts/e2e/agent-online.sh --keep-running: only the stack, with a ready curl and a fresh token, until Ctrl-C
+- The default run also builds the web app and runs its journey on a fifth agent (web/e2e/journey.spec.ts); --web runs the web app's browser checks instead of the charged scenarios
 - Development-only behaviour is a setting, never a code path (for example agentgateway.allow-development-hosts, trusting the local sign-in issuer, sessions.storage.provider minio, or a sessions.templates.catalog other than the bundled one). Every new development setting must be added to ProductionSettingsGuard, which refuses to start the prod profile with any of them (ADR 0013)
 
 Operator commands, the control plane in the ops profile (runs once, starts no web or gRPC server, exits with 0 done, 2 bad command line, 3 refused, 4 a check found a problem; docs/runbooks/granting-credits.md, docs/runbooks/hosts.md):
@@ -104,6 +112,14 @@ Operator commands, the control plane in the ops profile (runs once, starts no we
 - OPERATOR=<you> ... activate-host --host <id> --reason "<why>" and suspend-host --host <id> --reason "<why>" (docs/runbooks/hosts.md)
 - Locally: COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<you> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="…", against the scripts/e2e/agent-online.sh --keep-running stack
 - A module adds an operator command as an OperatorCommand bean in the ops profile; OperatorCommandRunner picks it by name
+
+Web app, run from web/ (Node 24.21.0 from .node-version, pnpm 12.9.1; web/README.md):
+- pnpm install, then pnpm dev against scripts/e2e/agent-online.sh --keep-running (copy env.local.example to .env.local); sign in with any @example.com address
+- pnpm typecheck, pnpm lint, pnpm test (Vitest), pnpm build (static dist/ with pre-rendered frames, the CSP and dist/headers.json), pnpm size (the first-load budget)
+- pnpm e2e, pnpm lighthouse and pnpm gallery need the stack and pnpm serve; scripts/e2e/agent-online.sh --web runs all the browser checks against a fresh stack, as .github/workflows/web.yml does
+- API types come from ../api/openapi.yaml on every build, typecheck and test (src/api/schema.gen.ts, never committed)
+- Visual baselines live in CI's visual-baseline artifact, not git; accept a change by running the web workflow with "update screenshots"
+- The review gallery (pnpm gallery) goes to private/review/, never committed
 
 Agent protocol, run from proto/:
 - buf lint: STANDARD + COMMENTS, no exceptions
