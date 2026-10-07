@@ -409,7 +409,11 @@ class AgentGatewayTests {
 
     @Test
     void theMetersMove() throws Exception {
+        // The gauge counts every open stream, and an earlier test's may still be closing meanwhile. Tests run
+        // one at a time and their agents never reconnect, so others can only close, and each close is counted:
+        // open streams are always those before, plus this one, less every close since.
         var connectedBefore = meters.get("agents.connected").gauge().value();
+        var allClosedBefore = allStreamsClosed();
         var heartbeatsBefore = counter("agents.heartbeats", "outcome", "recorded");
         var closedBefore = counter("agents.streams.closed", "reason", "client_closed");
         var agent = TestAgent.enrol(mvc, grpcPort);
@@ -419,12 +423,22 @@ class AgentGatewayTests {
         stream.send(TestAgent.heartbeat(TestAgent.GPU_A, 60, 10));
         Thread.sleep(300);
 
-        assertThat(meters.get("agents.connected").gauge().value()).isEqualTo(connectedBefore + 1);
+        assertThat(meters.get("agents.connected").gauge().value())
+                .isEqualTo(connectedBefore + 1 - (allStreamsClosed() - allClosedBefore));
         assertThat(counter("agents.heartbeats", "outcome", "recorded")).isEqualTo(heartbeatsBefore + 1);
         stream.close();
         Thread.sleep(300);
-        assertThat(counter("agents.streams.closed", "reason", "client_closed")).isEqualTo(closedBefore + 1);
-        assertThat(meters.get("agents.connected").gauge().value()).isEqualTo(connectedBefore);
+        assertThat(counter("agents.streams.closed", "reason", "client_closed"))
+                .isGreaterThanOrEqualTo(closedBefore + 1);
+        assertThat(meters.get("agents.connected").gauge().value())
+                .isEqualTo(connectedBefore + 1 - (allStreamsClosed() - allClosedBefore));
+    }
+
+    /** Every stream close, whatever the reason. */
+    private double allStreamsClosed() {
+        return meters.find("agents.streams.closed").counters().stream()
+                .mapToDouble(io.micrometer.core.instrument.Counter::count)
+                .sum();
     }
 
     @Test
