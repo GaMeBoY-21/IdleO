@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-04
 
-Sources: docs/plan/technical-design.md lines 3 and 225–248; docs/plan/execution-plan.md lines 142–169.
+Sources: docs/plan/technical-design.md lines 3 and 241–264; docs/plan/execution-plan.md lines 142–169.
 
 ## Context
 

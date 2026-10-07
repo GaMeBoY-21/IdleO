@@ -14,7 +14,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A session in PROVISIONING that hasn't reached RUNNING in time fails with reason {@code start_timeout}:
- * nothing billed, hold released (technical design line 216, ADR 0015). It guards against agents that
+ * nothing billed, hold released (technical design line 232, ADR 0015). It guards against agents that
  * accept and never start. Safe with several instances: each takes sessions the others haven't locked.
  */
 @Component

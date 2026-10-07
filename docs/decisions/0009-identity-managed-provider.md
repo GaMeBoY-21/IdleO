@@ -4,7 +4,7 @@
 - **Date:** 2026-10-05
 
 Sources:
-- docs/plan/technical-design.md lines 63, 95, 542, 558, 760, 773
+- docs/plan/technical-design.md lines 63, 95, 565, 581, 783, 796
 - docs/plan/execution-plan.md lines 202, 351
 - ADR 0008
 - docs/prompts/identity-sign-in.md

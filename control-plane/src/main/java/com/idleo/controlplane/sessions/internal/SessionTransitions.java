@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The one table of allowed transitions (technical design lines 209-223, ADR 0015). Every move not in it is
+ * The one table of allowed transitions (technical design lines 225-239, ADR 0015). Every move not in it is
  * refused. Beyond the design's table: a declined or expired offer sends a session back to REQUESTED for the
  * next candidate (ADR 0015); a session no host can take goes from REQUESTED straight to NO_HOST_FREE (ADR
  * 0015); a job that fails while running goes straight to FAILED, and so does one whose outputs never appear

@@ -1,6 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
-/** The session states (technical design lines 197-223): six working, five final. */
+/** The session states (technical design lines 213-239): six working, five final. */
 enum SessionState {
     REQUESTED,
     MATCHED,

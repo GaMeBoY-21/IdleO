@@ -4,13 +4,13 @@
 - **Date:** 2026-10-06
 
 Sources:
-- docs/plan/technical-design.md lines 96, 336, 728
+- docs/plan/technical-design.md lines 96, 352, 751
 - ADRs 0007, 0009, 0011 and 0012
 - docs/prompts/local-stack.md
 
 ## Context
 
-The control plane and the agent have each been proven only against test doubles. Before anything else is built on the stream, the real agent must run against the real control plane: on Nikki's Mac, where there is no NVIDIA GPU, and in CI on every change. That's the compatibility test the plan asks for (line 728).
+The control plane and the agent have each been proven only against test doubles. Before anything else is built on the stream, the real agent must run against the real control plane: on Nikki's Mac, where there is no NVIDIA GPU, and in CI on every change. That's the compatibility test the plan asks for (line 751).
 
 It needs four things:
 - the agent must be able to say it's a Mac;
@@ -79,6 +79,6 @@ It needs four things:
 ## Consequences
 
 - **A Mac can be a development host** wherever the `local` profile runs, and nowhere else.
-- **Every change to either side is checked against the other in CI.** Open question: the plan's full compatibility matrix (the last three agent releases against every server build, line 728) needs released agent builds. When releases exist, the e2e workflow gains a matrix over them.
+- **Every change to either side is checked against the other in CI.** Open question: the plan's full compatibility matrix (the last three agent releases against every server build, line 751) needs released agent builds. When releases exist, the e2e workflow gains a matrix over them.
 - **The shared test context starts one more container,** the sign-in server, which adds a few seconds to the test run.
 - **The fixed sign-in port means one local stack per machine** unless `LOCAL_SIGN_IN_PORT` moves it.

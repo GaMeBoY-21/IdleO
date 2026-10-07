@@ -1,6 +1,6 @@
 # qlora-test: the Phase 0 QLoRA job, and our first batch template
 
-This job fine-tunes `Qwen/Qwen2.5-1.5B-Instruct` with 4-bit QLoRA (nf4, LoRA rank 16 on all projection layers). It trains on the first 1,000 examples of `yahma/alpaca-cleaned`, inside a container run with the renter sandbox flags from technical design lines 503–513.
+This job fine-tunes `Qwen/Qwen2.5-1.5B-Instruct` with 4-bit QLoRA (nf4, LoRA rank 16 on all projection layers). It trains on the first 1,000 examples of `yahma/alpaca-cleaned`, inside a container run with the renter sandbox flags from technical design lines 526–536.
 
 | File | What it does |
 | --- | --- |
@@ -64,7 +64,7 @@ With a read-only root, every cache must point into `/work` or `/tmp`, or the job
 
 On Linux, `run.sh` gives the `work/` folder to uid 10001 (`chown`), since the container can't write to it otherwise.
 
-Differences from technical design lines 501–515, all expected for Phase 0:
+Differences from technical design lines 524–538, all expected for Phase 0:
 
 - **Scratch disk:** `/work` is a plain bind-mounted folder. The design uses a fixed-size disk image per session, which the agent creates in Phase 1.
 - **Firewall:** the DOCKER-USER rules that block private ranges aren't applied. The network is a plain bridge from the 172.30.0.0/16 pool.

@@ -3,7 +3,7 @@
  * and the template catalog. Its tables live in the {@code sessions} database schema, and no other module
  * reads them (ADR 0015).
  *
- * <p>Every session follows one state machine (technical design lines 197-223): every transition is checked
+ * <p>Every session follows one state machine (technical design lines 213-239): every transition is checked
  * against one table of allowed moves, bumps the session's version and writes an append-only {@code
  * session_events} row, all in one transaction.
  *

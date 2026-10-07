@@ -4,7 +4,7 @@
 - **Date:** 2026-10-06
 
 Sources:
-- docs/plan/technical-design.md lines 5–30, 69, 82, 103–115, 197–225, 226–330, 554–575, 647–656, 687–717, 756–766
+- docs/plan/technical-design.md lines 5–30, 69, 82, 103–120, 213–241, 242–346, 577–598, 670–679, 710–740, 779–789
 - proto/gpu/agent/v1/session.proto; proto/README.md ("Storage layout", "Delivery and acks", "The lease clock")
 - ADRs 0007, 0011, 0012, 0015
 - docs/prompts/running-sessions.md
@@ -23,7 +23,7 @@ Metering, settlement and charges come next. Until then an ended session releases
 
 ### Storage grants, minted at send time
 
-1. **`StorageGrants` in `sessions`** (it owns per-session credentials, line 547) mints the two grants of ADR 0007 for an attempt:
+1. **`StorageGrants` in `sessions`** (it owns per-session credentials, line 570) mints the two grants of ADR 0007 for an attempt:
    - `attempt_grant`: read-write on `sessions/{id}/attempt-{n}/` only;
    - `read_grant`: read-only on `sessions/{id}/input/` and the resume checkpoint's folder, omitted when there's neither (input is detected by listing it).
 

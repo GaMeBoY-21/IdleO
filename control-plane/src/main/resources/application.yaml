@@ -173,8 +173,8 @@ metering:
     cron: "0 15 3 * * *"
 
 scheduling:
-  # Booking (ADR 0015): offers stay open 10 seconds (technical design line 235),
-  # at most three per session (line 214); the sweeper looks for expired offers
+  # Booking (ADR 0015): offers stay open 10 seconds (technical design line 251),
+  # at most three per session (line 230); the sweeper looks for expired offers
   # this often.
   offer-ttl: 10s
   max-offers: 3

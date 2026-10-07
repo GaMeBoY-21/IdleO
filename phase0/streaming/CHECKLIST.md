@@ -14,7 +14,7 @@ On the **hotspot run** (Run B):
 
 | Measure | Pass | Source |
 | --- | --- | --- |
-| Median round trip | under 30 ms | technical design line 744 |
+| Median round trip | under 30 ms | technical design line 767 |
 | Resolution and frame rate | 1080p at 60 FPS, held | our Phase 0 bar |
 | Dropped frames | under 1% (network plus jitter drops) | our Phase 0 bar |
 

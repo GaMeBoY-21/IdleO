@@ -1,4 +1,4 @@
-//! Reconnect delays: exponential backoff with full jitter (technical design line 246).
+//! Reconnect delays: exponential backoff with full jitter (technical design line 262).
 
 use std::time::Duration;
 

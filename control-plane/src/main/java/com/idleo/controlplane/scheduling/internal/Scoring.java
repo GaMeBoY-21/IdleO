@@ -3,7 +3,7 @@ package com.idleo.controlplane.scheduling.internal;
 import java.util.Comparator;
 
 /**
- * The batch score (technical design lines 343-353): S = w_p(1 − P/P_max) + w_r·R + w_l(1 − L/L_max) +
+ * The batch score (technical design lines 359-369): S = w_p(1 − P/P_max) + w_r·R + w_l(1 − L/L_max) +
  * w_b·B + w_c·C, with the batch weights. Reliability, bandwidth and cache have no data yet (no host
  * score, no benchmark, no inventory), so they use the defaults below for every host: starting guesses to
  * tune with pilot data (ADR 0015). Ties are broken by host id, so ranking is deterministic.
