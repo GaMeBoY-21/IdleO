@@ -83,11 +83,13 @@ class BookingConcurrencyTests {
                         renter);
                 assertThat(reserved).as("reserved equals the active holds").isEqualTo(held);
             }
+            // This test's sessions never run, so only a matched or provisioning one may hold credit. Other
+            // tests' running sessions keep theirs until metering closes them (ADR 0017), so they're left out.
             assertThat(jdbc.queryForList("""
                             select s.id from sessions.sessions s
                             join billing.reservations r on r.session_id = s.id and r.status = 'active'
-                            where s.state not in ('MATCHED', 'PROVISIONING')
-                            """))
+                            where s.renter_id = any(?) and s.state not in ('MATCHED', 'PROVISIONING')
+                            """, (Object) renters.toArray(new UUID[0])))
                     .as("only matched or provisioning sessions hold credit")
                     .isEmpty();
             return jdbc.queryForObject(
