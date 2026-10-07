@@ -48,8 +48,13 @@ class RunningStops implements SessionControl {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean stopForCredit(UUID sessionId, CreditStop reason) {
-        var why = reason == CreditStop.CREDIT_EXHAUSTED ? "credit_exhausted" : "max_spend_reached";
-        return stop(sessionId, why, StopReason.STOP_REASON_CREDIT_EXHAUSTED, true) == Outcome.STOPPING;
+        return switch (reason) {
+            case CREDIT_EXHAUSTED ->
+                stop(sessionId, "credit_exhausted", StopReason.STOP_REASON_CREDIT_EXHAUSTED, true) == Outcome.STOPPING;
+            case MAX_SPEND_REACHED ->
+                stop(sessionId, "max_spend_reached", StopReason.STOP_REASON_MAX_SPEND_REACHED, true)
+                        == Outcome.STOPPING;
+        };
     }
 
     /** Stops the session's running attempt; safe to repeat. The caller runs it in a transaction. */

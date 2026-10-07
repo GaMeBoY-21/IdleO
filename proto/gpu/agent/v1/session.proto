@@ -43,7 +43,8 @@ enum StopReason {
   STOP_REASON_UNSPECIFIED = 0;
   // The renter asked to stop.
   STOP_REASON_RENTER_REQUESTED = 1;
-  // The renter's reserved credit ran out.
+  // The renter's credit ran out: the hold can't cover another lease, and the
+  // wallet has nothing more to add to it.
   STOP_REASON_CREDIT_EXHAUSTED = 2;
   // The session broke the acceptable-use rules.
   STOP_REASON_ABUSE = 3;
@@ -51,6 +52,8 @@ enum StopReason {
   STOP_REASON_DISPUTE = 4;
   // The session moved to another host or attempt; this attempt must end.
   STOP_REASON_SUPERSEDED = 5;
+  // The session reached the renter's spending cap for it (max_spend_paise).
+  STOP_REASON_MAX_SPEND_REACHED = 6;
 }
 
 // What to run. Carries no secrets: everything secret is in Credentials.

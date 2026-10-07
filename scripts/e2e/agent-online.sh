@@ -542,6 +542,8 @@ scenario_cap() {
 reasons = [e["reason"] for e in json.load(sys.stdin)["events"]]
 assert reasons[-2:] == ["max_spend_reached", "stopped"], reasons' || fail "the capped session's events don't end max_spend_reached, stopped"
   await_closed "$id" 60
+  grep -q "stopping an attempt after a checkpoint session_id=$id attempt=1 reason=\"max_spend_reached\"" "$out"/agent-*.log ||
+    fail "the capped session's agent wasn't told the spending cap was reached"
   [[ "$(checkpointed_after_stop "$id")" == t ]] || fail "the capped session wrote no checkpoint after the stop"
   charged="$(api_get "/v1/sessions/$id" | json_get .chargedPaise)"
   ((charged <= 6)) || fail "the capped session was charged $charged paise, past its 6 paise cap"

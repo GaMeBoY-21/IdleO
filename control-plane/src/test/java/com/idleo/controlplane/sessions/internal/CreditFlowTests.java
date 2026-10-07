@@ -267,7 +267,9 @@ class CreditFlowTests {
 
         assertThat(stop.getCheckpointFirst()).isTrue();
         assertThat(stop.getGracePeriod().getSeconds()).isEqualTo(60);
-        assertThat(stop.getReason()).isEqualTo(StopReason.STOP_REASON_CREDIT_EXHAUSTED);
+        assertThat(stop.getReason())
+                .as("the 4 paise cap, not the wallet, is what ran out")
+                .isEqualTo(StopReason.STOP_REASON_MAX_SPEND_REACHED);
         assertThat(stop.getAttempt()).isEqualTo(1);
     }
 

@@ -96,7 +96,7 @@ Money rules from ADR 0005 and ADR 0014 stand: integer paise, `Ledger.post` only,
     - `checkpoint_first`, with 60 s of grace;
     - reason `max_spend_reached` when the cap is what limits the hold, `credit_exhausted` otherwise.
 
-    On the wire both are `STOP_REASON_CREDIT_EXHAUSTED`, since the session's reserved credit is capped by its spending cap: a new enum value would be an unknown reason to the agent releases the control plane still supports (rule 8). The session's event says which it was. The session goes FINISHING. The agent writes its checkpoint within the grace, and its last lease, bought while the credit covered it, bounds how long it runs. The session ends COMPLETED with reason `stopped`. In `CreditFlowTests`, with an injected clock, a session with exactly 60 paise ends at a balance of exactly 0.
+    The agent gets the same reason: `STOP_REASON_MAX_SPEND_REACHED` or `STOP_REASON_CREDIT_EXHAUSTED`. The first was added to protocol v1 before any agent was released, while v1 was still open (ADR 0007), so no released agent can meet an unknown value. The session goes FINISHING. The agent writes its checkpoint within the grace, and its last lease, bought while the credit covered it, bounds how long it runs. The session ends COMPLETED with reason `stopped`. In `CreditFlowTests`, with an injected clock, a session with exactly 60 paise ends at a balance of exactly 0.
 18. **`low_credit`** is set while the hold plus the available balance covers under 10 minutes. It's a flag on the session only; no notification yet.
 
 ### Stopping a running job

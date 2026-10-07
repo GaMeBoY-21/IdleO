@@ -377,6 +377,7 @@ impl Supervisor {
             let reason = match stop.reason() {
                 StopReason::RenterRequested => "renter_requested",
                 StopReason::CreditExhausted => "credit_exhausted",
+                StopReason::MaxSpendReached => "max_spend_reached",
                 StopReason::Abuse => "abuse",
                 StopReason::Dispute => "dispute",
                 StopReason::Superseded => "superseded",
@@ -1037,11 +1038,15 @@ mod tests {
     }
 
     fn stop_after_checkpoint(session: Uuid, command_id: &str) -> StopSession {
+        stop_for(session, command_id, StopReason::RenterRequested)
+    }
+
+    fn stop_for(session: Uuid, command_id: &str, reason: StopReason) -> StopSession {
         StopSession {
             session_id: session.to_string(),
             attempt: 1,
             command_id: command_id.to_owned(),
-            reason: StopReason::RenterRequested.into(),
+            reason: reason.into(),
             checkpoint_first: true,
             grace_period: Some(seconds(60)),
         }
@@ -1068,6 +1073,26 @@ mod tests {
         assert_eq!(last.state(), SessionState::Stopped);
         assert_eq!(last.latest_checkpoint_seq, 3);
         assert_eq!(last.error.unwrap().code, "renter_requested");
+    }
+
+    #[tokio::test]
+    async fn a_stop_at_the_spending_cap_says_so_in_the_final_status() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
+
+        setup.shared.lock().stop("m2", &stop_for(session, "s1", StopReason::MaxSpendReached));
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        reports.send(Report::Checkpoint(2)).unwrap();
+        reports.send(Report::Stopped).unwrap();
+        for _ in 0..2 {
+            let tagged = setup.received.recv().await.unwrap();
+            setup.shared.lock().apply(tagged);
+        }
+
+        let last = statuses(&setup.shared).pop().unwrap();
+        assert_eq!(last.state(), SessionState::Stopped);
+        assert_eq!(last.error.unwrap().code, "max_spend_reached");
     }
 
     #[tokio::test]
