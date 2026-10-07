@@ -62,7 +62,7 @@ describe("the credit card", () => {
 describe("the sessions card", () => {
   it("lists live sessions first with their cost so far, then recent ones with their charge", () => {
     const live = session({ id: "a", chargedPaise: 2, accruedPaise: 4 });
-    const done = session({ id: "b", state: "COMPLETED", chargedPaise: 6, accruedPaise: 0 });
+    const done = session({ id: "b", state: "COMPLETED", chargedPaise: 6, accruedPaise: 0, settled: true });
     render(<SessionsCard sessions={queryResult({ data: { sessions: [done, live] } })} />);
 
     const running = screen.getByRole("region", { name: "Running now" });

@@ -1,6 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.hosts.HostGpus;
 import com.idleo.controlplane.hosts.HostOwners;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Hosts and their enrolment codes, always scoped to the owner. */
 @Service
-class HostService implements HostOwners {
+class HostService implements HostOwners, HostGpus {
 
     static final Duration CODE_LIFETIME = Duration.ofHours(1);
 
@@ -49,6 +50,15 @@ class HostService implements HostOwners {
     @Override
     public boolean owns(UUID userId, UUID hostId) {
         return find(userId, hostId).isPresent();
+    }
+
+    @Override
+    public Optional<Gpu> gpu(UUID hostId, String gpuUuid) {
+        return jdbc.sql("select model, vram_mb from hosts.host_gpus where host_id = :hostId and gpu_uuid = :gpuUuid")
+                .param("hostId", hostId)
+                .param("gpuUuid", gpuUuid)
+                .query((rs, n) -> new Gpu(rs.getString("model"), rs.getInt("vram_mb")))
+                .optional();
     }
 
     Optional<Host> find(UUID ownerUserId, UUID hostId) {

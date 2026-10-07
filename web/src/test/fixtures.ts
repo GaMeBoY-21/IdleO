@@ -35,8 +35,12 @@ export function session(overrides: Partial<Session> = {}): Session {
     chargedPaise: 0,
     accruedPaise: 4,
     lowCredit: false,
+    settled: false,
     createdAt: "2026-10-07T06:30:00Z",
     startedAt: "2026-10-07T06:30:05Z",
+    endedAt: null,
+    gpu: { model: "NVIDIA GeForce RTX 4080 Laptop GPU", vramMb: 12_282 },
+    checkpoints: [],
     events: [
       { state: "REQUESTED", reason: "requested", at: "2026-10-07T06:30:00Z" },
       { state: "RUNNING", reason: "running", at: "2026-10-07T06:30:05Z" },

@@ -42,11 +42,10 @@ export const LIVE_STATES = new Set([
 export const isLive = (session: Pick<Session, "state">) => LIVE_STATES.has(session.state);
 
 /**
- * Whether a session's figures can still change: it's live, or it has finished and metering hasn't yet settled
- * its last minutes and released its hold, which it does within seconds.
+ * Whether a session's figures can still change: until the API says it's settled (ended, its last settlement
+ * posted and its hold released), it's watched.
  */
-export const isChanging = (session: Pick<Session, "state" | "reservedPaise" | "accruedPaise">) =>
-  isLive(session) || session.reservedPaise > 0 || session.accruedPaise > 0;
+export const isChanging = (session: Pick<Session, "settled">) => !session.settled;
 
 export const SESSIONS_POLL_MS = 5_000;
 export const SESSION_POLL_MS = 3_000;

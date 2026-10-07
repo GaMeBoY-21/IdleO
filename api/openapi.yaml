@@ -823,6 +823,33 @@ components:
       - status
       - title
       - type
+    SessionCheckpoint:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        completedAt:
+          type: string
+          format: date-time
+        seq:
+          type: integer
+          format: int32
+      required:
+      - attempt
+      - completedAt
+      - seq
+    SessionGpu:
+      type: object
+      properties:
+        model:
+          type: string
+        vramMb:
+          type: integer
+          format: int32
+      required:
+      - model
+      - vramMb
     SessionList:
       type: object
       properties:
@@ -844,8 +871,17 @@ components:
         chargedPaise:
           type: integer
           format: int64
+        checkpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionCheckpoint"
         createdAt:
           type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
           format: date-time
         errorCode:
           type:
@@ -855,6 +891,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EventResponse"
+        gpu:
+          $ref: "#/components/schemas/SessionGpu"
         hostId:
           type:
           - string
@@ -882,6 +920,8 @@ components:
         reservedPaise:
           type: integer
           format: int64
+        settled:
+          type: boolean
         startedAt:
           type:
           - string
@@ -898,6 +938,7 @@ components:
       - accruedPaise
       - attempt
       - chargedPaise
+      - checkpoints
       - createdAt
       - events
       - id
@@ -906,6 +947,7 @@ components:
       - maxRuntimeSeconds
       - maxSpendPaise
       - reservedPaise
+      - settled
       - state
       - templateId
       - vramNeededMb

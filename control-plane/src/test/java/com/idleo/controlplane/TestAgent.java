@@ -178,6 +178,9 @@ public final class TestAgent {
         return hello(OperatingSystem.OPERATING_SYSTEM_WINDOWS, agentVersion, gpuUuids);
     }
 
+    /** The GPU every test agent reports. */
+    public static final String GPU_MODEL = "NVIDIA GeForce RTX 4080 Laptop GPU";
+
     public static OpenStreamRequest hello(OperatingSystem os, String agentVersion, String... gpuUuids) {
         var hello = Hello.newBuilder()
                 .setAgentVersion(agentVersion)
@@ -186,7 +189,7 @@ public final class TestAgent {
         for (var uuid : gpuUuids) {
             hello.addGpus(GpuInfo.newBuilder()
                     .setUuid(uuid)
-                    .setName("NVIDIA GeForce RTX 4080 Laptop GPU")
+                    .setName(GPU_MODEL)
                     .setVramMb(12282)
                     .setDriverVersion("572.16")
                     .setCudaDriverVersion("12.8")

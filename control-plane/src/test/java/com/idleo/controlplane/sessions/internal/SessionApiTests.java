@@ -106,6 +106,40 @@ class SessionApiTests {
     }
 
     @Test
+    void aSessionThatNeverRanIsSettledAsSoonAsItEnds() throws Exception {
+        var renter = renterWith(50_000);
+        var id = JSON.readTree(book(renter, "never-ran", body(10, 20_000))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString())
+                .get("id")
+                .asString();
+        var fresh = JSON.readTree(mvc.perform(get("/v1/sessions/" + id).header("Authorization", renter.bearer()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        if (fresh.get("state").asString().equals("REQUESTED")
+                || fresh.get("state").asString().equals("MATCHED")) {
+            assertThat(fresh.get("settled").asBoolean()).isFalse();
+            assertThat(fresh.get("endedAt").isNull()).isTrue();
+        }
+
+        mvc.perform(post("/v1/sessions/" + id + "/cancel").header("Authorization", renter.bearer()));
+
+        var ended = JSON.readTree(mvc.perform(get("/v1/sessions/" + id).header("Authorization", renter.bearer()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        assertThat(ended.get("state").asString()).isIn("CANCELLED", "NO_HOST_FREE");
+        assertThat(ended.get("settled").asBoolean())
+                .as("ended and holding nothing")
+                .isTrue();
+        assertThat(ended.get("endedAt").isNull()).isFalse();
+        assertThat(ended.get("reservedPaise").asLong()).isZero();
+        assertThat(ended.get("gpu").isNull()).isTrue();
+    }
+
+    @Test
     void theSameKeyRepeatsTheSessionAndADifferentBodyIsRefused() throws Exception {
         var renter = renterWith(50_000);
         var first = JSON.readTree(book(renter, "book-2", body(10, 20_000))

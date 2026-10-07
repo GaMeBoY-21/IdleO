@@ -1,9 +1,7 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
-import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.identity.CurrentUser;
-import com.idleo.controlplane.sessions.SessionCosts;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -13,11 +11,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,20 +34,13 @@ class SessionController {
     private final SessionService sessions;
     private final SessionOutputs outputs;
     private final SessionStore store;
-    private final CreditReservations reservations;
-    private final ObjectProvider<SessionCosts> costs;
+    private final SessionViews views;
 
-    SessionController(
-            SessionService sessions,
-            SessionOutputs outputs,
-            SessionStore store,
-            CreditReservations reservations,
-            ObjectProvider<SessionCosts> costs) {
+    SessionController(SessionService sessions, SessionOutputs outputs, SessionStore store, SessionViews views) {
         this.sessions = sessions;
         this.outputs = outputs;
         this.store = store;
-        this.reservations = reservations;
-        this.costs = costs;
+        this.views = views;
     }
 
     record CreateSessionRequest(
@@ -61,41 +50,19 @@ class SessionController {
             @Nullable @Min(1) Integer vramNeededMb,
             @Nullable @Min(1) Integer maxRuntimeSeconds) {}
 
-    record EventResponse(String state, String reason, Instant at) {}
-
-    record SessionResponse(
-            UUID id,
-            String state,
-            int attempt,
-            @Nullable String errorCode,
-            String templateId,
-            @Nullable UUID hostId,
-            @Nullable Integer pricePaisePerMin,
-            int maxPricePaisePerMin,
-            long maxSpendPaise,
-            int vramNeededMb,
-            int maxRuntimeSeconds,
-            long reservedPaise,
-            long chargedPaise,
-            long accruedPaise,
-            boolean lowCredit,
-            List<EventResponse> events,
-            Instant createdAt,
-            @Nullable Instant startedAt) {}
-
-    record SessionList(List<SessionResponse> sessions) {}
+    record SessionList(List<SessionViews.SessionResponse> sessions) {}
 
     @PostMapping
     @ApiResponse(
             responseCode = "201",
             description = "The booked session",
             headers = @Header(name = "Location", description = "The session's URL", schema = @Schema(type = "string")),
-            content = @Content(schema = @Schema(implementation = SessionResponse.class)))
+            content = @Content(schema = @Schema(implementation = SessionViews.SessionResponse.class)))
     @ApiResponse(
             responseCode = "200",
             description = "A repeat with the same Idempotency-Key: the session it booked",
-            content = @Content(schema = @Schema(implementation = SessionResponse.class)))
-    ResponseEntity<SessionResponse> create(
+            content = @Content(schema = @Schema(implementation = SessionViews.SessionResponse.class)))
+    ResponseEntity<SessionViews.SessionResponse> create(
             @AuthenticationPrincipal CurrentUser user,
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
             @Valid @RequestBody CreateSessionRequest request) {
@@ -124,7 +91,7 @@ class SessionController {
     }
 
     @GetMapping("/{id}")
-    SessionResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+    SessionViews.SessionResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return view(sessions.owned(user.id(), id));
     }
 
@@ -136,7 +103,7 @@ class SessionController {
     record StopRequest(@Nullable Boolean checkpointFirst) {}
 
     @PostMapping("/{id}/stop")
-    SessionResponse stop(
+    SessionViews.SessionResponse stop(
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID id,
             @RequestBody(required = false) @Nullable StopRequest request) {
@@ -145,34 +112,11 @@ class SessionController {
     }
 
     @PostMapping("/{id}/cancel")
-    SessionResponse cancel(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+    SessionViews.SessionResponse cancel(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return view(sessions.cancel(user.id(), id));
     }
 
-    private SessionResponse view(SessionStore.Session session) {
-        var costs = this.costs.getIfAvailable();
-        var cost = costs == null ? new SessionCosts.Cost(0, 0, false) : costs.of(session.id());
-        boolean matched = session.state() != SessionState.REQUESTED && session.hostId() != null;
-        return new SessionResponse(
-                session.id(),
-                session.state().name(),
-                session.attempt(),
-                session.errorCode(),
-                session.templateId(),
-                matched ? session.hostId() : null,
-                session.pricePaisePerMin(),
-                session.maxPricePaisePerMin(),
-                session.maxSpendPaise(),
-                session.vramNeededMb(),
-                session.maxRuntimeSeconds(),
-                reservations.held(session.id()).map(held -> held.value()).orElse(0L),
-                cost.chargedPaise(),
-                cost.accruedPaise(),
-                cost.lowCredit(),
-                store.events(session.id()).stream()
-                        .map(event -> new EventResponse(event.toState(), event.reason(), event.at()))
-                        .toList(),
-                session.createdAt(),
-                session.startedAt());
+    private SessionViews.SessionResponse view(SessionStore.Session session) {
+        return views.of(session);
     }
 }

@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
-/** What a session has cost so far (ADR 0017): charged, accrued, and whether its credit is low. */
+/** What a session has cost so far (ADR 0017): charged, accrued, whether its credit is low, and whether it's closed. */
 @Component
 class Costs implements SessionCosts {
 
@@ -23,12 +23,17 @@ class Costs implements SessionCosts {
 
     @Override
     public Cost of(UUID sessionId) {
-        boolean lowCredit = jdbc.sql("select low_credit from metering.metered_sessions where session_id = :sessionId")
+        record Row(boolean lowCredit, boolean closed) {}
+        var row = jdbc.sql("""
+                        select low_credit, closed_at is not null as closed from metering.metered_sessions
+                        where session_id = :sessionId
+                        """)
                 .param("sessionId", sessionId)
-                .query(Boolean.class)
+                .query((rs, n) -> new Row(rs.getBoolean("low_credit"), rs.getBoolean("closed")))
                 .optional()
-                .orElse(false);
-        return new Cost(settlements.chargedNet(sessionId).value(), accruedPaise(sessionId), lowCredit);
+                .orElse(new Row(false, false));
+        return new Cost(
+                settlements.chargedNet(sessionId).value(), accruedPaise(sessionId), row.lowCredit(), row.closed());
     }
 
     /** What both witnesses saw that isn't settled yet, at each minute's attempt's price. */

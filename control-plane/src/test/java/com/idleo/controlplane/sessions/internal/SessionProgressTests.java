@@ -139,6 +139,14 @@ class SessionProgressTests {
         var running = bookings.session(started.renter(), started.id());
         assertThat(running.get("state").asString()).isEqualTo("RUNNING");
         assertThat(running.get("startedAt").isNull()).isFalse();
+        assertThat(running.get("settled").asBoolean()).isFalse();
+        assertThat(running.get("endedAt").isNull()).isTrue();
+        assertThat(running.get("gpu").get("model").asString()).isEqualTo(TestAgent.GPU_MODEL);
+        assertThat(running.get("gpu").get("vramMb").asInt()).isEqualTo(12282);
+        assertThat(running.get("gpu").has("hostId"))
+                .as("never the host's identity")
+                .isFalse();
+        assertThat(running.get("checkpoints")).isEmpty();
 
         writeCheckpoint(started, 1, true);
         report(started, status(SessionState.SESSION_STATE_RUNNING, 1).setLatestCheckpointSeq(1));
@@ -147,6 +155,11 @@ class SessionProgressTests {
                         String.class,
                         started.id()))
                 .isEqualTo(started.attemptPrefix() + "checkpoints/00000001/");
+        var checkpointed = bookings.session(started.renter(), started.id()).get("checkpoints");
+        assertThat(checkpointed).hasSize(1);
+        assertThat(checkpointed.get(0).get("attempt").asInt()).isEqualTo(1);
+        assertThat(checkpointed.get(0).get("seq").asInt()).isEqualTo(1);
+        assertThat(checkpointed.get(0).get("completedAt").isNull()).isFalse();
 
         writeOutputs(started);
         report(
@@ -156,7 +169,18 @@ class SessionProgressTests {
         var completed = bookings.awaitState(started.renter(), started.id(), "COMPLETED");
         assertThat(completed.get("events").findValuesAsString("state"))
                 .containsSubsequence("PROVISIONING", "RUNNING", "FINISHING", "COMPLETED");
+        assertThat(completed.get("endedAt").asString())
+                .isEqualTo(completed
+                        .get("events")
+                        .get(completed.get("events").size() - 1)
+                        .get("at")
+                        .asString());
         bookings.awaitHoldReleased(started.id());
+        assertThat(bookings.session(started.renter(), started.id())
+                        .get("settled")
+                        .asBoolean())
+                .as("ended, closed by metering, hold released")
+                .isTrue();
         assertThat(wallet(started.renter()).get("availablePaise").asLong())
                 .as("nothing charged yet")
                 .isEqualTo(50_000);

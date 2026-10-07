@@ -46,6 +46,43 @@ class ApiContractTests {
                 .isEqualTo(Files.readString(COMMITTED));
     }
 
+    /**
+     * springdoc names a schema after its class's simple name and silently merges two classes that share one, so the
+     * contract would describe only one of them. Every schema must come from exactly one type.
+     */
+    @Test
+    void everySchemaComesFromOneType() throws Exception {
+        var contract = generated();
+        var schemas = contract.substring(contract.indexOf("\n  schemas:\n"))
+                .lines()
+                .map(line -> java.util.regex.Pattern.compile("^    ([A-Za-z][A-Za-z0-9]*):$")
+                        .matcher(line))
+                .filter(java.util.regex.Matcher::matches)
+                .map(matcher -> matcher.group(1))
+                .toList();
+        String sources;
+        try (var files = Files.walk(Path.of("src/main/java"))) {
+            sources = files.filter(file -> file.toString().endsWith(".java"))
+                    .map(file -> {
+                        try {
+                            return Files.readString(file);
+                        } catch (java.io.IOException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    })
+                    .collect(java.util.stream.Collectors.joining("\n"));
+        }
+        assertThat(schemas)
+                .isNotEmpty()
+                .allSatisfy(schema -> assertThat(
+                                java.util.regex.Pattern.compile("\\b(record|class|enum|interface) " + schema + "\\b")
+                                        .matcher(sources)
+                                        .results()
+                                        .count())
+                        .as("types named " + schema)
+                        .isLessThanOrEqualTo(1));
+    }
+
     @Test
     void theContractDescribesOnlyV1WithItsHeadersAndProblemDetails() throws Exception {
         var contract = generated();
