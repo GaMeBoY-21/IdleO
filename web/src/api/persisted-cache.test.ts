@@ -35,6 +35,24 @@ describe("the home cache", () => {
     await fresh.forget();
   });
 
+  it("refreshes restored figures once the screen has shown them, however recent", async () => {
+    const first = new QueryClient();
+    await restoreFor(first, "asha");
+    first.setQueryData(["sessions"], { sessions: [] });
+    await settle();
+
+    vi.resetModules();
+    const fresh = await import("./persisted-cache");
+    const next = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
+    await fresh.restoreFor(next, "asha");
+    const restored = next.getQueryCache().find({ queryKey: ["sessions"] });
+    expect(restored?.state.data).toEqual({ sessions: [] });
+    expect(restored?.isStale()).toBe(false);
+    fresh.refreshRestored(next);
+    expect(restored?.isStale()).toBe(true);
+    await fresh.forget();
+  });
+
   it("gives a different user nothing of the last one's", async () => {
     const asha = new QueryClient();
     await restoreFor(asha, "asha");
