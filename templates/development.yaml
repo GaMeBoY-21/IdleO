@@ -18,3 +18,29 @@ templates:
     pids_limit: 256
     scratch_mb: 1024
     checkpoint_interval: 5s
+  # Metering in the end-to-end test (ADR 0017): two and a half minutes, charged
+  # as three; and a long run, for a stop mid-run and the spending cap.
+  - id: charged-run
+    name: Charged run, 150 seconds (development runner)
+    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
+    args: ["--duration", "150s"]
+    min_vram_mb: 1024
+    default_max_runtime: 10m
+    max_runtime_cap: 15m
+    memory_mb: 2048
+    cpu_millicores: 2000
+    pids_limit: 256
+    scratch_mb: 1024
+    checkpoint_interval: 5s
+  - id: long-run
+    name: Long run, 10 minutes (development runner)
+    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
+    args: ["--duration", "10m"]
+    min_vram_mb: 1024
+    default_max_runtime: 15m
+    max_runtime_cap: 15m
+    memory_mb: 2048
+    cpu_millicores: 2000
+    pids_limit: 256
+    scratch_mb: 1024
+    checkpoint_interval: 5s

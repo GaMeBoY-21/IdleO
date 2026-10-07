@@ -9,25 +9,29 @@ From the repository root, it:
 1. Creates the development CA under `private/dev-ca/` if it doesn't exist yet (`control-plane/scripts/dev-ca.sh`), including the gRPC port's certificate for `localhost`.
 2. Starts the control plane on the `local` profile (`./mvnw spring-boot:run`).
    - Spring Boot starts `control-plane/compose.yaml`: PostgreSQL, Valkey, MinIO (object storage) and the development sign-in server, under the compose project name `idleo-e2e`.
-   - It uses the development template catalog (`templates/development.yaml`: the smoke test runs 20 s and checkpoints every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
+   - It uses the development template catalog (`templates/development.yaml`: the smoke test runs 20 s, `charged-run` 150 s and `long-run` 10 minutes, each checkpointing every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
+   - Storage grants last 60 s, so every run outlives its first and the agents swap in fresh ones. Metering ticks every second and closes a session 20 s after it ends rather than 5 minutes.
    - The script waits for readiness to be UP.
 3. Gets an ID token for an invented user (`e2e-…@example.com`) from the development sign-in server.
-4. Registers a host (`POST /v1/hosts` with an `Idempotency-Key`) and gets its enrolment code (`POST /v1/hosts/{id}/enrolment-code`). The code is never printed or logged.
-5. Builds the agent (`cargo build --release`), writes `private/e2e/agent.toml`, and enrols it into `private/e2e/agent/`.
-6. Runs `idleo-agent run --fake-gpu --dev-runner`, and polls `GET /v1/hosts/{id}` every 500 ms until `online` is true (30 s at most). It also checks that the fake GPU is listed.
-7. **Books a session** (ADR 0015):
-   - gives the user ₹500 with the `grant-credits` operator command;
-   - sets the host's listing to 2 paise a minute, and activates it with `activate-host`;
-   - books the smoke template (`POST /v1/sessions`).
+4. Registers four hosts (`POST /v1/hosts` with an `Idempotency-Key`) and gets their enrolment codes (`POST /v1/hosts/{id}/enrolment-code`). Codes are never printed or logged.
+5. Builds the agent (`cargo build --release`), writes `private/e2e/agent-1.toml` to `agent-4.toml`, and enrols each into its own `private/e2e/agent-N/`.
+6. Runs four `idleo-agent run --fake-gpu --dev-runner`, and polls `GET /v1/hosts/{id}` every 500 ms until every host is `online` (30 s at most). It also checks that the fake GPU is listed.
+7. **Sets up money and hosts:**
+   - two renters get ₹500 each with the `grant-credits` operator command: A for the normal run alone, so its wallet shows exactly that charge, and B for the other three;
+   - every host lists at 2 paise a minute, and is activated with `activate-host`.
+8. **Runs four charged sessions at once, one per host** (ADRs 0015, 0016, 0017), each in its own subshell:
+   - **Normal run** (`charged-run`, renter A): runs 150 s and completes. The output (`private/e2e/output-normal.json`) is attempt 1 with no resume. It's charged exactly 3 minutes, 6 paise, in one balanced ledger transaction (renter −6, host +4, platform +2), which the summary prints. The wallet goes from ₹500.00 to ₹499.94 with nothing held, and `GET /v1/hosts/{id}/earnings` shows +4 paise for the run.
+   - **Stop mid-run** (`long-run`, renter B): about 70 s after RUNNING, `POST /v1/sessions/{id}/stop`. The agent writes a last checkpoint and stops, and the session ends `COMPLETED` (`renter_stopped`, then `stopped`), charged exactly the minutes it ran.
+   - **Host loss** (`charged-run`, renter B): once minute 0 is reported and a checkpoint is past it, `kill -9` the agent. The lease lapses, the session goes `HOST_LOST` and back to `REQUESTED` as attempt 2, and resumes on a free host from the newest complete checkpoint (`private/e2e/output-resumed.json` names it); the killed agent is restarted. Attempt 2 only ran after attempt 1 was declared lost. Attempt 1's minutes after its checkpoint aren't charged and attempt 2's are; the summary prints the waiver and the ledger.
+   - **Spending cap** (`long-run` with `maxSpendPaise` 6, renter B): stopped with `max_spend_reached` after a last checkpoint, `COMPLETED`, charged no more than 6 paise and exactly the minutes it ran.
 
-   The real agent accepts the offer and gets the StartSession with scoped storage grants and a lease (ADR 0016). Its development runner runs the job, checkpointing to MinIO, while the wallet shows 60 paise held (30 minutes at 2 paise). The session moves `PROVISIONING`, `RUNNING`, `FINISHING`, `COMPLETED`; the script records the time from the POST to each, from the session's own events.
-8. **Downloads the output** through `GET /v1/sessions/{id}/outputs` and its pre-signed link into `private/e2e/output-normal.json`, and checks it: attempt 1, no resume, three checkpoints. The wallet is back to ₹500 exactly (nothing is charged until metering exists), and three checkpoints are recorded.
-9. **Loses the host mid-run:** books again, waits for `RUNNING` and two recorded checkpoints, and `kill -9`s the agent. The lease lapses and the session goes `HOST_LOST`, then `REQUESTED` as attempt 2, waiting for a host. The script restarts the agent; it's matched again, resumes from the last complete checkpoint and completes. The output (`private/e2e/output-resumed.json`) must say attempt 2 and name that checkpoint. The script checks that attempt 2 only ran after attempt 1 was declared lost, prints the session's `session_events`, and checks that no storage credential appears in either log.
-10. Stops the agent with SIGTERM, and polls until `online` is false (30 s at most). Under 5 seconds means the clean close removed presence; anything longer would mean only the 15-second presence expiry did, and the script says which.
+   Then it checks renter B's wallet is not negative and holds nothing, that an agent resumed from a checkpoint and swapped in fresh credentials, and that no storage credential appears in any log.
+9. **Runs the wallet check** (`reconcile-wallets`) and requires 0 mismatches.
+10. Stops the agents with SIGTERM, and polls until every host is offline (30 s at most). Under 5 seconds means the clean close removed presence; anything longer would mean only the 15-second presence expiry did, and the script says which.
 11. Prints a summary, with each timing and PASS or FAIL, and exits non-zero on any failure.
-12. On exit, even after a failure or Ctrl-C, it stops the agent and the control plane and removes the compose services. It then checks that no container, control plane or agent is still running.
+12. On exit, even after a failure or Ctrl-C, it stops the agents and the control plane and removes the compose services. It then checks that no container, control plane or agent is still running.
 
-Logs go to `private/e2e/`: `control-plane.log`, `agent.log`, `agent-build.log`, `ops.log` (the operator commands) and `compose.log`, with the two downloaded outputs beside them. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
+Logs go to `private/e2e/`: `control-plane.log`, `agent-1.log` to `agent-4.log`, `agent-build.log`, `ops.log` (the operator commands) and `compose.log`, with the two downloaded outputs beside them. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
 
 ## What you need
 

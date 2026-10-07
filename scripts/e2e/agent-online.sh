@@ -3,11 +3,12 @@
 #
 # Starts PostgreSQL, Valkey and the development sign-in server (compose.yaml) with the control plane
 # on the local profile, signs in, registers a host, enrols the agent with a fake GPU, and watches
-# GET /v1/hosts/{id} report it online. Then it books sessions (ADRs 0015, 0016): free credit, a
-# listing and activation; a session the agent runs with its development runner, checkpointing to
-# object storage (MinIO), that completes and whose output the renter downloads; and a session whose
-# agent is killed mid-run, whose lease lapses, and which resumes as attempt 2 from its last complete
-# checkpoint when the agent comes back. Finally it watches the host go offline once the agent stops. Everything it writes
+# GET /v1/hosts/{id} report it online. Then it enrols three more agents, so four sessions run at once,
+# one per host, and charges them (ADRs 0015, 0016, 0017): a two-and-a-half-minute run charged exactly
+# three minutes; a run the renter stops mid-way after a last checkpoint; a run whose agent is killed,
+# whose lease lapses, and which resumes as attempt 2, the minutes lost after attempt 1's checkpoint
+# given back; and a run stopped at its spending cap. It runs the wallet check, then watches the hosts
+# go offline once the agents stop. Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
 #
@@ -84,9 +85,10 @@ await_state() {
   done
   fail "session $session didn't reach $wanted within $limit s (it's $state)"
 }
+# Books template $2 with a spending cap of $3 paise, as whoever $token belongs to.
 book() {
   api_post /v1/sessions -H "Idempotency-Key: \"$user-$1\"" \
-    -d '{"templateId": "cuda-smoke-test", "maxPricePaisePerMin": 5, "maxSpendPaise": 10000}' | json_get .id
+    -d "{\"templateId\": \"$2\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": $3}" | json_get .id
 }
 # A read-only query against the stack's PostgreSQL.
 sql() {
@@ -127,23 +129,69 @@ download_output() {
 print(next(f["url"] for f in json.load(sys.stdin)["files"] if f["path"] == "result.json"))')"
   curl -sf "$url" -o "$2" || fail "downloading $1's output failed"
 }
-# The agent with a fake GPU and the development runner (ADR 0016), in the background.
+# Agent $1 (1 to $agents) with a fake GPU and the development runner (ADR 0016), in the background.
+# Its pid is in a file, since the host-loss scenario kills and restarts one from a subshell.
 run_agent() {
-  IDLEO_LOG=info "$agent" --config "$out/agent.toml" run --fake-gpu --dev-runner >>"$out/agent.log" 2>&1 &
-  agent_pid=$!
+  IDLEO_LOG=info "$agent" --config "$out/agent-$1.toml" run --fake-gpu --dev-runner >>"$out/agent-$1.log" 2>&1 &
+  echo $! >"$out/agent-$1.pid"
 }
+agent_running() { [[ -f "$out/agent-$1.pid" ]] && kill -0 "$(cat "$out/agent-$1.pid")" 2>/dev/null; }
+# Waits until metering has closed a session: settled, reviewed, and its hold released.
+await_closed() {
+  local deadline=$((SECONDS + $2))
+  until [[ "$(sql "select closed_at is not null from metering.metered_sessions where session_id = '$1'")" == t ]]; do
+    ((SECONDS < deadline)) || fail "metering didn't close session $1 within $2 s"
+    sleep 0.5
+  done
+}
+# How many of a session's minutes are charged, net of refunds (of attempt $2 only, if given).
+billed_minutes() {
+  sql "select count(*) from metering.usage_minutes where session_id = '$1' and billed and refund_txn is null${2:+ and agent_attempt = $2}"
+}
+# The session's ledger entries, one line each; and whether every one of its transactions balances.
+print_ledger() {
+  sql "select e.txn_id || ' ' || rpad(e.ref_type, 14) || ' ' || rpad(e.account, 16) || ' ' || rpad(e.direction, 6) || ' ' || e.amount_paise
+       from billing.ledger_entries e where e.ref_id = '$1' order by e.created_at, e.txn_id, e.account"
+}
+ledger_balanced() {
+  sql "select coalesce(bool_and(debits = credits), false) from (
+         select txn_id, sum(amount_paise) filter (where direction = 'debit') as debits,
+                sum(amount_paise) filter (where direction = 'credit') as credits
+         from billing.ledger_entries where ref_id = '$1' group by txn_id) t"
+}
+# Whether the session's runner wrote a last checkpoint when asked to stop, and the control plane found it
+# complete in storage: its newest checkpoint finished after the stop request (to within a second, for
+# skew between storage's clock and the control plane's).
+checkpointed_after_stop() {
+  grep -q "stopped after a last checkpoint session_id=$1 " "$out"/agent-*.log &&
+    [[ "$(sql "select count(*) > 0 from sessions.checkpoints c
+       join sessions.attempts a on a.session_id = c.session_id and a.attempt = c.attempt
+       where c.session_id = '$1' and a.stop_requested_at is not null
+         and c.completed_at >= a.stop_requested_at - interval '1 second'
+         and c.step = (select max(step) from sessions.checkpoints where session_id = '$1' and attempt = c.attempt)")" == t ]] &&
+    echo t
+}
+# Scenarios run in subshells, side by side; each writes its summary lines to its own file.
+note() { printf '%s\n' "$*" >>"$out/summary-$scenario.txt"; }
 
+agents=4
 control_plane_pid=""
-agent_pid=""
 summary=()
 
 cleanup() {
   local status=$?
   set +e
-  if [[ -n "$agent_pid" ]] && kill -0 "$agent_pid" 2>/dev/null; then
-    kill -TERM "$agent_pid" 2>/dev/null
-    wait "$agent_pid" 2>/dev/null
-  fi
+  for pid_file in "$out"/agent-*.pid; do
+    [[ -f "$pid_file" ]] && kill -TERM "$(cat "$pid_file")" 2>/dev/null
+  done
+  for _ in $(seq 1 20); do
+    pgrep -f "$out/agent-[0-9]*.toml run" >/dev/null 2>&1 || break
+    sleep 0.5
+  done
+  pkill -KILL -f "$out/agent-[0-9]*.toml run" 2>/dev/null
+  for pid_file in "$out"/agent-*.pid; do
+    [[ -f "$pid_file" ]] && wait "$(cat "$pid_file")" 2>/dev/null
+  done
   if [[ -n "$control_plane_pid" ]] && kill -0 "$control_plane_pid" 2>/dev/null; then
     log "stopping the control plane"
     kill -TERM -- "-$control_plane_pid" 2>/dev/null
@@ -166,14 +214,14 @@ cleanup() {
   if [[ -n "$control_plane_pid" ]] && pgrep -g "$control_plane_pid" >/dev/null 2>&1; then
     leftovers+=" control-plane"
   fi
-  if pgrep -f "$out/agent.toml" >/dev/null 2>&1; then
+  if pgrep -f "$out/agent-[0-9]*.toml" >/dev/null 2>&1; then
     leftovers+=" agent"
   fi
   if [[ -n "$leftovers" ]]; then
     printf 'e2e: FAIL: still running after teardown:%s\n' "$leftovers" >&2
     status=1
   else
-    summary+=("teardown: nothing left running (containers, control plane, agent): PASS")
+    summary+=("teardown: nothing left running (containers, control plane, agents): PASS")
   fi
 
   if [[ ${#summary[@]} -gt 0 ]]; then
@@ -189,7 +237,7 @@ cleanup() {
 }
 
 mkdir -p "$out"
-rm -f "$out"/*.log
+rm -f "$out"/*.log "$out"/*.pid "$out"/summary-*.txt
 trap cleanup EXIT
 on_signal() {
   # Ctrl-C is how --keep-running is meant to end.
@@ -222,6 +270,11 @@ set -m
   # A short lease, renewed every 3 s; a lost host counts as lost 2 s after it ends.
   export SESSIONS_LEASES_TTL="$lease_ttl" SESSIONS_LEASES_RENEW_EVERY=3s
   export SESSIONS_LEASES_TRANSIT_ALLOWANCE=2s SESSIONS_LEASES_LAPSE_SWEEP_EVERY=1s
+  # Grants that last a minute, so every run outlives its first and the agents swap in fresh ones
+  # (MinIO's own credentials still last 15 minutes). Metering ticks every second, and closes a session
+  # 20 s after it ends, not 5 minutes, when it's still waiting on a minute only one witness saw.
+  export SESSIONS_STORAGE_GRANT_TTL=60s SESSIONS_STORAGE_REFRESH_CHECK_EVERY=1s
+  export METERING_TICK_EVERY=1s METERING_REVIEW_AFTER=20s
   exec ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local
 ) >"$out/control-plane.log" 2>&1 &
 control_plane_pid=$!
@@ -259,167 +312,314 @@ if $keep_running; then
   exit 0
 fi
 
-# 4. Register a host and get its enrolment code. The code is never printed or logged.
-host_json="$(curl -sf -X POST "$api/v1/hosts" -H "Authorization: Bearer $token" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-host\"" -d '{"name":"End-to-end test host"}')" ||
-  fail "POST /v1/hosts failed"
-host_id="$(printf '%s' "$host_json" | json_field id)"
-[[ -n "$host_id" ]] || fail "POST /v1/hosts returned no id"
-code="$(curl -sf -X POST "$api/v1/hosts/$host_id/enrolment-code" -H "Authorization: Bearer $token" | json_field code)"
-[[ -n "$code" ]] || fail "no enrolment code"
-summary+=("host registered: $host_id")
+# 4. Register the hosts and get their enrolment codes. Codes are never printed or logged.
+host_ids=()
+codes=()
+for i in $(seq 1 "$agents"); do
+  host_json="$(curl -sf -X POST "$api/v1/hosts" -H "Authorization: Bearer $token" \
+    -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-host-$i\"" -d "{\"name\":\"End-to-end test host $i\"}")" ||
+    fail "POST /v1/hosts failed"
+  id="$(printf '%s' "$host_json" | json_field id)"
+  [[ -n "$id" ]] || fail "POST /v1/hosts returned no id"
+  code="$(curl -sf -X POST "$api/v1/hosts/$id/enrolment-code" -H "Authorization: Bearer $token" | json_field code)"
+  [[ -n "$code" ]] || fail "no enrolment code"
+  host_ids+=("$id")
+  codes+=("$code")
+done
+host_id="${host_ids[0]}"
+summary+=("hosts registered: ${host_ids[*]}")
 
-# 5. Build and enrol the agent.
+# 5. Build and enrol the agents.
 log "building the agent"
 # From inside agent/, so rustup uses the toolchain pinned in agent/rust-toolchain.toml; it looks in
 # the current directory, not at --manifest-path.
 (cd agent && cargo build --release --locked --quiet) >"$out/agent-build.log" 2>&1 ||
   fail "cargo build failed; see private/e2e/agent-build.log"
 agent="$root/agent/target/release/idleo-agent"
-rm -rf "$out/agent"
-cat >"$out/agent.toml" <<TOML
+for i in $(seq 1 "$agents"); do
+  rm -rf "$out/agent-$i"
+  cat >"$out/agent-$i.toml" <<TOML
 ca_root = "$root/private/dev-ca/root.pem"
-data_dir = "$out/agent"
+data_dir = "$out/agent-$i"
 log_format = "text"
 
 [control_plane]
 host = "localhost"
 port = $grpc_port
 TOML
-"$agent" --config "$out/agent.toml" enrol --code "$code" >>"$out/agent.log" 2>&1 ||
-  fail "enrolment failed; see private/e2e/agent.log"
-unset code
-summary+=("agent enrolled")
+  "$agent" --config "$out/agent-$i.toml" enrol --code "${codes[$((i - 1))]}" >>"$out/agent-$i.log" 2>&1 ||
+    fail "enrolment failed; see private/e2e/agent-$i.log"
+done
+unset codes code
+summary+=("agents enrolled: $agents")
 
 host_online() {
-  curl -sf "$api/v1/hosts/$host_id" -H "Authorization: Bearer $token" | grep -q "\"online\":$1"
+  curl -sf "$api/v1/hosts/$1" -H "Authorization: Bearer $token" | grep -q "\"online\":$2"
+}
+# The agent running a host, by its position in host_ids.
+agent_of() {
+  local i
+  for i in "${!host_ids[@]}"; do
+    [[ "${host_ids[$i]}" == "$1" ]] && { echo $((i + 1)); return; }
+  done
+  fail "no agent runs host $1"
 }
 
-# 6. Run the agent and wait for the host to come online.
+# 6. Run the agents and wait for the hosts to come online.
 agent_started="$(now_ms)"
-run_agent
+for i in $(seq 1 "$agents"); do run_agent "$i"; done
 deadline=$((SECONDS + 30))
-until host_online true; do
-  kill -0 "$agent_pid" 2>/dev/null || fail "the agent exited; see private/e2e/agent.log"
-  ((SECONDS < deadline)) || fail "the host didn't come online within 30 s"
-  sleep 0.5
+for i in $(seq 1 "$agents"); do
+  until host_online "${host_ids[$((i - 1))]}" true; do
+    agent_running "$i" || fail "agent $i exited; see private/e2e/agent-$i.log"
+    ((SECONDS < deadline)) || fail "host $i didn't come online within 30 s"
+    sleep 0.5
+  done
 done
 to_online="$(seconds_since "$agent_started")"
-summary+=("agent start to online: $to_online s: PASS")
+summary+=("agents start to all $agents hosts online: $to_online s: PASS")
 host_view="$(curl -sf "$api/v1/hosts/$host_id" -H "Authorization: Bearer $token")"
 printf '%s' "$host_view" | grep -q '"gpus":\[{"model":"IdleO Fake GPU","vramMb":12282,"gone":false}\]' ||
   fail "the host's GPUs aren't listed: $host_view"
 summary+=("fake GPU listed on the host: PASS")
 
-# 7. Book a session (ADR 0015): the user gets ₹500 of free credit, the host lists at 2 paise a minute
-#    and is activated, the agent accepts the offer, and 30 minutes (60 paise) is held.
+# 7. Two renters with ₹500 of free credit each: A for the normal run alone, so its wallet shows exactly
+#    that run's charge, and B for the other three. Each host lists at 2 paise a minute and is activated.
 user_id="$(api_get /v1/me | json_get .id)"
-ops grant-credits --user "$user_id" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$user_id" ||
-  fail "grant-credits failed; see private/e2e/ops.log"
-curl -sf -X PUT "$api/v1/hosts/$host_id/listing" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-  -d '{"batchPricePaisePerMin": 2, "gpuTempCapC": 85, "maxConcurrentSessions": 1}' >/dev/null || fail "PUT listing failed"
-ops activate-host --host "$host_id" --reason "'End-to-end test host'" || fail "activate-host failed; see private/e2e/ops.log"
+token_b="$(curl -sf -X POST "$sign_in/token" \
+  -d grant_type=client_credentials -d "client_id=$user-b" -d client_secret=unused -d scope=openid |
+  json_field access_token)"
+[[ -n "$token_b" ]] || fail "no token for the second renter"
+user_b_id="$(token="$token_b" api_get /v1/me | json_get .id)"
+setup_started="$(now_ms)"
+for renter in "$user_id" "$user_b_id"; do
+  ops grant-credits --user "$renter" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$renter" ||
+    fail "grant-credits failed; see private/e2e/ops.log"
+done
+for id in "${host_ids[@]}"; do
+  curl -sf -X PUT "$api/v1/hosts/$id/listing" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+    -d '{"batchPricePaisePerMin": 2, "gpuTempCapC": 85, "maxConcurrentSessions": 1}' >/dev/null || fail "PUT listing failed"
+  ops activate-host --host "$id" --reason "'End-to-end test host'" || fail "activate-host failed; see private/e2e/ops.log"
+done
+summary+=("credit for 2 renters, $agents hosts listed and activated: $(seconds_since "$setup_started") s")
 wallet_before="$(api_get /v1/wallet)"
 [[ "$(printf '%s' "$wallet_before" | json_get .availablePaise)" == 50000 ]] || fail "the wallet isn't ₹500: $wallet_before"
 
-# 8. Book, run, complete (ADR 0016): the agent starts the session with scoped storage grants and a
-#    lease, runs it with the development runner (20 s, a checkpoint every 5 s), and the control plane
-#    sees its outputs' completion marker. The renter downloads the output; the hold is released and,
-#    with no metering yet, nothing is charged.
-posted="$(now_ms)"
-session_id="$(book first)"
-await_state "$session_id" RUNNING 60
-summary+=("run: POST to MATCHED $(event_seconds "$session_id" REQUESTED MATCHED) s, to PROVISIONING $(event_seconds "$session_id" REQUESTED PROVISIONING) s, to RUNNING $(event_seconds "$session_id" REQUESTED RUNNING) s")
-wallet_held="$(api_get /v1/wallet)"
-[[ "$(printf '%s' "$wallet_held" | json_get .reservedPaise)" == 60 ]] || fail "expected 60 paise held: $wallet_held"
-summary+=("wallet before booking: $wallet_before")
-summary+=("wallet while running:  $wallet_held: PASS")
-await_state "$session_id" COMPLETED 90
-summary+=("run: POST to COMPLETED $(event_seconds "$session_id" REQUESTED COMPLETED) s (wall clock $(seconds_since "$posted") s): PASS")
-download_output "$session_id" "$out/output-normal.json"
-python3 - "$out/output-normal.json" <<'PY' || fail "the output isn't attempt 1 without a resume: $(cat "$out/output-normal.json")"
+# 8. Four charged sessions at once, one per host (ADR 0017). Each scenario is a subshell; a failure
+#    ends it, and the script, with its message.
+
+# Normal run (renter A): 150 s of work at 2 paise a minute is charged as 3 minutes, 6 paise; the host
+# earns 4 (80%, rounded down) and the platform keeps 2, in one balanced ledger transaction.
+scenario_normal() {
+  local id host earnings wallet charged
+  id="$(book normal charged-run 10000)"
+  await_state "$id" RUNNING 90
+  note "normal run: POST to RUNNING $(event_seconds "$id" REQUESTED RUNNING) s"
+  [[ "$(api_get /v1/wallet | json_get .reservedPaise)" == 60 ]] || fail "expected 60 paise held for the normal run"
+  host="$(api_get "/v1/sessions/$id" | json_get .hostId)"
+  await_state "$id" COMPLETED 240
+  download_output "$id" "$out/output-normal.json"
+  python3 - "$out/output-normal.json" <<'PY' || fail "the output isn't attempt 1 without a resume: $(cat "$out/output-normal.json")"
 import json, sys
 output = json.load(open(sys.argv[1]))
-assert output["attempt"] == 1 and output["resumed_from"] is None and output["checkpoints_written"] == 3, output
+assert output["attempt"] == 1 and output["resumed_from"] is None, output
 PY
-summary+=("downloaded output (normal run): $(tr -d '\n ' <"$out/output-normal.json"): PASS")
-wallet_after="$(api_get /v1/wallet)"
-[[ "$(printf '%s' "$wallet_after" | json_get .availablePaise)" == 50000 &&
-  "$(printf '%s' "$wallet_after" | json_get .reservedPaise)" == 0 ]] || fail "the hold wasn't released: $wallet_after"
-summary+=("wallet after COMPLETED: $wallet_after: PASS")
-checkpoints="$(sql "select count(*) from sessions.checkpoints where session_id = '$session_id'")"
-[[ "$checkpoints" == 3 ]] || fail "expected 3 checkpoints recorded, found $checkpoints"
-summary+=("checkpoints recorded once their markers were confirmed in storage: $checkpoints: PASS")
+  await_closed "$id" 60
+  wallet="$(api_get /v1/wallet)"
+  [[ "$(printf '%s' "$wallet" | json_get .balancePaise)" == 49994 &&
+    "$(printf '%s' "$wallet" | json_get .reservedPaise)" == 0 ]] ||
+    fail "the normal run's wallet isn't ₹499.94 with nothing held: $wallet"
+  note "normal run wallet: ₹500.00 -> ₹499.94, hold released: $wallet: PASS"
+  charged="$(api_get "/v1/sessions/$id" | json_get .chargedPaise)"
+  [[ "$charged" == 6 && "$(billed_minutes "$id")" == 3 ]] || fail "the normal run was charged $charged paise, not 3 minutes = 6"
+  [[ "$(ledger_balanced "$id")" == t ]] || fail "the normal run's ledger transaction doesn't balance"
+  [[ "$(sql "select string_agg(account || ':' || direction || ':' || amount_paise, ',' order by account)
+             from billing.ledger_entries where ref_id = '$id'")" == "host_payable:credit:4,platform_revenue:credit:2,renter_wallet:debit:6" ]] ||
+    fail "the normal run's ledger transaction isn't 6 from the renter, 4 to the host, 2 to the platform"
+  note "normal run charged: 3 minutes = $charged paise, balanced: PASS"
+  while IFS= read -r line; do note "  ledger: $line"; done < <(print_ledger "$id")
+  earnings="$(api_get "/v1/hosts/$host/earnings")"
+  printf '%s' "$earnings" | python3 -c 'import json, sys
+earnings = json.load(sys.stdin)
+entry = next(e for e in earnings["history"]["entries"] if e["reference"]["id"] == sys.argv[1])
+assert entry["kind"] == "session_earning" and entry["direction"] == "credit" and entry["amountPaise"] == 4, entry' "$id" ||
+    fail "the host's earnings don't show +4 paise for the normal run: $earnings"
+  note "host earnings: +4 paise for the normal run, balance $(printf '%s' "$earnings" | json_get .balancePaise) paise: PASS"
+}
 
-# 9. Lose the host mid-run: book again, wait for RUNNING and two checkpoints, kill -9 the agent. The
-#    lease lapses, the session goes HOST_LOST and back to REQUESTED as attempt 2 and waits for a
-#    host; when the agent comes back it's matched again, resumes from the last complete checkpoint
-#    and completes.
-lost_id="$(book second)"
-await_state "$lost_id" RUNNING 60
-deadline=$((SECONDS + 30))
-until (($(sql "select count(*) from sessions.checkpoints where session_id = '$lost_id'") >= 2)); do
-  ((SECONDS < deadline)) || fail "session $lost_id didn't record two checkpoints within 30 s"
-  sleep 0.2
-done
-killed_at="$(now_ms)"
-kill -KILL "$agent_pid"
-wait "$agent_pid" 2>/dev/null || true
-agent_pid=""
-await_events "$lost_id" HOST_LOST 60
-lost_at="$(event_ms "$lost_id" HOST_LOST)"
-summary+=("kill -9 to HOST_LOST: $(perl -e 'printf "%.2f", ($ARGV[1] - $ARGV[0]) / 1000' "$killed_at" "$lost_at") s (lease $lease_ttl, plus a 2 s transit allowance): PASS")
-[[ "$(api_get "/v1/sessions/$lost_id" | json_get .attempt)" == 2 ]] || fail "the lost session isn't on attempt 2"
-restarted="$(now_ms)"
-run_agent
-await_state "$lost_id" COMPLETED 120
-summary+=("agent restart to COMPLETED: $(seconds_since "$restarted") s: PASS")
-download_output "$lost_id" "$out/output-resumed.json"
-resumed_seq="$(sql "select max(step) from sessions.checkpoints where session_id = '$lost_id' and attempt = 1")"
-python3 - "$out/output-resumed.json" "$lost_id" "$resumed_seq" <<'PY' ||
+# Stop mid-run (renter B): about 70 s in, the renter stops the job; the agent writes a last
+# checkpoint and stops, the session completes as stopped, and it's charged the minutes it ran.
+scenario_stop() {
+  local id running_ms charged minutes
+  id="$(book stop long-run 10000)"
+  await_state "$id" RUNNING 90
+  running_ms="$(event_ms "$id" RUNNING)"
+  sleep "$(perl -e 'my $s = ($ARGV[0] + 70000 - $ARGV[1]) / 1000; printf "%.1f", $s > 0 ? $s : 0' "$running_ms" "$(now_ms)")"
+  [[ "$(api_post "/v1/sessions/$id/stop" -d '{}' | json_get .state)" == FINISHING ]] || fail "POST /stop didn't move $id to FINISHING"
+  await_state "$id" COMPLETED 90
+  api_get "/v1/sessions/$id" | python3 -c 'import json, sys
+reasons = [e["reason"] for e in json.load(sys.stdin)["events"]]
+assert reasons[-2:] == ["renter_stopped", "stopped"], reasons' || fail "the stopped session's events don't end renter_stopped, stopped"
+  await_closed "$id" 60
+  [[ "$(checkpointed_after_stop "$id")" == t ]] || fail "the stopped session wrote no checkpoint after the stop"
+  charged="$(api_get "/v1/sessions/$id" | json_get .chargedPaise)"
+  minutes="$(sql "select count(*) from metering.usage_minutes where session_id = '$id' and agent_reported")"
+  [[ "$charged" == $((2 * minutes)) && "$(billed_minutes "$id")" == "$minutes" ]] ||
+    fail "the stopped session was charged $charged paise for $minutes minutes run"
+  [[ "$(ledger_balanced "$id")" == t ]] || fail "the stopped session's ledger doesn't balance"
+  note "stop at ~70 s: COMPLETED (stopped) after a final checkpoint; charged $charged paise for the $minutes minutes it ran: PASS"
+}
+
+# Host loss (renter B): kill -9 the agent once minute 0 is reported and a checkpoint is past it. The
+# lease lapses, attempt 2 resumes from the newest complete checkpoint, attempt 1's minutes after that
+# checkpoint are waived, and attempt 2's are charged.
+scenario_loss() {
+  local id host index killed_at lost_at resumed_seq charged first second waiver late
+  id="$(book loss charged-run 10000)"
+  await_state "$id" RUNNING 90
+  host="$(api_get "/v1/sessions/$id" | json_get .hostId)"
+  index="$(agent_of "$host")"
+  local deadline=$((SECONDS + 120))
+  until [[ "$(sql "select count(*) > 0 from metering.usage_minutes where session_id = '$id' and agent_reported and agent_attempt = 1")" == t &&
+    "$(sql "select count(*) > 0 from sessions.checkpoints c join sessions.attempts a on a.session_id = c.session_id and a.attempt = 1
+            where c.session_id = '$id' and c.attempt = 1 and c.completed_at > a.running_at + interval '60 seconds'")" == t ]]; do
+    ((SECONDS < deadline)) || fail "session $id never reported minute 0 and a checkpoint after it"
+    sleep 0.2
+  done
+  killed_at="$(now_ms)"
+  kill -KILL "$(cat "$out/agent-$index.pid")"
+  await_events "$id" HOST_LOST 60
+  lost_at="$(event_ms "$id" HOST_LOST)"
+  note "host loss: kill -9 to HOST_LOST $(perl -e 'printf "%.2f", ($ARGV[1] - $ARGV[0]) / 1000' "$killed_at" "$lost_at") s (lease $lease_ttl, plus a 2 s transit allowance): PASS"
+  [[ "$(api_get "/v1/sessions/$id" | json_get .attempt)" == 2 ]] || fail "the lost session isn't on attempt 2"
+  run_agent "$index"
+  await_state "$id" COMPLETED 240
+  download_output "$id" "$out/output-resumed.json"
+  resumed_seq="$(sql "select max(step) from sessions.checkpoints where session_id = '$id' and attempt = 1")"
+  python3 - "$out/output-resumed.json" "$id" "$resumed_seq" <<'PY' ||
 import json, sys
 output, session, seq = json.load(open(sys.argv[1])), sys.argv[2], int(sys.argv[3])
 assert output["attempt"] == 2, output
 assert output["resumed_from"] == {"prefix": f"sessions/{session}/attempt-1/checkpoints/", "seq": seq}, output
 PY
-  fail "the output isn't attempt 2 resumed from checkpoint $resumed_seq: $(cat "$out/output-resumed.json")"
-summary+=("downloaded output (resumed run): $(tr -d '\n ' <"$out/output-resumed.json"): PASS")
-# Fencing: attempt 2 ran only after attempt 1 was declared lost, which happens only once its lease and
-# the transit allowance have passed.
-fenced="$(sql "select (select running_at from sessions.attempts where session_id = '$lost_id' and attempt = 2)
-  > (select at from sessions.session_events where session_id = '$lost_id' and to_state = 'HOST_LOST')")"
-[[ "$fenced" == t ]] || fail "attempt 2 ran before attempt 1 was declared lost"
-summary+=("fencing: attempt 2 ran only after attempt 1's lease lapsed: PASS")
-[[ "$(api_get /v1/wallet | json_get .reservedPaise)" == 0 ]] || fail "the resumed session's hold wasn't released"
-api_get "/v1/sessions/$lost_id" | python3 -c 'import json, sys
-for e in json.load(sys.stdin)["events"]:
-    print("    session_event: %-12s %-24s %s" % (e["state"], e["reason"], e["at"]))' >"$out/session-events.txt"
-while IFS= read -r line; do summary+=("${line#    }"); done <"$out/session-events.txt"
-grep -q "resumed from a checkpoint" "$out/agent.log" || fail "the agent never logged resuming from a checkpoint"
+    fail "the output isn't attempt 2 resumed from checkpoint $resumed_seq: $(cat "$out/output-resumed.json")"
+  note "downloaded output (resumed run): $(tr -d '\n ' <"$out/output-resumed.json"): PASS"
+  # Fencing: attempt 2 ran only after attempt 1 was declared lost, which happens only once its lease
+  # and the transit allowance have passed.
+  [[ "$(sql "select (select running_at from sessions.attempts where session_id = '$id' and attempt = 2)
+    > (select at from sessions.session_events where session_id = '$id' and to_state = 'HOST_LOST')")" == t ]] ||
+    fail "attempt 2 ran before attempt 1 was declared lost"
+  note "fencing: attempt 2 ran only after attempt 1's lease lapsed: PASS"
+  await_closed "$id" 60
+  waiver="$(sql "select 'checkpoint_at ' || checkpoint_at || ', waived_from ' || waived_from || ', refunded ' || refunded_minutes
+                 || ' minutes = ' || refunded_paise || ' paise (txn ' || refund_txn || ')'
+                 from metering.waivers where session_id = '$id' and attempt = 1")"
+  [[ -n "$waiver" ]] || fail "attempt 1 of the lost session has no waiver"
+  late="$(sql "select count(*) from metering.usage_minutes u join metering.waivers w on w.session_id = u.session_id and w.attempt = 1
+               where u.session_id = '$id' and u.agent_attempt = 1 and u.billed and u.refund_txn is null
+                 and u.minute_at + interval '1 minute' > w.waived_from")"
+  [[ "$late" == 0 ]] || fail "$late minutes of attempt 1 after its last checkpoint were charged"
+  first="$(billed_minutes "$id" 1)"
+  second="$(billed_minutes "$id" 2)"
+  charged="$(api_get "/v1/sessions/$id" | json_get .chargedPaise)"
+  ((first >= 1 && second >= 1)) || fail "expected minutes charged on both attempts, got $first and $second"
+  [[ "$charged" == $((2 * (first + second))) ]] || fail "the lost session was charged $charged paise for $((first + second)) minutes"
+  [[ "$(ledger_balanced "$id")" == t ]] || fail "the lost session's ledger doesn't balance"
+  note "host loss charged: attempt 1 $first minutes (none after its checkpoint), attempt 2 $second minutes, total $charged paise: PASS"
+  note "  waiver: $waiver"
+  while IFS= read -r line; do note "  ledger: $line"; done < <(print_ledger "$id")
+}
+
+# Spending cap (renter B): 6 paise at 2 paise a minute. The session is stopped with max_spend_reached
+# after a checkpoint, and charged exactly the minutes it ran, never past the cap.
+scenario_cap() {
+  local id charged
+  id="$(book cap long-run 6)"
+  await_state "$id" RUNNING 90
+  await_events "$id" FINISHING 300
+  await_state "$id" COMPLETED 90
+  api_get "/v1/sessions/$id" | python3 -c 'import json, sys
+reasons = [e["reason"] for e in json.load(sys.stdin)["events"]]
+assert reasons[-2:] == ["max_spend_reached", "stopped"], reasons' || fail "the capped session's events don't end max_spend_reached, stopped"
+  await_closed "$id" 60
+  [[ "$(checkpointed_after_stop "$id")" == t ]] || fail "the capped session wrote no checkpoint after the stop"
+  charged="$(api_get "/v1/sessions/$id" | json_get .chargedPaise)"
+  ((charged <= 6)) || fail "the capped session was charged $charged paise, past its 6 paise cap"
+  [[ "$charged" == $((2 * $(billed_minutes "$id"))) &&
+    "$(billed_minutes "$id")" == "$(sql "select count(*) from metering.usage_minutes where session_id = '$id' and agent_reported")" ]] ||
+    fail "the capped session wasn't charged exactly the minutes it ran"
+  [[ "$(ledger_balanced "$id")" == t ]] || fail "the capped session's ledger doesn't balance"
+  note "spending cap: COMPLETED after max_spend_reached and a final checkpoint; charged $charged paise (cap 6) for the minutes it ran: PASS"
+}
+
+scenarios_started="$(now_ms)"
+scenarios=(normal stop loss cap)
+scenario_pids=()
+for scenario in "${scenarios[@]}"; do
+  : >"$out/summary-$scenario.txt"
+  if [[ $scenario == normal ]]; then
+    ( "scenario_$scenario" ) &
+  else
+    ( token="$token_b"; "scenario_$scenario" ) &
+  fi
+  scenario_pids+=($!)
+done
+failed=""
+for i in "${!scenarios[@]}"; do
+  wait "${scenario_pids[$i]}" || failed+=" ${scenarios[$i]}"
+  while IFS= read -r line; do summary+=("$line"); done <"$out/summary-${scenarios[$i]}.txt"
+done
+[[ -z "$failed" ]] || fail "scenarios failed:$failed"
+summary+=("four charged scenarios side by side: $(seconds_since "$scenarios_started") s")
+
+wallet_b="$(token="$token_b" api_get /v1/wallet)"
+(($(printf '%s' "$wallet_b" | json_get .balancePaise) >= 0)) && [[ "$(printf '%s' "$wallet_b" | json_get .reservedPaise)" == 0 ]] ||
+  fail "renter B's wallet is negative or still holds credit: $wallet_b"
+summary+=("renter B's wallet after three sessions: $wallet_b: PASS")
+grep -q "resumed from a checkpoint" "$out"/agent-*.log || fail "no agent logged resuming from a checkpoint"
+refreshes="$(cat "$out"/agent-*.log | grep -c "storage credentials refreshed" || true)"
+((refreshes > 0)) || fail "no agent swapped in fresh storage credentials"
+summary+=("storage credentials refreshed in running jobs: $refreshes times: PASS")
 for field in secret_access_key session_token X-Amz-Security-Token X-Amz-Credential; do
-  if grep -q "$field" "$out/agent.log" "$out/control-plane.log"; then
+  if grep -q "$field" "$out"/agent-*.log "$out/control-plane.log"; then
     fail "a storage credential field ($field) appears in the logs"
   fi
 done
 summary+=("no storage credentials in the agent or control-plane logs: PASS")
 
-# 10. Stop the agent and wait for the host to go offline.
+# 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.
+ops reconcile-wallets || fail "the wallet check found mismatches; see private/e2e/ops.log"
+grep -q "^0 mismatches" "$out/ops.log" || fail "the wallet check didn't report 0 mismatches"
+summary+=("wallet reconciliation after the run: $(grep '^ledger:' "$out/ops.log" | tail -1); 0 mismatches: PASS")
+
+# 10. Stop the agents and wait for the hosts to go offline.
 stopped_at="$(now_ms)"
-kill -TERM "$agent_pid"
-agent_status=0
-wait "$agent_pid" || agent_status=$?
-agent_pid=""
-[[ $agent_status -eq 0 ]] || fail "the agent exited with $agent_status after SIGTERM"
+for i in $(seq 1 "$agents"); do kill -TERM "$(cat "$out/agent-$i.pid")"; done
 deadline=$((SECONDS + 30))
-until host_online false; do
-  ((SECONDS < deadline)) || fail "the host didn't go offline within 30 s"
-  sleep 0.5
+for i in $(seq 1 "$agents"); do
+  # An agent this shell started is waited for, with its exit status; the one restarted from the
+  # host-loss subshell isn't this shell's child, and is watched until it's gone.
+  pid="$(cat "$out/agent-$i.pid")"
+  agent_status=0
+  wait "$pid" 2>/dev/null || agent_status=$?
+  if ((agent_status == 127)); then
+    while kill -0 "$pid" 2>/dev/null; do
+      ((SECONDS < deadline)) || fail "agent $i didn't exit within 30 s of SIGTERM"
+      sleep 0.2
+    done
+  elif ((agent_status != 0)); then
+    fail "agent $i exited with $agent_status after SIGTERM"
+  fi
+  until host_online "${host_ids[$((i - 1))]}" false; do
+    ((SECONDS < deadline)) || fail "host $i didn't go offline within 30 s"
+    sleep 0.5
+  done
 done
 to_offline="$(seconds_since "$stopped_at")"
 # Presence lives 15 s after the last heartbeat; a clean close deletes it at once.
 if perl -e 'exit($ARGV[0] < 5 ? 0 : 1)' "$to_offline"; then
   how="the clean close"
 else
-  how="the 15 s presence expiry, so the clean close didn't remove presence"
+  how="the 15 s presence expiry, so a clean close didn't remove presence"
 fi
-summary+=("SIGTERM to offline: $to_offline s, from $how: PASS")
+summary+=("SIGTERM to all hosts offline: $to_offline s, from $how: PASS")
