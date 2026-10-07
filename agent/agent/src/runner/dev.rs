@@ -8,13 +8,23 @@
 //! on from the time it records. At the end it writes `outputs/result.json`, naming the attempt and
 //! the checkpoint it resumed from, then `outputs/_COMPLETE`, and succeeds with exit code 0. Asked to stop,
 //! it writes one more checkpoint with the time so far and stops.
+//!
+//! It proves what the job saw (ADR 0019): `result.json` has the staged input's name, size and SHA-256,
+//! every `SESSION_PARAM_*` variable from the spec, and, when there's a `greeting` parameter (the
+//! `echo-input` template), the greeting repeated `repeat` times. It writes real log lines: the start, the
+//! attempt, the checkpoint it resumed from, the parameters, the input, each checkpoint, and the finish.
 
+use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::future::Future;
+use std::path::Path;
 use std::pin::Pin;
 use std::time::Duration;
 
 use agent_proto::v1::{CheckpointRef, SessionState};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 
 use super::{Job, Report, SessionRunner};
@@ -54,6 +64,21 @@ struct Output {
     resumed_from: Option<ResumedFrom>,
     ran_for_ms: u64,
     checkpoints_written: i32,
+    /// The staged input, as the job read it.
+    input: Option<InputSeen>,
+    /// `SESSION_INPUT_URL`, which a real job would fetch inside its sandbox; this one only records it.
+    input_url: Option<String>,
+    /// Every `SESSION_PARAM_*` variable the job saw.
+    params: BTreeMap<String, String>,
+    /// For a `greeting` parameter: the greeting, `repeat` times.
+    echo: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct InputSeen {
+    name: String,
+    size_bytes: u64,
+    sha256: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -102,8 +127,10 @@ impl SessionRunner for DevRunner {
 
 async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), Stop> {
     let _ = reports.send(Report::State(SessionState::Preparing));
+    job.logs.line(format!("starting session {} attempt {}", job.session_id, job.attempt));
     let duration =
         duration_from_args(&job.spec.args).map_err(|message| Stop::Failed { code: "invalid_args", message })?;
+    let seen = observe(job).await?;
     let interval = job
         .spec
         .checkpoint_interval
@@ -118,6 +145,12 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
         })?;
         elapsed = resume(store.as_ref(), checkpoint).await?;
         tracing::info!(session_id = %job.session_id, attempt = job.attempt, seq = checkpoint.seq, ?elapsed, "resumed from a checkpoint");
+        job.logs.line(format!(
+            "resumed from checkpoint {} of {} at {} ms",
+            checkpoint.seq,
+            checkpoint.prefix,
+            millis(elapsed)
+        ));
     }
     fenced(job)?;
     let _ = reports.send(Report::State(SessionState::Running));
@@ -141,6 +174,7 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
             match write_checkpoint(job, seq + 1, elapsed).await {
                 Ok(()) => {
                     let _ = reports.send(Report::Checkpoint(seq + 1));
+                    job.logs.line(format!("checkpoint {} at {} ms, then stopped as asked", seq + 1, millis(elapsed)));
                     tracing::info!(session_id = %job.session_id, attempt = job.attempt, seq = seq + 1, "stopped after a last checkpoint");
                 }
                 Err(Stop::Failed { message, .. }) => {
@@ -155,6 +189,7 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
             match write_checkpoint(job, seq, elapsed).await {
                 Ok(()) => {
                     let _ = reports.send(Report::Checkpoint(seq));
+                    job.logs.line(format!("checkpoint {seq} at {} ms", millis(elapsed)));
                 }
                 Err(ended @ (Stop::Fenced | Stop::Requested)) => return Err(ended),
                 // The job goes on; the next checkpoint may work, and resume uses the last complete one.
@@ -173,6 +208,10 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
         resumed_from: job.resume_from.as_ref().map(|from| ResumedFrom { prefix: from.prefix.clone(), seq: from.seq }),
         ran_for_ms: millis(elapsed),
         checkpoints_written: seq,
+        input: seen.input,
+        input_url: seen.input_url,
+        params: seen.params,
+        echo: seen.echo,
     };
     let outputs = format!("{}outputs/", job.attempt_prefix);
     let body = serde_json::to_vec_pretty(&output).expect("the output serialises");
@@ -180,7 +219,72 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
     upload(job, &format!("{outputs}result.json"), body).await?;
     upload(job, &format!("{outputs}_COMPLETE"), manifest).await?;
     tracing::info!(session_id = %job.session_id, attempt = job.attempt, "the job finished and its outputs are uploaded");
+    job.logs.line(format!("finished after {} ms; outputs uploaded", millis(elapsed)));
     Ok(())
+}
+
+/// What the job was given, written to its log as it's read.
+struct Seen {
+    params: BTreeMap<String, String>,
+    input: Option<InputSeen>,
+    input_url: Option<String>,
+    echo: Option<Vec<String>>,
+}
+
+async fn observe(job: &Job) -> Result<Seen, Stop> {
+    let params: BTreeMap<String, String> = job
+        .spec
+        .env
+        .iter()
+        .filter(|(name, _)| name.starts_with("SESSION_PARAM_"))
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect();
+    for (name, value) in &params {
+        job.logs.line(format!("parameter {name}={value}"));
+    }
+    let input = match &job.input_file {
+        Some(path) => {
+            let seen = read_input(path).await?;
+            job.logs.line(format!("input {} {} bytes sha256 {}", seen.name, seen.size_bytes, seen.sha256));
+            Some(seen)
+        }
+        None => None,
+    };
+    let input_url = job.spec.env.get("SESSION_INPUT_URL").cloned();
+    if let Some(url) = &input_url {
+        job.logs.line(format!("input url {url} (a real job fetches it inside its sandbox)"));
+    }
+    let echo = params.get("SESSION_PARAM_GREETING").map(|greeting| {
+        let repeat = params.get("SESSION_PARAM_REPEAT").and_then(|repeat| repeat.parse::<usize>().ok()).unwrap_or(1);
+        vec![greeting.clone(); repeat]
+    });
+    for line in echo.iter().flatten() {
+        job.logs.line(line);
+    }
+    Ok(Seen { params, input, input_url, echo })
+}
+
+/// The staged input's name, size and SHA-256, read in pieces.
+async fn read_input(path: &Path) -> Result<InputSeen, Stop> {
+    let unreadable = |e: std::io::Error| Stop::Failed { code: "input_unreadable", message: e.to_string() };
+    let mut file = tokio::fs::File::open(path).await.map_err(unreadable)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0_u8; 64 * 1024];
+    let mut size = 0_u64;
+    loop {
+        let read = file.read(&mut buffer).await.map_err(unreadable)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        size += read as u64;
+    }
+    let mut sha256 = String::with_capacity(64);
+    for byte in hasher.finalize() {
+        let _ = write!(sha256, "{byte:02x}");
+    }
+    let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    Ok(InputSeen { name, size_bytes: size, sha256 })
 }
 
 fn fenced(job: &Job) -> Result<(), Stop> {
@@ -275,58 +379,16 @@ mod tests {
     use std::collections::BTreeMap;
     use std::sync::{Arc, Mutex};
 
-    use agent_proto::v1::{SessionSpec, StorageGrant, StoragePermission};
+    use agent_proto::v1::SessionSpec;
     use uuid::Uuid;
 
     use super::*;
+    use crate::logs::LogWriter;
     use crate::runner::Fence;
-    use crate::storage::{Grant, StorageFuture};
-
-    /// Storage in memory, with a grant's scope checks, so the runner can be tested without a server.
-    struct MemoryStore {
-        grant: Grant,
-        objects: Arc<Mutex<BTreeMap<String, Vec<u8>>>>,
-    }
-
-    impl ObjectStore for MemoryStore {
-        fn put<'a>(&'a self, key: &'a str, body: Vec<u8>) -> StorageFuture<'a, ()> {
-            Box::pin(async move {
-                self.grant.check(key, true)?;
-                self.objects.lock().unwrap().insert(key.to_owned(), body);
-                Ok(())
-            })
-        }
-
-        fn get<'a>(&'a self, key: &'a str) -> StorageFuture<'a, Vec<u8>> {
-            Box::pin(async move {
-                self.grant.check(key, false)?;
-                self.objects.lock().unwrap().get(key).cloned().ok_or_else(|| StorageError::NotFound(key.to_owned()))
-            })
-        }
-
-        fn list<'a>(&'a self, prefix: &'a str) -> StorageFuture<'a, Vec<String>> {
-            Box::pin(async move {
-                self.grant.check(prefix, false)?;
-                Ok(self.objects.lock().unwrap().keys().filter(|key| key.starts_with(prefix)).cloned().collect())
-            })
-        }
-    }
+    use crate::storage::testing::MemoryStore;
 
     fn store(objects: &Arc<Mutex<BTreeMap<String, Vec<u8>>>>, prefix: &str, writable: bool) -> Arc<dyn ObjectStore> {
-        let message = StorageGrant {
-            endpoint: "http://storage.invalid".to_owned(),
-            bucket: "idleo-test".to_owned(),
-            access_key_id: "TESTKEY".to_owned(),
-            secret_access_key: "test-secret".to_owned(),
-            session_token: "test-token".to_owned(),
-            prefixes: vec![prefix.to_owned()],
-            permission: if writable { StoragePermission::ReadWrite } else { StoragePermission::ReadOnly }.into(),
-            expires_in: Some(prost_types::Duration { seconds: 3600, nanos: 0 }),
-        };
-        Arc::new(MemoryStore {
-            grant: Grant::from_message(&message, Duration::ZERO).unwrap(),
-            objects: Arc::clone(objects),
-        })
+        Arc::new(MemoryStore::new(objects, &[prefix], writable))
     }
 
     fn spec(args: &[&str], checkpoint_every: Duration) -> SessionSpec {
@@ -356,6 +418,9 @@ mod tests {
             resume_from,
             fence: Fence::new(),
             stop_requested: tokio::sync::watch::channel(false).1,
+            folder: std::env::temp_dir(),
+            input_file: None,
+            logs: LogWriter::discard(),
         }
     }
 
@@ -471,6 +536,78 @@ mod tests {
         let state: State = serde_json::from_slice(&objects[&format!("{folder}state.json")]).unwrap();
         assert_eq!(state.elapsed_ms, 7_000, "the time actually run, not a whole interval");
         assert!(!objects.keys().any(|key| key.contains("outputs/")));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_output_proves_the_job_saw_the_exact_input_and_parameters() {
+        let objects = Arc::default();
+        let session = Uuid::now_v7();
+        let folder = tempfile::tempdir().unwrap();
+        let input = folder.path().join("input/train.jsonl");
+        std::fs::create_dir_all(input.parent().unwrap()).unwrap();
+        std::fs::write(&input, b"hello world").unwrap();
+        let mut job = job(session, 1, &objects, None);
+        job.input_file = Some(input);
+        job.spec.env = [("SESSION_PARAM_GREETING", "hello"), ("SESSION_PARAM_REPEAT", "3"), ("PATH", "/bin")]
+            .into_iter()
+            .map(|(name, value)| (name.to_owned(), value.to_owned()))
+            .collect();
+
+        run_to_end(job).await;
+
+        let objects = objects.lock().unwrap();
+        let output: Output =
+            serde_json::from_slice(&objects[&format!("sessions/{session}/attempt-1/outputs/result.json")]).unwrap();
+        assert_eq!(
+            output.input,
+            Some(InputSeen {
+                name: "train.jsonl".to_owned(),
+                size_bytes: 11,
+                // sha256("hello world")
+                sha256: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9".to_owned(),
+            })
+        );
+        assert_eq!(
+            output.params,
+            BTreeMap::from([
+                ("SESSION_PARAM_GREETING".to_owned(), "hello".to_owned()),
+                ("SESSION_PARAM_REPEAT".to_owned(), "3".to_owned())
+            ]),
+            "only the parameters, not the rest of the environment"
+        );
+        assert_eq!(output.echo, Some(vec!["hello".to_owned(); 3]));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_job_writes_its_progress_to_the_log() {
+        let objects = Arc::default();
+        let session = Uuid::now_v7();
+        let (finish, finished) = tokio::sync::watch::channel(false);
+        let log_store = store(&objects, &format!("sessions/{session}/attempt-1/"), true);
+        let (logs, sink) =
+            crate::logs::spawn(log_store, format!("sessions/{session}/attempt-1/logs/"), finished, |_| {});
+        let mut job = job(session, 1, &objects, None);
+        job.logs = logs;
+        job.spec.env = BTreeMap::from([("SESSION_PARAM_GREETING".to_owned(), "hi".to_owned())]).into_iter().collect();
+
+        run_to_end(job).await;
+        finish.send(true).unwrap();
+        sink.await.unwrap();
+
+        let objects = objects.lock().unwrap();
+        let text: String = objects
+            .iter()
+            .filter(|(key, _)| key.contains("/logs/"))
+            .map(|(_, body)| String::from_utf8_lossy(body).into_owned())
+            .collect();
+        for expected in [
+            format!("starting session {session} attempt 1"),
+            "parameter SESSION_PARAM_GREETING=hi".to_owned(),
+            "checkpoint 1 at 5000 ms".to_owned(),
+            "finished after 20000 ms; outputs uploaded".to_owned(),
+        ] {
+            assert!(text.contains(&expected), "{expected:?} not in the log:\n{text}");
+        }
     }
 
     #[test]

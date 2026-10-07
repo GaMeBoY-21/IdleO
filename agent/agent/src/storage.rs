@@ -10,6 +10,7 @@
 
 use std::fmt;
 use std::future::Future;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, PoisonError, RwLock};
 use std::time::Duration;
@@ -65,6 +66,9 @@ pub trait ObjectStore: Send + Sync {
     fn get<'a>(&'a self, key: &'a str) -> StorageFuture<'a, Vec<u8>>;
     /// Every key under `prefix`.
     fn list<'a>(&'a self, prefix: &'a str) -> StorageFuture<'a, Vec<String>>;
+    /// Streams the object at `key` into a new file at `path`, never holding it all in memory, and returns how
+    /// many bytes were written. A file already at `path` is replaced.
+    fn download<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, u64>;
 }
 
 /// A storage grant as the agent holds it. Its secrets never reach a log: [`fmt::Debug`] leaves them
@@ -295,6 +299,26 @@ impl ObjectStore for S3Store {
         })
     }
 
+    fn download<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, u64> {
+        Box::pin(async move {
+            use tokio::io::AsyncWriteExt;
+            let signed = self.current();
+            signed.grant.check(key, false)?;
+            signed.grant.live(self.clock.as_ref())?;
+            let url = signed.bucket.get_object(Some(&signed.credentials), key).sign(SIGNED_FOR);
+            let mut response = self.send(self.http.get(url), key).await?;
+            let local = |e: std::io::Error| StorageError::Failed(format!("writing the download failed: {e}"));
+            let mut file = tokio::fs::File::create(path).await.map_err(local)?;
+            let mut written = 0_u64;
+            while let Some(chunk) = response.chunk().await.map_err(|e| StorageError::Failed(describe(&e)))? {
+                file.write_all(&chunk).await.map_err(local)?;
+                written += chunk.len() as u64;
+            }
+            file.flush().await.map_err(local)?;
+            Ok(written)
+        })
+    }
+
     fn list<'a>(&'a self, prefix: &'a str) -> StorageFuture<'a, Vec<String>> {
         Box::pin(async move {
             let mut keys = Vec::new();
@@ -320,6 +344,91 @@ impl ObjectStore for S3Store {
                 }
             }
         })
+    }
+}
+
+/// Storage in memory with a grant's scope checks, for testing what reads and writes it without a server.
+#[cfg(test)]
+pub(crate) mod testing {
+    use std::collections::BTreeMap;
+    use std::path::Path;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    use agent_proto::v1::{StorageGrant, StoragePermission};
+
+    use super::{Grant, ObjectStore, StorageError, StorageFuture};
+
+    /// Every object, by key.
+    pub(crate) type Objects = Arc<Mutex<BTreeMap<String, Vec<u8>>>>;
+
+    pub(crate) struct MemoryStore {
+        grant: Grant,
+        objects: Objects,
+        /// Writes refused before the next one is let through.
+        failing_puts: AtomicU32,
+    }
+
+    impl MemoryStore {
+        pub(crate) fn new(objects: &Objects, prefixes: &[&str], writable: bool) -> Self {
+            let message = StorageGrant {
+                endpoint: "http://storage.invalid".to_owned(),
+                bucket: "idleo-test".to_owned(),
+                access_key_id: "TESTKEY".to_owned(),
+                secret_access_key: "test-secret".to_owned(),
+                session_token: "test-token".to_owned(),
+                prefixes: prefixes.iter().map(|&prefix| prefix.to_owned()).collect(),
+                permission: if writable { StoragePermission::ReadWrite } else { StoragePermission::ReadOnly }.into(),
+                expires_in: Some(prost_types::Duration { seconds: 3600, nanos: 0 }),
+            };
+            Self {
+                grant: Grant::from_message(&message, Duration::ZERO).expect("a valid test grant"),
+                objects: Arc::clone(objects),
+                failing_puts: AtomicU32::new(0),
+            }
+        }
+
+        /// Refuses the next `count` writes, as storage that's briefly down would.
+        pub(crate) fn fail_puts(&self, count: u32) {
+            self.failing_puts.store(count, Ordering::SeqCst);
+        }
+    }
+
+    impl ObjectStore for MemoryStore {
+        fn put<'a>(&'a self, key: &'a str, body: Vec<u8>) -> StorageFuture<'a, ()> {
+            Box::pin(async move {
+                self.grant.check(key, true)?;
+                if self.failing_puts.try_update(Ordering::SeqCst, Ordering::SeqCst, |left| left.checked_sub(1)).is_ok()
+                {
+                    return Err(StorageError::Failed("storage is down".to_owned()));
+                }
+                self.objects.lock().unwrap().insert(key.to_owned(), body);
+                Ok(())
+            })
+        }
+
+        fn get<'a>(&'a self, key: &'a str) -> StorageFuture<'a, Vec<u8>> {
+            Box::pin(async move {
+                self.grant.check(key, false)?;
+                self.objects.lock().unwrap().get(key).cloned().ok_or_else(|| StorageError::NotFound(key.to_owned()))
+            })
+        }
+
+        fn list<'a>(&'a self, prefix: &'a str) -> StorageFuture<'a, Vec<String>> {
+            Box::pin(async move {
+                self.grant.check(prefix, false)?;
+                Ok(self.objects.lock().unwrap().keys().filter(|key| key.starts_with(prefix)).cloned().collect())
+            })
+        }
+
+        fn download<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, u64> {
+            Box::pin(async move {
+                let body = self.get(key).await?;
+                tokio::fs::write(path, &body).await.map_err(|e| StorageError::Failed(e.to_string()))?;
+                Ok(body.len() as u64)
+            })
+        }
     }
 }
 

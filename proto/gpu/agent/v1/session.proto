@@ -155,8 +155,9 @@ message Credentials {
   // secret: never log.
   // Absent is invalid; the receiver rejects the message.
   StorageGrant attempt_grant = 6;
-  // Read-only on the session's input, "sessions/{session_id}/input/", and on
-  // the checkpoint named in StartSession.resume_from, if any.
+  // Read-only on the upload named in StartSession.input,
+  // "uploads/{upload_id}/", and on the checkpoint named in
+  // StartSession.resume_from, if any. Absent when there's neither.
   // secret: never log.
   StorageGrant read_grant = 7;
 }
@@ -173,6 +174,24 @@ message CheckpointRef {
   int32 seq = 2;
 }
 
+// The file a session reads as its input: one uploaded object, read through
+// Credentials.read_grant. The agent downloads it into the attempt's scratch
+// folder, input/{name}, before the job starts, and checks its size.
+message InputRef {
+  // The upload's folder, for example
+  // "uploads/0190f3a2-0000-7000-8000-000000000000/". Ends in "/".
+  // Empty is invalid; the receiver rejects the message.
+  string prefix = 1;
+  // The object's name inside that folder, which is also the file's name in
+  // the job's input folder: only letters, digits, ".", "_" and "-", and
+  // never "." or "..".
+  // Empty is invalid; the receiver rejects the message.
+  string name = 2;
+  // The object's size in bytes; a download of any other size is refused.
+  // Zero is invalid; the receiver rejects the message.
+  int64 size_bytes = 3;
+}
+
 // One session as the agent sees it right now. Shared by Hello and Heartbeat.
 message RunningSession {
   // The session's UUIDv7, in canonical text form.
@@ -184,6 +203,10 @@ message RunningSession {
   int32 attempt = 2;
   // The agent's local state for this attempt.
   SessionState state = 3;
+  // The highest log chunk seq of this attempt that has finished uploading to
+  // "sessions/{session_id}/attempt-{n}/logs/{seq}.log", seqs counting from
+  // 1. Zero means none yet. The control plane only ever raises it.
+  int32 latest_log_seq = 4;
 }
 
 // A short error: a code plus a one-line message. Never container logs or
@@ -290,6 +313,11 @@ message StartSession {
   // checked that the checkpoint's completion marker exists. Absent when the
   // job starts fresh. Readable through Credentials.read_grant.
   CheckpointRef resume_from = 9;
+  // The uploaded file the job reads, staged by the agent while PREPARING,
+  // before minute 0. Absent when the session has no uploaded input; a URL
+  // input is only in SessionSpec.env, fetched by the job inside its sandbox,
+  // never by the agent. Readable through Credentials.read_grant.
+  InputRef input = 10;
 }
 
 // Control plane to agent: fresh storage credentials for a running attempt.
@@ -375,6 +403,10 @@ message SessionStatus {
   // completion marker the agent has written. Zero means none yet; seqs start
   // at 1. The control plane checks the marker exists before trusting it.
   int32 latest_checkpoint_seq = 7;
+  // The highest log chunk seq of this attempt that has finished uploading, as
+  // in RunningSession.latest_log_seq. A terminal status carries the last one:
+  // the agent flushes its logs before reporting the end.
+  int32 latest_log_seq = 8;
 }
 
 // Agent to control plane: one minute of work. One witness for billing; the

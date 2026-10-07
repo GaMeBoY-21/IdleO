@@ -17,15 +17,23 @@
 //!   and the last, partial minute when the job ends, with its real seconds. Nothing after a lease
 //!   lapses: only the minutes that ended before the deadline are reported. Usage reports wait in the
 //!   same queue as statuses. The agent meters, never the runner.
+//! - **Input** (ADR 0019): an uploaded input is staged into the attempt's scratch folder before the runner
+//!   starts ([`crate::staging`]); a failure ends the attempt `input_unavailable` before RUNNING.
+//! - **Logs** (ADR 0019): each attempt has its own log sink ([`crate::logs`]); heartbeats and statuses carry the
+//!   highest chunk uploaded. When an attempt ends, its terminal status waits until the sink has flushed, at most
+//!   [`crate::logs::FLUSH_FOR`].
+//! - **Scratch**: each attempt's folder under the agent's work folder is wiped when the attempt ends, and the
+//!   whole work folder when the agent starts.
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::{
-    Ack, LeaseRenew, OpenStreamRequest, RefreshCredentials, RunningSession, SessionError, SessionState, SessionStatus,
-    StartSession, StopReason, StopSession, UsageReport,
+    Ack, InputRef, LeaseRenew, OpenStreamRequest, RefreshCredentials, RunningSession, SessionError, SessionState,
+    SessionStatus, StartSession, StopReason, StopSession, UsageReport,
 };
 use tokio::sync::{Notify, mpsc, watch};
 use tokio::task::{AbortHandle, JoinHandle};
@@ -33,8 +41,10 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use crate::lease_clock::LeaseClock;
+use crate::logs::{self, LogEvent};
 use crate::new_message_id;
 use crate::runner::{Fence, Job, Report, SessionRunner};
+use crate::staging;
 use crate::storage::{Grant, ObjectStore, S3Store};
 
 /// What the supervisor learns from a runner task.
@@ -47,6 +57,8 @@ pub enum Reported {
         /// The task panicked rather than returning.
         panicked: bool,
     },
+    /// The attempt's log sink uploaded a chunk, or finished.
+    Logs(LogEvent),
 }
 
 /// A runner's message about one attempt.
@@ -100,9 +112,54 @@ struct Attempt {
     stopping: Option<(Duration, String)>,
     /// The job's storage, attempt and read, whose grants `RefreshCredentials` replaces.
     stores: Option<(Arc<S3Store>, Option<Arc<S3Store>>)>,
+    /// The highest log chunk uploaded.
+    latest_log_seq: i32,
+    /// Tells the log sink the attempt has ended, so it flushes and finishes.
+    logs_finish: Option<watch::Sender<bool>>,
+    /// The log sink's task, aborted only if it outlives its flush.
+    sink: Option<AbortHandle>,
+    /// The terminal status, waiting for the log sink's flush: its error, exit code, and when it ended.
+    pending_end: Option<PendingEnd>,
+    /// The attempt's scratch folder: its staged input, wiped when it ends.
+    folder: Option<PathBuf>,
 }
 
+/// A terminal status waiting for the logs to flush.
+struct PendingEnd {
+    error: Option<(String, String)>,
+    exit_code: Option<i32>,
+    /// When the attempt ended, on the lease clock.
+    since: Duration,
+}
+
+/// A terminal status goes out at the latest this long after its attempt ended, flushed or not.
+const END_WAITS_AT_MOST: Duration = Duration::from_secs(logs::FLUSH_FOR.as_secs() + 5);
+
 impl Attempt {
+    fn idle(number: i32, at: Duration) -> Self {
+        Self {
+            number,
+            deadline: at,
+            runtime_cap: at,
+            fence: Fence::new(),
+            tasks: Vec::new(),
+            state: SessionState::Preparing,
+            latest_seq: 0,
+            minute_index_base: 0,
+            gpus: Vec::new(),
+            running_since: None,
+            minutes_reported: 0,
+            stop_signal: None,
+            stopping: None,
+            stores: None,
+            latest_log_seq: 0,
+            logs_finish: None,
+            sink: None,
+            pending_end: None,
+            folder: None,
+        }
+    }
+
     fn is_live(&self) -> bool {
         !matches!(
             self.state,
@@ -134,6 +191,8 @@ pub struct Supervisor {
     runner: Option<Arc<dyn SessionRunner>>,
     http: Option<reqwest::Client>,
     gpus: HashSet<String>,
+    /// Where each attempt's scratch folder goes.
+    work_root: PathBuf,
     attempts: HashMap<Uuid, Attempt>,
     seen_commands: HashSet<String>,
     outbox: Vec<Queued>,
@@ -141,20 +200,30 @@ pub struct Supervisor {
     changed: Arc<Notify>,
 }
 
-/// A new supervisor, and the receiver its background task ([`supervise`]) reads runner reports from.
+/// A new supervisor, and the receiver its background task ([`supervise`]) reads runner reports from. Attempts'
+/// scratch folders go under `work_root`, which is emptied now: nothing runs yet, so anything there is left from
+/// before a crash.
 ///
 /// # Errors
-/// If a runner is given but the storage client can't be built.
+/// If a runner is given but the storage client can't be built, or `work_root` can't be emptied.
 pub fn new(
     clock: Arc<dyn LeaseClock>,
     utilisation: Utilisation,
     runner: Option<Arc<dyn SessionRunner>>,
     gpus: impl IntoIterator<Item = String>,
+    work_root: PathBuf,
 ) -> Result<(Shared, mpsc::UnboundedReceiver<Tagged>), String> {
     let http = match runner {
         Some(_) => Some(crate::storage::http_client()?),
         None => None,
     };
+    if runner.is_some() {
+        match std::fs::remove_dir_all(&work_root) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(format!("the work folder couldn't be emptied: {e}")),
+        }
+    }
     let (reports, received) = mpsc::unbounded_channel();
     let changed = Arc::new(Notify::new());
     let supervisor = Supervisor {
@@ -163,6 +232,7 @@ pub fn new(
         runner,
         http,
         gpus: gpus.into_iter().collect(),
+        work_root,
         attempts: HashMap::new(),
         seen_commands: HashSet::new(),
         outbox: Vec::new(),
@@ -205,6 +275,7 @@ impl Supervisor {
                 session_id: session_id.to_string(),
                 attempt: attempt.number,
                 state: attempt.state.into(),
+                latest_log_seq: attempt.latest_log_seq,
             })
             .collect();
         running.sort_by(|a, b| a.session_id.cmp(&b.session_id));
@@ -230,30 +301,14 @@ impl Supervisor {
             self.end(session_id, SessionState::Stopped, Some(("superseded", "a newer attempt started here")), None);
             tracing::info!(%session_id, older, newer = start.attempt, "stopped an older attempt for a newer one");
         }
+        // The new attempt replaces the old one's record: its last status can't wait for its logs any longer.
+        self.emit_pending_end(session_id);
         let attempt = start.attempt;
         match self.launch(session_id, start, received_at) {
             Ok(()) => tracing::info!(%session_id, attempt, "started an attempt"),
             Err(reason) => {
                 tracing::warn!(%session_id, attempt, %reason, "refused a StartSession");
-                self.attempts.insert(
-                    session_id,
-                    Attempt {
-                        number: attempt,
-                        deadline: received_at,
-                        runtime_cap: received_at,
-                        fence: Fence::new(),
-                        tasks: Vec::new(),
-                        state: SessionState::Preparing,
-                        latest_seq: 0,
-                        minute_index_base: 0,
-                        gpus: Vec::new(),
-                        running_since: None,
-                        minutes_reported: 0,
-                        stop_signal: None,
-                        stopping: None,
-                        stores: None,
-                    },
-                );
+                self.attempts.insert(session_id, Attempt::idle(attempt, received_at));
                 let code = if self.runner.is_none() { "no_runner" } else { "invalid_start_session" };
                 self.end(session_id, SessionState::Failed, Some((code, &reason)), None);
             }
@@ -300,6 +355,11 @@ impl Supervisor {
         if start.resume_from.is_some() && read_grant.is_none() {
             return Err("resume_from without a read grant".to_owned());
         }
+        if let Some(input) = &start.input {
+            staging::check(input)?;
+            let grant = read_grant.as_ref().ok_or("an input without a read grant")?;
+            grant.check(&staging::key(input), false).map_err(|_| "the read grant doesn't cover the input")?;
+        }
         let attempt_s3 = Arc::new(S3Store::new(attempt_grant, http.clone(), Arc::clone(&self.clock))?);
         let read_s3 = match read_grant {
             Some(grant) => Some(Arc::new(S3Store::new(grant, http, Arc::clone(&self.clock))?)),
@@ -309,6 +369,14 @@ impl Supervisor {
         let read_store = read_s3.clone().map(|store| store as Arc<dyn ObjectStore>);
         let fence = Fence::new();
         let (stop_signal, stop_requested) = watch::channel(false);
+        let (logs_finish, finish_logs) = watch::channel(false);
+        let (number, reports) = (start.attempt, self.reports.clone());
+        let (logs, sink) =
+            logs::spawn(Arc::clone(&attempt_store), format!("{attempt_prefix}logs/"), finish_logs, move |event| {
+                let _ = reports.send(Tagged { session_id, attempt: number, reported: Reported::Logs(event) });
+            });
+        let folder = self.work_root.join(format!("{session_id}-{}", start.attempt));
+        let staging = start.input.clone().zip(read_store.clone());
         let job = Job {
             session_id,
             attempt: start.attempt,
@@ -319,8 +387,11 @@ impl Supervisor {
             resume_from: start.resume_from,
             fence: fence.clone(),
             stop_requested,
+            folder: folder.clone(),
+            input_file: None,
+            logs,
         };
-        let tasks = spawn(runner.as_ref(), job, self.reports.clone());
+        let tasks = spawn(runner, job, staging, self.reports.clone());
         self.attempts.insert(
             session_id,
             Attempt {
@@ -338,6 +409,11 @@ impl Supervisor {
                 stop_signal: Some(stop_signal),
                 stopping: None,
                 stores: Some((attempt_s3, read_s3)),
+                latest_log_seq: 0,
+                logs_finish: Some(logs_finish),
+                sink: Some(sink.abort_handle()),
+                pending_end: None,
+                folder: Some(folder),
             },
         );
         Ok(())
@@ -441,9 +517,11 @@ impl Supervisor {
     /// The control plane acked one of our messages.
     pub fn acked(&mut self, message_id: &str) {
         self.outbox.retain(|queued| queued.request.message_id != message_id);
-        // An ended attempt is forgotten once the control plane has everything it reported.
+        // An ended attempt is forgotten once the control plane has everything it reported, its last status included.
         let waiting: HashSet<Uuid> = self.outbox.iter().map(|queued| queued.session_id).collect();
-        self.attempts.retain(|session_id, attempt| attempt.is_live() || waiting.contains(session_id));
+        self.attempts.retain(|session_id, attempt| {
+            attempt.is_live() || attempt.pending_end.is_some() || waiting.contains(session_id)
+        });
     }
 
     /// Statuses to send now: those never sent on this stream, and those unacked for `resend_after`.
@@ -470,6 +548,19 @@ impl Supervisor {
     /// that has ended.
     pub fn check_deadlines(&mut self) {
         let now = self.clock.now();
+        let overdue: Vec<Uuid> = self
+            .attempts
+            .iter()
+            .filter(|(_, attempt)| attempt.pending_end.as_ref().is_some_and(|end| now >= end.since + END_WAITS_AT_MOST))
+            .map(|(session_id, _)| *session_id)
+            .collect();
+        for session_id in overdue {
+            tracing::warn!(%session_id, "the logs didn't flush in time; sending the last status anyway");
+            if let Some(sink) = self.attempts.get_mut(&session_id).and_then(|attempt| attempt.sink.take()) {
+                sink.abort();
+            }
+            self.emit_pending_end(session_id);
+        }
         let live: Vec<LiveAttempt> = self
             .attempts
             .iter()
@@ -552,7 +643,22 @@ impl Supervisor {
     fn apply(&mut self, tagged: Tagged) {
         self.check_deadlines();
         let Some(attempt) = self.attempts.get_mut(&tagged.session_id) else { return };
-        if attempt.number != tagged.attempt || !attempt.is_live() {
+        if attempt.number != tagged.attempt {
+            return;
+        }
+        // The log sink outlives the job: it reports after the attempt has ended.
+        if let Reported::Logs(event) = tagged.reported {
+            match event {
+                LogEvent::Uploaded(seq) => attempt.latest_log_seq = attempt.latest_log_seq.max(seq),
+                LogEvent::Flushed(seq) => {
+                    attempt.latest_log_seq = attempt.latest_log_seq.max(seq);
+                    attempt.sink = None;
+                    self.emit_pending_end(tagged.session_id);
+                }
+            }
+            return;
+        }
+        if !attempt.is_live() {
             return;
         }
         match tagged.reported {
@@ -589,22 +695,53 @@ impl Supervisor {
                 };
                 self.end(tagged.session_id, SessionState::Failed, Some((code, message)), None);
             }
+            Reported::Logs(_) => unreachable!("handled above"),
         }
     }
 
-    /// Ends an attempt in `state`: fence down, its tasks aborted, its last minute reported (unless its
-    /// lease lapsed, when the caller has reported what ended inside it), and the status queued.
+    /// Ends an attempt in `state`: fence down, its tasks aborted, its scratch folder wiped, its last minute
+    /// reported (unless its lease lapsed, when the caller has reported what ended inside it), and its status
+    /// queued once its logs have flushed.
     fn end(&mut self, session_id: Uuid, state: SessionState, error: Option<(&str, &str)>, exit_code: Option<i32>) {
         if state != SessionState::LeaseExpired {
             self.report_last_minute(session_id);
         }
+        let now = self.clock.now();
         let Some(attempt) = self.attempts.get_mut(&session_id) else { return };
         attempt.fence.take_down();
         for task in attempt.tasks.drain(..) {
             task.abort();
         }
         attempt.state = state;
-        self.queue_status(session_id, error, exit_code);
+        if let Some(folder) = attempt.folder.take() {
+            tokio::spawn(async move {
+                if let Err(e) = tokio::fs::remove_dir_all(&folder).await
+                    && e.kind() != std::io::ErrorKind::NotFound
+                {
+                    tracing::warn!(%session_id, error = %e, "the attempt's scratch folder couldn't be wiped");
+                }
+            });
+        }
+        match attempt.logs_finish.take() {
+            Some(finish) => {
+                let _ = finish.send(true);
+                attempt.pending_end = Some(PendingEnd {
+                    error: error.map(|(code, message)| (code.to_owned(), message.to_owned())),
+                    exit_code,
+                    since: now,
+                });
+            }
+            None => self.queue_status(session_id, error, exit_code),
+        }
+    }
+
+    /// Queues an ended attempt's terminal status, if it's waiting for its logs.
+    fn emit_pending_end(&mut self, session_id: Uuid) {
+        let Some(end) = self.attempts.get_mut(&session_id).and_then(|attempt| attempt.pending_end.take()) else {
+            return;
+        };
+        let error = end.error.as_ref().map(|(code, message)| (code.as_str(), message.as_str()));
+        self.queue_status(session_id, error, end.exit_code);
     }
 
     fn queue_status(&mut self, session_id: Uuid, error: Option<(&str, &str)>, exit_code: Option<i32>) {
@@ -616,6 +753,7 @@ impl Supervisor {
             exit_code,
             error: error.map(|(code, message)| SessionError { code: code.to_owned(), message: message.to_owned() }),
             latest_checkpoint_seq: attempt.latest_seq,
+            latest_log_seq: attempt.latest_log_seq,
         };
         self.outbox.push(Queued {
             request: OpenStreamRequest { message_id: new_message_id(), body: Some(AgentBody::SessionStatus(status)) },
@@ -626,11 +764,32 @@ impl Supervisor {
     }
 }
 
-/// Runs the job in its own task, forwarding its reports tagged with the attempt, then saying it ended.
-fn spawn(runner: &dyn SessionRunner, job: Job, reports: mpsc::UnboundedSender<Tagged>) -> Vec<AbortHandle> {
+/// Runs the job in its own task, forwarding its reports tagged with the attempt, then saying it ended. An uploaded
+/// input is staged first, through the read store; if it can't be, the job never starts and the attempt fails
+/// `input_unavailable`, before RUNNING.
+fn spawn(
+    runner: Arc<dyn SessionRunner>,
+    mut job: Job,
+    staging: Option<(InputRef, Arc<dyn ObjectStore>)>,
+    reports: mpsc::UnboundedSender<Tagged>,
+) -> Vec<AbortHandle> {
     let (session_id, attempt) = (job.session_id, job.attempt);
     let (sender, mut receiver) = mpsc::unbounded_channel();
-    let mut work: JoinHandle<()> = tokio::spawn(runner.run(job, sender));
+    let mut work: JoinHandle<()> = match staging {
+        None => tokio::spawn(runner.run(job, sender)),
+        Some((input, store)) => tokio::spawn(async move {
+            let _ = sender.send(Report::State(SessionState::Preparing));
+            match staging::stage(store.as_ref(), &input, &job.folder, &job.logs).await {
+                Ok(path) => job.input_file = Some(path),
+                Err(message) => {
+                    let _ =
+                        sender.send(Report::Failed { code: "input_unavailable".to_owned(), message, exit_code: None });
+                    return;
+                }
+            }
+            runner.run(job, sender).await;
+        }),
+    };
     let work_handle = work.abort_handle();
     let tag = move |reported| Tagged { session_id, attempt, reported };
     let watcher = tokio::spawn(async move {
@@ -700,19 +859,30 @@ mod tests {
         received: mpsc::UnboundedReceiver<Tagged>,
         clock: Arc<FakeLeaseClock>,
         runner: Arc<FakeRunner>,
+        work: tempfile::TempDir,
     }
 
     fn setup() -> Setup {
         let clock = Arc::new(FakeLeaseClock::default());
         let runner = Arc::new(FakeRunner::default());
+        let work = tempfile::tempdir().unwrap();
         let (shared, received) = new(
             Arc::clone(&clock) as Arc<dyn LeaseClock>,
             Arc::new(|_: &[String]| 42),
             Some(Arc::clone(&runner) as Arc<dyn SessionRunner>),
             HashSet::from([GPU.to_owned()]),
+            work.path().join("work"),
         )
         .unwrap();
-        Setup { shared, received, clock, runner }
+        Setup { shared, received, clock, runner, work }
+    }
+
+    /// Applies everything the attempts' tasks have reported so far: their runners' reports, and their log
+    /// sinks', so an ended attempt's terminal status, which waits for its logs to flush, is queued.
+    async fn settle(setup: &mut Setup) {
+        while let Ok(Some(tagged)) = tokio::time::timeout(Duration::from_millis(100), setup.received.recv()).await {
+            setup.shared.lock().apply(tagged);
+        }
     }
 
     fn seconds(seconds: i64) -> prost_types::Duration {
@@ -753,6 +923,7 @@ mod tests {
             minute_index_base: Some(0),
             gpu_uuids: vec![GPU.to_owned()],
             resume_from: None,
+            input: None,
         }
     }
 
@@ -813,7 +984,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_lapsed_lease_stops_the_work_and_is_reported_once() {
-        let setup = setup();
+        let mut setup = setup();
         let session = Uuid::now_v7();
         setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
         let fence = setup.runner.started.lock().unwrap()[0].0.clone();
@@ -824,6 +995,7 @@ mod tests {
         setup.clock.advance(Duration::from_secs(1));
         setup.shared.lock().check_deadlines();
         setup.shared.lock().check_deadlines();
+        settle(&mut setup).await;
 
         assert!(!fence.is_up());
         let sent = statuses(&setup.shared);
@@ -835,7 +1007,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_renewal_extends_only_the_current_attempt() {
-        let setup = setup();
+        let mut setup = setup();
         let session = Uuid::now_v7();
         setup.shared.lock().start("m1", start(session, 2, "c1"), Duration::ZERO);
         let renewal = |attempt| LeaseRenew { session_id: session.to_string(), attempt, lease_ttl: Some(seconds(120)) };
@@ -844,6 +1016,7 @@ mod tests {
         setup.shared.lock().renew(&renewal(1), setup.clock.now());
         setup.clock.advance(Duration::from_secs(20));
         setup.shared.lock().check_deadlines();
+        settle(&mut setup).await;
         assert_eq!(
             statuses(&setup.shared)[0].state(),
             SessionState::LeaseExpired,
@@ -861,7 +1034,7 @@ mod tests {
 
     #[tokio::test]
     async fn after_a_sleep_past_the_deadline_the_first_thing_that_happens_is_the_stop() {
-        let setup = setup();
+        let mut setup = setup();
         let session = Uuid::now_v7();
         setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
         let fence = setup.runner.started.lock().unwrap()[0].0.clone();
@@ -875,17 +1048,19 @@ mod tests {
 
         assert!(!fence.is_up());
         assert!(setup.shared.lock().running().is_empty(), "the late renewal doesn't revive it");
+        settle(&mut setup).await;
         assert_eq!(statuses(&setup.shared)[0].state(), SessionState::LeaseExpired);
     }
 
     #[tokio::test]
     async fn reports_after_the_fence_are_dropped() {
-        let setup = setup();
+        let mut setup = setup();
         let session = Uuid::now_v7();
         setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
         setup.clock.advance(Duration::from_secs(121));
         setup.shared.lock().check_deadlines();
-        statuses(&setup.shared);
+        settle(&mut setup).await;
+        assert_eq!(statuses(&setup.shared).len(), 1, "the lapse");
 
         // A report that was already on its way when the task was aborted.
         setup.shared.lock().apply(Tagged {
@@ -914,7 +1089,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_stop_ends_the_attempt_once() {
-        let setup = setup();
+        let mut setup = setup();
         let session = Uuid::now_v7();
         setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
         let stop = StopSession {
@@ -927,6 +1102,7 @@ mod tests {
 
         assert!(acked(setup.shared.lock().stop("m2", &stop), "m2"));
         assert!(acked(setup.shared.lock().stop("m3", &stop), "m3"));
+        settle(&mut setup).await;
 
         let sent = statuses(&setup.shared);
         assert_eq!(sent.len(), 1);
@@ -989,8 +1165,7 @@ mod tests {
         setup.clock.advance(Duration::from_millis(30_500));
         let reports = setup.runner.started.lock().unwrap()[0].1.clone();
         reports.send(Report::Succeeded).unwrap();
-        let tagged = setup.received.recv().await.unwrap();
-        setup.shared.lock().apply(tagged);
+        settle(&mut setup).await;
 
         let queued = setup.shared.lock().due(Instant::now(), Duration::from_secs(3600));
         let Some(AgentBody::UsageReport(last)) = &queued[0].body else { panic!("usage before the final status") };
@@ -1065,10 +1240,7 @@ mod tests {
         let reports = setup.runner.started.lock().unwrap()[0].1.clone();
         reports.send(Report::Checkpoint(3)).unwrap();
         reports.send(Report::Stopped).unwrap();
-        for _ in 0..2 {
-            let tagged = setup.received.recv().await.unwrap();
-            setup.shared.lock().apply(tagged);
-        }
+        settle(&mut setup).await;
         let last = statuses(&setup.shared).pop().unwrap();
         assert_eq!(last.state(), SessionState::Stopped);
         assert_eq!(last.latest_checkpoint_seq, 3);
@@ -1085,10 +1257,7 @@ mod tests {
         let reports = setup.runner.started.lock().unwrap()[0].1.clone();
         reports.send(Report::Checkpoint(2)).unwrap();
         reports.send(Report::Stopped).unwrap();
-        for _ in 0..2 {
-            let tagged = setup.received.recv().await.unwrap();
-            setup.shared.lock().apply(tagged);
-        }
+        settle(&mut setup).await;
 
         let last = statuses(&setup.shared).pop().unwrap();
         assert_eq!(last.state(), SessionState::Stopped);
@@ -1097,7 +1266,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_runner_that_doesnt_checkpoint_in_time_is_stopped_when_the_grace_ends() {
-        let setup = setup();
+        let mut setup = setup();
         let session = Uuid::now_v7();
         setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
         let fence = setup.runner.started.lock().unwrap()[0].0.clone();
@@ -1108,6 +1277,7 @@ mod tests {
         assert!(fence.is_up());
         setup.clock.advance(Duration::from_secs(1));
         setup.shared.lock().check_deadlines();
+        settle(&mut setup).await;
 
         assert!(!fence.is_up());
         assert_eq!(statuses(&setup.shared).pop().unwrap().state(), SessionState::Stopped);
@@ -1129,10 +1299,87 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn an_input_that_cant_be_staged_fails_the_attempt_before_it_runs() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        let upload = "uploads/0190f3a2-0000-7000-8000-00000000000a/";
+        let mut message = start(session, 1, "c1");
+        let mut read_grant = message.credentials.as_ref().unwrap().attempt_grant.clone().unwrap();
+        read_grant.prefixes = vec![upload.to_owned()];
+        read_grant.permission = StoragePermission::ReadOnly.into();
+        message.credentials.as_mut().unwrap().read_grant = Some(read_grant);
+        message.input = Some(InputRef { prefix: upload.to_owned(), name: "train.jsonl".to_owned(), size_bytes: 12 });
+
+        setup.shared.lock().start("m1", message, Duration::ZERO);
+        let mut sent = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while !sent.iter().any(|status: &SessionStatus| status.state() == SessionState::Failed) {
+            assert!(Instant::now() < deadline, "no FAILED status: {sent:?}");
+            settle(&mut setup).await;
+            sent.extend(statuses(&setup.shared));
+        }
+
+        assert_eq!(
+            sent.iter().map(SessionStatus::state).collect::<Vec<_>>(),
+            vec![SessionState::Preparing, SessionState::Failed],
+            "never RUNNING, so nothing is billed"
+        );
+        assert_eq!(sent[1].error.as_ref().unwrap().code, "input_unavailable");
+        assert!(setup.runner.started.lock().unwrap().is_empty(), "the job never started");
+        assert!(!setup.work.path().join(format!("work/{session}-1")).exists(), "the scratch folder is wiped");
+    }
+
+    #[tokio::test]
+    async fn an_input_outside_the_read_grant_is_refused() {
+        let setup = setup();
+        let session = Uuid::now_v7();
+        let mut message = start(session, 1, "c1");
+        message.input = Some(InputRef {
+            prefix: "uploads/0190f3a2-0000-7000-8000-00000000000a/".to_owned(),
+            name: "train.jsonl".to_owned(),
+            size_bytes: 12,
+        });
+
+        setup.shared.lock().start("m1", message, Duration::ZERO);
+
+        let sent = statuses(&setup.shared);
+        assert_eq!(sent[0].state(), SessionState::Failed);
+        assert_eq!(sent[0].error.as_ref().unwrap().code, "invalid_start_session");
+    }
+
+    #[tokio::test]
+    async fn heartbeats_and_the_last_status_carry_the_newest_log_chunk() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
+        for seq in [1, 3, 2] {
+            setup.shared.lock().apply(Tagged {
+                session_id: session,
+                attempt: 1,
+                reported: Reported::Logs(LogEvent::Uploaded(seq)),
+            });
+        }
+        assert_eq!(setup.shared.lock().running()[0].latest_log_seq, 3, "only ever raised");
+
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        reports.send(Report::Succeeded).unwrap();
+        settle(&mut setup).await;
+
+        let last = statuses(&setup.shared).pop().unwrap();
+        assert_eq!(last.state(), SessionState::Succeeded);
+        assert_eq!(last.latest_log_seq, 3);
+    }
+
+    #[tokio::test]
     async fn without_a_runner_a_start_fails_rather_than_hanging() {
-        let (shared, _received) =
-            new(Arc::new(FakeLeaseClock::default()), Arc::new(|_: &[String]| 0), None, HashSet::from([GPU.to_owned()]))
-                .unwrap();
+        let (shared, _received) = new(
+            Arc::new(FakeLeaseClock::default()),
+            Arc::new(|_: &[String]| 0),
+            None,
+            HashSet::from([GPU.to_owned()]),
+            std::env::temp_dir().join("idleo-unused"),
+        )
+        .unwrap();
         let session = Uuid::now_v7();
 
         shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);

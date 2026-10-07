@@ -246,6 +246,7 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
         utilisation,
         options.runner.clone(),
         gpus.iter().map(|gpu| gpu.uuid.clone()),
+        options.data_dir.join("work"),
     )
     .map_err(RunError::Sessions)?;
     let supervising = AbortOnDrop(tokio::spawn(supervisor::supervise(

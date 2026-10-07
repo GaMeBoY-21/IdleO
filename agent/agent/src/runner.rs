@@ -9,6 +9,7 @@
 pub mod dev;
 
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,6 +18,7 @@ use agent_proto::v1::{CheckpointRef, SessionSpec, SessionState};
 use tokio::sync::{mpsc, watch};
 use uuid::Uuid;
 
+use crate::logs::LogWriter;
 use crate::storage::ObjectStore;
 
 /// One attempt to run.
@@ -40,6 +42,13 @@ pub struct Job {
     /// Becomes true when the control plane asks for a checkpoint and a stop: the runner writes one last
     /// checkpoint, reports [`Report::Stopped`] and returns, within the grace period the supervisor enforces.
     pub stop_requested: watch::Receiver<bool>,
+    /// The attempt's scratch folder on this machine, wiped when the attempt ends.
+    pub folder: PathBuf,
+    /// The staged input, `{folder}/input/{name}`, when the session has an uploaded one. A URL input is only in
+    /// `spec.env` as `SESSION_INPUT_URL`, for the job to fetch inside its sandbox.
+    pub input_file: Option<PathBuf>,
+    /// Where the job's output goes: the attempt's logs, uploaded in chunks for the renter.
+    pub logs: LogWriter,
 }
 
 /// What a runner reports about its attempt.
