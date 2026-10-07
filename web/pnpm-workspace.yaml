@@ -1,0 +1,25 @@
+allowBuilds:
+  "@firebase/util": false
+  protobufjs: false
+  unrs-resolver: false
+
+# Patched versions of transitive dependencies with security advisories (pnpm audit in CI). All are in
+# tooling or in Firebase packages the app doesn't use; none is in the bundle.
+overrides:
+  # firebase -> @firebase/firestore (unused; tree-shaken out of the bundle): GHSA-m9gg-hp2v-232j.
+  "@grpc/grpc-js": "^1.13.6"
+  # @lhci/cli -> inquirer -> external-editor: GHSA-ph9p-34f9-6g65, GHSA-52f5-9888-hmc6.
+  tmp: "^0.2.6"
+  # @lhci/cli: GHSA-w5hq-g745-h8pq.
+  uuid: "^11.1.1"
+  # @lhci/cli -> lighthouse -> puppeteer's proxy-agent (FTP in PAC files, never used here): GHSA-c475-qrg2-pj4r.
+  basic-ftp: "^6.2.1"
+
+auditConfig:
+  ignoreGhsas:
+    # extract-zip has no fixed release. Only puppeteer's browser download uses it, under @lhci/cli's
+    # Lighthouse, and nothing here downloads a browser through puppeteer: Playwright installs Chromium.
+    - GHSA-jmr9-qjv8-65gv
+    - GHSA-7pqw-9j4j-h8q3
+    # sprintf-js (moderate, no fixed release), under @lhci/cli's argument parser.
+    - GHSA-hp3w-g68c-fv3c

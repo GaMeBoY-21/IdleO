@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-ssr/
+dist-firebase/
+*.tsbuildinfo
+# Generated from api/openapi.yaml and src/design/tokens.ts on every build, typecheck and test.
+src/api/schema.gen.ts
+src/design/tokens.gen.css
+test-results/
+playwright-report/
+.lighthouseci/
+.env*.local
+visual-baseline/
+.lighthouseci-desktop/

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content="Rent a GPU by the minute, in rupees." />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F7F9" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F0F14" />
+    <title>IdleO</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/inter-4.1-subset.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- Before the first paint, so a chosen theme never flashes the other one. Allowed by its hash in the CSP. -->
+    <script>
+      %IDLEO_THEME_BOOT%
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

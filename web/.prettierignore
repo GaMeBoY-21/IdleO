@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+dist-firebase
+pnpm-lock.yaml
+src/api/schema.gen.ts
+src/design/tokens.gen.css
+test-results
+playwright-report
+.lighthouseci
+DESIGN.md
+README.md
+.lighthouseci-desktop
+visual-baseline

@@ -1,0 +1,70 @@
+/**
+ * What a build may be configured with (ADR 0018). Checked when vite.config.ts loads, so a wrong combination
+ * never produces a bundle. Above all, only a local build may use the OIDC mock sign-in adapter: the mock
+ * server signs in anyone as anyone.
+ */
+
+export type Deployment = "local" | "staging" | "production";
+export type AuthAdapterName = "firebase" | "oidc-mock";
+
+export interface BuildEnv {
+  IDLEO_DEPLOYMENT?: string | undefined;
+  VITE_AUTH?: string | undefined;
+  VITE_API_URL?: string | undefined;
+  VITE_OIDC_ISSUER?: string | undefined;
+  VITE_OIDC_CLIENT_ID?: string | undefined;
+  VITE_FIREBASE_API_KEY?: string | undefined;
+  VITE_FIREBASE_AUTH_DOMAIN?: string | undefined;
+  VITE_FIREBASE_PROJECT_ID?: string | undefined;
+}
+
+const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
+function isLocalOrPlain(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol !== "https:" || LOCAL_HOSTS.includes(parsed.hostname);
+  } catch {
+    return true;
+  }
+}
+
+/** Every problem with these settings; empty when the build may go ahead. */
+export function buildSettingsProblems(env: BuildEnv): string[] {
+  const problems: string[] = [];
+  const deployment = env.IDLEO_DEPLOYMENT ?? "local";
+  if (!["local", "staging", "production"].includes(deployment)) {
+    problems.push(`IDLEO_DEPLOYMENT must be local, staging or production, not ${deployment}`);
+  }
+  const auth = env.VITE_AUTH ?? "";
+  if (!["firebase", "oidc-mock"].includes(auth)) {
+    problems.push("VITE_AUTH must be firebase or oidc-mock");
+  }
+  if (auth === "oidc-mock" && deployment !== "local") {
+    problems.push(`a ${deployment} build can't use the oidc-mock sign-in adapter; use firebase`);
+  }
+  if (!env.VITE_API_URL) {
+    problems.push("VITE_API_URL is missing");
+  } else if (deployment !== "local" && isLocalOrPlain(env.VITE_API_URL)) {
+    problems.push(`a ${deployment} build needs an https API that isn't on this machine`);
+  }
+  if (auth === "oidc-mock" && (!env.VITE_OIDC_ISSUER || !env.VITE_OIDC_CLIENT_ID)) {
+    problems.push("the oidc-mock adapter needs VITE_OIDC_ISSUER and VITE_OIDC_CLIENT_ID");
+  }
+  if (
+    auth === "firebase" &&
+    (!env.VITE_FIREBASE_API_KEY || !env.VITE_FIREBASE_AUTH_DOMAIN || !env.VITE_FIREBASE_PROJECT_ID)
+  ) {
+    problems.push(
+      "the firebase adapter needs VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN and VITE_FIREBASE_PROJECT_ID",
+    );
+  }
+  return problems;
+}
+
+export function assertBuildSettings(env: BuildEnv): void {
+  const problems = buildSettingsProblems(env);
+  if (problems.length > 0) {
+    throw new Error(`Refusing to build the web app: ${problems.join("; ")}`);
+  }
+}

@@ -2,7 +2,7 @@
 
 The standard every screen is checked against, now and later. Numbers, not adjectives: if a screen breaks a rule here, the screen is wrong, or this file changes first, with Nikki's say.
 
-The tokens below live in code in one place, `web/src/design/tokens.ts`, and Tailwind's theme is built from them. Nothing outside that file names a colour, a size or a duration; a lint rule refuses raw colours and arbitrary values.
+The tokens below live in code in one place, `web/src/design/tokens.ts` (the accent in `web/src/brand/brand.ts`, so the brand stays one change), and Tailwind's theme is built from them. Nothing outside that file names a colour, a size or a duration; a lint rule refuses raw colours and arbitrary values.
 
 ## Who it's for
 
@@ -28,7 +28,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 
 ## Principles
 
-1. **One obvious next step per screen.** Each screen has exactly one primary button (filled accent). Everything else is a secondary (outlined) or quiet (text) action. Two filled accent buttons on one screen is a bug.
+1. **One obvious next step per screen.** A screen has at most one primary button (filled accent): its next step. A screen that only shows information, like the credit history, may have none. Everything else is a secondary (outlined) or quiet (text) action. Two filled accent buttons on one screen is a bug.
 2. **Money is always exact and always visible where it matters:** credit, the price before booking, the cost so far while a session runs, and the final charge.
    - Rupees are formatted from integer paise with Indian digit grouping (₹1,23,456.78), never through floating point.
    - There is one formatting function in the whole app, `formatPaise` in `web/src/lib/money.ts`. It refuses anything that isn't a whole number of paise.
@@ -48,7 +48,8 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 
 - **One family: Inter** (Rasmus Andersson, SIL Open Font License 1.1), version 4.1, self-hosted. No request ever goes to a font service.
   - **Why Inter:** it was drawn for user interfaces at small sizes on screens. It has true tabular figures (`tnum`), and it includes the rupee sign (₹, U+20B9), which many UI families lack: of the candidates checked, IBM Plex Sans has no tabular figures, and Geist's rupee sits in a subset without them.
-  - **One file:** a subset of Inter's variable font, cut by `web/scripts/subset-font.sh`, holds Basic Latin, Latin-1, the punctuation we use, the arrows, the minus sign and ₹. The weight axis is kept from 400 to 650 and the optical size is pinned at text size, which makes it 25.6 KB as WOFF2. It's preloaded, and its fallback has adjusted metrics, so the swap moves nothing.
+  - **One file:** a subset of Inter's variable font, cut by `web/scripts/subset-font.sh`, holds Basic Latin, Latin-1, the punctuation we use, the arrows, the minus sign and ₹. The weight axis is kept from 400 to 650 and the optical size is pinned at text size, which makes it 25.5 KB as WOFF2.
+  - **It never swaps.** It's preloaded with `font-display: optional`. If it hasn't arrived by the first paint (a slow first visit), that page keeps the fallback, Arial scaled to Inter's metrics, because even matched metrics leave glyph widths that differ, and a swap would move text sideways. Every later page has it from the cache.
 - **Numbers** (money, durations, counts, times) use Inter's tabular figures: the `tabular` class sets `font-variant-numeric: tabular-nums`.
 - **Weights:** 400 for reading, 500 for labels and buttons, 600 for headings and key figures. No other weights.
 - **The scale: six sizes, no more.**
@@ -157,7 +158,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and b
 - **No layout shift, ever** (cumulative layout shift 0 on every screen):
   - skeletons have the same size as the content that replaces them;
   - images and icons have fixed dimensions;
-  - the font's fallback has matched metrics;
+  - the font never swaps (see Typography);
   - banners appear in space already reserved, or push nothing (they overlay the page edge).
 
 ## States

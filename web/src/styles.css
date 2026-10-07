@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import "./design/tokens.gen.css";
+
+/* web/DESIGN.md: one family, tabular figures for numbers, the reading measure, motion that respects
+   prefers-reduced-motion, and a focus ring on every focusable thing. */
+
+/* One self-hosted file (web/DESIGN.md "Typography"), preloaded from index.html. `optional`: if it isn't there
+   by the first paint (a slow first visit), the page keeps Arial, scaled to Inter's metrics, rather than swapping
+   fonts under the reader, which would move text; every later page has it from the cache. */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-4.1-subset.woff2") format("woff2");
+  font-weight: 400 650;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107.12%;
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
+@theme {
+  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background: var(--canvas);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply text-body;
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+}
+
+/* The bottom tab bar is 64 px plus the phone's home-indicator inset; content clears it with room to spare. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pb-clear-nav {
+  padding-bottom: calc(var(--spacing-16) + var(--spacing-6) + env(safe-area-inset-bottom));
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility skeleton {
+  background: var(--sunken);
+  background-image: linear-gradient(90deg, transparent, var(--canvas), transparent);
+  background-size: 200% 100%;
+  animation: idleo-shimmer 1.4s linear infinite;
+}
+
+@keyframes idleo-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes idleo-appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility appear {
+  animation: idleo-appear 180ms var(--ease-enter) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@theme {
+  --animate-spin: idleo-spin 0.8s linear infinite;
+  --animate-pulse: idleo-pulse 1.6s var(--ease-enter) infinite;
+}
+
+@keyframes idleo-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes idleo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
