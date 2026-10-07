@@ -3,6 +3,7 @@ package com.idleo.controlplane.sessions.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.idleo.controlplane.sessions.Template;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -19,6 +20,7 @@ class TemplateCatalogTests {
         var fields = new java.util.LinkedHashMap<String, String>();
         fields.put("id", "smoke");
         fields.put("name", "Smoke");
+        fields.put("description", "Prints the GPU.");
         fields.put("image", "registry.example/smoke" + DIGEST);
         fields.put("min_vram_mb", "1024");
         fields.put("default_max_runtime", "5m");
@@ -95,9 +97,134 @@ class TemplateCatalogTests {
             "memory_mb=lots",
             "default_max_runtime=1h",
             "checkpoint_interval=soon",
-            "max_runtime_cap=<none>"
+            "max_runtime_cap=<none>",
+            "description=<none>",
+            "typical_runtime=soon",
+            "colour=blue"
         }) {
             assertThatThrownBy(() -> parse(entry(overrides))).as(overrides).isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    private static final String ECHO_PARAMS = """
+                params:
+                  - name: greeting
+                    label: Greeting
+                    type: string
+                    required: true
+                    max_length: 200
+                  - name: repeat
+                    label: Repeat
+                    help: How many times.
+                    type: integer
+                    default: 1
+                    min: 1
+                    max: 5
+                  - name: rate
+                    label: Learning rate
+                    type: number
+                    default: 0.0002
+                  - name: mode
+                    label: Mode
+                    type: choice
+                    choices: [fast, careful]
+                    default: careful
+                input:
+                  accepts: required
+                  upload: true
+                  url: true
+                  max_size_mb: 512
+                  label: Training data
+            """;
+
+    /** An entry with its params and input written as YAML under it. */
+    private static String withBlocks(String blocks) {
+        var lines = blocks.lines().filter(line -> !line.isBlank()).toList();
+        int indent = lines.stream()
+                .mapToInt(line -> line.length() - line.stripLeading().length())
+                .min()
+                .orElse(0);
+        return entry("")
+                + lines.stream()
+                        .map(line -> "    " + line.substring(indent) + "\n")
+                        .reduce("", String::concat);
+    }
+
+    @Test
+    void parametersAndAnInputLoadWithTheirDefaultsChecked() {
+        var template = parse(withBlocks(ECHO_PARAMS)).get("smoke");
+
+        assertThat(template.params())
+                .extracting(Template.Param::name)
+                .containsExactly("greeting", "repeat", "rate", "mode");
+        var repeat = template.params().get(1);
+        assertThat(repeat.type()).isEqualTo(Template.ParamType.INTEGER);
+        assertThat(repeat.defaultValue()).isEqualTo(1L);
+        assertThat(repeat.min()).isEqualByComparingTo("1");
+        assertThat(template.params().get(2).defaultValue()).isEqualTo(new java.math.BigDecimal("0.0002"));
+        assertThat(template.params().get(3).choices()).containsExactly("fast", "careful");
+        assertThat(template.input())
+                .isEqualTo(new Template.Input(Template.Accepts.REQUIRED, true, true, 512, "Training data", null));
+    }
+
+    @Test
+    void aTemplateWithoutAnInputTakesNone() {
+        assertThat(parse(entry("")).get("smoke").input()).isEqualTo(Template.Input.NONE);
+        assertThat(parse(entry("")).get("smoke").params()).isEmpty();
+    }
+
+    @Test
+    void malformedParametersAndInputsAreRefused() {
+        var cases = java.util.Map.ofEntries(
+                java.util.Map.entry("params:\n  - name: Greeting\n    label: G\n    type: string\n", "must match"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: string\n  - name: a\n    label: A\n    type: string\n",
+                        "appears twice"),
+                java.util.Map.entry("params:\n  - name: a\n    label: A\n    type: date\n", "type must be"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: integer\n    default: 9\n    max: 5\n",
+                        "the default must be at most 5"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: integer\n    min: 5\n    max: 1\n",
+                        "min is above max"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: string\n    max_length: 5000\n",
+                        "max_length must be"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: string\n    min: 1\n", "only for integer"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: choice\n    choices: [only]\n", "at least 2"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: string\n    required: true\n    default: x\n",
+                        "has no default"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: string\n    secret: true\n", "unknown field"),
+                java.util.Map.entry("input:\n  accepts: sometimes\n", "accepts must be"),
+                java.util.Map.entry("input:\n  accepts: optional\n  label: X\n", "an upload, a URL or both"),
+                java.util.Map.entry(
+                        "input:\n  accepts: optional\n  upload: true\n  max_size_mb: 4096\n  label: X\n",
+                        "above the template's scratch_mb"),
+                java.util.Map.entry("input:\n  accepts: optional\n  url: true\n", "label is required"));
+        cases.forEach((block, message) ->
+                assertThatThrownBy(() -> parse(withBlocks(block))).as(block).hasMessageContaining(message));
+    }
+
+    @Test
+    void theDevelopmentCatalogHasEchoInputForTheBookingContract() throws Exception {
+        try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
+            var echo = TemplateCatalog.parse(in).get("echo-input");
+            assertThat(echo.params()).extracting(Template.Param::name).containsExactly("greeting", "repeat");
+            assertThat(echo.params().getFirst().required()).isTrue();
+            assertThat(echo.params().get(1).defaultValue()).isEqualTo(1L);
+            assertThat(echo.input().accepts()).isEqualTo(Template.Accepts.REQUIRED);
+            assertThat(echo.input().upload()).isTrue();
+            assertThat(echo.input().url()).isTrue();
+        }
+        try (var in = Files.newInputStream(Path.of("../templates/catalog.yaml"))) {
+            var smoke = TemplateCatalog.parse(in).get("cuda-smoke-test");
+            assertThat(smoke.params()).isEmpty();
+            assertThat(smoke.input().accepts()).isEqualTo(Template.Accepts.NONE);
+            assertThat(smoke.description()).isNotBlank();
         }
     }
 

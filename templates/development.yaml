@@ -8,6 +8,7 @@
 templates:
   - id: cuda-smoke-test
     name: CUDA smoke test (development runner)
+    description: Simulates the smoke test for 20 seconds, checkpointing every 5.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "20s"]
     min_vram_mb: 1024
@@ -18,10 +19,13 @@ templates:
     pids_limit: 256
     scratch_mb: 1024
     checkpoint_interval: 5s
+    input:
+      accepts: none
   # Metering in the end-to-end test (ADR 0017): two and a half minutes, charged
   # as three; and a long run, for a stop mid-run and the spending cap.
   - id: charged-run
     name: Charged run, 150 seconds (development runner)
+    description: Runs 150 seconds, charged as three started minutes.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "150s"]
     min_vram_mb: 1024
@@ -34,6 +38,7 @@ templates:
     checkpoint_interval: 5s
   - id: long-run
     name: Long run, 10 minutes (development runner)
+    description: Runs 10 minutes, for stopping mid-way and the spending cap.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "10m"]
     min_vram_mb: 1024
@@ -44,3 +49,41 @@ templates:
     pids_limit: 256
     scratch_mb: 1024
     checkpoint_interval: 5s
+  # The booking contract in the end-to-end test (ADR 0019): parameters and an
+  # input reach the job. The development runner writes the input's SHA-256,
+  # every SESSION_PARAM_* it saw, and the greeting repeated, into result.json.
+  - id: echo-input
+    name: Echo an input (development runner)
+    description: Reads its input and parameters back, proving the job saw them exactly.
+    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
+    args: ["--duration", "20s"]
+    min_vram_mb: 1024
+    default_max_runtime: 5m
+    max_runtime_cap: 15m
+    typical_runtime: 20s
+    memory_mb: 2048
+    cpu_millicores: 2000
+    pids_limit: 256
+    scratch_mb: 1024
+    checkpoint_interval: 5s
+    params:
+      - name: greeting
+        label: Greeting
+        help: Written back in the output, once per repeat.
+        type: string
+        required: true
+        max_length: 200
+      - name: repeat
+        label: Repeat
+        help: How many times the greeting is written back.
+        type: integer
+        default: 1
+        min: 1
+        max: 5
+    input:
+      accepts: required
+      upload: true
+      url: true
+      max_size_mb: 512
+      label: File to echo
+      help: Any file; the output gives its size and SHA-256.

@@ -5,16 +5,41 @@
 #
 # Fields:
 #   id, name               stable id and display name
+#   description            one line on what it does
 #   image                  container image, always with @sha256:<digest>
 #   args                   arguments to the image's entrypoint
 #   min_vram_mb            the least GPU memory it needs; a renter may ask for more
 #   default_max_runtime    how long a session may run unless the renter says otherwise
 #   max_runtime_cap        the most a renter may ask for
+#   typical_runtime        optional: about how long it usually takes, for the booking screen
 #   memory_mb, cpu_millicores, pids_limit, scratch_mb   container limits (technical design, compute sandbox)
 #   checkpoint_interval    how often the job checkpoints
+#   params                 optional: what the renter can set (ADR 0019), each reaching the job as the
+#                          environment variable SESSION_PARAM_<NAME>; never secrets, which come later
+#                          through Credentials:
+#     - name               ^[a-z][a-z0-9_]{0,31}$, unique in the template
+#       label, help        what the booking form, the CLI and the SDK show
+#       type               string | integer | number | boolean | choice
+#       required           true or false (default false); a required parameter has no default
+#       default            optional; must itself pass the rules below
+#       min, max           integer and number only
+#       max_length         string only; 1,000 if not given, never above 4,096
+#       choices            choice only: at least 2
+#   input                  optional: the one file the job reads (ADR 0019)
+#     accepts              none | optional | required
+#     upload               true if it takes an upload, staged by the agent at /work/input/<name>
+#                          (SESSION_INPUT_FILE)
+#     url                  true if it takes an https URL, which the job fetches itself inside its
+#                          sandbox (SESSION_INPUT_URL); the agent never fetches a renter's URL
+#     max_size_mb          for uploads: the largest it takes, never above scratch_mb
+#     label, help          what the booking form shows
+#
+# A template's parameters and input are described here once; the web form, the CLI's flags and the
+# SDK's arguments are all made from GET /v1/templates.
 templates:
   - id: cuda-smoke-test
     name: CUDA smoke test
+    description: Prints the GPU the job sees, proving the GPU reaches the container.
     # The CUDA base image Phase 0 pins (phase0/wsl/gpu-common.sh): prints the
     # GPU it sees, proving the GPU reaches the container.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
@@ -27,3 +52,6 @@ templates:
     pids_limit: 256
     scratch_mb: 1024
     checkpoint_interval: 5m
+    typical_runtime: 30s
+    input:
+      accepts: none

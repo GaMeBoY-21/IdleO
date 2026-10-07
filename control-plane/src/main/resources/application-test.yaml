@@ -29,6 +29,10 @@ agentgateway:
   command-resend-after: 1s
 
 sessions:
+  # The development catalog, as the end-to-end test runs it: it has echo-input, with parameters and an
+  # input (ADR 0019). Tests run from control-plane/.
+  templates:
+    catalog: file:../templates/development.yaml
   provisioning-timeout: 5s
   # Short, so tests see grants refreshed (MinIO's own credentials still last 15 minutes).
   storage:

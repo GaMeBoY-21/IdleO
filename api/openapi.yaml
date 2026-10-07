@@ -958,6 +958,36 @@ components:
           type:
           - boolean
           - "null"
+    TemplateInput:
+      type: object
+      properties:
+        accepts:
+          type: string
+          enum:
+          - none
+          - optional
+          - required
+        help:
+          type:
+          - string
+          - "null"
+        label:
+          type:
+          - string
+          - "null"
+        maxSizeMb:
+          type:
+          - integer
+          - "null"
+          format: int32
+        upload:
+          type: boolean
+        url:
+          type: boolean
+      required:
+      - accepts
+      - upload
+      - url
     TemplateList:
       type: object
       properties:
@@ -967,16 +997,71 @@ components:
             $ref: "#/components/schemas/TemplateResponse"
       required:
       - templates
+    TemplateParam:
+      type: object
+      properties:
+        choices:
+          type: array
+          items:
+            type: string
+        defaultValue:
+          type:
+          - string
+          - integer
+          - number
+          - boolean
+          - "null"
+        help:
+          type:
+          - string
+          - "null"
+        label:
+          type: string
+        max:
+          type:
+          - number
+          - "null"
+        maxLength:
+          type:
+          - integer
+          - "null"
+          format: int32
+        min:
+          type:
+          - number
+          - "null"
+        name:
+          type: string
+        required:
+          type: boolean
+        type:
+          type: string
+          enum:
+          - string
+          - integer
+          - number
+          - boolean
+          - choice
+      required:
+      - choices
+      - label
+      - name
+      - required
+      - type
     TemplateResponse:
       type: object
       properties:
         defaultMaxRuntimeSeconds:
           type: integer
           format: int64
+        description:
+          type: string
         id:
           type: string
         image:
           type: string
+        input:
+          $ref: "#/components/schemas/TemplateInput"
         maxRuntimeCapSeconds:
           type: integer
           format: int64
@@ -985,13 +1070,25 @@ components:
           format: int32
         name:
           type: string
+        params:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateParam"
+        typicalRuntimeSeconds:
+          type:
+          - integer
+          - "null"
+          format: int64
       required:
       - defaultMaxRuntimeSeconds
+      - description
       - id
       - image
+      - input
       - maxRuntimeCapSeconds
       - minVramMb
       - name
+      - params
     UpdateMeRequest:
       type: object
       properties:
