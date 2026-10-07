@@ -28,7 +28,7 @@ class WalletController {
     record WalletResponse(long balancePaise, long reservedPaise, long availablePaise) {}
 
     @GetMapping
-    WalletResponse wallet(@AuthenticationPrincipal CurrentUser user) {
+    WalletResponse get(@AuthenticationPrincipal CurrentUser user) {
         return jdbc.sql("select balance_paise, reserved_paise from billing.wallets where user_id = :userId")
                 .param("userId", user.id())
                 .query((rs, n) -> {
@@ -42,7 +42,7 @@ class WalletController {
 
     /** Newest first. {@code cursor} is the previous page's {@code nextCursor}, opaque to clients. */
     @GetMapping("/transactions")
-    LedgerPages.EntryPage transactions(
+    LedgerPages.HistoryPage transactions(
             @AuthenticationPrincipal CurrentUser user,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "" + LedgerPages.DEFAULT_PAGE) int limit) {

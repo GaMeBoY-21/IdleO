@@ -31,11 +31,11 @@ class HostEarningsController {
         this.jdbc = jdbc;
     }
 
-    record Earnings(UUID hostId, long balancePaise, LedgerPages.EntryPage history) {}
+    record Earnings(UUID hostId, long balancePaise, LedgerPages.HistoryPage history) {}
 
     /** Another user's host, or one that doesn't exist, is a 404, so ids can't be probed. */
     @GetMapping("/v1/hosts/{hostId}/earnings")
-    Earnings earnings(
+    Earnings get(
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID hostId,
             @RequestParam(required = false) @Nullable String cursor,

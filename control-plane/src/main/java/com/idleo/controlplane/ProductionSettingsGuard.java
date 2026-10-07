@@ -20,7 +20,10 @@ import org.springframework.stereotype.Component;
  *   <li>a trusted identity issuer that is plain HTTP or on this machine, like the local sign-in server;
  *   <li>{@code sessions.storage.provider: minio}, the local object storage (ADR 0016);
  *   <li>a {@code sessions.templates.catalog} other than the bundled one, such as templates/development.yaml
- *       for the agent's development runner (ADR 0016).
+ *       for the agent's development runner (ADR 0016);
+ *   <li>a web origin in {@code web.allowed-origins} that is {@code *}, plain HTTP or on this machine (ADR 0018);
+ *   <li>{@code springdoc.api-docs.enabled}: the API contract is generated in tests and committed, never served
+ *       (ADR 0018).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -62,6 +65,15 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         if (!BUNDLED_CATALOG.equals(catalog.strip())) {
             problems.add("sessions.templates.catalog is " + catalog + ", not the bundled catalog");
         }
+        for (var origin : binder.bind("web.allowed-origins", Bindable.listOf(String.class))
+                .orElse(List.of())) {
+            if (isDevelopmentOrigin(origin)) {
+                problems.add("web origin " + origin.strip() + " is *, plain HTTP or on this machine");
+            }
+        }
+        if (binder.bind("springdoc.api-docs.enabled", Boolean.class).orElse(false)) {
+            problems.add("springdoc.api-docs.enabled is true");
+        }
         for (var issuer : binder.bind("identity.issuers", Bindable.listOf(IssuerUri.class))
                 .orElse(List.of())) {
             if (isDevelopmentIssuer(issuer.issuerUri())) {
@@ -69,6 +81,11 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             }
         }
         return problems;
+    }
+
+    private static boolean isDevelopmentOrigin(String origin) {
+        var trimmed = origin.strip();
+        return trimmed.contains("*") || isDevelopmentIssuer(trimmed);
     }
 
     private static boolean isDevelopmentIssuer(String issuerUri) {

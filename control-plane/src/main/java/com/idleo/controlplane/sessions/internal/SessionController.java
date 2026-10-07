@@ -4,6 +4,10 @@ import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.sessions.SessionCosts;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -82,6 +86,15 @@ class SessionController {
     record SessionList(List<SessionResponse> sessions) {}
 
     @PostMapping
+    @ApiResponse(
+            responseCode = "201",
+            description = "The booked session",
+            headers = @Header(name = "Location", description = "The session's URL", schema = @Schema(type = "string")),
+            content = @Content(schema = @Schema(implementation = SessionResponse.class)))
+    @ApiResponse(
+            responseCode = "200",
+            description = "A repeat with the same Idempotency-Key: the session it booked",
+            content = @Content(schema = @Schema(implementation = SessionResponse.class)))
     ResponseEntity<SessionResponse> create(
             @AuthenticationPrincipal CurrentUser user,
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,

@@ -1,6 +1,10 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -51,12 +55,30 @@ class MeController {
     record UpdateMeRequest(@NotBlank @Size(max = 100) String displayName) {}
 
     @GetMapping
-    ResponseEntity<MeResponse> me(@AuthenticationPrincipal CurrentUser currentUser) {
+    @ApiResponse(
+            responseCode = "200",
+            description = "The signed-in user, created on their first request",
+            headers =
+                    @Header(
+                            name = "ETag",
+                            description = "Send it back as If-Match to change the user",
+                            schema = @Schema(type = "string")),
+            content = @Content(schema = @Schema(implementation = MeResponse.class)))
+    ResponseEntity<MeResponse> get(@AuthenticationPrincipal CurrentUser currentUser) {
         var user = load(currentUser);
         return ResponseEntity.ok().eTag(etag(user)).body(MeResponse.of(user));
     }
 
     @PatchMapping
+    @ApiResponse(
+            responseCode = "200",
+            description = "The changed user",
+            headers =
+                    @Header(
+                            name = "ETag",
+                            description = "The new version, for the next If-Match",
+                            schema = @Schema(type = "string")),
+            content = @Content(schema = @Schema(implementation = MeResponse.class)))
     ResponseEntity<MeResponse> update(
             @AuthenticationPrincipal CurrentUser currentUser,
             @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) @Nullable String ifMatch,

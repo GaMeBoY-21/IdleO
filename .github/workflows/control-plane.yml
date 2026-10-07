@@ -3,9 +3,9 @@ name: control-plane
 on:
   push:
     branches: [main]
-    paths: ["control-plane/**", "proto/**", "templates/catalog.yaml", ".github/workflows/control-plane.yml"]
+    paths: ["control-plane/**", "api/**", "proto/**", "templates/catalog.yaml", ".github/workflows/control-plane.yml"]
   pull_request:
-    paths: ["control-plane/**", "proto/**", "templates/catalog.yaml", ".github/workflows/control-plane.yml"]
+    paths: ["control-plane/**", "api/**", "proto/**", "templates/catalog.yaml", ".github/workflows/control-plane.yml"]
 
 permissions:
   contents: read

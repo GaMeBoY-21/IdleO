@@ -29,17 +29,18 @@ class LedgerPages {
         this.jdbc = jdbc;
     }
 
-    record Reference(String type, UUID id) {}
+    record HistoryReference(String type, UUID id) {}
 
-    record Entry(UUID id, long amountPaise, String direction, String kind, Reference reference, Instant createdAt) {}
+    record HistoryEntry(
+            UUID id, long amountPaise, String direction, String kind, HistoryReference reference, Instant createdAt) {}
 
-    record EntryPage(List<Entry> entries, @Nullable String nextCursor) {}
+    record HistoryPage(List<HistoryEntry> entries, @Nullable String nextCursor) {}
 
     /**
      * A page of the owner's entries in {@code account}. {@code cursor} is the previous page's {@code nextCursor},
      * opaque to clients; {@code kind} names each entry's reference type in plain words.
      */
-    EntryPage page(Account account, UUID ownerId, @Nullable String cursor, int limit, UnaryOperator<String> kind) {
+    HistoryPage page(Account account, UUID ownerId, @Nullable String cursor, int limit, UnaryOperator<String> kind) {
         if (limit < 1 || limit > MAX_PAGE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be from 1 to " + MAX_PAGE + ".");
         }
@@ -61,20 +62,20 @@ class LedgerPages {
                     .param("afterId", after.id());
         }
         var rows = statement
-                .query((rs, n) -> new Entry(
+                .query((rs, n) -> new HistoryEntry(
                         rs.getObject("id", UUID.class),
                         rs.getLong("amount_paise"),
                         rs.getString("direction"),
                         kind.apply(rs.getString("ref_type")),
-                        new Reference(rs.getString("ref_type"), rs.getObject("ref_id", UUID.class)),
+                        new HistoryReference(rs.getString("ref_type"), rs.getObject("ref_id", UUID.class)),
                         rs.getTimestamp("created_at").toInstant()))
                 .list();
         if (rows.size() <= limit) {
-            return new EntryPage(rows, null);
+            return new HistoryPage(rows, null);
         }
         var page = rows.subList(0, limit);
         var last = page.getLast();
-        return new EntryPage(List.copyOf(page), new Cursor(last.createdAt(), last.id()).encode());
+        return new HistoryPage(List.copyOf(page), new Cursor(last.createdAt(), last.id()).encode());
     }
 
     /** A position in the history: the last entry's time and id, base64url-encoded. */

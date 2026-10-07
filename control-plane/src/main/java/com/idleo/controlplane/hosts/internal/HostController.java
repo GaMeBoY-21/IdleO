@@ -4,6 +4,10 @@ import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.hosts.HostPresence;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -113,6 +117,11 @@ class HostController {
     record EnrolmentCodeResponse(String code, Instant expiresAt) {}
 
     @PostMapping
+    @ApiResponse(
+            responseCode = "201",
+            description = "The new host; a repeat with the same key returns the first response",
+            headers = @Header(name = "Location", description = "The host's URL", schema = @Schema(type = "string")),
+            content = @Content(schema = @Schema(implementation = HostResponse.class)))
     ResponseEntity<String> create(
             @AuthenticationPrincipal CurrentUser user,
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
@@ -151,6 +160,10 @@ class HostController {
 
     /** The code is shown once and never stored, so the response must not be cached either. */
     @PostMapping("/{id}/enrolment-code")
+    @ApiResponse(
+            responseCode = "201",
+            description = "A one-time code, shown once and never stored",
+            content = @Content(schema = @Schema(implementation = EnrolmentCodeResponse.class)))
     ResponseEntity<EnrolmentCodeResponse> issueEnrolmentCode(
             @AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         var issued = hosts.issueCode(user.id(), id).orElseThrow(HostController::notFound);

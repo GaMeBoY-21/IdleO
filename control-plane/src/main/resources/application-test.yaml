@@ -1,4 +1,13 @@
 # Tests: the database comes from Testcontainers (@ServiceConnection).
+# The contract test reads the generated OpenAPI document (ADR 0018).
+springdoc:
+  api-docs:
+    enabled: true
+
+# One web origin, for the CORS test (ADR 0018).
+web:
+  allowed-origins: http://localhost:3000
+
 spring:
   datasource:
     hikari:

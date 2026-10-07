@@ -1,0 +1,948 @@
+openapi: 3.1.0
+info:
+  description: The renter and host API. Money is integer paise; times are UTC. Every
+    request needs the caller's ID token from the identity provider as a bearer token.
+  title: IdleO control plane API
+  version: v1
+servers:
+- url: /
+security:
+- idToken: []
+paths:
+  /v1/hosts:
+    get:
+      operationId: hostList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - host
+    post:
+      operationId: hostCreate
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHostRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostResponse"
+          description: The new host; a repeat with the same key returns the first
+            response
+          headers:
+            Location:
+              description: The host's URL
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - host
+  /v1/hosts/{hostId}/earnings:
+    get:
+      operationId: hostEarningsGet
+      parameters:
+      - in: path
+        name: hostId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Earnings"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostEarnings
+  /v1/hosts/{id}:
+    get:
+      operationId: hostGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - host
+  /v1/hosts/{id}/enrolment-code:
+    post:
+      operationId: hostIssueEnrolmentCode
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrolmentCodeResponse"
+          description: "A one-time code, shown once and never stored"
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - host
+  /v1/hosts/{id}/listing:
+    put:
+      operationId: hostPutListing
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListingRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - host
+  /v1/me:
+    get:
+      operationId: meGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+          description: "The signed-in user, created on their first request"
+          headers:
+            ETag:
+              description: Send it back as If-Match to change the user
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - me
+    patch:
+      operationId: meUpdate
+      parameters:
+      - description: "The ETag from the last read of this resource; 428 without it,\
+          \ 412 when it's stale."
+        in: header
+        name: If-Match
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+          description: The changed user
+          headers:
+            ETag:
+              description: "The new version, for the next If-Match"
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - me
+  /v1/sessions:
+    get:
+      operationId: sessionList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - session
+    post:
+      operationId: sessionCreate
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+          description: "A repeat with the same Idempotency-Key: the session it booked"
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+          description: The booked session
+          headers:
+            Location:
+              description: The session's URL
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - session
+  /v1/sessions/{id}:
+    get:
+      operationId: sessionGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - session
+  /v1/sessions/{id}/cancel:
+    post:
+      operationId: sessionCancel
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - session
+  /v1/sessions/{id}/outputs:
+    get:
+      operationId: sessionOutputs
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Outputs"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - session
+  /v1/sessions/{id}/stop:
+    post:
+      operationId: sessionStop
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StopRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - session
+  /v1/templates:
+    get:
+      operationId: templateList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - template
+  /v1/wallet:
+    get:
+      operationId: walletGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - wallet
+  /v1/wallet/transactions:
+    get:
+      operationId: walletTransactions
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - wallet
+components:
+  schemas:
+    CreateHostRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - name
+    CreateSessionRequest:
+      type: object
+      properties:
+        maxPricePaisePerMin:
+          type: integer
+          format: int32
+          minimum: 1
+        maxRuntimeSeconds:
+          type:
+          - integer
+          - "null"
+          format: int32
+          minimum: 1
+        maxSpendPaise:
+          type: integer
+          format: int64
+          minimum: 1
+        templateId:
+          type: string
+          minLength: 1
+        vramNeededMb:
+          type:
+          - integer
+          - "null"
+          format: int32
+          minimum: 1
+      required:
+      - maxPricePaisePerMin
+      - maxSpendPaise
+      - templateId
+    Earnings:
+      type: object
+      properties:
+        balancePaise:
+          type: integer
+          format: int64
+        history:
+          $ref: "#/components/schemas/HistoryPage"
+        hostId:
+          type: string
+          format: uuid
+      required:
+      - balancePaise
+      - history
+      - hostId
+    EnrolmentCodeResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - code
+      - expiresAt
+    EventResponse:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        state:
+          type: string
+      required:
+      - at
+      - reason
+      - state
+    GpuResponse:
+      type: object
+      properties:
+        gone:
+          type: boolean
+        model:
+          type: string
+        vramMb:
+          type: integer
+          format: int32
+      required:
+      - gone
+      - model
+      - vramMb
+    HistoryEntry:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        direction:
+          type: string
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        reference:
+          $ref: "#/components/schemas/HistoryReference"
+      required:
+      - amountPaise
+      - createdAt
+      - direction
+      - id
+      - kind
+      - reference
+    HistoryPage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - entries
+    HistoryReference:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+      required:
+      - id
+      - type
+    HostList:
+      type: object
+      properties:
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/HostResponse"
+      required:
+      - hosts
+    HostResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        gpus:
+          type: array
+          items:
+            $ref: "#/components/schemas/GpuResponse"
+        id:
+          type: string
+          format: uuid
+        lastSeenAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        listing:
+          $ref: "#/components/schemas/Listing"
+        name:
+          type: string
+        online:
+          type: boolean
+        status:
+          type: string
+      required:
+      - createdAt
+      - gpus
+      - id
+      - name
+      - online
+      - status
+    Listing:
+      type: object
+      properties:
+        batchPricePaisePerMin:
+          type: integer
+          format: int32
+        gpuTempCapC:
+          type: integer
+          format: int32
+        maxConcurrentSessions:
+          type: integer
+          format: int32
+      required:
+      - batchPricePaisePerMin
+      - gpuTempCapC
+      - maxConcurrentSessions
+    ListingRequest:
+      type: object
+      properties:
+        batchPricePaisePerMin:
+          type: integer
+          format: int32
+          minimum: 1
+        gpuTempCapC:
+          type: integer
+          format: int32
+          maximum: 95
+          minimum: 60
+        maxConcurrentSessions:
+          type: integer
+          format: int32
+          maximum: 1
+          minimum: 1
+      required:
+      - batchPricePaisePerMin
+      - gpuTempCapC
+      - maxConcurrentSessions
+    MeResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        displayName:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+      required:
+      - createdAt
+      - id
+      - status
+    Output:
+      type: object
+      properties:
+        path:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        url:
+          type: string
+      required:
+      - path
+      - sizeBytes
+      - url
+    Outputs:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/Output"
+        linksExpireAt:
+          type: string
+          format: date-time
+        sessionId:
+          type: string
+          format: uuid
+      required:
+      - attempt
+      - files
+      - linksExpireAt
+      - sessionId
+    ProblemDetail:
+      type: object
+      description: An RFC 9457 problem detail
+      properties:
+        detail:
+          type: string
+        errors:
+          type: array
+          description: "For a 400 with invalid fields: each field and what's wrong\
+            \ with it"
+          items:
+            type: object
+            properties:
+              detail:
+                type: string
+              field:
+                type: string
+        instance:
+          type: string
+          format: uri
+        status:
+          type: integer
+          format: int32
+        title:
+          type: string
+        type:
+          type: string
+          format: uri
+    SessionList:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionResponse"
+      required:
+      - sessions
+    SessionResponse:
+      type: object
+      properties:
+        accruedPaise:
+          type: integer
+          format: int64
+        attempt:
+          type: integer
+          format: int32
+        chargedPaise:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventResponse"
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        lowCredit:
+          type: boolean
+        maxPricePaisePerMin:
+          type: integer
+          format: int32
+        maxRuntimeSeconds:
+          type: integer
+          format: int32
+        maxSpendPaise:
+          type: integer
+          format: int64
+        pricePaisePerMin:
+          type:
+          - integer
+          - "null"
+          format: int32
+        reservedPaise:
+          type: integer
+          format: int64
+        startedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        state:
+          type: string
+        templateId:
+          type: string
+        vramNeededMb:
+          type: integer
+          format: int32
+      required:
+      - accruedPaise
+      - attempt
+      - chargedPaise
+      - createdAt
+      - events
+      - id
+      - lowCredit
+      - maxPricePaisePerMin
+      - maxRuntimeSeconds
+      - maxSpendPaise
+      - reservedPaise
+      - state
+      - templateId
+      - vramNeededMb
+    StopRequest:
+      type: object
+      properties:
+        checkpointFirst:
+          type:
+          - boolean
+          - "null"
+    TemplateList:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateResponse"
+      required:
+      - templates
+    TemplateResponse:
+      type: object
+      properties:
+        defaultMaxRuntimeSeconds:
+          type: integer
+          format: int64
+        id:
+          type: string
+        image:
+          type: string
+        maxRuntimeCapSeconds:
+          type: integer
+          format: int64
+        minVramMb:
+          type: integer
+          format: int32
+        name:
+          type: string
+      required:
+      - defaultMaxRuntimeSeconds
+      - id
+      - image
+      - maxRuntimeCapSeconds
+      - minVramMb
+      - name
+    UpdateMeRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - displayName
+    WalletResponse:
+      type: object
+      properties:
+        availablePaise:
+          type: integer
+          format: int64
+        balancePaise:
+          type: integer
+          format: int64
+        reservedPaise:
+          type: integer
+          format: int64
+      required:
+      - availablePaise
+      - balancePaise
+      - reservedPaise
+  securitySchemes:
+    idToken:
+      bearerFormat: JWT
+      description: An ID token from a trusted issuer (ADR 0009).
+      scheme: bearer
+      type: http

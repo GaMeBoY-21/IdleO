@@ -69,6 +69,31 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
+    void prodRefusesLocalOrWildcardWebOrigins() {
+        for (var origin :
+                new String[] {"*", "http://localhost:3000", "https://127.0.0.1", "http://app.example.invalid"}) {
+            prod(
+                            "web.allowed-origins=https://app.example.invalid," + origin,
+                            "identity.issuers[0].issuer-uri=" + GOOGLE)
+                    .run(context -> assertThat(context)
+                            .hasFailed()
+                            .getFailure()
+                            .hasMessageContaining("web origin " + origin + " is *, plain HTTP or on this machine"));
+        }
+        prod("web.allowed-origins=https://app.example.invalid", "identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void prodRefusesToServeTheApiDocuments() {
+        prod("springdoc.api-docs.enabled=true", "identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("springdoc.api-docs.enabled is true"));
+    }
+
+    @Test
     void prodStartsWithProductionSettings() {
         prod("agentgateway.allow-development-hosts=false", "identity.issuers[0].issuer-uri=" + GOOGLE)
                 .run(context -> assertThat(context).hasNotFailed());

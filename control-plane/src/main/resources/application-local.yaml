@@ -30,6 +30,13 @@ sessions:
     access-key-id: local-storage-root
     secret-access-key: local-only-not-a-secret
 
+# The web app's development server and the end-to-end test's static server
+# call the API from these origins (ADR 0018).
+web:
+  allowed-origins:
+    - http://localhost:3000
+    - http://127.0.0.1:3000
+
 # A Mac with the agent's fake GPUs can connect (ADR 0013).
 agentgateway:
   allow-development-hosts: true
