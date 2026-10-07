@@ -3,10 +3,12 @@ package com.idleo.controlplane;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
 import org.springframework.security.authorization.AuthorizationManager;
@@ -37,12 +39,17 @@ class SecurityConfiguration {
      * which the production guard enforces.
      */
     @Bean
-    CorsConfigurationSource webOrigins(@Value("${web.allowed-origins:}") List<String> allowedOrigins) {
+    CorsConfigurationSource webOrigins(Environment environment) {
         var source = new UrlBasedCorsConfigurationSource();
-        var origins = allowedOrigins.stream()
-                .map(String::strip)
-                .filter(origin -> !origin.isEmpty())
-                .toList();
+        // Bound, not @Value: a YAML list is stored as indexed keys, which @Value can't read.
+        var origins =
+                Binder.get(environment)
+                        .bind("web.allowed-origins", Bindable.listOf(String.class))
+                        .orElse(List.of())
+                        .stream()
+                        .map(String::strip)
+                        .filter(origin -> !origin.isEmpty())
+                        .toList();
         if (origins.isEmpty()) {
             return source;
         }

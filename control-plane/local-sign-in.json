@@ -26,6 +26,28 @@
               }
             }
           }
+        },
+        {
+          "requestParam": "grant_type",
+          "match": "authorization_code",
+          "claims": {
+            "sub": "${login_hint}",
+            "user_id": "${login_hint}",
+            "aud": [
+              "idleo-local"
+            ],
+            "email": "${login_hint}@example.com",
+            "email_verified": true,
+            "name": "Local Developer",
+            "firebase": {
+              "sign_in_provider": "password",
+              "identities": {
+                "email": [
+                  "${login_hint}@example.com"
+                ]
+              }
+            }
+          }
         }
       ]
     }

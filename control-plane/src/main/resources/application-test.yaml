@@ -4,9 +4,11 @@ springdoc:
   api-docs:
     enabled: true
 
-# One web origin, for the CORS test (ADR 0018).
+# Web origins as a YAML list, as the local profile writes them, for the CORS test (ADR 0018).
 web:
-  allowed-origins: http://localhost:3000
+  allowed-origins:
+    - http://localhost:3000
+    - http://127.0.0.1:3000
 
 spring:
   datasource:
