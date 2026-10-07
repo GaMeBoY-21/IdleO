@@ -41,6 +41,13 @@ export const LIVE_STATES = new Set([
 ]);
 export const isLive = (session: Pick<Session, "state">) => LIVE_STATES.has(session.state);
 
+/**
+ * Whether a session's figures can still change: it's live, or it has finished and metering hasn't yet settled
+ * its last minutes and released its hold, which it does within seconds.
+ */
+export const isChanging = (session: Pick<Session, "state" | "reservedPaise" | "accruedPaise">) =>
+  isLive(session) || session.reservedPaise > 0 || session.accruedPaise > 0;
+
 export const SESSIONS_POLL_MS = 5_000;
 export const SESSION_POLL_MS = 3_000;
 
@@ -61,11 +68,11 @@ export function useSessions() {
   return useQuery({
     queryKey: keys.sessions,
     queryFn: () => data(api.GET("/v1/sessions")),
-    refetchInterval: (query) => (query.state.data?.sessions.some(isLive) ? SESSIONS_POLL_MS : false),
+    refetchInterval: (query) => (query.state.data?.sessions.some(isChanging) ? SESSIONS_POLL_MS : false),
   });
 }
 
-/** The wallet; `live` while a session is running, since holds and charges then change. */
+/** The wallet; `live` while a session's figures can change (isChanging), since holds and charges then change. */
 export function useWallet(live = false) {
   return useQuery({
     queryKey: keys.wallet,
@@ -79,7 +86,7 @@ export function useSession(id: string | null) {
     queryKey: keys.session(id ?? ""),
     enabled: id !== null,
     queryFn: () => data(api.GET("/v1/sessions/{id}", { params: { path: { id: id! } } })),
-    refetchInterval: (query) => (query.state.data && isLive(query.state.data) ? SESSION_POLL_MS : false),
+    refetchInterval: (query) => (query.state.data && isChanging(query.state.data) ? SESSION_POLL_MS : false),
   });
 }
 

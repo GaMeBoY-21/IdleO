@@ -1,4 +1,4 @@
-import { isLive, useSessions, useWallet } from "@/api/queries";
+import { isChanging, isLive, useSessions, useWallet } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
 import { useTitle } from "@/lib/title";
 import { CreditCard } from "./CreditCard";
@@ -8,8 +8,7 @@ import { SessionsCard } from "./SessionsCard";
 export function Home() {
   useTitle(null);
   const sessions = useSessions();
-  const anyLive = sessions.data?.sessions.some(isLive) ?? false;
-  const wallet = useWallet(anyLive);
+  const wallet = useWallet(sessions.data?.sessions.some(isChanging) ?? false);
   const lowCredit = sessions.data?.sessions.some((session) => isLive(session) && session.lowCredit) ?? false;
 
   return (
