@@ -140,6 +140,43 @@ class CreditCommandProcessTests {
     }
 
     @Test
+    void theWalletCheckExitsZeroWhenEverythingMatchesAndFourWhenSomethingDoesnt() throws Exception {
+        var clean = run("reconcile-wallets");
+        assertThat(clean.exitCode()).as(clean.stderr()).isZero();
+        assertThat(clean.stdout()).contains("0 mismatches");
+        assertNoServerStarted(clean);
+
+        var jdbc = new JdbcTemplate(
+                new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()));
+        var userId = UUID.randomUUID();
+        jdbc.update(
+                "insert into identity.users values (?, 'active', 'check-test@example.com', true, 'Test', now(), now(), 0)",
+                userId);
+        assertThat(run(
+                                "grant-credits",
+                                "--user",
+                                userId.toString(),
+                                "--paise",
+                                "700",
+                                "--reason",
+                                "Check test",
+                                "--key",
+                                "process-test-check")
+                        .exitCode())
+                .isZero();
+        jdbc.update("update billing.wallets set balance_paise = balance_paise + 1 where user_id = ?", userId);
+        try {
+            var corrupted = run("reconcile-wallets");
+            assertThat(corrupted.exitCode()).as(corrupted.stderr()).isEqualTo(4);
+            assertThat(corrupted.stdout())
+                    .contains("balance mismatch for user " + userId + ": 701 paise cached, 700 expected")
+                    .contains("1 mismatches");
+        } finally {
+            jdbc.update("update billing.wallets set balance_paise = balance_paise - 1 where user_id = ?", userId);
+        }
+    }
+
+    @Test
     void aBadCommandLineExitsTwo() throws Exception {
         var run = run("grant-credits", "--paise", "lots");
         assertThat(run.exitCode()).isEqualTo(2);

@@ -22,6 +22,7 @@ class OperatorCommandRunner implements ApplicationRunner, ExitCodeGenerator {
     static final int OK = 0;
     static final int USAGE = 2;
     static final int REFUSED = 3;
+    static final int CHECK_FAILED = 4;
 
     private final List<OperatorCommand> commands;
     private final Environment environment;
@@ -64,6 +65,9 @@ class OperatorCommandRunner implements ApplicationRunner, ExitCodeGenerator {
         } catch (OperatorCommand.Refused e) {
             err.println("refused: " + e.getMessage());
             exitCode = REFUSED;
+        } catch (OperatorCommand.CheckFailed e) {
+            err.println("check failed: " + e.getMessage());
+            exitCode = CHECK_FAILED;
         }
     }
 

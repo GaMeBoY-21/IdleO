@@ -25,6 +25,7 @@ public interface OperatorCommand {
      *
      * @throws Usage for a bad command line (exit code 2)
      * @throws Refused when the request is refused and nothing changed (exit code 3)
+     * @throws CheckFailed when a check ran and found a problem (exit code 4)
      */
     void run(Arguments args, String operator, PrintStream out);
 
@@ -42,6 +43,15 @@ public interface OperatorCommand {
         private static final long serialVersionUID = 1L;
 
         public Refused(String message) {
+            super(message);
+        }
+    }
+
+    /** A check ran and found a problem; nothing changed. */
+    final class CheckFailed extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        public CheckFailed(String message) {
             super(message);
         }
     }
