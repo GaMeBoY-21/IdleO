@@ -5,7 +5,7 @@ import type { Template } from "@/api/queries";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
-import { gigabytes, priceFrom } from "./form";
+import { gigabytes, priceFrom } from "./prices";
 
 type Availability = components["schemas"]["Availability"];
 

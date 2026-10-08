@@ -41,7 +41,8 @@ export function RequireAuth({ children, fallback }: { children: ReactNode; fallb
   const restored = uid !== null && restoredFor === uid;
   useEffect(() => {
     if (restored) {
-      requestAnimationFrame(() => setTimeout(() => refreshRestored(client), 0));
+      // Two frames on, so the screen drawn from the restored figures has painted before anything is refetched.
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => refreshRestored(client), 0)));
     }
   }, [client, restored]);
 

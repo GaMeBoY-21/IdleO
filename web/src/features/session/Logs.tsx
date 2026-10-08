@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/States";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { problemMessage } from "@/lib/problems";
 
 /** At most this many lines are in the page at once, however long the log (10 MiB is about 150,000 lines). */
@@ -29,12 +30,16 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
 
   // What's there already, once; afterwards each `logs` event reads the rest (src/api/useLiveSession.ts). A settled
   // session sends no events, so its log is read to the end now.
+  const painted = useAfterPaint();
   useEffect(() => {
+    if (!painted) {
+      return;
+    }
     readNewLogs(client, id).then(
       () => setFailed(null),
       (error: unknown) => setFailed(error),
     );
-  }, [client, id, settled]);
+  }, [client, id, settled, painted]);
 
   const lines = log.data ? visibleLines(log.data) : [];
   const count = lines.filter((line) => line.kind === "line").length;

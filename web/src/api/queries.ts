@@ -143,10 +143,14 @@ export function useSessionPages(active: boolean) {
   });
 }
 
-/** The wallet; `live` while a session's figures can change (isChanging), since holds and charges then change. */
-export function useWallet(live = false) {
+/**
+ * The wallet; `live` while a session's figures can change (isChanging), since holds and charges then change.
+ * `enabled` false holds the first fetch back (useAfterPaint), showing what's cached meanwhile.
+ */
+export function useWallet(live = false, enabled = true) {
   return useQuery({
     queryKey: keys.wallet,
+    enabled,
     queryFn: () => data(api.GET("/v1/wallet")),
     refetchInterval: live ? SESSIONS_POLL_MS : false,
   });
@@ -194,8 +198,8 @@ export function useHistory() {
 }
 
 /** What's free now, by GPU (ADR 0019): counts and prices, never a host. */
-export function useAvailability() {
-  return useQuery({ queryKey: keys.availability, queryFn: () => data(api.GET("/v1/availability")) });
+export function useAvailability(enabled = true) {
+  return useQuery({ queryKey: keys.availability, enabled, queryFn: () => data(api.GET("/v1/availability")) });
 }
 
 export function useTemplates() {

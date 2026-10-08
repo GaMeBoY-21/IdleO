@@ -1,5 +1,5 @@
 import { Download } from "lucide-react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useOutputs, type Session } from "@/api/queries";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -8,30 +8,51 @@ import { RelativeTime } from "@/components/ui/Time";
 import { formatBytes } from "@/lib/bytes";
 import { eventReason, sessionState } from "@/lib/labels";
 
-/** Its complete checkpoints, newest first: "Checkpoint 3 · 2 min ago". */
+const SLOTS = 3;
+
+/**
+ * Its newest complete checkpoints: "Checkpoint 3 · 2 min ago". Always three rows tall, the rows' text changing in
+ * place, so a checkpoint arriving moves nothing on the screen.
+ */
 export function Checkpoints({ session }: { session: Session }) {
-  const checkpoints = [...session.checkpoints].reverse();
+  const newest = [...session.checkpoints].reverse();
+  const earlier = Math.max(0, newest.length - SLOTS);
   return (
     <Card aria-labelledby="checkpoints-title">
       <CardTitle id="checkpoints-title">Checkpoints</CardTitle>
-      {checkpoints.length === 0 ? (
-        <p className="text-small text-text-muted">
-          None yet. A checkpoint lets the session carry on from there if its host drops.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2 text-small">
-          {checkpoints.map((checkpoint) => (
-            <li key={`${checkpoint.attempt}-${checkpoint.seq}`} className="flex flex-wrap gap-x-2">
-              <span className="font-medium">Checkpoint {checkpoint.seq}</span>
-              {session.attempt > 1 && <span className="text-text-muted">attempt {checkpoint.attempt}</span>}
-              <span aria-hidden="true" className="text-text-muted">
-                ·
-              </span>
-              <RelativeTime value={checkpoint.completedAt} className="text-text-muted" />
+      <ul className="flex flex-col gap-2 text-small">
+        {Array.from({ length: SLOTS }, (_, slot) => {
+          const checkpoint = newest[slot];
+          return (
+            // Keyed by its row, not by checkpoint: the row stays put and its words change.
+            <li
+              key={slot}
+              className="flex h-5 flex-wrap gap-x-2 overflow-hidden"
+              aria-hidden={checkpoint || slot === 0 ? undefined : true}
+            >
+              {checkpoint ? (
+                <>
+                  <span className="font-medium">Checkpoint {checkpoint.seq}</span>
+                  {session.attempt > 1 && (
+                    <span className="text-text-muted">attempt {checkpoint.attempt}</span>
+                  )}
+                  <span aria-hidden="true" className="text-text-muted">
+                    ·
+                  </span>
+                  <RelativeTime value={checkpoint.completedAt} className="text-text-muted" />
+                </>
+              ) : (
+                slot === 0 && <span className="text-text-muted">None yet</span>
+              )}
             </li>
-          ))}
-        </ul>
-      )}
+          );
+        })}
+      </ul>
+      <p className="mt-2 min-h-4 text-caption text-text-muted">
+        {earlier > 0
+          ? `And ${earlier} earlier. The session carries on from the newest if its host drops.`
+          : "A checkpoint lets the session carry on from there if its host drops."}
+      </p>
     </Card>
   );
 }
@@ -58,8 +79,9 @@ export function Timeline({ session }: { session: Session }) {
             <div className="min-w-0 flex-1">
               <p className="text-small font-medium">{sessionState(entry.state).label}</p>
               <p className="text-small text-text-muted">{entry.reasons.join(", then ")}</p>
+              {/* Under the words, not beside them, so its changing length moves nothing. */}
+              <RelativeTime value={entry.at} className="block text-caption text-text-muted tabular" />
             </div>
-            <RelativeTime value={entry.at} className="text-caption text-text-muted tabular" />
           </li>
         ))}
       </ol>
@@ -72,7 +94,7 @@ const LINK_LIFE_MS = 14 * 60_000;
 const expired = (fetchedAt: number) => Date.now() - fetchedAt >= LINK_LIFE_MS;
 
 /** A completed session's outputs, each with its size and a download; a link older than its life is renewed first. */
-export function Outputs({ id }: { id: string }) {
+export function Outputs({ id, action }: { id: string; action?: ReactNode }) {
   const outputs = useOutputs(id, true);
 
   const open = async (event: MouseEvent<HTMLAnchorElement>, path: string) => {
@@ -92,7 +114,9 @@ export function Outputs({ id }: { id: string }) {
 
   return (
     <Card aria-labelledby="outputs-title" id="outputs">
-      <CardTitle id="outputs-title">Outputs</CardTitle>
+      <CardTitle id="outputs-title" action={action}>
+        Outputs
+      </CardTitle>
       {outputs.data ? (
         outputs.data.files.length === 0 ? (
           <EmptyState title="No outputs">This session finished without saving any outputs.</EmptyState>

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Square } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link, useSearch } from "wouter";
 import { api, data } from "@/api/client";
 import { isLive, useTemplateName, useTemplatesKnown, writeSession, keys, type Session } from "@/api/queries";
@@ -13,6 +13,7 @@ import { StateChip } from "@/components/ui/StateChip";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
 import { ending } from "@/lib/labels";
+import { afterFirstScreen } from "@/lib/after-first-screen";
 import { useLaptop } from "@/lib/media";
 import { problemMessage } from "@/lib/problems";
 import { formatTime } from "@/lib/time";
@@ -20,7 +21,6 @@ import { useTitle } from "@/lib/title";
 import { Figures } from "./Figures";
 import { Checkpoints, Outputs, Timeline } from "./History";
 import { Logs } from "./Logs";
-import { StopDialog } from "./StopDialog";
 
 /**
  * One session, live (product surface 3.2; designed for the phone first, complete on a laptop): its state, four
@@ -70,6 +70,7 @@ export function SessionDetail() {
           session={session.data}
           updatedAt={session.dataUpdatedAt}
           live={stream === "live" && !stale}
+          refreshing={session.isFetching && session.dataUpdatedAt < PAGE_OPENED_AT && !stale}
           laptop={laptop}
         />
       </div>
@@ -94,15 +95,20 @@ export function SessionDetail() {
   );
 }
 
+/** Figures read before this came from a list, or from an earlier visit. */
+const PAGE_OPENED_AT = Date.now();
+
 function Live({
   session,
   updatedAt,
   live,
+  refreshing,
   laptop,
 }: {
   session: Session;
   updatedAt: number;
   live: boolean;
+  refreshing: boolean;
   laptop: boolean;
 }) {
   const templateName = useTemplateName();
@@ -121,25 +127,40 @@ function Live({
         ) : (
           <RelativeTime value={session.createdAt} prefix="Booked" />
         )}
-        {running && live && (
-          <span aria-live="polite">
-            {" · "}Live, updated <span className="tabular">{formatTime(updatedAt)}</span>
-          </span>
+      </p>
+      {/* Its status has a line of its own, always there, so nothing below moves as it changes. */}
+      <p className="min-h-5 text-small text-text-muted" aria-live="polite">
+        {refreshing ? (
+          <>
+            Figures from <span className="tabular">{formatTime(updatedAt)}</span>, refreshing
+          </>
+        ) : running ? (
+          live && (
+            <>
+              Live, updated <span className="tabular">{formatTime(updatedAt)}</span>
+            </>
+          )
+        ) : (
+          session.endedAt && (
+            <>
+              <RelativeTime value={session.endedAt} prefix="Ended" />
+              {!session.settled && " · working out the final charge"}
+            </>
+          )
         )}
       </p>
-      {/* A completed session's one next step is its outputs; running it again is a quieter link. */}
-      {session.state === "COMPLETED" && (
-        <Link
-          href={runAgain(session)}
-          className="flex min-h-touch items-center self-start text-small font-medium text-accent-text"
-        >
-          Run again
-        </Link>
-      )}
     </div>
   );
 
-  const outputs = session.state === "COMPLETED" && <Outputs id={session.id} />;
+  // A completed session's one next step is its outputs; running it again is a quieter link beside them.
+  const again = (
+    <Link href={runAgain(session)} className={buttonClasses("quiet")}>
+      Run again
+    </Link>
+  );
+  const outputs = session.state === "COMPLETED" && (
+    <Outputs id={session.id} action={laptop ? undefined : again} />
+  );
   const logs = <Logs id={session.id} settled={session.settled} laptop={laptop} />;
 
   return (
@@ -147,7 +168,11 @@ function Live({
       {laptop ? (
         <div className="flex items-start justify-between gap-6">
           {header}
-          <div className="shrink-0">{action}</div>
+          {/* A fixed width, so the action changing with the state moves nothing beside it. */}
+          <div className="flex w-menu shrink-0 items-center justify-end gap-2">
+            {session.state === "COMPLETED" && again}
+            {action}
+          </div>
         </div>
       ) : (
         header
@@ -186,6 +211,10 @@ function Live({
   );
 }
 
+// The dialog (Radix) isn't needed to show the session: it loads after the first screen, or when Stop is pressed.
+const loadStopDialog = () => import("./StopDialog");
+const StopDialog = lazy(() => loadStopDialog().then((module) => ({ default: module.StopDialog })));
+
 /** Book, on configure, filled from this session. */
 const runAgain = (session: Session) =>
   `/book/?template=${encodeURIComponent(session.templateId)}&step=configure&from=${session.id}`;
@@ -216,6 +245,8 @@ function PrimaryAction({ session }: { session: Session }) {
     onSuccess: settle,
   });
   const failed = (error: unknown): ReactNode => <Banner tone="danger">{problemMessage(error)}</Banner>;
+  const runningNow = session.state === "RUNNING";
+  useEffect(() => (runningNow ? afterFirstScreen(() => void loadStopDialog()) : undefined), [runningNow]);
 
   switch (session.state) {
     case "RUNNING":
@@ -225,16 +256,20 @@ function PrimaryAction({ session }: { session: Session }) {
             <Square aria-hidden="true" className="size-4" strokeWidth={1.75} />
             Stop
           </Button>
-          <StopDialog
-            open={asking}
-            onOpenChange={(open) => {
-              setAsking(open);
-              stop.reset();
-            }}
-            onStop={() => stop.mutate()}
-            stopping={stop.isPending}
-            error={stop.isError ? failed(stop.error) : null}
-          />
+          {asking && (
+            <Suspense fallback={null}>
+              <StopDialog
+                open={asking}
+                onOpenChange={(open) => {
+                  setAsking(open);
+                  stop.reset();
+                }}
+                onStop={() => stop.mutate()}
+                stopping={stop.isPending}
+                error={stop.isError ? failed(stop.error) : null}
+              />
+            </Suspense>
+          )}
         </>
       );
     case "REQUESTED":

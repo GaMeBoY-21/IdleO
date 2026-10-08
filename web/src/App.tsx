@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { AppShell, ShellSkeleton } from "@/components/shell/AppShell";
 import { RequireAuth } from "@/components/shell/RequireAuth";
@@ -14,21 +14,47 @@ import { NotFound } from "@/pages/NotFound";
  * screen is its own chunk, fetched once the first screen has loaded, so moving between screens is still instant. URLs end in a slash: every
  * screen is a folder with an index.html that any static host serves (scripts/postbuild.ts, src/screens.ts).
  */
+/**
+ * A screen in its own chunk. Once its code has arrived it's drawn directly; before that, through React.lazy. React
+ * holds back a suspended screen's first paint by up to 300 ms even when its code is already there, so the screen a
+ * page opens on is loaded before the first render (preloadScreen, from src/main.tsx) and never suspends.
+ */
+function screen<P extends object>(load: () => Promise<ComponentType<P>>) {
+  let loaded: ComponentType<P> | null = null;
+  const fetch = () =>
+    load().then((component) => {
+      loaded = component;
+      return component;
+    });
+  const Lazy = lazy(() => fetch().then((component) => ({ default: component })));
+  const Screen = (props: P) => {
+    const Component = loaded ?? Lazy;
+    return <Component {...props} />;
+  };
+  return { load: fetch, Screen };
+}
+
 const screens = {
-  credit: () => import("@/features/credit/CreditHistory"),
-  session: () => import("@/features/session/SessionDetail"),
-  sessions: () => import("@/features/sessions/AllSessions"),
-  book: () => import("@/features/book/Book"),
-  finishSignIn: () => import("@/features/sign-in/FinishSignIn"),
-  welcome: () => import("@/features/home/Welcome"),
+  "/credit/": screen(() => import("@/features/credit/CreditHistory").then((m) => m.CreditHistory)),
+  "/session/": screen(() => import("@/features/session/SessionDetail").then((m) => m.SessionDetail)),
+  "/sessions/": screen(() => import("@/features/sessions/AllSessions").then((m) => m.AllSessions)),
+  "/book/": screen(() => import("@/features/book/Book").then((m) => m.Book)),
+  "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
+  "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
 };
 
-const CreditHistory = lazy(() => screens.credit().then((module) => ({ default: module.CreditHistory })));
-const AllSessions = lazy(() => screens.sessions().then((module) => ({ default: module.AllSessions })));
-const SessionDetail = lazy(() => screens.session().then((module) => ({ default: module.SessionDetail })));
-const Book = lazy(() => screens.book().then((module) => ({ default: module.Book })));
-const FinishSignIn = lazy(() => screens.finishSignIn().then((module) => ({ default: module.FinishSignIn })));
-const Welcome = lazy(() => screens.welcome().then((module) => ({ default: module.Welcome })));
+/** Loads the code of the screen at `path`, if it has its own; resolves at once for the others. */
+export function preloadScreen(path: string): Promise<unknown> {
+  const own = (screens as Record<string, { load: () => Promise<unknown> } | undefined>)[path];
+  return own ? own.load().catch(() => undefined) : Promise.resolve();
+}
+
+const CreditHistory = screens["/credit/"].Screen;
+const AllSessions = screens["/sessions/"].Screen;
+const SessionDetail = screens["/session/"].Screen;
+const Book = screens["/book/"].Screen;
+const FinishSignIn = screens["/sign-in/finish/"].Screen;
+const Welcome = screens["/welcome/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN = /^\/(credit\/|session\/|sessions\/|book\/)?$/;
@@ -75,7 +101,7 @@ export function App() {
     }
   }, [path, navigate]);
 
-  useEffect(() => afterFirstScreen(() => Object.values(screens).forEach((load) => void load())), []);
+  useEffect(() => afterFirstScreen(() => Object.values(screens).forEach(({ load }) => void load())), []);
 
   return (
     <Switch>

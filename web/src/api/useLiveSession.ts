@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { config } from "@/config";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { apiFetch } from "./client";
 import { readNewLogs } from "./logs";
 import { useSession, writeSession } from "./queries";
@@ -17,9 +18,11 @@ export function useLiveSession(id: string | null) {
   const [status, setStatus] = useState<StreamStatus>("connecting");
   const session = useSession(id, status === "down");
   const settled = session.data?.settled ?? false;
+  // The stream opens once the session has been painted from its first read, never before it.
+  const shown = useAfterPaint(session.data !== undefined);
 
   useEffect(() => {
-    if (id === null || settled) {
+    if (id === null || settled || !shown) {
       return;
     }
     const controller = new AbortController();
@@ -39,7 +42,7 @@ export function useLiveSession(id: string | null) {
       controller.signal,
     );
     return () => controller.abort();
-  }, [client, id, settled]);
+  }, [client, id, settled, shown]);
 
   return { session, stream: id === null || settled ? ("ended" as const) : status };
 }

@@ -482,6 +482,14 @@ web_token="$(curl -sf -X POST "$sign_in/token" \
 [[ -n "$web_token" ]] || fail "no token for the web journey's renter"
 web_user_id="$(token="$web_token" api_get /v1/me | json_get .id)"
 renters=("$web_user_id")
+if $web_only; then
+  # Lighthouse measures the session screen on a session its renter books (web/e2e/lighthouse.spec.ts).
+  lighthouse_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$user-lighthouse" -d client_secret=unused -d scope=openid |
+    json_field access_token)"
+  [[ -n "$lighthouse_token" ]] || fail "no token for Lighthouse's renter"
+  renters+=("$(token="$lighthouse_token" api_get /v1/me | json_get .id)")
+fi
 if ! $web_only; then
   # The booking contract's renter (ADR 0019), and one who never gets credit.
   booking_token="$(curl -sf -X POST "$sign_in/token" \
@@ -816,7 +824,7 @@ if $web_only; then
     fail "the web app's browser tests failed; see private/e2e/web-playwright.log and web/playwright-report"
   summary+=("web: $(grep -Eo '[0-9]+ passed' "$out/web-playwright.log" | tail -1) (every screen and state, light and dark, 390 and 1280 px; axe; layout shift; Firebase screens; journey) in $(seconds_since "$checks_started") s: PASS")
   (cd web && rm -rf .lighthouseci .lighthouseci-desktop && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" \
-    pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || fail "a Lighthouse budget failed; see private/e2e/web-lighthouse.log"
+    API_URL="$api" SIGN_IN_URL="$sign_in" pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || fail "a Lighthouse budget failed; see private/e2e/web-lighthouse.log"
   while IFS= read -r line; do summary+=("lighthouse $line"); done < <(python3 - <<'PY'
 import json
 for page, m in json.load(open("web/.lighthouseci/summary.json")).items():

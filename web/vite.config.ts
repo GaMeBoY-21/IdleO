@@ -13,6 +13,27 @@ function themeBoot(): Plugin {
   };
 }
 
+/**
+ * The frame's own code in one chunk (ADR 0018, web/README.md "The budgets"). The shell's small modules are shared with
+ * the lazily loaded screens, and the bundler would otherwise give each its own file: every one is another request the
+ * first screen waits on. Modules only later screens use stay out of it.
+ */
+const LATER =
+  /src\/(lib\/(problems|bytes)|api\/(logs|stream|session-follower|useLiveSession)|components\/ui\/Inputs|components\/shell\/UserMenu)\./;
+function shellChunk(id: string): string | undefined {
+  if (LATER.test(id)) {
+    return undefined;
+  }
+  if (
+    /\/src\/(components|lib|api|auth\/(index|store|types)|config|design|brand)\b/.test(id) ||
+    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon)/.test(id) ||
+    /node_modules\/(\.pnpm\/)?clsx/.test(id)
+  ) {
+    return "shell";
+  }
+  return undefined;
+}
+
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, process.cwd(), ["VITE_", "IDLEO_"]), ...process.env } as BuildEnv;
   // A wrong combination (above all, the mock sign-in adapter outside a local build) stops here, before any
@@ -29,6 +50,7 @@ export default defineConfig(({ mode }) => {
       target: "es2022",
       manifest: true,
       sourcemap: process.env.IDLEO_SOURCEMAP === "1",
+      rollupOptions: { output: { manualChunks: shellChunk } },
     },
     server: { port: 3000, strictPort: true },
     preview: { port: 3000, strictPort: true },

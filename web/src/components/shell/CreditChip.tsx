@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useWallet } from "@/api/queries";
+import { useAfterFirstScreen } from "@/lib/after-first-screen";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -7,7 +8,9 @@ const AMOUNT = "inline-block min-w-amount text-right font-semibold tabular";
 
 /** The renter's available credit, quietly, on every screen (web/DESIGN.md principle 2). */
 export function CreditChip() {
-  const wallet = useWallet();
+  // Shown from the cache at once, and fetched once the screen's own content has loaded; its box is kept, so
+  // nothing moves when it arrives.
+  const wallet = useWallet(false, useAfterFirstScreen());
   return (
     <Link
       href="/credit/"
