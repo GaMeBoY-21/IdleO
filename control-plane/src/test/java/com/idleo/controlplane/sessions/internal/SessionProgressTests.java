@@ -40,6 +40,9 @@ class SessionProgressTests {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    org.springframework.data.redis.core.StringRedisTemplate redis;
+
     @LocalGrpcServerPort
     int grpcPort;
 
@@ -289,5 +292,42 @@ class SessionProgressTests {
                 .isFalse();
         assertThat(bookings.session(started.renter(), started.id()).get("state").asString())
                 .isEqualTo("PROVISIONING");
+    }
+
+    /** A running session shows its GPU's use and temperature from presence; never when stale, never once it ends. */
+    @Test
+    void aRunningSessionShowsItsGpusUseAndTemperatureWhileItsHostIsLive() throws Exception {
+        var started = started();
+        report(started, status(SessionState.SESSION_STATE_RUNNING, 1));
+
+        // The test host's heartbeats report 5% busy at 60°C.
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        JsonNode gpu;
+        do {
+            gpu = bookings.session(started.renter(), started.id()).get("gpu");
+            Thread.sleep(50);
+        } while (gpu.get("utilPct").isNull() && System.nanoTime() < deadline);
+        assertThat(gpu.get("utilPct").asInt()).isEqualTo(5);
+        assertThat(gpu.get("tempC").asInt()).isEqualTo(60);
+        assertThat(gpu.has("hostId")).as("never the host's identity").isFalse();
+
+        // Presence gone (its heartbeats too old): unknown, not the last figures. The test host's next heartbeat
+        // writes it again, so look straight after removing it.
+        boolean sawUnknown = false;
+        for (int i = 0; i < 20 && !sawUnknown; i++) {
+            redis.delete("agentgateway:presence:" + started.host().id());
+            sawUnknown = bookings.session(started.renter(), started.id())
+                    .get("gpu")
+                    .get("utilPct")
+                    .isNull();
+        }
+        assertThat(sawUnknown).as("no reading once presence is gone").isTrue();
+
+        report(started, status(SessionState.SESSION_STATE_FAILED, 1));
+        var ended =
+                bookings.awaitState(started.renter(), started.id(), "FAILED").get("gpu");
+        assertThat(ended.get("model").asString()).isEqualTo(TestAgent.GPU_MODEL);
+        assertThat(ended.get("utilPct").isNull()).as("only while it runs").isTrue();
+        assertThat(ended.get("tempC").isNull()).isTrue();
     }
 }

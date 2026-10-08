@@ -1402,6 +1402,16 @@ components:
       properties:
         model:
           type: string
+        tempC:
+          type:
+          - integer
+          - "null"
+          format: int32
+        utilPct:
+          type:
+          - integer
+          - "null"
+          format: int32
         vramMb:
           type: integer
           format: int32

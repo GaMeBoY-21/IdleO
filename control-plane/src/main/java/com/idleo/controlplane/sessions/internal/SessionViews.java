@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.agentgateway.AgentPresence;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.hosts.HostGpus;
 import com.idleo.controlplane.sessions.CreateSessionRequest;
@@ -29,6 +30,7 @@ class SessionViews {
     private final HostGpus gpus;
     private final JdbcClient jdbc;
     private final TemplateCatalog catalog;
+    private final AgentPresence presence;
 
     SessionViews(
             SessionStore store,
@@ -36,19 +38,30 @@ class SessionViews {
             ObjectProvider<SessionCosts> costs,
             HostGpus gpus,
             JdbcClient jdbc,
-            TemplateCatalog catalog) {
+            TemplateCatalog catalog,
+            AgentPresence presence) {
         this.store = store;
         this.reservations = reservations;
         this.costs = costs;
         this.gpus = gpus;
         this.jdbc = jdbc;
         this.catalog = catalog;
+        this.presence = presence;
     }
 
     record EventResponse(String state, String reason, Instant at) {}
 
-    /** The GPU that runs or ran the session's current or latest attempt: its model and memory, never the host. */
-    record SessionGpu(String model, int vramMb) {}
+    /**
+     * The GPU that runs or ran the session's current or latest attempt: its model and memory, never the host.
+     *
+     * @param utilPct how busy it is now, 0 to 100, while the session runs; null when unknown or stale (ADR 0021)
+     * @param tempC its temperature now, while the session runs; null when unknown or stale
+     */
+    record SessionGpu(
+            String model,
+            int vramMb,
+            @Nullable Integer utilPct,
+            @Nullable Integer tempC) {}
 
     /** The job's input: an upload of the renter's, or an https URL the job fetches itself. */
     record SessionInputView(
@@ -130,7 +143,7 @@ class SessionViews {
                 session.createdAt(),
                 session.startedAt(),
                 ended ? session.stateChangedAt() : null,
-                gpu(session.id()),
+                gpu(session.id(), session.state() == SessionState.RUNNING),
                 checkpoints(session.id()),
                 params(session),
                 session.inputUploadId() == null && session.inputUrl() == null
@@ -164,7 +177,8 @@ class SessionViews {
         return session.state().isFinal && !held && (session.startedAt() == null || cost.closed());
     }
 
-    private @Nullable SessionGpu gpu(UUID sessionId) {
+    /** Its GPU, with what presence says of it now when {@code live}: only a running session's renter sees that. */
+    private @Nullable SessionGpu gpu(UUID sessionId, boolean live) {
         record Ran(UUID hostId, String gpuUuid) {}
         return jdbc.sql("""
                         select host_id, gpu_uuids[1] as gpu_uuid from sessions.attempts
@@ -173,9 +187,21 @@ class SessionViews {
                 .param("sessionId", sessionId)
                 .query((rs, n) -> new Ran(rs.getObject("host_id", UUID.class), rs.getString("gpu_uuid")))
                 .optional()
-                .flatMap(ran -> gpus.gpu(ran.hostId(), ran.gpuUuid()))
-                .map(gpu -> new SessionGpu(gpu.model(), gpu.vramMb()))
+                .flatMap(ran -> gpus.gpu(ran.hostId(), ran.gpuUuid()).map(gpu -> {
+                    var reading = live ? reading(ran.hostId(), ran.gpuUuid()) : null;
+                    return new SessionGpu(
+                            gpu.model(),
+                            gpu.vramMb(),
+                            reading == null ? null : reading.utilPct(),
+                            reading == null ? null : reading.tempC());
+                }))
                 .orElse(null);
+    }
+
+    /** The GPU's reading from its host's presence; null when the host isn't live (its last heartbeat is too old). */
+    private AgentPresence.@Nullable GpuReading reading(UUID hostId, String gpuUuid) {
+        var agent = presence.live(List.of(hostId)).get(hostId);
+        return agent == null ? null : agent.gpu(gpuUuid).orElse(null);
     }
 
     private List<SessionCheckpoint> checkpoints(UUID sessionId) {

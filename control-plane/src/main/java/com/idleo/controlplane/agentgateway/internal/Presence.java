@@ -173,11 +173,18 @@ class Presence implements HostPresence, AgentPresence {
 
     private LiveAgent liveAgent(UUID hostId, Map<?, ?> fields) {
         var temps = new ArrayList<Integer>();
+        var readings = new ArrayList<GpuReading>();
         var gpus = text(fields, "gpus");
         if (!gpus.isEmpty()) {
             for (var reading : json.readTree(gpus)) {
                 if (reading.has("temp_c")) {
                     temps.add(reading.get("temp_c").asInt());
+                }
+                if (reading.has("uuid") && reading.has("temp_c") && reading.has("util_pct")) {
+                    readings.add(new GpuReading(
+                            reading.get("uuid").asString(),
+                            reading.get("util_pct").asInt(),
+                            reading.get("temp_c").asInt()));
                 }
             }
         }
@@ -185,7 +192,8 @@ class Presence implements HostPresence, AgentPresence {
                 hostId,
                 Boolean.parseBoolean(text(fields, "update_required")),
                 Boolean.parseBoolean(text(fields, "owner_active")),
-                List.copyOf(temps));
+                List.copyOf(temps),
+                List.copyOf(readings));
     }
 
     private static String text(Map<?, ?> fields, String name) {
