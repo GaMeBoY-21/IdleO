@@ -9,7 +9,11 @@
 # whose lease lapses, and which resumes as attempt 2, the minutes lost after attempt 1's checkpoint
 # given back; and a run stopped at its spending cap. A fifth agent serves the web app's journey
 # (ADR 0018): the renter signs in through the browser and watches a booked session to its charge on
-# the home screen. It runs the wallet check, then watches the hosts go offline once the agents stop.
+# the home screen. A sixth serves the booking contract (ADR 0019): a 12 MiB file uploaded in parts
+# straight to storage, a quote, a session with parameters and that file as its input, followed on its
+# event stream to settled, its logs, and an output proving the job saw the exact file and parameters,
+# then three errors by their types. It checks storage's CORS for the web app, runs the wallet check, then
+# watches the hosts go offline once the agents stop.
 # Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
@@ -192,8 +196,8 @@ checkpointed_after_stop() {
 # Scenarios run in subshells, side by side; each writes its summary lines to its own file.
 note() { printf '%s\n' "$*" >>"$out/summary-$scenario.txt"; }
 
-# Four charged scenarios and the web journey, one host each; the web checks need one host.
-if $web_only; then agents=1; else agents=5; fi
+# Four charged scenarios, the web journey and the booking contract, one host each; the web checks need one.
+if $web_only; then agents=1; else agents=6; fi
 control_plane_pid=""
 summary=()
 
@@ -297,6 +301,8 @@ set -m
   # A short lease, renewed every 3 s; a lost host counts as lost 2 s after it ends.
   export SESSIONS_LEASES_TTL="$lease_ttl" SESSIONS_LEASES_RENEW_EVERY=3s
   export SESSIONS_LEASES_TRANSIT_ALLOWANCE=2s SESSIONS_LEASES_LAPSE_SWEEP_EVERY=1s
+  # Storage's smallest upload part, so a few MiB really upload in several parts (production: 64 MiB).
+  export SESSIONS_UPLOADS_PART_SIZE=5MB
   # Grants that last a minute, so every run outlives its first and the agents swap in fresh ones
   # (MinIO's own credentials still last 15 minutes). Metering ticks every second, and closes a session
   # 20 s after it ends, not 5 minutes, when it's still waiting on a minute only one witness saw.
@@ -328,6 +334,20 @@ token="$(curl -sf -X POST "$sign_in/token" \
   -d grant_type=client_credentials -d "client_id=$user" -d client_secret=unused -d scope=openid |
   json_field access_token)"
 [[ -n "$token" ]] || fail "no token from the development sign-in server"
+
+# 3b. Browsers PUT upload parts straight to storage (ADR 0019): storage answers the web app's preflight, and
+#     no one else's.
+cors="$(curl -si -X OPTIONS "http://localhost:$storage_port/idleo-local/uploads/probe" \
+  -H "Origin: http://localhost:$web_port" -H "Access-Control-Request-Method: PUT")"
+printf '%s\n' "$cors" >"$out/cors-preflight.txt"
+grep -qi "^Access-Control-Allow-Origin: http://localhost:$web_port" <<<"$cors" &&
+  grep -qi "^Access-Control-Allow-Methods:.*PUT" <<<"$cors" ||
+  fail "storage refused the web app's CORS preflight: $cors"
+if curl -si -X OPTIONS "http://localhost:$storage_port/idleo-local/uploads/probe" \
+  -H "Origin: http://elsewhere.example" -H "Access-Control-Request-Method: PUT" | grep -qi "^Access-Control-Allow-Origin"; then
+  fail "storage allows uploads from another origin"
+fi
+summary+=("storage CORS: PUT allowed from http://localhost:$web_port, not from elsewhere: PASS")
 
 if $keep_running; then
   printf '\nThe stack is up. Signed in as %s@example.com; the token lasts an hour.\n\n' "$user"
@@ -462,7 +482,19 @@ web_token="$(curl -sf -X POST "$sign_in/token" \
 [[ -n "$web_token" ]] || fail "no token for the web journey's renter"
 web_user_id="$(token="$web_token" api_get /v1/me | json_get .id)"
 renters=("$web_user_id")
-$web_only || renters+=("$user_id" "$user_b_id")
+if ! $web_only; then
+  # The booking contract's renter (ADR 0019), and one who never gets credit.
+  booking_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$user-booking" -d client_secret=unused -d scope=openid |
+    json_field access_token)"
+  broke_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$user-broke" -d client_secret=unused -d scope=openid |
+    json_field access_token)"
+  [[ -n "$booking_token" && -n "$broke_token" ]] || fail "no tokens for the booking contract's renters"
+  booking_user_id="$(token="$booking_token" api_get /v1/me | json_get .id)"
+  token="$broke_token" api_get /v1/me >/dev/null
+  renters+=("$user_id" "$user_b_id" "$booking_user_id")
+fi
 for renter in "${renters[@]}"; do
   ops grant-credits --user "$renter" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$renter" ||
     fail "grant-credits failed; see private/e2e/ops.log"
@@ -636,6 +668,135 @@ scenario_web() {
   note "web journey: signed in through the local adapter, booked through the API; home showed it live to COMPLETED, ₹0.02 charged, output downloaded: PASS"
 }
 
+# The booking contract (ADR 0019), on its own host: upload, quote, book with parameters and the upload as the
+# input, follow the event stream to settled, read the logs, check the output's hash and parameters and the
+# charge, and prove three errors by their types.
+scenario_booking() {
+  local file size parts upload_json upload id etags quote hold fits session stream_pid deleted
+  token="$booking_token"
+  file="$out/booking-input.bin"
+  size=$((12 * 1024 * 1024))
+  head -c "$size" /dev/urandom >"$file"
+  local_sha="$(shasum -a 256 "$file" | cut -d' ' -f1)"
+  upload_json="$(api_post /v1/uploads -H "Idempotency-Key: \"$user-booking-upload\"" \
+    -d "{\"filename\": \"e2e input.bin\", \"sizeBytes\": $size}")" || fail "POST /v1/uploads failed"
+  upload="$(printf '%s' "$upload_json" | json_get .id)"
+  parts="$(printf '%s' "$upload_json" | json_get .partCount)"
+  part_size="$(printf '%s' "$upload_json" | json_get .partSizeBytes)"
+  ((parts == 3)) || fail "a 12 MiB upload in 5 MiB parts should take 3 parts, not $parts"
+  etags="["
+  local separator=""
+  for ((n = 1; n <= parts; n++)); do
+    url="$(printf '%s' "$upload_json" | python3 -c 'import json, sys
+print(json.load(sys.stdin)["parts"][int(sys.argv[1]) - 1]["url"])' "$n")"
+    etag="$(dd if="$file" bs="$part_size" skip=$((n - 1)) count=1 2>/dev/null |
+      curl -sf -X PUT --data-binary @- -D - -o /dev/null "$url" | tr -d '\r' | sed -n 's/^[Ee][Tt]ag: *//p')"
+    [[ -n "$etag" ]] || fail "part $n of the upload didn't PUT"
+    etags+="$separator{\"number\": $n, \"etag\": $(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$etag")}"
+    separator=","
+  done
+  etags+="]"
+  [[ "$(api_post "/v1/uploads/$upload/complete" -d "{\"parts\": $etags}" | json_get .status)" == ready ]] ||
+    fail "the upload didn't complete"
+  note "booking: uploaded $size bytes in $parts parts of $part_size bytes, straight to storage: ready"
+
+  local body="{\"templateId\": \"echo-input\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000,
+    \"params\": {\"greeting\": \"hello\", \"repeat\": 3}, \"input\": {\"uploadId\": \"$upload\"}}"
+  quote="$(api_post /v1/session-quotes -d "$body")" || fail "POST /v1/session-quotes failed"
+  hold="$(printf '%s' "$quote" | json_get .holdPaise)"
+  fits="$(printf '%s' "$quote" | json_get .hostsFitNow)"
+  [[ "$hold" == 150 ]] || fail "the quote holds $hold paise, not min(30 x 5, 10000) = 150"
+  ((fits >= 1)) || fail "the quote found no host that fits: $quote"
+  note "booking: quote holdPaise $hold = min(30 minutes x 5 paise, 10000 cap); hostsFitNow $fits; enoughCredit $(printf '%s' "$quote" | json_get .enoughCredit): PASS"
+
+  session="$(api_post /v1/sessions -H "Idempotency-Key: \"$user-booking-session\"" -d "$body" | json_get .id)"
+  [[ -n "$session" ]] || fail "booking echo-input failed"
+  # The event stream, until the session is settled and the stream closes; each state with when it arrived.
+  curl -sN --max-time 300 "$api/v1/sessions/$session/events" -H "Authorization: Bearer $token" \
+    -H 'Accept: text/event-stream' | python3 -c 'import json, sys, time
+states, logs, name, settled_at, completed_at = [], 0, None, None, None
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if line.startswith("event:"):
+        name = line[6:].strip()
+    elif line.startswith("data:") and name == "session":
+        view, now = json.loads(line[5:].strip()), time.time()
+        if not states or states[-1]["state"] != view["state"]:
+            states.append({"state": view["state"], "at": now})
+        if view["state"] == "COMPLETED" and completed_at is None:
+            completed_at = now
+        if view["settled"] and settled_at is None:
+            settled_at = now
+    elif line.startswith("data:") and name == "logs":
+        logs += 1
+json.dump({"states": states, "logs_events": logs, "completed_at": completed_at, "settled_at": settled_at,
+           "closed_at": time.time()}, open(sys.argv[1], "w"))' "$out/booking-stream.json" &
+  stream_pid=$!
+  await_state "$session" RUNNING 90
+  deleted="$(curl -s -X DELETE "$api/v1/uploads/$upload" -H "Authorization: Bearer $token")"
+  [[ "$(printf '%s' "$deleted" | json_get .type)" == /problems/upload-in-use ]] ||
+    fail "deleting the upload during the run wasn't upload-in-use: $deleted"
+  wait "$stream_pid" || fail "the event stream failed"
+  python3 - "$out/booking-stream.json" <<'PY' || fail "the stream didn't follow the session to settled: $(cat "$out/booking-stream.json")"
+import json, sys
+stream = json.load(open(sys.argv[1]))
+states = [s["state"] for s in stream["states"]]
+assert states[-1] == "COMPLETED" and "RUNNING" in states, states
+assert stream["settled_at"] is not None and stream["completed_at"] is not None, stream
+PY
+  note "booking: stream states $(python3 -c 'import json, sys
+s = json.load(open(sys.argv[1])); t0 = s["states"][0]["at"]
+print(", ".join("%s +%.1fs" % (x["state"], x["at"] - t0) for x in s["states"]))' "$out/booking-stream.json"); COMPLETED to settled $(python3 -c 'import json, sys
+s = json.load(open(sys.argv[1])); print("%.1f" % (s["settled_at"] - s["completed_at"]))' "$out/booking-stream.json") s; closed after settled; $(python3 -c 'import json, sys
+print(json.load(open(sys.argv[1]))["logs_events"])' "$out/booking-stream.json") logs events: PASS"
+
+  api_get "/v1/sessions/$session/logs?limit=100" >"$out/booking-logs.json" || fail "GET /logs failed"
+  python3 - "$out/booking-logs.json" "$local_sha" <<'PY' || fail "the logs don't name the parameters and the input's hash: $(head -c 2000 "$out/booking-logs.json")"
+import json, sys
+page = json.load(open(sys.argv[1]))
+text = "".join(chunk["text"] for chunk in page["chunks"])
+assert page["complete"], page
+assert "parameter SESSION_PARAM_GREETING=hello" in text and "parameter SESSION_PARAM_REPEAT=3" in text, text
+assert sys.argv[2] in text, text
+print(len(page["chunks"]), len(text.splitlines()))
+PY
+  note "booking: logs $(python3 -c 'import json, sys
+page = json.load(open(sys.argv[1])); text = "".join(c["text"] for c in page["chunks"])
+print("%d chunks, %d lines, complete" % (len(page["chunks"]), len(text.splitlines())))' "$out/booking-logs.json"), with the parameters and the hash: PASS"
+
+  download_output "$session" "$out/output-booking.json"
+  python3 - "$out/output-booking.json" "$local_sha" "$size" <<'PY' || fail "the output doesn't prove the exact input and parameters: $(cat "$out/output-booking.json")"
+import json, sys
+output = json.load(open(sys.argv[1]))
+assert output["input"]["sha256"] == sys.argv[2] and output["input"]["size_bytes"] == int(sys.argv[3]), output
+assert output["input"]["name"] == "e2e_input.bin", output
+assert output["params"] == {"SESSION_PARAM_GREETING": "hello", "SESSION_PARAM_REPEAT": "3"}, output
+assert output["echo"] == ["hello", "hello", "hello"], output
+PY
+  note "booking: sha256 local $local_sha"
+  note "booking: sha256 job   $(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["input"]["sha256"])' "$out/output-booking.json"): equal: PASS"
+  note "booking: params echoed $(python3 -c 'import json, sys
+o = json.load(open(sys.argv[1])); print(json.dumps(o["params"]), "echo", json.dumps(o["echo"]))' "$out/output-booking.json"): PASS"
+
+  local charged minutes
+  charged="$(api_get "/v1/sessions/$session" | json_get .chargedPaise)"
+  minutes="$(billed_minutes "$session")"
+  [[ "$charged" == $((2 * minutes)) && "$minutes" -ge 1 ]] || fail "the booking was charged $charged paise for $minutes minutes"
+  [[ "$(ledger_balanced "$session")" == t ]] || fail "the booking's ledger doesn't balance"
+  note "booking: charged $charged paise for $minutes started minute(s) at 2 paise: PASS"
+
+  local refused
+  refused="$(curl -s -X POST "$api/v1/sessions" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: \"$user-booking-wrong\"" \
+    -d "{\"templateId\": \"cuda-smoke-test\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000, \"input\": {\"uploadId\": \"$upload\"}}" | json_get .type)"
+  [[ "$refused" == /problems/input-not-accepted ]] || fail "cuda-smoke-test with an input wasn't input-not-accepted: $refused"
+  refused="$(curl -s -X POST "$api/v1/sessions" -H "Authorization: Bearer $broke_token" -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: \"$user-broke-1\"" \
+    -d '{"templateId": "cuda-smoke-test", "maxPricePaisePerMin": 5, "maxSpendPaise": 10000}' | json_get .type)"
+  [[ "$refused" == /problems/insufficient-credit ]] || fail "booking with no credit wasn't insufficient-credit: $refused"
+  note "booking: errors by type: input-not-accepted, insufficient-credit, upload-in-use: PASS"
+}
+
 # 8 (--web). The web app's checks (ADR 0018), against this stack: every screen and state with axe and
 #    the visual baselines, the Firebase screens, zero layout shift, the journey; then Lighthouse's
 #    budgets and the first-load size budget of the production (Firebase) build.
@@ -667,11 +828,11 @@ fi
 
 if ! $web_only; then
 scenarios_started="$(now_ms)"
-scenarios=(normal stop loss cap web)
+scenarios=(normal stop loss cap web booking)
 scenario_pids=()
 for scenario in "${scenarios[@]}"; do
   : >"$out/summary-$scenario.txt"
-  if [[ $scenario == normal || $scenario == web ]]; then
+  if [[ $scenario == normal || $scenario == web || $scenario == booking ]]; then
     ( "scenario_$scenario" ) &
   else
     ( token="$token_b"; "scenario_$scenario" ) &
@@ -684,7 +845,7 @@ for i in "${!scenarios[@]}"; do
   while IFS= read -r line; do summary+=("$line"); done <"$out/summary-${scenarios[$i]}.txt"
 done
 [[ -z "$failed" ]] || fail "scenarios failed:$failed"
-summary+=("five scenarios side by side (four charged, and the web journey): $(seconds_since "$scenarios_started") s")
+summary+=("six scenarios side by side (four charged, the web journey and the booking contract): $(seconds_since "$scenarios_started") s")
 
 wallet_b="$(token="$token_b" api_get /v1/wallet)"
 (($(printf '%s' "$wallet_b" | json_get .balancePaise) >= 0)) && [[ "$(printf '%s' "$wallet_b" | json_get .reservedPaise)" == 0 ]] ||
