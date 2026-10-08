@@ -11,7 +11,7 @@ export const SCREENS: Record<string, string | null> = {
   "/": null,
   "/credit/": "src/features/credit/CreditHistory.tsx",
   "/session/": "src/features/session/SessionDetail.tsx",
-  "/book/": "src/pages/BookPage.tsx",
+  "/book/": "src/features/book/Book.tsx",
   // The form loads just after the screen paints, not before (src/features/sign-in/LazyEmailForm.tsx).
   "/sign-in/": null,
   "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",

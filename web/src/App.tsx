@@ -17,14 +17,14 @@ import { NotFound } from "@/pages/NotFound";
 const screens = {
   credit: () => import("@/features/credit/CreditHistory"),
   session: () => import("@/features/session/SessionDetail"),
-  book: () => import("@/pages/BookPage"),
+  book: () => import("@/features/book/Book"),
   finishSignIn: () => import("@/features/sign-in/FinishSignIn"),
   welcome: () => import("@/features/home/Welcome"),
 };
 
 const CreditHistory = lazy(() => screens.credit().then((module) => ({ default: module.CreditHistory })));
 const SessionDetail = lazy(() => screens.session().then((module) => ({ default: module.SessionDetail })));
-const BookPage = lazy(() => screens.book().then((module) => ({ default: module.BookPage })));
+const Book = lazy(() => screens.book().then((module) => ({ default: module.Book })));
 const FinishSignIn = lazy(() => screens.finishSignIn().then((module) => ({ default: module.FinishSignIn })));
 const Welcome = lazy(() => screens.welcome().then((module) => ({ default: module.Welcome })));
 
@@ -54,7 +54,7 @@ function SignedInArea() {
             <Route path="/" component={Home} />
             <Route path="/credit/" component={CreditHistory} />
             <Route path="/session/" component={SessionDetail} />
-            <Route path="/book/" component={BookPage} />
+            <Route path="/book/" component={Book} />
           </Switch>
         </Suspense>
       </AppShell>

@@ -174,6 +174,11 @@ export function useHistory() {
   });
 }
 
+/** What's free now, by GPU (ADR 0019): counts and prices, never a host. */
+export function useAvailability() {
+  return useQuery({ queryKey: keys.availability, queryFn: () => data(api.GET("/v1/availability")) });
+}
+
 export function useTemplates() {
   return useQuery({
     queryKey: ["templates"],

@@ -256,14 +256,6 @@ test.describe("credit", () => {
 });
 
 test.describe("the rest", () => {
-  test("booking, coming next", async ({ page }, info) => {
-    await fakeApi(page, signedIn());
-    await signIn(page, "asha", "/book/");
-    await expect(page.getByText("Booking is coming next")).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "book");
-  });
-
   test("a page that doesn't exist", async ({ page }, info) => {
     await page.goto("/no-such-page/");
     await expect(page.getByRole("heading", { name: "We can't find that page" })).toBeVisible();

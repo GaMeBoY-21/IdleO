@@ -38,3 +38,36 @@ describe("formatPaise", () => {
     expect(() => formatPaise(2 ** 53)).toThrow(RangeError);
   });
 });
+
+describe("rupees typed by the renter", () => {
+  it("are read as text, exactly, into paise", async () => {
+    const { parseRupees } = await import("./money");
+    expect(parseRupees("500")).toBe(50_000);
+    expect(parseRupees("7.2")).toBe(720);
+    expect(parseRupees(" 0.07 ")).toBe(7);
+    expect(parseRupees("1,000")).toBeNull();
+    expect(parseRupees("1.005")).toBeNull();
+    expect(parseRupees("-1")).toBeNull();
+    expect(parseRupees("")).toBeNull();
+  });
+});
+
+describe("₹ an hour and paise a minute", () => {
+  it("round-trip exactly for every price", async () => {
+    const { paisePerMinute, rupeesPerHour } = await import("./money");
+    for (let paise = 1; paise <= 20_000; paise++) {
+      expect(paisePerMinute(rupeesPerHour(paise))).toBe(paise);
+    }
+  });
+
+  it("show ₹0.60 an hour as 1 paisa a minute, and snap a price between steps down", async () => {
+    const { paisePerMinute, rupeesPerHour } = await import("./money");
+    expect(rupeesPerHour(1)).toBe("0.60");
+    expect(rupeesPerHour(12)).toBe("7.20");
+    expect(paisePerMinute("7.20")).toBe(12);
+    expect(paisePerMinute("7.79")).toBe(12);
+    expect(paisePerMinute("7.80")).toBe(13);
+    expect(paisePerMinute("0.59")).toBe(0);
+    expect(paisePerMinute("seven")).toBeNull();
+  });
+});

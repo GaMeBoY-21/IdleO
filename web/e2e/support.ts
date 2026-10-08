@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, type TestInfo } from "@playwright/test";
+import { expect, type Page, type Request as PlaywrightRequest, type TestInfo } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -18,10 +18,18 @@ export async function signIn(page: Page, user: string, path = "/"): Promise<void
 
 /** How the fake API answers one path: data, a status with a problem detail, or nothing (held, to show loading). */
 export type Answer =
-  | { json: unknown }
-  | { status: number }
+  | { json: unknown; status?: number }
+  | { status: number; problem?: string; errors?: { field: string; detail: string }[] }
+  | { events: string }
   | "hold"
-  | ((call: number) => { json: unknown } | { status: number });
+  | ((
+      call: number,
+      request: PlaywrightRequest,
+    ) =>
+      | { json: unknown; status?: number }
+      | { status: number; problem?: string }
+      | { events: string }
+      | "hold");
 
 /** Answers the API from fixtures: the first route whose path matches wins; anything else is a 404 problem. */
 export async function fakeApi(
@@ -38,7 +46,8 @@ export async function fakeApi(
     const origin = route.request().headers().origin ?? "http://localhost:3000";
     const cors = () => ({
       "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Headers": "authorization,content-type",
+      "Access-Control-Allow-Headers": "authorization,content-type,idempotency-key,accept",
+      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE",
       "Access-Control-Expose-Headers": "ETag, Location",
     });
     if (route.request().method() === "OPTIONS") {
@@ -53,20 +62,82 @@ export async function fakeApi(
     if (typeof answer === "function") {
       const call = (calls.get(key!) ?? 0) + 1;
       calls.set(key!, call);
-      answer = answer(call);
+      answer = answer(call, route.request());
+      if (answer === "hold") {
+        return;
+      }
     }
     if (answer && "json" in answer) {
-      await route.fulfill({ status: 200, json: answer.json, headers: cors() });
+      await route.fulfill({ status: answer.status ?? 200, json: answer.json, headers: cors() });
+    } else if (answer && "events" in answer) {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: answer.events,
+        headers: cors(),
+      });
     } else {
       const status = answer && "status" in answer ? answer.status : 404;
+      const problem =
+        answer && "problem" in answer ? answer.problem : status === 404 ? "not-found" : undefined;
       await route.fulfill({
         status,
         contentType: "application/problem+json",
-        body: JSON.stringify({ status, title: "Error", detail: "A fixture error." }),
+        body: JSON.stringify({
+          ...(problem ? { type: `/problems/${problem}` } : {}),
+          status,
+          title: "Error",
+          detail: "A fixture error.",
+          ...(answer && "errors" in answer ? { errors: answer.errors } : {}),
+        }),
         headers: cors(),
       });
     }
   });
+}
+
+/**
+ * Answers storage's part uploads (the presigned PUTs to MinIO) with an ETag, as MinIO does; `delayMs` slows each
+ * part so progress can be seen, and `hold` keeps them waiting.
+ */
+export async function fakeStorage(page: Page, { delayMs = 0, hold = false } = {}): Promise<void> {
+  await page.route("http://localhost:9100/**", async (route) => {
+    const cors = {
+      "Access-Control-Allow-Origin": route.request().headers().origin ?? "http://localhost:3000",
+      "Access-Control-Allow-Methods": "PUT",
+      "Access-Control-Allow-Headers": "content-type",
+      "Access-Control-Expose-Headers": "ETag",
+    };
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: cors });
+      return;
+    }
+    if (hold) {
+      return;
+    }
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { ...cors, ETag: `"${route.request().url().split("/").pop()}"` },
+    });
+  });
+}
+
+/**
+ * Fails the test on any console error or uncaught exception: hydration mismatches and uncaught errors show here; a
+ * failed fixture request is expected in the error states.
+ */
+export function watchConsole(page: Page): () => void {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) {
+      errors.push(message.text());
+    }
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  return () => expect(errors, "console errors").toEqual([]);
 }
 
 /** Zero axe violations, WCAG 2.2 A and AA (ADR 0018). */
