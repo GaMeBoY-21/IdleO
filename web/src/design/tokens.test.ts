@@ -42,7 +42,11 @@ describe("the design tokens", () => {
     expect(Object.keys(themes.dark).sort()).toEqual(Object.keys(themes.light).sort());
   });
 
-  it("keep the type scale to six sizes", () => {
-    expect(Object.keys(typeScale)).toHaveLength(6);
+  it("keep the type scale to the nine sizes DESIGN.md lists", () => {
+    const design = readFileSync(new URL("../../DESIGN.md", import.meta.url), "utf8");
+    for (const [name, [size, lineHeight]] of Object.entries(typeScale)) {
+      expect(design, name).toContain(`| \`text-${name}\` | ${size} / ${lineHeight} px |`);
+    }
+    expect(Object.keys(typeScale)).toHaveLength(9);
   });
 });

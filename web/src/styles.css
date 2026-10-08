@@ -2,7 +2,9 @@
 @import "./design/tokens.gen.css";
 
 /* web/DESIGN.md: one family, tabular figures for numbers, the reading measure, motion that respects
-   prefers-reduced-motion, and a focus ring on every focusable thing. */
+   prefers-reduced-motion, and a focus ring on every focusable thing. Black and white: the ground is white (near
+   black in the dark theme), surfaces are grey fills, and the brand's indigo is only in the wordmark's ring and the
+   focus ring. */
 
 /* One self-hosted file (web/DESIGN.md "Typography"), preloaded from index.html. `optional`: if it isn't there
    by the first paint (a slow first visit), the page keeps Arial, scaled to Inter's metrics, rather than swapping
@@ -10,7 +12,7 @@
 @font-face {
   font-family: "Inter";
   src: url("/fonts/inter-4.1-subset.woff2") format("woff2");
-  font-weight: 400 650;
+  font-weight: 400 700;
   font-style: normal;
   font-display: optional;
 }
@@ -30,7 +32,7 @@
 
 @layer base {
   html {
-    background: var(--canvas);
+    background: var(--ground);
     color: var(--text);
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
@@ -45,22 +47,22 @@
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--accent-soft);
+    background: var(--fill-selected);
   }
 }
 
-/* The bottom tab bar is 64 px plus the phone's home-indicator inset; content clears it with room to spare. */
+/* The bottom tab bar is 72 px plus the phone's home-indicator inset; content clears it with room to spare. */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* The phone's action bar sits on the tab bar (web/DESIGN.md "The phone action bar"). */
 @utility bottom-clear-tabs {
-  bottom: calc(var(--spacing-16) + env(safe-area-inset-bottom));
+  bottom: calc(var(--spacing-18) + env(safe-area-inset-bottom));
 }
 
 @utility pb-clear-nav {
-  padding-bottom: calc(var(--spacing-16) + var(--spacing-6) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--spacing-18) + var(--spacing-6) + env(safe-area-inset-bottom));
 }
 
 @utility tabular {
@@ -68,8 +70,8 @@
 }
 
 @utility skeleton {
-  background: var(--sunken);
-  background-image: linear-gradient(90deg, transparent, var(--canvas), transparent);
+  background: var(--fill);
+  background-image: linear-gradient(90deg, transparent, var(--ground), transparent);
   background-size: 200% 100%;
   animation: idleo-shimmer 1.4s linear infinite;
 }
@@ -116,6 +118,30 @@
   50% {
     opacity: 0.4;
   }
+}
+
+/* The finding ring breathes: it grows a little and fades, then comes back (web/DESIGN.md "Motion"). */
+@keyframes idleo-breathe {
+  50% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+}
+
+/* A bottom sheet rises from the edge of the screen; a side drawer slides in from the right. */
+@keyframes idleo-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@utility rise {
+  animation: idleo-rise 240ms var(--ease-enter) both;
 }
 
 @keyframes idleo-spin {
