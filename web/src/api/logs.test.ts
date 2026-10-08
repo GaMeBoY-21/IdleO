@@ -27,7 +27,7 @@ describe("a session's log", () => {
       { kind: "attempt", attempt: 2 },
       { kind: "line", text: "resumed from checkpoint 3" },
     ]);
-    expect([state.attempt, state.seq]).toEqual([2, 1]);
+    expect([state.attempt, state.seq, state.count]).toEqual([2, 1, 4]);
   });
 
   it("shows a line still being written, without keeping it twice", () => {

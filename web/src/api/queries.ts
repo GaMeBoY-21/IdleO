@@ -27,7 +27,7 @@ export type Template = components["schemas"]["TemplateResponse"];
  * - Money is only ever what the server last returned: nothing is updated optimistically.
  */
 export function createQueryClient(): QueryClient {
-  return new QueryClient({
+  const client = new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 30_000,
@@ -39,6 +39,10 @@ export function createQueryClient(): QueryClient {
       },
     },
   });
+  // A log can hold 150,000 lines: comparing each new copy with the last, as the cache does by default, would cost
+  // more than drawing it. Its lines are only ever added to, so the new copy is taken as it is.
+  client.setQueryDefaults(["logs"], { structuralSharing: false });
+  return client;
 }
 
 export const LIVE_STATES = new Set([

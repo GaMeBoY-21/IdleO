@@ -1,7 +1,7 @@
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, Copy, Download } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { readNewLogs, visibleLines, wholeLog, type LogLine, type LogState } from "@/api/logs";
+import { lineTotal, linesBetween, readNewLogs, wholeLog, type LogLine, type LogState } from "@/api/logs";
 import { keys } from "@/api/queries";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -41,8 +41,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
     );
   }, [client, id, settled, painted]);
 
-  const lines = log.data ? visibleLines(log.data) : [];
-  const count = lines.filter((line) => line.kind === "line").length;
+  const count = log.data ? log.data.count + (log.data.partial === "" ? 0 : 1) : 0;
 
   return (
     <Card aria-labelledby="logs-title">
@@ -64,14 +63,14 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
       )}
       <div id="logs-panel" hidden={!open}>
         {log.data ? (
-          lines.length === 0 ? (
+          lineTotal(log.data) === 0 ? (
             <EmptyState title={log.data.complete ? "No log lines" : "No log lines yet"}>
               {log.data.complete
                 ? "This session didn't write anything to its log."
                 : "They show here a few seconds after the session writes them."}
             </EmptyState>
           ) : (
-            <LogPanel id={id} lines={lines} />
+            <LogPanel id={id} log={log.data} />
           )
         ) : failed ? (
           <div className="flex flex-col items-start gap-3">
@@ -100,7 +99,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
   );
 }
 
-function LogPanel({ id, lines }: { id: string; lines: LogLine[] }) {
+function LogPanel({ id, log }: { id: string; log: LogState }) {
   const scroller = useRef<HTMLDivElement>(null);
   /** The window's end; null follows the newest line. */
   const [end, setEnd] = useState<number | null>(null);
@@ -109,9 +108,9 @@ function LogPanel({ id, lines }: { id: string; lines: LogLine[] }) {
   const [downloading, setDownloading] = useState(false);
   const shiftBy = useRef(0);
 
-  const last = end ?? lines.length;
+  const last = end ?? lineTotal(log);
   const start = Math.max(0, last - LOG_CAP);
-  const shown = lines.slice(start, last);
+  const shown = linesBetween(log, start, last);
 
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -189,8 +188,8 @@ function LogPanel({ id, lines }: { id: string; lines: LogLine[] }) {
               </Button>
             </div>
           )}
-          {shown.map((line, i) => (
-            <Row key={start + i} line={line} />
+          {blocks(shown, start).map((block) => (
+            <Block key={block.key} block={block} />
           ))}
         </div>
         {(!atBottom || end !== null) && (
@@ -217,15 +216,59 @@ function LogPanel({ id, lines }: { id: string; lines: LogLine[] }) {
   );
 }
 
-const Row = memo(function Row({ line }: { line: LogLine }) {
-  if (line.kind === "attempt") {
+/** Lines drawn together: up to 100 in one element, or an attempt's mark on its own. */
+type LogBlock =
+  | { key: string; kind: "lines"; text: string; count: number }
+  | { key: string; kind: "attempt"; attempt: number };
+
+const BLOCK = 100;
+
+/**
+ * The shown lines as blocks of up to 100, cut at the same absolute line numbers whatever the window, so a block
+ * keeps its key as the window moves and only the blocks at its ends change. A page of 2,000 lines is about 20
+ * elements, not 2,000.
+ */
+function blocks(lines: LogLine[], start: number): LogBlock[] {
+  const out: LogBlock[] = [];
+  let text: string[] = [];
+  let first = start;
+  const flush = (at: number) => {
+    if (text.length > 0) {
+      out.push({ key: `l${first}`, kind: "lines", text: text.join("\n"), count: text.length });
+      text = [];
+    }
+    first = at;
+  };
+  lines.forEach((line, i) => {
+    const at = start + i;
+    if (line.kind === "attempt") {
+      flush(at + 1);
+      out.push({ key: `a${at}`, kind: "attempt", attempt: line.attempt });
+      return;
+    }
+    if (at % BLOCK === 0) {
+      flush(at);
+    }
+    text.push(line.text);
+  });
+  flush(start + lines.length);
+  return out;
+}
+
+const Block = memo(function Block({ block }: { block: LogBlock }) {
+  if (block.kind === "attempt") {
     return (
       <div className="mx-3 flex h-4 items-center gap-2 border-t border-border-strong font-sans text-text-muted">
         <span className="-mt-px bg-sunken pr-2 text-caption">
-          Attempt {line.attempt}: moved to another host
+          Attempt {block.attempt}: moved to another host
         </span>
       </div>
     );
   }
-  return <div className="h-4 px-3 whitespace-pre text-text">{line.text}</div>;
+  // One line of the caption size per line, so moving the window keeps the reader's place exactly.
+  return (
+    <div className="min-h-4 px-3 whitespace-pre text-text" data-lines={block.count}>
+      {block.text}
+    </div>
+  );
 });

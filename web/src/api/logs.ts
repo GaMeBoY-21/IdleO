@@ -20,6 +20,8 @@ export interface LogState {
   seq: number;
   /** The end of the last chunk, when it stopped mid-line. */
   partial: string;
+  /** How many lines of text (not attempt marks) there are, kept as they arrive rather than counted each time. */
+  count: number;
 }
 
 export const EMPTY_LOG: LogState = {
@@ -29,16 +31,18 @@ export const EMPTY_LOG: LogState = {
   attempt: 0,
   seq: 0,
   partial: "",
+  count: 0,
 };
 
 /** The newest chunks' lines added to a log: whole lines only, attempt changes marked. */
 export function appendChunks(state: LogState, chunks: LogChunk[]): LogState {
   const lines = state.lines.slice();
-  let { attempt, seq, partial } = state;
+  let { attempt, seq, partial, count } = state;
   for (const chunk of chunks) {
     if (chunk.attempt !== attempt) {
       if (partial !== "") {
         lines.push({ kind: "line", text: partial });
+        count++;
         partial = "";
       }
       if (attempt !== 0 || chunk.attempt > 1) {
@@ -51,14 +55,24 @@ export function appendChunks(state: LogState, chunks: LogChunk[]): LogState {
     for (const text of parts) {
       lines.push({ kind: "line", text });
     }
+    count += parts.length;
     seq = chunk.seq;
   }
-  return { ...state, lines, attempt, seq, partial };
+  return { ...state, lines, attempt, seq, partial, count };
 }
 
-/** The lines to show: the whole ones, then a last line still being written. */
-export const visibleLines = (state: LogState): LogLine[] =>
-  state.partial === "" ? state.lines : [...state.lines, { kind: "line", text: state.partial }];
+/** How many lines there are to show: the whole ones, then a last line still being written. */
+export const lineTotal = (state: LogState) => state.lines.length + (state.partial === "" ? 0 : 1);
+/** Lines `start` to `end` of what's shown, without copying the rest of a long log. */
+export function linesBetween(state: LogState, start: number, end: number): LogLine[] {
+  const shown = state.lines.slice(start, Math.min(end, state.lines.length));
+  if (state.partial !== "" && end > state.lines.length) {
+    shown.push({ kind: "line", text: state.partial });
+  }
+  return shown;
+}
+/** Every line to show; for tests and short logs. */
+export const visibleLines = (state: LogState): LogLine[] => linesBetween(state, 0, lineTotal(state));
 
 const PAGE = 100;
 const running = new Map<string, { again: boolean; done: Promise<void> }>();

@@ -69,9 +69,17 @@ test("a 10 MiB log streams in without slowing the screen", async ({ page, browse
 
   // While the log grows: scroll up and down with the keyboard, show earlier lines, jump back to the latest.
   let most = 0;
+  // Lines in the page: each block says how many it holds (src/features/session/Logs.tsx).
+  const linesInPage = () =>
+    panel.evaluate((element) =>
+      [...element.querySelectorAll<HTMLElement>(":scope > [data-lines]")].reduce(
+        (sum, block) => sum + Number(block.dataset.lines),
+        0,
+      ),
+    );
   while (
     available() < CHUNKS ||
-    (await panel.locator("> div.h-4").last().textContent())?.includes("149999") !== true
+    (await panel.locator("> div[data-lines]").last().textContent())?.includes("149999") !== true
   ) {
     await panel.focus();
     for (const key of ["PageUp", "PageUp", "ArrowUp", "PageDown", "End"]) {
@@ -85,10 +93,10 @@ test("a 10 MiB log streams in without slowing the screen", async ({ page, browse
     if (await latest.isVisible()) {
       await latest.click();
     }
-    most = Math.max(most, await panel.locator("> div.h-4").count());
+    most = Math.max(most, await linesInPage());
     expect(Date.now() - started, "the whole log should arrive within two minutes").toBeLessThan(120_000);
   }
-  most = Math.max(most, await panel.locator("> div.h-4").count());
+  most = Math.max(most, await linesInPage());
   const worst = await page.evaluate(
     () => (window as unknown as { __worst: { ms: number; name: string } }).__worst,
   );
