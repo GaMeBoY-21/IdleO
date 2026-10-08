@@ -346,6 +346,7 @@ test("on a phone: a running session stopped, with its charge, and Run again", as
   await expect(page.getByTestId("state-chip").first()).toHaveText("Running", { timeout: 90_000 });
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Stop this session?" });
+  await expect(dialog).toBeVisible();
   await expectAccessible(page);
   await dialog.getByRole("button", { name: "Stop the session" }).click();
   await expect(dialog).toBeHidden();

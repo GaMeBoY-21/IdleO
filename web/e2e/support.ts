@@ -142,7 +142,11 @@ export function watchConsole(page: Page): () => void {
 
 /** Zero axe violations, WCAG 2.2 A and AA (ADR 0018). */
 export async function expectAccessible(page: Page): Promise<void> {
-  // Contrast is measured on the settled screen, not halfway through a fade-in.
+  // Contrast is measured on the settled screen, not halfway through a fade-in. Two frames first, so an animation
+  // that something just opened has started, and is waited for, rather than missed.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
   await page.waitForFunction(() =>
     document
       .getAnimations()

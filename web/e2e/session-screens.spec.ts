@@ -82,7 +82,10 @@ test.describe("a session", () => {
     await expect(dialog).toContainText(
       "It saves a checkpoint, then stops. Nothing more is charged once it has stopped",
     );
+    // On a phone the dialog's button opens under the finger that pressed Stop: hovered, it must keep its contrast.
+    await dialog.getByRole("button", { name: "Stop the session" }).hover();
     await expectAccessible(page);
+    await page.mouse.move(0, 0);
     await capture(page, info, "session-stop-dialog");
     await dialog.getByRole("button", { name: "Stop the session" }).click();
     await expect(dialog).toBeHidden();
