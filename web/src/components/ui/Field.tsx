@@ -1,7 +1,10 @@
 import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-/** A labelled input with room for its error, so a message appearing moves nothing (web/DESIGN.md "Motion"). */
+/**
+ * A labelled input: a grey field, no outline (web/DESIGN.md "Shapes"), with room for its error, so a message
+ * appearing moves nothing (web/DESIGN.md "Motion"). An error rings the field in red.
+ */
 export const Field = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | undefined; hint?: ReactNode }
@@ -19,9 +22,9 @@ export const Field = forwardRef<
         aria-invalid={error ? true : undefined}
         aria-describedby={messageId}
         className={cn(
-          "min-h-touch rounded-control border bg-surface px-3 text-body text-text",
+          "min-h-14 rounded-control bg-fill px-4 text-body text-text",
           "placeholder:text-text-muted",
-          error ? "border-danger" : "border-border-strong",
+          error && "ring-2 ring-danger",
         )}
         {...props}
       />

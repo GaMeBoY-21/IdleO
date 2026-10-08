@@ -6,7 +6,7 @@ import { buttonClasses } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { SessionList, SessionRowsSkeleton } from "@/features/sessions/SessionRow";
-import { recentTemplates } from "@/lib/sessions";
+import { lastSetups } from "@/lib/sessions";
 import { formatTime } from "@/lib/time";
 
 type Sessions = UseQueryResult<{ sessions: Session[] }>;
@@ -100,7 +100,9 @@ export function RecentCard({ sessions }: { sessions: Sessions }) {
 /** The templates the renter booked last, a tap from booking them again. */
 export function BookAgainCard({ sessions }: { sessions: Session[] }) {
   const templateName = useTemplateName();
-  const templates = recentTemplates(sessions, 3);
+  const templates = [
+    ...new Set(lastSetups(sessions, sessions.length).map((session) => session.templateId)),
+  ].slice(0, 3);
   if (templates.length === 0) {
     return null;
   }

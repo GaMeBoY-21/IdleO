@@ -2,25 +2,35 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Buttons (web/DESIGN.md principle 1): one primary per screen, then secondary and quiet. Every button is at least
- * 44 px tall. A link that looks like a button uses buttonClasses(). A pressed button that's waiting shows a small spinner inside it and stays the same size.
+ * Buttons (web/DESIGN.md principle 1): one primary per screen, black (white in the dark theme), then the rest.
+ * - `primary`: the screen's one next step;
+ * - `outline`: a weighty second choice, like "Stop session" or "Cancel request" (a 2 px border);
+ * - `secondary`: a grey fill, for everyday actions;
+ * - `pill`: a grey pill, for small options beside something;
+ * - `quiet`: a bold text action, like "Change";
+ * - `danger`: confirming something destructive, in the one dialog.
+ * `large` is the 56 px button at the foot of a flow (60 px on a laptop). Every button is at least 44 px tall. A link
+ * that looks like a button uses buttonClasses(). A pressed button that's waiting shows a small spinner inside it.
  */
-export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger";
+export type ButtonVariant = "primary" | "outline" | "secondary" | "pill" | "quiet" | "danger";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-accent-fg hover:bg-accent-hover",
-  secondary: "border border-border-strong bg-surface text-text hover:bg-sunken",
-  quiet: "text-accent-text hover:bg-accent-soft",
+  primary: "rounded-control bg-primary text-primary-fg hover:bg-primary-hover",
+  outline: "rounded-control border-2 border-text bg-ground text-text hover:bg-fill",
+  secondary: "rounded-control bg-fill text-text hover:bg-fill-selected",
+  pill: "rounded-full bg-fill text-text hover:bg-fill-selected",
+  quiet: "rounded-control text-text underline-offset-4 hover:underline",
   // Hovering adds a ring outside the button rather than fading it, so its text keeps its contrast.
   danger:
-    "bg-danger text-danger-fg hover:ring-2 hover:ring-danger hover:ring-offset-2 hover:ring-offset-surface",
+    "rounded-control bg-danger text-danger-fg hover:ring-2 hover:ring-danger hover:ring-offset-2 hover:ring-offset-ground",
 };
 
-export function buttonClasses(variant: ButtonVariant = "primary", block = false) {
+export function buttonClasses(variant: ButtonVariant = "primary", block = false, large = false) {
   return cn(
-    "inline-flex min-h-touch items-center justify-center gap-2 rounded-control px-4 text-small font-medium",
+    "inline-flex min-h-touch items-center justify-center gap-2 px-4 text-small font-semibold",
     "transition-colors duration-120 select-none disabled:cursor-not-allowed disabled:opacity-60",
     variants[variant],
+    large && "min-h-14 px-6 text-option md:min-h-15",
     block && "w-full",
   );
 }
@@ -28,6 +38,7 @@ export function buttonClasses(variant: ButtonVariant = "primary", block = false)
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   block?: boolean;
+  large?: boolean;
   busy?: boolean;
   children: ReactNode;
 }
@@ -35,6 +46,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function Button({
   variant = "primary",
   block = false,
+  large = false,
   busy = false,
   className,
   children,
@@ -45,7 +57,7 @@ export function Button({
   return (
     <button
       type={type ?? "button"}
-      className={cn(buttonClasses(variant, block), className)}
+      className={cn(buttonClasses(variant, block, large), className)}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
       {...props}

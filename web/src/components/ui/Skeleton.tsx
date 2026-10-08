@@ -10,12 +10,14 @@ export function Skeleton({ className }: { className?: string }) {
 
 /** Each text size's line height, and a bar a little shorter than it, so a line of skeleton is exactly as tall. */
 const lines = {
-  caption: ["h-4", "h-3"],
+  caption: ["h-4.5", "h-3"],
   small: ["h-5", "h-3"],
   body: ["h-6", "h-4"],
-  title: ["h-8", "h-5"],
-  heading: ["h-8", "h-6"],
-  display: ["h-10", "h-8"],
+  option: ["h-6", "h-4"],
+  section: ["h-6.5", "h-5"],
+  title: ["h-8.5", "h-7"],
+  question: ["h-11", "h-9"],
+  timer: ["h-14", "h-12"],
 } as const;
 
 /**
@@ -40,10 +42,12 @@ export function SkeletonLine({
 }
 
 const mdLines = {
-  caption: ["md:h-4", "md:h-3"],
+  caption: ["md:h-4.5", "md:h-3"],
   small: ["md:h-5", "md:h-3"],
   body: ["md:h-6", "md:h-4"],
-  title: ["md:h-8", "md:h-5"],
-  heading: ["md:h-8", "md:h-6"],
-  display: ["md:h-10", "md:h-8"],
+  option: ["md:h-6", "md:h-4"],
+  section: ["md:h-6.5", "md:h-5"],
+  title: ["md:h-8.5", "md:h-7"],
+  question: ["md:h-11", "md:h-9"],
+  timer: ["md:h-14", "md:h-12"],
 } as const;

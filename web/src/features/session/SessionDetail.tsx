@@ -368,7 +368,7 @@ function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-4" role="status" aria-label="Loading this session">
       <div className="flex flex-col gap-2">
-        <SkeletonLine size="heading" width="w-1/2" />
+        <SkeletonLine size="title" width="w-1/2" />
         <SkeletonLine size="small" width="w-1/3" />
       </div>
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-border bg-border xl:grid-cols-4">

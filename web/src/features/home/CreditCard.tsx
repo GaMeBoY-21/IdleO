@@ -89,7 +89,7 @@ function CreditSkeleton() {
     <div className="flex flex-col gap-4" role="status" aria-label="Loading your credit">
       <div>
         <SkeletonLine size="small" width="w-1/4" />
-        <SkeletonLine size="heading" md="display" width="w-1/2" />
+        <SkeletonLine size="title" md="question" width="w-1/2" />
         <SkeletonLine size="caption" width="w-1/3" />
       </div>
       <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">

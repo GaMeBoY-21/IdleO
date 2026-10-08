@@ -13,7 +13,7 @@ const themeChoices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = 
 ];
 
 const item =
-  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-sunken";
+  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-fill";
 
 /** Who's signed in, the theme switch, and signing out. */
 export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
@@ -34,14 +34,14 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
         <DropdownMenu.Content
           align="end"
           sideOffset={4}
-          className="appear z-20 w-menu rounded-card border border-border bg-surface p-2 shadow-float"
+          className="appear z-20 w-menu rounded-control bg-ground p-2 shadow-float"
         >
           {email && (
             <DropdownMenu.Label className="truncate px-3 py-2 text-caption text-text-muted">
               Signed in as {email}
             </DropdownMenu.Label>
           )}
-          <DropdownMenu.Separator className="my-1 h-px bg-border" />
+          <DropdownMenu.Separator className="my-1 h-px bg-divider" />
           <DropdownMenu.Label className="px-3 pt-2 pb-1 text-caption font-medium text-text-muted">
             Theme
           </DropdownMenu.Label>
@@ -63,7 +63,7 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
               </DropdownMenu.RadioItem>
             ))}
           </DropdownMenu.RadioGroup>
-          <DropdownMenu.Separator className="my-1 h-px bg-border" />
+          <DropdownMenu.Separator className="my-1 h-px bg-divider" />
           <DropdownMenu.Item className={cn(item, "text-danger")} onSelect={() => void signOut()}>
             <LogOut aria-hidden="true" className="size-5" strokeWidth={1.75} />
             Sign out

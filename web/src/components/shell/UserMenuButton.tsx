@@ -7,7 +7,7 @@ export function Avatar() {
   const auth = useAuth();
   const email = auth.status === "signed-in" ? auth.user.email : null;
   return (
-    <span className="flex size-8 items-center justify-center rounded-full bg-accent-soft text-small font-semibold text-accent-text">
+    <span className="flex size-10 items-center justify-center rounded-full bg-primary text-small font-semibold text-primary-fg">
       {(email ?? "?").charAt(0).toUpperCase()}
     </span>
   );

@@ -2,11 +2,11 @@ import { cn } from "@/lib/cn";
 import { sessionState, type Tone } from "@/lib/labels";
 
 const tones: Record<Tone, string> = {
-  live: "bg-accent-soft text-accent-text",
-  success: "bg-success-soft text-success",
+  live: "bg-running-soft text-running",
+  success: "bg-fill text-text",
   danger: "bg-danger-soft text-danger",
   warning: "bg-warning-soft text-warning",
-  neutral: "bg-sunken text-text-muted",
+  neutral: "bg-fill text-text-muted",
 };
 
 /**
@@ -19,7 +19,7 @@ export function StateChip({ state }: { state: string }) {
     <span
       data-testid="state-chip"
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-caption font-medium whitespace-nowrap",
+        "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-small font-semibold whitespace-nowrap",
         tones[tone],
       )}
     >
@@ -27,7 +27,7 @@ export function StateChip({ state }: { state: string }) {
         <span
           aria-hidden="true"
           data-pulse={state === "RUNNING" ? "" : undefined}
-          className={cn("size-2 rounded-full bg-accent", state === "RUNNING" && "motion-safe:animate-pulse")}
+          className={cn("size-2 rounded-full bg-running", state === "RUNNING" && "motion-safe:animate-pulse")}
         />
       )}
       {label}

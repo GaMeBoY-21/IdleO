@@ -1,67 +1,72 @@
+import { ChevronLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
 import { Wordmark } from "@/brand/Wordmark";
 import { cn } from "@/lib/cn";
 import { CreditChip } from "./CreditChip";
-import { destinations, isCurrent } from "./nav";
+import { isCurrent, isFlow, laptopDestinations, phoneTabs } from "./nav";
 import { UserMenuButton } from "./UserMenuButton";
 
 /**
- * The frame around every signed-in screen (web/DESIGN.md "Space and shape"): one top bar with the wordmark,
- * credit and the user menu; the destinations as links in it from 768 px, and as a bottom tab bar below that.
- * The frame never changes between pages, so switching pages swaps only the content.
+ * The frame around every signed-in screen (web/DESIGN.md "Navigation"). From 768 px: one 64 px top bar with the
+ * wordmark, pill navigation, the credit pill and the account button. Below that: a top bar with the wordmark, credit
+ * and account, and bottom tabs; Book and the session screen are flows there, full screen with their own back
+ * button. The frame never changes between pages, so switching pages swaps only the content.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [pathname] = useLocation();
+  const flow = isFlow(pathname);
   return (
     <div className="flex min-h-dvh flex-col">
       <a
         href="#main"
-        className="sr-only z-30 rounded-control bg-surface px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        className="sr-only z-30 rounded-control bg-ground px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-10 border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-content items-center gap-4 px-4 md:px-6 xl:px-8">
+      <header
+        className={cn(
+          "sticky top-0 z-10 bg-ground md:border-b md:border-divider",
+          flow ? "hidden md:block" : "block",
+        )}
+      >
+        <div className="flex h-15 items-center gap-8 px-4 md:h-16 md:px-8">
           <Link href="/" className="flex min-h-touch items-center" aria-label="IdleO home">
             <Wordmark className="h-6 w-auto" />
           </Link>
-          <nav aria-label="Main" className="hidden flex-1 items-center gap-1 md:flex">
-            {destinations.map(({ href, label }) => (
+          <nav aria-label="Main" className="hidden flex-1 items-center gap-2 md:flex">
+            {laptopDestinations.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
                 aria-current={isCurrent(pathname, href) ? "page" : undefined}
                 className={cn(
-                  "flex min-h-touch items-center rounded-control px-3 text-small font-medium",
-                  isCurrent(pathname, href)
-                    ? "bg-accent-soft text-accent-text"
-                    : "text-text-muted hover:text-text",
+                  "flex min-h-touch items-center rounded-full px-3.5 text-small font-semibold",
+                  isCurrent(pathname, href) ? "bg-primary text-primary-fg" : "text-text hover:bg-fill",
                 )}
               >
                 {label}
               </Link>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-1">
-            {/* Home shows credit in its own card; once is enough. */}
-            {pathname !== "/" && <CreditChip />}
+          <div className="ml-auto flex items-center gap-2 md:ml-0">
+            <CreditChip />
             <UserMenuButton />
           </div>
         </div>
       </header>
-      <main
-        id="main"
-        className="mx-auto w-full max-w-content flex-1 px-4 pt-6 pb-clear-nav md:px-6 md:pb-12 xl:px-8"
-      >
+      <main id="main" className={cn("flex w-full flex-1 flex-col", !flow && "pb-clear-nav md:pb-0")}>
         {children}
       </main>
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-surface pb-safe md:hidden"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-10 border-t border-divider bg-ground pb-safe md:hidden",
+          flow && "hidden",
+        )}
       >
         <ul className="grid grid-cols-3">
-          {destinations.map(({ href, label, icon: Icon, ...rest }) => {
+          {phoneTabs.map(({ href, label, icon: Icon }) => {
             const current = isCurrent(pathname, href);
             return (
               <li key={href}>
@@ -69,12 +74,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={href}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "flex min-h-16 flex-col items-center justify-center gap-1 text-caption font-medium",
-                    current ? "text-accent-text" : "text-text-muted",
+                    "flex min-h-18 flex-col items-center justify-center gap-1 text-caption",
+                    current ? "font-semibold text-text" : "font-medium text-text-muted",
                   )}
                 >
-                  <Icon aria-hidden="true" className="size-5" strokeWidth={current ? 2.25 : 1.75} />
-                  {"short" in rest ? rest.short : label}
+                  <Icon aria-hidden="true" className="size-5.5" strokeWidth={current ? 2 : 1.75} />
+                  {label}
                 </Link>
               </li>
             );
@@ -89,8 +94,38 @@ export function AppShell({ children }: { children: ReactNode }) {
 export function ShellSkeleton({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col" aria-busy="true">
-      <div className="h-16 border-b border-border bg-surface" />
-      <div className="mx-auto w-full max-w-content flex-1 px-4 pt-6 md:px-6 xl:px-8">{children}</div>
+      <div className="h-15 bg-ground md:h-16 md:border-b md:border-divider" />
+      <div className="flex w-full flex-1 flex-col">{children}</div>
+    </div>
+  );
+}
+
+/** A screen's content, centred at the content width, with the page margins. */
+export function Page({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "mx-auto flex w-full max-w-content flex-col gap-7 px-4 pt-1 pb-8 md:px-6 md:pt-10 xl:px-8",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** A flow's back button on a phone (Book, the session screen), where the bars give way to the flow. */
+export function FlowHeader({ back, title }: { back: string; title?: string }) {
+  return (
+    <div className="flex h-15 items-center gap-2 px-2 md:hidden">
+      <Link
+        href={back}
+        aria-label="Back"
+        className="flex size-touch items-center justify-center rounded-full"
+      >
+        <ChevronLeft aria-hidden="true" className="size-5.5" strokeWidth={2} />
+      </Link>
+      {title && <span className="text-body font-semibold">{title}</span>}
     </div>
   );
 }

@@ -226,7 +226,7 @@ export function ReviewStep({
       ) : (
         <div role="status" aria-label="Working out the price" className="flex flex-col gap-4">
           <div>
-            <SkeletonLine size="heading" width="w-2/3" />
+            <SkeletonLine size="title" width="w-2/3" />
             <SkeletonLine size="caption" width="w-full" />
             <SkeletonLine size="caption" width="w-3/4" />
           </div>

@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
  * its label and a line kept for its help or error, so a message appearing moves nothing. Native controls carry their
  * own keyboard and screen-reader behaviour, and add no code to the bundle.
  */
-const control = "min-h-touch rounded-control border bg-surface px-3 text-body text-text";
+const control = "min-h-14 rounded-control bg-fill px-4 text-body text-text";
 
 function Message({ id, error, hint }: { id: string; error?: string | undefined; hint?: ReactNode }) {
   return (
@@ -42,7 +42,7 @@ export const TextArea = forwardRef<
         rows={4}
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-message`}
-        className={cn(control, "py-2", error ? "border-danger" : "border-border-strong")}
+        className={cn(control, "py-3", error && "ring-2 ring-danger")}
         {...props}
       />
       <Message id={`${id}-message`} error={error} hint={hint} />
@@ -65,7 +65,7 @@ export const Select = forwardRef<
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-message`}
-        className={cn(control, error ? "border-danger" : "border-border-strong")}
+        className={cn(control, error && "ring-2 ring-danger")}
         {...props}
       >
         {children}
@@ -96,12 +96,12 @@ export const Switch = forwardRef<
             type="checkbox"
             role="switch"
             aria-describedby={`${id}-message`}
-            className="peer h-6 w-12 cursor-pointer appearance-none rounded-full border border-border-strong bg-sunken transition-colors duration-120 checked:border-accent checked:bg-accent"
+            className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-fill transition-colors duration-120 checked:border-primary checked:bg-primary"
             {...props}
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-1 size-4 rounded-full bg-border-strong transition-transform duration-120 peer-checked:translate-x-6 peer-checked:bg-accent-fg"
+            className="pointer-events-none absolute left-1.5 size-4 rounded-full bg-control transition-transform duration-120 peer-checked:translate-x-5 peer-checked:bg-primary-fg"
           />
         </span>
       </label>
@@ -134,7 +134,7 @@ export function RadioGroup({
         {options.map((option) => (
           <label
             key={option.value}
-            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-control border border-border-strong px-3 text-small has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-text"
+            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full border-2 border-transparent bg-fill px-4 text-small font-semibold has-checked:border-text has-checked:bg-fill-selected"
           >
             <input
               type="radio"
@@ -160,9 +160,9 @@ export function ProgressBar({ percent, label }: { percent: number; label: string
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      className="h-2 w-full overflow-hidden rounded-full bg-sunken"
+      className="h-1.5 w-full overflow-hidden rounded-full bg-divider"
     >
-      <div className="h-full rounded-full bg-accent" style={{ width: `${percent}%` }} />
+      <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
     </div>
   );
 }
