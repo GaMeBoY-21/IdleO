@@ -105,7 +105,7 @@ test("a link opened on another device signs the person in once they confirm thei
   await fakeApi(page, {
     "/v1/me": { json: data.me() },
     "/v1/templates": { json: data.templates },
-    "/v1/wallet": { json: data.wallet },
+    "/v1/wallet": { json: data.asha.wallet },
     "/v1/sessions": { json: { sessions: [] } },
   });
   await toolkit(page, "signInWithEmailLink", 200, {
@@ -127,5 +127,5 @@ test("a link opened on another device signs the person in once they confirm thei
   await page.getByLabel("Email", { exact: true }).fill("asha@example.com");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
-  await expect(page.getByText("₹499.40").first()).toBeVisible();
+  await expect(page.getByText("₹462.12").first()).toBeVisible();
 });

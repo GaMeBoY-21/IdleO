@@ -17,9 +17,9 @@ vi.mock("@/api/queries", async (original) => ({
 describe("the credit card", () => {
   it("shows available, on hold and total, exactly", () => {
     render(<CreditCard wallet={queryResult({ data: wallet })} />);
-    expect(screen.getByText("₹499.40")).toBeInTheDocument();
-    expect(screen.getByText("₹0.60")).toBeInTheDocument();
-    expect(screen.getByText("₹500.00")).toBeInTheDocument();
+    expect(screen.getByText("₹462.12")).toBeInTheDocument();
+    expect(screen.getByText("₹5.40")).toBeInTheDocument();
+    expect(screen.getByText("₹467.52")).toBeInTheDocument();
     expect(screen.getByText("What you can spend now.")).toBeInTheDocument();
   });
 
@@ -55,7 +55,7 @@ describe("the credit card", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       /Couldn't refresh. Showing figures from .* Retrying/,
     );
-    expect(screen.getByText("₹499.40")).toBeInTheDocument();
+    expect(screen.getByText("₹462.12")).toBeInTheDocument();
   });
 });
 

@@ -14,8 +14,8 @@ test("sign-in to home on a phone", async ({ page }) => {
   await fakeApi(page, {
     "/v1/me": { json: data.me() },
     "/v1/templates": { json: data.templates },
-    "/v1/wallet": { json: data.wallet },
-    "/v1/sessions": { json: { sessions: [data.running, data.completed, data.failed] } },
+    "/v1/wallet": { json: data.asha.wallet },
+    "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
     "/v1/sessions/[^/]+": { json: data.running },
   });
   await page.goto("/sign-in/");

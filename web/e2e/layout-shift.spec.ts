@@ -28,8 +28,8 @@ for (const screen of screens) {
     await fakeApi(page, {
       "/v1/me": { json: data.me() },
       "/v1/templates": { json: data.templates },
-      "/v1/wallet": { json: data.wallet },
-      "/v1/sessions": { json: { sessions: [data.running, data.completed] } },
+      "/v1/wallet": { json: data.asha.wallet },
+      "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
       "/v1/sessions/[^/]+/outputs": { json: data.outputs },
       "/v1/sessions/[^/]+": { json: data.completed },
       "/v1/wallet/transactions": { json: data.history(0) },
@@ -41,8 +41,8 @@ for (const screen of screens) {
       {
         "/v1/me": { json: data.me() },
         "/v1/templates": { json: data.templates },
-        "/v1/wallet": { json: data.wallet },
-        "/v1/sessions": { json: { sessions: [data.running, data.completed] } },
+        "/v1/wallet": { json: data.asha.wallet },
+        "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
         "/v1/sessions/[^/]+/outputs": { json: data.outputs },
         "/v1/sessions/[^/]+": { json: data.completed },
         "/v1/wallet/transactions": { json: data.history(0) },

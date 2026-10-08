@@ -11,8 +11,8 @@ import { capture, expectAccessible, fakeApi, signIn, type Answer } from "./suppo
 const signedIn = (overrides: Record<string, Answer> = {}): Record<string, Answer> => ({
   "/v1/me": { json: data.me() },
   "/v1/templates": { json: data.templates },
-  "/v1/wallet": { json: data.wallet },
-  "/v1/sessions": { json: { sessions: [data.running, data.completed, data.failed] } },
+  "/v1/wallet": { json: data.asha.wallet },
+  "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
   ...overrides,
 });
 
@@ -59,12 +59,19 @@ test.describe("signing in", () => {
   });
 
   test("welcome, on a new account's first sign-in", async ({ page }, info) => {
-    await fakeApi(page, signedIn({ "/v1/me": { json: data.me(data.NOW.toISOString()) } }));
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me": { json: data.me(data.NOW.toISOString()) },
+        "/v1/wallet": { json: data.fresh.wallet },
+        "/v1/sessions": { json: { sessions: [] } },
+      }),
+    );
     await page.goto("/sign-in/");
     await page.getByLabel("Email", { exact: true }).fill("asha-new@example.com");
     await page.getByRole("button", { name: "Email me a sign-in link" }).click();
     await page.waitForURL("**/welcome/");
-    await expect(page.getByText("₹499.40")).toBeVisible();
+    await expect(page.getByText("₹500.00")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "welcome");
   });
@@ -75,7 +82,7 @@ test.describe("home", () => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
     await expect(page.getByRole("region", { name: "Running now" })).toBeVisible();
-    await expect(page.getByText("₹13.60")).toBeVisible();
+    await expect(page.getByText("₹3.08")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "home");
   });
@@ -91,7 +98,7 @@ test.describe("home", () => {
   test("with no sessions yet", async ({ page }, info) => {
     await fakeApi(
       page,
-      signedIn({ "/v1/wallet": { json: data.emptyWallet }, "/v1/sessions": { json: { sessions: [] } } }),
+      signedIn({ "/v1/wallet": { json: data.fresh.wallet }, "/v1/sessions": { json: { sessions: [] } } }),
     );
     await signIn(page, "asha");
     await expect(page.getByText("No sessions yet")).toBeVisible();
@@ -112,8 +119,8 @@ test.describe("home", () => {
     await fakeApi(
       page,
       signedIn({
-        "/v1/sessions": once({ sessions: [data.running, data.completed] }),
-        "/v1/wallet": once(data.wallet),
+        "/v1/sessions": once(data.sessionsPage(data.asha.sessions)),
+        "/v1/wallet": once(data.asha.wallet),
       }),
     );
     await signIn(page, "asha");
@@ -126,7 +133,10 @@ test.describe("home", () => {
   test("with credit running low", async ({ page }, info) => {
     await fakeApi(
       page,
-      signedIn({ "/v1/sessions": { json: { sessions: [{ ...data.running, lowCredit: true }] } } }),
+      signedIn({
+        "/v1/wallet": { json: data.low.wallet },
+        "/v1/sessions": { json: data.sessionsPage(data.low.sessions) },
+      }),
     );
     await signIn(page, "asha");
     await expect(page.getByText("Your credit is running low.", { exact: false })).toBeVisible();
@@ -148,8 +158,10 @@ test.describe("session detail", () => {
   test("while it runs", async ({ page }, info) => {
     await fakeApi(page, signedIn({ "/v1/sessions/.+": { json: data.running } }));
     await signIn(page, "asha", `/session/?id=${data.running.id}`);
-    await expect(page.getByRole("heading", { name: "QLoRA fine-tune (Qwen 2.5 1.5B)" })).toBeVisible();
-    await expect(page.getByText("₹13.60")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "QLoRA fine-tune of a small language model (Qwen 2.5 1.5B, 4-bit)" }),
+    ).toBeVisible();
+    await expect(page.getByText("₹3.08")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "session-running");
   });
@@ -212,7 +224,7 @@ test.describe("credit", () => {
     await fakeApi(
       page,
       signedIn({
-        "/v1/wallet": { json: data.emptyWallet },
+        "/v1/wallet": { json: data.none.wallet },
         "/v1/wallet/transactions": { json: { entries: [], nextCursor: null } },
       }),
     );
