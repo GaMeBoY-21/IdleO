@@ -1,10 +1,43 @@
-/** Times as renters read them: in their own time zone, Indian English, never seconds unless they matter. */
+/**
+ * Times as renters read them (web/DESIGN.md "Times"): relative where it's about how long ago ("started 18 min ago"),
+ * with the exact time, in their own time zone and Indian English, a hover away; never seconds unless they matter.
+ */
 
 const dateTime = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
 const time = new Intl.DateTimeFormat("en-IN", { timeStyle: "short" });
+const dayMonth = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
 
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 export const formatTime = (value: string | number) => time.format(new Date(value));
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/**
+ * "just now", "18 min ago", "2 h ago", "yesterday", "3 days ago", then the date; "in 12 min" for a time to come.
+ * Whole units, rounded down, so a time never reads as later than it is.
+ */
+export function formatRelative(iso: string, now: number): string {
+  const diff = now - new Date(iso).getTime();
+  const ahead = diff < 0;
+  const span = Math.abs(diff);
+  if (span < MINUTE) {
+    return ahead ? "in under a minute" : "just now";
+  }
+  const words =
+    span < HOUR ? `${Math.floor(span / MINUTE)} min` : span < DAY ? `${Math.floor(span / HOUR)} h` : null;
+  if (words !== null) {
+    return ahead ? `in ${words}` : `${words} ago`;
+  }
+  if (!ahead && span < 2 * DAY) {
+    return "yesterday";
+  }
+  if (!ahead && span < 7 * DAY) {
+    return `${Math.floor(span / DAY)} days ago`;
+  }
+  return dayMonth.format(new Date(iso));
+}
 
 /** "2 min 30 s", "1 h 05 min": how long between two moments. */
 export function formatDuration(fromIso: string, to: number | string): string {
@@ -17,4 +50,13 @@ export function formatDuration(fromIso: string, to: number | string): string {
     return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`;
   }
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;
+}
+
+/** A running clock, "18:04" or "1:02:05": whole seconds since `fromIso`, never negative. */
+export function formatElapsed(fromIso: string, to: number | string): string {
+  const total = Math.max(0, Math.floor((new Date(to).getTime() - new Date(fromIso).getTime()) / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = String(total % 60).padStart(2, "0");
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
 }
