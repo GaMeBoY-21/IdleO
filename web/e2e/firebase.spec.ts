@@ -126,6 +126,6 @@ test("a link opened on another device signs the person in once they confirm thei
   await page.goto(LINK);
   await page.getByLabel("Email", { exact: true }).fill("asha@example.com");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
   await expect(page.getByText("₹462.12").first()).toBeVisible();
 });
