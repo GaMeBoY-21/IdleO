@@ -10,6 +10,7 @@ describe("the security headers", () => {
     {
       VITE_AUTH: "oidc-mock",
       VITE_API_URL: "http://localhost:8080",
+      VITE_STORAGE_URL: "http://localhost:9100",
       VITE_OIDC_ISSUER: "http://localhost:8099/idleo-local",
     },
     ["sha256-abc"],
@@ -19,6 +20,7 @@ describe("the security headers", () => {
       IDLEO_DEPLOYMENT: "production",
       VITE_AUTH: "firebase",
       VITE_API_URL: "https://api.example.invalid/",
+      VITE_STORAGE_URL: "https://storage.example.invalid/idleo",
       VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
     },
     ["sha256-abc"],
@@ -33,12 +35,12 @@ describe("the security headers", () => {
     }
   });
 
-  it("connect only to the API and the build's sign-in service", () => {
+  it("connect only to the API, storage for uploads, and the build's sign-in service", () => {
     expect(directive(local, "connect-src")).toBe(
-      "connect-src 'self' http://localhost:8080 http://localhost:8099",
+      "connect-src 'self' http://localhost:8080 http://localhost:9100 http://localhost:8099",
     );
     expect(directive(production, "connect-src")).toBe(
-      "connect-src 'self' https://api.example.invalid https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
+      "connect-src 'self' https://api.example.invalid https://storage.example.invalid https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
     );
     expect(directive(local, "frame-src")).toBe("frame-src 'none'");
     expect(directive(production, "frame-src")).toBe("frame-src https://placeholder.firebaseapp.com");

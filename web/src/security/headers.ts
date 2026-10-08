@@ -18,6 +18,8 @@ export function contentSecurityPolicy(env: BuildEnv, scriptHashes: string[]): st
   const connect = [
     "'self'",
     origin(env.VITE_API_URL),
+    // Inputs are uploaded straight to storage through pre-signed links (ADR 0019).
+    origin(env.VITE_STORAGE_URL),
     ...(firebase
       ? ["https://identitytoolkit.googleapis.com", "https://securetoken.googleapis.com"]
       : [origin(env.VITE_OIDC_ISSUER)]),

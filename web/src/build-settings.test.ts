@@ -7,6 +7,7 @@ import { buildSettingsProblems } from "./build-settings";
 const local = {
   IDLEO_DEPLOYMENT: "local",
   VITE_API_URL: "http://localhost:8080",
+  VITE_STORAGE_URL: "http://localhost:9100",
   VITE_AUTH: "oidc-mock",
   VITE_OIDC_ISSUER: "http://localhost:8099/idleo-local",
   VITE_OIDC_CLIENT_ID: "idleo-local",
@@ -14,6 +15,7 @@ const local = {
 const production = {
   IDLEO_DEPLOYMENT: "production",
   VITE_API_URL: "https://api.example.invalid",
+  VITE_STORAGE_URL: "https://storage.example.invalid",
   VITE_AUTH: "firebase",
   VITE_FIREBASE_API_KEY: "placeholder",
   VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
@@ -41,6 +43,15 @@ describe("the build settings", () => {
   it("refuse a production API that's plain HTTP or on this machine", () => {
     expect(buildSettingsProblems({ ...production, VITE_API_URL: "http://localhost:8080" })).toContain(
       "a production build needs an https API that isn't on this machine",
+    );
+  });
+
+  it("need storage for uploads, https outside a local build", () => {
+    expect(buildSettingsProblems({ ...local, VITE_STORAGE_URL: undefined })).toContain(
+      "VITE_STORAGE_URL is missing",
+    );
+    expect(buildSettingsProblems({ ...production, VITE_STORAGE_URL: "http://localhost:9100" })).toContain(
+      "a production build needs https storage that isn't on this machine",
     );
   });
 

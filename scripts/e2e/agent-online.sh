@@ -406,10 +406,10 @@ summary+=("agents enrolled: $agents")
 log "building the web app"
 web_started="$(now_ms)"
 (cd web && pnpm install --frozen-lockfile) >"$out/web-build.log" 2>&1 || fail "pnpm install failed; see private/e2e/web-build.log"
-(cd web && IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
+(cd web && IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
   VITE_OIDC_CLIENT_ID=idleo-local pnpm build) >>"$out/web-build.log" 2>&1 || fail "the web build failed; see private/e2e/web-build.log"
 if $web_only; then
-  (cd web && IDLEO_DIST=dist-firebase IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_AUTH=firebase \
+  (cd web && IDLEO_DIST=dist-firebase IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=firebase \
     VITE_FIREBASE_API_KEY=placeholder-not-a-key VITE_FIREBASE_AUTH_DOMAIN=placeholder.firebaseapp.com \
     VITE_FIREBASE_PROJECT_ID=placeholder pnpm build) >>"$out/web-build.log" 2>&1 ||
     fail "the Firebase web build failed; see private/e2e/web-build.log"

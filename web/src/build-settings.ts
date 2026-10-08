@@ -11,6 +11,8 @@ export interface BuildEnv {
   IDLEO_DEPLOYMENT?: string | undefined;
   VITE_AUTH?: string | undefined;
   VITE_API_URL?: string | undefined;
+  /** Object storage, which the browser uploads inputs to straight from the page (ADR 0019). */
+  VITE_STORAGE_URL?: string | undefined;
   VITE_OIDC_ISSUER?: string | undefined;
   VITE_OIDC_CLIENT_ID?: string | undefined;
   VITE_FIREBASE_API_KEY?: string | undefined;
@@ -47,6 +49,11 @@ export function buildSettingsProblems(env: BuildEnv): string[] {
     problems.push("VITE_API_URL is missing");
   } else if (deployment !== "local" && isLocalOrPlain(env.VITE_API_URL)) {
     problems.push(`a ${deployment} build needs an https API that isn't on this machine`);
+  }
+  if (!env.VITE_STORAGE_URL) {
+    problems.push("VITE_STORAGE_URL is missing");
+  } else if (deployment !== "local" && isLocalOrPlain(env.VITE_STORAGE_URL)) {
+    problems.push(`a ${deployment} build needs https storage that isn't on this machine`);
   }
   if (auth === "oidc-mock" && (!env.VITE_OIDC_ISSUER || !env.VITE_OIDC_CLIENT_ID)) {
     problems.push("the oidc-mock adapter needs VITE_OIDC_ISSUER and VITE_OIDC_CLIENT_ID");

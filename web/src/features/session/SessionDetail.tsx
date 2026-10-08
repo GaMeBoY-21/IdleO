@@ -7,6 +7,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { StateChip } from "@/components/ui/StateChip";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
+import { formatBytes } from "@/lib/bytes";
 import { costSoFar } from "@/lib/sessions";
 import { eventReason, sessionState } from "@/lib/labels";
 import { formatDateTime, formatDuration, formatTime } from "@/lib/time";
@@ -206,20 +207,6 @@ function OutputsCard({ id }: { id: string }) {
       )}
     </Card>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
 }
 
 /** The heading and the cost card exactly as they'll load, so nothing above the timeline moves. */
