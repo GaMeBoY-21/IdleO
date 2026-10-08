@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, use, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useTemplates } from "@/api/queries";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -121,29 +121,37 @@ export function Book() {
     />
   );
   // The form's code (its own chunk) is asked for once the frame has painted, so the first paint, with what to run
-  // in it, never waits on a second round of requests (web/README.md "The budgets").
-  if (!painted) {
-    return fallback;
-  }
+  // in it, never waits on a second round of requests (web/README.md "The budgets"). Until then the frame is the
+  // fallback of the same Suspense the form will use, so it's drawn once and stays put, not drawn again.
   return (
     <Suspense fallback={fallback}>
-      <Prepared
-        key={template.id}
-        template={template}
-        from={search.get("from")}
-        fallback={fallback}
-        laptop={laptop}
-        back={back}
-        serviceName={service.name}
-        choices={
-          <>
-            {laptop && services}
-            {choice}
-          </>
-        }
-      />
+      {!painted ? (
+        <Waiting />
+      ) : (
+        <Prepared
+          key={template.id}
+          template={template}
+          from={search.get("from")}
+          fallback={fallback}
+          laptop={laptop}
+          back={back}
+          serviceName={service.name}
+          choices={
+            <>
+              {laptop && services}
+              {choice}
+            </>
+          }
+        />
+      )}
     </Suspense>
   );
+}
+
+/** Holds its Suspense on its fallback until the frame has painted (it never resolves; it's swapped for the form). */
+const NEVER = new Promise<never>(() => undefined);
+function Waiting(): never {
+  return use(NEVER);
 }
 
 function ChoicesSkeleton() {
