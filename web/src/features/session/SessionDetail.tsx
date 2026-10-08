@@ -6,7 +6,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { StateChip } from "@/components/ui/StateChip";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
-import { costSoFar } from "@/features/home/SessionsCard";
+import { costSoFar } from "@/lib/sessions";
 import { eventReason, sessionState } from "@/lib/labels";
 import { formatDateTime, formatDuration, formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";

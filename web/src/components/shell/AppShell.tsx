@@ -43,8 +43,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-1 md:ml-0">
-            <CreditChip />
+          <div className="ml-auto flex items-center gap-1">
+            {/* Home shows credit in its own card; once is enough. */}
+            {pathname !== "/" && <CreditChip />}
             <UserMenuButton />
           </div>
         </div>

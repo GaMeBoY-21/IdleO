@@ -115,17 +115,29 @@ test.describe("home", () => {
   });
 
   test("with stale figures after a failed refresh", async ({ page }, info) => {
-    const once = (json: unknown) => (call: number) => (call === 1 ? { json } : { status: 503 });
+    const failures = { sessions: 0, wallet: 0 };
+    const once = (json: unknown, key: keyof typeof failures) => (call: number) => {
+      if (call === 1) {
+        return { json };
+      }
+      failures[key]++;
+      return { status: 503 };
+    };
     await fakeApi(
       page,
       signedIn({
-        "/v1/sessions": once(data.sessionsPage(data.asha.sessions)),
-        "/v1/wallet": once(data.asha.wallet),
+        "/v1/sessions": once(data.sessionsPage(data.asha.sessions), "sessions"),
+        "/v1/wallet": once(data.asha.wallet, "wallet"),
       }),
     );
     await signIn(page, "asha");
-    // The credit and the sessions refresh on their own timers: wait for both to have failed.
-    await expect(page.getByText(/Couldn't refresh/)).toHaveCount(2, { timeout: 20_000 });
+    // The credit and the sessions refresh on their own timers: wait for both to have failed, then there's still
+    // one notice, at the top, and nothing says "Live".
+    await expect
+      .poll(() => Math.min(failures.sessions, failures.wallet), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    await expect(page.getByText(/Couldn't refresh/)).toHaveCount(1);
+    await expect(page.getByText(/Live/)).toHaveCount(0);
     await expectAccessible(page);
     await capture(page, info, "home-stale");
   });

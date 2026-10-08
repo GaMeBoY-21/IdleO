@@ -124,6 +124,15 @@ export function useTemplates() {
   });
 }
 
+/**
+ * Whether template names are known (or can't be, after an error). Names wrap rather than being cut off, so a
+ * screen that shows them waits for them, or a name arriving would change a row's height.
+ */
+export function useTemplatesKnown(): boolean {
+  const templates = useTemplates();
+  return templates.data !== undefined || templates.isError;
+}
+
 /** A template's name by id, or the id itself until the list arrives. */
 export function useTemplateName(): (id: string) => string {
   const templates = useTemplates();

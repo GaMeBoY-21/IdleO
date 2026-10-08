@@ -1,13 +1,14 @@
+import { ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useHistory, useWallet, type HistoryEntry } from "@/api/queries";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
+import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
+import { RelativeTime } from "@/components/ui/Time";
 import { CreditCard } from "@/features/home/CreditCard";
 import { creditKind } from "@/lib/labels";
-import { formatDateTime } from "@/lib/time";
 import { cn } from "@/lib/cn";
 import { useTitle } from "@/lib/title";
 
@@ -17,10 +18,12 @@ export function CreditHistory() {
   const wallet = useWallet();
   const history = useHistory();
   const entries = history.data?.pages.flatMap((page) => page.entries);
+  const since = staleSince(wallet, history);
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-heading font-semibold">Credit</h1>
+      {since !== null && <StaleNotice updatedAt={since} />}
       <div className="grid gap-4 xl:grid-cols-12">
         <div className="min-w-0 xl:col-span-4">
           <CreditCard wallet={wallet} />
@@ -30,7 +33,6 @@ export function CreditHistory() {
             <CardTitle id="history-title">History</CardTitle>
             {entries ? (
               <div className="flex flex-col gap-4">
-                {history.isRefetchError && <StaleNotice updatedAt={history.dataUpdatedAt} />}
                 {entries.length === 0 ? (
                   <EmptyState title="No credit yet">
                     Credit you receive, and what your sessions are charged, will be listed here.
@@ -89,26 +91,16 @@ export function CreditHistory() {
   );
 }
 
+/** One movement of credit; one that came from a session is, as a whole, the link to it. */
 function HistoryRow({ entry }: { entry: HistoryEntry }) {
   const credit = entry.direction === "credit";
   const isSession = entry.reference.type === "session" || entry.reference.type === "session_refund";
-  return (
-    <li className="flex min-h-16 items-center gap-3 px-3 py-3 md:px-4">
+  const content = (
+    <>
       <div className="min-w-0 flex-1">
         <p className="text-body font-medium">{creditKind(entry.kind)}</p>
         <p className="text-caption text-text-muted">
-          <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time>
-          {isSession && (
-            <>
-              {" · "}
-              <Link
-                href={`/session/?id=${entry.reference.id}`}
-                className="text-accent-text underline underline-offset-2"
-              >
-                View session
-              </Link>
-            </>
-          )}
+          <RelativeTime value={entry.createdAt} />
         </p>
       </div>
       <p className={cn("text-body font-semibold", credit && "text-success")}>
@@ -116,6 +108,25 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
         <span aria-hidden="true">{credit ? "+" : "−"}</span>
         <Money paise={entry.amountPaise} />
       </p>
+    </>
+  );
+  return (
+    <li>
+      {isSession ? (
+        <Link
+          href={`/session/?id=${entry.reference.id}`}
+          className="flex min-h-16 items-center gap-3 px-3 py-3 hover:bg-sunken md:px-4"
+        >
+          {content}
+          <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" strokeWidth={1.75} />
+        </Link>
+      ) : (
+        // The same width as a linked row's chevron, so amounts line up down the list.
+        <div className="flex min-h-16 items-center gap-3 px-3 py-3 md:px-4">
+          {content}
+          <span aria-hidden="true" className="size-5 shrink-0" />
+        </div>
+      )}
     </li>
   );
 }

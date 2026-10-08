@@ -57,6 +57,17 @@ export function ErrorState({
   );
 }
 
+/**
+ * When a screen's figures went stale: the oldest of its queries whose last refresh failed, or null while every one
+ * is current. A screen shows one stale notice, at its top, from this (web/DESIGN.md "States").
+ */
+export function staleSince(
+  ...queries: { data?: unknown; isRefetchError: boolean; dataUpdatedAt: number }[]
+): number | null {
+  const stale = queries.filter((query) => query.data !== undefined && query.isRefetchError);
+  return stale.length === 0 ? null : Math.min(...stale.map((query) => query.dataUpdatedAt));
+}
+
 /** The partial state: the figures shown are from an earlier refresh, and the app is retrying. */
 export function StaleNotice({ updatedAt }: { updatedAt: number }) {
   return (

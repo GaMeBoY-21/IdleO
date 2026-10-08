@@ -2,14 +2,17 @@ import type { Wallet } from "@/api/queries";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
-import { ErrorState, StaleNotice } from "@/components/ui/States";
+import { ErrorState } from "@/components/ui/States";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { formatTime } from "@/lib/time";
 
 /** Figures updated before this were restored from an earlier visit (src/api/persisted-cache.ts). */
 const PAGE_OPENED_AT = Date.now();
 
-/** The renter's credit: what they can spend, what's held, and both together, each explained in a line. */
+/**
+ * The renter's credit: what they can spend, what's held, and both together, each explained in a line. A stale
+ * refresh is said once, at the top of the screen (staleSince), not here.
+ */
 export function CreditCard({ wallet }: { wallet: UseQueryResult<Wallet> }) {
   return (
     <Card aria-labelledby="credit-title">
@@ -31,7 +34,6 @@ export function CreditCard({ wallet }: { wallet: UseQueryResult<Wallet> }) {
       </CardTitle>
       {wallet.data ? (
         <div className="flex flex-col gap-4">
-          {wallet.isRefetchError && <StaleNotice updatedAt={wallet.dataUpdatedAt} />}
           <div>
             <p className="text-small text-text-muted">Available</p>
             <Money
@@ -67,6 +69,16 @@ export function CreditCard({ wallet }: { wallet: UseQueryResult<Wallet> }) {
       ) : (
         <CreditSkeleton />
       )}
+    </Card>
+  );
+}
+
+/** The card before anything is known, for a screen still deciding its layout. */
+export function CreditCardSkeleton() {
+  return (
+    <Card aria-labelledby="credit-title">
+      <CardTitle id="credit-title">Credit</CardTitle>
+      <CreditSkeleton />
     </Card>
   );
 }
