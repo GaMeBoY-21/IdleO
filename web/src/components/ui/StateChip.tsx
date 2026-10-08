@@ -9,7 +9,10 @@ const tones: Record<Tone, string> = {
   neutral: "bg-sunken text-text-muted",
 };
 
-/** A session's state, always in words; the colour only repeats it (web/DESIGN.md "Colour"). */
+/**
+ * A session's state, always in words; the colour only repeats it (web/DESIGN.md "Colour"). While it's RUNNING its dot
+ * pulses slowly, the one continuous motion allowed, and none under reduced motion.
+ */
 export function StateChip({ state }: { state: string }) {
   const { label, tone } = sessionState(state);
   return (
@@ -20,7 +23,11 @@ export function StateChip({ state }: { state: string }) {
       )}
     >
       {tone === "live" && (
-        <span aria-hidden="true" className="size-2 rounded-full bg-accent motion-safe:animate-pulse" />
+        <span
+          aria-hidden="true"
+          data-pulse={state === "RUNNING" ? "" : undefined}
+          className={cn("size-2 rounded-full bg-accent", state === "RUNNING" && "motion-safe:animate-pulse")}
+        />
       )}
       {label}
     </span>

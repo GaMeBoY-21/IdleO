@@ -22,7 +22,11 @@ export interface FollowerDeps {
   onStatus: (status: StreamStatus) => void;
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   random?: () => number;
+  now?: () => number;
 }
+
+/** A stream that closes sooner than this after opening is reopened after a pause, never in a tight loop. */
+const SHORT_STREAM_MS = 10_000;
 
 const MIN_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 30_000;
@@ -49,7 +53,8 @@ const wait = (ms: number, signal: AbortSignal) =>
 /**
  * Follows one session over its event stream until it's settled (ADR 0019):
  * - every `session` event goes to `onSession`, and every `logs` event to `onLogs`;
- * - the server closes the stream after 30 minutes: it reopens at once, with a fresh token;
+ * - the server closes the stream after 30 minutes: it reopens at once, with a fresh token (after a pause if the
+ *   stream lasted only seconds, so a misbehaving proxy can't make it spin);
  * - a dropped stream is retried after 1 to 30 seconds of backoff with jitter; when a retry fails, it reports
  *   `down`, and keeps retrying until the stream is back;
  * - once a snapshot says `settled`, it stops for good;
@@ -58,9 +63,11 @@ const wait = (ms: number, signal: AbortSignal) =>
 export async function followSession(deps: FollowerDeps, signal: AbortSignal): Promise<void> {
   const sleep = deps.sleep ?? wait;
   const random = deps.random ?? Math.random;
+  const now = deps.now ?? Date.now;
   // Changed from inside the stream's callbacks, so kept in one object rather than narrowed locals.
   const state = { settled: false, failures: 0, wasLive: false, first: true };
   const snapshotless = () => state.first;
+  const settledNow = () => state.settled;
   const aborted = () => signal.aborted;
   deps.onStatus("connecting");
 
@@ -71,6 +78,7 @@ export async function followSession(deps: FollowerDeps, signal: AbortSignal): Pr
         throw ApiError.of(response.status, await response.json().catch(() => null));
       }
       state.first = true;
+      const opened = now();
       await readEvents(response, (event) => {
         if (event.event === "session") {
           const session = JSON.parse(event.data) as Session;
@@ -90,6 +98,9 @@ export async function followSession(deps: FollowerDeps, signal: AbortSignal): Pr
       // that closed before its first snapshot failed, and waits like any other failure.
       if (snapshotless()) {
         throw new Error("the stream closed before its first snapshot");
+      }
+      if (!settledNow() && now() - opened < SHORT_STREAM_MS) {
+        await sleep(backoff(1, random), signal);
       }
     } catch (error) {
       if (aborted()) {

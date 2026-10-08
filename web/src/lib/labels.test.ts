@@ -1,5 +1,49 @@
+// @vitest-environment node
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { creditKind, eventReason } from "./labels";
+import { creditKind, ending, ENDINGS, eventReason } from "./labels";
+
+const root = new URL("../../../", import.meta.url).pathname;
+
+function sources(dir: string, extension: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory()
+      ? sources(path, extension)
+      : path.endsWith(extension)
+        ? [readFileSync(path, "utf8")]
+        : [];
+  });
+}
+
+/**
+ * Every code a session can end with, read from the code that sets it: the control plane's error codes and end
+ * reasons, and the codes the agent reports when a job fails (passed through as the error code).
+ */
+function endingCodes(): Set<string> {
+  const java = sources(join(root, "control-plane/src/main/java"), ".java").join("\n");
+  const rust = sources(join(root, "agent/agent/src"), ".rs").join("\n");
+  const patterns: [string, RegExp][] = [
+    [java, /error_code = '([a-z_]+)'/g],
+    [java, /\bend\([\w.()]+, "([a-z_]+)"\)/g],
+    [java, /noHostFree\([\w.()]+, "([a-z_]+)"\)/g],
+    [java, /endWithoutHost\([\w.()]+, "([a-z_]+)"\)/g],
+    [java, /sessions\.cancel\(sessionId, "([a-z_]+)"\)/g],
+    [java, /stop\(sessionId, "([a-z_]+)", StopReason/g],
+    [java, /SessionEvent\.(?:START_FAILED|OUTPUTS_MISSING|LOST_REPEATEDLY|CANCEL), "([a-z_]+)"/g],
+    [java, /code\.isEmpty\(\) \? "([a-z_]+)" : "([a-z_]+)"/g],
+    [rust, /code: "([a-z_]+)"/g],
+    [rust, /let code = if [^{]+\{ "([a-z_]+)" \} else \{ "([a-z_]+)" \}/g],
+  ];
+  const codes = new Set<string>();
+  for (const [text, pattern] of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      match.slice(1).forEach((code) => code && codes.add(code));
+    }
+  }
+  return codes;
+}
 
 describe("the renter's words", () => {
   it("name every kind of credit movement the API reports", () => {
@@ -12,5 +56,36 @@ describe("the renter's words", () => {
     expect(eventReason("max_spend_reached")).toBe("It reached your spending limit");
     expect(eventReason("credit_exhausted")).toBe("Your credit ran out");
     expect(eventReason("some_new_reason")).toBe("Some new reason");
+  });
+
+  it("have a sentence and a next step for every code a session can end with, in the control plane and the agent", () => {
+    const codes = endingCodes();
+    // The reading of the sources must find what's known to be there, or it proves nothing.
+    expect([...codes]).toEqual(
+      expect.arrayContaining([
+        "job_failed",
+        "outputs_missing",
+        "host_lost_repeatedly",
+        "start_timeout",
+        "offers_exhausted",
+        "input_unavailable",
+        "credit_exhausted",
+        "max_spend_reached",
+        "no_runner",
+        "storage_failed",
+      ]),
+    );
+    const missing = [...codes].filter((code) => !(code in ENDINGS));
+    expect(missing, "codes without words in src/lib/labels.ts ENDINGS").toEqual([]);
+    for (const words of Object.values(ENDINGS)) {
+      expect(words.sentence).toMatch(/^[A-Z].*\.$/);
+      expect(words.next).toMatch(/^[A-Z].*\.$/);
+    }
+  });
+
+  it("read an exit code, and never hide a code they don't know", () => {
+    expect(ending("exit_code_137")?.sentence).toBe("The job exited with code 137.");
+    expect(ending("something_new")?.sentence).toBe("It ended: something new.");
+    expect(ending(null)).toBeNull();
   });
 });

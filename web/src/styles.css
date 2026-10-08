@@ -54,6 +54,11 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* The phone's action bar sits on the tab bar (web/DESIGN.md "The phone action bar"). */
+@utility bottom-clear-tabs {
+  bottom: calc(var(--spacing-16) + env(safe-area-inset-bottom));
+}
+
 @utility pb-clear-nav {
   padding-bottom: calc(var(--spacing-16) + var(--spacing-6) + env(safe-area-inset-bottom));
 }
@@ -105,7 +110,6 @@
 
 @theme {
   --animate-spin: idleo-spin 0.8s linear infinite;
-  --animate-pulse: idleo-pulse 1.6s var(--ease-enter) infinite;
 }
 
 @keyframes idleo-pulse {

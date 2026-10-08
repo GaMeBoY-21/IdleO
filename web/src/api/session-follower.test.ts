@@ -27,15 +27,19 @@ function stream(texts: string[], end: "close" | "drop" = "close"): Response {
   );
 }
 
-function harness(responses: (() => Response | Promise<Response>)[]) {
+function harness(responses: (() => Response | Promise<Response>)[], { streamMs = 60_000 } = {}) {
   const statuses: StreamStatus[] = [];
   const sessions: Session[] = [];
   const logs: unknown[] = [];
   const waits: number[] = [];
   let opened = 0;
+  let clock = 0;
+  let advance = false;
   const controller = new AbortController();
   const open = vi.fn(async () => {
     const next = responses[opened++];
+    // The stream opened now, and stays open for streamMs.
+    advance = true;
     if (!next) {
       controller.abort();
       throw new Error("no more");
@@ -50,8 +54,17 @@ function harness(responses: (() => Response | Promise<Response>)[]) {
       onStatus: (status) => statuses.push(status),
       sleep: async (ms) => {
         waits.push(ms);
+        clock += ms;
       },
       random: () => 1,
+      now: () => {
+        const at = clock;
+        if (advance) {
+          advance = false;
+          clock += streamMs;
+        }
+        return at;
+      },
     },
     controller.signal,
   );
@@ -109,6 +122,15 @@ describe("following a session", () => {
     await h.run;
     expect(h.open).toHaveBeenCalledTimes(1);
     expect(h.statuses).toEqual(["connecting"]);
+  });
+
+  it("pauses before reopening a stream that closed within seconds, without calling it down", async () => {
+    const h = harness([() => stream([sessionEvent(false)]), () => stream([sessionEvent(true)])], {
+      streamMs: 2_000,
+    });
+    await h.run;
+    expect(h.waits).toEqual([1_000]);
+    expect(h.statuses).toEqual(["connecting", "live", "live", "ended"]);
   });
 
   it("waits like a failure when a stream closes before any snapshot", async () => {

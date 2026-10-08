@@ -97,6 +97,8 @@ export const spacing = {
   "12": 48,
   "16": 64,
   touch: 44,
+  /** The log panel's height on the session screen: about 24 lines. */
+  panel: 384,
 } as const;
 
 export const radii = { control: 8, card: 12, sheet: 16, full: 9999 } as const;
@@ -116,6 +118,8 @@ export const layout = {
 
 export const motion = {
   durations: { press: 120, appear: 180, large: 240 },
+  /** The running pulse on a state chip, the one continuous motion beside the skeleton's shimmer. */
+  pulse: 2_000,
   easing: { enter: "cubic-bezier(0.2, 0, 0, 1)", leave: "cubic-bezier(0.4, 0, 1, 1)" },
 } as const;
 

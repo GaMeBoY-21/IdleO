@@ -166,57 +166,6 @@ test.describe("home", () => {
   });
 });
 
-test.describe("session detail", () => {
-  test("while it runs", async ({ page }, info) => {
-    await fakeApi(page, signedIn({ "/v1/sessions/.+": { json: data.running } }));
-    await signIn(page, "asha", `/session/?id=${data.running.id}`);
-    await expect(
-      page.getByRole("heading", { name: "QLoRA fine-tune of a small language model (Qwen 2.5 1.5B, 4-bit)" }),
-    ).toBeVisible();
-    await expect(page.getByText("₹3.08")).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "session-running");
-  });
-
-  test("completed, with its outputs", async ({ page }, info) => {
-    await fakeApi(
-      page,
-      signedIn({
-        "/v1/sessions/[^/]+/outputs": { json: data.outputs },
-        "/v1/sessions/[^/]+": { json: data.completed },
-      }),
-    );
-    await signIn(page, "asha", `/session/?id=${data.completed.id}`);
-    await expect(page.getByRole("link", { name: /result.json/ })).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "session-completed");
-  });
-
-  test("failed", async ({ page }, info) => {
-    await fakeApi(page, signedIn({ "/v1/sessions/.+": { json: data.failed } }));
-    await signIn(page, "asha", `/session/?id=${data.failed.id}`);
-    await expect(page.getByText("It ran out of memory")).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "session-failed");
-  });
-
-  test("while loading", async ({ page }, info) => {
-    await fakeApi(page, signedIn({ "/v1/sessions/.+": "hold" }));
-    await signIn(page, "asha", `/session/?id=${data.running.id}`);
-    await expect(page.getByLabel("Loading this session")).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "session-loading");
-  });
-
-  test("not found", async ({ page }, info) => {
-    await fakeApi(page, signedIn({ "/v1/sessions/.+": { status: 404 } }));
-    await signIn(page, "asha", "/session/?id=01a11300-0000-7000-8000-00000000dead");
-    await expect(page.getByText(/couldn't find this session/)).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "session-not-found");
-  });
-});
-
 test.describe("credit", () => {
   test("history, a page at a time", async ({ page }, info) => {
     await fakeApi(

@@ -71,6 +71,7 @@ ${Object.entries(radii)
   --ease-leave: ${motion.easing.leave};
   --default-transition-duration: ${motion.durations.press}ms;
   --default-transition-timing-function: ${motion.easing.enter};
+  --animate-pulse: idleo-pulse ${motion.pulse}ms ease-in-out infinite;
 }
 
 @theme inline {
