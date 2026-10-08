@@ -6,9 +6,9 @@ The renter and host web app: sign-in, Home, booking a GPU, a session live, all s
 
 | Path | Screen |
 | --- | --- |
-| `/` | Home: a running session first, credit once, recent sessions, "Book again" |
-| `/book/` | Book a GPU: pick a template, configure it (`?template=…&step=configure`), review the quote and book (`&step=review`); Run again adds `&from=<session id>` |
-| `/session/?id=…` | One session, live over its event stream: figures, the one next step, logs, checkpoints, timeline, outputs |
+| `/` | Home: "What do you want to run?", a black bar for a running session, the services as tiles, "Book again" |
+| `/book/` | Book, one screen: what to run (`?service=…&template=…`), your data, your GPU (the best free one, its price and an estimate), Settings in a sheet, and "Request a GPU"; Book again and Run again add `&from=<session id>` |
+| `/session/?id=…` | One session, following its state like a ride: finding its GPU, GPU found, running (timer, cost against the cap, the GPU's use and temperature, checkpoint, logs), then done with its outputs, or why it ended |
 | `/sessions/` | All sessions, active or ended (`?show=ended`), a page at a time |
 | `/credit/` | Credit and its history |
 | `/welcome/`, `/sign-in/` | A new account's first screen; sign-in |
@@ -100,9 +100,22 @@ What keeps them, learnt by measuring (ADR 0018):
 - skeletons are exactly the height of what replaces them;
 - the font never swaps.
 
+## Looking at the screens by hand
+
+The pictures aren't compared this round (Nikki, Oct 8): look at the screens yourself, in light and dark, at a phone's width and a laptop's.
+- **Every screen and state, from invented data:** with the stack up and `pnpm dev` (or `pnpm build && pnpm serve`) on :3000, `GALLERY_DIR=/tmp/screens pnpm exec playwright test e2e/screens.spec.ts e2e/session-screens.spec.ts e2e/book-screens.spec.ts` writes a full-page picture of each into that folder, named `<state>--<phone|laptop>-<light|dark>.png`.
+- **The real thing:** sign in at http://localhost:3000 as a user with credit, with an agent online (docs/runbooks/local-stack.md), and use the browser's device toolbar at 390 px and a window of 1280 px. The theme is in the account menu. How to reach each state:
+  - **Finding and found:** they last well under a second on the local stack; `/session/?id=…` of a session the fixtures hold shows them, as above.
+  - **Running:** request "Long run, 10 minutes" from Book.
+  - **Done:** request "Echo an input" with any file, or stop a long run.
+  - **No GPU free:** Book's "Needs a big GPU" (80 GB): the card says "No GPU is free right now" and the button waits.
+  - **Failed:** stop the agent (Ctrl-C) while a long run is going; the session moves on, then fails once no other host is free.
+  - **Low credit:** a user whose credit covers only a few minutes (grant a small amount), on a long run.
+  - **Stale:** stop the control plane while a session screen is open: "Live updates stopped", then "Couldn't refresh".
+
 ## Screenshots
 
-Every screen and state is compared with a baseline picture in light and dark, at 390 and 1280 px. The baselines are a CI artifact (`visual-baseline`), not files in git, and they're compared on every run:
+Comparing pictures is off for now (`VISUAL_COMPARE=1` turns it back on). When it's on, every screen and state is compared with a baseline picture in light and dark, at 390 and 1280 px. The baselines are a CI artifact (`visual-baseline`), not files in git, and they're compared on every run:
 - a picture that differs by more than 0.2% of its pixels fails;
 - a new screen's picture is added automatically.
 

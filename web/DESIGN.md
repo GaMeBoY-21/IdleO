@@ -148,6 +148,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
 - **Spacing is a 4 px scale:** 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 96 px, plus 2 px between a title and its line under it, 6 px for thin bars, and 14 px inside options and rows. The half steps 18, 26 and 34 px exist only as the type scale's line heights, for skeleton lines.
   - Between sections: 28 to 32 px; between a section's title and its content: 12 px; between options: 8 px.
 - **Heights:** controls at least 44 px (`touch`); fields 56 px; the large button at the foot of a flow 56 px on a phone and 60 px on a laptop.
+- **Named sizes:** the finding ring 88 px on a 168 px grey disc (`finding-ring`, `finding`), with two soft halos of the fill; the log panel at least 384 px (`panel`); Book's price beside its GPU card 112 px on a laptop (`price`), so it never moves as it arrives.
 - **Shadows** only for things that float: menus and popovers (`shadow-float`) and a bottom sheet over the page (`shadow-sheet`).
 - **Touch targets are at least 44 × 44 px**, even where the visible control is smaller (the hit area is padded).
 - **The layout:**
@@ -161,6 +162,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
 - **Navigation:**
   - **Laptop:** a 64 px top bar with the wordmark (a link to Home), pill navigation (Book · Sessions · Credit, the current one a black pill), and on the right a grey credit pill and a black round account button.
   - **Phone:** a top bar with the wordmark, the credit pill and the account button, and bottom tabs: Home · Book · Credit. Book and the session screen are flows: on a phone they replace both bars with a back button, the way a ride app's booking does.
+  - On a phone, All sessions is a row on Home, under Book again, since it has no tab.
   - Hosting joins both when it exists.
 
 ## Motion
@@ -200,7 +202,21 @@ Every view that shows data designs four states before it's built:
 
 ## The phone action bar
 
-On a phone, a screen whose next step is used while watching something (Stop, on a running session; Cancel request, while finding) puts that action at the foot of the screen, in a bar with a 1 px divider above it, in space the page reserves, so nothing it covers is out of reach and nothing moves when it appears. It holds that one action and a line under it.
+On a phone, a screen whose next step is used while watching something (Stop session while it runs, Cancel request while finding, Download outputs or Try again once it ends) puts that action at the foot of the screen, in a bar with a 1 px divider above it. The bar is stuck to the bottom of the screen but takes its own place at the end of the page, so it covers nothing and nothing moves when it appears. It holds that one action, a second outlined one at most ("Run again"), and a line under it ("Saves a checkpoint first. Nothing more is charged."). On a laptop the same actions end the left panel.
+
+## The session screen
+
+The session screen follows the state, like a ride (docs/design/redesign/matching-phone.html, live-phone.html, live-laptop.html):
+
+| State | What it shows | Its action |
+| --- | --- | --- |
+| Finding (`REQUESTED`, `MATCHED`) | The ring, breathing; "Finding your GPU", "Usually under a minute"; what's done ("train.jsonl uploaded"); "Nothing is charged until it runs" | Cancel request (outlined) |
+| Found (`PROVISIONING`) | "GPU found", the GPU and its memory, "Starting…" | Cancel request |
+| Running (and moving host, saving) | The green Running pill; "Fine-tuning on an RTX 4080 Laptop"; the big timer and "of about 45 min"; the cost so far against the cap, with a bar; the GPU's use and temperature; the last checkpoint; on a phone a Logs row, on a laptop the route across and the dark log panel | Stop session (outlined), asking first |
+| Done (`COMPLETED`) | "Done", how long it ran, the final charge (or "so far" until it's settled), the outputs as rows | Download outputs, then Run again |
+| Ended otherwise | Why, in plain words, and what to do; the charge, often "Nothing was charged" | Try again, filled from it |
+
+Raising the cap and sharing a live link are in the references but not built yet.
 
 ## Voice
 
