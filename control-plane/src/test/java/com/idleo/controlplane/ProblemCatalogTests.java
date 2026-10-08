@@ -13,13 +13,16 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The problem catalog (ADR 0019): slugs are stable and unique, the published list in {@code docs/api/problems.md}
- * is written from the enum and must match the committed file, and no error is raised except through {@link
- * ApiProblem}. After an intended change, rewrite the list with {@code ./mvnw test -Dtest=ProblemCatalogTests
- * -Dproblems.write=true}.
+ * and the clients' copy in {@code api/problems.json} are written from the enum and must match the committed files,
+ * and no error is raised except through {@link ApiProblem}. After an intended change, rewrite both with {@code
+ * ./mvnw test -Dtest=ProblemCatalogTests -Dproblems.write=true}.
  */
 class ProblemCatalogTests {
 
     static final Path PUBLISHED = Path.of("..", "docs", "api", "problems.md");
+
+    /** Slug, status and title of every type, for clients to check they have words for each (web/src/lib/problems.ts). */
+    static final Path FOR_CLIENTS = Path.of("..", "api", "problems.json");
 
     private static final Pattern SLUG = Pattern.compile("[a-z]+(-[a-z]+)*");
 
@@ -80,6 +83,19 @@ class ProblemCatalogTests {
                 .as("docs/api/problems.md is out of date; run ./mvnw test -Dtest=ProblemCatalogTests "
                         + "-Dproblems.write=true and review the diff")
                 .isEqualTo(Files.readString(PUBLISHED));
+    }
+
+    @Test
+    void theClientsCopyMatchesTheCatalog() throws IOException {
+        var generated = json();
+        if (Boolean.getBoolean("problems.write")) {
+            Files.writeString(FOR_CLIENTS, generated);
+        }
+        assertThat(FOR_CLIENTS).exists();
+        assertThat(generated)
+                .as("api/problems.json is out of date; run ./mvnw test -Dtest=ProblemCatalogTests "
+                        + "-Dproblems.write=true and review the diff")
+                .isEqualTo(Files.readString(FOR_CLIENTS));
     }
 
     @Test
@@ -145,6 +161,42 @@ class ProblemCatalogTests {
                     .append(" | ")
                     .append(problem.when().replace("|", "\\|"))
                     .append(" |\n");
+        }
+        return out.toString();
+    }
+
+    /** The clients' copy: one object per problem, in catalog order. */
+    static String json() {
+        var out = new StringBuilder("[\n");
+        var problems = Problem.values();
+        for (int i = 0; i < problems.length; i++) {
+            var problem = problems[i];
+            out.append("  { \"slug\": \"")
+                    .append(escape(problem.slug()))
+                    .append("\", \"status\": ")
+                    .append(problem.status().value())
+                    .append(", \"title\": \"")
+                    .append(escape(problem.title()))
+                    .append("\" }")
+                    .append(i < problems.length - 1 ? ",\n" : "\n");
+        }
+        return out.append("]\n").toString();
+    }
+
+    private static String escape(String text) {
+        var out = new StringBuilder();
+        for (char c : text.toCharArray()) {
+            switch (c) {
+                case '"' -> out.append("\\\"");
+                case '\\' -> out.append("\\\\");
+                default -> {
+                    if (c < 0x20) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+                }
+            }
         }
         return out.toString();
     }
