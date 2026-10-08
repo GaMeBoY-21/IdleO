@@ -11,12 +11,15 @@ import {
 } from "./support";
 
 /**
- * Book a GPU in every state (web/DESIGN.md "States"), light and dark, phone and laptop: the template gallery, the
- * form generated from each template's parameters, an upload on its way, the review with the quote, and the ways a
- * booking can't go ahead. The API and storage answer from fixtures.
+ * Book a GPU in every state (web/DESIGN.md "Book"), light and dark, phone and laptop: what to run, a service with
+ * the best free GPU and its price, the settings sheet generated from each template's parameters, an upload on its
+ * way, and the ways a request can't go ahead. The API and storage answer from fixtures; the quote follows the
+ * server-set ceiling (ADR 0021).
  */
 const MIB = 1024 * 1024;
 const echo = data.templateList.find((t) => t.id === "echo-input")!;
+
+type QuoteBody = { maxPricePaisePerMin?: number | null; maxSpendPaise: number; vramNeededMb?: number };
 
 function api(overrides: Record<string, Answer> = {}): Record<string, Answer> {
   return {
@@ -28,10 +31,7 @@ function api(overrides: Record<string, Answer> = {}): Record<string, Answer> {
     "/v1/uploads": { json: data.newUpload("greetings.bin", 12 * MIB), status: 201 },
     "/v1/uploads/[^/]+/complete": { json: { ...data.newUpload("greetings.bin", 12 * MIB), status: "ready" } },
     "/v1/uploads/[^/]+": { json: { ...data.newUpload("greetings.bin", 12 * MIB), status: "ready" } },
-    "/v1/session-quotes": (_call, request) => {
-      const body = request.postDataJSON() as { maxPricePaisePerMin: number; maxSpendPaise: number };
-      return { json: data.quote(body.maxPricePaisePerMin, body.maxSpendPaise) };
-    },
+    "/v1/session-quotes": (_call, request) => data.quoteAnswer(request.postDataJSON() as QuoteBody),
     ...overrides,
   };
 }
@@ -49,72 +49,90 @@ const file = (size: number) => ({
   buffer: Buffer.alloc(size, 7),
 });
 
-/** Echo an input, filled in, with its file uploaded: ready for review. */
+const ECHO = "/book/?service=run-code";
+
+/** Echo an input, its settings filled in the sheet and its file chosen. */
 async function fillEcho(page: Page) {
-  await page.getByLabel("Greeting", { exact: true }).fill("hello");
-  await page.getByLabel("Repeat (optional)").fill("3");
+  await page.getByRole("button", { name: /^Settings/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Settings" });
+  await sheet.getByLabel("Greeting", { exact: true }).fill("hello");
+  await sheet.getByLabel("Repeat (optional)").fill("3");
+  await sheet.getByRole("button", { name: "Done" }).click();
   await page.getByTestId("input-file").setInputFiles(file(12 * MIB));
 }
 
-test("pick a template", async ({ page }, info) => {
+const request = (page: Page) => page.getByRole("button", { name: "Request a GPU" });
+
+test("what to run", async ({ page }, info) => {
   await fakeApi(page, api());
   await signIn(page, "asha", "/book/");
-  await expect(page.getByRole("button", { name: /QLoRA fine-tune/ })).toBeVisible();
-  await expect(page.getByText("From ₹7.20 an hour").first()).toBeVisible();
-  await expect(page.getByText("At least 8 GB GPU memory")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "What to run" }).getByRole("button")).toHaveCount(2);
   await expectAccessible(page);
   await capture(page, info, "book-pick");
 });
 
-test("pick a template when no host is free", async ({ page }, info) => {
-  await fakeApi(page, api({ "/v1/availability": { json: data.noAvailability } }));
-  await signIn(page, "asha", "/book/");
-  await expect(page.getByText("No hosts free right now")).toHaveCount(3);
-  await expectAccessible(page);
-  await capture(page, info, "book-pick-none-free");
-});
-
-test("pick, while the templates load", async ({ page }, info) => {
+test("what to run, while the catalog loads", async ({ page }, info) => {
   await fakeApi(page, api({ "/v1/templates": "hold" }));
   await signIn(page, "asha", "/book/");
-  await expect(page.getByLabel("Loading the templates")).toBeVisible();
+  await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
   await expectAccessible(page);
   await capture(page, info, "book-pick-loading");
 });
 
-test("configure: every kind of parameter, generated from the catalog", async ({ page }, info) => {
+test("a service: the best free GPU for it, its price, and the one button", async ({ page }, info) => {
   await fakeApi(page, api());
-  await signIn(page, "asha", "/book/?template=qlora-finetune&step=configure");
-  await expect(page.getByLabel("Base model")).toHaveValue("qwen2.5-1.5b");
-  await expect(page.getByLabel("Epochs")).toHaveValue("3");
-  await expect(page.getByRole("radio", { name: "16" })).toBeChecked();
-  await expect(page.getByRole("switch", { name: "Pack short examples together" })).toBeChecked();
-  await expect(page.getByLabel("Prompt template (optional)")).toBeVisible();
-  // The default most per hour is the highest price among hosts with enough memory that are free now.
-  await expect(page.getByLabel("The most per hour, in ₹")).toHaveValue("10.80");
-  await expect(page.getByLabel("Spending cap, in ₹")).toHaveValue("500.00");
-  await expect(page.getByText("Don't put passwords or tokens here.", { exact: false })).toBeVisible();
+  await signIn(page, "asha", "/book/?service=fine-tune");
+  // QLoRA needs 8 GB: the RTX 4080s fit, at 12–18 paise a minute; the server's ceiling is 18, held 30 minutes.
+  const quote = data.quote(undefined, 50_000, data.asha.wallet, data.availability, 8_192)!;
+  expect(quote.holdPaise).toBe(540);
+  await expect(page.getByText("At least 8 GB · 2 free", { exact: false })).toBeVisible();
+  await expect(page.getByText("≈ ₹5–8")).toBeVisible();
+  await expect(page.getByText("₹7.20–10.80/h")).toBeVisible();
+  await expect(page.getByText("₹5.40 is held while it runs. You have ₹462.12.")).toBeVisible();
+  await expect(request(page)).toBeEnabled();
   await expectAccessible(page);
-  await capture(page, info, "book-configure");
+  await capture(page, info, "book-service");
 });
 
-test("configure: what's wrong, on each field", async ({ page }, info) => {
+test("settings: every kind of parameter, generated from the catalog", async ({ page }, info) => {
   await fakeApi(page, api());
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
-  await page.getByLabel("Repeat (optional)").fill("9");
-  await page.getByRole("button", { name: "Review" }).click();
-  await expect(page.getByText("Enter a greeting.")).toBeVisible();
-  await expect(page.getByText("Enter a number between 1 and 5.")).toBeVisible();
+  await signIn(page, "asha", "/book/?service=fine-tune");
+  await page.getByRole("button", { name: /^Settings/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Settings" });
+  await expect(sheet.getByLabel("Base model")).toHaveValue("qwen2.5-1.5b");
+  await expect(sheet.getByLabel("Epochs")).toHaveValue("3");
+  await expect(sheet.getByRole("radio", { name: "16" })).toBeChecked();
+  await expect(sheet.getByRole("switch", { name: "Pack short examples together" })).toBeChecked();
+  await expect(sheet.getByLabel("Prompt template (optional)")).toBeVisible();
+  // Empty: the server picks the most per hour (ADR 0021).
+  await expect(sheet.getByLabel("The most per hour, in ₹ (optional)")).toHaveValue("");
+  await expect(sheet.getByLabel("Spending cap, in ₹")).toHaveValue("500.00");
+  await expect(sheet.getByText("Don't put passwords or tokens here", { exact: false })).toBeVisible();
+  await expectAccessible(page);
+  await capture(page, info, "book-settings");
+});
+
+test("what's wrong, on each field", async ({ page }, info) => {
+  await fakeApi(page, api());
+  await signIn(page, "asha", ECHO);
+  await page.getByRole("button", { name: /^Settings/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Settings" });
+  await sheet.getByLabel("Repeat (optional)").fill("9");
+  await sheet.getByRole("button", { name: "Done" }).click();
+  await request(page).click();
+  await expect(sheet.getByText("Enter a greeting.")).toBeVisible();
+  await expect(sheet.getByText("Enter a number between 1 and 5.")).toBeVisible();
+  await expectAccessible(page);
+  await capture(page, info, "book-errors");
+  await sheet.getByRole("button", { name: "Done" }).click();
   await expect(page.getByText("Choose a file to upload.")).toBeVisible();
-  await expect(page).toHaveURL(/step=configure/);
-  await expectAccessible(page);
-  await capture(page, info, "book-configure-errors");
 });
 
-test("configure: a file too large is refused before anything is sent", async ({ page }, info) => {
+test("a file too large is refused before anything is sent", async ({ page }, info) => {
   const small = { ...echo, input: { ...echo.input, maxSizeMb: 1 } };
-  await fakeApi(page, api({ "/v1/templates": { json: { templates: [small] } } }));
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
+  await fakeApi(page, api({ "/v1/templates": { json: { ...data.templates, templates: [small] } } }));
+  await signIn(page, "asha", ECHO);
   const created = page.waitForRequest("**/v1/uploads", { timeout: 1_000 }).catch(() => null);
   await page.getByTestId("input-file").setInputFiles(file(2 * MIB));
   await expect(
@@ -122,105 +140,62 @@ test("configure: a file too large is refused before anything is sent", async ({ 
   ).toBeVisible();
   expect(await created).toBeNull();
   await expectAccessible(page);
-  await capture(page, info, "book-configure-too-large");
+  await capture(page, info, "book-too-large");
 });
 
-test("configure: the file uploading as soon as it's chosen", async ({ page }, info) => {
+test("waiting for the upload, which starts as soon as the file is chosen", async ({ page }, info) => {
   await fakeApi(page, api());
   await fakeStorage(page, { hold: true });
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
+  await signIn(page, "asha", ECHO);
   await fillEcho(page);
   await expect(page.getByRole("progressbar", { name: "Uploading greetings.bin" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cancel the upload of greetings.bin" })).toBeVisible();
-  await expectAccessible(page);
-  await capture(page, info, "book-configure-uploading");
-});
-
-test("review: the quote's numbers, exactly, and the one button", async ({ page }, info) => {
-  await fakeApi(page, api());
-  await fakeStorage(page);
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
-  await fillEcho(page);
-  await expect(page.getByText("12 MB · uploaded")).toBeVisible();
-  await page.getByRole("button", { name: "Review" }).click();
-  const quote = data.quote(18, 50_000);
-  expect(quote.holdPaise).toBe(540);
-  await expect(page.getByText("₹5.40 is held now")).toBeVisible();
-  await expect(page.getByText("You'll pay at most ₹500.00, your spending cap.")).toBeVisible();
-  await expect(page.getByText("Hosts free now: 3, ₹3.60–₹10.80 an hour")).toBeVisible();
-  await expect(page.getByText("Your available credit after the hold: ₹456.72")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Book for up to ₹500.00" })).toBeEnabled();
-  await expectAccessible(page);
-  await capture(page, info, "book-review");
-});
-
-test("review: waiting for the upload", async ({ page }, info) => {
-  await fakeApi(page, api());
-  await fakeStorage(page, { hold: true });
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
-  await fillEcho(page);
-  await page.getByRole("button", { name: "Review" }).click();
   await expect(page.getByRole("button", { name: /Waiting for your upload… \d+%/ })).toBeDisabled();
-  await expect(page.getByText("The price shows as soon as your upload has finished.")).toBeVisible();
+  // The price shows while the upload is still going: the quote leaves the input out.
+  await expect(page.getByText("is held while it runs", { exact: false })).toBeVisible();
   await expectAccessible(page);
-  await capture(page, info, "book-review-uploading");
+  await capture(page, info, "book-uploading");
 });
 
-test("review: not enough credit, with both numbers", async ({ page }, info) => {
+test("not enough credit, with both numbers", async ({ page }, info) => {
   await fakeApi(
     page,
     api({
       "/v1/wallet": { json: data.low.wallet },
-      "/v1/session-quotes": (_call, request) => {
-        const body = request.postDataJSON() as { maxPricePaisePerMin: number; maxSpendPaise: number };
-        return { json: data.quote(body.maxPricePaisePerMin, body.maxSpendPaise, data.low.wallet) };
-      },
+      "/v1/session-quotes": (_call, request) =>
+        data.quoteAnswer(request.postDataJSON() as QuoteBody, data.low.wallet),
     }),
   );
   await fakeStorage(page);
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
+  await signIn(page, "asha", ECHO);
   await fillEcho(page);
-  await expect(page.getByText("12 MB · uploaded")).toBeVisible();
-  await page.getByRole("button", { name: "Review" }).click();
+  await expect(page.getByText("12 MB · uploaded", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Booking holds ₹5.40; you have ₹4.60 available.", { exact: false }),
+    page.getByText("₹5.40 is held while it runs, and you have ₹4.60.", { exact: false }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Book for up to ₹500.00" })).toBeDisabled();
+  await expect(request(page)).toBeDisabled();
   await expectAccessible(page);
-  await capture(page, info, "book-review-short");
+  await capture(page, info, "book-short");
 });
 
-test("review: no host fits now, booking still allowed", async ({ page }, info) => {
+test("no GPU is free right now: the request waits", async ({ page }, info) => {
   await fakeApi(
     page,
     api({
-      "/v1/session-quotes": (_call, request) => {
-        const body = request.postDataJSON() as { maxPricePaisePerMin: number; maxSpendPaise: number };
-        return {
-          json: data.quote(
-            body.maxPricePaisePerMin,
-            body.maxSpendPaise,
-            data.asha.wallet,
-            data.noAvailability,
-          ),
-        };
-      },
+      "/v1/availability": { json: data.noAvailability },
+      "/v1/session-quotes": (_call, request) =>
+        data.quoteAnswer(request.postDataJSON() as QuoteBody, data.asha.wallet, data.noAvailability),
     }),
   );
-  await fakeStorage(page);
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
-  await fillEcho(page);
-  await expect(page.getByText("12 MB · uploaded")).toBeVisible();
-  await page.getByRole("button", { name: "Review" }).click();
-  await expect(
-    page.getByText("No host fits right now. If none frees up within a minute, nothing is charged."),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Book for up to ₹500.00" })).toBeEnabled();
+  await signIn(page, "asha", "/book/?service=fine-tune");
+  await expect(page.getByText("No GPU is free right now", { exact: true })).toBeVisible();
+  await expect(page.getByText("No GPU is free right now. We look again every 15 seconds.")).toBeVisible();
+  await expect(request(page)).toBeDisabled();
   await expectAccessible(page);
-  await capture(page, info, "book-review-no-host");
+  await capture(page, info, "book-none-free");
 });
 
-test("a field the server refuses comes back on that field", async ({ page }, info) => {
+test("a field the server refuses comes back on that field, in Settings", async ({ page }, info) => {
   await fakeApi(
     page,
     api({
@@ -235,13 +210,12 @@ test("a field the server refuses comes back on that field", async ({ page }, inf
     }),
   );
   await fakeStorage(page);
-  await signIn(page, "asha", "/book/?template=echo-input&step=configure");
+  await signIn(page, "asha", ECHO);
   await fillEcho(page);
-  await expect(page.getByText("12 MB · uploaded")).toBeVisible();
-  await page.getByRole("button", { name: "Review" }).click();
-  await page.getByRole("button", { name: "Book for up to ₹500.00" }).click();
-  await expect(page).toHaveURL(/step=configure/);
-  await expect(page.getByText("Must not contain a URL.")).toBeVisible();
+  await expect(page.getByText("12 MB · uploaded", { exact: true })).toBeVisible();
+  await request(page).click();
+  const sheet = page.getByRole("dialog", { name: "Settings" });
+  await expect(sheet.getByText("Must not contain a URL.")).toBeVisible();
   await expectAccessible(page);
   await capture(page, info, "book-refused-field");
 });

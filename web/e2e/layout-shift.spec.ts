@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import { fakeApi, recordLayoutShifts, signIn } from "./support";
 
@@ -8,13 +8,18 @@ import { fakeApi, recordLayoutShifts, signIn } from "./support";
  * too. Measured in every screens project: phone and laptop, light and dark.
  */
 const screens = [
-  { name: "home", path: "/", ready: () => "Running now" },
+  { name: "home", path: "/", ready: () => "Book again" },
   { name: "credit", path: "/credit/", ready: () => "Show older" },
   { name: "a completed session", path: `/session/?id=${data.completed.id}`, ready: () => "result.json" },
-  { name: "a running session", path: `/session/?id=${data.running.id}`, ready: () => "Checkpoint 4" },
+  { name: "a running session", path: `/session/?id=${data.running.id}`, ready: () => "Checkpoint 4 saved" },
+  {
+    name: "a session finding its GPU",
+    path: `/session/?id=${data.finding.id}`,
+    ready: () => "Cancel request",
+  },
   { name: "all sessions", path: "/sessions/?show=ended", ready: () => "Show more" },
-  { name: "book", path: "/book/", ready: () => "From ₹7.20 an hour" },
-  { name: "configure", path: "/book/?template=qlora-finetune&step=configure", ready: () => "Settings" },
+  { name: "book", path: "/book/", ready: () => "Run your code" },
+  { name: "book, a service", path: "/book/?service=fine-tune", ready: () => "≈ ₹5–8" },
 ];
 
 test("sign-in loads without moving, its form arriving in the space kept for it", async ({ page }) => {
@@ -45,6 +50,10 @@ for (const screen of screens) {
       },
       "/v1/sessions/[^/]+/outputs": { json: data.outputs },
       [`/v1/sessions/${data.running.id}`]: { json: data.running },
+      [`/v1/sessions/${data.finding.id}`]: { json: data.finding },
+      "/v1/uploads/[^/]+": { json: data.sessionUpload },
+      "/v1/session-quotes": (_call: number, request: Request) =>
+        data.quoteAnswer(request.postDataJSON() as { maxSpendPaise: number; vramNeededMb?: number }),
       "/v1/sessions/[^/]+": { json: data.completed },
       "/v1/wallet/transactions": { json: data.history(0) },
     };

@@ -47,16 +47,20 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         if (new URL(page.url()).pathname === "/welcome/") {
           await page.getByRole("button", { name: "Go to your home" }).click();
         }
-        await expect(page.getByRole("heading", { name: "Home" })).toBeAttached();
+        await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
       }
       if (name === "book") {
         // Booked after Home is measured, so Home's kept figures were its latest; then Home is opened, as a renter
         // would, so its kept list holds the session the session screen is measured on.
         sessionId = await bookOne(context.request, "home");
+        const listed = page.waitForResponse(
+          async (response) =>
+            new URL(response.url()).pathname === "/v1/sessions" &&
+            (await response.text()).includes(sessionId),
+          { timeout: 30_000 },
+        );
         await page.goto(`${WEB}/`);
-        await expect(page.getByRole("link", { name: /CUDA smoke test/ }).first()).toBeVisible({
-          timeout: 30_000,
-        });
+        await listed;
         await page.waitForTimeout(1_500);
       }
       if (name === "session-link") {
@@ -65,7 +69,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       const path = {
         "sign-in": "/sign-in/",
         home: "/",
-        book: "/book/",
+        book: "/book/?service=run-code",
         session: `/session/?id=${sessionId}`,
         "session-link": `/session/?id=${sessionId}`,
       }[name];
@@ -167,27 +171,31 @@ async function finish(page: Page, cdp: CDPSession): Promise<number> {
   return Math.round(inp);
 }
 
-/** Typing in the booking form: the greeting, a number, the price and the cap, as a renter fills them in. */
+/** Typing in the booking form's settings: the greeting, a number, the price and the cap, as a renter fills them. */
 async function typingInp(page: Page): Promise<number> {
-  const cdp = await measured(page, "/book/?template=echo-input&step=configure");
-  await page
-    .getByLabel("Greeting", { exact: true })
-    .pressSequentially("hello from lighthouse", { delay: 50 });
-  await page.getByLabel("Repeat (optional)").fill("");
-  await page.getByLabel("Repeat (optional)").pressSequentially("3", { delay: 50 });
-  await page.getByLabel("The most per hour, in ₹").fill("");
-  await page.getByLabel("The most per hour, in ₹").pressSequentially("7.20", { delay: 50 });
-  await page.getByLabel("Spending cap, in ₹").fill("");
-  await page.getByLabel("Spending cap, in ₹").pressSequentially("250", { delay: 50 });
+  const cdp = await measured(page, "/book/?service=run-code");
+  await page.getByRole("button", { name: /^Settings/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Settings" });
+  for (const [label, text] of [
+    ["Greeting", "hello from lighthouse"],
+    ["Repeat (optional)", "3"],
+    ["The most per hour, in ₹ (optional)", "7.20"],
+    ["Spending cap, in ₹", "250"],
+  ] as const) {
+    const field = sheet.getByLabel(label, { exact: true });
+    await field.fill("");
+    await field.pressSequentially(text, { delay: 50 });
+  }
+  await sheet.getByRole("button", { name: "Done" }).click();
   return finish(page, cdp);
 }
 
-/** The session screen while its log streams in: scrolling the panel with the keyboard and using its buttons. */
+/** The session screen while its log streams in: scrolling the panel with the keyboard and using its row. */
 async function logsInp(page: Page, sessionId: string): Promise<number> {
   const cdp = await measured(page, `/session/?id=${sessionId}`);
   const panel = page.getByTestId("log-panel");
-  const toggle = page.getByRole("button", { name: /Show logs/ });
-  // A phone's width: the logs start collapsed.
+  const toggle = page.getByRole("button", { name: /^Logs/ });
+  // A phone's width: the logs start collapsed, under their row.
   await toggle.click({ timeout: 30_000 });
   await expect(panel).toBeVisible({ timeout: 30_000 });
   for (let round = 0; round < 3; round++) {
@@ -195,8 +203,8 @@ async function logsInp(page: Page, sessionId: string): Promise<number> {
     for (const key of ["PageUp", "ArrowUp", "PageDown", "End"]) {
       await page.keyboard.press(key);
     }
-    await page.getByRole("button", { name: "Hide logs" }).click();
-    await page.getByRole("button", { name: /Show logs/ }).click();
+    await toggle.click();
+    await toggle.click();
     await page.waitForTimeout(1_000);
   }
   return finish(page, cdp);
@@ -205,7 +213,7 @@ async function logsInp(page: Page, sessionId: string): Promise<number> {
 /** The worst interaction latency across opening the menu, switching theme and moving between screens. */
 async function interactionToNextPaint(page: Page): Promise<number> {
   const cdp = await measured(page, "/");
-  await expect(page.getByRole("heading", { name: "Home" })).toBeAttached();
+  await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
   await page.getByRole("button", { name: "Your account and settings" }).click();
   await page.getByRole("menuitemradio", { name: "Dark" }).click();
   await page.getByRole("button", { name: "Your account and settings" }).click();
@@ -213,6 +221,6 @@ async function interactionToNextPaint(page: Page): Promise<number> {
   await page.getByRole("link", { name: "Credit" }).first().click();
   await expect(page.getByRole("heading", { name: "Credit", level: 1 })).toBeVisible();
   await page.getByRole("link", { name: "Home" }).first().click();
-  await expect(page.getByRole("heading", { name: "Home" })).toBeAttached();
+  await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
   return finish(page, cdp);
 }

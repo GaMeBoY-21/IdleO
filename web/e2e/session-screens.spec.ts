@@ -109,6 +109,45 @@ test.describe("a session", () => {
     await capture(page, info, "session-finding");
   });
 
+  test("cancelled while finding its GPU: nothing charged", async ({ page }, info) => {
+    // On the real stack a free host takes a request within a second, so this is the screen's side; the control
+    // plane's tests cancel in every state that can be cancelled.
+    const cancelled: Session = {
+      ...data.finding,
+      state: "CANCELLED",
+      settled: true,
+      reservedPaise: 0,
+      endedAt: data.NOW.toISOString(),
+      events: [
+        ...data.finding.events,
+        { state: "CANCELLED", reason: "renter_cancelled", at: data.NOW.toISOString() },
+      ],
+    };
+    let cancelledNow = false;
+    await fakeApi(
+      page,
+      api(data.finding, {
+        "/v1/sessions/[^/]+/cancel": () => {
+          cancelledNow = true;
+          return { json: cancelled };
+        },
+        "/v1/sessions/[^/]+/events": () => snapshot(cancelledNow ? cancelled : data.finding),
+        "/v1/sessions/[^/]+": () => ({ json: cancelledNow ? cancelled : data.finding }),
+      }),
+    );
+    await signIn(page, "asha", open(data.finding));
+    await page.getByRole("button", { name: "Cancel request" }).click();
+    await expect(page.getByRole("heading", { name: "Cancelled" })).toBeVisible();
+    await expect(page.getByText("You cancelled it before it started.")).toBeVisible();
+    await expect(page.getByText("Nothing was charged")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Try again" })).toHaveAttribute(
+      "href",
+      /template=echo-input&from=/,
+    );
+    await expectAccessible(page);
+    await capture(page, info, "session-cancelled-while-finding");
+  });
+
   test("its GPU found, starting", async ({ page }, info) => {
     await fakeApi(page, api(data.found));
     await signIn(page, "asha", open(data.found));
@@ -185,7 +224,7 @@ test.describe("a session", () => {
     await capture(page, info, "session-no-host");
   });
 
-  test("cancelled while finding its GPU", async ({ page }, info) => {
+  test("cancelled before it started", async ({ page }, info) => {
     await fakeApi(page, api(data.cancelled));
     await signIn(page, "asha", open(data.cancelled));
     await expect(page.getByRole("heading", { name: "Cancelled" })).toBeVisible();

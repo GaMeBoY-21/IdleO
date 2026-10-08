@@ -668,16 +668,18 @@ assert reasons[-2:] == ["max_spend_reached", "stopped"], reasons' || fail "the c
   note "spending cap: COMPLETED after max_spend_reached and a final checkpoint; charged $charged paise (cap 6) for the minutes it ran: PASS"
 }
 
-# The web journeys (ADR 0018, web/e2e/journey.spec.ts), one after another on whichever host is free: Home
-# following a session booked through the API; on a laptop the whole booking (form, a 12 MiB upload, the
-# quote, the session live to settled, the output's SHA-256) and Run again; not enough credit; cancelling an
-# upload; the event stream dropping and coming back; and stopping a session on a phone.
+# The web journeys (ADR 0018, ADR 0021, web/e2e/journey.spec.ts), one after another on whichever host is
+# free: Home following a session booked through the API; on a laptop the whole request (a service, its
+# settings, a 12 MiB upload, the quote without a ceiling, Request a GPU, finding and found, the session live
+# to settled, the output's SHA-256, the server's ceiling and the hold it took) and Run again; no GPU free;
+# cancelling while finding; not enough credit; cancelling an upload; the event stream dropping and coming
+# back; and stopping a session on a phone.
 scenario_web() {
   E2E_WEB_USER="$web_user" E2E_JOURNEY_REPORT="$out/web-journey.json" SKIP_VISUAL=1 \
     web_test --project=journey --reporter=line >>"$out/web-journey.log" 2>&1 ||
     fail "the web journeys failed; see private/e2e/web-journey.log"
-  note "web journeys: $(grep -Eo '[0-9]+ passed' "$out/web-journey.log" | tail -1) (Home, booking on a laptop, Run again, not enough credit, cancelled upload, stream drop, stop on a phone): PASS"
-  note "web booking: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1])); print("Book to RUNNING %ss, upload %s MiB/s, hold quoted %d paise and held %d, charged %s (API %d paise), SHA-256 %s" % (n["bookToRunningSeconds"], n["uploadMiBPerSecond"], n["quotedHoldPaise"], n["heldWhileRunningPaise"], n["chargedOnScreen"], n["chargedByApiPaise"], "matches" if n["fileSha256"] == n["outputSha256"] else "DIFFERS"))' "$out/web-journey.json")"
+  note "web journeys: $(grep -Eo '[0-9]+ passed' "$out/web-journey.log" | tail -1) (Home, a request on a laptop, Run again, no GPU free, cancelled while finding, not enough credit, cancelled upload, stream drop, stop on a phone): PASS"
+  note "web request: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1])); print("Request a GPU to found %ss and to RUNNING %ss, upload %s MiB/s, ceiling chosen %d paise/min (highest fitting %s), hold quoted %d and held %d paise (30 min at the ceiling %d), charged %s (API %d paise), SHA-256 %s" % (n["requestToFoundSeconds"], n["requestToRunningSeconds"], n["uploadMiBPerSecond"], n["ceilingChosenPaisePerMin"], n["highestFittingPaisePerMin"], n["quotedHoldPaise"], n["heldWhileRunningPaise"], n["thirtyMinutesAtCeilingPaise"], n["chargedOnScreen"], n["chargedByApiPaise"], "matches" if n["fileSha256"] == n["outputSha256"] else "DIFFERS"))' "$out/web-journey.json")"
 }
 
 # The booking contract (ADR 0019), on its own host: upload, quote, book with parameters and the upload as the
