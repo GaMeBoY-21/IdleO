@@ -120,7 +120,8 @@ export function LogPanel({
           Download
         </button>
       </div>
-      <div className="relative flex min-h-panel flex-1 basis-0 flex-col">
+      {/* The scroller fills its box absolutely, so lines arriving never make the panels around it lay out again. */}
+      <div className="relative min-h-panel flex-1 basis-0">
         <div
           ref={scroller}
           role="region"
@@ -135,7 +136,7 @@ export function LogPanel({
               setAtBottom(bottom);
             }
           }}
-          className="flex-1 basis-0 overflow-auto font-mono text-caption focus-visible:outline-log-text"
+          className="absolute inset-0 overflow-auto font-mono text-caption focus-visible:outline-log-text"
           data-testid="log-panel"
         >
           {start > 0 && (
