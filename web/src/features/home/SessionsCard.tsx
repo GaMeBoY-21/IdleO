@@ -71,7 +71,15 @@ export function RecentCard({ sessions }: { sessions: Sessions }) {
             Sessions that have ended are listed here, with what each one cost.
           </EmptyState>
         ) : (
-          <SessionList sessions={recent.slice(0, RECENT_COUNT)} />
+          <div className="flex flex-col gap-3">
+            <SessionList sessions={recent.slice(0, RECENT_COUNT)} />
+            <Link
+              href="/sessions/?show=ended"
+              className="flex min-h-touch items-center self-start text-small font-medium text-accent-text"
+            >
+              See all sessions
+            </Link>
+          </div>
         )
       ) : sessions.isError ? (
         <ErrorState

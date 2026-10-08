@@ -17,19 +17,21 @@ import { NotFound } from "@/pages/NotFound";
 const screens = {
   credit: () => import("@/features/credit/CreditHistory"),
   session: () => import("@/features/session/SessionDetail"),
+  sessions: () => import("@/features/sessions/AllSessions"),
   book: () => import("@/features/book/Book"),
   finishSignIn: () => import("@/features/sign-in/FinishSignIn"),
   welcome: () => import("@/features/home/Welcome"),
 };
 
 const CreditHistory = lazy(() => screens.credit().then((module) => ({ default: module.CreditHistory })));
+const AllSessions = lazy(() => screens.sessions().then((module) => ({ default: module.AllSessions })));
 const SessionDetail = lazy(() => screens.session().then((module) => ({ default: module.SessionDetail })));
 const Book = lazy(() => screens.book().then((module) => ({ default: module.Book })));
 const FinishSignIn = lazy(() => screens.finishSignIn().then((module) => ({ default: module.FinishSignIn })));
 const Welcome = lazy(() => screens.welcome().then((module) => ({ default: module.Welcome })));
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
-const SIGNED_IN = /^\/(credit\/|session\/|book\/)?$/;
+const SIGNED_IN = /^\/(credit\/|session\/|sessions\/|book\/)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -54,6 +56,7 @@ function SignedInArea() {
             <Route path="/" component={Home} />
             <Route path="/credit/" component={CreditHistory} />
             <Route path="/session/" component={SessionDetail} />
+            <Route path="/sessions/" component={AllSessions} />
             <Route path="/book/" component={Book} />
           </Switch>
         </Suspense>

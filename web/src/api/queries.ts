@@ -124,6 +124,25 @@ export function useSessions() {
   });
 }
 
+export const SESSIONS_PAGE = 20;
+
+/** All sessions, active or ended, newest first, a page at a time; polled while any in view can still change. */
+export function useSessionPages(active: boolean) {
+  return useInfiniteQuery({
+    queryKey: keys.sessionsList(active),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      data(
+        api.GET("/v1/sessions", {
+          params: { query: { active, limit: SESSIONS_PAGE, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    getNextPageParam: (last) => last.nextCursor ?? null,
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((page) => page.sessions.some(isChanging)) ? SESSIONS_POLL_MS : false,
+  });
+}
+
 /** The wallet; `live` while a session's figures can change (isChanging), since holds and charges then change. */
 export function useWallet(live = false) {
   return useQuery({
