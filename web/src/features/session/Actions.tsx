@@ -97,10 +97,13 @@ export function ActionFoot({
   laptop,
   note,
   children,
+  atEnd = true,
 }: {
   laptop: boolean;
   note: ReactNode;
   children: ReactNode;
+  /** On a laptop, at the foot of the panel; false keeps it in the flow, under what's above it. */
+  atEnd?: boolean;
 }) {
   return (
     <div
@@ -108,7 +111,7 @@ export function ActionFoot({
       className={cn(
         "flex flex-col",
         laptop
-          ? "mt-auto gap-3 pt-2"
+          ? cn("gap-3", atEnd && "mt-auto pt-2")
           : "sticky bottom-0 z-10 -mx-4 mt-auto gap-2 border-t border-divider bg-ground px-4 pt-3 pb-5 md:-mx-6 md:px-6",
       )}
     >

@@ -168,6 +168,8 @@ export const layout = {
   menu: 256,
   /** Single-card screens: sign-in and welcome. */
   narrow: 384,
+  /** Book's price beside the GPU card ("≈ ₹5–8", "₹7.20–10.80/h"), reserved so it never moves as it arrives. */
+  price: 112,
   /** An amount in the header, reserved so the label beside it never moves: up to ₹9,999.99. */
   amount: "9ch",
 } as const;

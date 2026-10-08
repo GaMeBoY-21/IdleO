@@ -29,7 +29,7 @@ export function dataStop(template: Template, values: BookValues, file: ChosenFil
 
 /**
  * The laptop's right panel on Book (docs/design/redesign/book-laptop.html): the route from the data to the outputs,
- * then the chips: the price range per hour (from the quote), where it stops, and that it's charged per minute.
+ * then the chips: where it stops, that it's charged per minute, and the price range per hour (from the quote).
  */
 export function BookPanel({
   template,
@@ -50,11 +50,12 @@ export function BookPanel({
       runtime={aboutRuntime(template.typicalRuntimeSeconds)}
       chips={
         <>
+          {cap !== null && cap > 0 && <Chip className="tabular">Stops at {formatPaise(cap)}</Chip>}
+          <Chip>Charged per minute</Chip>
+          {/* Last, so the price arriving from the quote moves none of the others. */}
           {range && (
             <Chip className="tabular">{formatPaiseRange(range.min * 60, range.max * 60)} an hour</Chip>
           )}
-          {cap !== null && cap > 0 && <Chip className="tabular">Stops at {formatPaise(cap)}</Chip>}
-          <Chip>Charged per minute</Chip>
         </>
       }
     />

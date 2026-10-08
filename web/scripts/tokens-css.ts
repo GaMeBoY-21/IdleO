@@ -85,6 +85,7 @@ ${Object.entries(radii)
   --container-content: ${px(layout.content)};
   --container-menu: ${px(layout.menu)};
   --container-narrow: ${px(layout.narrow)};
+  --container-price: ${px(layout.price)};
   --container-amount: ${layout.amount};
   --ease-enter: ${motion.easing.enter};
   --ease-leave: ${motion.easing.leave};

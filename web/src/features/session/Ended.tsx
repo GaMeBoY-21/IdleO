@@ -45,6 +45,23 @@ export function Ended({
   const ran =
     session.startedAt && session.endedAt ? `ran ${formatDuration(session.startedAt, session.endedAt)}` : null;
 
+  const foot = (
+    <ActionFoot laptop={laptop} note={null} atEnd={!laptop}>
+      {done ? (
+        <>
+          <DownloadOutputs id={session.id} />
+          <Link href={bookFrom(session)} className={buttonClasses("outline", true, true)}>
+            Run again
+          </Link>
+        </>
+      ) : (
+        <Link href={bookFrom(session)} className={buttonClasses("primary", true, true)}>
+          Try again
+        </Link>
+      )}
+    </ActionFoot>
+  );
+
   return (
     <>
       <div className="flex flex-col gap-3">
@@ -79,22 +96,11 @@ export function Ended({
           </div>
         ))}
       <Charge session={session} />
-      {done && <Outputs id={session.id} />}
+      {/* A laptop's actions come before the outputs, so the list arriving moves nothing; a phone's stay in its bar. */}
+      {laptop && foot}
       {!laptop && session.startedAt && <Logs id={session.id} settled={session.settled} laptop={false} />}
-      <ActionFoot laptop={laptop} note={null}>
-        {done ? (
-          <>
-            <DownloadOutputs id={session.id} />
-            <Link href={bookFrom(session)} className={buttonClasses("outline", true, true)}>
-              Run again
-            </Link>
-          </>
-        ) : (
-          <Link href={bookFrom(session)} className={buttonClasses("primary", true, true)}>
-            Try again
-          </Link>
-        )}
-      </ActionFoot>
+      {done && <Outputs id={session.id} />}
+      {!laptop && foot}
     </>
   );
 }

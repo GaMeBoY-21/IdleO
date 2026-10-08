@@ -35,7 +35,7 @@ export function GpuCard({
     detail = "Finish your settings to see the price";
   } else if (quote.kind === "none-free") {
     title = "No GPU is free right now";
-    detail = `${memory} · we look again every 15 s`;
+    detail = laptop ? `${memory} · we look again every 15 s` : `${memory} · checked every 15 s`;
   } else if (quote.kind === "error") {
     detail =
       quote.error instanceof ApiError && quote.error.type === "/problems/validation-failed"
@@ -43,10 +43,19 @@ export function GpuCard({
         : "We couldn't get a price. Trying again…";
   } else if (quote.kind === "loading") {
     detail = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" />;
-    price = <SkeletonLine size="option" width="w-16" />;
+    // The estimate's line and the price's under it, as they'll load.
+    price = (
+      <>
+        <SkeletonLine size={laptop ? "option" : "body"} width="w-16" />
+        <SkeletonLine size={laptop ? "small" : "caption"} width="w-24" />
+      </>
+    );
   } else {
     const { hostsFitNow, pricePaisePerMin: range } = quote.quote;
-    detail = `${memory} · ${hostsFitNow} free now${laptop ? " · picked for you" : ""}`;
+    // One line on a phone, as its skeleton is, so nothing moves when it arrives.
+    detail = laptop
+      ? `${memory} · ${hostsFitNow} free now · picked for you`
+      : `${memory} · ${hostsFitNow} free`;
     if (range) {
       const perHour = formatPaiseRange(range.min * 60, range.max * 60);
       const estimate =
@@ -88,7 +97,7 @@ export function GpuCard({
           <div
             className={cn(
               "flex shrink-0 flex-col items-end gap-0.5 tabular",
-              laptop ? "text-small" : "text-caption",
+              laptop ? "w-price text-small" : "w-24 text-caption",
             )}
           >
             {price}
