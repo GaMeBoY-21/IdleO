@@ -135,8 +135,10 @@ async fn no_storage_credential_appears_in_the_logs() {
 
     server.send(start).await;
 
+    // Three upload tries (a refused connection takes seconds on Windows), then up to 10 s for the logs to flush
+    // to storage that's still down, before the terminal status goes out.
     server
-        .wait_until(Duration::from_secs(20), |r| statuses(r, 0).iter().any(|(_, s)| s.state() == SessionState::Failed))
+        .wait_until(Duration::from_secs(40), |r| statuses(r, 0).iter().any(|(_, s)| s.state() == SessionState::Failed))
         .await;
     let failed = statuses(&server.recorded(), 0).pop().unwrap().1;
     assert_eq!(failed.error.unwrap().code, "outputs_upload_failed");
