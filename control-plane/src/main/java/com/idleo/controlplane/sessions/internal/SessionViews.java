@@ -105,8 +105,7 @@ class SessionViews {
         var cost = costs == null ? SessionCosts.Cost.NONE : costs.of(session.id());
         var held = reservations.held(session.id());
         boolean ended = session.state().isFinal;
-        // A session that ran is settled once metering has closed it; one that never ran, once its hold is gone.
-        boolean settled = ended && held.isEmpty() && (session.startedAt() == null || cost.closed());
+        boolean settled = settled(session, held.isPresent(), cost);
         boolean matched = session.state() != SessionState.REQUESTED && session.hostId() != null;
         return new SessionResponse(
                 session.id(),
@@ -149,6 +148,20 @@ class SessionViews {
                         .forEach(name -> ordered.put(name, session.params().get(name))));
         session.params().forEach(ordered::putIfAbsent);
         return ordered;
+    }
+
+    /** Nothing about the session will change any more. */
+    boolean settled(SessionStore.Session session) {
+        var costs = this.costs.getIfAvailable();
+        return settled(
+                session,
+                reservations.held(session.id()).isPresent(),
+                costs == null ? SessionCosts.Cost.NONE : costs.of(session.id()));
+    }
+
+    /** A session that ran is settled once metering has closed it; one that never ran, once its hold is gone. */
+    private static boolean settled(SessionStore.Session session, boolean held, SessionCosts.Cost cost) {
+        return session.state().isFinal && !held && (session.startedAt() == null || cost.closed());
     }
 
     private @Nullable SessionGpu gpu(UUID sessionId) {

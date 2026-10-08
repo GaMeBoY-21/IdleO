@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.agentgateway.OfferReplies;
+import com.idleo.controlplane.agentgateway.SessionLogProgress;
 import com.idleo.controlplane.agentgateway.SessionReconciliation;
 import com.idleo.controlplane.agentgateway.SessionStatuses;
 import com.idleo.controlplane.agentgateway.UsageReports;
@@ -25,6 +26,7 @@ class AgentStreamServices implements DisposableBean {
     private final AgentCommandService commands;
     private final ObjectProvider<OfferReplies> offerReplies;
     private final ObjectProvider<SessionStatuses> sessionStatuses;
+    private final ObjectProvider<SessionLogProgress> logProgress;
     private final ObjectProvider<SessionReconciliation> reconciliation;
     private final ObjectProvider<UsageReports> usageReports;
     private final ObjectProvider<CommandDelivery> delivery;
@@ -49,6 +51,7 @@ class AgentStreamServices implements DisposableBean {
             AgentCommandService commands,
             ObjectProvider<OfferReplies> offerReplies,
             ObjectProvider<SessionStatuses> sessionStatuses,
+            ObjectProvider<SessionLogProgress> logProgress,
             ObjectProvider<SessionReconciliation> reconciliation,
             ObjectProvider<UsageReports> usageReports,
             ObjectProvider<CommandDelivery> delivery,
@@ -65,6 +68,7 @@ class AgentStreamServices implements DisposableBean {
         this.commands = commands;
         this.offerReplies = offerReplies;
         this.sessionStatuses = sessionStatuses;
+        this.logProgress = logProgress;
         this.reconciliation = reconciliation;
         this.usageReports = usageReports;
         this.delivery = delivery;
@@ -95,6 +99,11 @@ class AgentStreamServices implements DisposableBean {
     @Nullable
     OfferReplies offerReplies() {
         return offerReplies.getIfAvailable();
+    }
+
+    @Nullable
+    SessionLogProgress logProgress() {
+        return logProgress.getIfAvailable();
     }
 
     @Nullable

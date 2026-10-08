@@ -35,12 +35,15 @@ class SessionController {
     private final SessionOutputs outputs;
     private final SessionStore store;
     private final SessionViews views;
+    private final SessionLogs logs;
 
-    SessionController(SessionService sessions, SessionOutputs outputs, SessionStore store, SessionViews views) {
+    SessionController(
+            SessionService sessions, SessionOutputs outputs, SessionStore store, SessionViews views, SessionLogs logs) {
         this.sessions = sessions;
         this.outputs = outputs;
         this.store = store;
         this.views = views;
+        this.logs = logs;
     }
 
     /** @param nextCursor pass it back as {@code cursor} for the next page; null on the last one */
@@ -97,6 +100,45 @@ class SessionController {
     @GetMapping("/{id}/outputs")
     SessionOutputs.Outputs outputs(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return outputs.of(user.id(), id);
+    }
+
+    static final int LOG_PAGE = 20;
+    static final int MAX_LOG_PAGE = 100;
+
+    /** One chunk of a job's output, as uploaded by its agent. */
+    record LogChunk(int attempt, int seq, String text) {}
+
+    /**
+     * Some of a session's logs.
+     *
+     * @param nextCursor where to continue from, now or once more output arrives; null once complete
+     * @param complete the session is settled and every chunk has been returned: there will be no more
+     */
+    record SessionLogPage(List<LogChunk> chunks, @Nullable String nextCursor, boolean complete) {}
+
+    /**
+     * The job's output, oldest first: attempt, then seq, as UTF-8 text with invalid bytes replaced. Chunks are
+     * counted, not lines: {@code limit} is the most chunks returned, each at most 64 KiB. Only the renter reads them.
+     */
+    @GetMapping("/{id}/logs")
+    SessionLogPage logs(
+            @AuthenticationPrincipal CurrentUser user,
+            @PathVariable UUID id,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(defaultValue = "" + LOG_PAGE) int limit) {
+        var session = sessions.owned(user.id(), id);
+        var size = Cursors.limit(limit, MAX_LOG_PAGE);
+        // Settled first: a chunk reported after this read isn't missed, it's only next time's.
+        boolean settled = views.settled(session);
+        var after = cursor == null ? new int[] {1, 0} : Cursors.chunk(cursor);
+        var page = logs.page(id, after[0], after[1], size);
+        boolean complete = settled && !page.more();
+        return new SessionLogPage(
+                page.chunks().stream()
+                        .map(chunk -> new LogChunk(chunk.attempt(), chunk.seq(), chunk.text()))
+                        .toList(),
+                complete ? null : SessionLogs.cursorAfter(page, cursor),
+                complete);
     }
 
     record StopRequest(@Nullable Boolean checkpointFirst) {}

@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /** Validation of agent messages, following the proto comments ("Empty is invalid…"). */
@@ -102,6 +103,14 @@ final class AgentMessages {
                 return Optional.of("power_out_of_range");
             }
         }
+        for (var session : heartbeat.getSessionsList()) {
+            if (!isUuid(session.getSessionId()) || session.getAttempt() < 1) {
+                return Optional.of("invalid_running_session");
+            }
+            if (session.getLatestLogSeq() < 0) {
+                return Optional.of("log_seq_out_of_range");
+            }
+        }
         return Optional.empty();
     }
 
@@ -121,6 +130,9 @@ final class AgentMessages {
         }
         if (status.getLatestCheckpointSeq() < 0) {
             return Optional.of("latest_checkpoint_seq must not be negative");
+        }
+        if (status.getLatestLogSeq() < 0) {
+            return Optional.of("latest_log_seq must not be negative");
         }
         return Optional.empty();
     }
@@ -154,5 +166,14 @@ final class AgentMessages {
 
     private static @Nullable String blankToNull(String value) {
         return value.isBlank() ? null : value;
+    }
+
+    private static boolean isUuid(String value) {
+        try {
+            UUID.fromString(value);
+            return value.length() == 36;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 }

@@ -417,6 +417,43 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - session
+  /v1/sessions/{id}/logs:
+    get:
+      operationId: sessionLogs
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionLogPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - session
   /v1/sessions/{id}/outputs:
     get:
       operationId: sessionOutputs
@@ -1014,6 +1051,21 @@ components:
       - batchPricePaisePerMin
       - gpuTempCapC
       - maxConcurrentSessions
+    LogChunk:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        seq:
+          type: integer
+          format: int32
+        text:
+          type: string
+      required:
+      - attempt
+      - seq
+      - text
     MeResponse:
       type: object
       properties:
@@ -1319,6 +1371,22 @@ components:
             $ref: "#/components/schemas/SessionResponse"
       required:
       - sessions
+    SessionLogPage:
+      type: object
+      properties:
+        chunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogChunk"
+        complete:
+          type: boolean
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - chunks
+      - complete
     SessionResponse:
       type: object
       properties:

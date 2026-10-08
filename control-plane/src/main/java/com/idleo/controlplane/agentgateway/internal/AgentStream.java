@@ -348,6 +348,32 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             services.metrics().heartbeat("not_recorded");
         }
         recordSeenAtMostOncePerMinute();
+        reportLogProgress(heartbeat);
+    }
+
+    /** How far each running attempt's logs have uploaded (ADR 0019); a failure waits for the next heartbeat. */
+    private void reportLogProgress(Heartbeat heartbeat) {
+        var progress = services.logProgress();
+        if (progress == null) {
+            return;
+        }
+        for (var running : heartbeat.getSessionsList()) {
+            if (running.getLatestLogSeq() <= 0) {
+                continue;
+            }
+            try {
+                progress.onLogProgress(
+                        hostId,
+                        UUID.fromString(running.getSessionId()),
+                        running.getAttempt(),
+                        running.getLatestLogSeq());
+            } catch (RuntimeException e) {
+                log.warn(
+                        "Couldn't record log progress for session {}; the next heartbeat carries it",
+                        running.getSessionId(),
+                        e);
+            }
+        }
     }
 
     private void recordSeenAtMostOncePerMinute() {

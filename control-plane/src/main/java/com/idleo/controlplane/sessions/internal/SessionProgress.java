@@ -50,6 +50,7 @@ class SessionProgress implements SessionStatuses {
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final Checkpoints checkpoints;
+    private final SessionLogs logs;
     private final Duration outputsWait;
 
     SessionProgress(
@@ -62,6 +63,7 @@ class SessionProgress implements SessionStatuses {
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             Checkpoints checkpoints,
+            SessionLogs logs,
             @Value("${sessions.outputs-wait}") Duration outputsWait) {
         this.store = store;
         this.stops = stops;
@@ -72,6 +74,7 @@ class SessionProgress implements SessionStatuses {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.checkpoints = checkpoints;
+        this.logs = logs;
         this.outputsWait = outputsWait;
     }
 
@@ -82,6 +85,10 @@ class SessionProgress implements SessionStatuses {
     }
 
     private void apply(UUID hostId, UUID sessionId, SessionStatus status) {
+        if (status.getLatestLogSeq() > 0) {
+            // Logs count from any attempt of the session that ran on this host, the last status of a replaced one too.
+            logs.raise(hostId, sessionId, status.getAttempt(), status.getLatestLogSeq());
+        }
         var session = store.lock(sessionId).orElse(null);
         if (session == null || !hostId.equals(session.hostId()) || session.attempt() != status.getAttempt()) {
             log.info(
