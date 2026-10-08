@@ -37,7 +37,7 @@ class SessionStarts implements SessionCredentials {
 
     private final JdbcClient jdbc;
     private final AgentCommands commands;
-    private final TemplateCatalog catalog;
+    private final SessionJobs jobs;
     private final StorageGrants grants;
     private final SessionStorage storage;
     private final LeaseProperties leases;
@@ -49,7 +49,7 @@ class SessionStarts implements SessionCredentials {
     SessionStarts(
             JdbcClient jdbc,
             AgentCommands commands,
-            TemplateCatalog catalog,
+            SessionJobs jobs,
             StorageGrants grants,
             SessionStorage storage,
             LeaseProperties leases,
@@ -59,7 +59,7 @@ class SessionStarts implements SessionCredentials {
             Checkpoints checkpoints) {
         this.jdbc = jdbc;
         this.commands = commands;
-        this.catalog = catalog;
+        this.jobs = jobs;
         this.grants = grants;
         this.storage = storage;
         this.leases = leases;
@@ -73,8 +73,8 @@ class SessionStarts implements SessionCredentials {
     @Transactional(propagation = Propagation.MANDATORY)
     void queue(SessionStore.Session session, String gpuUuid) {
         var hostId = Objects.requireNonNull(session.hostId(), "an accepted session has a host");
-        var template = catalog.find(session.templateId())
-                .orElseThrow(() -> new IllegalStateException("No template " + session.templateId()));
+        var spec =
+                jobs.spec(session).orElseThrow(() -> new IllegalStateException("No template " + session.templateId()));
         var commandId = ids.newId();
         int minuteIndexBase = minuteIndexBase(session);
         var resumeFrom = session.attempt() == 1 ? null : newestCompleteCheckpoint(session.id(), session.attempt());
@@ -100,11 +100,11 @@ class SessionStarts implements SessionCredentials {
                 .setSessionId(session.id().toString())
                 .setCommandId(commandId.toString())
                 .setAttempt(session.attempt())
-                .setSpec(SessionSpecs.batch(
-                        template, session.vramNeededMb(), Duration.ofSeconds(session.maxRuntimeSeconds())))
+                .setSpec(spec)
                 .setLeaseTtl(SessionSpecs.duration(leases.ttl()))
                 .setMinuteIndexBase(minuteIndexBase)
                 .addGpuUuids(gpuUuid);
+        jobs.inputRef(session).ifPresent(start::setInput);
         if (resumeFrom != null) {
             start.setResumeFrom(CheckpointRef.newBuilder()
                     .setPrefix(StorageLayout.checkpointsPrefix(session.id(), resumeFrom.attempt()))
@@ -178,13 +178,17 @@ class SessionStarts implements SessionCredentials {
                 current.get().resumeSeq()));
     }
 
-    /** Fresh grants for the attempt: its own folder, and its input and resume checkpoint to read. */
+    /** Fresh grants for the attempt: its own folder, and its uploaded input and resume checkpoint to read. */
     private Credentials credentials(
             UUID sessionId, int attempt, @Nullable Integer resumeAttempt, @Nullable Integer resumeSeq) {
         var resumeFrom = resumeAttempt == null || resumeSeq == null
                 ? null
                 : new StorageGrants.ResumeFrom(resumeAttempt, resumeSeq);
-        var minted = grants.mint(sessionId, attempt, resumeFrom, storage.hasAny(StorageLayout.inputPrefix(sessionId)));
+        var inputPrefix = store.find(sessionId)
+                .flatMap(jobs::input)
+                .map(UploadStore.Upload::prefix)
+                .orElse(null);
+        var minted = grants.mint(sessionId, attempt, resumeFrom, inputPrefix);
         var credentials = Credentials.newBuilder().setAttemptGrant(message(minted.attemptGrant()));
         if (minted.readGrant() != null) {
             credentials.setReadGrant(message(minted.readGrant()));

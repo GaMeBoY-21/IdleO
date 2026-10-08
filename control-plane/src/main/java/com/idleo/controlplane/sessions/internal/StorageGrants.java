@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>{@code attempt_grant}: read-write on {@code sessions/{id}/attempt-{n}/} only;
- *   <li>{@code read_grant}: read-only on the session's input and the resume checkpoint's folder; absent when
- *       there's neither.
+ *   <li>{@code read_grant}: read-only on the session's uploaded input's folder ({@code uploads/{id}/}) and the
+ *       resume checkpoint's folder; absent when there's neither.
  * </ul>
  */
 @Component
@@ -30,11 +30,11 @@ class StorageGrants {
     /** A checkpoint to resume from: the attempt that wrote it and its seq. */
     record ResumeFrom(int attempt, int seq) {}
 
-    AttemptGrants mint(UUID sessionId, int attempt, @Nullable ResumeFrom resumeFrom, boolean hasInput) {
+    AttemptGrants mint(UUID sessionId, int attempt, @Nullable ResumeFrom resumeFrom, @Nullable String inputPrefix) {
         var attemptGrant = issuer.issue(java.util.List.of(StorageLayout.attemptPrefix(sessionId, attempt)), true);
         var readPrefixes = new ArrayList<String>();
-        if (hasInput) {
-            readPrefixes.add(StorageLayout.inputPrefix(sessionId));
+        if (inputPrefix != null) {
+            readPrefixes.add(inputPrefix);
         }
         if (resumeFrom != null) {
             readPrefixes.add(StorageLayout.checkpointFolder(sessionId, resumeFrom.attempt(), resumeFrom.seq()));

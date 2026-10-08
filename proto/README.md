@@ -129,8 +129,10 @@ Sources:
 Jobs move data through S3-compatible object storage (R2 today). There are no pre-signed URLs. Each attempt gets short-lived credentials (`StorageGrant`), scoped to prefixes and enforced by storage, and the control plane refreshes them with `RefreshCredentials`. One bucket holds:
 
 ```
+uploads/{upload_id}/
+  {name}                     a renter's upload, a session's input (ADR 0019);
+                             agents can only read it, through the read grant
 sessions/{session_id}/
-  input/                     the job's input; agents can only read it
   attempt-{n}/               one folder per attempt; only attempt n can write here
     checkpoints/
       {seq}/                 one folder per checkpoint, seq = 1, 2, 3 ...,
@@ -139,7 +141,12 @@ sessions/{session_id}/
     outputs/
       ...
       _COMPLETE              completion marker, written last
+    logs/
+      {seq}.log              the job's output, one chunk each, seq = 1, 2, 3 ...,
+                             written as 8 zero-padded digits (00000001.log)
 ```
+
+The control plane writes `uploads/` itself, through pre-signed multipart links the renter's client PUTs to; nothing an agent holds can write there. An upload belongs to its renter, not to one session, so the same file can be several sessions' input.
 
 ### Grants
 
@@ -148,7 +155,7 @@ Each attempt gets exactly two grants, inside `Credentials`:
 | Grant | Permission | Prefixes |
 | --- | --- | --- |
 | `attempt_grant` | read-write | `sessions/{session_id}/attempt-{n}/` |
-| `read_grant` | read-only | `sessions/{session_id}/input/` and the folder of `StartSession.resume_from`, if any |
+| `read_grant` | read-only | `uploads/{upload_id}/`, the folder of `StartSession.input`, and the folder of `StartSession.resume_from`, if any; absent when there's neither |
 
 An attempt can't write its input or another attempt's folder. That's fencing enforced by storage, not just by the agent behaving.
 
@@ -172,6 +179,14 @@ An attempt can't write its input or another attempt's folder. That's fencing enf
 **Outputs**
 - A job's outputs are complete only when `outputs/_COMPLETE` exists.
 - The agent reports `SESSION_STATE_SUCCEEDED` only after writing it.
+
+**Inputs** (ADR 0019)
+- `StartSession.input` names an uploaded input: its folder, its file name and its size. The agent downloads it into the attempt's scratch folder, `input/{name}`, while PREPARING, before minute 0, checks its size, and tries 3 times before failing the attempt with `input_unavailable`. It does this itself, not the runner, so every runner gets it; an attempt on another host stages it again from storage.
+- A URL input is never in `StartSession`: it's only `SESSION_INPUT_URL` in `SessionSpec.env`, and the job fetches it inside its sandbox, where private networks are blocked. The agent runs outside the sandbox and could reach the host's home network, so it never fetches a renter's URL.
+
+**Logs** (ADR 0019)
+- The agent uploads the job's output in chunks through `attempt_grant`, every 5 seconds or every 64 KiB, at most 10 MiB per attempt, and never lets a log upload block, slow or fail the job.
+- `RunningSession.latest_log_seq` (in heartbeats) and `SessionStatus.latest_log_seq` report the highest chunk uploaded. The control plane keeps it per attempt, only ever raises it, and reads only the chunks it names, so it never lists storage. The last chunk is flushed before the terminal status is sent.
 
 **Downloads**
 - The input is read through `read_grant`, not a separate URL. The read grant is needed for resume anyway, so each job uses one storage mechanism, not two.

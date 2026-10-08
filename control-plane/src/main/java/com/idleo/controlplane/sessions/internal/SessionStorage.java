@@ -54,14 +54,6 @@ class SessionStorage {
                 .map(object -> object.lastModified());
     }
 
-    /** Whether anything is stored under {@code prefix}. */
-    boolean hasAny(String prefix) {
-        return !s3.listObjectsV2(request ->
-                        request.bucket(properties.bucket()).prefix(prefix).maxKeys(1))
-                .contents()
-                .isEmpty();
-    }
-
     List<StoredObject> list(String prefix) {
         var objects = new ArrayList<StoredObject>();
         for (var page : s3.listObjectsV2Paginator(

@@ -34,6 +34,9 @@ final class SessionTestData {
                         0,
                         now,
                         null,
+                        null,
+                        java.util.Map.of(),
+                        null,
                         null)));
         return id;
     }

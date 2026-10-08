@@ -2,9 +2,14 @@ package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.hosts.HostGpus;
+import com.idleo.controlplane.sessions.CreateSessionRequest;
 import com.idleo.controlplane.sessions.SessionCosts;
+import com.idleo.controlplane.sessions.Template;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
@@ -23,24 +28,31 @@ class SessionViews {
     private final ObjectProvider<SessionCosts> costs;
     private final HostGpus gpus;
     private final JdbcClient jdbc;
+    private final TemplateCatalog catalog;
 
     SessionViews(
             SessionStore store,
             CreditReservations reservations,
             ObjectProvider<SessionCosts> costs,
             HostGpus gpus,
-            JdbcClient jdbc) {
+            JdbcClient jdbc,
+            TemplateCatalog catalog) {
         this.store = store;
         this.reservations = reservations;
         this.costs = costs;
         this.gpus = gpus;
         this.jdbc = jdbc;
+        this.catalog = catalog;
     }
 
     record EventResponse(String state, String reason, Instant at) {}
 
     /** The GPU that runs or ran the session's current or latest attempt: its model and memory, never the host. */
     record SessionGpu(String model, int vramMb) {}
+
+    /** The job's input: an upload of the renter's, or an https URL the job fetches itself. */
+    record SessionInputView(
+            @Nullable UUID uploadId, @Nullable String url) {}
 
     /** A complete checkpoint: its marker is in storage, written at {@code completedAt} on storage's clock. */
     record SessionCheckpoint(int attempt, int seq, Instant completedAt) {}
@@ -56,6 +68,8 @@ class SessionViews {
      * @param endedAt when it reached its final state
      * @param gpu the GPU of its current or latest attempt; null before a host accepted it
      * @param checkpoints its complete checkpoints, oldest first
+     * @param params its parameters, with the template's defaults filled in
+     * @param input the file it reads; null if it reads none
      */
     record SessionResponse(
             UUID id,
@@ -79,7 +93,12 @@ class SessionViews {
             @Nullable Instant startedAt,
             @Nullable Instant endedAt,
             @Nullable SessionGpu gpu,
-            List<SessionCheckpoint> checkpoints) {}
+            List<SessionCheckpoint> checkpoints,
+
+            @Schema(additionalPropertiesSchema = CreateSessionRequest.ParamValue.class)
+            Map<String, Object> params,
+
+            @Nullable SessionInputView input) {}
 
     SessionResponse of(SessionStore.Session session) {
         var costs = this.costs.getIfAvailable();
@@ -113,7 +132,23 @@ class SessionViews {
                 session.startedAt(),
                 ended ? session.stateChangedAt() : null,
                 gpu(session.id()),
-                checkpoints(session.id()));
+                checkpoints(session.id()),
+                params(session),
+                session.inputUploadId() == null && session.inputUrl() == null
+                        ? null
+                        : new SessionInputView(session.inputUploadId(), session.inputUrl()));
+    }
+
+    /** The session's parameters in its template's order. */
+    private Map<String, Object> params(SessionStore.Session session) {
+        var ordered = new LinkedHashMap<String, Object>();
+        catalog.find(session.templateId())
+                .ifPresent(template -> template.params().stream()
+                        .map(Template.Param::name)
+                        .filter(session.params()::containsKey)
+                        .forEach(name -> ordered.put(name, session.params().get(name))));
+        session.params().forEach(ordered::putIfAbsent);
+        return ordered;
     }
 
     private @Nullable SessionGpu gpu(UUID sessionId) {

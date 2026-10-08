@@ -2,14 +2,12 @@ package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.sessions.CreateSessionRequest;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -43,13 +41,6 @@ class SessionController {
         this.views = views;
     }
 
-    record CreateSessionRequest(
-            @NotBlank String templateId,
-            @NotNull @Min(1) Integer maxPricePaisePerMin,
-            @NotNull @Min(1) Long maxSpendPaise,
-            @Nullable @Min(1) Integer vramNeededMb,
-            @Nullable @Min(1) Integer maxRuntimeSeconds) {}
-
     record SessionList(List<SessionViews.SessionResponse> sessions) {}
 
     @PostMapping
@@ -67,15 +58,7 @@ class SessionController {
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
             @Valid @RequestBody CreateSessionRequest request) {
         var key = IdempotentRequests.parseKey(idempotencyKey);
-        var created = sessions.create(
-                user.id(),
-                key,
-                new SessionService.Request(
-                        request.templateId(),
-                        request.maxPricePaisePerMin(),
-                        request.maxSpendPaise(),
-                        request.vramNeededMb(),
-                        request.maxRuntimeSeconds()));
+        var created = sessions.create(user.id(), key, request);
         var body = view(created.session());
         return created.created()
                 ? ResponseEntity.created(URI.create("/v1/sessions/" + body.id()))

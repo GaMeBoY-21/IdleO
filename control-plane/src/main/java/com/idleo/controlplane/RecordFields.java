@@ -8,12 +8,14 @@ import io.swagger.v3.oas.models.media.Schema;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Tells the API contract which fields of a request or response record are always there (ADR 0018). A record
  * component is required unless it's annotated {@code @Nullable}; a nullable one is optional, and its type allows
- * {@code null}. Without this every field would be optional, and the web app's generated types would hide a
+ * {@code null}; a nullable reference to another schema is {@code oneOf} that schema or {@code null}. Without this every field would be optional, and the web app's generated types would hide a
  * missing field instead of failing its type check.
  */
 final class RecordFields implements ModelConverter {
@@ -43,7 +45,16 @@ final class RecordFields implements ModelConverter {
                 continue;
             }
             if (component.getAnnotatedType().isAnnotationPresent(Nullable.class)) {
-                allowNull(property);
+                if (property.get$ref() != null) {
+                    // A nullable reference: either the referenced schema or null.
+                    var orNull = new Schema<>();
+                    orNull.setOneOf(
+                            List.of(new Schema<>().$ref(property.get$ref()), new Schema<>().types(Set.of("null"))));
+                    orNull.setDescription(property.getDescription());
+                    model.getProperties().put(component.getName(), orNull);
+                } else {
+                    allowNull(property);
+                }
             } else {
                 required.add(component.getName());
             }

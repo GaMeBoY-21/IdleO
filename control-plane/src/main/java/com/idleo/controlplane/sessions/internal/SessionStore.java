@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -20,6 +21,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Session rows and the one way their state changes: {@link #transition}, which checks the table of allowed
@@ -62,7 +65,24 @@ class SessionStore {
             int version,
             Instant createdAt,
             @Nullable Instant startedAt,
-            @Nullable String errorCode) {}
+            @Nullable String errorCode,
+            Map<String, Object> params,
+            @Nullable UUID inputUploadId,
+            @Nullable String inputUrl) {
+
+        Session {
+            params = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(params));
+        }
+    }
+
+    /**
+     * Parameters as JSON in {@code sessions.params}, read back as they were checked: whole numbers as Long, others as
+     * BigDecimal, never a double that would print differently.
+     */
+    private static final JsonMapper PARAMS = JsonMapper.builder()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .enable(DeserializationFeature.USE_LONG_FOR_INTS)
+            .build();
 
     record Event(@Nullable String fromState, String toState, String reason, Instant at) {}
 
@@ -98,9 +118,11 @@ class SessionStore {
                         insert into sessions.sessions
                             (id, renter_id, host_id, type, state, attempt, template_id, image_digest, vram_needed_mb,
                              max_price_paise_per_min, price_paise_per_min, max_spend_paise, max_runtime_seconds,
-                             idempotency_key, request_hash, state_changed_at, version, created_at)
+                             idempotency_key, request_hash, state_changed_at, version, created_at, params,
+                             input_upload_id, input_url)
                         values (:id, :renterId, null, :type, :state, 1, :templateId, :image, :vram,
-                                :maxPrice, null, :maxSpend, :maxRuntime, :key, :hash, :now, 0, :now)
+                                :maxPrice, null, :maxSpend, :maxRuntime, :key, :hash, :now, 0, :now,
+                                cast(:params as jsonb), :inputUploadId, :inputUrl)
                         on conflict (renter_id, idempotency_key) do nothing
                         """)
                 .param("id", session.id())
@@ -116,6 +138,9 @@ class SessionStore {
                 .param("key", session.idempotencyKey())
                 .param("hash", session.requestHash())
                 .param("now", Timestamp.from(session.createdAt()))
+                .param("params", PARAMS.writeValueAsString(session.params()))
+                .param("inputUploadId", session.inputUploadId())
+                .param("inputUrl", session.inputUrl())
                 .update();
         if (inserted == 1) {
             event(session.id(), null, session.state(), "requested", session.createdAt());
@@ -299,7 +324,15 @@ class SessionStore {
                 rs.getInt("version"),
                 rs.getTimestamp("created_at").toInstant(),
                 instant(rs, "started_at"),
-                rs.getString("error_code"));
+                rs.getString("error_code"),
+                params(rs.getString("params")),
+                rs.getObject("input_upload_id", UUID.class),
+                rs.getString("input_url"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> params(@Nullable String json) {
+        return json == null ? Map.of() : PARAMS.readValue(json, java.util.LinkedHashMap.class);
     }
 
     private static @Nullable Instant instant(ResultSet rs, String column) throws SQLException {

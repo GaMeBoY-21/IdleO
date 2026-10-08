@@ -5,8 +5,10 @@ import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.billing.CreditReservations;
+import com.idleo.controlplane.sessions.CreateSessionRequest;
 import com.idleo.controlplane.sessions.SessionCancelled;
 import com.idleo.controlplane.sessions.SessionRequested;
+import com.idleo.controlplane.sessions.SessionRequests;
 import gpu.agent.v1.Session.StopReason;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -15,7 +17,6 @@ import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -28,7 +29,7 @@ class SessionService {
     private final SessionStore store;
     private final SessionStops stops;
     private final RunningStops runningStops;
-    private final TemplateCatalog catalog;
+    private final SessionRequests checks;
     private final CreditReservations reservations;
     private final SessionHolds holds;
     private final ApplicationEventPublisher events;
@@ -39,7 +40,7 @@ class SessionService {
             SessionStore store,
             SessionStops stops,
             RunningStops runningStops,
-            TemplateCatalog catalog,
+            SessionRequests checks,
             CreditReservations reservations,
             SessionHolds holds,
             ApplicationEventPublisher events,
@@ -48,20 +49,13 @@ class SessionService {
         this.store = store;
         this.stops = stops;
         this.runningStops = runningStops;
-        this.catalog = catalog;
+        this.checks = checks;
         this.reservations = reservations;
         this.holds = holds;
         this.events = events;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
     }
-
-    record Request(
-            String templateId,
-            int maxPricePaisePerMin,
-            long maxSpendPaise,
-            @Nullable Integer vramNeededMb,
-            @Nullable Integer maxRuntimeSeconds) {}
 
     /** The session, and whether this call created it ({@code false}: a repeat of the same request). */
     record Created(SessionStore.Session session, boolean created) {}
@@ -72,24 +66,18 @@ class SessionService {
      * their maximum price, capped at their maximum spend). The same key with the same request returns the
      * session it created; with a different request it's refused.
      */
-    Created create(UUID renterId, String idempotencyKey, Request request) {
-        var template = catalog.find(request.templateId())
-                .orElseThrow(
-                        () -> ApiProblem.invalid("templateId", "There is no template " + request.templateId() + "."));
-        int vram = request.vramNeededMb() == null ? template.minVramMb() : request.vramNeededMb();
-        if (vram < template.minVramMb()) {
-            throw ApiProblem.invalid(
-                    "vramNeededMb", "must be at least the template's " + template.minVramMb() + " MB.");
-        }
-        var maxRuntime = request.maxRuntimeSeconds() == null
-                ? template.defaultMaxRuntime()
-                : Duration.ofSeconds(request.maxRuntimeSeconds());
-        if (maxRuntime.compareTo(template.maxRuntimeCap()) > 0) {
-            throw ApiProblem.invalid(
-                    "maxRuntimeSeconds",
-                    "must be at most the template's " + template.maxRuntimeCap().toSeconds() + " seconds.");
-        }
-        var hash = hash(request.templateId(), request.maxPricePaisePerMin(), request.maxSpendPaise(), vram, maxRuntime);
+    Created create(UUID renterId, String idempotencyKey, CreateSessionRequest request) {
+        var checked = checks.check(renterId, request);
+        var template = checked.template();
+        int vram = checked.vramNeededMb();
+        var maxRuntime = checked.maxRuntime();
+        var hash = hash(
+                request.templateId(),
+                request.maxPricePaisePerMin(),
+                request.maxSpendPaise(),
+                vram,
+                maxRuntime,
+                checked);
         return Objects.requireNonNull(transactions.execute(status -> {
             var existing = store.findByKey(renterId, idempotencyKey);
             if (existing.isPresent()) {
@@ -124,7 +112,10 @@ class SessionService {
                     0,
                     now,
                     null,
-                    null);
+                    null,
+                    checked.params(),
+                    checked.inputUploadId(),
+                    checked.inputUrl());
             if (!store.insert(session)) {
                 // A concurrent request with the same key got there first.
                 return repeat(store.findByKey(renterId, idempotencyKey).orElseThrow(), hash);
@@ -206,14 +197,30 @@ class SessionService {
                 .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "No such session."));
     }
 
-    private static String hash(String templateId, int maxPrice, long maxSpend, int vram, Duration maxRuntime) {
+    /** The request's fingerprint: what it books, its resolved parameters and its input. */
+    private static String hash(
+            String templateId,
+            int maxPrice,
+            long maxSpend,
+            int vram,
+            Duration maxRuntime,
+            SessionRequests.Checked checked) {
+        var params = new StringBuilder();
+        checked.params()
+                .forEach((name, value) -> params.append(name)
+                        .append('=')
+                        .append(SessionParams.render(value))
+                        .append('\u0000'));
         var canonical = String.join(
                 "|",
                 templateId,
                 Integer.toString(maxPrice),
                 Long.toString(maxSpend),
                 Integer.toString(vram),
-                Long.toString(maxRuntime.toSeconds()));
+                Long.toString(maxRuntime.toSeconds()),
+                params,
+                String.valueOf(checked.inputUploadId()),
+                String.valueOf(checked.inputUrl()));
         try {
             return HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));

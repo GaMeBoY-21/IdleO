@@ -10,11 +10,13 @@ final class SessionSpecs {
 
     private SessionSpecs() {}
 
-    static SessionSpec batch(Template template, int vramNeededMb, java.time.Duration maxRuntime) {
+    static SessionSpec batch(
+            Template template, int vramNeededMb, java.time.Duration maxRuntime, java.util.Map<String, String> env) {
         return SessionSpec.newBuilder()
                 .setType(SessionType.SESSION_TYPE_BATCH)
                 .setImage(template.image())
                 .addAllArgs(template.args())
+                .putAllEnv(env)
                 .setVramNeededMb(vramNeededMb)
                 .setMemoryMb(template.memoryMb())
                 .setCpuMillicores(template.cpuMillicores())

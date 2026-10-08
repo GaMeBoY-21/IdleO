@@ -172,6 +172,9 @@ sessions:
   # A session accepted by its host but not RUNNING within this fails with
   # start_timeout, its hold released (ADR 0015).
   provisioning-timeout: 3m
+  # An uploaded input is staged before the job starts (ADR 0019), so the
+  # timeout grows by its size at this rate: home internet, about 4 MB/s.
+  input-staging-rate: 4MB
   provisioning-sweep-interval: 1s
   # Leases (ADR 0016): every running attempt holds one, 2 minutes for batch
   # (technical design "Design principles"), counted by the agent from receipt.

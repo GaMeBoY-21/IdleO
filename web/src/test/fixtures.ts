@@ -40,6 +40,8 @@ export function session(overrides: Partial<Session> = {}): Session {
     startedAt: "2026-10-07T06:30:05Z",
     endedAt: null,
     gpu: { model: "NVIDIA GeForce RTX 4080 Laptop GPU", vramMb: 12_282 },
+    params: {},
+    input: null,
     checkpoints: [],
     events: [
       { state: "REQUESTED", reason: "requested", at: "2026-10-07T06:30:00Z" },

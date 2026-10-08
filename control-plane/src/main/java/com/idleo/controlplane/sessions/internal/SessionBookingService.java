@@ -1,7 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.sessions.SessionBookings;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -18,15 +17,15 @@ import org.springframework.transaction.annotation.Transactional;
 class SessionBookingService implements SessionBookings {
 
     private final SessionStore store;
-    private final TemplateCatalog catalog;
+    private final SessionJobs jobs;
     private final SessionStarts starts;
     private final SessionHolds holds;
     private final JdbcClient jdbc;
 
     SessionBookingService(
-            SessionStore store, TemplateCatalog catalog, SessionStarts starts, SessionHolds holds, JdbcClient jdbc) {
+            SessionStore store, SessionJobs jobs, SessionStarts starts, SessionHolds holds, JdbcClient jdbc) {
         this.store = store;
-        this.catalog = catalog;
+        this.jobs = jobs;
         this.starts = starts;
         this.holds = holds;
         this.jdbc = jdbc;
@@ -40,17 +39,14 @@ class SessionBookingService implements SessionBookings {
     @Override
     public Optional<BookingRequest> bookingRequest(UUID sessionId) {
         return store.find(sessionId)
-                .flatMap(session -> catalog.find(session.templateId())
-                        .map(template -> new BookingRequest(
+                .flatMap(session -> jobs.spec(session)
+                        .map(spec -> new BookingRequest(
                                 session.id(),
                                 session.renterId(),
                                 session.state().name(),
                                 session.version(),
                                 session.attempt(),
-                                SessionSpecs.batch(
-                                        template,
-                                        session.vramNeededMb(),
-                                        Duration.ofSeconds(session.maxRuntimeSeconds())),
+                                spec,
                                 session.vramNeededMb(),
                                 session.maxPricePaisePerMin(),
                                 session.maxSpendPaise())));

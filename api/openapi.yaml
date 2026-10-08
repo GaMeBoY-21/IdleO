@@ -687,6 +687,10 @@ components:
     CreateSessionRequest:
       type: object
       properties:
+        input:
+          oneOf:
+          - $ref: "#/components/schemas/SessionInput"
+          - type: "null"
         maxPricePaisePerMin:
           type: integer
           format: int32
@@ -701,6 +705,14 @@ components:
           type: integer
           format: int64
           minimum: 1
+        params:
+          type:
+          - object
+          - "null"
+          additionalProperties:
+            $ref: "#/components/schemas/ParamValue"
+          description: "The template's parameters by name: strings, numbers and booleans.\
+            \ Never put secrets here."
         templateId:
           type: string
           minLength: 1
@@ -858,7 +870,9 @@ components:
           - "null"
           format: date-time
         listing:
-          $ref: "#/components/schemas/Listing"
+          oneOf:
+          - $ref: "#/components/schemas/Listing"
+          - type: "null"
         name:
           type: string
         online:
@@ -1016,6 +1030,12 @@ components:
       - files
       - linksExpireAt
       - sessionId
+    ParamValue:
+      type:
+      - string
+      - integer
+      - number
+      - boolean
     PartLinksRequest:
       type: object
       properties:
@@ -1120,6 +1140,30 @@ components:
       required:
       - model
       - vramMb
+    SessionInput:
+      type: object
+      properties:
+        uploadId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        url:
+          type:
+          - string
+          - "null"
+    SessionInputView:
+      type: object
+      properties:
+        uploadId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        url:
+          type:
+          - string
+          - "null"
     SessionList:
       type: object
       properties:
@@ -1162,7 +1206,9 @@ components:
           items:
             $ref: "#/components/schemas/EventResponse"
         gpu:
-          $ref: "#/components/schemas/SessionGpu"
+          oneOf:
+          - $ref: "#/components/schemas/SessionGpu"
+          - type: "null"
         hostId:
           type:
           - string
@@ -1171,6 +1217,10 @@ components:
         id:
           type: string
           format: uuid
+        input:
+          oneOf:
+          - $ref: "#/components/schemas/SessionInputView"
+          - type: "null"
         lowCredit:
           type: boolean
         maxPricePaisePerMin:
@@ -1182,6 +1232,10 @@ components:
         maxSpendPaise:
           type: integer
           format: int64
+        params:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ParamValue"
         pricePaisePerMin:
           type:
           - integer
@@ -1216,6 +1270,7 @@ components:
       - maxPricePaisePerMin
       - maxRuntimeSeconds
       - maxSpendPaise
+      - params
       - reservedPaise
       - settled
       - state

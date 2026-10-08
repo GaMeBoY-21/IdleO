@@ -58,6 +58,8 @@ const base: Session = {
   startedAt: "2026-10-07T06:12:00Z",
   endedAt: null,
   gpu: { model: "NVIDIA GeForce RTX 4080 Laptop GPU", vramMb: 12_282 },
+  params: {},
+  input: null,
   checkpoints: [{ attempt: 1, seq: 1, completedAt: "2026-10-07T06:22:00Z" }],
   events: [
     { state: "REQUESTED", reason: "requested", at: "2026-10-07T06:10:00Z" },
