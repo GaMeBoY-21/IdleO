@@ -64,7 +64,7 @@ describe("the shared components", () => {
         <StateChip state="SOMETHING_NEW" />
       </>,
     );
-    expect(screen.getByText("Moving to another host")).toBeInTheDocument();
+    expect(screen.getByText("Moving to another GPU")).toBeInTheDocument();
     expect(screen.getByText("Something new")).toBeInTheDocument();
   });
 

@@ -1,21 +1,21 @@
 /**
- * The renter's words for what the API reports (web/DESIGN.md "Voice"): a session's state, why it changed, and
+ * The renter's words for what the API reports (web/DESIGN.md "Voice"): a session's state, why it ended, and
  * what moved their credit. Codes the app doesn't know yet are shown readably rather than hidden.
  */
 
 export type Tone = "live" | "success" | "danger" | "warning" | "neutral";
 
 const STATES: Record<string, { label: string; tone: Tone }> = {
-  REQUESTED: { label: "Finding a host", tone: "live" },
-  MATCHED: { label: "Host found", tone: "live" },
+  REQUESTED: { label: "Finding your GPU", tone: "live" },
+  MATCHED: { label: "Finding your GPU", tone: "live" },
   PROVISIONING: { label: "Starting", tone: "live" },
   RUNNING: { label: "Running", tone: "live" },
-  HOST_LOST: { label: "Moving to another host", tone: "warning" },
-  FINISHING: { label: "Finishing", tone: "live" },
-  COMPLETED: { label: "Completed", tone: "success" },
+  HOST_LOST: { label: "Moving to another GPU", tone: "warning" },
+  FINISHING: { label: "Saving", tone: "live" },
+  COMPLETED: { label: "Done", tone: "success" },
   FAILED: { label: "Failed", tone: "danger" },
   CANCELLED: { label: "Cancelled", tone: "neutral" },
-  NO_HOST_FREE: { label: "No host was free", tone: "neutral" },
+  NO_HOST_FREE: { label: "No GPU was free", tone: "neutral" },
   ENDED_REFUNDED: { label: "Ended and refunded", tone: "neutral" },
 };
 
@@ -26,42 +26,6 @@ const readable = (code: string) => {
 
 export const sessionState = (state: string) =>
   STATES[state] ?? { label: readable(state), tone: "neutral" as Tone };
-
-const REASONS: Record<string, string> = {
-  requested: "You booked it",
-  matched: "A host accepted it",
-  offer_accepted: "The host is starting it",
-  running: "It started running",
-  renter_stopped: "You asked it to stop",
-  stopped: "It stopped after a last checkpoint",
-  credit_exhausted: "Your credit ran out",
-  max_spend_reached: "It reached your spending limit",
-  lease_lapsed: "The host lost contact",
-  host_lost: "The host lost contact",
-  rematch: "Looking for another host",
-  completed: "It finished and its outputs are saved",
-  succeeded: "It finished",
-  outputs_missing: "It finished without saving its outputs",
-  cancelled: "You cancelled it",
-  start_timeout: "The host didn't start it in time",
-  no_host_free: "No host was free",
-  oom_killed: "It ran out of memory",
-  job_failed: "It stopped with an error",
-  job_succeeded: "The job finished",
-  outputs_complete: "Its outputs are saved",
-  renter_cancelled: "You cancelled it",
-  lease_expired_on_host: "The host stopped it",
-  stopped_on_host: "The host's owner took the machine back",
-  missing_after_reconnect: "The host came back without it",
-  host_lost_repeatedly: "It lost its host too many times",
-  offers_exhausted: "No host accepted it",
-  no_candidate: "No host was free",
-  no_host_for_rematch: "No other host was free",
-  insufficient_credit: "There wasn't enough credit",
-  input_unavailable: "The host couldn't fetch the input",
-};
-
-export const eventReason = (reason: string) => REASONS[reason] ?? readable(reason);
 
 /** Why a session ended without completing, in plain words, and what to do next (product surface 3.2). */
 export interface Ending {
@@ -98,11 +62,11 @@ export const ENDINGS: Record<string, Ending> = {
   },
   start_timeout: { sentence: "The host didn't start it in time.", next: RUN_AGAIN },
   offers_exhausted: {
-    sentence: "No host that fits accepted it. Nothing was charged.",
+    sentence: "No host that fits accepted it.",
     next: "Run it again, or raise the most per hour so more hosts fit.",
   },
   no_candidate: {
-    sentence: "No host that fits was free. Nothing was charged.",
+    sentence: "No host that fits was free.",
     next: "Run it again in a while, or raise the most per hour so more hosts fit.",
   },
   no_host_for_rematch: {
@@ -110,7 +74,7 @@ export const ENDINGS: Record<string, Ending> = {
     next: "Run it again in a while; it starts from its last checkpoint if it saved one.",
   },
   insufficient_credit: {
-    sentence: "There wasn't enough credit to hold for it when a host was found. Nothing was charged.",
+    sentence: "There wasn't enough credit to hold for it when a host was found.",
     next: "Lower the most per hour or the spending cap, and book it again.",
   },
   credit_exhausted: {
@@ -122,11 +86,11 @@ export const ENDINGS: Record<string, Ending> = {
     next: "Run it again with a higher spending cap if it needs longer.",
   },
   renter_cancelled: {
-    sentence: "You cancelled it before it started. Nothing was charged.",
+    sentence: "You cancelled it before it started.",
     next: "Book it again when you're ready.",
   },
   input_unavailable: {
-    sentence: "The host couldn't fetch your input, so the job never started. Nothing was charged.",
+    sentence: "The host couldn't fetch your input, so the job never started.",
     next: "Check the file is still uploaded, or upload it again, and run it again.",
   },
   input_unreadable: {

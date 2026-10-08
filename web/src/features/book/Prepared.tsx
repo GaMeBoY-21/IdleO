@@ -1,7 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { useMemo, type ReactNode } from "react";
-import { api, data } from "@/api/client";
-import { useSession, type Template } from "@/api/queries";
+import { useSession, useUploadInfo, type Template } from "@/api/queries";
 import { BookForm, type BookFormProps } from "./BookForm";
 import { defaultValues, readDraft, valuesFrom } from "./form";
 import { readyFile } from "./useUpload";
@@ -25,12 +23,7 @@ export function Prepared({
   const draft = useMemo(() => (from === null ? readDraft(template.id) : null), [from, template.id]);
   const source = from !== null && earlier.data?.templateId === template.id ? earlier.data : null;
   const uploadId = source ? (source.input?.uploadId ?? null) : (draft?.upload?.id ?? null);
-  const upload = useQuery({
-    queryKey: ["upload", uploadId],
-    enabled: uploadId !== null,
-    queryFn: () => data(api.GET("/v1/uploads/{id}", { params: { path: { id: uploadId! } } })),
-    retry: false,
-  });
+  const upload = useUploadInfo(uploadId);
 
   if ((from !== null && earlier.isPending) || (uploadId !== null && upload.isPending)) {
     return fallback;

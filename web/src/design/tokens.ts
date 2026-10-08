@@ -143,8 +143,11 @@ export const spacing = {
   "18": 72,
   "24": 96,
   touch: 44,
-  /** The log panel's height on the session screen: about 24 lines. */
+  /** The log panel's least height on the session screen: about 21 lines. */
   panel: 384,
+  /** "Finding your GPU": the ring, and the grey disc around it. */
+  "finding-ring": 88,
+  finding: 168,
 } as const;
 
 /** 14 px for controls and options, 24 px for panels, 20 px for the top of a bottom sheet, round for pills. */

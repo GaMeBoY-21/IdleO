@@ -5,13 +5,13 @@ import { Banner } from "@/components/ui/Banner";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { TwoPanels } from "@/features/flow/TwoPanels";
+import { sessionTitle } from "@/features/flow/headline";
 import { YourSession } from "@/features/flow/YourSession";
-import { offeredServices, serviceOf } from "@/lib/catalog";
-import { gpuName } from "@/lib/gpu";
+import { offeredServices } from "@/lib/catalog";
 import { useLaptop } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { BookAgain } from "./BookAgain";
-import { headline, RunningBar } from "./RunningBar";
+import { RunningBar } from "./RunningBar";
 import { RunningPanel } from "./RunningPanel";
 import { ServiceTiles, ServiceTilesSkeleton } from "./ServiceTiles";
 
@@ -95,18 +95,19 @@ export function Home() {
     return <div className="flex flex-col gap-4.5 px-4 pt-1 pb-4 md:px-6 md:pt-6">{left}</div>;
   }
   const current = live[0];
-  // "Fine-tuning on an RTX 4080 Laptop" while it runs; before and after that, what it's doing.
-  const title =
-    current?.state === "RUNNING" && current.gpu
-      ? `${serviceOf(catalog, current.templateId)?.runningLabel ?? "Running"} on ${gpuName(current.gpu.model)}`
-      : current && headline(current, catalog);
   return (
     <TwoPanels
       left={left}
       rightLabel="Your session"
       right={
         current ? (
-          <RunningPanel session={current} title={title ?? ""} />
+          <RunningPanel
+            session={current}
+            title={sessionTitle(current, catalog)}
+            typicalRuntimeSeconds={
+              catalog.templates.find((template) => template.id === current.templateId)?.typicalRuntimeSeconds
+            }
+          />
         ) : (
           <YourSession data={{ detail: "A file you upload, or a link", done: false }} runtime={null} />
         )

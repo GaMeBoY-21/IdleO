@@ -1,386 +1,147 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Square } from "lucide-react";
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { Link, useSearch } from "wouter";
-import { api, data } from "@/api/client";
-import { isLive, useTemplateName, useTemplatesKnown, writeSession, keys, type Session } from "@/api/queries";
+import type { ReactNode } from "react";
+import { useSearch } from "wouter";
+import { useTemplates, useUploadInfo } from "@/api/queries";
 import { useLiveSession } from "@/api/useLiveSession";
-import { Banner } from "@/components/ui/Banner";
-import { Button, buttonClasses } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { FlowHeader } from "@/components/shell/AppShell";
 import { SkeletonLine } from "@/components/ui/Skeleton";
-import { StateChip } from "@/components/ui/StateChip";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
-import { RelativeTime } from "@/components/ui/Time";
-import { ending } from "@/lib/labels";
-import { afterFirstScreen } from "@/lib/after-first-screen";
+import { sessionTitle } from "@/features/flow/headline";
+import { ProgressRoute } from "@/features/flow/ProgressRoute";
+import { TwoPanels } from "@/features/flow/TwoPanels";
+import { useAfterPaint } from "@/lib/after-first-screen";
+import { aboutRuntime } from "@/lib/catalog";
 import { useLaptop } from "@/lib/media";
-import { problemMessage } from "@/lib/problems";
 import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
-import { Figures } from "./Figures";
-import { Checkpoints, Outputs, Timeline } from "./History";
+import { Ended } from "./Ended";
+import { Finding } from "./Finding";
 import { Logs } from "./Logs";
+import { Running } from "./Running";
+
+const FINDING = new Set(["REQUESTED", "MATCHED", "PROVISIONING"]);
+const STARTED = new Set(["RUNNING", "HOST_LOST", "FINISHING"]);
+
+/** Figures read before this came from a list, or from an earlier visit. */
+const PAGE_OPENED_AT = Date.now();
 
 /**
- * One session, live (product surface 3.2; designed for the phone first, complete on a laptop): its state, four
- * figures, its one next step, why it moved or ended, its logs and checkpoints, its timeline and, once completed, its
- * outputs. It follows the session's event stream until the session is settled (src/api/useLiveSession.ts).
+ * One session, live (web/DESIGN.md: designed for the phone first, complete on a laptop). The screen changes with
+ * its state, like a ride: finding its GPU, GPU found, running, then done or why it ended. It follows the session's
+ * event stream until the session is settled (src/api/useLiveSession.ts). On a phone it's a flow with its own back
+ * button; on a laptop, the session on the left and its route and logs on the right.
  */
 export function SessionDetail() {
   const id = new URLSearchParams(useSearch()).get("id");
   useTitle("Session");
   const { session, stream } = useLiveSession(id);
-  const namesKnown = useTemplatesKnown();
+  const templates = useTemplates();
   const laptop = useLaptop();
+  const painted = useAfterPaint(session.data !== undefined);
+  const uploadId = session.data?.input?.uploadId ?? null;
+  const upload = useUploadInfo(uploadId, painted);
 
-  const back = (
-    <Link
-      href="/sessions/"
-      className="flex min-h-touch items-center gap-2 self-start text-small text-accent-text"
-    >
-      <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-      All sessions
-    </Link>
-  );
+  const frame = (left: ReactNode, right: ReactNode = null) =>
+    laptop ? (
+      <TwoPanels bare left={left} right={right} rightLabel="Progress and logs" />
+    ) : (
+      <div className="flex flex-1 flex-col">
+        <FlowHeader back="/sessions/" title="Session" />
+        <div className="flex w-full flex-1 flex-col gap-5 px-4 pt-1 md:mx-auto md:max-w-card md:px-6 md:pt-8">
+          {left}
+        </div>
+      </div>
+    );
 
   if (id === null) {
-    return (
-      <div className="flex flex-col gap-4">
-        {back}
-        <Card>
-          <EmptyState title="No session chosen">
-            Open a session from your home screen or from all sessions.
-          </EmptyState>
-        </Card>
-      </div>
+    return frame(
+      <EmptyState title="No session chosen">
+        Open a session from your home screen or from all sessions.
+      </EmptyState>,
     );
   }
-  if (session.data && namesKnown) {
-    const stale = session.isRefetchError || stream === "down";
-    return (
-      <div className="flex flex-col gap-4">
-        {back}
-        {session.isRefetchError ? (
-          <StaleNotice updatedAt={session.dataUpdatedAt} />
-        ) : (
-          stream === "down" && <StaleNotice updatedAt={session.dataUpdatedAt} stream />
-        )}
-        <Live
-          session={session.data}
-          updatedAt={session.dataUpdatedAt}
-          live={stream === "live" && !stale}
-          refreshing={session.isFetching && session.dataUpdatedAt < PAGE_OPENED_AT && !stale}
-          laptop={laptop}
+  const known = templates.data !== undefined || templates.isError;
+  if (!session.data || !known) {
+    return frame(
+      session.isError ? (
+        <ErrorState
+          error={session.error}
+          what="this session"
+          onRetry={() => void session.refetch()}
+          retrying={session.isFetching}
         />
-      </div>
+      ) : (
+        <DetailSkeleton laptop={laptop} />
+      ),
     );
   }
-  return (
-    <div className="flex flex-col gap-4">
-      {back}
-      {session.isError ? (
-        <Card>
-          <ErrorState
-            error={session.error}
-            what="this session"
-            onRetry={() => void session.refetch()}
-            retrying={session.isFetching}
-          />
-        </Card>
-      ) : (
-        <DetailSkeleton />
-      )}
-    </div>
-  );
-}
 
-/** Figures read before this came from a list, or from an earlier visit. */
-const PAGE_OPENED_AT = Date.now();
-
-function Live({
-  session,
-  updatedAt,
-  live,
-  refreshing,
-  laptop,
-}: {
-  session: Session;
-  updatedAt: number;
-  live: boolean;
-  refreshing: boolean;
-  laptop: boolean;
-}) {
-  const templateName = useTemplateName();
-  const action = <PrimaryAction session={session} />;
-  const running = isLive(session);
-
-  const header = (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-heading font-semibold break-words">{templateName(session.templateId)}</h1>
-        <StateChip state={session.state} />
-      </div>
-      <p className="text-small text-text-muted">
-        {session.startedAt ? (
-          <RelativeTime value={session.startedAt} prefix="Started" />
-        ) : (
-          <RelativeTime value={session.createdAt} prefix="Booked" />
-        )}
-      </p>
-      {/* Its status has a line of its own, always there, so nothing below moves as it changes. */}
-      <p className="min-h-5 text-small text-text-muted" aria-live="polite">
-        {refreshing ? (
-          <>
-            Figures from <span className="tabular">{formatTime(updatedAt)}</span>, refreshing
-          </>
-        ) : running ? (
-          live && (
-            <>
-              Live, updated <span className="tabular">{formatTime(updatedAt)}</span>
-            </>
-          )
-        ) : (
-          session.endedAt && (
-            <>
-              <RelativeTime value={session.endedAt} prefix="Ended" />
-              {!session.settled && " · working out the final charge"}
-            </>
-          )
-        )}
-      </p>
-    </div>
-  );
-
-  // A completed session's one next step is its outputs; running it again is a quieter link beside them.
-  const again = (
-    <Link href={runAgain(session)} className={buttonClasses("quiet")}>
-      Run again
-    </Link>
-  );
-  const outputs = session.state === "COMPLETED" && (
-    <Outputs id={session.id} action={laptop ? undefined : again} />
-  );
-  const logs = <Logs id={session.id} settled={session.settled} laptop={laptop} />;
-
-  return (
+  const current = session.data;
+  const catalog = templates.data ?? { services: [], templates: [] };
+  const template = catalog.templates.find((t) => t.id === current.templateId);
+  const templateName = template?.name ?? current.templateId;
+  const stale = session.isRefetchError || stream === "down";
+  const refreshing = session.isFetching && session.dataUpdatedAt < PAGE_OPENED_AT && !stale;
+  const status = refreshing ? (
     <>
-      {laptop ? (
-        <div className="flex items-start justify-between gap-6">
-          {header}
-          {/* A fixed width, so the action changing with the state moves nothing beside it. */}
-          <div className="flex w-menu shrink-0 items-center justify-end gap-2">
-            {session.state === "COMPLETED" && again}
-            {action}
-          </div>
-        </div>
+      Figures from <span className="tabular">{formatTime(session.dataUpdatedAt)}</span>, refreshing
+    </>
+  ) : (
+    stream === "live" &&
+    !stale && (
+      <>
+        Live, updated <span className="tabular">{formatTime(session.dataUpdatedAt)}</span>
+      </>
+    )
+  );
+
+  const view = FINDING.has(current.state) ? (
+    <Finding session={current} data={{ filename: upload.data?.filename ?? null }} laptop={laptop} />
+  ) : STARTED.has(current.state) ? (
+    <Running
+      session={current}
+      title={sessionTitle(current, catalog)}
+      templateName={templateName}
+      about={aboutRuntime(template?.typicalRuntimeSeconds)}
+      status={status}
+      laptop={laptop}
+    />
+  ) : (
+    <Ended session={current} templateName={templateName} laptop={laptop} />
+  );
+  const left = (
+    <>
+      {session.isRefetchError ? (
+        <StaleNotice updatedAt={session.dataUpdatedAt} />
       ) : (
-        header
+        stream === "down" && <StaleNotice updatedAt={session.dataUpdatedAt} stream />
       )}
-      <Banners session={session} />
-      <Figures session={session} />
-      {laptop ? (
-        <div className="grid grid-cols-12 items-start gap-6">
-          {/* The outputs' list arrives after the page: below everything it could otherwise push down. */}
-          <div className="col-span-8 flex min-w-0 flex-col gap-4">
-            {logs}
-            {outputs}
-          </div>
-          <div className="col-span-4 flex min-w-0 flex-col gap-4">
-            <Checkpoints session={session} />
-            <Timeline session={session} />
-          </div>
-        </div>
-      ) : (
-        <>
-          {logs}
-          <Checkpoints session={session} />
-          <Timeline session={session} />
-          {outputs}
-          {/* The action bar's room, so nothing it covers is out of reach and nothing moves when it appears. */}
-          <div aria-hidden="true" className="h-16" />
-          <div
-            data-action-bar=""
-            className="fixed inset-x-0 bottom-clear-tabs z-10 border-t border-border bg-surface px-4 py-2"
-          >
-            {action}
-          </div>
-        </>
-      )}
+      {view}
     </>
   );
+  const right = (
+    <>
+      <div className="rounded-panel bg-ground px-9 py-8">
+        <ProgressRoute
+          across
+          session={current}
+          typicalRuntimeSeconds={template?.typicalRuntimeSeconds}
+          uploadBytes={upload.data?.sizeBytes}
+        />
+      </div>
+      {current.startedAt && <Logs id={current.id} settled={current.settled} laptop />}
+    </>
+  );
+  return frame(left, right);
 }
 
-// The dialog (Radix) isn't needed to show the session: it loads after the first screen, or when Stop is pressed.
-const loadStopDialog = () => import("./StopDialog");
-const StopDialog = lazy(() => loadStopDialog().then((module) => ({ default: module.StopDialog })));
-
-/** Book, on configure, filled from this session. */
-const runAgain = (session: Session) =>
-  `/book/?template=${encodeURIComponent(session.templateId)}&step=configure&from=${session.id}`;
-
-/** The one next step, by state (product surface 3.2): Stop, Cancel, Download outputs, or Run again. */
-function PrimaryAction({ session }: { session: Session }) {
-  const client = useQueryClient();
-  const [asking, setAsking] = useState(false);
-  const settle = (next: Session) => {
-    writeSession(client, next);
-    void client.invalidateQueries({ queryKey: keys.wallet });
-  };
-  const stop = useMutation({
-    mutationFn: () =>
-      data(
-        api.POST("/v1/sessions/{id}/stop", {
-          params: { path: { id: session.id } },
-          body: { checkpointFirst: true },
-        }),
-      ),
-    onSuccess: (next) => {
-      settle(next);
-      setAsking(false);
-    },
-  });
-  const cancel = useMutation({
-    mutationFn: () => data(api.POST("/v1/sessions/{id}/cancel", { params: { path: { id: session.id } } })),
-    onSuccess: settle,
-  });
-  const failed = (error: unknown): ReactNode => <Banner tone="danger">{problemMessage(error)}</Banner>;
-  const runningNow = session.state === "RUNNING";
-  useEffect(() => (runningNow ? afterFirstScreen(() => void loadStopDialog()) : undefined), [runningNow]);
-
-  switch (session.state) {
-    case "RUNNING":
-      return (
-        <>
-          <Button variant="danger" block onClick={() => setAsking(true)} className="md:w-auto">
-            <Square aria-hidden="true" className="size-4" strokeWidth={1.75} />
-            Stop
-          </Button>
-          {asking && (
-            <Suspense fallback={null}>
-              <StopDialog
-                open={asking}
-                onOpenChange={(open) => {
-                  setAsking(open);
-                  stop.reset();
-                }}
-                onStop={() => stop.mutate()}
-                stopping={stop.isPending}
-                error={stop.isError ? failed(stop.error) : null}
-              />
-            </Suspense>
-          )}
-        </>
-      );
-    case "REQUESTED":
-    case "MATCHED":
-    case "PROVISIONING":
-      return (
-        <div className="flex flex-col gap-2">
-          {cancel.isError && failed(cancel.error)}
-          <Button
-            variant="secondary"
-            block
-            className="md:w-auto"
-            busy={cancel.isPending}
-            onClick={() => cancel.mutate()}
-          >
-            Cancel
-          </Button>
-        </div>
-      );
-    case "COMPLETED":
-      return (
-        <a href="#outputs" className={buttonClasses("primary", true)}>
-          Download outputs
-        </a>
-      );
-    case "HOST_LOST":
-    case "FINISHING":
-      return (
-        <p className="flex min-h-touch items-center text-small text-text-muted">
-          {session.state === "FINISHING"
-            ? "Saving a last checkpoint and its outputs…"
-            : "Moving to another host…"}
-        </p>
-      );
-    default:
-      return (
-        <Link href={runAgain(session)} className={buttonClasses("primary", true)}>
-          Run again
-        </Link>
-      );
-  }
-}
-
-/** Low credit, a move to another host, and why it ended: what the renter should know, in plain words. */
-function Banners({ session }: { session: Session }) {
-  const banners: ReactNode[] = [];
-  if (isLive(session) && session.lowCredit) {
-    banners.push(
-      <Banner key="low" tone="warning">
-        Your credit is running low. When it runs out, the session saves a checkpoint and stops, and
-        you&apos;re charged only up to then.
-      </Banner>,
-    );
-  }
-  if (session.attempt > 1) {
-    const resumed = session.checkpoints.filter((checkpoint) => checkpoint.attempt < session.attempt).at(-1);
-    banners.push(
-      <Banner key="moved" tone="info">
-        {resumed
-          ? `Moved to another host and resumed from checkpoint ${resumed.seq}.`
-          : "Moved to another host and started again from the beginning."}{" "}
-        The lost minutes aren&apos;t charged.
-      </Banner>,
-    );
-  }
-  const last = session.events.at(-1)?.reason;
-  const stoppedFor = session.events.find((event) => event.state === "FINISHING")?.reason;
-  if (session.state === "FAILED" || session.state === "NO_HOST_FREE") {
-    const words = ending(session.errorCode ?? last);
-    if (words) {
-      banners.push(
-        <Banner key="ended" tone="danger">
-          <span className="font-medium">{words.sentence}</span> {words.next}
-        </Banner>,
-      );
-    }
-  } else if (
-    session.state === "CANCELLED" ||
-    (session.state === "COMPLETED" &&
-      (stoppedFor === "credit_exhausted" || stoppedFor === "max_spend_reached"))
-  ) {
-    const words = ending(session.state === "CANCELLED" ? last : stoppedFor);
-    if (words) {
-      banners.push(
-        <Banner key="ended" tone="info">
-          {words.sentence} {words.next}
-        </Banner>,
-      );
-    }
-  }
-  return banners.length > 0 ? <div className="flex flex-col gap-2">{banners}</div> : null;
-}
-
-/** The heading and the figures exactly as they'll load, so nothing above the logs moves. */
-function DetailSkeleton() {
+/** The pill, the title and the timer as they'll load, so nothing above the figures moves. */
+function DetailSkeleton({ laptop }: { laptop: boolean }) {
   return (
-    <div className="flex flex-col gap-4" role="status" aria-label="Loading this session">
-      <div className="flex flex-col gap-2">
-        <SkeletonLine size="title" width="w-1/2" />
-        <SkeletonLine size="small" width="w-1/3" />
-      </div>
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-border bg-border xl:grid-cols-4">
-        {[0, 1, 2, 3].map((key) => (
-          <div key={key} className="bg-surface p-4">
-            <SkeletonLine size="small" width="w-1/2" />
-            <div className="mt-1">
-              <SkeletonLine size="title" width="w-3/4" />
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="flex flex-col gap-3" role="status" aria-label="Loading this session">
+      <SkeletonLine size="small" width="w-1/4" />
+      <SkeletonLine size={laptop ? "question" : "title"} width="w-3/4" />
+      <SkeletonLine size="small" width="w-1/3" />
+      <SkeletonLine size="timer" width="w-1/2" />
     </div>
   );
 }

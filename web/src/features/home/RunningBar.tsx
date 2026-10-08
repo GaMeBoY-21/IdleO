@@ -4,29 +4,12 @@ import type { Session } from "@/api/queries";
 import type { components } from "@/api/schema.gen";
 import { Money } from "@/components/ui/Money";
 import { Elapsed } from "@/components/ui/Time";
-import { serviceOf } from "@/lib/catalog";
+import { headline } from "@/features/flow/headline";
 import { cn } from "@/lib/cn";
 import { gpuName } from "@/lib/gpu";
 import { costSoFar } from "@/lib/sessions";
 
 type Catalog = components["schemas"]["TemplateList"];
-
-/** What a live session is doing, in a few words: "Fine-tuning", "Finding your GPU". */
-export function headline(session: Session, catalog: Catalog): string {
-  switch (session.state) {
-    case "REQUESTED":
-    case "MATCHED":
-      return "Finding your GPU";
-    case "PROVISIONING":
-      return "GPU found · starting";
-    case "HOST_LOST":
-      return "Moving to another GPU";
-    case "FINISHING":
-      return "Saving your outputs";
-    default:
-      return serviceOf(catalog, session.templateId)?.runningLabel ?? "Running";
-  }
-}
 
 /**
  * A live session, as the black bar at the top of Home (docs/design/redesign/home-phone.html): what it's doing and for

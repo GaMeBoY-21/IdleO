@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 
 /**
- * Stopping a running session: the one dialog the app has (web/DESIGN.md principle 4), because it ends something the
+ * Stopping a running session: the one dialog the app has (web/DESIGN.md principle 5), because it ends something the
  * renter may not be able to start again where it was.
  */
 export function StopDialog({
@@ -22,9 +22,9 @@ export function StopDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="appear fixed inset-0 z-30 bg-canvas opacity-80" />
-        <Dialog.Content className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-sheet border border-border bg-surface p-6 shadow-float md:top-1/3 md:bottom-auto">
-          <Dialog.Title className="text-title font-semibold">Stop this session?</Dialog.Title>
+        <Dialog.Overlay className="appear fixed inset-0 z-30 bg-primary opacity-40" />
+        <Dialog.Content className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-panel bg-ground p-6 shadow-float md:top-1/3 md:bottom-auto">
+          <Dialog.Title className="text-section font-bold">Stop this session?</Dialog.Title>
           <Dialog.Description className="text-small text-text-muted">
             It saves a checkpoint, then stops. Nothing more is charged once it has stopped, and its outputs so
             far are kept.
@@ -32,9 +32,11 @@ export function StopDialog({
           {error}
           <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
             <Dialog.Close asChild>
-              <Button variant="secondary">Keep it running</Button>
+              <Button variant="secondary" large>
+                Keep it running
+              </Button>
             </Dialog.Close>
-            <Button variant="danger" busy={stopping} onClick={onStop}>
+            <Button variant="danger" large busy={stopping} onClick={onStop}>
               Stop the session
             </Button>
           </div>

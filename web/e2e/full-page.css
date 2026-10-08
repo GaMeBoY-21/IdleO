@@ -5,6 +5,3 @@ body {
 nav.fixed {
   position: absolute !important;
 }
-[data-action-bar] {
-  position: absolute !important;
-}

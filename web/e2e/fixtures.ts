@@ -419,7 +419,12 @@ function build(spec: Spec): Built {
       gpu:
         started === null && spec.state !== "MATCHED" && spec.state !== "PROVISIONING"
           ? null
-          : (spec.gpu ?? GPU_4080),
+          : {
+              ...(spec.gpu ?? GPU_4080),
+              // How busy and how hot, from its host's heartbeats: only while it runs.
+              utilPct: spec.state === "RUNNING" ? 97 : null,
+              tempC: spec.state === "RUNNING" ? 71 : null,
+            },
       params: spec.params ?? defaults(template),
       input: spec.input ? { uploadId: spec.input.uploadId ?? null, url: spec.input.url ?? null } : null,
       checkpoints,
@@ -633,6 +638,15 @@ export const finding = build({
   params: { greeting: "hello", repeat: 3 },
   input: { uploadId: UPLOAD_ID },
 }).session;
+export const found = build({
+  n: 203,
+  template: "qlora-finetune",
+  state: "PROVISIONING",
+  bookedAgoMs: 26_000,
+  price: 14,
+  maxPrice: 18,
+  input: { uploadId: UPLOAD_ID },
+}).session;
 export const movedLive = build({
   n: 202,
   template: "qlora-finetune",
@@ -732,6 +746,14 @@ export function quote(
           },
   };
 }
+
+/** The running fine-tune's data, as GET /v1/uploads/{id} describes it. */
+export const sessionUpload = {
+  id: UPLOAD_ID,
+  filename: "dataset.jsonl",
+  sizeBytes: 48_213_504,
+  status: "ready",
+};
 
 /** An upload as POST /v1/uploads opens it: one link per part. */
 export function newUpload(filename: string, sizeBytes: number, partSizeBytes = 5 * 1024 * 1024) {

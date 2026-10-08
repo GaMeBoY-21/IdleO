@@ -21,6 +21,7 @@ function api(session: Session, overrides: Record<string, Answer> = {}): Record<s
     },
     "/v1/sessions/[^/]+/outputs": { json: data.outputs },
     "/v1/sessions/[^/]+": { json: session },
+    "/v1/uploads/[^/]+": { json: data.sessionUpload },
     "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
     ...overrides,
   };
@@ -39,18 +40,22 @@ test.describe("a session", () => {
   test("running, live, with its logs and checkpoints", async ({ page }, info) => {
     await fakeApi(page, api(data.running));
     await signIn(page, "asha", open(data.running));
-    await expect(page.getByRole("heading", { name: data.templateList[0]!.name })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Fine-tuning on an RTX 4080 Laptop" })).toBeVisible();
     await expect(page.getByText("Started 22 min ago")).toBeVisible();
     await expect(page.locator("[data-pulse]")).toBeVisible();
+    await expect(page.getByText("of about 45 min")).toBeVisible();
     await expect(page.getByText("₹3.08").first()).toBeVisible();
     await expect(page.getByText("RTX 4080 Laptop · 12 GB")).toBeVisible();
-    await expect(page.getByText("Checkpoint 4")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
+    await expect(page.getByText("97% busy · 71°C")).toBeVisible();
+    await expect(page.getByText(/^Checkpoint 4 saved/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Stop session" })).toBeVisible();
     await expect(page.getByText(/Live, updated/)).toBeVisible();
     if (info.project.name.includes("laptop")) {
+      await expect(page.getByText("Host found")).toBeVisible();
+      await expect(page.getByText("46 MB")).toBeVisible();
       await expect(page.getByTestId("log-panel")).toContainText("loading the model in 4-bit");
     } else {
-      await expect(page.getByRole("button", { name: /Show logs, \d+ lines/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Logs/ })).toHaveAttribute("aria-expanded", "false");
     }
     await expectAccessible(page);
     await capture(page, info, "session-running");
@@ -60,7 +65,7 @@ test.describe("a session", () => {
     test.skip(info.project.name.includes("laptop"), "the logs are open on a laptop already");
     await fakeApi(page, api(data.running));
     await signIn(page, "asha", open(data.running));
-    await page.getByRole("button", { name: /Show logs/ }).click();
+    await page.getByRole("button", { name: /^Logs/ }).click();
     await expect(page.getByTestId("log-panel")).toContainText("epoch 1 step");
     await expectAccessible(page);
     await capture(page, info, "session-running-logs");
@@ -77,7 +82,7 @@ test.describe("a session", () => {
     };
     await fakeApi(page, api(data.running, { "/v1/sessions/[^/]+/stop": { json: finishing } }));
     await signIn(page, "asha", open(data.running));
-    await page.getByRole("button", { name: "Stop" }).click();
+    await page.getByRole("button", { name: "Stop session" }).click();
     const dialog = page.getByRole("dialog", { name: "Stop this session?" });
     await expect(dialog).toContainText(
       "It saves a checkpoint, then stops. Nothing more is charged once it has stopped",
@@ -92,13 +97,27 @@ test.describe("a session", () => {
     await expect(page.getByText("Saving a last checkpoint and its outputs…")).toBeVisible();
   });
 
-  test("finding a host", async ({ page }, info) => {
+  test("finding its GPU", async ({ page }, info) => {
     await fakeApi(page, api(data.finding));
     await signIn(page, "asha", open(data.finding));
-    await expect(page.getByText("Finding a host…")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Finding your GPU" })).toBeVisible();
+    await expect(page.getByText("Usually under a minute.", { exact: false })).toBeVisible();
+    await expect(page.getByText("dataset.jsonl uploaded")).toBeVisible();
+    await expect(page.getByText("Nothing is charged until it runs")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cancel request" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "session-finding");
+  });
+
+  test("its GPU found, starting", async ({ page }, info) => {
+    await fakeApi(page, api(data.found));
+    await signIn(page, "asha", open(data.found));
+    await expect(page.getByRole("heading", { name: "GPU found" })).toBeVisible();
+    await expect(page.getByText("RTX 4080 Laptop · 12 GB")).toBeVisible();
+    await expect(page.getByText("Starting…")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cancel request" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "session-found");
   });
 
   test("moved to another host", async ({ page }, info) => {
@@ -134,12 +153,14 @@ test.describe("a session", () => {
     await capture(page, info, "session-stream-down");
   });
 
-  test("completed, with its outputs", async ({ page }, info) => {
+  test("done, with its outputs", async ({ page }, info) => {
     await fakeApi(page, api(data.completed));
     await signIn(page, "asha", open(data.completed));
+    await expect(page.getByRole("heading", { name: "Done" })).toBeVisible();
     await expect(page.getByRole("link", { name: /result\.json/ })).toBeVisible();
     await expect(page.getByRole("link", { name: "Download outputs" })).toBeVisible();
-    await expect(page.getByText("Charged")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Run again" })).toHaveAttribute("href", /from=/);
+    await expect(page.getByText("Charged", { exact: true })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "session-completed");
   });
@@ -147,18 +168,31 @@ test.describe("a session", () => {
   test("failed, with why in plain words", async ({ page }, info) => {
     await fakeApi(page, api(data.failed));
     await signIn(page, "asha", open(data.failed));
+    await expect(page.getByRole("heading", { name: "It stopped with an error" })).toBeVisible();
     await expect(page.getByText("The job ran out of memory.")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Run again" })).toHaveAttribute("href", /from=/);
+    await expect(page.getByRole("link", { name: "Try again" })).toHaveAttribute("href", /from=/);
     await expectAccessible(page);
     await capture(page, info, "session-failed");
   });
 
-  test("when no host took it", async ({ page }, info) => {
+  test("when no GPU took it", async ({ page }, info) => {
     await fakeApi(page, api(data.noHostFree));
     await signIn(page, "asha", open(data.noHostFree));
-    await expect(page.getByText("No host that fits accepted it. Nothing was charged.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No GPU was free" })).toBeVisible();
+    await expect(page.getByText("Nothing was charged")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "session-no-host");
+  });
+
+  test("cancelled while finding its GPU", async ({ page }, info) => {
+    await fakeApi(page, api(data.cancelled));
+    await signIn(page, "asha", open(data.cancelled));
+    await expect(page.getByRole("heading", { name: "Cancelled" })).toBeVisible();
+    await expect(page.getByText("You cancelled it before it started.")).toBeVisible();
+    await expect(page.getByText("Nothing was charged")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "session-cancelled");
   });
 
   test("while loading", async ({ page }, info) => {

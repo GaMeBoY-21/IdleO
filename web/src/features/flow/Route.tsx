@@ -12,9 +12,21 @@ export interface Stop {
 /**
  * A session's route, top to bottom, like a ride's pickup and drop-off (web/DESIGN.md): your data, a GPU picks it
  * up, it runs, your outputs. A done stop is a filled circle with a tick, the end a square, the line between them
- * solid.
+ * solid. `across`: left to right, for the live session's panel on a laptop (docs/design/redesign/live-laptop.html),
+ * where the line is solid only behind what's done and the end is hollow until it's reached.
  */
-export function Route({ stops, compact = false }: { stops: Stop[]; compact?: boolean }) {
+export function Route({
+  stops,
+  compact = false,
+  across = false,
+}: {
+  stops: Stop[];
+  compact?: boolean;
+  across?: boolean;
+}) {
+  if (across) {
+    return <RouteAcross stops={stops} />;
+  }
   return (
     <ol className="flex flex-col">
       {stops.map((stop, index) => {
@@ -69,5 +81,37 @@ function Marker({ state, compact }: { state: Stop["state"]; compact: boolean }) 
         compact ? "size-4" : "size-3.5",
       )}
     />
+  );
+}
+
+function RouteAcross({ stops }: { stops: Stop[] }) {
+  return (
+    <ol className="flex">
+      {stops.map((stop, index) => {
+        const last = index === stops.length - 1;
+        return (
+          <li key={index} className="flex min-w-0 flex-1 basis-0 flex-col gap-3">
+            <div aria-hidden="true" className="flex h-5.5 items-center">
+              {stop.state === "end" ? (
+                <span className="size-4.5 border-4 border-divider" />
+              ) : stop.state === "current" ? (
+                <span className="size-5.5 shrink-0 rounded-full bg-running ring-6 ring-running-soft" />
+              ) : (
+                <Marker state={stop.state} compact={false} />
+              )}
+              {!last && (
+                <span className={cn("h-1 flex-1", stop.state === "done" ? "bg-text" : "bg-divider")} />
+              )}
+            </div>
+            <div className="flex flex-col gap-1 pr-3">
+              <span className={cn("text-body font-semibold", stop.state === "end" && "text-text-muted")}>
+                {stop.title}
+              </span>
+              {stop.detail && <span className="text-small text-text-muted">{stop.detail}</span>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

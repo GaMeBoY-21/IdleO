@@ -201,6 +201,18 @@ export function useHistory() {
   });
 }
 
+/**
+ * An upload's name, size and status: Book's earlier upload, and a session's data. `enabled` false holds the fetch
+ * back (useAfterPaint). An upload that's gone is a 404, which isn't retried.
+ */
+export function useUploadInfo(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["upload", id],
+    enabled: id !== null && enabled,
+    queryFn: () => data(api.GET("/v1/uploads/{id}", { params: { path: { id: id! } } })),
+  });
+}
+
 /** What's free now, by GPU (ADR 0019): counts and prices, never a host. */
 export function useAvailability(enabled = true) {
   return useQuery({ queryKey: keys.availability, enabled, queryFn: () => data(api.GET("/v1/availability")) });
