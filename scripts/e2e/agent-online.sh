@@ -819,7 +819,11 @@ if $web_only; then
   if [[ -z "$snapshots" ]]; then
     if [[ -n "$(ls -A "$baseline" 2>/dev/null)" ]]; then snapshots=none; else snapshots=all; fi
   fi
-  summary+=("visual baselines: $baseline ($([[ $snapshots == none ]] && echo "compared" || echo "written: $snapshots"))")
+  if [[ "${VISUAL_COMPARE:-}" == 1 ]]; then
+    summary+=("visual baselines: $baseline ($([[ $snapshots == none ]] && echo "compared" || echo "written: $snapshots"))")
+  else
+    summary+=("visual comparison: off (VISUAL_COMPARE=1 turns it on); axe, layout shift and the overflow check run")
+  fi
   E2E_WEB_USER="$web_user" VISUAL_BASELINE_DIR="$baseline" web_test --project='screens-*' --project=journey \
     --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 ||
     fail "the web app's browser tests failed; see private/e2e/web-playwright.log and web/playwright-report"
