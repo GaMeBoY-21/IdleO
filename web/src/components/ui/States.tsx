@@ -68,12 +68,24 @@ export function staleSince(
   return stale.length === 0 ? null : Math.min(...stale.map((query) => query.dataUpdatedAt));
 }
 
-/** The partial state: the figures shown are from an earlier refresh, and the app is retrying. */
-export function StaleNotice({ updatedAt }: { updatedAt: number }) {
+/**
+ * The partial state: the figures shown are from an earlier refresh, and the app is retrying. `stream`: a live
+ * view's stream dropped, and the figures are read every few seconds until it's back.
+ */
+export function StaleNotice({ updatedAt, stream = false }: { updatedAt: number; stream?: boolean }) {
   return (
     <Banner tone="warning">
-      Couldn&apos;t refresh. Showing figures from <span className="tabular">{formatTime(updatedAt)}</span>.
-      Retrying…
+      {stream ? (
+        <>
+          Live updates stopped. Showing figures from <span className="tabular">{formatTime(updatedAt)}</span>,
+          checked every 5 seconds. Reconnecting…
+        </>
+      ) : (
+        <>
+          Couldn&apos;t refresh. Showing figures from <span className="tabular">{formatTime(updatedAt)}</span>
+          . Retrying…
+        </>
+      )}
     </Banner>
   );
 }

@@ -1,6 +1,7 @@
 import { ArrowLeft, Download } from "lucide-react";
 import { Link, useSearch } from "wouter";
-import { isLive, useOutputs, useSession, useTemplateName, type Session } from "@/api/queries";
+import { isLive, useOutputs, useTemplateName, type Session } from "@/api/queries";
+import { useLiveSession } from "@/api/useLiveSession";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
@@ -15,7 +16,7 @@ import { useTitle } from "@/lib/title";
 export function SessionDetail() {
   const id = new URLSearchParams(useSearch()).get("id");
   useTitle("Session");
-  const session = useSession(id);
+  const { session, stream } = useLiveSession(id);
   const templateName = useTemplateName();
 
   return (
@@ -34,12 +35,20 @@ export function SessionDetail() {
             <h1 className="text-heading font-semibold">{templateName(session.data.templateId)}</h1>
             <StateChip state={session.data.state} />
           </div>
-          {session.isRefetchError && <StaleNotice updatedAt={session.dataUpdatedAt} />}
+          {session.isRefetchError ? (
+            <StaleNotice updatedAt={session.dataUpdatedAt} />
+          ) : (
+            stream === "down" && <StaleNotice updatedAt={session.dataUpdatedAt} stream />
+          )}
           {/* On a phone the outputs come last, so their list arriving moves nothing; on a laptop they sit under the
               cost, beside the timeline. */}
           <div className="grid items-start gap-4 xl:grid-cols-12">
             <div className="min-w-0 xl:col-span-5">
-              <CostCard session={session.data} updatedAt={session.dataUpdatedAt} />
+              <CostCard
+                session={session.data}
+                updatedAt={session.dataUpdatedAt}
+                stale={session.isRefetchError || stream === "down"}
+              />
             </div>
             <div className="min-w-0 xl:col-span-7 xl:row-span-2">
               <Timeline session={session.data} />
@@ -67,14 +76,15 @@ export function SessionDetail() {
   );
 }
 
-function CostCard({ session, updatedAt }: { session: Session; updatedAt: number }) {
+function CostCard({ session, updatedAt, stale }: { session: Session; updatedAt: number; stale: boolean }) {
   const live = isLive(session);
   return (
     <Card aria-labelledby="cost-title">
       <CardTitle
         id="cost-title"
         action={
-          live && (
+          live &&
+          !stale && (
             <p className="text-caption text-text-muted" aria-live="polite">
               Live · updated <span className="tabular">{formatTime(updatedAt)}</span>
             </p>

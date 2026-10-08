@@ -9,13 +9,13 @@ import type { paths } from "./schema.gen";
  * The typed API client (ADR 0018). Its types are generated from api/openapi.yaml on every build, typecheck and
  * test, so an API change that breaks the web app fails its type check.
  */
-export const api = createClient<paths>({
-  baseUrl: config.apiUrl,
-  fetch: authedFetch({
-    getIdToken: (forceRefresh) => authStore.getIdToken(forceRefresh),
-    signOut: (reason) => authStore.signOut(reason),
-  }),
+/** Every request to the API: with the caller's token, refreshed and retried once on a 401 (ADR 0018). */
+export const apiFetch = authedFetch({
+  getIdToken: (forceRefresh) => authStore.getIdToken(forceRefresh),
+  signOut: (reason) => authStore.signOut(reason),
 });
+
+export const api = createClient<paths>({ baseUrl: config.apiUrl, fetch: apiFetch });
 
 /** The data of a response, or its problem detail as an ApiError. */
 export async function data<T>(
