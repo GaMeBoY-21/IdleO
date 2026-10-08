@@ -45,7 +45,7 @@ class SessionRequestChecks implements SessionRequests {
     }
 
     @Override
-    public Checked check(UUID renterId, CreateSessionRequest request) {
+    public Checked check(UUID renterId, CreateSessionRequest request, boolean inputMayWait) {
         var template = catalog.find(request.templateId())
                 .orElseThrow(
                         () -> ApiProblem.invalid("templateId", "There is no template " + request.templateId() + "."));
@@ -74,7 +74,7 @@ class SessionRequestChecks implements SessionRequests {
         if (given && accepts.accepts() == Template.Accepts.NONE) {
             throw ApiProblem.of(Problem.INPUT_NOT_ACCEPTED, "Template " + template.id() + " takes no input.");
         }
-        if (!given && accepts.accepts() == Template.Accepts.REQUIRED) {
+        if (!given && accepts.accepts() == Template.Accepts.REQUIRED && !inputMayWait) {
             throw ApiProblem.of(
                     Problem.INPUT_REQUIRED, "Template " + template.id() + " needs an input: " + kinds(accepts) + ".");
         }

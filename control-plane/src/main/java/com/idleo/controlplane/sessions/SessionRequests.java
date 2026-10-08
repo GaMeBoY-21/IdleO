@@ -28,5 +28,15 @@ public interface SessionRequests {
             @Nullable String inputUrl,
             Map<String, String> env) {}
 
-    Checked check(UUID renterId, CreateSessionRequest request);
+    /** The check for booking: everything, including the input the template needs. */
+    default Checked check(UUID renterId, CreateSessionRequest request) {
+        return check(renterId, request, false);
+    }
+
+    /**
+     * The one check, for booking and quoting alike. {@code inputMayWait}, for a quote only: an input the template
+     * requires may be left out, so a price can be shown while the upload is still going (ADR 0021); an input that is
+     * given is still checked in full.
+     */
+    Checked check(UUID renterId, CreateSessionRequest request, boolean inputMayWait);
 }

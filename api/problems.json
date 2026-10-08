@@ -15,6 +15,7 @@
   { "slug": "version-required", "status": 428, "title": "If-Match required" },
   { "slug": "version-stale", "status": 412, "title": "Changed since it was read" },
   { "slug": "insufficient-credit", "status": 402, "title": "Not enough credit" },
+  { "slug": "no-gpu-free", "status": 409, "title": "No GPU is free" },
   { "slug": "session-not-cancellable", "status": 409, "title": "Session can't be cancelled" },
   { "slug": "session-not-running", "status": 409, "title": "Session isn't running" },
   { "slug": "outputs-not-ready", "status": 409, "title": "Outputs not ready" },

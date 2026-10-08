@@ -22,6 +22,7 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/version-required` | 428 | If-Match required | A change needs If-Match with the ETag from the last read of the resource. |
 | `/problems/version-stale` | 412 | Changed since it was read | The resource changed since the ETag in If-Match was read. Read it again and retry. |
 | `/problems/insufficient-credit` | 402 | Not enough credit | The booking's hold (30 minutes at the maximum price, up to the maximum spend) is more than the available credit. |
+| `/problems/no-gpu-free` | 409 | No GPU is free | The booking left out its price ceiling, so the server uses the highest price among the GPUs that fit right now, and none fits right now. Nothing was created; try again shortly, or set a ceiling. |
 | `/problems/session-not-cancellable` | 409 | Session can't be cancelled | Only a session that hasn't run (REQUESTED, MATCHED or PROVISIONING) can be cancelled; stop a running one. |
 | `/problems/session-not-running` | 409 | Session isn't running | Only a RUNNING session can be stopped: cancel one that hasn't started; one that has ended can't be stopped. |
 | `/problems/outputs-not-ready` | 409 | Outputs not ready | Outputs can be downloaded once the session is COMPLETED. |

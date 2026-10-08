@@ -28,6 +28,7 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "version-stale": "This changed since you opened it. Reload to see the latest, then try again.",
   "insufficient-credit":
     "You don't have enough credit for this booking's hold. Lower the most per hour or the spending cap.",
+  "no-gpu-free": "No GPU is free right now. Try again in a minute; nothing was charged.",
   "session-not-cancellable": "This session has already started, so it can't be cancelled. Stop it instead.",
   "session-not-running": "This session isn't running any more, so there's nothing to stop.",
   "outputs-not-ready": "The outputs aren't ready yet. You can download them once the session completes.",

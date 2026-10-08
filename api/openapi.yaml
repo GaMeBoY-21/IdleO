@@ -832,7 +832,9 @@ components:
           - $ref: "#/components/schemas/SessionInput"
           - type: "null"
         maxPricePaisePerMin:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
           minimum: 1
         maxRuntimeSeconds:
@@ -863,7 +865,6 @@ components:
           format: int32
           minimum: 1
       required:
-      - maxPricePaisePerMin
       - maxSpendPaise
       - templateId
     CreateUploadRequest:
@@ -1302,6 +1303,7 @@ components:
           - /problems/version-required
           - /problems/version-stale
           - /problems/insufficient-credit
+          - /problems/no-gpu-free
           - /problems/session-not-cancellable
           - /problems/session-not-running
           - /problems/outputs-not-ready
@@ -1324,6 +1326,9 @@ components:
         availablePaise:
           type: integer
           format: int64
+        ceilingPaisePerMin:
+          type: integer
+          format: int32
         enoughCredit:
           type: boolean
         holdPaise:
@@ -1338,6 +1343,7 @@ components:
           - type: "null"
       required:
       - availablePaise
+      - ceilingPaisePerMin
       - enoughCredit
       - holdPaise
       - hostsFitNow

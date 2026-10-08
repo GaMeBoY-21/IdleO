@@ -13,12 +13,14 @@ import org.jspecify.annotations.Nullable;
  * A booking, and a quote for one (ADR 0019): the same body, checked by the same {@link SessionRequests}, so a request
  * that quotes cleanly books cleanly.
  *
+ * @param maxPricePaisePerMin the most a minute the renter will pay; left out, the server uses the highest price among
+ *     the GPUs that fit right now (ADR 0021), and refuses with no-gpu-free when none does
  * @param params the template's parameters by name, as GET /v1/templates describes them; defaults fill the rest
  * @param input the file the job reads, when the template takes one
  */
 public record CreateSessionRequest(
         @NotBlank String templateId,
-        @NotNull @Min(1) Integer maxPricePaisePerMin,
+        @Nullable @Min(1) Integer maxPricePaisePerMin,
         @NotNull @Min(1) Long maxSpendPaise,
         @Nullable @Min(1) Integer vramNeededMb,
         @Nullable @Min(1) Integer maxRuntimeSeconds,

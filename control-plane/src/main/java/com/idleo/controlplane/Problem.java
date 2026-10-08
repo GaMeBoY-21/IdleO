@@ -98,6 +98,12 @@ public enum Problem {
             "Not enough credit",
             "The booking's hold (30 minutes at the maximum price, up to the maximum spend) is more than the available "
                     + "credit."),
+    NO_GPU_FREE(
+            "no-gpu-free",
+            HttpStatus.CONFLICT,
+            "No GPU is free",
+            "The booking left out its price ceiling, so the server uses the highest price among the GPUs that fit "
+                    + "right now, and none fits right now. Nothing was created; try again shortly, or set a ceiling."),
     SESSION_NOT_CANCELLABLE(
             "session-not-cancellable",
             HttpStatus.CONFLICT,

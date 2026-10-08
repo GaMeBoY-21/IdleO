@@ -119,7 +119,7 @@ export function ReviewStep({
         <div>
           <dt className="text-text-muted">The most per hour</dt>
           <dd className="font-medium">
-            <Money paise={request.maxPricePaisePerMin * 60} />
+            <Money paise={request.maxPricePaisePerMin! * 60} />
           </dd>
         </div>
         <div>
@@ -151,7 +151,7 @@ export function ReviewStep({
               <Money paise={q.holdPaise} /> is held now
             </p>
             <p className="text-caption text-text-muted">
-              30 minutes at your most per hour ({<Money paise={request.maxPricePaisePerMin * 60} />}), set
+              30 minutes at your most per hour ({<Money paise={request.maxPricePaisePerMin! * 60} />}), set
               aside from your credit while the session runs. You&apos;re charged only for the minutes it runs.
             </p>
           </div>

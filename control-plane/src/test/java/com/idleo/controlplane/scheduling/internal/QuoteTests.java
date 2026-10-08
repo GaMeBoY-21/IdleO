@@ -28,7 +28,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Availability and quotes (ADR 0019): the scheduler's own filters, and the same check as booking. */
+/**
+ * Availability and quotes (ADR 0019): the scheduler's own filters, and the same check as booking; a ceiling the server
+ * sets when the booking leaves it out, and a quote that may leave out the input (ADR 0021).
+ */
 @ControlPlaneTest
 class QuoteTests {
 
@@ -208,7 +211,6 @@ class QuoteTests {
                 Map.entry(rich, body("no-such-template")),
                 Map.entry(rich, body("cuda-smoke-test", "vramNeededMb", 1)),
                 Map.entry(rich, body("cuda-smoke-test", "input", Map.of("url", "https://example.com/a"))),
-                Map.entry(rich, body("echo-input", "params", Map.of("greeting", "hi"))),
                 Map.entry(
                         rich,
                         body(
@@ -272,5 +274,91 @@ class QuoteTests {
                         .isEqualTo(quote.body().path("errors"));
             }
         }
+    }
+
+    private static Map<String, Object> withoutCeiling(Map<String, Object> body) {
+        body.remove("maxPricePaisePerMin");
+        return body;
+    }
+
+    @Test
+    void withoutACeilingTheQuoteAndTheBookingUseTheHighestPriceAmongTheGpusThatFitNow() throws Exception {
+        var renter = renter(50_000);
+        host(2);
+        host(997);
+
+        var quote = call("/v1/session-quotes", renter, withoutCeiling(body("cuda-smoke-test")));
+        assertThat(quote.status()).isEqualTo(200);
+        assertThat(quote.body().get("ceilingPaisePerMin").asInt()).isEqualTo(997);
+        assertThat(quote.body().get("holdPaise").asLong())
+                .as("30 minutes at the ceiling, up to the cap")
+                .isEqualTo(Math.min(30L * 997, 10_000));
+        assertThat(quote.body().get("pricePaisePerMin").get("max").asInt()).isEqualTo(997);
+
+        var booking = call("/v1/sessions", renter, withoutCeiling(body("cuda-smoke-test")));
+        assertThat(booking.status()).isEqualTo(201);
+        assertThat(booking.body().get("maxPricePaisePerMin").asInt())
+                .as("the session keeps the ceiling it was given")
+                .isEqualTo(997);
+    }
+
+    @Test
+    void theServersCeilingDecidesWhetherTheCreditIsEnough() throws Exception {
+        host(2);
+        host(400);
+        // 30 minutes at 400 paise is 12,000: more than this renter has, though the cheap host alone would fit.
+        var renter = renter(5_000);
+        var body = withoutCeiling(body("cuda-smoke-test", "maxSpendPaise", 50_000));
+
+        var quote = call("/v1/session-quotes", renter, body);
+        assertThat(quote.body().get("holdPaise").asLong()).isEqualTo(12_000);
+        assertThat(quote.body().get("enoughCredit").asBoolean()).isFalse();
+        var booking = call("/v1/sessions", renter, body);
+        assertThat(booking.status()).isEqualTo(402);
+        assertThat(booking.body().get("type").asString()).isEqualTo("/problems/insufficient-credit");
+    }
+
+    @Test
+    void withoutACeilingAndNoGpuThatFitsNothingIsCreated() throws Exception {
+        var renter = renter(50_000);
+        host(2);
+        var body = withoutCeiling(body("cuda-smoke-test", "vramNeededMb", 900_000));
+
+        var quote = call("/v1/session-quotes", renter, body);
+        var booking = call("/v1/sessions", renter, body);
+
+        for (var refused : List.of(quote, booking)) {
+            assertThat(refused.status()).isEqualTo(409);
+            assertThat(refused.body().get("type").asString()).isEqualTo("/problems/no-gpu-free");
+        }
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from sessions.sessions where renter_id = ?", Integer.class, renter.id()))
+                .isZero();
+        // A ceiling the renter sets still books, and waits for a host as before.
+        var withCeiling = call("/v1/session-quotes", renter, body("cuda-smoke-test", "vramNeededMb", 900_000));
+        assertThat(withCeiling.status()).isEqualTo(200);
+        assertThat(withCeiling.body().get("hostsFitNow").asInt()).isZero();
+    }
+
+    @Test
+    void aQuoteMayLeaveOutTheInputButBookingMayNot() throws Exception {
+        host(2);
+        var renter = renter(50_000);
+        var noInput = body("echo-input", "params", Map.of("greeting", "hi"));
+
+        var quote = call("/v1/session-quotes", renter, noInput);
+        assertThat(quote.status()).as("a price while the upload is still going").isEqualTo(200);
+        assertThat(quote.body().get("holdPaise").asLong()).isEqualTo(150);
+
+        var booking = call("/v1/sessions", renter, noInput);
+        assertThat(booking.status()).isEqualTo(400);
+        assertThat(booking.body().get("type").asString()).isEqualTo("/problems/input-required");
+
+        // An input that is given is still checked in full.
+        var notReady = call(
+                "/v1/session-quotes",
+                renter,
+                body("echo-input", "params", Map.of("greeting", "hi"), "input", Map.of("uploadId", UUID.randomUUID())));
+        assertThat(notReady.status()).isEqualTo(404);
     }
 }

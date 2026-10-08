@@ -6,6 +6,7 @@ import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.CreateSessionRequest;
+import com.idleo.controlplane.sessions.PriceCeilings;
 import com.idleo.controlplane.sessions.SessionCancelled;
 import com.idleo.controlplane.sessions.SessionRequested;
 import com.idleo.controlplane.sessions.SessionRequests;
@@ -32,6 +33,7 @@ class SessionService {
     private final SessionRequests checks;
     private final CreditReservations reservations;
     private final SessionHolds holds;
+    private final PriceCeilings ceilings;
     private final ApplicationEventPublisher events;
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
@@ -43,6 +45,7 @@ class SessionService {
             SessionRequests checks,
             CreditReservations reservations,
             SessionHolds holds,
+            PriceCeilings ceilings,
             ApplicationEventPublisher events,
             PlatformTransactionManager transactionManager,
             IdGenerator ids) {
@@ -52,6 +55,7 @@ class SessionService {
         this.checks = checks;
         this.reservations = reservations;
         this.holds = holds;
+        this.ceilings = ceilings;
         this.events = events;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
@@ -63,8 +67,9 @@ class SessionService {
     /**
      * Creates a REQUESTED session and publishes {@link SessionRequested}. Refused, before anything is
      * created, if the renter's available credit can't cover the hold the booking will need (30 minutes at
-     * their maximum price, capped at their maximum spend). The same key with the same request returns the
-     * session it created; with a different request it's refused.
+     * their maximum price, capped at their maximum spend). A booking that leaves its maximum price out gets the
+     * highest price among the GPUs that fit right now (ADR 0021), or no-gpu-free when none does. The same key with
+     * the same request returns the session it created; with a different request it's refused.
      */
     Created create(UUID renterId, String idempotencyKey, CreateSessionRequest request) {
         var checked = checks.check(renterId, request);
@@ -83,7 +88,8 @@ class SessionService {
             if (existing.isPresent()) {
                 return repeat(existing.get(), hash);
             }
-            var hold = CreditReservations.holdFor(request.maxPricePaisePerMin(), Paise.of(request.maxSpendPaise()));
+            int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), vram);
+            var hold = CreditReservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
             var available = reservations.available(renterId);
             if (hold.isGreaterThan(available)) {
                 throw ApiProblem.of(
@@ -102,7 +108,7 @@ class SessionService {
                     template.id(),
                     template.image(),
                     vram,
-                    request.maxPricePaisePerMin(),
+                    ceiling,
                     null,
                     request.maxSpendPaise(),
                     Math.toIntExact(maxRuntime.toSeconds()),
@@ -200,7 +206,7 @@ class SessionService {
     /** The request's fingerprint: what it books, its resolved parameters and its input. */
     private static String hash(
             String templateId,
-            int maxPrice,
+            @org.jspecify.annotations.Nullable Integer maxPrice,
             long maxSpend,
             int vram,
             Duration maxRuntime,
@@ -214,7 +220,9 @@ class SessionService {
         var canonical = String.join(
                 "|",
                 templateId,
-                Integer.toString(maxPrice),
+                // A ceiling left to the server is part of the request as "server", so a retry matches whatever
+                // ceiling the first attempt got.
+                maxPrice == null ? "server" : Integer.toString(maxPrice),
                 Long.toString(maxSpend),
                 Integer.toString(vram),
                 Long.toString(maxRuntime.toSeconds()),
