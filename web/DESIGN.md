@@ -95,6 +95,7 @@ Black and white, with one green for running, the warning and danger colours, and
 | `primary-hover` | `#2B2B2B` | `#E0E0E0` | Primary buttons when hovered or pressed |
 | `primary-fg` | `#FFFFFF` | `#000000` | Text on `primary` |
 | `inverse-muted` | `#BDBDBD` | `#4A4A4A` | Secondary text on `primary` |
+| `inverse-running` | `#4CC38A` | `#0B6B37` | The running dot on `primary`: Home's running bar |
 | `running` | `#0B6B37` | `#4CC38A` | Running, done steps, a saved checkpoint |
 | `running-soft` | `#E3F4EA` | `#10291D` | The running pill's background |
 | `warning` | `#8A5300` | `#F0B44C` | Low credit, stale data |
@@ -123,6 +124,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
 | `primary-fg` on `primary` | 21.00 | 21.00 | 4.5 |
 | `primary-fg` on `primary-hover` | 14.16 | 15.91 | 4.5 |
 | `inverse-muted` on `primary` | 11.18 | 8.86 | 4.5 |
+| `inverse-running` on `primary` | 9.48 | 6.62 | 3 |
 | `running` on `running-soft` | 5.80 | 6.99 | 4.5 |
 | `running` on `ground` | 6.62 | 8.89 | 4.5 |
 | `warning` on `warning-soft` | 5.76 | 8.40 | 4.5 |

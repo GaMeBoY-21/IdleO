@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { StateChip } from "@/components/ui/StateChip";
 import { CreditCard } from "@/features/home/CreditCard";
-import { RecentCard, RunningCard } from "@/features/home/SessionsCard";
-import { data, queryResult, session, wallet } from "@/test/fixtures";
+import { data, queryResult, wallet } from "@/test/fixtures";
 
 vi.mock("@/api/queries", async (original) => ({
   ...(await original<typeof import("@/api/queries")>()),
@@ -54,49 +53,6 @@ describe("the credit card", () => {
     render(<CreditCard wallet={queryResult({ data: wallet, isRefetchError: true })} />);
     expect(screen.queryByText(/Couldn't refresh/)).not.toBeInTheDocument();
     expect(screen.getByText("₹462.12")).toBeInTheDocument();
-  });
-});
-
-describe("the sessions cards", () => {
-  it("shows a running session with its cost so far, live, and its whole name", () => {
-    const live = session({ id: "a", chargedPaise: 2, accruedPaise: 4 });
-    render(<RunningCard sessions={[live]} updatedAt={data.NOW.getTime()} stale={false} />);
-    const running = screen.getByRole("region", { name: "Running now" });
-    expect(within(running).getByText("Running")).toBeInTheDocument();
-    expect(within(running).getByText("₹0.06")).toBeInTheDocument();
-    expect(within(running).getByText(/Live · updated/)).toBeInTheDocument();
-    expect(
-      within(running).getByText("QLoRA fine-tune of a small language model (Qwen 2.5 1.5B, 4-bit)"),
-    ).not.toHaveClass("truncate");
-  });
-
-  it("never says live while the figures are stale", () => {
-    render(<RunningCard sessions={[session()]} updatedAt={data.NOW.getTime()} stale />);
-    expect(screen.queryByText(/Live/)).not.toBeInTheDocument();
-  });
-
-  it("lists ended sessions with their final charge, each one link", () => {
-    const done = session({ id: "b", state: "COMPLETED", chargedPaise: 6, accruedPaise: 0, settled: true });
-    render(<RecentCard sessions={queryResult({ data: { sessions: [done, session()] } })} />);
-    const recent = screen.getByRole("region", { name: "Recent sessions" });
-    expect(within(recent).getByText("Completed")).toBeInTheDocument();
-    expect(within(recent).getByText("₹0.06")).toBeInTheDocument();
-    expect(within(recent).getAllByRole("link", { name: /QLoRA/ })).toHaveLength(1);
-    expect(within(recent).getByRole("link", { name: /QLoRA/ })).toHaveAttribute("href", "/session/?id=b");
-  });
-
-  it("says why it's empty and what to do", () => {
-    render(<RecentCard sessions={queryResult({ data: { sessions: [] } })} />);
-    expect(screen.getByText("No sessions yet")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Book a GPU" })).toHaveLength(1);
-  });
-
-  it("has loading and error states", () => {
-    const { rerender } = render(<RecentCard sessions={queryResult({ isPending: true })} />);
-    expect(screen.getByLabelText("Loading your sessions")).toBeInTheDocument();
-
-    rerender(<RecentCard sessions={queryResult({ isError: true, error: new TypeError("offline") })} />);
-    expect(screen.getByText(/Check your connection/)).toBeInTheDocument();
   });
 });
 

@@ -1,101 +1,133 @@
-import { isChanging, isLive, useSessions, useTemplatesKnown, useWallet } from "@/api/queries";
+import { Search } from "lucide-react";
+import { Link } from "wouter";
+import { isChanging, isLive, useSessions, useTemplates, useWallet } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
-import { StaleNotice, staleSince } from "@/components/ui/States";
+import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
+import { TwoPanels } from "@/features/flow/TwoPanels";
+import { YourSession } from "@/features/flow/YourSession";
+import { offeredServices, serviceOf } from "@/lib/catalog";
+import { gpuName } from "@/lib/gpu";
 import { useLaptop } from "@/lib/media";
 import { useTitle } from "@/lib/title";
-import { CreditCard, CreditCardSkeleton } from "./CreditCard";
-import { Card, CardTitle } from "@/components/ui/Card";
-import { SessionRowsSkeleton } from "@/features/sessions/SessionRow";
-import { BookAgainCard, RecentCard, RunningCard } from "./SessionsCard";
+import { BookAgain } from "./BookAgain";
+import { RunningBar } from "./RunningBar";
+import { RunningPanel } from "./RunningPanel";
+import { ServiceTiles, ServiceTilesSkeleton } from "./ServiceTiles";
+
+const QUESTION = "What do you want to run?";
+const NO_CATALOG = { services: [], templates: [] };
 
 /**
- * The renter's home (web/DESIGN.md, designed for the phone first). A running session comes first, then credit, shown
- * once (the header's credit chip is hidden here), then the sessions that have ended. On a laptop: the sessions on
- * the left, the wider column, and credit and "Book again" on the right. The order is chosen in code, not by CSS, so
- * what a screen reader reads and the tab order follow what's on screen.
+ * The renter's home (docs/design/redesign/home-phone.html, designed for the phone first): a black bar for each
+ * session that's live, the question, the services as tiles, and Book again. On a laptop the same, as Book's left
+ * panel, with the live session's progress, or what a session is, on the right. The order is chosen in code, not by
+ * CSS, so what a screen reader reads and the tab order follow what's on screen.
  */
 export function Home() {
   useTitle(null);
   const sessions = useSessions();
-  const wallet = useWallet(sessions.data?.sessions.some(isChanging) ?? false);
+  const templates = useTemplates();
   const laptop = useLaptop();
-  const list = sessions.data?.sessions ?? [];
-  const live = list.filter(isLive);
-  const lowCredit = live.some((session) => session.lowCredit);
-  const since = staleSince(sessions, wallet);
-  const namesKnown = useTemplatesKnown();
+  // The header's credit moves while a session can still change it.
+  useWallet(sessions.data?.sessions.some(isChanging) ?? false);
+  const since = staleSince(sessions, templates);
 
-  // Until the sessions and their names are known, Home is one skeleton: a running session arriving would push the
-  // credit down, and a name arriving might wrap.
-  if ((sessions.data === undefined && !sessions.isError) || !namesKnown) {
+  // Until the sessions and the catalog are known, Home is one skeleton: a live session arriving would push
+  // everything under its bar down.
+  const known = (query: { data?: unknown; isError: boolean }) => query.data !== undefined || query.isError;
+  if (!known(sessions) || !known(templates)) {
     return <HomeSkeleton laptop={laptop} />;
   }
 
-  const running = live.length > 0 && (
-    <RunningCard sessions={live} updatedAt={sessions.dataUpdatedAt} stale={since !== null} />
-  );
-  const credit = <CreditCard wallet={wallet} />;
-  const recent = <RecentCard sessions={sessions} />;
-  const again = <BookAgainCard sessions={list} />;
+  const catalog = templates.data ?? NO_CATALOG;
+  const list = sessions.data?.sessions ?? [];
+  const live = list.filter(isLive);
+  const templateName = (id: string) => catalog.templates.find((template) => template.id === id)?.name ?? id;
 
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="sr-only">Home</h1>
+  const left = (
+    <>
       {since !== null && <StaleNotice updatedAt={since} />}
-      {lowCredit && (
+      {live.some((session) => session.lowCredit) && (
         <Banner tone="warning">
           Your credit is running low. A running session stops, after a last checkpoint, when it runs out.
         </Banner>
       )}
-      {laptop ? (
-        <div className="grid grid-cols-12 items-start gap-6">
-          <div className="col-span-8 flex min-w-0 flex-col gap-4">
-            {running}
-            {recent}
-          </div>
-          <div className="col-span-4 flex min-w-0 flex-col gap-4">
-            {credit}
-            {again}
-          </div>
-        </div>
+      {live.map((session) => (
+        <RunningBar key={session.id} session={session} catalog={catalog} />
+      ))}
+      <div className="flex flex-col gap-4">
+        <h1 className={laptop ? "text-question" : "text-title"}>{QUESTION}</h1>
+        {!laptop && (
+          <Link
+            href="/book/"
+            className="flex min-h-14 items-center gap-3 rounded-control bg-fill px-4 hover:bg-fill-selected"
+          >
+            <Search aria-hidden="true" className="size-5.5" strokeWidth={2} />
+            <span className="text-option font-semibold">Pick a template</span>
+          </Link>
+        )}
+      </div>
+      {templates.data ? (
+        <ServiceTiles services={offeredServices(catalog)} laptop={laptop} />
       ) : (
-        <div className="flex flex-col gap-4">
-          {running}
-          {credit}
-          {recent}
-          {again}
-        </div>
+        <ErrorState
+          error={templates.error}
+          what="what you can run"
+          onRetry={() => void templates.refetch()}
+          retrying={templates.isFetching}
+        />
       )}
-    </div>
+      {sessions.data ? (
+        <BookAgain sessions={list} templateName={templateName} />
+      ) : (
+        <ErrorState
+          error={sessions.error}
+          what="your sessions"
+          onRetry={() => void sessions.refetch()}
+          retrying={sessions.isFetching}
+        />
+      )}
+    </>
+  );
+
+  if (!laptop) {
+    return <div className="flex flex-col gap-4.5 px-4 pt-1 pb-4 md:px-6 md:pt-6">{left}</div>;
+  }
+  const current = live[0];
+  const label = current && serviceOf(catalog, current.templateId)?.runningLabel;
+  return (
+    <TwoPanels
+      left={left}
+      rightLabel="Your session"
+      right={
+        current ? (
+          <RunningPanel
+            session={current}
+            title={
+              current.gpu ? `${label ?? "Running"} on ${gpuName(current.gpu.model)}` : "Finding your GPU"
+            }
+          />
+        ) : (
+          <YourSession data={{ detail: "A file you upload, or a link", done: false }} runtime={null} />
+        )
+      }
+    />
   );
 }
 
-/** Home's shape without a running session, the common case, drawn until the sessions arrive. */
+/** Home's shape before anything is known: no words, so nothing real moves when the content replaces it. */
 function HomeSkeleton({ laptop }: { laptop: boolean }) {
-  const recent = (
-    <Card aria-labelledby="recent-title">
-      <CardTitle id="recent-title">Recent sessions</CardTitle>
-      <div role="status" aria-label="Loading your sessions">
-        <SessionRowsSkeleton />
-      </div>
-    </Card>
-  );
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="sr-only">Home</h1>
-      {laptop ? (
-        <div className="grid grid-cols-12 items-start gap-6">
-          <div className="col-span-8 min-w-0">{recent}</div>
-          <div className="col-span-4 min-w-0">
-            <CreditCardSkeleton />
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <CreditCardSkeleton />
-          {recent}
-        </div>
-      )}
+  const left = (
+    <div role="status" aria-label="Loading" className="flex flex-col gap-4.5">
+      <SkeletonLine size={laptop ? "question" : "title"} width="w-3/4" />
+      {!laptop && <Skeleton className="h-14 w-full" />}
+      <ServiceTilesSkeleton laptop={laptop} />
     </div>
+  );
+  return laptop ? (
+    <TwoPanels left={left} right={null} rightLabel="Your session" />
+  ) : (
+    <div className="flex flex-col px-4 pt-1 pb-4 md:px-6 md:pt-6">{left}</div>
   );
 }
