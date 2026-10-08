@@ -19,14 +19,17 @@ function themeBoot(): Plugin {
  * first screen waits on. Modules only later screens use stay out of it.
  */
 const LATER =
-  /src\/(lib\/(problems|bytes)|api\/(logs|stream|session-follower|useLiveSession)|components\/ui\/Inputs|components\/shell\/UserMenu)\./;
+  /src\/(lib\/bytes|api\/(logs|stream|session-follower|useLiveSession)|components\/ui\/Inputs|components\/shell\/UserMenu)\./;
 function shellChunk(id: string): string | undefined {
   if (LATER.test(id)) {
     return undefined;
   }
   if (
     /\/src\/(components|lib|api|auth\/(index|store|types)|config|design|brand)\b/.test(id) ||
-    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon)/.test(id) ||
+    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon|icons\/check\.)/.test(id) ||
+    // The words for every problem and the mutation code: shared by Book and the session screen, which would
+    // otherwise each wait on another small file (ADR 0021).
+    /query-core\/build\/modern\/mutationObserver|react-query\/build\/modern\/useMutation/.test(id) ||
     /node_modules\/(\.pnpm\/)?clsx/.test(id)
   ) {
     return "shell";

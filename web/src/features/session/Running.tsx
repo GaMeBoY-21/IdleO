@@ -5,7 +5,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { ActionFoot, StopAction } from "./Actions";
 import { Banners } from "./Banners";
 import { GpuCard, RunningFigures } from "./Figures";
-import { Logs } from "./Logs";
+import { LogsLater } from "./LogsLater";
 import { LastCheckpoint } from "./Outputs";
 
 /**
@@ -57,7 +57,7 @@ export function Running({
       ) : (
         <div className="flex flex-col">
           <LastCheckpoint session={session} className="min-h-14 border-b border-divider py-3.5" />
-          <Logs id={session.id} settled={session.settled} laptop={false} />
+          <LogsLater id={session.id} settled={session.settled} laptop={false} />
         </div>
       )}
       {session.state === "RUNNING" ? (

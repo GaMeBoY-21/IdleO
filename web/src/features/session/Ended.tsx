@@ -9,7 +9,7 @@ import { ending } from "@/lib/labels";
 import { bookFrom } from "@/lib/sessions";
 import { formatDuration } from "@/lib/time";
 import { ActionFoot } from "./Actions";
-import { Logs } from "./Logs";
+import { LogsLater } from "./LogsLater";
 import { DownloadOutputs, Outputs } from "./Outputs";
 
 const HEADLINES: Record<string, string> = {
@@ -98,7 +98,7 @@ export function Ended({
       <Charge session={session} />
       {/* A laptop's actions come before the outputs, so the list arriving moves nothing; a phone's stay in its bar. */}
       {laptop && foot}
-      {!laptop && session.startedAt && <Logs id={session.id} settled={session.settled} laptop={false} />}
+      {!laptop && session.startedAt && <LogsLater id={session.id} settled={session.settled} laptop={false} />}
       {done && <Outputs id={session.id} />}
       {!laptop && foot}
     </>

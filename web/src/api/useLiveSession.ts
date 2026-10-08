@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { config } from "@/config";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { apiFetch } from "./client";
-import { readNewLogs } from "./logs";
 import { useSession, writeSession } from "./queries";
-import { followSession, type StreamStatus } from "./session-follower";
+import type { StreamStatus } from "./session-follower";
+
+/** The stream's reader and the log's: a chunk of their own, fetched once the screen has painted (ADR 0020). */
+const following = () => Promise.all([import("./session-follower"), import("./logs")]);
 
 /**
  * One session, live, while its screen is open (ADR 0019). Its event stream writes each snapshot into the query
@@ -26,21 +28,26 @@ export function useLiveSession(id: string | null) {
       return;
     }
     const controller = new AbortController();
-    void followSession(
-      {
-        open: (signal) =>
-          apiFetch(
-            new Request(`${config.apiUrl}/v1/sessions/${encodeURIComponent(id)}/events`, {
-              headers: { Accept: "text/event-stream" },
-              signal,
-            }),
-          ),
-        onSession: (snapshot) => writeSession(client, snapshot),
-        onLogs: () => void readNewLogs(client, id).catch(() => undefined),
-        onStatus: setStatus,
-      },
-      controller.signal,
-    );
+    void following().then(([{ followSession }, { readNewLogs }]) => {
+      if (controller.signal.aborted) {
+        return;
+      }
+      void followSession(
+        {
+          open: (signal) =>
+            apiFetch(
+              new Request(`${config.apiUrl}/v1/sessions/${encodeURIComponent(id)}/events`, {
+                headers: { Accept: "text/event-stream" },
+                signal,
+              }),
+            ),
+          onSession: (snapshot) => writeSession(client, snapshot),
+          onLogs: () => void readNewLogs(client, id).catch(() => undefined),
+          onStatus: setStatus,
+        },
+        controller.signal,
+      );
+    });
     return () => controller.abort();
   }, [client, id, settled, shown]);
 

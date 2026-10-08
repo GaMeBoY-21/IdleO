@@ -89,14 +89,16 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 | Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/*screens.spec.ts` |
 | A 10 MiB log | at most 2,000 lines in the page, every interaction within 100 ms on a CPU slowed 4× | `e2e/performance.spec.ts` |
 
-Lighthouse measures sign-in, Home, Book and the session screen, on the mobile profile (asserted by `lhci`) and the desktop one (held to the same limits in the spec). It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020).
+Lighthouse measures sign-in, Home, Book (at a template, where the form is) and the session screen, on the mobile profile (asserted by `lhci`) and the desktop one (held to the same limits in the spec). It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020).
 
 What keeps them, learnt by measuring (ADR 0018):
 - each page's first frame is pre-rendered and adopted, not redrawn;
 - each page preloads only its own screen's code, and the frame's shared modules come in one file (`vite.config.ts`), since every extra file is another request the first screen waits on;
 - the screen a page opens on is loaded before the first render, so React's Suspense never holds its paint back;
-- anything later screens need loads two seconds in, or on hover or tap; the booking form's code loads only for configure and review, the stop dialog's only when it's needed;
-- requests a screen doesn't need for its main content (price hints, a session's stream and logs, the header's credit) start after that content has painted;
+- anything later screens need loads two seconds in, or on hover or tap; the stop dialog's code only when it's needed;
+- requests a screen doesn't need for its main content (Book's form and price hints, a session's stream and logs and their code, the header's credit) start after that content has painted, which means after its text is drawn in the app's font (`useAfterPaint` waits for `document.fonts.ready`): two frames alone can come before the text, and a request started then counts against the paint (Book went from 2.41 s to 1.95 s);
+- Book's loading frame already holds what to run (the title and the template choice), so its largest text doesn't wait on the form's code;
+- the words for problems and react-query's mutation code are in the shell, as is the tick icon, rather than files of their own that Book and the session screen would each wait on (the session screen went from 2.10 s to 1.95 s);
 - skeletons are exactly the height of what replaces them;
 - the font never swaps.
 

@@ -22,9 +22,11 @@ export function afterFirstScreen(work: () => void): () => void {
 }
 
 /**
- * False until `ready` (the screen's main content is there) and two frames after it have been painted, then true. For
- * requests a screen doesn't need to paint its main content (a session's stream and logs, the price hints): started
- * after the paint, they never hold it back (ADR 0018: what would compete with the first screen waits).
+ * False until `ready` (the screen's main content is there), its text drawn in the app's font, and two frames after
+ * that, then true. For requests a screen doesn't need to paint its main content (a session's stream and logs, the
+ * price hints, Book's form): started after the paint, they never hold it back (ADR 0018: what would compete with
+ * the first screen waits). The font matters: until it's there, for a first frame or two, text isn't drawn at all,
+ * so two frames after the content mounts can still be before its text has painted.
  */
 export function useAfterPaint(ready = true): boolean {
   const [painted, setPainted] = useState(false);
@@ -32,13 +34,23 @@ export function useAfterPaint(ready = true): boolean {
     if (!ready) {
       return;
     }
-    let frame = requestAnimationFrame(() => {
+    let cancelled = false;
+    let frame = 0;
+    let timer = 0;
+    const fonts =
+      typeof document !== "undefined" && "fonts" in document ? document.fonts.ready : Promise.resolve();
+    void fonts.then(() => {
+      if (cancelled) {
+        return;
+      }
       frame = requestAnimationFrame(() => {
-        timer = window.setTimeout(() => setPainted(true), 0);
+        frame = requestAnimationFrame(() => {
+          timer = window.setTimeout(() => setPainted(true), 0);
+        });
       });
     });
-    let timer = 0;
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
       clearTimeout(timer);
     };

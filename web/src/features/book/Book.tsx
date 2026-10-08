@@ -5,7 +5,7 @@ import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { Banner } from "@/components/ui/Banner";
 import { ErrorState } from "@/components/ui/States";
 import { YourSession } from "@/features/flow/YourSession";
-import { afterFirstScreen } from "@/lib/after-first-screen";
+import { afterFirstScreen, useAfterPaint } from "@/lib/after-first-screen";
 import { bookHref, offeredServices, serviceOf, templatesOf } from "@/lib/catalog";
 import { useLaptop } from "@/lib/media";
 import { useTitle } from "@/lib/title";
@@ -38,6 +38,8 @@ export function Book() {
   const service = catalog?.services.find((s) => s.id === serviceId);
   const inService = catalog && service ? templatesOf(catalog, service.id) : [];
   const template = templateId === null ? inService[0] : inService.find((t) => t.id === templateId);
+  // Once what to run has been painted, from the catalog, not just the skeleton before it.
+  const painted = useAfterPaint(template !== undefined);
 
   const question = <h1 className={laptop ? "text-question" : "text-title"}>{QUESTION}</h1>;
   const services = catalog && (
@@ -58,7 +60,8 @@ export function Book() {
       <BookLayout
         laptop={laptop}
         back="/"
-        summary={null}
+        // While the catalog loads, a link to a template keeps its summary's room, as the form will fill it.
+        summary={!catalog && (serviceId !== null || templateId !== null) ? <SummarySkeleton /> : null}
         right={catalog ? generic : null}
         left={
           <>
@@ -101,13 +104,26 @@ export function Book() {
       right={null}
       left={
         <>
-          {laptop ? question : <SkeletonLine size="title" width="w-1/2" />}
+          {/* What the form will show first, already here: the form's code arrives after (its own chunk). */}
+          {laptop ? (
+            question
+          ) : (
+            <h1 className="text-title">
+              {template.input.accepts === "required" ? service.name : "Ready to run"}
+            </h1>
+          )}
           {laptop && services}
+          {choice}
           <ChoicesSkeleton />
         </>
       }
     />
   );
+  // The form's code (its own chunk) is asked for once the frame has painted, so the first paint, with what to run
+  // in it, never waits on a second round of requests (web/README.md "The budgets").
+  if (!painted) {
+    return fallback;
+  }
   return (
     <Suspense fallback={fallback}>
       <Prepared

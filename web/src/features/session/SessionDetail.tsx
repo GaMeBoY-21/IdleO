@@ -15,7 +15,7 @@ import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { Ended } from "./Ended";
 import { Finding } from "./Finding";
-import { Logs } from "./Logs";
+import { LogsLater } from "./LogsLater";
 import { Running } from "./Running";
 
 const FINDING = new Set(["REQUESTED", "MATCHED", "PROVISIONING"]);
@@ -128,7 +128,7 @@ export function SessionDetail() {
           uploadBytes={upload.data?.sizeBytes}
         />
       </div>
-      {current.startedAt && <Logs id={current.id} settled={current.settled} laptop />}
+      {current.startedAt && <LogsLater id={current.id} settled={current.settled} laptop />}
     </>
   );
   return frame(left, right);
