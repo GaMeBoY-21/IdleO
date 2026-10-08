@@ -117,7 +117,8 @@ test.describe("home", () => {
       }),
     );
     await signIn(page, "asha");
-    await expect(page.getByText(/Couldn't refresh/).first()).toBeVisible({ timeout: 20_000 });
+    // The credit and the sessions refresh on their own timers: wait for both to have failed.
+    await expect(page.getByText(/Couldn't refresh/)).toHaveCount(2, { timeout: 20_000 });
     await expectAccessible(page);
     await capture(page, info, "home-stale");
   });
