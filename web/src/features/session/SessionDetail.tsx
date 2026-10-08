@@ -127,6 +127,15 @@ function Live({
           </span>
         )}
       </p>
+      {/* A completed session's one next step is its outputs; running it again is a quieter link. */}
+      {session.state === "COMPLETED" && (
+        <Link
+          href={runAgain(session)}
+          className="flex min-h-touch items-center self-start text-small font-medium text-accent-text"
+        >
+          Run again
+        </Link>
+      )}
     </div>
   );
 
@@ -176,6 +185,10 @@ function Live({
     </>
   );
 }
+
+/** Book, on configure, filled from this session. */
+const runAgain = (session: Session) =>
+  `/book/?template=${encodeURIComponent(session.templateId)}&step=configure&from=${session.id}`;
 
 /** The one next step, by state (product surface 3.2): Stop, Cancel, Download outputs, or Run again. */
 function PrimaryAction({ session }: { session: Session }) {
@@ -258,10 +271,7 @@ function PrimaryAction({ session }: { session: Session }) {
       );
     default:
       return (
-        <Link
-          href={`/book/?template=${encodeURIComponent(session.templateId)}&step=configure&from=${session.id}`}
-          className={buttonClasses("primary", true)}
-        >
+        <Link href={runAgain(session)} className={buttonClasses("primary", true)}>
           Run again
         </Link>
       );

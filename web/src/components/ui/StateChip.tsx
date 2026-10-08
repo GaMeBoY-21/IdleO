@@ -17,6 +17,7 @@ export function StateChip({ state }: { state: string }) {
   const { label, tone } = sessionState(state);
   return (
     <span
+      data-testid="state-chip"
       className={cn(
         "inline-flex items-center gap-2 rounded-full px-3 py-1 text-caption font-medium whitespace-nowrap",
         tones[tone],

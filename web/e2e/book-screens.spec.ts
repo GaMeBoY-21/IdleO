@@ -51,7 +51,7 @@ const file = (size: number) => ({
 
 /** Echo an input, filled in, with its file uploaded: ready for review. */
 async function fillEcho(page: Page) {
-  await page.getByLabel("Greeting").fill("hello");
+  await page.getByLabel("Greeting", { exact: true }).fill("hello");
   await page.getByLabel("Repeat (optional)").fill("3");
   await page.getByTestId("input-file").setInputFiles(file(12 * MIB));
 }
