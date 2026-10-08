@@ -1,6 +1,7 @@
 package com.idleo.controlplane.agentgateway.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.ValkeyHints;
 import com.idleo.controlplane.agentgateway.AgentCommands;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import java.sql.Timestamp;
@@ -14,8 +15,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** The agents' command queue (ADR 0015): written in the caller's transaction, delivered after it commits. */
 @Service
@@ -63,12 +62,7 @@ class AgentCommandService implements AgentCommands {
                 .update();
         // After commit, tell whichever instance holds the host's stream. Only a hint: the sweep and the next
         // Welcome deliver it anyway.
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                delivery.ifAvailable(commands -> commands.hint(hostId));
-            }
-        });
+        ValkeyHints.afterCommit(() -> delivery.ifAvailable(commands -> commands.hint(hostId)));
         return messageId;
     }
 

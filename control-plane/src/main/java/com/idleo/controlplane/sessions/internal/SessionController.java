@@ -12,6 +12,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /** A renter's sessions (ADR 0015). See the sessions module's package documentation. */
 @RestController
@@ -36,14 +39,21 @@ class SessionController {
     private final SessionStore store;
     private final SessionViews views;
     private final SessionLogs logs;
+    private final SessionStreams streams;
 
     SessionController(
-            SessionService sessions, SessionOutputs outputs, SessionStore store, SessionViews views, SessionLogs logs) {
+            SessionService sessions,
+            SessionOutputs outputs,
+            SessionStore store,
+            SessionViews views,
+            SessionLogs logs,
+            SessionStreams streams) {
         this.sessions = sessions;
         this.outputs = outputs;
         this.store = store;
         this.views = views;
         this.logs = logs;
+        this.streams = streams;
     }
 
     /** @param nextCursor pass it back as {@code cursor} for the next page; null on the last one */
@@ -139,6 +149,35 @@ class SessionController {
                         .toList(),
                 complete ? null : SessionLogs.cursorAfter(page, cursor),
                 complete);
+    }
+
+    /**
+     * The session, live, as Server-Sent Events (ADR 0019): read it with {@code fetch} and a bearer token, never a
+     * token in the URL or a cookie.
+     */
+    @GetMapping(path = "/{id}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @ApiResponse(
+            responseCode = "200",
+            description = "Server-Sent Events. `event: session` carries the whole session as JSON, the same as GET "
+                    + "/v1/sessions/{id}: sent on connect, then whenever it changes. `event: logs` carries an attempt "
+                    + "and its newest log chunk (SessionLogsEvent) whenever a new one exists; read them with GET "
+                    + "/v1/sessions/{id}/logs. A comment line keeps a quiet stream open every 15 seconds. The stream "
+                    + "closes after the last session event once `settled` is true, and after 30 minutes in any case: "
+                    + "reconnect with a fresh token. A renter has at most 10 streams open (too-many-streams).",
+            content =
+                    @Content(
+                            mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
+                            schema =
+                                    @Schema(
+                                            oneOf = {SessionViews.SessionResponse.class, SessionStreams.LogsEvent.class
+                                            })))
+    ResponseEntity<SseEmitter> events(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+        sessions.owned(user.id(), id);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache())
+                .header("X-Accel-Buffering", "no")
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .body(streams.open(user.id(), id));
     }
 
     record StopRequest(@Nullable Boolean checkpointFirst) {}

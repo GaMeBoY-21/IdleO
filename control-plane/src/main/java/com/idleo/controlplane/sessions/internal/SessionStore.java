@@ -37,12 +37,14 @@ class SessionStore {
     private final IdGenerator ids;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final SessionHints hints;
 
-    SessionStore(JdbcClient jdbc, IdGenerator ids, Clock clock, ApplicationEventPublisher events) {
+    SessionStore(JdbcClient jdbc, IdGenerator ids, Clock clock, ApplicationEventPublisher events, SessionHints hints) {
         this.jdbc = jdbc;
         this.ids = ids;
         this.clock = clock;
         this.events = events;
+        this.hints = hints;
     }
 
     record Session(
@@ -205,6 +207,7 @@ class SessionStore {
                 .param("id", sessionId)
                 .update();
         event(sessionId, from, to.get(), reason, now);
+        hints.changed(sessionId);
         // Metering follows the attempts and closes a session's usage once it ends (ADR 0017).
         if (to.get() == SessionState.HOST_LOST) {
             events.publishEvent(new AttemptLost(sessionId, (Integer) current.get()[2]));

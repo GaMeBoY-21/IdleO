@@ -5,6 +5,7 @@ import com.idleo.controlplane.sessions.AttemptLost;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import com.idleo.controlplane.sessions.SessionEnded;
 import com.idleo.controlplane.sessions.SessionStarted;
+import com.idleo.controlplane.sessions.SessionUpdates;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -39,6 +40,7 @@ class MeteringJobs {
     private final Settlements settlements;
     private final CreditGuard credit;
     private final Waivers waivers;
+    private final SessionUpdates updates;
     private final CreditReservations reservations;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -53,6 +55,7 @@ class MeteringJobs {
             CreditGuard credit,
             Waivers waivers,
             CreditReservations reservations,
+            SessionUpdates updates,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             Clock clock,
@@ -64,6 +67,7 @@ class MeteringJobs {
         this.credit = credit;
         this.waivers = waivers;
         this.reservations = reservations;
+        this.updates = updates;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.clock = clock;
@@ -164,6 +168,7 @@ class MeteringJobs {
         var nextWindowAt = row.nextWindowAt();
         while (!nextWindowAt.isAfter(now)) {
             settlements.settle(metered(sessionId), nextWindowAt, now);
+            updates.changed(sessionId);
             nextWindowAt = nextWindowAt.plus(window);
             jdbc.sql("update metering.metered_sessions set next_window_at = :next where session_id = :sessionId")
                     .param("next", Timestamp.from(nextWindowAt))
@@ -199,6 +204,8 @@ class MeteringJobs {
                 .param("now", Timestamp.from(now))
                 .update();
         reservations.release(sessionId);
+        // Its last charge is posted and its hold released: the session is settled.
+        updates.changed(sessionId);
         jdbc.sql("update metering.metered_sessions set closed_at = :now where session_id = :sessionId")
                 .param("now", Timestamp.from(now))
                 .param("sessionId", sessionId)

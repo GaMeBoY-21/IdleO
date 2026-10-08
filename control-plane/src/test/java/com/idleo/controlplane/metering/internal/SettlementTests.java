@@ -147,6 +147,7 @@ class SettlementTests {
                         jdbc),
                 new Waivers(sessions, charges, jdbc),
                 reservations,
+                sessionId -> {},
                 jdbc,
                 transactionManager,
                 java.time.Clock.systemUTC(),

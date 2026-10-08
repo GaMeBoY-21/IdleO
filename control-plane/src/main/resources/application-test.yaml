@@ -38,6 +38,9 @@ sessions:
     part-size: 5MB
     quota: 64MB
   provisioning-timeout: 5s
+  # Few streams, so the cap is quick to reach in a test.
+  streams:
+    max-per-renter: 3
   # Short, so tests see grants refreshed (MinIO's own credentials still last 15 minutes).
   storage:
     grant-ttl: 4s

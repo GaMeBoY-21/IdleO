@@ -31,11 +31,14 @@ class Checkpoints {
     private final IdGenerator ids;
     private final SessionStore store;
 
-    Checkpoints(SessionStorage storage, JdbcClient jdbc, IdGenerator ids, SessionStore store) {
+    private final SessionHints hints;
+
+    Checkpoints(SessionStorage storage, JdbcClient jdbc, IdGenerator ids, SessionStore store, SessionHints hints) {
         this.storage = storage;
         this.jdbc = jdbc;
         this.ids = ids;
         this.store = store;
+        this.hints = hints;
     }
 
     /**
@@ -87,7 +90,7 @@ class Checkpoints {
     }
 
     private void insert(UUID sessionId, int attempt, Complete complete) {
-        jdbc.sql("""
+        int inserted = jdbc.sql("""
                         insert into sessions.checkpoints (id, session_id, attempt, object_key, step, completed_at, created_at)
                         values (:id, :sessionId, :attempt, :key, :step, :completedAt, :now)
                         on conflict (session_id, attempt, step) do nothing
@@ -100,5 +103,8 @@ class Checkpoints {
                 .param("completedAt", Timestamp.from(complete.completedAt().truncatedTo(ChronoUnit.MICROS)))
                 .param("now", Timestamp.from(store.now()))
                 .update();
+        if (inserted == 1) {
+            hints.changed(sessionId);
+        }
     }
 }

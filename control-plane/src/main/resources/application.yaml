@@ -172,6 +172,15 @@ sessions:
   # A session accepted by its host but not RUNNING within this fails with
   # start_timeout, its hold released (ADR 0015).
   provisioning-timeout: 3m
+  # Event streams (ADR 0019): each re-reads its session this often without a
+  # hint, sends a keep-alive comment when quiet, and closes after max-open so
+  # the client reconnects with a fresh token. A renter has at most
+  # max-per-renter open on an instance.
+  streams:
+    max-per-renter: 10
+    reread-every: 5s
+    keep-alive-every: 15s
+    max-open: 30m
   # An uploaded input is staged before the job starts (ADR 0019), so the
   # timeout grows by its size at this rate: home internet, about 4 MB/s.
   input-staging-rate: 4MB

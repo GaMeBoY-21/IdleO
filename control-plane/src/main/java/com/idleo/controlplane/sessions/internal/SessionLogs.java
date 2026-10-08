@@ -21,9 +21,12 @@ class SessionLogs implements SessionLogProgress {
     private final JdbcClient jdbc;
     private final SessionStorage storage;
 
-    SessionLogs(JdbcClient jdbc, SessionStorage storage) {
+    private final SessionHints hints;
+
+    SessionLogs(JdbcClient jdbc, SessionStorage storage, SessionHints hints) {
         this.jdbc = jdbc;
         this.storage = storage;
+        this.hints = hints;
     }
 
     @Override
@@ -37,7 +40,7 @@ class SessionLogs implements SessionLogProgress {
      * last chunks still show.
      */
     boolean raise(UUID hostId, UUID sessionId, int attempt, int seq) {
-        return jdbc.sql("""
+        boolean raised = jdbc.sql("""
                                 update sessions.attempts set latest_log_seq = :seq
                                 where session_id = :sessionId and attempt = :attempt and host_id = :hostId
                                   and latest_log_seq < :seq
@@ -48,6 +51,10 @@ class SessionLogs implements SessionLogProgress {
                         .param("hostId", hostId)
                         .update()
                 == 1;
+        if (raised) {
+            hints.changed(sessionId);
+        }
+        return raised;
     }
 
     /** An attempt's newest uploaded chunk. */
