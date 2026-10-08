@@ -80,7 +80,19 @@ test.describe("a session", () => {
         { state: "FINISHING", reason: "renter_stopped", at: data.NOW.toISOString() },
       ],
     };
-    await fakeApi(page, api(data.running, { "/v1/sessions/[^/]+/stop": { json: finishing } }));
+    // Once stopped, the server says so everywhere, as the real one would: the stream reopens with the new state.
+    let stopped = false;
+    await fakeApi(
+      page,
+      api(data.running, {
+        "/v1/sessions/[^/]+/stop": () => {
+          stopped = true;
+          return { json: finishing };
+        },
+        "/v1/sessions/[^/]+/events": () => snapshot(stopped ? finishing : data.running),
+        "/v1/sessions/[^/]+": () => ({ json: stopped ? finishing : data.running }),
+      }),
+    );
     await signIn(page, "asha", open(data.running));
     await page.getByRole("button", { name: "Stop session" }).click();
     const dialog = page.getByRole("dialog", { name: "Stop this session?" });
