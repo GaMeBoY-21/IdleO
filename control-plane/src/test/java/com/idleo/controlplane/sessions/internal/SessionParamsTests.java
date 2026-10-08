@@ -34,6 +34,7 @@ class SessionParamsTests {
 
     private static final Template TEMPLATE = new Template(
             "fine-tune",
+            "fine-tune",
             "Fine-tune",
             "Trains a model.",
             "registry.example/tune@sha256:" + "a".repeat(64),

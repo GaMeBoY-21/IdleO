@@ -10,11 +10,13 @@ import org.jspecify.annotations.Nullable;
  * container gets, and what it takes (ADR 0019): its parameters and its input, described once here, from which every
  * surface's form, flags and arguments are made.
  *
+ * @param service the {@link Service} it's one way to run
  * @param description one line on what it does
  * @param typicalRuntime about how long it usually takes, for the booking screen; null if there's no usual
  */
 public record Template(
         String id,
+        String service,
         String name,
         String description,
         String image,

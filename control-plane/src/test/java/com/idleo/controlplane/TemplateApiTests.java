@@ -29,6 +29,22 @@ class TemplateApiTests {
         mvc.perform(get("/v1/templates")).andExpect(status().isUnauthorized());
     }
 
+    /** Templates come grouped into services, each one tile on Home (ADR 0021). */
+    @Test
+    void templatesComeWithTheirServices() throws Exception {
+        var user = TestUsers.signUp(mvc);
+
+        mvc.perform(get("/v1/templates").header("Authorization", user.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.services.length()").value(1))
+                .andExpect(jsonPath("$.services[0].id").value("developer-tests"))
+                .andExpect(jsonPath("$.services[0].name").value("Test jobs"))
+                .andExpect(jsonPath("$.services[0].runningLabel").value("Running a test job"))
+                .andExpect(jsonPath("$.services[0].icon").value("flask"))
+                .andExpect(jsonPath("$.services[0].hidden").value(false))
+                .andExpect(jsonPath("$.templates[0].service").value("developer-tests"));
+    }
+
     /** Each template describes its parameters and input once, for every surface to build its form from (ADR 0019). */
     @Test
     void templatesDescribeTheirParametersAndInput() throws Exception {

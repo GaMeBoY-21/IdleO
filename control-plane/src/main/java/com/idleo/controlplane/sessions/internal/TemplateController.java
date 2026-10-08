@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.sessions.Service;
 import com.idleo.controlplane.sessions.Template;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
@@ -92,9 +93,56 @@ class TemplateController {
         }
     }
 
-    /** @param typicalRuntimeSeconds about how long it usually takes; null if there's no usual */
+    /**
+     * Something a renter can run (ADR 0021): a group of templates, one tile on Home.
+     *
+     * @param tagline a few words under its name
+     * @param runningLabel what a running session of it is doing ("Fine-tuning")
+     * @param icon a key from a fixed list, which each client draws
+     * @param hidden kept off Home and Book's list; its templates can still be booked
+     */
+    record ServiceResponse(
+            String id,
+            String name,
+            String tagline,
+            String runningLabel,
+
+            @Schema(
+                    allowableValues = {
+                        "layers",
+                        "code",
+                        "image",
+                        "mic",
+                        "table",
+                        "cube",
+                        "notebook",
+                        "plug",
+                        "gamepad",
+                        "flask",
+                        "pulse"
+                    })
+            String icon,
+
+            boolean hidden) {
+
+        static ServiceResponse of(Service service) {
+            return new ServiceResponse(
+                    service.id(),
+                    service.name(),
+                    service.tagline(),
+                    service.runningLabel(),
+                    service.icon(),
+                    service.hidden());
+        }
+    }
+
+    /**
+     * @param service the service it's one way to run
+     * @param typicalRuntimeSeconds about how long it usually takes; null if there's no usual
+     */
     record TemplateResponse(
             String id,
+            String service,
             String name,
             String description,
             String image,
@@ -108,6 +156,7 @@ class TemplateController {
         static TemplateResponse of(Template template) {
             return new TemplateResponse(
                     template.id(),
+                    template.service(),
                     template.name(),
                     template.description(),
                     template.image(),
@@ -122,10 +171,13 @@ class TemplateController {
         }
     }
 
-    record TemplateList(List<TemplateResponse> templates) {}
+    /** @param services the services that have at least one template, in the catalog's order */
+    record TemplateList(List<ServiceResponse> services, List<TemplateResponse> templates) {}
 
     @GetMapping
     TemplateList list() {
-        return new TemplateList(catalog.all().stream().map(TemplateResponse::of).toList());
+        return new TemplateList(
+                catalog.services().stream().map(ServiceResponse::of).toList(),
+                catalog.all().stream().map(TemplateResponse::of).toList());
     }
 }

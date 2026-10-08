@@ -5,8 +5,17 @@
 # with SESSIONS_TEMPLATES_CATALOG=file:<path to this file>; the control plane
 # refuses to start the prod profile with any catalog but the bundled one, and
 # this file isn't bundled. Same fields as catalog.yaml.
+# Every development template belongs to one service, so Home shows a single "Test jobs" tile.
+services:
+  - id: developer-tests
+    name: Test jobs
+    tagline: jobs for trying the platform
+    running_label: Running a test job
+    icon: flask
+
 templates:
   - id: cuda-smoke-test
+    service: developer-tests
     name: CUDA smoke test (development runner)
     description: Simulates the smoke test for 20 seconds, checkpointing every 5.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
@@ -24,11 +33,13 @@ templates:
   # Metering in the end-to-end test (ADR 0017): two and a half minutes, charged
   # as three; and a long run, for a stop mid-run and the spending cap.
   - id: charged-run
+    service: developer-tests
     name: Charged run, 150 seconds (development runner)
     description: Runs 150 seconds, charged as three started minutes.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "150s"]
     min_vram_mb: 1024
+    typical_runtime: 150s
     default_max_runtime: 10m
     max_runtime_cap: 15m
     memory_mb: 2048
@@ -37,11 +48,13 @@ templates:
     scratch_mb: 1024
     checkpoint_interval: 5s
   - id: long-run
+    service: developer-tests
     name: Long run, 10 minutes (development runner)
     description: Runs 10 minutes, for stopping mid-way and the spending cap.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "10m"]
     min_vram_mb: 1024
+    typical_runtime: 10m
     default_max_runtime: 15m
     max_runtime_cap: 15m
     memory_mb: 2048
@@ -53,6 +66,7 @@ templates:
   # input reach the job. The development runner writes the input's SHA-256,
   # every SESSION_PARAM_* it saw, and the greeting repeated, into result.json.
   - id: echo-input
+    service: developer-tests
     name: Echo an input (development runner)
     description: Reads its input and parameters back, proving the job saw them exactly.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
@@ -87,3 +101,21 @@ templates:
       max_size_mb: 512
       label: File to echo
       help: Any file; the output gives its size and SHA-256.
+  # More GPU memory than any development host has, so the booking screen can show "No GPU is free
+  # right now" on any local stack, and a booking without a price ceiling gets no-gpu-free.
+  - id: needs-big-gpu
+    service: developer-tests
+    name: Needs a big GPU (development runner)
+    description: Asks for 80 GB of GPU memory, which no development host has.
+    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
+    args: ["--duration", "20s"]
+    min_vram_mb: 81920
+    default_max_runtime: 5m
+    max_runtime_cap: 15m
+    memory_mb: 2048
+    cpu_millicores: 2000
+    pids_limit: 256
+    scratch_mb: 1024
+    checkpoint_interval: 5s
+    input:
+      accepts: none

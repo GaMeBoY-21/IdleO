@@ -3,8 +3,21 @@
 # and serves it at GET /v1/templates. Every image is pinned by digest; cosign
 # signatures are verified once the registry exists (technical design line 83).
 #
-# Fields:
+# Services (ADR 0021, product surface 3.0) come first: what a renter can run, one tile on Home and
+# one choice in Book. A template is one way to run a service. GET /v1/templates lists a service only
+# once at least one template names it, so a service whose image isn't signed yet stays out of sight.
+#
+# Service fields:
 #   id, name               stable id and display name
+#   tagline                a few words under the name ("a model on your data")
+#   running_label          what a running session of it is doing, on its live screen ("Fine-tuning")
+#   icon                   one of: layers, code, image, mic, table, cube, notebook, plug, gamepad,
+#                          flask, pulse; each client draws its own
+#   hidden                 optional, true to keep it off Home and Book's list (its templates still book)
+#
+# Template fields:
+#   id, name               stable id and display name
+#   service                the service it's one way to run
 #   description            one line on what it does
 #   image                  container image, always with @sha256:<digest>
 #   args                   arguments to the image's entrypoint
@@ -36,8 +49,38 @@
 #
 # A template's parameters and input are described here once; the web form, the CLI's flags and the
 # SDK's arguments are all made from GET /v1/templates.
+services:
+  - id: fine-tune
+    name: Fine-tune a model
+    tagline: a model on your data
+    running_label: Fine-tuning
+    icon: layers
+  - id: run-code
+    name: Run your code
+    tagline: your folder, our GPU
+    running_label: Running your code
+    icon: code
+  - id: generate-images
+    name: Generate images
+    tagline: from a list of prompts
+    running_label: Generating images
+    icon: image
+  - id: transcribe
+    name: Transcribe audio or video
+    tagline: audio or video to text
+    running_label: Transcribing
+    icon: mic
+  # Checks a host's GPU works; booked by support and the CLI, not offered on Home.
+  - id: diagnostics
+    name: Diagnostics
+    tagline: check a GPU works
+    running_label: Checking the GPU
+    icon: pulse
+    hidden: true
+
 templates:
   - id: cuda-smoke-test
+    service: diagnostics
     name: CUDA smoke test
     description: Prints the GPU the job sees, proving the GPU reaches the container.
     # The CUDA base image Phase 0 pins (phase0/wsl/gpu-common.sh): prints the

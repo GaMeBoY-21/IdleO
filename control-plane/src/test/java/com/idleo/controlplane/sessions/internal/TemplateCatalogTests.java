@@ -19,6 +19,7 @@ class TemplateCatalogTests {
     private static String entry(String overrides) {
         var fields = new java.util.LinkedHashMap<String, String>();
         fields.put("id", "smoke");
+        fields.put("service", "tests");
         fields.put("name", "Smoke");
         fields.put("description", "Prints the GPU.");
         fields.put("image", "registry.example/smoke" + DIGEST);
@@ -50,9 +51,23 @@ class TemplateCatalogTests {
         return yaml.toString();
     }
 
+    private static final String SERVICES = """
+            services:
+              - id: tests
+                name: Tests
+                tagline: for the tests
+                running_label: Testing
+                icon: flask
+            """;
+
     private static java.util.Map<String, com.idleo.controlplane.sessions.Template> parse(String entries) {
+        return parse(SERVICES, entries);
+    }
+
+    private static java.util.Map<String, com.idleo.controlplane.sessions.Template> parse(
+            String services, String entries) {
         return TemplateCatalog.parse(
-                new ByteArrayInputStream(("templates:\n" + entries).getBytes(StandardCharsets.UTF_8)));
+                new ByteArrayInputStream((services + "templates:\n" + entries).getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
@@ -232,5 +247,67 @@ class TemplateCatalogTests {
     void duplicateIdsOrAnEmptyCatalogAreRefused() {
         assertThatThrownBy(() -> parse(entry("") + entry(""))).hasMessageContaining("twice");
         assertThatThrownBy(() -> parse("")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void aTemplateMustNameAServiceTheCatalogHas() {
+        assertThat(parse(entry("")).get("smoke").service()).isEqualTo("tests");
+        assertThatThrownBy(() -> parse(entry("service=nowhere")))
+                .hasMessageContaining("its service nowhere isn't in services");
+        assertThatThrownBy(() -> parse(entry("service=<none>"))).hasMessageContaining("service is required");
+        assertThatThrownBy(() -> parse("", entry(""))).hasMessageContaining("non-empty services list");
+    }
+
+    @Test
+    void malformedServicesAreRefused() {
+        var cases = java.util.Map.of(
+                SERVICES.replace("icon: flask", "icon: rocket"),
+                "icon must be one of",
+                SERVICES.replace("    running_label: Testing\n", ""),
+                "running_label is required",
+                SERVICES.replace("icon: flask", "icon: flask\n    colour: blue"),
+                "unknown field colour",
+                SERVICES + SERVICES.replace("services:\n", ""),
+                "appears twice",
+                SERVICES.replace("id: tests", "id: Tests"),
+                "lowercase");
+        cases.forEach((services, message) -> assertThatThrownBy(() -> parse(services, entry("service=tests")))
+                .as(services)
+                .hasMessageContaining(message));
+    }
+
+    @Test
+    void bothCatalogsGroupTheirTemplatesIntoServices() throws Exception {
+        try (var in = Files.newInputStream(Path.of("../templates/catalog.yaml"))) {
+            var catalog = TemplateCatalog.read(in);
+            assertThat(catalog.services().keySet())
+                    .containsExactly("fine-tune", "run-code", "generate-images", "transcribe", "diagnostics");
+            assertThat(catalog.services().get("diagnostics").hidden()).isTrue();
+            assertThat(catalog.services().get("fine-tune").runningLabel()).isEqualTo("Fine-tuning");
+            assertThat(catalog.templates().get("cuda-smoke-test").service()).isEqualTo("diagnostics");
+        }
+        try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
+            var catalog = TemplateCatalog.read(in);
+            assertThat(catalog.services().keySet()).containsExactly("developer-tests");
+            assertThat(catalog.services().get("developer-tests").name()).isEqualTo("Test jobs");
+            assertThat(catalog.templates().values())
+                    .allSatisfy(template -> assertThat(template.service()).isEqualTo("developer-tests"));
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void theApiOffersExactlyTheIconsTheCatalogAccepts() throws Exception {
+        // The contract (api/openapi.yaml, kept current by ApiContractTests) enumerates the icons clients may draw.
+        try (var in = Files.newInputStream(Path.of("../api/openapi.yaml"))) {
+            var api = (java.util.Map<String, Object>) new org.yaml.snakeyaml.Yaml().load(in);
+            var schemas = (java.util.Map<String, Object>)
+                    ((java.util.Map<String, Object>) api.get("components")).get("schemas");
+            var properties = (java.util.Map<String, Object>)
+                    ((java.util.Map<String, Object>) schemas.get("ServiceResponse")).get("properties");
+            var icon = (java.util.Map<String, Object>) properties.get("icon");
+            assertThat((java.util.List<String>) icon.get("enum"))
+                    .containsExactlyElementsOf(com.idleo.controlplane.sessions.Service.ICONS);
+        }
     }
 }

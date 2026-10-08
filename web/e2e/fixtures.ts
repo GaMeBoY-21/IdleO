@@ -36,9 +36,40 @@ export const me = (createdAt = "2026-09-01T10:00:00Z") => ({
 
 const IMAGE = "registry.example/idleo@sha256:0";
 
+export type Service = Schemas["ServiceResponse"];
+
+/** The services, as the production catalog groups them (templates/catalog.yaml); each has a template here. */
+export const serviceList: Service[] = [
+  {
+    id: "fine-tune",
+    name: "Fine-tune a model",
+    tagline: "a model on your data",
+    runningLabel: "Fine-tuning",
+    icon: "layers",
+    hidden: false,
+  },
+  {
+    id: "run-code",
+    name: "Run your code",
+    tagline: "your folder, our GPU",
+    runningLabel: "Running your code",
+    icon: "code",
+    hidden: false,
+  },
+  {
+    id: "diagnostics",
+    name: "Diagnostics",
+    tagline: "check a GPU works",
+    runningLabel: "Checking the GPU",
+    icon: "pulse",
+    hidden: true,
+  },
+];
+
 export const templateList: Template[] = [
   {
     id: "qlora-finetune",
+    service: "fine-tune",
     name: "QLoRA fine-tune of a small language model (Qwen 2.5 1.5B, 4-bit)",
     description: "Fine-tunes a 1.5B model on your dataset with QLoRA and saves the adapter as the output.",
     image: IMAGE,
@@ -125,6 +156,7 @@ export const templateList: Template[] = [
   },
   {
     id: "echo-input",
+    service: "run-code",
     name: "Echo an input",
     description: "Reads its input and parameters back, proving the job saw them exactly.",
     image: IMAGE,
@@ -166,6 +198,7 @@ export const templateList: Template[] = [
   },
   {
     id: "cuda-smoke-test",
+    service: "diagnostics",
     name: "CUDA smoke test",
     description: "Checks the GPU answers and CUDA works, in about 20 seconds.",
     image: IMAGE,
@@ -178,7 +211,7 @@ export const templateList: Template[] = [
   },
 ];
 
-export const templates = { templates: templateList };
+export const templates = { services: serviceList, templates: templateList };
 
 const GPU_4080 = { model: "NVIDIA GeForce RTX 4080 Laptop GPU", vramMb: 12_282 };
 const GPU_3060 = { model: "NVIDIA GeForce RTX 3060 Laptop GPU", vramMb: 6_144 };

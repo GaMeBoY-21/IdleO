@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.sessions.Service;
 import com.idleo.controlplane.sessions.Template;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,7 +28,8 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
  * The template catalog (ADR 0015): templates/catalog.yaml, reviewed in git and bundled in the jar, is the
  * only source of what renters can run. Loaded once at startup; a malformed entry, an unknown field, or an image not
  * pinned by digest, stops the application from starting. Each template describes its parameters and input once
- * (ADR 0019); a parameter's default must itself pass the parameter's rules.
+ * (ADR 0019); a parameter's default must itself pass the parameter's rules. Templates are grouped into services
+ * (ADR 0021), listed first; a template naming a service that isn't there stops the start too.
  */
 @Component
 class TemplateCatalog {
@@ -38,6 +40,7 @@ class TemplateCatalog {
 
     private static final Set<String> TEMPLATE_FIELDS = Set.of(
             "id",
+            "service",
             "name",
             "description",
             "image",
@@ -56,12 +59,20 @@ class TemplateCatalog {
     private static final Set<String> PARAM_FIELDS =
             Set.of("name", "label", "help", "type", "required", "default", "min", "max", "max_length", "choices");
     private static final Set<String> INPUT_FIELDS = Set.of("accepts", "upload", "url", "max_size_mb", "label", "help");
+    private static final Set<String> SERVICE_FIELDS =
+            Set.of("id", "name", "tagline", "running_label", "icon", "hidden");
 
+    /** A whole catalog: its services and its templates, each in the file's order. */
+    record Parsed(Map<String, Service> services, Map<String, Template> templates) {}
+
+    private final Map<String, Service> services;
     private final Map<String, Template> templates;
 
     TemplateCatalog(@Value("${sessions.templates.catalog}") Resource catalog) throws IOException {
         try (var in = catalog.getInputStream()) {
-            this.templates = parse(in);
+            var parsed = read(in);
+            this.services = parsed.services();
+            this.templates = parsed.templates();
         }
     }
 
@@ -69,18 +80,34 @@ class TemplateCatalog {
         return List.copyOf(templates.values());
     }
 
+    /** The services that have at least one template, in the catalog's order; one without a template isn't listed. */
+    List<Service> services() {
+        var used = new HashSet<String>();
+        templates.values().forEach(template -> used.add(template.service()));
+        return services.values().stream()
+                .filter(service -> used.contains(service.id()))
+                .toList();
+    }
+
     Optional<Template> find(String id) {
         return Optional.ofNullable(templates.get(id));
     }
 
-    /** Parses and checks a catalog, refusing it whole if any entry is wrong. */
+    /** A catalog's templates, parsed and checked. */
     static Map<String, Template> parse(InputStream yaml) {
+        return read(yaml).templates();
+    }
+
+    /** Parses and checks a catalog, refusing it whole if any entry is wrong. */
+    static Parsed read(InputStream yaml) {
         Object root = new Yaml(new SafeConstructor(new LoaderOptions())).load(yaml);
         if (!(root instanceof Map<?, ?> top)
                 || !(top.get("templates") instanceof List<?> entries)
                 || entries.isEmpty()) {
             throw new IllegalStateException("The template catalog needs a non-empty templates list.");
         }
+        known(top, Set.of("services", "templates"), "The template catalog");
+        var services = services(top.get("services"));
         var templates = new LinkedHashMap<String, Template>();
         var ids = new HashSet<String>();
         for (var entry : entries) {
@@ -91,9 +118,46 @@ class TemplateCatalog {
             if (!ids.add(template.id())) {
                 throw new IllegalStateException("Template id " + template.id() + " appears twice.");
             }
+            if (!services.containsKey(template.service())) {
+                throw new IllegalStateException(
+                        "Template " + template.id() + ": its service " + template.service() + " isn't in services.");
+            }
             templates.put(template.id(), template);
         }
-        return templates;
+        return new Parsed(services, templates);
+    }
+
+    private static Map<String, Service> services(@Nullable Object value) {
+        if (!(value instanceof List<?> entries) || entries.isEmpty()) {
+            throw new IllegalStateException("The template catalog needs a non-empty services list.");
+        }
+        var services = new LinkedHashMap<String, Service>();
+        for (var entry : entries) {
+            if (!(entry instanceof Map<?, ?> fields)) {
+                throw new IllegalStateException("Every service must be a map.");
+            }
+            var id = text(fields, "id", "?");
+            var where = "Service " + id;
+            if (!ID.matcher(id).matches()) {
+                throw new IllegalStateException(where + ": the id must be lowercase letters, digits and hyphens.");
+            }
+            known(fields, SERVICE_FIELDS, where);
+            var icon = text(fields, "icon", id);
+            if (!Service.ICONS.contains(icon)) {
+                throw new IllegalStateException(where + ": icon must be one of " + Service.ICONS + ".");
+            }
+            var service = new Service(
+                    id,
+                    text(fields, "name", id),
+                    text(fields, "tagline", id),
+                    text(fields, "running_label", id),
+                    icon,
+                    flag(fields, "hidden", where));
+            if (services.put(id, service) != null) {
+                throw new IllegalStateException(where + " appears twice.");
+            }
+        }
+        return services;
     }
 
     private static Template template(Map<?, ?> fields) {
@@ -120,6 +184,7 @@ class TemplateCatalog {
         int scratchMb = positive(fields, "scratch_mb", id);
         return new Template(
                 id,
+                text(fields, "service", id),
                 text(fields, "name", id),
                 text(fields, "description", id),
                 image,

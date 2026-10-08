@@ -1347,6 +1347,40 @@ components:
       - enoughCredit
       - holdPaise
       - hostsFitNow
+    ServiceResponse:
+      type: object
+      properties:
+        hidden:
+          type: boolean
+        icon:
+          type: string
+          enum:
+          - layers
+          - code
+          - image
+          - mic
+          - table
+          - cube
+          - notebook
+          - plug
+          - gamepad
+          - flask
+          - pulse
+        id:
+          type: string
+        name:
+          type: string
+        runningLabel:
+          type: string
+        tagline:
+          type: string
+      required:
+      - hidden
+      - icon
+      - id
+      - name
+      - runningLabel
+      - tagline
     SessionCheckpoint:
       type: object
       properties:
@@ -1582,11 +1616,16 @@ components:
     TemplateList:
       type: object
       properties:
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceResponse"
         templates:
           type: array
           items:
             $ref: "#/components/schemas/TemplateResponse"
       required:
+      - services
       - templates
     TemplateParam:
       type: object
@@ -1665,6 +1704,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TemplateParam"
+        service:
+          type: string
         typicalRuntimeSeconds:
           type:
           - integer
@@ -1680,6 +1721,7 @@ components:
       - minVramMb
       - name
       - params
+      - service
     UpdateMeRequest:
       type: object
       properties:
