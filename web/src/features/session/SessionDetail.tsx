@@ -147,9 +147,10 @@ function Live({
       <Figures session={session} />
       {laptop ? (
         <div className="grid grid-cols-12 items-start gap-6">
+          {/* The outputs' list arrives after the page: below everything it could otherwise push down. */}
           <div className="col-span-8 flex min-w-0 flex-col gap-4">
-            {outputs}
             {logs}
+            {outputs}
           </div>
           <div className="col-span-4 flex min-w-0 flex-col gap-4">
             <Checkpoints session={session} />
@@ -158,10 +159,10 @@ function Live({
         </div>
       ) : (
         <>
-          {outputs}
           {logs}
           <Checkpoints session={session} />
           <Timeline session={session} />
+          {outputs}
           {/* The action bar's room, so nothing it covers is out of reach and nothing moves when it appears. */}
           <div aria-hidden="true" className="h-16" />
           <div

@@ -10,7 +10,11 @@ import { fakeApi, recordLayoutShifts, signIn } from "./support";
 const screens = [
   { name: "home", path: "/", ready: () => "Running now" },
   { name: "credit", path: "/credit/", ready: () => "Show older" },
-  { name: "session detail", path: `/session/?id=${data.completed.id}`, ready: () => "result.json" },
+  { name: "a completed session", path: `/session/?id=${data.completed.id}`, ready: () => "result.json" },
+  { name: "a running session", path: `/session/?id=${data.running.id}`, ready: () => "Checkpoint 4" },
+  { name: "all sessions", path: "/sessions/?show=ended", ready: () => "Show more" },
+  { name: "book", path: "/book/", ready: () => "From ₹7.20 an hour" },
+  { name: "configure", path: "/book/?template=qlora-finetune&step=configure", ready: () => "Settings" },
 ];
 
 test("sign-in loads without moving, its form arriving in the space kept for it", async ({ page }) => {
@@ -25,30 +29,29 @@ test("sign-in loads without moving, its form arriving in the space kept for it",
 for (const screen of screens) {
   test(`${screen.name} loads without moving`, async ({ page }) => {
     await page.clock.setFixedTime(data.NOW);
-    await fakeApi(page, {
+    const routes = {
       "/v1/me": { json: data.me() },
       "/v1/templates": { json: data.templates },
       "/v1/wallet": { json: data.asha.wallet },
-      "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
+      "/v1/availability": { json: data.availability },
+      "/v1/sessions": {
+        json: data.sessionsPage(data.asha.sessions, {
+          active: screen.path.includes("ended") ? false : undefined,
+        }),
+      },
+      "/v1/sessions/[^/]+/events": "hold" as const,
+      "/v1/sessions/[^/]+/logs": {
+        json: { chunks: data.logChunks(data.running), nextCursor: null, complete: true },
+      },
       "/v1/sessions/[^/]+/outputs": { json: data.outputs },
+      [`/v1/sessions/${data.running.id}`]: { json: data.running },
       "/v1/sessions/[^/]+": { json: data.completed },
       "/v1/wallet/transactions": { json: data.history(0) },
-    });
+    };
+    await fakeApi(page, routes);
     await signIn(page, "asha");
     await page.unrouteAll({ behavior: "wait" });
-    await fakeApi(
-      page,
-      {
-        "/v1/me": { json: data.me() },
-        "/v1/templates": { json: data.templates },
-        "/v1/wallet": { json: data.asha.wallet },
-        "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
-        "/v1/sessions/[^/]+/outputs": { json: data.outputs },
-        "/v1/sessions/[^/]+": { json: data.completed },
-        "/v1/wallet/transactions": { json: data.history(0) },
-      },
-      { delayMs: 600 },
-    );
+    await fakeApi(page, routes, { delayMs: 600 });
     const shifts = await recordLayoutShifts(page);
     await page.goto(screen.path);
     await expect(page.getByText(screen.ready()).first()).toBeVisible({ timeout: 10_000 });

@@ -41,25 +41,22 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
 
   return (
     <Card aria-labelledby="logs-title">
-      <CardTitle
-        id="logs-title"
-        action={
-          !laptop && (
-            <Button
-              variant="quiet"
-              aria-expanded={open}
-              aria-controls="logs-panel"
-              onClick={() => setOpen(!open)}
-            >
-              {open
-                ? "Hide logs"
-                : `Show logs, ${count.toLocaleString("en-IN")} ${count === 1 ? "line" : "lines"}`}
-            </Button>
-          )
-        }
-      >
-        Logs
-      </CardTitle>
+      <CardTitle id="logs-title">Logs</CardTitle>
+      {!laptop && (
+        // Full width, so the count arriving changes nothing around it.
+        <Button
+          variant="secondary"
+          block
+          aria-expanded={open}
+          aria-controls="logs-panel"
+          onClick={() => setOpen(!open)}
+          className={open ? "mb-4" : undefined}
+        >
+          {open
+            ? "Hide logs"
+            : `Show logs, ${count.toLocaleString("en-IN")} ${count === 1 ? "line" : "lines"}`}
+        </Button>
+      )}
       <div id="logs-panel" hidden={!open}>
         {log.data ? (
           lines.length === 0 ? (
@@ -87,8 +84,10 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
             </Button>
           </div>
         ) : (
-          <div role="status" aria-label="Loading the logs">
+          // The panel and its buttons' row, as they'll load.
+          <div role="status" aria-label="Loading the logs" className="flex flex-col gap-3">
             <Skeleton className="h-panel w-full" />
+            <Skeleton className="h-touch w-1/3" />
           </div>
         )}
       </div>

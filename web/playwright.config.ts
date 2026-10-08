@@ -6,7 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
  * - screens: every screen and state, with the API answered by fixtures, so each state is reproducible; checked
  *   with axe and compared with visual baselines at 390 and 1280 px, light and dark;
  * - journey: the real stack end to end, a booked session followed on the home screen to its charge;
- * - lighthouse: the performance and accessibility budgets.
+ * - lighthouse: the performance and accessibility budgets, and a 10 MiB log on the session screen.
  *
  * Visual baselines aren't in git: CI keeps them as an artifact and compares each run with them; a change needs
  * an explicit update (web/README.md).
@@ -65,6 +65,6 @@ export default defineConfig({
         video: { mode: "on", size: phone.viewport },
       },
     },
-    { name: "lighthouse", testMatch: "lighthouse.spec.ts", workers: 1, timeout: 240_000 },
+    { name: "lighthouse", testMatch: /(lighthouse|performance)\.spec\.ts/, workers: 1, timeout: 240_000 },
   ],
 });
