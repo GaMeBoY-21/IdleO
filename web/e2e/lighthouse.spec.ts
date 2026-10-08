@@ -69,7 +69,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       const path = {
         "sign-in": "/sign-in/",
         home: "/",
-        book: "/book/?service=run-code",
+        book: "/book/?service=developer-tests&template=echo-input",
         session: `/session/?id=${sessionId}`,
         "session-link": `/session/?id=${sessionId}`,
       }[name];
@@ -173,7 +173,7 @@ async function finish(page: Page, cdp: CDPSession): Promise<number> {
 
 /** Typing in the booking form's settings: the greeting, a number, the price and the cap, as a renter fills them. */
 async function typingInp(page: Page): Promise<number> {
-  const cdp = await measured(page, "/book/?service=run-code");
+  const cdp = await measured(page, "/book/?service=developer-tests&template=echo-input");
   await page.getByRole("button", { name: /^Settings/ }).click();
   const sheet = page.getByRole("dialog", { name: "Settings" });
   for (const [label, text] of [
