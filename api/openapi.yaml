@@ -290,6 +290,24 @@ paths:
   /v1/sessions:
     get:
       operationId: sessionList
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      - in: query
+        name: active
+        required: false
+        schema:
+          type: boolean
       responses:
         "200":
           content:
@@ -1291,6 +1309,10 @@ components:
     SessionList:
       type: object
       properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
         sessions:
           type: array
           items:

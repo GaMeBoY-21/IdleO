@@ -7,11 +7,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Sessions written straight to the store, without the event that would wake the scheduler. */
 final class SessionTestData {
 
+    /** UUIDv7, time-ordered, like every real id. */
+    private static final com.fasterxml.uuid.impl.TimeBasedEpochGenerator IDS =
+            com.fasterxml.uuid.Generators.timeBasedEpochGenerator();
+
     private SessionTestData() {}
 
     static UUID requested(
             SessionStore store, PlatformTransactionManager transactions, UUID renterId, int maxPrice, long maxSpend) {
-        var id = UUID.randomUUID();
+        var id = IDS.generate();
         var now = store.now();
         new TransactionTemplate(transactions)
                 .executeWithoutResult(status -> store.insert(new SessionStore.Session(

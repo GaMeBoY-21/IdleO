@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** A renter's sessions (ADR 0015). See the sessions module's package documentation. */
@@ -27,7 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/sessions")
 class SessionController {
 
-    static final int LIST_LIMIT = 50;
+    static final int DEFAULT_PAGE = 20;
+    static final int MAX_PAGE = 100;
 
     private final SessionService sessions;
     private final SessionOutputs outputs;
@@ -41,7 +43,10 @@ class SessionController {
         this.views = views;
     }
 
-    record SessionList(List<SessionViews.SessionResponse> sessions) {}
+    /** @param nextCursor pass it back as {@code cursor} for the next page; null on the last one */
+    record SessionList(
+            List<SessionViews.SessionResponse> sessions,
+            @Nullable String nextCursor) {}
 
     @PostMapping
     @ApiResponse(
@@ -66,11 +71,22 @@ class SessionController {
                 : ResponseEntity.ok(body);
     }
 
+    /**
+     * The renter's sessions, newest first, a page at a time; {@code active=true} only those that haven't ended,
+     * {@code active=false} only those that have.
+     */
     @GetMapping
-    SessionList list(@AuthenticationPrincipal CurrentUser user) {
-        return new SessionList(store.findByRenter(user.id(), LIST_LIMIT).stream()
-                .map(this::view)
-                .toList());
+    SessionList list(
+            @AuthenticationPrincipal CurrentUser user,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(defaultValue = "" + DEFAULT_PAGE) int limit,
+            @RequestParam(required = false) @Nullable Boolean active) {
+        var size = Cursors.limit(limit, MAX_PAGE);
+        var rows = store.page(user.id(), cursor == null ? null : Cursors.id(cursor), active, size + 1);
+        var page = rows.subList(0, Math.min(size, rows.size()));
+        return new SessionList(
+                page.stream().map(this::view).toList(),
+                rows.size() > size ? Cursors.ofId(page.getLast().id()) : null);
     }
 
     @GetMapping("/{id}")

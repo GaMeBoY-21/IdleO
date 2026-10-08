@@ -106,6 +106,41 @@ class SessionApiTests {
     }
 
     @Test
+    void theListPagesNewestFirstAndFiltersByWhetherSessionsHaveEnded() throws Exception {
+        var renter = renterWith(50_000);
+        var oldest = SessionTestData.requested(store, transactionManager, renter.id(), 5, 1_000);
+        var middle = SessionTestData.requested(store, transactionManager, renter.id(), 5, 1_000);
+        var newest = SessionTestData.requested(store, transactionManager, renter.id(), 5, 1_000);
+        mvc.perform(post("/v1/sessions/" + middle + "/cancel").header("Authorization", renter.bearer()))
+                .andExpect(status().isOk());
+
+        var first = JSON.readTree(mvc.perform(get("/v1/sessions?limit=2").header("Authorization", renter.bearer()))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        assertThat(first.get("sessions").findValuesAsString("id"))
+                .containsExactly(newest.toString(), middle.toString());
+        var cursor = first.get("nextCursor").asString();
+        mvc.perform(get("/v1/sessions?limit=2&cursor=" + cursor).header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.sessions[*].id").value(org.hamcrest.Matchers.contains(oldest.toString())))
+                .andExpect(jsonPath("$.nextCursor").doesNotExist());
+        mvc.perform(get("/v1/sessions").header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.sessions.length()").value(3))
+                .andExpect(jsonPath("$.nextCursor").doesNotExist());
+        mvc.perform(get("/v1/sessions?active=true").header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.sessions[*].id")
+                        .value(org.hamcrest.Matchers.contains(newest.toString(), oldest.toString())));
+        mvc.perform(get("/v1/sessions?active=false").header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.sessions[*].id").value(org.hamcrest.Matchers.contains(middle.toString())));
+        mvc.perform(get("/v1/sessions?cursor=forged").header("Authorization", renter.bearer()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("cursor"));
+        mvc.perform(get("/v1/sessions?limit=101").header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.errors[0].field").value("limit"));
+    }
+
+    @Test
     void aSessionThatNeverRanIsSettledAsSoonAsItEnds() throws Exception {
         var renter = renterWith(50_000);
         var id = JSON.readTree(book(renter, "never-ran", body(10, 20_000))

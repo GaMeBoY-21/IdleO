@@ -278,12 +278,18 @@ class SessionStore {
                 .optional();
     }
 
-    List<Session> findByRenter(UUID renterId, int limit) {
-        return jdbc.sql("""
-                        select * from sessions.sessions where renter_id = :renterId
-                        order by created_at desc, id desc limit :limit
-                        """)
+    /**
+     * The renter's sessions, newest first by id (UUIDv7), after {@code after} if given; only live ones, only ended
+     * ones, or both. At most {@code limit}.
+     */
+    List<Session> page(UUID renterId, @Nullable UUID after, @Nullable Boolean active, int limit) {
+        var ended = "state in (" + UploadStore.FINAL_STATES + ")";
+        var filter = active == null ? "" : active ? " and not " + ended : " and " + ended;
+        return jdbc.sql("select * from sessions.sessions where renter_id = :renterId"
+                        + " and (cast(:after as uuid) is null or id < cast(:after as uuid))" + filter
+                        + " order by id desc limit :limit")
                 .param("renterId", renterId)
+                .param("after", after)
                 .param("limit", limit)
                 .query(SessionStore::session)
                 .list();
