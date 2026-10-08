@@ -21,6 +21,18 @@ export function afterFirstScreen(work: () => void): () => void {
   };
 }
 
+/** The app's font has loaded, or a second has passed: until then, text may not be drawn yet (font-display). */
+function fontLoaded(): Promise<unknown> {
+  if (typeof document === "undefined" || !("fonts" in document)) {
+    return Promise.resolve();
+  }
+  // `document.fonts.ready` can resolve before any text has asked for the preloaded font; loading it by name waits.
+  return Promise.race([
+    document.fonts.load("1em Inter").catch(() => undefined),
+    new Promise((resolve) => setTimeout(resolve, 1_000)),
+  ]);
+}
+
 /**
  * False until `ready` (the screen's main content is there), its text drawn in the app's font, and two frames after
  * that, then true. For requests a screen doesn't need to paint its main content (a session's stream and logs, the
@@ -37,9 +49,7 @@ export function useAfterPaint(ready = true): boolean {
     let cancelled = false;
     let frame = 0;
     let timer = 0;
-    const fonts =
-      typeof document !== "undefined" && "fonts" in document ? document.fonts.ready : Promise.resolve();
-    void fonts.then(() => {
+    void fontLoaded().then(() => {
       if (cancelled) {
         return;
       }

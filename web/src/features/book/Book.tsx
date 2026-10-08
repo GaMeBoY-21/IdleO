@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useTemplates } from "@/api/queries";
-import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Banner } from "@/components/ui/Banner";
 import { ErrorState } from "@/components/ui/States";
+import { Route } from "@/features/flow/Route";
 import { YourSession } from "@/features/flow/YourSession";
 import { afterFirstScreen, useAfterPaint } from "@/lib/after-first-screen";
 import { bookHref, offeredServices, serviceOf, templatesOf } from "@/lib/catalog";
@@ -100,7 +101,7 @@ export function Book() {
     <BookLayout
       laptop={laptop}
       back={back}
-      summary={<SummarySkeleton />}
+      summary={<SummarySkeleton title={template.name} />}
       right={null}
       left={
         <>
@@ -155,16 +156,21 @@ function ChoicesSkeleton() {
   );
 }
 
-/** The phone's route summary before the form arrives: the same two stops' height. */
-function SummarySkeleton() {
+/**
+ * The phone's route summary before the form arrives (BookRoute.tsx's BookSummary): the same route with the template's
+ * name once it's known and its details still to come, so it takes exactly the room the summary will.
+ */
+function SummarySkeleton({ title }: { title?: string }) {
+  const toCome = <span className="invisible">…</span>;
   return (
-    <div aria-hidden="true" className="flex flex-col gap-3.5 rounded-panel bg-ground px-4.5 py-4">
-      {[0, 1].map((key) => (
-        <div key={key}>
-          <SkeletonLine size="small" width="w-1/2" />
-          <SkeletonLine size="caption" width="w-3/4" />
-        </div>
-      ))}
+    <div aria-hidden="true" className="rounded-panel bg-ground px-4.5 py-4">
+      <Route
+        compact
+        stops={[
+          { title: title ?? toCome, detail: toCome, state: "next" },
+          { title: "Your outputs", detail: toCome, state: "end" },
+        ]}
+      />
     </div>
   );
 }

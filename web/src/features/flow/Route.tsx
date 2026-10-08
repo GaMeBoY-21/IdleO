@@ -41,7 +41,10 @@ export function Route({
               {!last && <span className={cn("flex-1 bg-text", compact ? "min-h-4 w-0.5" : "min-h-10 w-1")} />}
             </div>
             <div className={cn("flex min-w-0 flex-col gap-1", !last && (compact ? "pb-3.5" : "pb-7"))}>
-              <span className={cn("font-semibold break-words", compact ? "text-small" : "text-option")}>
+              {/* Compact, it's a one-glance recap (Book's summary on a phone): one line, so it never changes height. */}
+              <span
+                className={cn("font-semibold", compact ? "truncate text-small" : "text-option break-words")}
+              >
                 {stop.title}
               </span>
               {stop.detail && (
