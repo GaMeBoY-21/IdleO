@@ -1,7 +1,7 @@
 import { isLive, type Session } from "@/api/queries";
 import { Money } from "@/components/ui/Money";
 import { Elapsed } from "@/components/ui/Time";
-import { gigabytes } from "@/features/book/prices";
+import { gigabytes } from "@/lib/gpu";
 import { costSoFar } from "@/lib/sessions";
 
 /** "RTX 4080 Laptop": a GPU's name as people say it, without the maker's prefix. */

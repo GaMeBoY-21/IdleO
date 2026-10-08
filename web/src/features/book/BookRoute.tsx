@@ -1,0 +1,96 @@
+import type { Template } from "@/api/queries";
+import { Chip } from "@/components/ui/Card";
+import { Route } from "@/features/flow/Route";
+import { YourSession, type DataStop } from "@/features/flow/YourSession";
+import { aboutRuntime } from "@/lib/catalog";
+import { formatPaise, formatPaiseRange, parseRupees } from "@/lib/money";
+import type { BookValues } from "./form";
+import { uploadLine } from "./FilePicker";
+import { settingsSummary } from "./summary";
+import type { QuoteState } from "./useQuote";
+import type { ChosenFile } from "./useUpload";
+
+/** The session's data as the route's first stop; null for a template that takes none. */
+export function dataStop(template: Template, values: BookValues, file: ChosenFile | null): DataStop | null {
+  if (template.input.accepts === "none") {
+    return null;
+  }
+  if (values.inputKind === "url" && values.inputUrl.trim() !== "") {
+    return { detail: "From your link", done: true };
+  }
+  if (values.inputKind === "upload" && file) {
+    return { detail: `${file.name} · ${uploadLine(file)}`, done: file.progress.phase === "ready" };
+  }
+  return {
+    detail: template.input.accepts === "optional" ? "None: it's optional" : "Upload a file or give a link",
+    done: template.input.accepts === "optional",
+  };
+}
+
+/**
+ * The laptop's right panel on Book (docs/design/redesign/book-laptop.html): the route from the data to the outputs,
+ * then the chips: the price range per hour (from the quote), where it stops, and that it's charged per minute.
+ */
+export function BookPanel({
+  template,
+  values,
+  file,
+  quote,
+}: {
+  template: Template;
+  values: BookValues;
+  file: ChosenFile | null;
+  quote: QuoteState | null;
+}) {
+  const range = quote?.kind === "quoted" ? quote.quote.pricePaisePerMin : null;
+  const cap = parseRupees(values.spendingCap);
+  return (
+    <YourSession
+      data={dataStop(template, values, file)}
+      runtime={aboutRuntime(template.typicalRuntimeSeconds)}
+      chips={
+        <>
+          {range && (
+            <Chip className="tabular">{formatPaiseRange(range.min * 60, range.max * 60)} an hour</Chip>
+          )}
+          {cap !== null && cap > 0 && <Chip className="tabular">Stops at {formatPaise(cap)}</Chip>}
+          <Chip>Charged per minute</Chip>
+        </>
+      }
+    />
+  );
+}
+
+/** The phone's summary in the grey area above the sheet (docs/design/redesign/book-phone.html): what, then what comes out. */
+export function BookSummary({
+  template,
+  values,
+  file,
+}: {
+  template: Template;
+  values: BookValues;
+  file: ChosenFile | null;
+}) {
+  const data = dataStop(template, values, file);
+  const runtime = aboutRuntime(template.typicalRuntimeSeconds);
+  const settings = settingsSummary(template, values);
+  return (
+    <div className="rounded-panel bg-ground px-4.5 py-4">
+      <Route
+        compact
+        stops={[
+          {
+            title: template.name,
+            detail: data?.detail ?? "Nothing to upload",
+            state: data === null || data.done ? "done" : "next",
+          },
+          {
+            title: "Your outputs",
+            detail: [runtime && `in ${runtime}`, settings].filter(Boolean).join(" · "),
+            state: "end",
+          },
+        ]}
+      />
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { formatPaise } from "./money";
+import { formatEstimate, formatPaise, formatPaiseRange } from "./money";
 
 describe("formatPaise", () => {
   it("formats zero and small amounts with two paise digits", () => {
@@ -69,5 +69,33 @@ describe("₹ an hour and paise a minute", () => {
     expect(paisePerMinute("7.80")).toBe(13);
     expect(paisePerMinute("0.59")).toBe(0);
     expect(paisePerMinute("seven")).toBeNull();
+  });
+});
+
+describe("formatPaiseRange", () => {
+  it("writes the rupee sign once, and one figure when the ends meet", () => {
+    expect(formatPaiseRange(720, 1_080)).toBe("₹7.20–10.80");
+    expect(formatPaiseRange(720, 720)).toBe("₹7.20");
+    expect(formatPaiseRange(99_000, 1_20_000)).toBe("₹990.00–1,200.00");
+  });
+});
+
+describe("formatEstimate", () => {
+  it("rounds each end to the nearest whole rupee", () => {
+    // 45 minutes at 12 to 18 paise a minute: ₹5.40 to ₹8.10.
+    expect(formatEstimate(540, 810)).toBe("≈ ₹5–8");
+    expect(formatEstimate(450, 849)).toBe("≈ ₹5–8");
+    expect(formatEstimate(1_23_450, 2_00_000)).toBe("≈ ₹1,235–2,000");
+  });
+
+  it("gives one figure when both ends round alike, and says when it's under a rupee", () => {
+    expect(formatEstimate(540, 549)).toBe("≈ ₹5");
+    expect(formatEstimate(0, 49)).toBe("under ₹1");
+    expect(formatEstimate(10, 150)).toBe("≈ ₹1–2");
+  });
+
+  it("refuses what isn't whole paise, low to high", () => {
+    expect(() => formatEstimate(5.5, 10)).toThrow(RangeError);
+    expect(() => formatEstimate(10, 5)).toThrow(RangeError);
   });
 });

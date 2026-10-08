@@ -2,13 +2,10 @@ import { Link } from "wouter";
 import type { components } from "@/api/schema.gen";
 import { IconTile } from "@/components/ui/Option";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { bookHref } from "@/lib/catalog";
+import { bookHref, sentence } from "@/lib/catalog";
 import { SERVICE_ICONS } from "@/lib/service-icons";
 
 type Service = components["schemas"]["ServiceResponse"];
-
-/** A tagline as a line of its own: "A model on your data". */
-export const sentence = (tagline: string) => tagline.charAt(0).toUpperCase() + tagline.slice(1);
 
 /**
  * The services, each a tile that opens Book at it (docs/design/redesign/home-phone.html): two columns on a phone.

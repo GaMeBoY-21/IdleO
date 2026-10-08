@@ -73,3 +73,31 @@ export const rupeesPerHour = (paisePerMin: number) => rupeeInput(paisePerMin * 6
 
 /** One step of the price input, ₹0.60 an hour. */
 export const PRICE_STEP = "0.60";
+
+/** A range of money, "₹7.20–10.80", the rupee sign once; one figure when both ends are the same. */
+export function formatPaiseRange(min: number, max: number): string {
+  return min === max ? formatPaise(min) : `${formatPaise(min)}–${formatPaise(max).slice("₹".length)}`;
+}
+
+/**
+ * An estimate, the one place money is rounded: "≈ ₹5–8", whole rupees, each end to the nearest (half up), in integer
+ * arithmetic; "≈ ₹5" when both ends round alike; "under ₹1" when even the top is less than a rupee. Only for what a
+ * session might cost before it runs (web/DESIGN.md "Book"), never for a charge, a hold or credit.
+ */
+export function formatEstimate(minPaise: number, maxPaise: number): string {
+  if (
+    !Number.isSafeInteger(minPaise) ||
+    !Number.isSafeInteger(maxPaise) ||
+    minPaise < 0 ||
+    maxPaise < minPaise
+  ) {
+    throw new RangeError(`An estimate needs whole paise, low to high, not ${minPaise} to ${maxPaise}`);
+  }
+  const rupees = (paise: number) => Math.floor((paise + 50) / 100);
+  const [low, high] = [rupees(minPaise), rupees(maxPaise)];
+  if (high === 0) {
+    return "under ₹1";
+  }
+  const whole = (value: number) => formatPaise(value * 100).slice(0, -".00".length);
+  return low === high ? `≈ ${whole(high)}` : `≈ ${whole(Math.max(low, 1))}–${whole(high).slice("₹".length)}`;
+}

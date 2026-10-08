@@ -1,13 +1,9 @@
 import * as z from "zod/mini";
 import type { components } from "@/api/schema.gen";
 import type { Session, Template } from "@/api/queries";
-import { paisePerMinute, parseRupees, rupeeInput, rupeesPerHour } from "@/lib/money";
+import { paisePerMinute, parseRupees, rupeeInput } from "@/lib/money";
 import { paramDefaults, paramsSchema, paramValuesFrom, toParams, type ParamFormValues } from "./params";
-import { defaultPrice } from "./prices";
 
-export { gigabytes, memoryChoices } from "./prices";
-
-type Availability = components["schemas"]["Availability"];
 export type CreateSession = components["schemas"]["CreateSessionRequest"];
 
 /** The booking form, as it's edited: text where the renter types, so nothing they type is lost or rounded. */
@@ -16,7 +12,10 @@ export interface BookValues {
   inputKind: "upload" | "url";
   inputUrl: string;
   vramMb: string;
-  /** Rupees an hour; the API takes paise a minute (src/lib/money.ts). */
+  /**
+   * Rupees an hour; the API takes paise a minute (src/lib/money.ts). Empty, as it starts: the server picks the
+   * ceiling, the highest price among the GPUs that fit right now (ADR 0021).
+   */
   maxPerHour: string;
   /** Rupees. */
   spendingCap: string;
@@ -32,26 +31,30 @@ const runtimeParts = (seconds: number) => ({
   runtimeMinutes: String(Math.floor((seconds % 3600) / 60)),
 });
 
-export function defaultValues(template: Template, availability: Availability | undefined): BookValues {
+export function defaultValues(template: Template): BookValues {
   return {
     params: paramDefaults(template.params),
     inputKind: template.input.upload ? "upload" : "url",
     inputUrl: "",
     vramMb: String(template.minVramMb),
-    maxPerHour: rupeesPerHour(defaultPrice(availability, template.minVramMb)),
+    maxPerHour: "",
     spendingCap: rupeeInput(DEFAULT_CAP_PAISE),
     ...runtimeParts(template.defaultMaxRuntimeSeconds),
   };
 }
 
-/** Run again: the form filled from an earlier session of the same template. */
+/**
+ * Run again: the form filled from an earlier session of the same template. Its price ceiling isn't carried over: the
+ * session doesn't say whether the renter set it or the server picked it, and a new request is matched at today's
+ * prices, like a ride.
+ */
 export function valuesFrom(template: Template, session: Session): BookValues {
   return {
     params: paramValuesFrom(template.params, session.params),
     inputKind: session.input?.url ? "url" : template.input.upload ? "upload" : "url",
     inputUrl: session.input?.url ?? "",
     vramMb: String(session.vramNeededMb),
-    maxPerHour: rupeesPerHour(session.maxPricePaisePerMin),
+    maxPerHour: "",
     spendingCap: rupeeInput(session.maxSpendPaise),
     ...runtimeParts(Math.min(session.maxRuntimeSeconds, template.maxRuntimeCapSeconds)),
   };
@@ -73,7 +76,7 @@ export function hoursAndMinutes(seconds: number): string {
   return parts.filter(Boolean).join(" ") || "0 minutes";
 }
 
-/** Every check the form makes before review; the server makes them again, and its answer is final. */
+/** Every check the form makes before a quote or a request; the server makes them again, and its answer is final. */
 export function bookSchema(template: Template) {
   const cap = template.maxRuntimeCapSeconds;
   return z
@@ -85,7 +88,10 @@ export function bookSchema(template: Template) {
       maxPerHour: z
         .string()
         .check(
-          z.refine((value) => (paisePerMinute(value) ?? 0) >= 1, "Enter at least ₹0.60 an hour, in rupees."),
+          z.refine(
+            (value) => value.trim() === "" || (paisePerMinute(value) ?? 0) >= 1,
+            "Enter at least ₹0.60 an hour, in rupees, or leave it empty.",
+          ),
         ),
       spendingCap: z
         .string()
@@ -122,7 +128,10 @@ export function bookSchema(template: Template) {
     );
 }
 
-/** The API's request for these values, and the upload chosen; prices exact, in paise. */
+/**
+ * The API's request for these values and the upload chosen, prices exact, in paise. A quote takes the same request
+ * with no input while the upload is still going; leaving "the most per hour" empty leaves the ceiling to the server.
+ */
 export function toRequest(template: Template, values: BookValues, uploadId: string | null): CreateSession {
   const url = values.inputUrl.trim();
   const input =
@@ -132,7 +141,7 @@ export function toRequest(template: Template, values: BookValues, uploadId: stri
     params: toParams(template.params, values.params),
     input,
     vramNeededMb: Number(values.vramMb),
-    maxPricePaisePerMin: paisePerMinute(values.maxPerHour) ?? 1,
+    maxPricePaisePerMin: values.maxPerHour.trim() === "" ? null : (paisePerMinute(values.maxPerHour) ?? 1),
     maxSpendPaise: parseRupees(values.spendingCap) ?? 1,
     maxRuntimeSeconds: runtimeSeconds(values),
   };

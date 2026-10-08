@@ -12,7 +12,7 @@ import { costSoFar } from "@/lib/sessions";
 type Catalog = components["schemas"]["TemplateList"];
 
 /** What a live session is doing, in a few words: "Fine-tuning", "Finding your GPU". */
-function headline(session: Session, catalog: Catalog): string {
+export function headline(session: Session, catalog: Catalog): string {
   switch (session.state) {
     case "REQUESTED":
     case "MATCHED":

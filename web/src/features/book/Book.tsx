@@ -1,73 +1,154 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Link, useLocation, useSearch } from "wouter";
-import { useAvailability, useTemplates } from "@/api/queries";
-import { buttonClasses } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/States";
-import { afterFirstScreen, useAfterPaint } from "@/lib/after-first-screen";
+import { useLocation, useSearch } from "wouter";
+import { useTemplates } from "@/api/queries";
+import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { Banner } from "@/components/ui/Banner";
+import { ErrorState } from "@/components/ui/States";
+import { YourSession } from "@/features/flow/YourSession";
+import { afterFirstScreen } from "@/lib/after-first-screen";
+import { bookHref, offeredServices, serviceOf, templatesOf } from "@/lib/catalog";
+import { useLaptop } from "@/lib/media";
 import { useTitle } from "@/lib/title";
-import { FormSkeleton } from "./FormSkeleton";
-import { PickStep } from "./PickStep";
-import { StepNav, type Step } from "./StepNav";
+import { BookLayout } from "./BookLayout";
+import { ServiceChoice, TemplateChoice } from "./WhatToRun";
 
-const loadFlow = () => import("./BookFlow");
-const Prepared = lazy(() => loadFlow().then((module) => ({ default: module.Prepared })));
+const loadForm = () => import("./Prepared");
+const Prepared = lazy(() => loadForm().then((module) => ({ default: module.Prepared })));
+const QUESTION = "What do you want to run?";
 
 /**
- * Book a GPU (product surface 3.2, designed for a laptop first): pick a template, configure it, review the quote and
- * book. The step and the template are in the URL (`?template=echo-input&step=configure`), so back and forward work
- * and a reload keeps the step; what's typed is kept per template in this tab until it's booked. Run again opens
- * configure filled from an earlier session (`&from=<id>`).
+ * Book a GPU (web/DESIGN.md "Book", designed for a laptop first), one screen: what to run, your data, your GPU,
+ * settings, and "Request a GPU". The choice is in the URL (`?service=fine-tune&template=qlora-finetune`), so back,
+ * forward and reload keep it; a service with one template needs no template in it. Book again and Run again add
+ * `&from=<session>` to start from an earlier setup. The form is a chunk of its own, fetched once the first screen
+ * has loaded, so the services paint without it.
  */
 export function Book() {
   useTitle("Book a GPU");
   const search = new URLSearchParams(useSearch());
   const [, navigate] = useLocation();
   const templates = useTemplates();
-  // The price hints come just after the gallery paints.
-  const availability = useAvailability(useAfterPaint());
-  const templateId = search.get("template");
-  const step: Step = templateId === null ? "pick" : search.get("step") === "review" ? "review" : "configure";
-  const template = templates.data?.templates.find((t) => t.id === templateId);
-  useEffect(() => afterFirstScreen(() => void loadFlow()), []);
+  const laptop = useLaptop();
+  useEffect(() => afterFirstScreen(() => void loadForm()), []);
 
+  const catalog = templates.data;
+  const templateId = search.get("template");
+  const serviceId =
+    search.get("service") ?? (catalog && templateId ? serviceOf(catalog, templateId)?.id : null);
+  const service = catalog?.services.find((s) => s.id === serviceId);
+  const inService = catalog && service ? templatesOf(catalog, service.id) : [];
+  const template = templateId === null ? inService[0] : inService.find((t) => t.id === templateId);
+
+  const question = <h1 className={laptop ? "text-question" : "text-title"}>{QUESTION}</h1>;
+  const services = catalog && (
+    <ServiceChoice
+      services={offeredServices(catalog)}
+      templatesOf={(id) => templatesOf(catalog, id)}
+      selected={service?.id ?? null}
+      onPick={(id) => navigate(bookHref(id))}
+    />
+  );
+  const generic = (
+    <YourSession data={{ detail: "A file you upload, or a link", done: false }} runtime={null} />
+  );
+
+  if (!catalog || !service || !template) {
+    const unknown = catalog !== undefined && (serviceId !== null || templateId !== null);
+    return (
+      <BookLayout
+        laptop={laptop}
+        back="/"
+        summary={null}
+        right={catalog ? generic : null}
+        left={
+          <>
+            {question}
+            {unknown && (
+              <Banner tone="info">
+                That isn&apos;t available any more. Choose what to run from the list.
+              </Banner>
+            )}
+            {services ??
+              (templates.isError ? (
+                <ErrorState
+                  error={templates.error}
+                  what="what you can run"
+                  onRetry={() => void templates.refetch()}
+                  retrying={templates.isFetching}
+                />
+              ) : (
+                <ChoicesSkeleton />
+              ))}
+          </>
+        }
+      />
+    );
+  }
+
+  const choice = inService.length > 1 && (
+    <TemplateChoice
+      templates={inService}
+      selected={template.id}
+      onPick={(id) => navigate(bookHref(service.id, id))}
+    />
+  );
+  const back = laptop ? "/" : "/book/";
+  const fallback = (
+    <BookLayout
+      laptop={laptop}
+      back={back}
+      summary={<SummarySkeleton />}
+      right={null}
+      left={
+        <>
+          {laptop ? question : <SkeletonLine size="title" width="w-1/2" />}
+          {laptop && services}
+          <ChoicesSkeleton />
+        </>
+      }
+    />
+  );
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-heading font-semibold">Book a GPU</h1>
-        <StepNav current={step} templateId={templateId} />
-      </div>
-      {step === "pick" ? (
-        <PickStep
-          templates={templates}
-          availability={availability}
-          onPick={(id) => navigate(`/book/?template=${encodeURIComponent(id)}&step=configure`)}
-        />
-      ) : templates.data && !template ? (
-        <Card>
-          <EmptyState
-            title="That template isn't available"
-            action={
-              <Link href="/book/" className={buttonClasses("primary")}>
-                Pick a template
-              </Link>
-            }
-          >
-            It may have been replaced. Pick one from the list.
-          </EmptyState>
-        </Card>
-      ) : template && (availability.data || availability.isError) ? (
-        <Suspense fallback={<FormSkeleton />}>
-          <Prepared
-            template={template}
-            from={search.get("from")}
-            step={step}
-            availability={availability.data}
-          />
-        </Suspense>
-      ) : (
-        <FormSkeleton />
-      )}
+    <Suspense fallback={fallback}>
+      <Prepared
+        key={template.id}
+        template={template}
+        from={search.get("from")}
+        fallback={fallback}
+        laptop={laptop}
+        back={back}
+        serviceName={service.name}
+        choices={
+          <>
+            {laptop && services}
+            {choice}
+          </>
+        }
+      />
+    </Suspense>
+  );
+}
+
+function ChoicesSkeleton() {
+  return (
+    <div role="status" aria-label="Loading" className="flex flex-col gap-2">
+      {[0, 1, 2].map((key) => (
+        <Skeleton key={key} className="h-18 w-full" />
+      ))}
+    </div>
+  );
+}
+
+/** The phone's route summary before the form arrives: the same two stops' height. */
+function SummarySkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-3.5 rounded-panel bg-ground px-4.5 py-4">
+      {[0, 1].map((key) => (
+        <div key={key}>
+          <SkeletonLine size="small" width="w-1/2" />
+          <SkeletonLine size="caption" width="w-3/4" />
+        </div>
+      ))}
     </div>
   );
 }

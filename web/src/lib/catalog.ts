@@ -23,6 +23,9 @@ export const serviceOf = (catalog: Catalog, templateId: string): Service | undef
   return template && catalog.services.find((service) => service.id === template.service);
 };
 
+/** A tagline as a line of its own: "A model on your data". */
+export const sentence = (tagline: string) => tagline.charAt(0).toUpperCase() + tagline.slice(1);
+
 /** "about 45 min", "about 20 s", "about 2 h": a template's typical runtime; null when it depends on the data. */
 export function aboutRuntime(seconds: number | null | undefined): string | null {
   if (seconds === null || seconds === undefined) {

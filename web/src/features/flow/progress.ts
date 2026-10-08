@@ -2,6 +2,8 @@ import type { Session } from "@/api/queries";
 import { gpuName, withArticle } from "@/lib/gpu";
 import type { Stop } from "./Route";
 
+const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 const FINDING = new Set(["REQUESTED", "MATCHED"]);
 const RUNNING = new Set(["RUNNING", "HOST_LOST", "FINISHING"]);
 
@@ -26,7 +28,7 @@ export function progressStops(session: Session): Stop[] {
     {
       title: finding ? "Finding your GPU" : "A GPU picked it up",
       detail: session.gpu
-        ? `${withArticle(gpuName(session.gpu.model))} took it`
+        ? `${capitalised(withArticle(gpuName(session.gpu.model)))} took it`
         : "We match the best free GPU for this job, usually within a minute",
       state: finding ? "current" : "done",
     },

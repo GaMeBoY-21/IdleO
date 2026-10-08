@@ -139,7 +139,7 @@ export function RadioGroup({
             <input
               type="radio"
               value={option.value}
-              className="size-4 accent-accent"
+              className="size-4 accent-primary"
               {...inputProps(option.value)}
             />
             {option.label}
