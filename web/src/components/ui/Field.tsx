@@ -1,10 +1,10 @@
-import { forwardRef, useId, type InputHTMLAttributes } from "react";
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /** A labelled input with room for its error, so a message appearing moves nothing (web/DESIGN.md "Motion"). */
 export const Field = forwardRef<
   HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | undefined; hint?: string }
+  InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | undefined; hint?: ReactNode }
 >(function Field({ label, error, hint, className, ...props }, ref) {
   const id = useId();
   const messageId = `${id}-message`;
