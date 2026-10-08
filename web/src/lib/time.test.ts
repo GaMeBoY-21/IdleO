@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { formatElapsed, formatRelative } from "./time";
+import { formatDuration, formatElapsed, formatRelative } from "./time";
 
 const NOW = Date.parse("2026-10-07T06:34:00Z");
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -34,5 +34,14 @@ describe("elapsed time", () => {
 
   it("is never negative, whatever the clocks say", () => {
     expect(formatElapsed(new Date(NOW + 5_000).toISOString(), NOW)).toBe("0:00");
+  });
+});
+
+describe("durations", () => {
+  it("keep seconds only while they matter", () => {
+    expect(formatDuration(ago(22_000), NOW)).toBe("22 s");
+    expect(formatDuration(ago(6 * 60_000 + 10_000), NOW)).toBe("6 min 10 s");
+    expect(formatDuration(ago(41 * 60_000 + 5_000), NOW)).toBe("41 min");
+    expect(formatDuration(ago(65 * 60_000), NOW)).toBe("1 h 05 min");
   });
 });

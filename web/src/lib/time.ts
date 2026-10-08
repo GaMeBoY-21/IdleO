@@ -39,15 +39,18 @@ export function formatRelative(iso: string, now: number): string {
   return dayMonth.format(new Date(iso));
 }
 
-/** "2 min 30 s", "1 h 05 min": how long between two moments. */
+/** "2 min 30 s", "41 min", "1 h 05 min": how long between two moments; seconds only while they matter. */
 export function formatDuration(fromIso: string, to: number | string): string {
   const seconds = Math.max(0, Math.round((new Date(to).getTime() - new Date(fromIso).getTime()) / 1000));
   if (seconds < 60) {
     return `${seconds} s`;
   }
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
+  if (minutes < 10) {
     return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`;
+  }
+  if (minutes < 60) {
+    return `${minutes} min`;
   }
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;
 }

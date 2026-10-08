@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, type Request as PlaywrightRequest, type TestInfo } from "@playwright/test";
-import { mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export const API = process.env.API_URL ?? "http://localhost:8080";
@@ -222,3 +222,19 @@ export async function capture(page: Page, testInfo: TestInfo, name: string): Pro
     await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: true, stylePath: FULL_PAGE_STYLE });
   }
 }
+
+/** Keeps a page's recording in the review gallery, as `<name>.webm`. */
+export async function keep(page: Page, name: string): Promise<void> {
+  await page.close();
+  const gallery = process.env.GALLERY_DIR!;
+  mkdirSync(gallery, { recursive: true });
+  copyFileSync(await page.video()!.path(), `${gallery}/${name}.webm`);
+}
+
+/** A pause in a recording, so a viewer can see what happened. */
+export const slowly = (page: Page, ms = 900) => page.waitForTimeout(ms);
+
+/** An event stream that sends one snapshot of the session, then closes. */
+export const snapshot = (session: unknown) => ({
+  events: `event: session\ndata: ${JSON.stringify(session)}\n\n`,
+});

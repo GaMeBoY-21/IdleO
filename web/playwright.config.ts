@@ -57,7 +57,7 @@ export default defineConfig({
     { name: "journey", testMatch: "journey.spec.ts", use: { ...phone }, timeout: 240_000 },
     {
       name: "recording",
-      testMatch: "recording.spec.ts",
+      testMatch: /recording(-laptop)?\.spec\.ts/,
       use: {
         ...phone,
         deviceScaleFactor: 1,
