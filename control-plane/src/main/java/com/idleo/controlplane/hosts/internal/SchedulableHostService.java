@@ -22,7 +22,7 @@ class SchedulableHostService implements SchedulableHosts {
         return jdbc.sql("""
                         select * from (
                             select distinct on (h.id) h.id, l.price_paise_per_min, h.gpu_temp_cap_c, g.gpu_uuid,
-                                   g.vram_mb
+                                   g.vram_mb, g.model
                             from hosts.hosts h
                             join hosts.price_listings l on l.host_id = h.id and l.workload_type = 'batch'
                             join hosts.host_gpus g on g.host_id = h.id and g.gone_at is null
@@ -38,7 +38,8 @@ class SchedulableHostService implements SchedulableHosts {
                         rs.getInt("price_paise_per_min"),
                         rs.getInt("gpu_temp_cap_c"),
                         rs.getString("gpu_uuid"),
-                        rs.getInt("vram_mb")))
+                        rs.getInt("vram_mb"),
+                        rs.getString("model")))
                 .list();
     }
 

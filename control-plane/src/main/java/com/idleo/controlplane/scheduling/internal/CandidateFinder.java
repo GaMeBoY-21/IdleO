@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
  * Hosts that could take a session (technical design line 352), each fact from the module that owns it:
  * active, listed and big enough (hosts); online, current, owner away and every GPU below the cap (agent
  * gateway presence); no live session (sessions); and not already offered this session.
+ *
+ * <p>These are the scheduler's hard filters, in one place: matching, quotes and availability all use {@link #look}
+ * (ADR 0019), so a quote that says a host fits never disagrees with the booking that follows.
  */
 @Component
 class CandidateFinder {
@@ -26,11 +29,16 @@ class CandidateFinder {
         this.sessions = sessions;
     }
 
-    /** Candidates, best first. */
-    List<Scoring.Scored> find(SessionBookings.BookingRequest request, Collection<UUID> alreadyOffered) {
-        var listed = hosts.batchCandidates(request.maxPricePaisePerMin(), request.vramNeededMb()).stream()
-                .filter(candidate -> !alreadyOffered.contains(candidate.hostId()))
-                .toList();
+    /**
+     * A listed host as the scheduler sees it now.
+     *
+     * @param online its agent's presence is live
+     * @param free it could take a session now: online, current, owner away, every GPU below its cap, no live session
+     */
+    record Looked(SchedulableHosts.Candidate candidate, boolean online, boolean free) {}
+
+    /** Each listed host, with whether it's online and free. */
+    List<Looked> look(List<SchedulableHosts.Candidate> listed) {
         if (listed.isEmpty()) {
             return List.of();
         }
@@ -38,14 +46,29 @@ class CandidateFinder {
         var live = presence.live(ids);
         var busy = sessions.hostsWithLiveSessions(ids);
         return listed.stream()
-                .filter(candidate -> {
+                .map(candidate -> {
                     var agent = live.get(candidate.hostId());
-                    return agent != null
+                    boolean free = agent != null
                             && !agent.updateRequired()
                             && !agent.ownerActive()
                             && agent.gpuTempsC().stream().allMatch(temp -> temp < candidate.gpuTempCapC())
                             && !busy.contains(candidate.hostId());
+                    return new Looked(candidate, agent != null, free);
                 })
+                .toList();
+    }
+
+    /** Free hosts at or under {@code maxPricePaisePerMin} with at least {@code vramNeededMb}. */
+    List<SchedulableHosts.Candidate> free(int maxPricePaisePerMin, int vramNeededMb, Collection<UUID> excluded) {
+        var listed = hosts.batchCandidates(maxPricePaisePerMin, vramNeededMb).stream()
+                .filter(candidate -> !excluded.contains(candidate.hostId()))
+                .toList();
+        return look(listed).stream().filter(Looked::free).map(Looked::candidate).toList();
+    }
+
+    /** Candidates, best first. */
+    List<Scoring.Scored> find(SessionBookings.BookingRequest request, Collection<UUID> alreadyOffered) {
+        return free(request.maxPricePaisePerMin(), request.vramNeededMb(), alreadyOffered).stream()
                 .map(candidate -> new Scoring.Scored(
                         new Scoring.Candidate(candidate.hostId(), candidate.pricePaisePerMin(), candidate.gpuUuid()),
                         Scoring.score(candidate.pricePaisePerMin(), request.maxPricePaisePerMin())))

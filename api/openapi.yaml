@@ -9,6 +9,24 @@ servers:
 security:
 - idToken: []
 paths:
+  /v1/availability:
+    get:
+      operationId: availabilityGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - availability
   /v1/hosts:
     get:
       operationId: hostList
@@ -245,6 +263,30 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - me
+  /v1/session-quotes:
+    post:
+      operationId: quoteCreate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - quote
   /v1/sessions:
     get:
       operationId: sessionList
@@ -664,6 +706,15 @@ paths:
       - wallet
 components:
   schemas:
+    Availability:
+      type: object
+      properties:
+        gpus:
+          type: array
+          items:
+            $ref: "#/components/schemas/GpuAvailability"
+      required:
+      - gpus
     CompleteUploadRequest:
       type: object
       properties:
@@ -779,6 +830,28 @@ components:
       - at
       - reason
       - state
+    GpuAvailability:
+      type: object
+      properties:
+        gpuModel:
+          type: string
+        hostsIdle:
+          type: integer
+          format: int32
+        hostsOnline:
+          type: integer
+          format: int32
+        pricePaisePerMin:
+          $ref: "#/components/schemas/PriceStats"
+        vramMb:
+          type: integer
+          format: int32
+      required:
+      - gpuModel
+      - hostsIdle
+      - hostsOnline
+      - pricePaisePerMin
+      - vramMb
     GpuResponse:
       type: object
       properties:
@@ -1050,6 +1123,34 @@ components:
           minItems: 0
       required:
       - partNumbers
+    PriceRange:
+      type: object
+      properties:
+        max:
+          type: integer
+          format: int32
+        min:
+          type: integer
+          format: int32
+      required:
+      - max
+      - min
+    PriceStats:
+      type: object
+      properties:
+        max:
+          type: integer
+          format: int32
+        median:
+          type: integer
+          format: int32
+        min:
+          type: integer
+          format: int32
+      required:
+      - max
+      - median
+      - min
     ProblemDetail:
       type: object
       description: An RFC 9457 problem detail (ADR 0019)
@@ -1113,6 +1214,29 @@ components:
       - status
       - title
       - type
+    QuoteResponse:
+      type: object
+      properties:
+        availablePaise:
+          type: integer
+          format: int64
+        enoughCredit:
+          type: boolean
+        holdPaise:
+          type: integer
+          format: int64
+        hostsFitNow:
+          type: integer
+          format: int32
+        pricePaisePerMin:
+          oneOf:
+          - $ref: "#/components/schemas/PriceRange"
+          - type: "null"
+      required:
+      - availablePaise
+      - enoughCredit
+      - holdPaise
+      - hostsFitNow
     SessionCheckpoint:
       type: object
       properties:
