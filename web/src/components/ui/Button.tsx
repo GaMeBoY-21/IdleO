@@ -11,7 +11,9 @@ const variants: Record<ButtonVariant, string> = {
   primary: "bg-accent text-accent-fg hover:bg-accent-hover",
   secondary: "border border-border-strong bg-surface text-text hover:bg-sunken",
   quiet: "text-accent-text hover:bg-accent-soft",
-  danger: "bg-danger text-danger-fg hover:opacity-90",
+  // Hovering adds a ring outside the button rather than fading it, so its text keeps its contrast.
+  danger:
+    "bg-danger text-danger-fg hover:ring-2 hover:ring-danger hover:ring-offset-2 hover:ring-offset-surface",
 };
 
 export function buttonClasses(variant: ButtonVariant = "primary", block = false) {
