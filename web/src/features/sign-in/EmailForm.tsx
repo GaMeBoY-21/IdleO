@@ -47,7 +47,7 @@ export function EmailForm({
         error={form.formState.errors.email?.message}
         {...form.register("email")}
       />
-      <Button type="submit" block busy={form.formState.isSubmitting}>
+      <Button type="submit" large block busy={form.formState.isSubmitting}>
         {submit}
       </Button>
     </form>

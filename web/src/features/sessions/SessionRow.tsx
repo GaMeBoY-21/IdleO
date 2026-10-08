@@ -2,14 +2,14 @@ import { ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { isLive, useTemplateName, type Session } from "@/api/queries";
 import { Money } from "@/components/ui/Money";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { StateChip } from "@/components/ui/StateChip";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { costSoFar } from "@/lib/sessions";
 import { formatDuration } from "@/lib/time";
 
 /**
- * One session in a list, as one link (web/DESIGN.md): its template's whole name, which wraps and is never cut off;
+ * One session in a list, as one link, a divider between rows (web/DESIGN.md "Shapes"): its template's whole name, which wraps and is never cut off;
  * its state; when it started, relative; how long it has run, ticking while it's live; and its cost so far, or its
  * final charge.
  */
@@ -20,11 +20,11 @@ export function SessionRow({ session }: { session: Session }) {
     <li>
       <Link
         href={`/session/?id=${session.id}`}
-        className="flex min-h-16 items-center gap-3 px-3 py-3 hover:bg-sunken md:px-4"
+        className="flex min-h-18 items-center gap-3 py-4 hover:bg-fill"
       >
-        <div className="min-w-0 flex-1">
-          <p className="text-body font-medium break-words">{templateName(session.templateId)}</p>
-          <p className="text-caption text-text-muted">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-option font-semibold break-words">{templateName(session.templateId)}</p>
+          <p className="text-small text-text-muted">
             {session.startedAt ? (
               <>
                 <RelativeTime value={session.startedAt} prefix="Started" />
@@ -43,9 +43,9 @@ export function SessionRow({ session }: { session: Session }) {
             )}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
           <StateChip state={session.state} />
-          <p className="text-small">
+          <p className="text-small tabular">
             <span className="sr-only">{live ? "Cost so far" : "Charged"} </span>
             <Money paise={live ? costSoFar(session) : session.chargedPaise} className="font-semibold" />
             {live && <span className="text-text-muted"> so far</span>}
@@ -59,7 +59,7 @@ export function SessionRow({ session }: { session: Session }) {
 
 export function SessionList({ sessions }: { sessions: Session[] }) {
   return (
-    <ul className="divide-y divide-border rounded-control border border-border">
+    <ul className="flex flex-col divide-y divide-divider">
       {sessions.map((session) => (
         <SessionRow key={session.id} session={session} />
       ))}
@@ -70,14 +70,15 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
 /** Rows of exactly a loaded row's height, so the list arriving moves nothing below it. */
 export function SessionRowsSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="divide-y divide-border rounded-control border border-border">
+    <div className="flex flex-col divide-y divide-divider">
       {Array.from({ length: rows }, (_, key) => (
-        <div key={key} className="flex min-h-16 items-center gap-3 px-3 py-3 md:px-4">
-          <div className="flex-1">
-            <Skeleton className="h-6 w-1/2" />
-            <Skeleton className="mt-1 h-4 w-2/3" />
+        <div key={key} className="flex min-h-18 items-center gap-3 py-4">
+          <div className="flex flex-1 flex-col gap-0.5">
+            <SkeletonLine size="option" width="w-1/2" />
+            <SkeletonLine size="small" width="w-2/3" />
           </div>
-          <Skeleton className="h-12 w-1/4" />
+          <Skeleton className="h-14 w-1/4" />
+          <span aria-hidden="true" className="size-5 shrink-0" />
         </div>
       ))}
     </div>

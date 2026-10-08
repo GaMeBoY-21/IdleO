@@ -28,7 +28,7 @@ export const Field = forwardRef<
         )}
         {...props}
       />
-      <p id={messageId} className={cn("min-h-4 text-caption", error ? "text-danger" : "text-text-muted")}>
+      <p id={messageId} className={cn("min-h-4.5 text-caption", error ? "text-danger" : "text-text-muted")}>
         {error ?? hint ?? ""}
       </p>
     </div>

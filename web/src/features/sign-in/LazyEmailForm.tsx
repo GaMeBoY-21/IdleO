@@ -30,10 +30,10 @@ function EmailFormSkeleton() {
     <div className="flex flex-col gap-2" role="status" aria-label="Loading the email form">
       <div className="flex flex-col gap-2">
         <SkeletonLine size="small" width="w-1/6" />
-        <div className="h-touch rounded-control border border-border-strong" />
-        <div className="min-h-4" />
+        <div className="h-14 rounded-control bg-fill" />
+        <div className="min-h-4.5" />
       </div>
-      <div className="h-touch rounded-control bg-sunken" />
+      <div className="h-14 rounded-control bg-fill md:h-15" />
     </div>
   );
 }

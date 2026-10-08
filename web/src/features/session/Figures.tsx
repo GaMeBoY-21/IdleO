@@ -45,7 +45,7 @@ export function RunningFigures({
         <div className="flex items-end justify-between gap-4">
           {timer}
           <div className="flex flex-col items-end gap-1">
-            <Money paise={cost} className="text-title tabular" />
+            <Money paise={cost} className="text-title" />
             <span className="min-h-5 text-small text-text-muted">so far</span>
           </div>
         </div>

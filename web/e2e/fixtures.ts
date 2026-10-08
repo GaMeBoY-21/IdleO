@@ -721,18 +721,27 @@ export function logChunks(session: Session, count = 6): LogChunk[] {
   }));
 }
 
-/** The quote for a booking (POST /v1/session-quotes): the hold is 30 minutes at the maximum price. */
+/**
+ * The quote for a booking (POST /v1/session-quotes, ADR 0021): the hold is 30 minutes at the ceiling, never past
+ * the spending cap. Without a ceiling of the renter's own, the server's is the highest price among the GPUs free
+ * now with enough memory; null when none is (the API's no-gpu-free).
+ */
 export function quote(
-  maxPricePaisePerMin: number,
+  maxPricePaisePerMin: number | null | undefined,
   maxSpendPaise: number,
   wallet: Wallet = asha.wallet,
   fits = availability,
+  vramNeededMb = 0,
 ) {
-  const holdPaise = Math.min(30 * maxPricePaisePerMin, maxSpendPaise);
-  const fitting = fits.gpus.filter(
-    (gpu) => gpu.hostsIdle > 0 && gpu.pricePaisePerMin.min <= maxPricePaisePerMin,
-  );
+  const free = fits.gpus.filter((gpu) => gpu.hostsIdle > 0 && gpu.vramMb >= vramNeededMb);
+  const ceiling = maxPricePaisePerMin ?? Math.max(0, ...free.map((gpu) => gpu.pricePaisePerMin.max));
+  if (maxPricePaisePerMin == null && free.length === 0) {
+    return null;
+  }
+  const holdPaise = Math.min(30 * ceiling, maxSpendPaise);
+  const fitting = free.filter((gpu) => gpu.pricePaisePerMin.min <= ceiling);
   return {
+    ceilingPaisePerMin: ceiling,
     holdPaise,
     availablePaise: wallet.availablePaise,
     enoughCredit: wallet.availablePaise >= holdPaise,
@@ -745,6 +754,16 @@ export function quote(
             max: Math.max(...fitting.map((gpu) => gpu.pricePaisePerMin.max)),
           },
   };
+}
+
+/** How the fake API answers a quote's body: the quote, or no-gpu-free (409) when nothing fits and no ceiling is given. */
+export function quoteAnswer(
+  body: { maxPricePaisePerMin?: number | null; maxSpendPaise: number; vramNeededMb?: number },
+  wallet: Wallet = asha.wallet,
+  fits = availability,
+) {
+  const answer = quote(body.maxPricePaisePerMin, body.maxSpendPaise, wallet, fits, body.vramNeededMb ?? 0);
+  return answer === null ? { status: 409, problem: "no-gpu-free" } : { json: answer };
 }
 
 /** The running fine-tune's data, as GET /v1/uploads/{id} describes it. */

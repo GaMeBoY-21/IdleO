@@ -20,9 +20,12 @@ export function Welcome() {
 }
 
 const STEPS = [
-  { title: "Pick a template", detail: "What to run: a fine-tune, a test of your code, or a ready-made job." },
+  { title: "Say what to run", detail: "Fine-tune a model on your data, run your code, or a ready-made job." },
   { title: "Give it your data", detail: "Upload a file from your laptop, or give a link to one." },
-  { title: "Watch it run", detail: "See it live with its cost by the minute, then download the outputs." },
+  {
+    title: "Request a GPU",
+    detail: "We match the best free GPU for the job. Watch it run, then download the outputs.",
+  },
 ];
 
 function WelcomeCard() {
@@ -38,12 +41,12 @@ function WelcomeCard() {
 
   return (
     <SignInFrame title={`Welcome to ${brand.name}`}>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-7">
         <p className="text-body text-text-muted">
           Run your code on someone&apos;s idle gaming GPU, by the minute, paid in rupees. You&apos;re only
           charged for the minutes your session runs.
         </p>
-        <div className="min-h-6 text-body">
+        <div className="min-h-6 text-option">
           {wallet.data ? (
             wallet.data.availablePaise > 0 ? (
               <p>
@@ -54,7 +57,7 @@ function WelcomeCard() {
               <p className="text-text-muted">Your credit will show on your home screen.</p>
             )
           ) : (
-            <SkeletonLine size="body" width="w-3/4" />
+            <SkeletonLine size="option" width="w-3/4" />
           )}
         </div>
         <ol className="flex flex-col gap-4">
@@ -62,22 +65,22 @@ function WelcomeCard() {
             <li key={step.title} className="flex gap-3">
               <span
                 aria-hidden="true"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-small font-semibold text-accent-text"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-small font-semibold text-primary-fg"
               >
                 {index + 1}
               </span>
               <div>
-                <p className="text-body font-medium">{step.title}</p>
+                <p className="text-option font-semibold">{step.title}</p>
                 <p className="text-small text-text-muted">{step.detail}</p>
               </div>
             </li>
           ))}
         </ol>
         <div className="flex flex-col gap-2">
-          <Button block onClick={() => leave("/book/")}>
-            Book your first session
+          <Button block large onClick={() => leave("/book/")}>
+            Choose what to run
           </Button>
-          <Button block variant="quiet" onClick={() => leave("/")}>
+          <Button block large variant="quiet" onClick={() => leave("/")}>
             Go to your home
           </Button>
         </div>

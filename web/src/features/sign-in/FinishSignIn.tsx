@@ -54,7 +54,7 @@ export function FinishSignIn() {
   if (step.kind === "needs-email") {
     return (
       <SignInFrame title="Confirm your email">
-        <p className="mb-6 text-small text-text-muted">
+        <p className="mb-8 text-body text-text-muted">
           You opened the link on a different device or browser. Enter the address it was sent to.
         </p>
         <LazyEmailForm label="Email" submit="Sign in" onSubmit={({ email }) => finish(email)} />
@@ -67,7 +67,7 @@ export function FinishSignIn() {
       <SignInFrame title="That link didn't work">
         <div className="flex flex-col gap-6">
           <Banner tone="danger">{step.message}</Banner>
-          <Link href="/sign-in/" className={buttonClasses("primary", true)}>
+          <Link href="/sign-in/" className={buttonClasses("primary", true, true)}>
             Send a new link
           </Link>
         </div>

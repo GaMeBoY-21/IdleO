@@ -40,10 +40,8 @@ test("booking, from template to outputs", async ({ page }) => {
     "/v1/uploads/[^/]+/complete": {
       json: { ...data.newUpload("greetings.bin", 12 * MIB), status: "ready" },
     },
-    "/v1/session-quotes": (_call, request) => {
-      const body = request.postDataJSON() as { maxPricePaisePerMin: number; maxSpendPaise: number };
-      return { json: data.quote(body.maxPricePaisePerMin, body.maxSpendPaise) };
-    },
+    "/v1/session-quotes": (_call, request) =>
+      data.quoteAnswer(request.postDataJSON() as { maxSpendPaise: number }),
     "/v1/sessions/[^/]+/events": () => snapshot(stage),
     "/v1/sessions/[^/]+/logs": () => ({
       json: {

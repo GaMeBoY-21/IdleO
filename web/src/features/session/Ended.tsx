@@ -104,7 +104,7 @@ function Charge({ session }: { session: Session }) {
   if (!session.settled) {
     return (
       <p className="flex flex-col gap-1">
-        <Money paise={session.chargedPaise + session.accruedPaise} className="text-title tabular" />
+        <Money paise={session.chargedPaise + session.accruedPaise} className="text-title" />
         <span className="text-small text-text-muted">so far · working out the final charge</span>
       </p>
     );
@@ -114,7 +114,7 @@ function Charge({ session }: { session: Session }) {
   }
   return (
     <p className="flex flex-col gap-1">
-      <Money paise={session.chargedPaise} className="text-title tabular" />
+      <Money paise={session.chargedPaise} className="text-title" />
       <span className="text-small text-text-muted">Charged</span>
     </p>
   );

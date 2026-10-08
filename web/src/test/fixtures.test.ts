@@ -63,7 +63,13 @@ describe("the sessions on their own", () => {
   });
 
   it("a quote holds 30 minutes at the maximum price, within the cap", () => {
-    expect(data.quote(18, 50_000).holdPaise).toBe(540);
-    expect(data.quote(18, 300).holdPaise).toBe(300);
+    expect(data.quote(18, 50_000)?.holdPaise).toBe(540);
+    expect(data.quote(18, 300)?.holdPaise).toBe(300);
+  });
+
+  it("without a ceiling, a quote's is the highest price among the GPUs free now that fit, or none", () => {
+    expect(data.quote(undefined, 50_000)?.ceilingPaisePerMin).toBe(18);
+    expect(data.quote(undefined, 50_000, data.asha.wallet, data.availability, 16_000)).toBeNull();
+    expect(data.quote(undefined, 50_000, data.asha.wallet, data.noAvailability)).toBeNull();
   });
 });

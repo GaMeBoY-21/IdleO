@@ -72,6 +72,7 @@ test.describe("signing in", () => {
     await page.getByRole("button", { name: "Email me a sign-in link" }).click();
     await page.waitForURL("**/welcome/");
     await expect(page.getByText("₹500.00")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Choose what to run" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "welcome");
   });
@@ -81,8 +82,17 @@ test.describe("home", () => {
   test("with live and recent sessions", async ({ page }, info) => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
-    await expect(page.getByRole("region", { name: "Running now" })).toBeVisible();
-    await expect(page.getByText("₹3.08")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Fine-tuning · / })).toContainText("₹3.08 so far");
+    await expect(page.getByRole("list", { name: "Services" }).getByRole("link")).toHaveCount(2);
+    await expect(page.getByRole("region", { name: "Book again" }).getByRole("link")).toHaveCount(3);
+    if (info.project.name.includes("laptop")) {
+      await expect(
+        page.getByRole("region", { name: "Your session" }).getByRole("link", { name: "Open the session" }),
+      ).toBeVisible();
+    } else {
+      await expect(page.getByRole("link", { name: "All sessions" })).toBeVisible();
+    }
     await expectAccessible(page);
     await capture(page, info, "home");
   });
@@ -90,18 +100,20 @@ test.describe("home", () => {
   test("while loading", async ({ page }, info) => {
     await fakeApi(page, signedIn({ "/v1/wallet": "hold", "/v1/sessions": "hold" }));
     await signIn(page, "asha");
-    await expect(page.getByLabel("Loading your sessions")).toBeVisible();
+    await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "home-loading");
   });
 
-  test("with no sessions yet", async ({ page }, info) => {
+  test("for a new renter: the services, and nothing to book again", async ({ page }, info) => {
     await fakeApi(
       page,
       signedIn({ "/v1/wallet": { json: data.fresh.wallet }, "/v1/sessions": { json: { sessions: [] } } }),
     );
     await signIn(page, "asha");
-    await expect(page.getByText("No sessions yet")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Services" }).getByRole("link")).toHaveCount(2);
+    await expect(page.getByRole("region", { name: "Book again" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "All sessions" })).toHaveCount(0);
     await expectAccessible(page);
     await capture(page, info, "home-empty");
   });
@@ -173,6 +185,9 @@ test.describe("credit", () => {
       signedIn({ "/v1/wallet/transactions": (call) => ({ json: data.history(call === 1 ? 0 : 1) }) }),
     );
     await signIn(page, "asha", "/credit/");
+    await expect(page.getByRole("heading", { name: "Credit", level: 1 })).toBeVisible();
+    await expect(page.getByText("Available", { exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByText("₹462.12")).toBeVisible();
     await expect(page.getByRole("button", { name: "Show older" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "credit");

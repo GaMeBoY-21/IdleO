@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import { Link } from "wouter";
 import { isChanging, isLive, useSessions, useTemplates, useWallet } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
@@ -79,7 +79,19 @@ export function Home() {
         />
       )}
       {sessions.data ? (
-        <BookAgain sessions={list} templateName={templateName} />
+        <>
+          <BookAgain sessions={list} templateName={templateName} />
+          {/* A phone has no Sessions tab: the list is one row away from Home. */}
+          {!laptop && list.length > 0 && (
+            <Link
+              href="/sessions/"
+              className="flex min-h-14 items-center gap-3 border-y border-divider py-3.5 text-body font-semibold hover:bg-fill"
+            >
+              <span className="flex-1">All sessions</span>
+              <ChevronRight aria-hidden="true" className="size-5" strokeWidth={2} />
+            </Link>
+          )}
+        </>
       ) : (
         <ErrorState
           error={sessions.error}

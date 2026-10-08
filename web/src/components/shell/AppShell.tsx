@@ -100,15 +100,14 @@ export function ShellSkeleton({ children }: { children?: ReactNode }) {
   );
 }
 
-/** A screen's content, centred at the content width, with the page margins. */
-export function Page({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * A list screen's content (Sessions, Credit): one column the width of the laptop's card, centred, with the page
+ * margins; its title big, as every screen's question is.
+ */
+export function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div
-      className={cn(
-        "mx-auto flex w-full max-w-content flex-col gap-7 px-4 pt-1 pb-8 md:px-6 md:pt-10 xl:px-8",
-        className,
-      )}
-    >
+    <div className="mx-auto flex w-full max-w-card flex-col gap-7 px-4 pt-2 pb-8 md:px-6 md:pt-10">
+      <h1 className="text-title xl:text-question">{title}</h1>
       {children}
     </div>
   );

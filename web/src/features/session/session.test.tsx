@@ -9,7 +9,7 @@ import { LastCheckpoint } from "./Outputs";
 const catalog = data.templates;
 const now = data.NOW.getTime();
 const titles = (stops: ReturnType<typeof progressStops>) =>
-  stops.map((stop) => `${String(stop.title)} · ${String(stop.detail)} · ${stop.state}`);
+  stops.map((stop) => `${stop.title as string} · ${stop.detail as string} · ${stop.state}`);
 
 describe("a session's title", () => {
   it("says what it's doing on which GPU while it runs, and what it's doing before that", () => {
@@ -45,7 +45,9 @@ describe("a session's route", () => {
       "Running · Ran 22 s · done",
       "Outputs · Ready to download · done",
     ]);
-    expect(titles(progressStops(data.noHostFree, { now }))[0]).toBe("Finding your GPU · No GPU took it · next");
+    expect(titles(progressStops(data.noHostFree, { now }))[0]).toBe(
+      "Finding your GPU · No GPU took it · next",
+    );
   });
 });
 

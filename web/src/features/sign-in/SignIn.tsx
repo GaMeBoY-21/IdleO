@@ -49,7 +49,7 @@ export function SignIn() {
     return (
       <SignInFrame title="Check your email">
         <div className="flex flex-col gap-4">
-          <MailCheck aria-hidden="true" className="size-8 text-success" strokeWidth={1.75} />
+          <MailCheck aria-hidden="true" className="size-8 text-running" strokeWidth={1.75} />
           <p className="text-body">
             We sent a sign-in link to <strong className="font-semibold break-all">{sentTo}</strong>.
           </p>
@@ -57,7 +57,7 @@ export function SignIn() {
             Open it on this device or another one. It works once, within an hour. If it hasn&apos;t arrived in
             a minute, check your spam folder.
           </p>
-          <Button variant="quiet" className="-ml-4 self-start" onClick={() => setSentTo(null)}>
+          <Button variant="secondary" large block onClick={() => setSentTo(null)}>
             Use a different email
           </Button>
         </div>
@@ -67,7 +67,7 @@ export function SignIn() {
 
   return (
     <SignInFrame title="Sign in">
-      <p className="mb-6 text-small text-text-muted">Rent a GPU by the minute, paid in rupees.</p>
+      <p className="mb-8 text-body text-text-muted">Rent a GPU by the minute, paid in rupees.</p>
       <div className="flex flex-col gap-6">
         {search.get("expired") && (
           <Banner tone="warning">Your sign-in has expired. Sign in again to carry on.</Banner>
@@ -78,14 +78,14 @@ export function SignIn() {
           </Banner>
         )}
         {error && <Banner tone="danger">{error}</Banner>}
-        <Button variant="secondary" block busy={google} onClick={() => void withGoogle()}>
+        <Button variant="secondary" large block busy={google} onClick={() => void withGoogle()}>
           {!google && <GoogleMark />}
           Continue with Google
         </Button>
         <div className="flex items-center gap-3 text-caption text-text-muted" aria-hidden="true">
-          <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-divider" />
           or
-          <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-divider" />
         </div>
         <LazyEmailForm
           label="Email"
