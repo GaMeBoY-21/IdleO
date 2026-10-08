@@ -1,6 +1,23 @@
 # web
 
-The renter and host web app: sign-in, credit, sessions and, in the next rounds, booking and the host side. The admin console comes in Phase 2.
+The renter and host web app: sign-in, Home, booking a GPU, a session live, all sessions and credit; the host side is the next round. The admin console comes in Phase 2.
+
+## The screens
+
+| Path | Screen |
+| --- | --- |
+| `/` | Home: a running session first, credit once, recent sessions, "Book again" |
+| `/book/` | Book a GPU: pick a template, configure it (`?template=…&step=configure`), review the quote and book (`&step=review`); Run again adds `&from=<session id>` |
+| `/session/?id=…` | One session, live over its event stream: figures, the one next step, logs, checkpoints, timeline, outputs |
+| `/sessions/` | All sessions, active or ended (`?show=ended`), a page at a time |
+| `/credit/` | Credit and its history |
+| `/welcome/`, `/sign-in/` | A new account's first screen; sign-in |
+
+How they're built, in short:
+- **Forms for template parameters are generated** from the catalog (`src/features/book/params.ts`), never written per template.
+- **Session state lives only in the query cache.** The session screen's event stream (`src/api/useLiveSession.ts`) and the lists' polling write it there (`writeSession`); it polls only while the stream is down.
+- **Uploads go straight to storage** in parts (`src/features/book/upload.ts`), so the build needs storage's origin for its Content Security Policy (`VITE_STORAGE_URL`).
+- **Every problem type and every way a session can end has words:** `src/lib/problems.ts` (checked against `../api/problems.json`) and `src/lib/labels.ts` (checked against the control plane's and the agent's sources).
 
 - **The design language:** [DESIGN.md](DESIGN.md). Every screen is checked against it.
 - **The stack and why:** [ADR 0018](../docs/decisions/0018-web-app-foundations.md).
@@ -26,7 +43,7 @@ You need Node 24.21.0 (`.node-version`) and pnpm 12.9.1 (corepack, or `npm i -g 
    - The address's local part is the user, the same user a `client_credentials` token with that `client_id` gets. That's how to give yourself credit with the `grant-credits` operator command (docs/runbooks/granting-credits.md).
    - "Continue with Google" signs in `local-google@example.com`.
 
-A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`) and `IDLEO_DEPLOYMENT=production`. The build refuses the local sign-in adapter outside `IDLEO_DEPLOYMENT=local`, and refuses an API that isn't https.
+A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`), storage's origin for uploads (`VITE_STORAGE_URL`, R2's endpoint) and `IDLEO_DEPLOYMENT=production`. The build refuses the local sign-in adapter outside `IDLEO_DEPLOYMENT=local`, and refuses an API or storage that isn't https.
 
 ## Scripts
 
@@ -39,11 +56,24 @@ A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBA
 | `pnpm lint` | ESLint (jsx-a11y strict, the design-token rule, sign-in SDKs only in `src/auth/`) and Prettier |
 | `pnpm test` | Vitest: units and components |
 | `pnpm size` | The first-load JavaScript budget, on `dist/` (or `IDLEO_DIST`) |
-| `pnpm e2e` | Playwright: every screen and state, and the journey; needs the stack and `pnpm serve` |
-| `pnpm lighthouse` | The performance and accessibility budgets, then `lhci assert` |
+| `pnpm e2e` | Playwright: every screen and state, and the journeys; needs the stack and `pnpm serve` |
+| `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book and the session screen, the 10 MiB log test, then `lhci assert` |
 | `pnpm gallery` | The review gallery (below) |
 
-CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.sh --web` for the browser checks against the real stack. The end-to-end workflow runs the web journey too.
+CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.sh --web` for the browser checks against the real stack. The end-to-end workflow runs the web journeys too.
+
+## The journeys
+
+`e2e/journey.spec.ts` runs against the real local stack, with a real agent running sessions on its development runner. The script (`scripts/e2e/agent-online.sh`) creates `E2E_WEB_USER` and grants it ₹500; the journeys share one host, so they run one after another:
+1. Home follows a session booked through the API to its charge.
+2. On a laptop, the whole booking: `echo-input` with a greeting, a generated 12 MiB file uploaded in parts, the quote's numbers on the review, the session live (pulse, logs, checkpoints) to settled, the charge as the API has it, and `result.json` carrying the file's SHA-256. Its numbers go to `E2E_JOURNEY_REPORT`.
+3. Run again fills the form from that session, with the same upload.
+4. Not enough credit: the review gives both numbers and the button stays disabled.
+5. Cancelling an upload deletes it.
+6. The event stream drops (through a proxy the test cuts): the stale notice appears, polling keeps the figures moving, and the stream comes back.
+7. On a phone, a running `long-run` session is stopped, shows its charge, and Run again works.
+
+`scripts/e2e/agent-online.sh` (and `--web`) runs them. By hand against `--keep-running`: enrol and activate an agent and grant a user credit as the script's steps 4 to 7 do (docs/runbooks/local-stack.md), then `E2E_WEB_USER=<user> pnpm exec playwright test --project=journey`, with a fresh user each run.
 
 ## The budgets
 
@@ -52,16 +82,21 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 | Budget | Limit | Where it's checked |
 | --- | --- | --- |
 | Largest contentful paint | at most 2.0 s | `lighthouserc.json` |
-| Interaction to next paint | at most 200 ms | `e2e/lighthouse.spec.ts` (web-vitals, CPU slowed 4×) |
+| Interaction to next paint | at most 200 ms | `e2e/lighthouse.spec.ts` (web-vitals, CPU slowed 4×: Home's menu and moving between screens, typing in the booking form, the session screen while its log streams) |
 | Layout shift | 0 | `lighthouserc.json`, and every screen in `e2e/layout-shift.spec.ts` |
 | Total blocking time | at most 150 ms | `lighthouserc.json` |
 | First-load JavaScript, signed-in home | at most 150 KB gzipped | `scripts/first-load.ts`, on the production build, sign-in adapter included |
-| Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/screens.spec.ts` |
+| Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/*screens.spec.ts` |
+| A 10 MiB log | at most 2,000 lines in the page, every interaction within 100 ms on a CPU slowed 4× | `e2e/performance.spec.ts` |
+
+Lighthouse measures sign-in, Home, Book and the session screen, on the mobile profile (asserted by `lhci`) and the desktop one (held to the same limits in the spec). It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020).
 
 What keeps them, learnt by measuring (ADR 0018):
 - each page's first frame is pre-rendered and adopted, not redrawn;
-- each page preloads only its own screen's code;
-- anything later screens need loads two seconds in, or on hover or tap;
+- each page preloads only its own screen's code, and the frame's shared modules come in one file (`vite.config.ts`), since every extra file is another request the first screen waits on;
+- the screen a page opens on is loaded before the first render, so React's Suspense never holds its paint back;
+- anything later screens need loads two seconds in, or on hover or tap; the booking form's code loads only for configure and review, the stop dialog's only when it's needed;
+- requests a screen doesn't need for its main content (price hints, a session's stream and logs, the header's credit) start after that content has painted;
 - skeletons are exactly the height of what replaces them;
 - the font never swaps.
 
@@ -80,7 +115,7 @@ Locally, pictures are rendered differently from CI's Linux, so compare against y
 
 ## The review gallery
 
-`pnpm gallery`, with the stack running and both builds served, writes every screen and state in light and dark, at 390 and 1280 px, plus a recording of sign-in to home on a phone, into `../private/review/web-foundations/` with an `index.html` that lays them out side by side. The builds:
+`pnpm gallery`, with the stack running and both builds served, writes every screen and state in light and dark, at 390 and 1280 px, plus recordings (sign-in to Home and stopping a session on a phone; a booking from template to outputs on a laptop), into `../private/review/web-booking/` (or `GALLERY_DIR`) with an `index.html` that lays them out side by side. With `BEFORE_DIR` (by default `../private/review/web-foundations/`), the fixes from the last review are shown beside how they looked before. The builds:
 - `pnpm serve` for the local build;
 - `IDLEO_DIST=dist-firebase PORT=3001 pnpm serve` for a Firebase build with placeholder settings, with `FIREBASE_WEB_URL=http://localhost:3001`.
 
@@ -93,9 +128,9 @@ It's under the gitignored `private/`, and the data in it is invented.
 | `src/design/` | The tokens (the one place for colours, sizes and durations), the contrast check, the theme |
 | `src/brand/` | The working name, the accent, the wordmark; `public/icon.svg` is the favicon |
 | `src/auth/` | Sign-in: the adapters, and the one place the Firebase SDK is imported |
-| `src/api/` | The typed client, the 401 retry, the queries and their cache rules, the home's kept figures |
+| `src/api/` | The typed client, the 401 retry, the queries and their cache rules, the home's kept figures, the event stream (`stream.ts`, `session-follower.ts`, `useLiveSession.ts`) and logs |
 | `src/components/` | The shell (bars, menu) and the UI components |
-| `src/features/` | The screens |
+| `src/features/` | The screens: `home`, `book` (the form generator, the upload manager, the quote), `session` (live: figures, logs, checkpoints), `sessions`, `credit`, `sign-in` |
 | `src/lib/money.ts` | `formatPaise`, the only way money is shown |
-| `e2e/` | Playwright: screens, layout shift, Firebase sign-in, the journey, Lighthouse, the gallery recording |
+| `e2e/` | Playwright: screens (`*screens.spec.ts`), layout shift, Firebase sign-in, the journeys, Lighthouse, the 10 MiB log, the gallery recordings; `fixtures.ts` is the one builder of invented data, and its figures add up (`src/test/fixtures.test.ts`) |
 | `scripts/` | The theme generator, post-build (CSP, screens, pre-render), the server, the size check, the font subset, the wordmark, the gallery |

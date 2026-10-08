@@ -25,6 +25,8 @@ From the repository root, it:
    - **Host loss** (`charged-run`, renter B): once minute 0 is reported and a checkpoint is past it, `kill -9` the agent. The lease lapses, the session goes `HOST_LOST` and back to `REQUESTED` as attempt 2, and resumes on a free host from the newest complete checkpoint (`private/e2e/output-resumed.json` names it); the killed agent is restarted. Attempt 2 only ran after attempt 1 was declared lost. Attempt 1's minutes after its checkpoint aren't charged and attempt 2's are; the summary prints the waiver and the ledger.
    - **Spending cap** (`long-run` with `maxSpendPaise` 6, renter B): stopped with `max_spend_reached` after a last checkpoint, `COMPLETED`, charged no more than 6 paise and exactly the minutes it ran.
 
+   - **Web journeys** (its own renter, ₹500, `web/e2e/journey.spec.ts`): in a real browser, Home following a booked session to its charge; on a laptop, a whole booking (form, a 12 MiB upload, the quote, the session live to settled, the output's SHA-256) and Run again; not enough credit; a cancelled upload; the event stream dropping and coming back; stopping a session on a phone. The summary prints seconds from Book to RUNNING, upload throughput, the quoted and held hold, and the charge.
+
    Then it checks renter B's wallet is not negative and holds nothing, that an agent resumed from a checkpoint and swapped in fresh credentials, and that no storage credential appears in any log.
 9. **Runs the wallet check** (`reconcile-wallets`) and requires 0 mismatches.
 10. Stops the agents with SIGTERM, and polls until every host is offline (30 s at most). Under 5 seconds means the clean close removed presence; anything longer would mean only the 15-second presence expiry did, and the script says which.

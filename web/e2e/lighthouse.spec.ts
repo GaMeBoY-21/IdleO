@@ -39,6 +39,8 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       ["home", true],
       ["book", true],
       ["session", true],
+      // For the record, not a budget: a session the app has never listed, opened by a link (ADR 0020).
+      ["session-link", true],
     ] as const) {
       if (name === "home") {
         await signIn(page, user);
@@ -50,18 +52,22 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       if (name === "book") {
         // Booked after Home is measured, so Home's kept figures were its latest; then Home is opened, as a renter
         // would, so its kept list holds the session the session screen is measured on.
-        sessionId = await bookOne(context.request);
+        sessionId = await bookOne(context.request, "home");
         await page.goto(`${WEB}/`);
         await expect(page.getByRole("link", { name: /CUDA smoke test/ }).first()).toBeVisible({
           timeout: 30_000,
         });
         await page.waitForTimeout(1_500);
       }
+      if (name === "session-link") {
+        sessionId = await bookOne(context.request, "link");
+      }
       const path = {
         "sign-in": "/sign-in/",
         home: "/",
         book: "/book/",
         session: `/session/?id=${sessionId}`,
+        "session-link": `/session/?id=${sessionId}`,
       }[name];
       if (signedIn) {
         // A cold cache, as a first visit has; only the sign-in, in IndexedDB, is kept.
@@ -86,9 +92,9 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         }
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.
         const file =
-          formFactor === "mobile"
+          formFactor === "mobile" && name !== "session-link"
             ? `.lighthouseci/lhr-${Date.now()}.json`
-            : `.lighthouseci-desktop/${name}.json`;
+            : `.lighthouseci-desktop/${name}-${formFactor}.json`;
         mkdirSync(file.slice(0, file.lastIndexOf("/")), { recursive: true });
         writeFileSync(file, result.report as string);
         const audits = result.lhr.audits;
@@ -119,13 +125,13 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
 });
 
 /** A cheap session for the session screen: the smoke test, booked through the API as the CLI would. */
-async function bookOne(request: APIRequestContext): Promise<string> {
+async function bookOne(request: APIRequestContext, key = "home"): Promise<string> {
   const tokenResponse = await request.post(`${signInServer}/token`, {
     form: { grant_type: "client_credentials", client_id: user, client_secret: "unused", scope: "openid" },
   });
   const { access_token: token } = (await tokenResponse.json()) as { access_token: string };
   const booked = await request.post(`${API}/v1/sessions`, {
-    headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `${user}-lighthouse` },
+    headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `${user}-lighthouse-${key}` },
     data: { templateId: "cuda-smoke-test", maxPricePaisePerMin: 5, maxSpendPaise: 10_000 },
   });
   expect(booked.ok(), `booking for the session screen: ${booked.status()}`).toBe(true);

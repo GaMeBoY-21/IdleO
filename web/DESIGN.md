@@ -21,9 +21,10 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 | --- | --- | --- |
 | Sign-in, welcome | Phone | Laptop |
 | Home (credit and sessions) | Phone | Laptop |
-| Session detail | Phone | Laptop |
+| Session (live) | Phone | Laptop |
+| All sessions | Phone | Laptop |
 | Credit history | Phone | Laptop |
-| Booking (next round) | Laptop | Phone |
+| Booking | Laptop | Phone |
 | Host home and earnings (later) | Phone | Laptop |
 
 ## Principles
@@ -50,6 +51,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
   - **Why Inter:** it was drawn for user interfaces at small sizes on screens. It has true tabular figures (`tnum`), and it includes the rupee sign (₹, U+20B9), which many UI families lack: of the candidates checked, IBM Plex Sans has no tabular figures, and Geist's rupee sits in a subset without them.
   - **One file:** a subset of Inter's variable font, cut by `web/scripts/subset-font.sh`, holds Basic Latin, Latin-1, the punctuation we use, the arrows, the minus sign and ₹. The weight axis is kept from 400 to 650 and the optical size is pinned at text size, which makes it 25.5 KB as WOFF2.
   - **It never swaps.** It's preloaded with `font-display: optional`. If it hasn't arrived by the first paint (a slow first visit), that page keeps the fallback, Arial scaled to Inter's metrics, because even matched metrics leave glyph widths that differ, and a swap would move text sideways. Every later page has it from the cache.
+- **Logs are the one exception:** a session's log panel uses the system's monospace fonts (`font-mono`: ui-monospace, SF Mono, Menlo, Consolas and so on), so nothing is downloaded for it. Nothing else is set in monospace.
 - **Numbers** (money, durations, counts, times) use Inter's tabular figures: the `tabular` class sets `font-variant-numeric: tabular-nums`.
 - **Weights:** 400 for reading, 500 for labels and buttons, 600 for headings and key figures. No other weights.
 - **The scale: six sizes, no more.**
@@ -143,7 +145,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and b
 | 768 px and up (tablet, small laptop) | 8 | 24 px | 24 px | Up to two columns |
 | 1280 px and up (laptop) | 12 | 32 px | 24 px | Centred, at most 1120 px wide |
 
-- **Navigation:** below 768 px, a bottom tab bar (Home, Book, Credit) and a compact top bar (wordmark, credit, user menu). From 768 px, one top bar with the same destinations as links.
+- **Navigation:** below 768 px, a bottom tab bar (Home, Book, Credit) and a compact top bar (wordmark, credit, user menu). From 768 px, one top bar with the same destinations as links. Home shows credit in its own card, so the bar's credit is hidden there: credit appears once per screen.
   - **Why a bottom bar on phones:** the renter's phone tasks are checking and stopping, done one-handed. The bottom of the screen is where the thumb rests, and three destinations fit with room for labels. A hamburger menu would hide them behind an extra tap.
 
 ## Motion
@@ -154,6 +156,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and b
   - leaving: `cubic-bezier(0.4, 0, 1, 1)`, at two-thirds of the entering duration.
 - **What moves:** opacity and small translations (at most 8 px) of things appearing or leaving; colour on hover and press; the skeleton's shimmer.
 - **What never moves:** money figures (they change in place, never count up), page layout, and anything the person is reading or about to tap.
+- **The running pulse:** while a session is `RUNNING`, the dot in its state chip pulses its opacity over 2 seconds (`motion.pulse`). It's on the state chip only, it's the one continuous motion beside the skeleton's shimmer, and it's off under reduced motion.
 - **`prefers-reduced-motion: reduce` removes all non-essential motion:** no translations and no shimmer. Changes are instant; only focus and state colours remain.
 - **No layout shift, ever** (cumulative layout shift 0 on every screen):
   - skeletons have the same size as the content that replaces them;
@@ -171,6 +174,16 @@ Every view that shows data designs four states before it's built, and each one i
 | **Empty** | Why it's empty and what to do: "No sessions yet. Book a GPU to run your first one." With the one next step as the primary action. |
 | **Error** | What happened, in a sentence, plus a Retry button: "We couldn't load your sessions. Check your connection and try again." Never a raw status code. |
 | **Partial or stale** | The data it has, plus one line: "Couldn't refresh. Showing figures from 12:04. Retrying…" Stale money is never presented as current. |
+
+## Times
+
+- **Relative where it's about how long ago:** "started 18 min ago", "2 h ago", "yesterday", then the date after a week. The exact time is in the `<time>` element's `datetime` and its title, so it's a hover away.
+- **Elapsed time ticks** every second while a session runs, as a clock ("18:04", "1:02:05"), and stops when it ends. Durations of ended sessions keep seconds only under ten minutes ("6 min 10 s", "41 min").
+- **One clock for the app** (`src/lib/clock.ts`): every relative time moves on together every 30 seconds, and every elapsed time every second, from a single timer.
+
+## The phone action bar
+
+On a phone, a screen whose one next step is used while watching something (Stop, on a running session) puts that primary action in a bar fixed just above the tab bar. Its height is reserved at the end of the page, so nothing it covers is out of reach and nothing moves when it appears. It holds that one action and nothing else; from 768 px the action sits beside the screen's heading instead.
 
 ## Voice
 

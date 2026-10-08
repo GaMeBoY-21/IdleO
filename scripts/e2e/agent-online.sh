@@ -8,12 +8,13 @@
 # three minutes; a run the renter stops mid-way after a last checkpoint; a run whose agent is killed,
 # whose lease lapses, and which resumes as attempt 2, the minutes lost after attempt 1's checkpoint
 # given back; and a run stopped at its spending cap. A fifth agent serves the web app's journeys
-# (ADR 0018): the renter signs in through the browser and watches a booked session to its charge on
-# the home screen. A sixth serves the booking contract (ADR 0019): a 12 MiB file uploaded in parts
-# straight to storage, a quote, a session with parameters and that file as its input, followed on its
-# event stream to settled, its logs, and an output proving the job saw the exact file and parameters,
-# then three errors by their types. It checks storage's CORS for the web app, runs the wallet check, then
-# watches the hosts go offline once the agents stop.
+# (ADR 0018): in a real browser, Home follows a booked session to its charge; a renter books on a laptop
+# (form, upload, quote) and watches the session live to its output; and stops one on a phone. A
+# sixth serves the booking contract (ADR 0019): a 12 MiB file uploaded in parts straight to storage,
+# a quote, a session with parameters and that file as its input, followed on its event stream to
+# settled, its logs, and an output proving the job saw the exact file and parameters, then three errors
+# by their types. It checks storage's CORS for the web app, runs the wallet check, then watches the
+# hosts go offline once the agents stop.
 # Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
