@@ -89,7 +89,7 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 | Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/*screens.spec.ts` |
 | A 10 MiB log | at most 2,000 lines in the page, every interaction within 100 ms on a CPU slowed 4× | `e2e/performance.spec.ts` |
 
-Lighthouse measures sign-in, Home, Book (at a template, where the form is) and the session screen, on the mobile profile (asserted by `lhci`) and the desktop one (held to the same limits in the spec). It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020).
+Lighthouse measures sign-in, Home, Book (at a template, where the form is) and the session screen (a long run, live) three times each on the mobile profile, each from a cold cache, and `lhci` asserts the median of the three: one run alone carries the machine's noise. The desktop profile runs once per screen, for the record. It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020). Every run's report, JSON and HTML, is in `.lighthouseci/` (`reports/` for the HTML) and `.lighthouseci-desktop/`, and CI keeps them as the `lighthouse` artifact of every run, passed or failed.
 
 What keeps them, learnt by measuring (ADR 0018):
 - each page's first frame is pre-rendered and adopted, not redrawn;

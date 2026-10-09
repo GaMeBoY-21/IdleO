@@ -2,6 +2,7 @@
   "ci": {
     "upload": { "target": "filesystem", "outputDir": ".lighthouseci/report" },
     "assert": {
+      "aggregationMethod": "median",
       "assertions": {
         "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
         "total-blocking-time": ["error", { "maxNumericValue": 150 }],

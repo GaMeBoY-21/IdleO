@@ -836,10 +836,12 @@ if $web_only; then
 import json
 for page, m in json.load(open("web/.lighthouseci/summary.json")).items():
     inp = ", INP %d ms" % m["inpMs"] if "inpMs" in m else ""
-    print("%s: LCP %d ms, TBT %d ms, CLS %s, accessibility %d%s" % (page, m["lcpMs"], m["tbtMs"], m["cls"], m["accessibility"], inp))
+    runs = m["lcpRunsMs"]
+    lcp = "LCP %d ms" % m["lcpMs"] if len(runs) == 1 else "LCP %d ms (median of %s)" % (m["lcpMs"], ", ".join(map(str, runs)))
+    print("%s: %s, TBT %d ms, CLS %s, accessibility %d%s" % (page, lcp, m["tbtMs"], m["cls"], m["accessibility"], inp))
 PY
 )
-  summary+=("lighthouse budgets (mobile: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100, INP <= 200 ms): PASS")
+  summary+=("lighthouse budgets (mobile, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS")
   first_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/first-load.ts | tail -1)" || fail "the first-load JavaScript budget failed"
   summary+=("${first_load# }: PASS")
 fi
