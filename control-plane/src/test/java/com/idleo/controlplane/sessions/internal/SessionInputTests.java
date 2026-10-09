@@ -425,6 +425,33 @@ class SessionInputTests {
     }
 
     @Test
+    void aHostWithTooLittleDiskForTheSessionsFilesIsNeverOfferedIt() throws Exception {
+        var host = bookings.host();
+        var renter = bookings.renter();
+        var upload = TestUploads.ready(mvc, renter, "big.bin", "x");
+        // As if it were 300 MiB: with the 1,024 MB scratch disk and a 10% margin, the session needs 1,457 MB.
+        jdbc.update("update sessions.uploads set size_bytes = ? where id = ?", 300L << 20, upload);
+        host.freeDiskMb().set(1_456);
+        Thread.sleep(Duration.ofSeconds(1));
+
+        var cramped = UUID.fromString(JSON.readTree(
+                        book(renter, "cramped", echo(Map.of("greeting", "hi"), Map.of("uploadId", upload)))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString())
+                .get("id")
+                .asString());
+        bookings.awaitState(renter, cramped, "NO_HOST_FREE");
+
+        host.freeDiskMb().set(1_457);
+        Thread.sleep(Duration.ofSeconds(1));
+        book(renter, "roomy", echo(Map.of("greeting", "hi"), Map.of("uploadId", upload)))
+                .andExpect(status().isCreated());
+        assertThat(host.awaitOffer(TestBookings.WAIT).getSpec().getScratchMb()).isEqualTo(1_024);
+    }
+
+    @Test
     void everyMissingRequiredInputIsNamedAndAnUnknownOneIsRefused() throws Exception {
         var renter = bookings.renter();
 

@@ -124,6 +124,11 @@ sql() {
   COMPOSE_PROJECT_NAME="$compose_project" docker compose -f control-plane/compose.yaml exec -T postgres \
     psql -U controlplane -d controlplane -tA -c "$1"
 }
+# A field of a host's presence record in the stack's Valkey (ADR 0011): $1 the host, $2 the field.
+presence() {
+  COMPOSE_PROJECT_NAME="$compose_project" docker compose -f control-plane/compose.yaml exec -T valkey \
+    valkey-cli HGET "agentgateway:presence:$1" "$2"
+}
 # Seconds from a session's first $2 event to its first $3 event after it.
 event_seconds() {
   api_get "/v1/sessions/$1" | python3 -c 'import json, sys
@@ -928,6 +933,14 @@ scenario_finetune() {
          \"inputs\": {\"model\": {\"uploadId\": \"$model_upload\"}, \"data\": {\"uploadId\": \"$upload\"}}}" | json_get .id)"
   [[ -n "$session" ]] || fail "booking fine-tune-simulated failed"
   await_state "$session" RUNNING 90
+  local host vram free_disk
+  host="$(api_get "/v1/sessions/$session" | json_get .hostId)"
+  vram="$(api_get "/v1/sessions/$session" | json_get .vramNeededMb)"
+  free_disk="$(presence "$host" free_disk_mb | tr -d '\r')"
+  [[ "$vram" == 8000 ]] || fail "the fine-tune asked for $vram MB of GPU memory, not the 8 GB class its small model needs"
+  [[ "$free_disk" =~ ^[0-9]+$ ]] && ((free_disk >= 4520)) ||
+    fail "the fine-tune's host reports $free_disk MB free, less than its files and scratch disk need"
+  note "simulated fine-tune: GPU memory asked $vram MB (the 8 GB class, from the model's size); host $host, $free_disk MB free disk; requested to running $(event_seconds "$session" REQUESTED RUNNING) s"
   await_state "$session" COMPLETED 240
   outputs="$(api_get "/v1/sessions/$session/outputs")" || fail "GET /outputs failed for the fine-tune"
   [[ "$(printf '%s' "$outputs" | python3 -c 'import json, sys
@@ -958,7 +971,7 @@ assert "your model: 3 files, %s bytes in /work/input/model/" % sys.argv[1] in te
 assert "  model-00001-of-00001.safetensors (12582912 bytes)" in text and "  config.json (" in text, text
 assert "  tokenizer.json (" in text and "epoch 3/3 step 15/15 loss" in text, text' "$model_bytes" ||
     fail "the fine-tune's log doesn't show its epochs and steps"
-  note "simulated fine-tune: a 3-file model folder ($model_bytes bytes) and 40 examples, standard (3 epochs), rank 8; downloaded adapter_model.safetensors, $(wc -c <"$out/finetune-adapter_model.safetensors" | tr -d ' ') bytes, 8 F32 tensors; loss $(python3 -c 'import json, sys
+  note "simulated fine-tune: a 3-file model folder (config.json, tokenizer.json, model-00001-of-00001.safetensors; $model_bytes bytes) and 40 examples, standard (3 epochs), rank 8; downloaded adapter_model.safetensors, $(wc -c <"$out/finetune-adapter_model.safetensors" | tr -d ' ') bytes, 8 F32 tensors; loss $(python3 -c 'import json, sys
 log = json.load(open(sys.argv[1])); print("%.4f to %.4f" % (log["steps"][0]["loss"], log["final_loss"]))' "$out/finetune-training_log.json"); the log shows every step: PASS"
 }
 

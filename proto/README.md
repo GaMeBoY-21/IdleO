@@ -58,9 +58,9 @@ No generated code is committed. Each side generates its own when it's built, wit
 
 | Message | Direction | Acked? | Why | Handled by the control plane today |
 | --- | --- | --- | --- | --- |
-| `Hello` | agent → control plane | No | Answered by `Welcome` | Yes: validated, GPUs and versions recorded |
+| `Hello` | agent → control plane | No | Answered by `Welcome` | Yes: validated, GPUs and versions recorded, `free_disk_mb` into presence |
 | `Welcome` | control plane → agent | No | Sent again on every new stream | Yes: sent after a valid `Hello` |
-| `Heartbeat` | agent → control plane | No | The next one is 5 seconds away | Yes: validated, refreshes presence in Valkey |
+| `Heartbeat` | agent → control plane | No | The next one is 5 seconds away | Yes: validated, refreshes presence in Valkey, with `free_disk_mb` for the scheduler's disk filter (ADR 0022) |
 | `Offer` | control plane → agent | No | Answered by `OfferReply` | Yes: sent by the scheduler through the command queue (ADR 0015) |
 | `OfferReply` | agent → control plane | Yes | | Yes: recorded by the scheduler, then acked (ADR 0015) |
 | `StartSession` | control plane → agent | Yes | | Yes: queued without credentials; fresh grants minted at each delivery (ADR 0016) |

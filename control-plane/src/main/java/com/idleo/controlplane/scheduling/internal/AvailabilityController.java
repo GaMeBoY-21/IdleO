@@ -46,7 +46,8 @@ class AvailabilityController {
         record Kind(String model, int vramMb) {}
         var byKind = new TreeMap<Kind, List<CandidateFinder.Looked>>(
                 Comparator.comparing(Kind::model).thenComparingInt(Kind::vramMb));
-        for (var looked : candidates.look(hosts.listedForBatch())) {
+        // Free means free for the smallest session: online, current, owner away, cool, idle, its disk known.
+        for (var looked : candidates.look(hosts.listedForBatch(), 0)) {
             if (looked.online()) {
                 byKind.computeIfAbsent(
                                 new Kind(

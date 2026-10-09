@@ -27,6 +27,7 @@ use tonic::{Code, Status, Streaming};
 use uuid::Uuid;
 
 use crate::backoff::{Backoff, full_jitter};
+use crate::disk::FreeDisk;
 use crate::lease_clock::LeaseClock;
 use crate::offers::{self, OfferFacts};
 use crate::owner::OwnerActivity;
@@ -104,6 +105,8 @@ pub struct RunOptions {
     pub data_dir: PathBuf,
     /// GPU facts and readings.
     pub gpus: Arc<dyn GpuSource>,
+    /// Free disk space under the data folder, where sessions' files go.
+    pub disk: Arc<dyn FreeDisk>,
     /// Whether the owner is at the machine.
     pub owner: Arc<dyn OwnerActivity>,
     /// The clock leases and offer expiries count on: one that keeps counting during sleep.
@@ -356,7 +359,7 @@ impl Manager {
         };
         let largest_gpu_vram_mb = gpus.iter().map(|gpu| gpu.vram_mb).max().unwrap_or(0);
         let (outbound, requests) = mpsc::channel(16);
-        let hello = hello(gpus, self.sessions.lock().running());
+        let hello = hello(gpus, self.sessions.lock().running(), self.options.disk.free_mb());
         tracing::debug!(?hello, "sending Hello");
         // Hello goes in before the call starts: the control plane answers nothing until it has it.
         if outbound.send(envelope(AgentBody::Hello(hello))).await.is_err() {
@@ -419,6 +422,7 @@ impl Manager {
                         net_up_kbps: 0,
                         owner_active: self.options.owner.is_active(),
                         sessions: self.sessions.lock().running(),
+                        free_disk_mb: self.options.disk.free_mb(),
                     };
                     // A send fails only once the stream has ended; the next read says why.
                     let _ = outbound.send(envelope(AgentBody::Heartbeat(heartbeat))).await;
@@ -623,7 +627,11 @@ fn envelope(body: AgentBody) -> OpenStreamRequest {
     OpenStreamRequest { message_id: new_message_id(), body: Some(body) }
 }
 
-fn hello(gpus: Vec<GpuInfo>, running_sessions: Vec<agent_proto::v1::RunningSession>) -> Hello {
+fn hello(
+    gpus: Vec<GpuInfo>,
+    running_sessions: Vec<agent_proto::v1::RunningSession>,
+    free_disk_mb: Option<i32>,
+) -> Hello {
     Hello {
         agent_version: AGENT_VERSION.to_owned(),
         os: system::os().into(),
@@ -640,6 +648,7 @@ fn hello(gpus: Vec<GpuInfo>, running_sessions: Vec<agent_proto::v1::RunningSessi
             })
             .collect(),
         running_sessions,
+        free_disk_mb,
     }
 }
 

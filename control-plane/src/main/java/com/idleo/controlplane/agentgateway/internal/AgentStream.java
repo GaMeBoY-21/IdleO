@@ -123,11 +123,17 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                         "invalid_hello");
             }
             case AgentMessages.HelloResult.Valid valid ->
-                welcome(valid.hello(), request.getHello().getRunningSessionsList());
+                welcome(
+                        valid.hello(),
+                        request.getHello().getRunningSessionsList(),
+                        request.getHello().hasFreeDiskMb() ? request.getHello().getFreeDiskMb() : null);
         }
     }
 
-    private void welcome(AgentMessages.ValidHello hello, java.util.List<RunningSession> running) {
+    private void welcome(
+            AgentMessages.ValidHello hello,
+            java.util.List<RunningSession> running,
+            @org.jspecify.annotations.Nullable Integer freeDiskMb) {
         services.reports().recordHello(hostId, hello.hello());
         var properties = services.properties();
         // The owner's listing sets the temperature cap (ADR 0015); config is the default until they list.
@@ -163,7 +169,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             replaced.close(Status.ABORTED.withDescription("Replaced by a newer connection."), "replaced");
         }
         try {
-            services.presence().register(snapshot(false, 0, List.of()));
+            services.presence().register(snapshot(false, 0, freeDiskMb, List.of()));
         } catch (RuntimeException valkeyDown) {
             log.warn("Could not record presence for host {}: {}", hostId, valkeyDown.toString());
         }
@@ -338,7 +344,11 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                 .toList();
         try {
             if (!services.presence()
-                    .refresh(snapshot(heartbeat.getOwnerActive(), heartbeat.getNetUpKbps(), readings))) {
+                    .refresh(snapshot(
+                            heartbeat.getOwnerActive(),
+                            heartbeat.getNetUpKbps(),
+                            heartbeat.hasFreeDiskMb() ? heartbeat.getFreeDiskMb() : null,
+                            readings))) {
                 // Another connection, perhaps on another instance, owns the host now.
                 close(Status.ABORTED.withDescription("Replaced by a newer connection."), "replaced");
                 return;
@@ -444,7 +454,10 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
     }
 
     private synchronized Presence.Snapshot snapshot(
-            boolean ownerActive, int netUpKbps, List<Map<String, Object>> readings) {
+            boolean ownerActive,
+            int netUpKbps,
+            @org.jspecify.annotations.Nullable Integer freeDiskMb,
+            List<Map<String, Object>> readings) {
         return new Presence.Snapshot(
                 hostId,
                 connectionId,
@@ -454,6 +467,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                 updateRequired,
                 ownerActive,
                 netUpKbps,
+                freeDiskMb,
                 services.json().writeValueAsString(readings),
                 Instant.now(services.clock()));
     }

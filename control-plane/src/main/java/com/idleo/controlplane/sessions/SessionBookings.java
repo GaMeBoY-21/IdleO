@@ -20,6 +20,7 @@ public interface SessionBookings {
      *
      * @param attempt the attempt being booked: 1, and one more after each lost host
      * @param spec what it runs, as the agent's Offer and StartSession carry it
+     * @param diskNeededMb the free disk a host needs for its uploaded inputs and scratch disk, with a margin
      */
     record BookingRequest(
             UUID sessionId,
@@ -29,6 +30,7 @@ public interface SessionBookings {
             int attempt,
             SessionSpec spec,
             int vramNeededMb,
+            int diskNeededMb,
             int maxPricePaisePerMin,
             long maxSpendPaise) {}
 

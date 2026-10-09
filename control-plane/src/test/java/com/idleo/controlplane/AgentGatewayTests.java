@@ -369,6 +369,46 @@ class AgentGatewayTests {
     }
 
     @Test
+    void freeDiskFromHelloAndEachHeartbeatIsKeptInPresenceAndANegativeOneIsDropped() throws Exception {
+        var silent = TestAgent.enrol(mvc, grpcPort);
+        var withoutIt = TestAgent.open(track(silent.channel(grpcPort)));
+        var hello = TestAgent.hello("1.2.3", TestAgent.GPU_A).toBuilder();
+        hello.getHelloBuilder().clearFreeDiskMb();
+        withoutIt.send(hello.build());
+        withoutIt.next(WAIT);
+        assertThat(redis.opsForHash().get("agentgateway:presence:" + silent.hostId, "free_disk_mb"))
+                .as("not said: unknown, so the scheduler offers it nothing")
+                .isEqualTo("");
+
+        var agent = TestAgent.enrol(mvc, grpcPort);
+        var key = "agentgateway:presence:" + agent.hostId;
+        var stream = TestAgent.open(track(agent.channel(grpcPort)));
+        stream.send(TestAgent.hello("1.2.3", TestAgent.GPU_A));
+        stream.next(WAIT);
+        assertThat(redis.opsForHash().get(key, "free_disk_mb")).as("from Hello").isEqualTo("512000");
+        var invalidBefore = counter("agents.heartbeats.invalid", "reason", "free_disk_out_of_range");
+
+        stream.send(TestAgent.heartbeat(TestAgent.GPU_A, 60, 10, 40_960));
+        awaitPresenceField(key, "free_disk_mb", "40960");
+        stream.send(TestAgent.heartbeat(TestAgent.GPU_A, 60, 10, -1));
+
+        assertThat(stream.endStatus(Duration.ofMillis(800))).isNull();
+        assertThat(counter("agents.heartbeats.invalid", "reason", "free_disk_out_of_range"))
+                .isEqualTo(invalidBefore + 1);
+        assertThat(redis.opsForHash().get(key, "free_disk_mb")).isEqualTo("40960");
+    }
+
+    private void awaitPresenceField(String key, String field, String wanted) throws InterruptedException {
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        while (!wanted.equals(redis.opsForHash().get(key, field))) {
+            assertThat(System.nanoTime())
+                    .as("%s never became %s", field, wanted)
+                    .isLessThan(deadline);
+            Thread.sleep(50);
+        }
+    }
+
+    @Test
     void aSecondConnectionReplacesTheFirstAndTheFirstsCleanupLeavesThePresenceAlone() throws Exception {
         var agent = TestAgent.enrol(mvc, grpcPort);
         var key = "agentgateway:presence:" + agent.hostId;

@@ -7,6 +7,7 @@
 //!   Administrators, applied atomically at creation, for `host.key`.
 //! - [`file_access_sddl`]: reads a file's access list back, to check it.
 //! - [`performance_counter`]: time since Windows started, including sleep, for session leases.
+//! - [`free_disk_space`]: bytes free on a folder's volume (`GetDiskFreeSpaceExW`), for heartbeats.
 //!
 //! Every `unsafe` block is in the `windows` module below and says why it is sound. On other
 //! systems this crate is empty.
@@ -17,7 +18,9 @@
 mod windows;
 
 #[cfg(windows)]
-pub use crate::windows::{create_private_file, file_access_sddl, idle_time, performance_counter, windows_build};
+pub use crate::windows::{
+    create_private_file, file_access_sddl, free_disk_space, idle_time, performance_counter, windows_build,
+};
 
 /// The access list `host.key` gets: protected from inheritance, full access for SYSTEM (`SY`) and
 /// the Administrators group (`BA`), nobody else.

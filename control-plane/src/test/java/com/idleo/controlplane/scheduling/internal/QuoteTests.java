@@ -368,4 +368,42 @@ class QuoteTests {
                         Map.of("file", Map.of("uploadId", UUID.randomUUID()))));
         assertThat(notReady.status()).isEqualTo(404);
     }
+
+    /** The quote's hosts that fit, once the next heartbeats have reported what they report now. */
+    private int fitNow(TestUser renter, Map<String, Object> body, int wanted) throws Exception {
+        var deadline = System.nanoTime() + 10_000_000_000L;
+        int fit;
+        while ((fit = call("/v1/session-quotes", renter, body)
+                                .body()
+                                .get("hostsFitNow")
+                                .asInt())
+                        != wanted
+                && System.nanoTime() < deadline) {
+            Thread.sleep(100);
+        }
+        return fit;
+    }
+
+    /**
+     * A host without room on its disk for a session's files and scratch disk fits nothing (ADR 0022): the quote, the
+     * server's ceiling and the booking all skip it, and a host that hasn't reported its free disk has none.
+     */
+    @Test
+    void aHostWithoutRoomOnItsDiskFitsNothing() throws Exception {
+        var cramped = host(2);
+        var renter = renter(50_000);
+        // cuda-smoke-test has no inputs and a 1,024 MB scratch disk: it needs 1,127 MB with the 10% margin.
+        cramped.freeDiskMb().set(1_126);
+        assertThat(fitNow(renter, body("cuda-smoke-test"), 0)).isZero();
+        var noCeiling = call("/v1/sessions", renter, withoutCeiling(body("cuda-smoke-test")));
+        assertThat(noCeiling.status()).isEqualTo(409);
+        assertThat(noCeiling.body().get("type").asString()).isEqualTo("/problems/no-gpu-free");
+        assertThat(noCeiling.body().get("detail").asString()).contains("1127 MB of disk free");
+
+        cramped.freeDiskMb().set(1_127);
+        assertThat(fitNow(renter, body("cuda-smoke-test"), 1)).isEqualTo(1);
+        assertThat(call("/v1/sessions", renter, withoutCeiling(body("cuda-smoke-test")))
+                        .status())
+                .isEqualTo(201);
+    }
 }

@@ -20,8 +20,8 @@ class FittingPrices implements PriceCeilings {
     }
 
     @Override
-    public OptionalInt highestFitting(int vramNeededMb) {
-        return candidates.free(Integer.MAX_VALUE, vramNeededMb, List.of()).stream()
+    public OptionalInt highestFitting(int vramNeededMb, int diskNeededMb) {
+        return candidates.free(Integer.MAX_VALUE, vramNeededMb, diskNeededMb, List.of()).stream()
                 .mapToInt(candidate -> candidate.pricePaisePerMin())
                 .max();
     }

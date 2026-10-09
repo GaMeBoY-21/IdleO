@@ -48,8 +48,18 @@ class SessionBookingService implements SessionBookings {
                                 session.attempt(),
                                 spec,
                                 session.vramNeededMb(),
+                                diskNeededMb(session),
                                 session.maxPricePaisePerMin(),
                                 session.maxSpendPaise())));
+    }
+
+    private int diskNeededMb(SessionStore.Session session) {
+        var template = jobs.template(session).orElseThrow();
+        return SessionDisk.neededMb(
+                template,
+                jobs.uploads(session).stream()
+                        .mapToLong(named -> named.upload().sizeBytes())
+                        .sum());
     }
 
     @Override

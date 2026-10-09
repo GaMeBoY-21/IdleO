@@ -21,6 +21,7 @@ use agent_proto::v1::{
     RenewCertificateRequest, RenewCertificateResponse, SessionSpec, SessionState, SessionType, Welcome,
 };
 use idleo_agent::connection::{Event, RunOptions, Timing};
+use idleo_agent::disk::FixedDisk;
 use idleo_agent::enrol::{self, Enrolled, EnrolmentCode};
 use idleo_agent::lease_clock::SystemLeaseClock;
 use idleo_agent::owner::OwnerActivity;
@@ -427,6 +428,7 @@ impl TestServer {
             roots: self.pki().agent_roots(),
             data_dir: data_dir.to_owned(),
             gpus: Arc::new(FakeGpus::new(1, &FakeModel::default())),
+            disk: Arc::new(FixedDisk(512_000)),
             owner: Arc::new(Owner(false)),
             lease_clock: Arc::new(SystemLeaseClock),
             runner: Some(Arc::new(TestRunner::default())),

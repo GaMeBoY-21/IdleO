@@ -54,8 +54,8 @@ x509-parser = "0.18.1"
 nvml-wrapper = { version = "0.13.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
-# The lease clock: CLOCK_BOOTTIME on Linux, CLOCK_MONOTONIC on macOS, without unsafe code.
-rustix = { version = "1.1.5", default-features = false, features = ["std", "time"] }
+# The lease clock (CLOCK_BOOTTIME on Linux, CLOCK_MONOTONIC on macOS) and free disk space (statvfs), without unsafe code.
+rustix = { version = "1.1.5", default-features = false, features = ["fs", "std", "time"] }
 
 [target.'cfg(windows)'.dependencies]
 agent-windows = { path = "../agent-windows" }

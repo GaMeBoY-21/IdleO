@@ -8,6 +8,7 @@
 pub mod backoff;
 pub mod config;
 pub mod connection;
+pub mod disk;
 pub mod enrol;
 pub mod lease_clock;
 pub mod logs;

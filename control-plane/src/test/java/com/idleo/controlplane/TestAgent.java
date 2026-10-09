@@ -185,7 +185,8 @@ public final class TestAgent {
         var hello = Hello.newBuilder()
                 .setAgentVersion(agentVersion)
                 .setOs(os)
-                .setOsVersion(os == OperatingSystem.OPERATING_SYSTEM_MACOS ? "macOS 26.0" : "Windows 11 26100");
+                .setOsVersion(os == OperatingSystem.OPERATING_SYSTEM_MACOS ? "macOS 26.0" : "Windows 11 26100")
+                .setFreeDiskMb(FREE_DISK_MB);
         for (var uuid : gpuUuids) {
             hello.addGpus(GpuInfo.newBuilder()
                     .setUuid(uuid)
@@ -198,7 +199,14 @@ public final class TestAgent {
         return request().setHello(hello).build();
     }
 
+    /** What a test host reports free on its disk unless a test says otherwise: plenty for any test's session. */
+    public static final int FREE_DISK_MB = 512_000;
+
     public static OpenStreamRequest heartbeat(String gpuUuid, int tempC, int utilPct) {
+        return heartbeat(gpuUuid, tempC, utilPct, FREE_DISK_MB);
+    }
+
+    public static OpenStreamRequest heartbeat(String gpuUuid, int tempC, int utilPct, int freeDiskMb) {
         return request()
                 .setHeartbeat(Heartbeat.newBuilder()
                         .addGpus(GpuTelemetry.newBuilder()
@@ -208,7 +216,8 @@ public final class TestAgent {
                                 .setVramUsedMb(4096)
                                 .setPowerW(95))
                         .setNetUpKbps(20000)
-                        .setOwnerActive(false))
+                        .setOwnerActive(false)
+                        .setFreeDiskMb(freeDiskMb))
                 .build();
     }
 

@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -120,11 +121,14 @@ class Presence implements HostPresence, AgentPresence {
             boolean updateRequired,
             boolean ownerActive,
             int netUpKbps,
+            @Nullable Integer freeDiskMb,
             String gpusJson,
             Instant heartbeatAt) {
 
+        /** Every field; free disk is empty until a heartbeat reports it. */
         Map<String, String> fields() {
             return Map.of(
+                    "free_disk_mb", freeDiskMb == null ? "" : Integer.toString(freeDiskMb),
                     "connection_id", connectionId.toString(),
                     "instance_id", instanceId.toString(),
                     "connected_at", connectedAt.toString(),
@@ -188,10 +192,12 @@ class Presence implements HostPresence, AgentPresence {
                 }
             }
         }
+        var freeDisk = text(fields, "free_disk_mb");
         return new LiveAgent(
                 hostId,
                 Boolean.parseBoolean(text(fields, "update_required")),
                 Boolean.parseBoolean(text(fields, "owner_active")),
+                freeDisk.isEmpty() ? null : Integer.valueOf(freeDisk),
                 List.copyOf(temps),
                 List.copyOf(readings));
     }

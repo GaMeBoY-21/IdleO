@@ -23,9 +23,15 @@ public final class TestHosts {
 
     /**
      * A connected host: its agent, its open stream, the stream's channel, and a heartbeat every half second
-     * that keeps its presence alive. Disconnect it when done.
+     * that keeps its presence alive, reporting {@code freeDiskMb} (plenty, unless a test says otherwise). Disconnect it
+     * when done.
      */
-    public record ConnectedHost(TestAgent agent, TestAgent.Stream stream, ManagedChannel channel, Thread heartbeats) {
+    public record ConnectedHost(
+            TestAgent agent,
+            TestAgent.Stream stream,
+            ManagedChannel channel,
+            Thread heartbeats,
+            java.util.concurrent.atomic.AtomicInteger freeDiskMb) {
 
         public UUID id() {
             return agent.hostId;
@@ -83,17 +89,18 @@ public final class TestHosts {
         var welcome = stream.next(Duration.ofSeconds(5));
         assertThat(welcome.hasWelcome()).as("Welcome").isTrue();
         var gpu = gpuUuids.length == 0 ? TestAgent.GPU_A : gpuUuids[0];
+        var freeDiskMb = new java.util.concurrent.atomic.AtomicInteger(TestAgent.FREE_DISK_MB);
         var heartbeats = Thread.ofVirtual().start(() -> {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
-                    stream.send(TestAgent.heartbeat(gpu, 60, 5));
+                    stream.send(TestAgent.heartbeat(gpu, 60, 5, freeDiskMb.get()));
                     Thread.sleep(500);
                 }
             } catch (InterruptedException | RuntimeException stopped) {
                 // Disconnected.
             }
         });
-        return new ConnectedHost(agent, stream, channel, heartbeats);
+        return new ConnectedHost(agent, stream, channel, heartbeats, freeDiskMb);
     }
 
     /** Sets the host's listing as its owner. */

@@ -90,6 +90,11 @@ message Hello {
   // Sessions still running locally, so the control plane can reconcile them
   // after a reconnect or an agent restart.
   repeated RunningSession running_sessions = 5;
+  // Free space, in MB, on the disk where sessions' scratch folders and staged
+  // inputs go, as in Heartbeat.free_disk_mb, so the scheduler knows the
+  // host's room from the moment it connects. Absent when the agent couldn't
+  // read it.
+  optional int32 free_disk_mb = 6;
 }
 
 // Rules the control plane sets for this agent.

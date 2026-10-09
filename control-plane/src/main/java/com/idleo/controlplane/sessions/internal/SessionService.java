@@ -94,7 +94,7 @@ class SessionService {
             if (existing.isPresent()) {
                 return repeat(existing.get(), hash);
             }
-            int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), vram);
+            int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), vram, checked.diskNeededMb());
             var hold = CreditReservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
             var available = reservations.available(renterId);
             if (hold.isGreaterThan(available)) {

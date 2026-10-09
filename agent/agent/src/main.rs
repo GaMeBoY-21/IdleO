@@ -11,6 +11,7 @@ use std::time::Duration;
 use clap::{Parser, Subcommand};
 use idleo_agent::config::{self, Config, LogFormat};
 use idleo_agent::connection::{self, RunOptions, Timing};
+use idleo_agent::disk::{FixedDisk, FreeDisk, SystemDisk};
 use idleo_agent::enrol::{self, EnrolmentCode};
 use idleo_agent::lease_clock::SystemLeaseClock;
 use idleo_agent::owner::SystemOwner;
@@ -66,6 +67,10 @@ enum Command {
         /// Only with --fake-gpu: each fake GPU's memory in MB, at least 1024 [default: 12282].
         #[arg(long, value_name = "MB", requires = "fake_gpu", value_parser = clap::value_parser!(i32).range(i64::from(FakeModel::MIN_VRAM_MB)..))]
         fake_gpu_vram_mb: Option<i32>,
+        /// Only with --fake-gpu: report this much free disk in MB instead of the data folder's real free space, so a
+        /// local stack can show a host without room for a session's files.
+        #[arg(long, value_name = "MB", requires = "fake_gpu", value_parser = clap::value_parser!(i32).range(0..))]
+        fake_free_disk_mb: Option<i32>,
         /// Run sessions with the development runner, which simulates jobs against real object storage.
         /// Only with --fake-gpu: a real host never runs it. Without a runner the agent declines offers.
         #[arg(long, requires = "fake_gpu")]
@@ -88,13 +93,13 @@ fn main() -> ExitCode {
     runtime.block_on(async move {
         match cli.command {
             Command::Enrol { code, force } => enrol_command(&config, &code, force).await,
-            Command::Run { fake_gpu, fake_gpu_model, fake_gpu_vram_mb, dev_runner } => {
+            Command::Run { fake_gpu, fake_gpu_model, fake_gpu_vram_mb, fake_free_disk_mb, dev_runner } => {
                 let defaults = FakeModel::default();
                 let model = FakeModel {
                     name: fake_gpu_model.unwrap_or(defaults.name),
                     vram_mb: fake_gpu_vram_mb.unwrap_or(defaults.vram_mb),
                 };
-                run_command(config, fake_gpu.map(|count| (count, model)), dev_runner).await
+                run_command(config, fake_gpu.map(|count| (count, model)), fake_free_disk_mb, dev_runner).await
             }
         }
     })
@@ -126,7 +131,12 @@ async fn enrol_command(config: &Config, code: &str, force: bool) -> ExitCode {
     }
 }
 
-async fn run_command(config: Config, fake_gpu: Option<(u8, FakeModel)>, dev_runner: bool) -> ExitCode {
+async fn run_command(
+    config: Config,
+    fake_gpu: Option<(u8, FakeModel)>,
+    fake_free_disk_mb: Option<i32>,
+    dev_runner: bool,
+) -> ExitCode {
     // clap already refuses --dev-runner alone; this keeps the rule even if the parser changes.
     if dev_runner && fake_gpu.is_none() {
         return fail(exit::CONFIG, &"--dev-runner needs --fake-gpu");
@@ -147,6 +157,13 @@ async fn run_command(config: Config, fake_gpu: Option<(u8, FakeModel)>, dev_runn
             Err(e) => return fail(exit::GPU, &e),
         },
     };
+    let disk: Arc<dyn FreeDisk> = match fake_free_disk_mb {
+        Some(mb) => {
+            tracing::warn!(mb, "reporting fake free disk space, as asked by --fake-free-disk-mb");
+            Arc::new(FixedDisk(mb))
+        }
+        None => Arc::new(SystemDisk::new(config.data_dir.clone())),
+    };
     let (target, roots) = match connection_settings(&config) {
         Ok(settings) => settings,
         Err(e) => return fail(exit::CONFIG, &e),
@@ -165,6 +182,7 @@ async fn run_command(config: Config, fake_gpu: Option<(u8, FakeModel)>, dev_runn
         roots,
         data_dir: config.data_dir,
         gpus,
+        disk,
         owner: Arc::new(SystemOwner),
         lease_clock: Arc::new(SystemLeaseClock),
         runner,

@@ -13,7 +13,7 @@ use windows::Win32::Security::Authorization::{
 };
 use windows::Win32::Security::{DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 use windows::Win32::Storage::FileSystem::{
-    CREATE_NEW, CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_NONE,
+    CREATE_NEW, CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_WRITE, FILE_SHARE_NONE, GetDiskFreeSpaceExW,
 };
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW};
@@ -25,6 +25,20 @@ use crate::PRIVATE_FILE_SDDL;
 
 fn wide(text: impl AsRef<OsStr>) -> Vec<u16> {
     text.as_ref().encode_wide().chain(std::iter::once(0)).collect()
+}
+
+/// Bytes this user may still write on the volume holding `path`, from `GetDiskFreeSpaceExW`, which counts quotas.
+///
+/// # Errors
+/// If Windows can't say, for example when `path` doesn't exist.
+pub fn free_disk_space(path: &Path) -> io::Result<u64> {
+    let name = wide(path);
+    let mut available = 0u64;
+    // SAFETY: `name` is a NUL-terminated UTF-16 string that outlives the call, and `available` is a valid, writable
+    // u64; the two other outputs are optional and left out.
+    unsafe { GetDiskFreeSpaceExW(PCWSTR(name.as_ptr()), Some(&raw mut available), None, None) }
+        .map_err(io::Error::other)?;
+    Ok(available)
 }
 
 /// Time since the last keyboard or mouse input in this session.

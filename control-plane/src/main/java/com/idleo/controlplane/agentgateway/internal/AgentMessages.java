@@ -54,6 +54,9 @@ final class AgentMessages {
         if (hello.getGpusCount() == 0) {
             return new HelloResult.Invalid("at least one GPU is required");
         }
+        if (hello.hasFreeDiskMb() && hello.getFreeDiskMb() < 0) {
+            return new HelloResult.Invalid("free_disk_mb can't be below zero");
+        }
         var uuids = new HashSet<String>();
         var gpus = new ArrayList<ReportedGpu>();
         for (var gpu : hello.getGpusList()) {
@@ -85,6 +88,9 @@ final class AgentMessages {
     static Optional<String> invalidHeartbeat(Heartbeat heartbeat, Set<String> reportedGpus) {
         if (heartbeat.getNetUpKbps() < 0) {
             return Optional.of("net_up_kbps_out_of_range");
+        }
+        if (heartbeat.hasFreeDiskMb() && heartbeat.getFreeDiskMb() < 0) {
+            return Optional.of("free_disk_out_of_range");
         }
         for (GpuTelemetry gpu : heartbeat.getGpusList()) {
             if (!reportedGpus.contains(gpu.getUuid())) {

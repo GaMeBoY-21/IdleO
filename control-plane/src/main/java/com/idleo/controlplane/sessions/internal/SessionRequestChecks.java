@@ -70,7 +70,9 @@ class SessionRequestChecks implements SessionRequests {
                 inputs.stream()
                         .map(input -> new SessionStore.Input(input.name(), input.uploadId(), input.url()))
                         .toList());
-        return new Checked(template, vram, maxRuntime, params, presets, inputs, env);
+        int disk = SessionDisk.neededMb(
+                template, inputs.stream().mapToLong(Input::uploadBytes).sum());
+        return new Checked(template, vram, disk, maxRuntime, params, presets, inputs, env);
     }
 
     /** The inputs given, checked, in the template's order. */

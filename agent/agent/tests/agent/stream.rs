@@ -78,6 +78,7 @@ async fn heartbeats_follow_at_the_interval_welcome_sets() {
         assert_eq!(heartbeat.net_up_kbps, 0);
         assert!(!heartbeat.owner_active);
         assert_eq!(heartbeat.sessions, []);
+        assert_eq!(heartbeat.free_disk_mb, Some(512_000), "the test's free disk, read at each heartbeat");
     }
     let mut ids: Vec<_> = all.iter().map(|m| m.message_id.clone()).collect();
     ids.sort();

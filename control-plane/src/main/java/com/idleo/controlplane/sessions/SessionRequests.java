@@ -19,10 +19,12 @@ public interface SessionRequests {
      * @param presets the option of each preset question, defaults filled in
      * @param inputs what the job reads, in the template's order of inputs; only those given
      * @param env what the job's environment will be: its parameters and its inputs
+     * @param diskNeededMb the free disk a host needs for its uploaded inputs and scratch disk, with a margin
      */
     record Checked(
             Template template,
             int vramNeededMb,
+            int diskNeededMb,
             Duration maxRuntime,
             Map<String, Object> params,
             Map<String, String> presets,

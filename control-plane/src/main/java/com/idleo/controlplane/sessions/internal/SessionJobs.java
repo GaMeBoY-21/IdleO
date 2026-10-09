@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.sessions.Template;
 import gpu.agent.v1.Session.InputRef;
 import gpu.agent.v1.Session.SessionSpec;
 import java.time.Duration;
@@ -24,6 +25,10 @@ class SessionJobs {
         this.catalog = catalog;
         this.uploads = uploads;
         this.files = files;
+    }
+
+    Optional<Template> template(SessionStore.Session session) {
+        return catalog.find(session.templateId());
     }
 
     Optional<SessionSpec> spec(SessionStore.Session session) {

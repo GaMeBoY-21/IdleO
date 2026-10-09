@@ -63,4 +63,9 @@ message Heartbeat {
   bool owner_active = 3;
   // Every session the agent is running, with its attempt and state.
   repeated RunningSession sessions = 4;
+  // Free space, in MB, on the disk where sessions' scratch folders and staged
+  // inputs go. The scheduler offers a session only to a host with room for
+  // its inputs and scratch disk. Absent when the agent couldn't read it, and
+  // from agents older than this field; the scheduler then offers nothing.
+  optional int32 free_disk_mb = 5;
 }
