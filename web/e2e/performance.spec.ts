@@ -6,11 +6,13 @@ import { fakeApi, signIn } from "./support";
  * A 10 MiB log doesn't slow the session screen (web/README.md "The budgets"): about 150,000 lines arrive over half a
  * minute, a chunk of 1,000 lines at a time, as the agent's sink would upload them, while the renter scrolls the
  * panel with the keyboard and uses its buttons. On a CPU slowed four times, every interaction must paint within
- * 100 ms, and the page never holds more than the cap of 2,000 lines.
+ * the app's interaction budget, 200 ms (ADR 0018), and the page never holds more than the cap of 2,000 lines.
  */
 const CHUNKS = 150;
 const LINES_PER_CHUNK = 1_000;
 const CAP = 2_000;
+/** The app's interaction to next paint budget (web/README.md "The budgets"). */
+const INP_BUDGET_MS = 200;
 
 const line = (chunk: number, i: number) =>
   `epoch ${1 + Math.floor(chunk / 50)} step ${chunk * LINES_PER_CHUNK + i}/150000 loss ${(2.4 - chunk / 100).toFixed(4)} lr 0.0002 grad_norm 0.8731 tokens/s 1843`;
@@ -106,5 +108,5 @@ test("a 10 MiB log streams in without slowing the screen", async ({ page, browse
   );
   expect(bytes).toBeGreaterThan(10 * 1024 * 1024);
   expect(most).toBeLessThanOrEqual(CAP);
-  expect(worst.ms, `slowest interaction (${worst.name})`).toBeLessThanOrEqual(100);
+  expect(worst.ms, `slowest interaction (${worst.name})`).toBeLessThanOrEqual(INP_BUDGET_MS);
 });
