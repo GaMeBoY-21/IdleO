@@ -214,9 +214,15 @@ const Block = memo(function Block({ block }: { block: LogBlock }) {
       </div>
     );
   }
-  // One line of the caption size per line, so moving the window keeps the reader's place exactly.
+  // One line of the caption size per line, so moving the window keeps the reader's place exactly. A block out of
+  // view isn't laid out at all (content-visibility), held at its exact height meanwhile: laying out all 2,000 lines
+  // whenever the window moved or the panel scrolled to the end held a tap back 195 ms on a CPU slowed 40 times.
   return (
-    <div className="min-h-4.5 whitespace-pre text-log-text" data-lines={block.count}>
+    <div
+      className="min-h-4.5 whitespace-pre text-log-text"
+      style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${block.count * ROW_PX}px` }}
+      data-lines={block.count}
+    >
       {block.text}
     </div>
   );
