@@ -8,14 +8,19 @@ export const uploadApi: UploadApi = {
     data(
       api.POST("/v1/uploads", {
         params: { header: { "Idempotency-Key": key } },
-        body: { filename, sizeBytes },
+        body: { name: filename, files: [{ path: filename, sizeBytes }] },
       }),
     ),
-  partLinks: async (id, partNumbers) =>
-    (await data(api.POST("/v1/uploads/{id}/part-urls", { params: { path: { id } }, body: { partNumbers } })))
-      .parts,
-  complete: (id, parts) =>
-    data(api.POST("/v1/uploads/{id}/complete", { params: { path: { id } }, body: { parts } })),
+  partLinks: async (id, path, partNumbers) =>
+    (
+      await data(
+        api.POST("/v1/uploads/{id}/part-urls", { params: { path: { id } }, body: { path, partNumbers } }),
+      )
+    ).parts,
+  complete: (id, path, parts) =>
+    data(
+      api.POST("/v1/uploads/{id}/complete", { params: { path: { id } }, body: { files: [{ path, parts }] } }),
+    ),
   remove: async (id) => {
     const { response } = await api.DELETE("/v1/uploads/{id}", { params: { path: { id } } });
     return response.status;

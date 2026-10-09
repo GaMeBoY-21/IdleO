@@ -614,15 +614,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NewUpload"
-          description: "A repeat with the same Idempotency-Key: the same upload, with\
-            \ fresh links"
+                $ref: "#/components/schemas/UploadDetail"
+          description: "A repeat with the same Idempotency-Key: the same upload, as\
+            \ it stands"
         "201":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NewUpload"
-          description: "The new upload, with its part links"
+                $ref: "#/components/schemas/UploadDetail"
+          description: "The new upload, with its files; ask for each file's part links\
+            \ as it's sent"
           headers:
             Location:
               description: The upload's URL
@@ -672,7 +673,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadResponse"
+                $ref: "#/components/schemas/UploadDetail"
           description: OK
         default:
           content:
@@ -703,7 +704,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadResponse"
+                $ref: "#/components/schemas/UploadDetail"
           description: OK
         default:
           content:
@@ -807,14 +808,29 @@ components:
     CompleteUploadRequest:
       type: object
       properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletedFile"
+          maxItems: 100
+          minItems: 0
+      required:
+      - files
+    CompletedFile:
+      type: object
+      properties:
         parts:
           type: array
           items:
             $ref: "#/components/schemas/UploadedPart"
           maxItems: 10000
           minItems: 0
+        path:
+          type: string
+          minLength: 1
       required:
       - parts
+      - path
     CreateHostRequest:
       type: object
       properties:
@@ -878,16 +894,18 @@ components:
     CreateUploadRequest:
       type: object
       properties:
-        filename:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadFileRequest"
+          maxItems: 10000
+          minItems: 0
+        name:
           type: string
           minLength: 1
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
       required:
-      - filename
-      - sizeBytes
+      - files
+      - name
     Earnings:
       type: object
       properties:
@@ -1132,55 +1150,6 @@ components:
       - createdAt
       - id
       - status
-    NewUpload:
-      type: object
-      properties:
-        createdAt:
-          type: string
-          format: date-time
-        expiresAt:
-          type: string
-          format: date-time
-        filename:
-          type: string
-        id:
-          type: string
-          format: uuid
-        partCount:
-          type: integer
-          format: int32
-        partSizeBytes:
-          type: integer
-          format: int64
-        parts:
-          type: array
-          items:
-            $ref: "#/components/schemas/UploadPartLink"
-        sizeBytes:
-          type: integer
-          format: int64
-        status:
-          type: string
-          enum:
-          - pending
-          - ready
-          - failed
-          - expired
-          - deleted
-        urlsExpireAt:
-          type: string
-          format: date-time
-      required:
-      - createdAt
-      - expiresAt
-      - filename
-      - id
-      - partCount
-      - partSizeBytes
-      - parts
-      - sizeBytes
-      - status
-      - urlsExpireAt
     Output:
       type: object
       properties:
@@ -1232,10 +1201,14 @@ components:
             format: int32
             maximum: 10000
             minimum: 1
-          maxItems: 10000
+          maxItems: 100
           minItems: 0
+        path:
+          type: string
+          minLength: 1
       required:
       - partNumbers
+      - path
     PresetOption:
       type: object
       properties:
@@ -1847,6 +1820,49 @@ components:
           minLength: 0
       required:
       - displayName
+    UploadDetail:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadFileResponse"
+        upload:
+          $ref: "#/components/schemas/UploadResponse"
+      required:
+      - files
+      - upload
+    UploadFileRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          minLength: 1
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - path
+      - sizeBytes
+    UploadFileResponse:
+      type: object
+      properties:
+        done:
+          type: boolean
+        partCount:
+          type: integer
+          format: int32
+        path:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+      required:
+      - done
+      - partCount
+      - path
+      - sizeBytes
     UploadList:
       type: object
       properties:
@@ -1898,14 +1914,19 @@ components:
         expiresAt:
           type: string
           format: date-time
-        filename:
-          type: string
+        fileCount:
+          type: integer
+          format: int32
         id:
           type: string
           format: uuid
-        partCount:
-          type: integer
-          format: int32
+        lastUsedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        name:
+          type: string
         partSizeBytes:
           type: integer
           format: int64
@@ -1923,9 +1944,9 @@ components:
       required:
       - createdAt
       - expiresAt
-      - filename
+      - fileCount
       - id
-      - partCount
+      - name
       - partSizeBytes
       - sizeBytes
       - status

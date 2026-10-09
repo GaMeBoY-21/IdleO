@@ -31,8 +31,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * A renter's uploads (ADR 0019): one file each, which the client PUTs straight to storage in parts through
- * pre-signed links, then completes. A ready upload is a session's input by its id.
+ * A renter's uploads, My files (ADR 0019, ADR 0022): a folder of files or one file, each file PUT by the client
+ * straight to storage in parts through pre-signed links asked for as it goes, then completed. A ready upload is a
+ * session's input by its id, as often as the renter likes.
  */
 @RestController
 @RequestMapping("/v1/uploads")
@@ -42,28 +43,51 @@ class UploadController {
     static final int MAX_PAGE = 100;
     /** Storage's limit on parts in one multipart upload. */
     static final int MAX_PARTS = 10_000;
+    /** The most files one complete call takes; a folder of more completes over several calls. */
+    static final int MAX_COMPLETE = 100;
 
     private final UploadService uploads;
+    private final UploadParts parts;
     private final UploadStore store;
+    private final UploadFileStore files;
 
-    UploadController(UploadService uploads, UploadStore store) {
+    UploadController(UploadService uploads, UploadParts parts, UploadStore store, UploadFileStore files) {
         this.uploads = uploads;
+        this.parts = parts;
         this.store = store;
+        this.files = files;
     }
 
-    record CreateUploadRequest(
-            @NotBlank String filename, @NotNull @Min(1) Long sizeBytes) {}
+    /** A file to upload: its path relative to the upload (a folder's {@code config.json}), and its size. */
+    record UploadFileRequest(
+            @NotBlank String path, @NotNull @Min(0) Long sizeBytes) {}
 
+    /**
+     * @param name what My files calls it: the folder's name, or the file's
+     * @param files at most 1,000, the upload at most 40 GiB together (technical design "Limits")
+     */
+    record CreateUploadRequest(
+            @NotBlank String name,
+            @NotEmpty @Size(max = MAX_PARTS) List<@Valid @NotNull UploadFileRequest> files) {}
+
+    /** Part links for one file: its path as created, and up to 100 part numbers. */
     record PartLinksRequest(
-            @NotEmpty @Size(max = MAX_PARTS) List<@NotNull @Min(1) @Max(MAX_PARTS) Integer> partNumbers) {}
+            @NotBlank String path,
+
+            @NotEmpty @Size(max = UploadParts.MAX_LINKS) List<@NotNull @Min(1) @Max(MAX_PARTS) Integer> partNumbers) {}
 
     /** A part as uploaded: its number and the ETag storage returned for its PUT. */
     record UploadedPart(
             @NotNull @Min(1) @Max(MAX_PARTS) Integer number,
             @NotBlank String etag) {}
 
+    /** One file's parts, every one of them; none for an empty file. */
+    record CompletedFile(
+            @NotBlank String path,
+            @NotNull @Size(max = MAX_PARTS) List<@Valid @NotNull UploadedPart> parts) {}
+
     record CompleteUploadRequest(
-            @NotEmpty @Size(max = MAX_PARTS) List<@Valid UploadedPart> parts) {}
+            @NotEmpty @Size(max = MAX_COMPLETE) List<@Valid @NotNull CompletedFile> files) {}
 
     /** Where to PUT one part. */
     record UploadPartLink(int number, String url) {}
@@ -71,55 +95,55 @@ class UploadController {
     record UploadPartLinks(List<UploadPartLink> parts, Instant urlsExpireAt) {}
 
     /**
-     * An upload.
+     * An upload, as My files lists it.
      *
-     * @param filename as the renter named it
-     * @param partSizeBytes every part's size but the last, which may be smaller
-     * @param expiresAt when it's aborted (pending) or deleted (ready), unless a session that hasn't ended uses it
+     * @param name as the renter named it
+     * @param sizeBytes all its files together
+     * @param partSizeBytes every part's size but each file's last, which may be smaller
+     * @param lastUsedAt when a session last took it as an input; null if none has
+     * @param expiresAt when it's aborted (pending) or deleted (ready): 30 days after its last use, never while a
+     *     session that hasn't ended uses it
      */
     record UploadResponse(
             UUID id,
-            String filename,
+            String name,
             long sizeBytes,
+            int fileCount,
 
             @Schema(allowableValues = {"pending", "ready", "failed", "expired", "deleted"})
             String status,
 
             long partSizeBytes,
-            int partCount,
             Instant createdAt,
             @Nullable Instant completedAt,
+            @Nullable Instant lastUsedAt,
             Instant expiresAt) {
 
         static UploadResponse of(UploadStore.Upload upload) {
             return new UploadResponse(
                     upload.id(),
-                    upload.filename(),
+                    upload.name(),
                     upload.sizeBytes(),
+                    upload.fileCount(),
                     UploadService.status(upload),
                     upload.partSizeBytes(),
-                    upload.partCount(),
                     upload.createdAt(),
                     upload.completedAt(),
+                    upload.lastUsedAt(),
                     upload.expiresAt());
         }
     }
 
-    /** A new upload, with a link to PUT each part to; complete it with each part's ETag. */
-    record NewUpload(
-            UUID id,
-            String filename,
-            long sizeBytes,
+    /**
+     * One file of an upload.
+     *
+     * @param partCount how many parts it's sent in; 0 for an empty file
+     * @param done it's complete at its declared size
+     */
+    record UploadFileResponse(String path, long sizeBytes, int partCount, boolean done) {}
 
-            @Schema(allowableValues = {"pending", "ready", "failed", "expired", "deleted"})
-            String status,
-
-            long partSizeBytes,
-            int partCount,
-            Instant createdAt,
-            Instant expiresAt,
-            List<UploadPartLink> parts,
-            Instant urlsExpireAt) {}
+    /** An upload with its files, by path. */
+    record UploadDetail(UploadResponse upload, List<UploadFileResponse> files) {}
 
     record UploadList(
             List<UploadResponse> uploads, @Nullable String nextCursor) {}
@@ -127,38 +151,29 @@ class UploadController {
     @PostMapping
     @ApiResponse(
             responseCode = "201",
-            description = "The new upload, with its part links",
+            description = "The new upload, with its files; ask for each file's part links as it's sent",
             headers = @Header(name = "Location", description = "The upload's URL", schema = @Schema(type = "string")),
-            content = @Content(schema = @Schema(implementation = NewUpload.class)))
+            content = @Content(schema = @Schema(implementation = UploadDetail.class)))
     @ApiResponse(
             responseCode = "200",
-            description = "A repeat with the same Idempotency-Key: the same upload, with fresh links",
-            content = @Content(schema = @Schema(implementation = NewUpload.class)))
-    ResponseEntity<NewUpload> create(
+            description = "A repeat with the same Idempotency-Key: the same upload, as it stands",
+            content = @Content(schema = @Schema(implementation = UploadDetail.class)))
+    ResponseEntity<UploadDetail> create(
             @AuthenticationPrincipal CurrentUser user,
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
             @Valid @RequestBody CreateUploadRequest request) {
         var key = IdempotentRequests.parseKey(idempotencyKey);
-        var created = uploads.create(user.id(), key, request.filename(), request.sizeBytes());
-        var upload = created.upload();
-        var links = upload.status() == UploadStore.Status.PENDING
-                ? uploads.links(upload)
-                : new UploadService.PartLinks(List.of(), uploads.now());
-        var body = new NewUpload(
-                upload.id(),
-                upload.filename(),
-                upload.sizeBytes(),
-                UploadService.status(upload),
-                upload.partSizeBytes(),
-                upload.partCount(),
-                upload.createdAt(),
-                upload.expiresAt(),
-                links.parts().stream()
-                        .map(link -> new UploadPartLink(link.number(), link.url()))
-                        .toList(),
-                links.expireAt());
+        var created = uploads.create(
+                user.id(),
+                key,
+                request.name(),
+                request.files().stream()
+                        .map(file -> new UploadService.FileSpec(file.path(), file.sizeBytes()))
+                        .toList());
+        var body = detail(created.upload());
         return created.created()
-                ? ResponseEntity.created(URI.create("/v1/uploads/" + upload.id()))
+                ? ResponseEntity.created(
+                                URI.create("/v1/uploads/" + created.upload().id()))
                         .body(body)
                 : ResponseEntity.ok(body);
     }
@@ -168,7 +183,7 @@ class UploadController {
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID id,
             @Valid @RequestBody PartLinksRequest request) {
-        var links = uploads.freshLinks(user.id(), id, request.partNumbers());
+        var links = parts.links(user.id(), id, request.path(), request.partNumbers());
         return new UploadPartLinks(
                 links.parts().stream()
                         .map(link -> new UploadPartLink(link.number(), link.url()))
@@ -177,15 +192,19 @@ class UploadController {
     }
 
     @PostMapping("/{id}/complete")
-    UploadResponse complete(
+    UploadDetail complete(
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID id,
             @Valid @RequestBody CompleteUploadRequest request) {
-        return UploadResponse.of(uploads.complete(
+        return detail(parts.complete(
                 user.id(),
                 id,
-                request.parts().stream()
-                        .map(part -> new SessionStorage.PartEtag(part.number(), part.etag()))
+                request.files().stream()
+                        .map(file -> new UploadParts.FileParts(
+                                file.path(),
+                                file.parts().stream()
+                                        .map(part -> new SessionStorage.PartEtag(part.number(), part.etag()))
+                                        .toList()))
                         .toList()));
     }
 
@@ -203,8 +222,8 @@ class UploadController {
     }
 
     @GetMapping("/{id}")
-    UploadResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
-        return UploadResponse.of(uploads.owned(user.id(), id));
+    UploadDetail get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+        return detail(uploads.owned(user.id(), id));
     }
 
     @DeleteMapping("/{id}")
@@ -212,5 +231,14 @@ class UploadController {
     ResponseEntity<Void> delete(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         uploads.delete(user.id(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    private UploadDetail detail(UploadStore.Upload upload) {
+        return new UploadDetail(
+                UploadResponse.of(upload),
+                files.files(upload.id()).stream()
+                        .map(file -> new UploadFileResponse(
+                                file.path(), file.sizeBytes(), file.partCount(upload.partSizeBytes()), file.done()))
+                        .toList());
     }
 }

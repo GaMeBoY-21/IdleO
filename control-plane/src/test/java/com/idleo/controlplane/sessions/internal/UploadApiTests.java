@@ -10,13 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -33,16 +29,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Uploads (ADR 0019) against real MinIO: the client PUTs each part straight to storage over its pre-signed link,
- * then completes the upload with the ETags; the control plane never carries the bytes.
+ * Uploads (ADR 0019, ADR 0022) against real MinIO: a folder of files or one, each file's parts PUT by the client
+ * straight to storage over pre-signed links asked for per file, then completed with the ETags; the control plane
+ * never carries the bytes.
  */
 @ControlPlaneTest
 class UploadApiTests {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final int MIB = 1024 * 1024;
-    private static final HttpClient HTTP =
-            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     @Autowired
     MockMvc mvc;
@@ -83,121 +78,144 @@ class UploadApiTests {
         return bytes;
     }
 
-    private ResultActions create(TestUser user, String key, String filename, long size) throws Exception {
-        return mvc.perform(post("/v1/uploads")
-                .header("Authorization", user.bearer())
-                .header("Idempotency-Key", key)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(JSON.writeValueAsString(java.util.Map.of("filename", filename, "sizeBytes", size))));
+    private static final long GIB = 1024L * MIB;
+
+    private ResultActions create(TestUser user, String key, String name, Map<String, Long> files) throws Exception {
+        return TestUploads.create(mvc, user, key, name, files);
+    }
+
+    private JsonNode created(TestUser user, String name, Map<String, Long> files) throws Exception {
+        return TestUploads.created(mvc, user, name, files);
     }
 
     private JsonNode created(TestUser user, String filename, long size) throws Exception {
-        return JSON.readTree(create(user, UUID.randomUUID().toString(), filename, size)
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString());
+        return created(user, filename, Map.of(filename, size));
     }
 
-    /** PUTs each slice of {@code content} to its part's link, as a browser or the CLI would; the ETags. */
-    private static List<java.util.Map<String, Object>> putParts(JsonNode upload, byte[] content) throws Exception {
-        long partSize = upload.get("partSizeBytes").asLong();
-        var parts = new ArrayList<java.util.Map<String, Object>>();
-        for (var part : upload.get("parts")) {
-            int number = part.get("number").asInt();
-            int from = (int) ((number - 1) * partSize);
-            int to = (int) Math.min(content.length, number * partSize);
-            var response = HTTP.send(
-                    HttpRequest.newBuilder(URI.create(part.get("url").asString()))
-                            .PUT(HttpRequest.BodyPublishers.ofByteArray(content, from, to - from))
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
-            assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
-            parts.add(java.util.Map.of(
-                    "number",
-                    number,
-                    "etag",
-                    response.headers().firstValue("ETag").orElseThrow()));
-        }
-        return parts;
-    }
-
-    private ResultActions complete(TestUser user, String id, List<java.util.Map<String, Object>> parts)
+    private List<Map<String, Object>> putFile(TestUser user, JsonNode upload, String path, byte[] content)
             throws Exception {
-        return mvc.perform(post("/v1/uploads/" + id + "/complete")
-                .header("Authorization", user.bearer())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(JSON.writeValueAsString(java.util.Map.of("parts", parts))));
+        return TestUploads.putFile(mvc, user, upload, path, content);
     }
 
-    private String objectKey(String id) {
-        return jdbc.queryForObject("select object_key from sessions.uploads where id = ?::uuid", String.class, id);
+    private ResultActions complete(TestUser user, String id, String path, List<Map<String, Object>> parts)
+            throws Exception {
+        return TestUploads.complete(mvc, user, id, Map.of(path, parts));
+    }
+
+    private static String id(JsonNode upload) {
+        return upload.at("/upload/id").asString();
+    }
+
+    private String objectKey(String id, String path) {
+        return jdbc.queryForObject(
+                "select object_key from sessions.upload_files where upload_id = ?::uuid and path = ?",
+                String.class,
+                id,
+                path);
+    }
+
+    /** A ready upload of one file; its id. */
+    private String ready(TestUser user, String filename, byte[] content) throws Exception {
+        return TestUploads.ready(mvc, user, filename, content).toString();
     }
 
     @Test
-    void aFileUploadsInPartsOverPreSignedLinksAndBecomesReady() throws Exception {
+    void aFolderUploadsFileByFileAndIsReadyOnceEveryFileIs() throws Exception {
         var user = TestUsers.signUp(mvc);
-        var content = randomBytes(11 * MIB, 1);
+        var weights = randomBytes(11 * MIB, 1);
+        var config = "{\"hidden_size\": 64}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var files = new java.util.LinkedHashMap<String, Long>();
+        files.put("config.json", (long) config.length);
+        files.put("weights/model 00001.safetensors", (long) weights.length);
+        files.put("src/__init__.py", 0L);
 
-        var upload = created(user, "train data (v2).jsonl", content.length);
+        var upload = created(user, "My Model", files);
 
-        assertThat(upload.get("status").asString()).isEqualTo("pending");
-        assertThat(upload.get("partSizeBytes").asLong()).isEqualTo(5L * MIB);
-        assertThat(upload.get("partCount").asInt()).isEqualTo(3);
-        assertThat(upload.get("parts")).hasSize(3);
-        assertThat(upload.get("urlsExpireAt").isNull()).isFalse();
-        var id = upload.get("id").asString();
-        assertThat(objectKey(id)).isEqualTo("uploads/" + id + "/train_data__v2_.jsonl");
+        var id = id(upload);
+        assertThat(upload.at("/upload/status").asString()).isEqualTo("pending");
+        assertThat(upload.at("/upload/fileCount").asInt()).isEqualTo(3);
+        assertThat(upload.at("/upload/sizeBytes").asLong()).isEqualTo(config.length + weights.length);
+        assertThat(upload.get("files").findValuesAsString("path"))
+                .containsExactly("config.json", "src/__init__.py", "weights/model 00001.safetensors");
+        assertThat(upload.get("files").findValues("partCount"))
+                .extracting(JsonNode::asInt)
+                .containsExactly(1, 0, 3);
+        assertThat(upload.has("parts")).as("links come per file, on demand").isFalse();
+        assertThat(objectKey(id, "weights/model 00001.safetensors"))
+                .isEqualTo("uploads/" + id + "/files/weights/model_00001.safetensors");
 
-        var parts = putParts(upload, content);
-        var ready = complete(user, id, parts)
+        complete(
+                        user,
+                        id,
+                        "weights/model 00001.safetensors",
+                        putFile(user, upload, "weights/model 00001.safetensors", weights))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ready"))
-                .andExpect(jsonPath("$.filename").value("train data (v2).jsonl"))
-                .andReturn();
-        assertThat(JSON.readTree(ready.getResponse().getContentAsString())
-                        .get("completedAt")
-                        .isNull())
-                .isFalse();
-        assertThat(storage.size(objectKey(id))).contains((long) content.length);
-        assertThat(storage.read(objectKey(id)).orElseThrow()).isEqualTo(content);
-
-        complete(user, id, parts)
+                .andExpect(jsonPath("$.upload.status").value("pending"))
+                .andExpect(jsonPath("$.files[2].done").value(true))
+                .andExpect(jsonPath("$.files[0].done").value(false));
+        TestUploads.complete(
+                        mvc,
+                        user,
+                        id,
+                        Map.of(
+                                "config.json",
+                                putFile(user, upload, "config.json", config),
+                                "src/__init__.py",
+                                List.of()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ready"));
-        mvc.perform(get("/v1/uploads/" + id).header("Authorization", user.bearer()))
-                .andExpect(jsonPath("$.status").value("ready"));
+                .andExpect(jsonPath("$.upload.status").value("ready"))
+                .andExpect(jsonPath("$.upload.name").value("My Model"))
+                .andExpect(jsonPath("$.upload.completedAt").isNotEmpty());
+
+        assertThat(storage.read(objectKey(id, "weights/model 00001.safetensors"))
+                        .orElseThrow())
+                .isEqualTo(weights);
+        assertThat(storage.read(objectKey(id, "config.json")).orElseThrow()).isEqualTo(config);
+        assertThat(storage.size(objectKey(id, "src/__init__.py"))).contains(0L);
+        complete(user, id, "config.json", List.of())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.upload.status").value("ready"));
         mvc.perform(get("/v1/uploads").header("Authorization", user.bearer()))
-                .andExpect(jsonPath("$.uploads[0].id").value(id));
+                .andExpect(jsonPath("$.uploads[0].id").value(id))
+                .andExpect(jsonPath("$.uploads[0].name").value("My Model"))
+                .andExpect(jsonPath("$.uploads[0].fileCount").value(3))
+                .andExpect(jsonPath("$.uploads[0].lastUsedAt").doesNotExist());
     }
 
     @Test
-    void aOnePartUploadIsStillMultipart() throws Exception {
+    void aOnePartFileIsStillMultipart() throws Exception {
         var user = TestUsers.signUp(mvc);
         var content = "hello".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = created(user, "hello.txt", content.length);
 
-        assertThat(upload.get("parts")).hasSize(1);
-        complete(user, upload.get("id").asString(), putParts(upload, content))
-                .andExpect(jsonPath("$.status").value("ready"));
+        var parts = putFile(user, upload, "hello.txt", content);
+
+        assertThat(parts).hasSize(1);
+        complete(user, id(upload), "hello.txt", parts)
+                .andExpect(jsonPath("$.upload.status").value("ready"));
     }
 
     @Test
-    void theWrongSizeFailsTheUploadAndDeletesItsObject() throws Exception {
+    void aFileOfTheWrongSizeFailsTheWholeUploadAndDeletesEveryFile() throws Exception {
         var user = TestUsers.signUp(mvc);
-        var upload = created(user, "short.bin", 6L * MIB);
-        var id = upload.get("id").asString();
+        var upload = created(user, "two", Map.of("good.bin", 10L, "short.bin", 6L * MIB));
+        var id = id(upload);
+        complete(user, id, "good.bin", putFile(user, upload, "good.bin", randomBytes(10, 2)))
+                .andExpect(status().isOk());
         // Every part uploads, but the last carries half what was declared.
-        var parts = putParts(upload, randomBytes(5 * MIB + MIB / 2, 2));
+        var parts = putFile(user, upload, "short.bin", randomBytes(5 * MIB + MIB / 2, 2));
 
-        complete(user, id, parts)
+        complete(user, id, "short.bin", parts)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/upload-parts-invalid"));
 
         mvc.perform(get("/v1/uploads/" + id).header("Authorization", user.bearer()))
-                .andExpect(jsonPath("$.status").value("failed"));
-        assertThat(storage.size(objectKey(id))).isEmpty();
-        complete(user, id, parts).andExpect(jsonPath("$.type").value("/problems/upload-not-ready"));
+                .andExpect(jsonPath("$.upload.status").value("failed"));
+        assertThat(storage.size(objectKey(id, "short.bin"))).isEmpty();
+        assertThat(storage.size(objectKey(id, "good.bin")))
+                .as("the whole upload goes")
+                .isEmpty();
+        complete(user, id, "short.bin", parts).andExpect(jsonPath("$.type").value("/problems/upload-not-ready"));
     }
 
     @Test
@@ -205,105 +223,142 @@ class UploadApiTests {
         var user = TestUsers.signUp(mvc);
         var content = randomBytes(6 * MIB, 3);
         var upload = created(user, "two.bin", content.length);
-        var id = upload.get("id").asString();
-        var parts = putParts(upload, content);
+        var id = id(upload);
+        var parts = putFile(user, upload, "two.bin", content);
 
-        complete(user, id, parts.subList(0, 1))
+        complete(user, id, "two.bin", parts.subList(0, 1))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/upload-parts-invalid"));
-        complete(user, id, List.of(parts.get(0), java.util.Map.of("number", 2, "etag", "\"0000\"")))
+        complete(user, id, "two.bin", List.of(parts.get(0), Map.of("number", 2, "etag", "\"0000\"")))
                 .andExpect(jsonPath("$.type").value("/problems/upload-parts-invalid"));
         mvc.perform(get("/v1/uploads/" + id).header("Authorization", user.bearer()))
-                .andExpect(jsonPath("$.status").value("pending"));
+                .andExpect(jsonPath("$.upload.status").value("pending"));
 
-        complete(user, id, parts).andExpect(jsonPath("$.status").value("ready"));
+        complete(user, id, "two.bin", parts)
+                .andExpect(jsonPath("$.upload.status").value("ready"));
     }
 
     @Test
-    void freshPartLinksAreIssuedForAPendingUpload() throws Exception {
+    void partLinksComePerFileOnDemandAFewAtATime() throws Exception {
         var user = TestUsers.signUp(mvc);
-        var upload = created(user, "slow.bin", 11L * MIB);
-        var id = upload.get("id").asString();
+        var upload = created(user, "slow", Map.of("a.bin", 11L * MIB, "big.bin", 600L * MIB, "empty", 0L));
+        var id = id(upload);
 
-        mvc.perform(post("/v1/uploads/" + id + "/part-urls")
-                        .header("Authorization", user.bearer())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"partNumbers\": [2, 3]}"))
+        TestUploads.links(mvc, user, id, "a.bin", List.of(2, 3))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.parts[0].number").value(2))
                 .andExpect(jsonPath("$.parts[1].number").value(3))
                 .andExpect(jsonPath("$.urlsExpireAt").isNotEmpty());
-        mvc.perform(post("/v1/uploads/" + id + "/part-urls")
-                        .header("Authorization", user.bearer())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"partNumbers\": [4]}"))
+        TestUploads.links(mvc, user, id, "a.bin", List.of(4))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("partNumbers"));
+        TestUploads.links(
+                        mvc,
+                        user,
+                        id,
+                        "big.bin",
+                        java.util.stream.IntStream.rangeClosed(1, 101).boxed().toList())
+                .andExpect(status().isBadRequest());
+        TestUploads.links(
+                        mvc,
+                        user,
+                        id,
+                        "big.bin",
+                        java.util.stream.IntStream.rangeClosed(1, 100).boxed().toList())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.parts.length()").value(100));
+        TestUploads.links(mvc, user, id, "nowhere.bin", List.of(1))
+                .andExpect(jsonPath("$.errors[0].field").value("path"));
+        TestUploads.links(mvc, user, id, "empty", List.of(1))
+                .andExpect(jsonPath("$.errors[0].field").value("path"));
     }
 
     @Test
-    void theSameKeyRepeatsTheUploadWithFreshLinksAndADifferentBodyIsRefused() throws Exception {
+    void theSameKeyRepeatsTheUploadAndADifferentBodyIsRefused() throws Exception {
         var user = TestUsers.signUp(mvc);
-        var first = JSON.readTree(create(user, "upload-1", "a.bin", 100)
+        var first = JSON.readTree(create(user, "upload-1", "a", Map.of("a.bin", 100L))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
 
-        create(user, "upload-1", "a.bin", 100)
+        create(user, "upload-1", "a", Map.of("a.bin", 100L))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(first.get("id").asString()))
-                .andExpect(jsonPath("$.parts[0].url").isNotEmpty());
-        create(user, "upload-1", "a.bin", 101)
+                .andExpect(jsonPath("$.upload.id").value(id(first)));
+        create(user, "upload-1", "a", Map.of("a.bin", 101L))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type").value("/problems/idempotency-key-reused"));
-        create(user, "\"has space\"", "a.bin", 100)
+        create(user, "\"has space\"", "a", Map.of("a.bin", 100L))
                 .andExpect(jsonPath("$.type").value("/problems/idempotency-key-invalid"));
     }
 
     @Test
-    void badNamesAndSizesAreRefused() throws Exception {
+    void badNamesPathsAndSizesAreRefused() throws Exception {
         var user = TestUsers.signUp(mvc);
-        for (var name : List.of("..", ".", "a/b.txt", "a\\b.txt", "nul\u0000.txt", "x".repeat(256))) {
-            create(user, UUID.randomUUID().toString(), name, 10)
+        for (var name : List.of("..", ".", "a/b", "a\\b", "nul\u0000", "x".repeat(256))) {
+            create(user, UUID.randomUUID().toString(), name, Map.of("a.bin", 10L))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.errors[0].field").value("filename"));
+                    .andExpect(jsonPath("$.errors[0].field").value("name"));
         }
-        create(user, UUID.randomUUID().toString(), "big.bin", 21L * 1024 * MIB)
-                .andExpect(jsonPath("$.errors[0].field").value("sizeBytes"));
-        create(user, UUID.randomUUID().toString(), "empty.bin", 0)
+        for (var path : List.of("../a.bin", "a/../b", "/etc/passwd", "a//b", "a/", "./a", "a\\b", "a/\u0007")) {
+            create(user, UUID.randomUUID().toString(), "f", Map.of(path, 10L))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors[0].field").value("files[0].path"));
+        }
+        var clash = new java.util.LinkedHashMap<String, Long>();
+        clash.put("a b.txt", 1L);
+        clash.put("a_b.txt", 1L);
+        create(user, UUID.randomUUID().toString(), "f", clash)
+                .andExpect(jsonPath("$.errors[0].field").value("files[1].path"));
+        var fileAndFolder = new java.util.LinkedHashMap<String, Long>();
+        fileAndFolder.put("model", 1L);
+        fileAndFolder.put("model/config.json", 1L);
+        create(user, UUID.randomUUID().toString(), "f", fileAndFolder)
+                .andExpect(jsonPath("$.errors[0].field").value("files"));
+        create(user, UUID.randomUUID().toString(), "f", Map.of("a.bin", -1L))
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/validation-failed"));
     }
 
     @Test
-    void pendingAndReadyUploadsCountAgainstTheQuota() throws Exception {
+    void anUploadHoldsUpTo40GiBIn1000FilesAndARenterUpTo60GiB() throws Exception {
         var user = TestUsers.signUp(mvc);
-        created(user, "first.bin", 40L * MIB);
+        create(user, UUID.randomUUID().toString(), "too big", Map.of("a.bin", 20 * GIB, "b.bin", 20 * GIB + 1))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("files"));
+        var tooMany = new java.util.LinkedHashMap<String, Long>();
+        java.util.stream.IntStream.rangeClosed(1, 1_001).forEach(i -> tooMany.put("f" + i, 1L));
+        create(user, UUID.randomUUID().toString(), "too many", tooMany)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("files"));
 
-        create(user, UUID.randomUUID().toString(), "second.bin", 30L * MIB)
+        // Pending uploads count at their declared size, with nothing sent yet.
+        created(user, "a 40 GiB model", Map.of("a.bin", 20 * GIB, "b.bin", 20 * GIB - 1_000));
+        tooMany.remove("f1001");
+        assertThat(created(user, "a thousand files", tooMany)
+                        .at("/upload/fileCount")
+                        .asInt())
+                .isEqualTo(1_000);
+        created(user, "the rest", Map.of("c.bin", 20 * GIB));
+        create(user, UUID.randomUUID().toString(), "one byte more", Map.of("d.bin", 1L))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.type").value("/problems/upload-quota-exceeded"));
-        created(user, "small.bin", 20L * MIB);
     }
 
     @Test
     void anotherRenterSeesNoneOfIt() throws Exception {
         var owner = TestUsers.signUp(mvc);
         var other = TestUsers.signUp(mvc);
-        var id = created(owner, "mine.bin", 10).get("id").asString();
+        var id = id(created(owner, "mine.bin", 10));
 
         mvc.perform(get("/v1/uploads/" + id).header("Authorization", other.bearer()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.type").value("/problems/not-found"));
-        complete(other, id, List.of(java.util.Map.of("number", 1, "etag", "\"x\"")))
+        complete(other, id, "mine.bin", List.of(Map.of("number", 1, "etag", "\"x\"")))
                 .andExpect(status().isNotFound());
         mvc.perform(delete("/v1/uploads/" + id).header("Authorization", other.bearer()))
                 .andExpect(status().isNotFound());
-        mvc.perform(post("/v1/uploads/" + id + "/part-urls")
-                        .header("Authorization", other.bearer())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"partNumbers\": [1]}"))
-                .andExpect(status().isNotFound());
+        TestUploads.links(mvc, other, id, "mine.bin", List.of(1)).andExpect(status().isNotFound());
         mvc.perform(get("/v1/uploads").header("Authorization", other.bearer()))
                 .andExpect(jsonPath("$.uploads").isEmpty());
     }
@@ -311,10 +366,7 @@ class UploadApiTests {
     @Test
     void anUploadASessionUsesCantBeDeletedUntilTheSessionEnds() throws Exception {
         var renter = bookings.renter();
-        var content = "data".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        var upload = created(renter, "data.txt", content.length);
-        var id = upload.get("id").asString();
-        complete(renter, id, putParts(upload, content)).andExpect(status().isOk());
+        var id = ready(renter, "data.txt", "data".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var session = runningWith(renter, id);
 
         mvc.perform(delete("/v1/uploads/" + id).header("Authorization", renter.bearer()))
@@ -325,8 +377,8 @@ class UploadApiTests {
         mvc.perform(delete("/v1/uploads/" + id).header("Authorization", renter.bearer()))
                 .andExpect(status().isNoContent());
         mvc.perform(get("/v1/uploads/" + id).header("Authorization", renter.bearer()))
-                .andExpect(jsonPath("$.status").value("deleted"));
-        assertThat(storage.size(objectKey(id))).isEmpty();
+                .andExpect(jsonPath("$.upload.status").value("deleted"));
+        assertThat(storage.size(objectKey(id, "data.txt"))).isEmpty();
         mvc.perform(delete("/v1/uploads/" + id).header("Authorization", renter.bearer()))
                 .andExpect(status().isNoContent());
     }
@@ -334,14 +386,13 @@ class UploadApiTests {
     @Test
     void pendingUploadsExpireAfterADayAndReadyOnesAfter30DaysUnlessInUse() throws Exception {
         var renter = bookings.renter();
-        var pending = created(renter, "abandoned.bin", 10).get("id").asString();
+        var pendingUpload = created(renter, "abandoned", Map.of("a.bin", 11L * MIB, "b.bin", 10L));
+        var pending = id(pendingUpload);
+        // One file has begun: its multipart upload is open, and expiry aborts it.
+        putFile(renter, pendingUpload, "a.bin", randomBytes(11 * MIB, 4));
         var content = "kept".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        var readyUpload = created(renter, "kept.txt", content.length);
-        var ready = readyUpload.get("id").asString();
-        complete(renter, ready, putParts(readyUpload, content)).andExpect(status().isOk());
-        var used = created(renter, "used.txt", content.length);
-        var inUse = used.get("id").asString();
-        complete(renter, inUse, putParts(used, content)).andExpect(status().isOk());
+        var ready = ready(renter, "kept.txt", content);
+        var inUse = ready(renter, "used.txt", content);
         var session = runningWith(renter, inUse);
         var now = uploads.now();
 
@@ -354,13 +405,56 @@ class UploadApiTests {
 
         expiry.expire(now.plus(Duration.ofDays(31)));
         assertThat(statusOf(ready)).isEqualTo("expired");
-        assertThat(storage.size(objectKey(ready))).isEmpty();
+        assertThat(storage.size(objectKey(ready, "kept.txt"))).isEmpty();
         assertThat(statusOf(inUse)).as("its session hasn't ended").isEqualTo("ready");
-        assertThat(storage.size(objectKey(inUse))).isPresent();
+        assertThat(storage.size(objectKey(inUse, "used.txt"))).isPresent();
 
         end(session);
         expiry.expire(now.plus(Duration.ofDays(31)));
         assertThat(statusOf(inUse)).isEqualTo("expired");
+    }
+
+    @Test
+    void aReadyUploadExpires30DaysAfterASessionLastUsedItNotAfterItWasMade() throws Exception {
+        var renter = bookings.renter();
+        var id = ready(renter, "greetings.txt", "hi".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var now = uploads.now();
+        // As if it was made 20 days ago: it would expire in 10.
+        jdbc.update(
+                "update sessions.uploads set completed_at = ?, expires_at = ? where id = ?::uuid",
+                java.sql.Timestamp.from(now.minus(Duration.ofDays(20))),
+                java.sql.Timestamp.from(now.plus(Duration.ofDays(10))),
+                id);
+
+        mvc.perform(post("/v1/sessions")
+                        .header("Authorization", renter.bearer())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(JSON.writeValueAsString(Map.of(
+                                "templateId",
+                                "echo-input",
+                                "maxPricePaisePerMin",
+                                5,
+                                "maxSpendPaise",
+                                10_000,
+                                "params",
+                                Map.of("greeting", "hi"),
+                                "inputs",
+                                Map.of("file", Map.of("uploadId", id))))))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/v1/uploads/" + id).header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.upload.lastUsedAt").isNotEmpty());
+        var session = jdbc.queryForObject(
+                "select session_id from sessions.session_inputs where upload_id = ?::uuid", UUID.class, id);
+        // It ends, whether it found a host or not, so it no longer holds the upload.
+        mvc.perform(post("/v1/sessions/" + session + "/cancel").header("Authorization", renter.bearer()));
+        assertThat(jdbc.queryForObject("select state from sessions.sessions where id = ?", String.class, session))
+                .isIn("CANCELLED", "NO_HOST_FREE");
+        expiry.expire(now.plus(Duration.ofDays(11)));
+        assertThat(statusOf(id)).as("used today: kept 30 days from now").isEqualTo("ready");
+        expiry.expire(now.plus(Duration.ofDays(31)));
+        assertThat(statusOf(id)).isEqualTo("expired");
     }
 
     /** A session of the renter's, running on a host, that takes the upload as its input. */

@@ -11,9 +11,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Expires uploads (ADR 0019): a pending one is aborted a day after it was opened, and a ready one is deleted 30 days
- * after it was completed, but never while a session that hasn't ended uses it; that one goes at a later sweep, once
- * its session has ended. One instance at a time, under an advisory lock, like the wallet check.
+ * Expires uploads (ADR 0019, ADR 0022): a pending one is aborted a day after it was opened, and a ready one is deleted
+ * 30 days after a session last used it (30 days after it was completed, if none has), but never while a session that
+ * hasn't ended uses it; that one goes at a later sweep, once its session has ended. Every file of it goes. One
+ * instance at a time, under an advisory lock, like the wallet check.
  */
 @Component
 class UploadExpiry {
@@ -25,19 +26,13 @@ class UploadExpiry {
     private static final int BATCH = 100;
 
     private final UploadStore store;
-    private final SessionStorage storage;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final UploadService uploads;
 
     UploadExpiry(
-            UploadStore store,
-            SessionStorage storage,
-            JdbcClient jdbc,
-            PlatformTransactionManager transactionManager,
-            UploadService uploads) {
+            UploadStore store, JdbcClient jdbc, PlatformTransactionManager transactionManager, UploadService uploads) {
         this.store = store;
-        this.storage = storage;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.uploads = uploads;
@@ -64,19 +59,10 @@ class UploadExpiry {
             }
             int expired = 0;
             for (var upload : store.expired(now, BATCH)) {
-                switch (upload.status()) {
-                    case PENDING ->
-                        storage.abortMultipart(upload.objectKey(), Objects.requireNonNull(upload.multipartId()));
-                    case READY -> {
-                        if (store.inUse(upload.id())) {
-                            continue;
-                        }
-                        storage.delete(upload.objectKey());
-                    }
-                    default -> {
-                        continue;
-                    }
+                if (upload.status() == UploadStore.Status.READY && store.inUse(upload.id())) {
+                    continue;
                 }
+                uploads.removeStored(upload);
                 store.finish(upload.id(), UploadStore.Status.EXPIRED, upload.completedAt(), now);
                 expired++;
                 log.info("Upload {} expired ({})", upload.id(), UploadService.status(upload));

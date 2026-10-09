@@ -31,6 +31,24 @@ class UploadNamesTests {
     }
 
     @Test
+    void aFilesPathIsRelativeAndEachPartIsSafe() {
+        for (var good : new String[] {"config.json", "Llama 3/model-00001.safetensors", "a/b/c/d.txt", ".hidden"}) {
+            assertThat(UploadNames.pathProblem(good)).as(good).isEmpty();
+        }
+        for (var bad : new String[] {
+            "", "/etc/passwd", "../a", "a/../b", "a/./b", "a//b", "a/", "a\\b", "a/\u0000", "x".repeat(901)
+        }) {
+            assertThat(UploadNames.pathProblem(bad)).as(bad).isPresent();
+        }
+    }
+
+    @Test
+    void eachPartOfAPathIsStoredAsANameIs() {
+        assertThat(UploadNames.storedPath("Llama 3/model (1).safetensors")).isEqualTo("Llama_3/model__1_.safetensors");
+        assertThat(UploadNames.storedPath("réseau/données.csv")).isEqualTo("r_seau/donn_es.csv");
+    }
+
+    @Test
     void cursorsRoundTripAndForgeriesAreRefused() {
         var id = UUID.fromString("01a11300-0000-7000-8000-000000000001");
         assertThat(Cursors.id(Cursors.ofId(id))).isEqualTo(id);

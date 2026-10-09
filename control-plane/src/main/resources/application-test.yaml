@@ -33,10 +33,10 @@ sessions:
   # input (ADR 0019). Tests run from control-plane/.
   templates:
     catalog: file:../templates/development.yaml
-  # Storage's smallest part, so a few MiB really upload in several parts.
+  # Storage's smallest part, so a few MiB really upload in several parts. The limits are production's: a
+  # pending upload's declared size counts against the quota with nothing sent, so tests reach them for free.
   uploads:
     part-size: 5MB
-    quota: 64MB
   provisioning-timeout: 5s
   # Few streams, so the cap is quick to reach in a test.
   streams:

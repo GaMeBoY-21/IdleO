@@ -806,30 +806,41 @@ export function quoteAnswer(
   return answer === null ? { status: 409, problem: "no-gpu-free" } : { json: answer };
 }
 
-/** The running fine-tune's data, as GET /v1/uploads/{id} describes it. */
-export const sessionUpload = {
-  id: UPLOAD_ID,
-  filename: "dataset.jsonl",
-  sizeBytes: 48_213_504,
-  status: "ready",
-};
-
-/** An upload as POST /v1/uploads opens it: one link per part. */
-export function newUpload(filename: string, sizeBytes: number, partSizeBytes = 5 * 1024 * 1024) {
-  const partCount = Math.max(1, Math.ceil(sizeBytes / partSizeBytes));
+/** An upload of one file as POST /v1/uploads opens it, or (`ready`) as completing it leaves it. */
+export function newUpload(
+  filename: string,
+  sizeBytes: number,
+  status: "pending" | "ready" = "pending",
+  partSizeBytes = 5 * 1024 * 1024,
+) {
+  const partCount = Math.ceil(sizeBytes / partSizeBytes);
   return {
-    id: UPLOAD_ID,
-    filename,
-    sizeBytes,
-    partSizeBytes,
-    partCount,
-    status: "pending" as const,
-    createdAt: NOW.toISOString(),
-    expiresAt: new Date(NOW.getTime() + DAY).toISOString(),
-    urlsExpireAt: new Date(NOW.getTime() + HOUR).toISOString(),
-    parts: Array.from({ length: partCount }, (_, i) => ({
-      number: i + 1,
-      url: `http://localhost:9100/idleo-local/uploads/${UPLOAD_ID}/part-${i + 1}`,
+    upload: {
+      id: UPLOAD_ID,
+      name: filename,
+      sizeBytes,
+      fileCount: 1,
+      status,
+      partSizeBytes,
+      createdAt: NOW.toISOString(),
+      completedAt: status === "ready" ? NOW.toISOString() : null,
+      lastUsedAt: null,
+      expiresAt: new Date(NOW.getTime() + (status === "ready" ? 30 * DAY : DAY)).toISOString(),
+    },
+    files: [{ path: filename, sizeBytes, partCount, done: status === "ready" }],
+  };
+}
+
+/** The running fine-tune's data, as GET /v1/uploads/{id} describes it. */
+export const sessionUpload = newUpload("dataset.jsonl", 48_213_504, "ready");
+
+/** Part links as POST /v1/uploads/{id}/part-urls signs them, for the parts asked for. */
+export function partLinks(partNumbers: number[]) {
+  return {
+    parts: partNumbers.map((number) => ({
+      number,
+      url: `http://localhost:9100/idleo-local/uploads/${UPLOAD_ID}/part-${number}`,
     })),
+    urlsExpireAt: new Date(NOW.getTime() + HOUR).toISOString(),
   };
 }

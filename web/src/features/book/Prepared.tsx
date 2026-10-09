@@ -31,8 +31,8 @@ export function Prepared({
   }
   const initial = source ? valuesFrom(template, source) : (draft?.values ?? defaultValues(template));
   const initialFile =
-    upload.data?.status === "ready"
-      ? readyFile(upload.data.id, upload.data.filename, upload.data.sizeBytes)
+    upload.data?.upload.status === "ready"
+      ? readyFile(upload.data.upload.id, upload.data.upload.name, upload.data.upload.sizeBytes)
       : null;
   return <BookForm template={template} initial={initial} initialFile={initialFile} {...props} />;
 }

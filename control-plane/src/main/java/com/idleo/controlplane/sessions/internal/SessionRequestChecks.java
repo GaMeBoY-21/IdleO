@@ -135,6 +135,12 @@ class SessionRequestChecks implements SessionRequests {
                             + "; only a ready one can be an input.",
                     List.of(new FieldError(field, "isn't ready.")));
         }
+        if (input.kind() == Template.InputKind.FILE && upload.fileCount() != 1) {
+            throw ApiProblem.of(
+                    Problem.INPUT_NOT_ACCEPTED,
+                    input.label() + " takes one file; upload " + uploadId + " has " + upload.fileCount() + ".",
+                    List.of(new FieldError(field, "takes one file, not a folder.")));
+        }
         long limit = input.maxSizeBytes() == null ? Long.MAX_VALUE : input.maxSizeBytes();
         if (upload.sizeBytes() > limit) {
             throw ApiProblem.of(

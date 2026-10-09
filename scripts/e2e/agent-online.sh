@@ -94,6 +94,7 @@ for key in sys.argv[1].strip(".").split("."):
     value = value[int(key)] if isinstance(value, list) else value[key]
 print(value)' "$1"; }
 api_get() { curl -sf "$api$1" -H "Authorization: Bearer $token"; }
+json_str() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
 api_post() { curl -sf -X POST "$api$1" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "${@:2}"; }
 # An operator command (docs/runbooks/granting-credits.md, hosts.md) against the running stack.
 ops() {
@@ -157,33 +158,56 @@ download_output() {
 print(next(f["url"] for f in json.load(sys.stdin)["files"] if f["path"] == "result.json"))')"
   curl -sf "$url" -o "$2" || fail "downloading $1's output failed"
 }
-# Uploads file $1 as $2, in parts straight to storage (ADR 0019), with Idempotency-Key $3, as whoever $token
-# belongs to. Prints the upload's id; the API's answer to POST /v1/uploads is kept in $out/upload-$3.json.
-upload_file() {
-  local file=$1 size upload_json parts part_size url etag etags="[" separator="" n
-  size="$(wc -c <"$file" | tr -d ' ')"
-  upload_json="$(api_post /v1/uploads -H "Idempotency-Key: \"$user-$3\"" \
-    -d "{\"filename\": $(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$2"), \"sizeBytes\": $size}")" ||
-    fail "POST /v1/uploads failed for $2"
-  printf '%s' "$upload_json" >"$out/upload-$3.json"
-  parts="$(printf '%s' "$upload_json" | json_get .partCount)"
-  part_size="$(printf '%s' "$upload_json" | json_get .partSizeBytes)"
-  for ((n = 1; n <= parts; n++)); do
-    url="$(printf '%s' "$upload_json" | python3 -c 'import json, sys
-print(json.load(sys.stdin)["parts"][int(sys.argv[1]) - 1]["url"])' "$n")"
-    etag="$(dd if="$file" bs="$part_size" skip=$((n - 1)) count=1 2>/dev/null |
-      curl -sf -X PUT --data-binary @- -D - -o /dev/null "$url" | tr -d '\r' | sed -n 's/^[Ee][Tt]ag: *//p')"
-    [[ -n "$etag" ]] || fail "part $n of $2 didn't PUT"
-    etags+="$separator{\"number\": $n, \"etag\": $(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$etag")}"
+# Uploads local files as one upload (ADR 0019, ADR 0022): $1 its name, $2 its idempotency key, then pairs of a path
+# in the upload and a local file. Each file's part links are asked for per file, its parts PUT straight to MinIO,
+# and it's completed with their ETags; the upload is ready once every file is. Prints the upload's id.
+upload_folder() {
+  local name=$1 key=$2 files_json="[" separator="" upload_json id part_size i n parts links url etag etags
+  shift 2
+  local paths=() locals=()
+  while (($#)); do
+    paths+=("$1")
+    locals+=("$2")
+    shift 2
+  done
+  for i in "${!paths[@]}"; do
+    files_json+="$separator{\"path\": $(json_str "${paths[$i]}"), \"sizeBytes\": $(wc -c <"${locals[$i]}" | tr -d ' ')}"
     separator=","
   done
-  etags+="]"
-  local id
-  id="$(printf '%s' "$upload_json" | json_get .id)"
-  [[ "$(api_post "/v1/uploads/$id/complete" -d "{\"parts\": $etags}" | json_get .status)" == ready ]] ||
-    fail "the upload of $2 didn't complete"
+  files_json+="]"
+  upload_json="$(api_post /v1/uploads -H "Idempotency-Key: \"$user-$key\"" \
+    -d "{\"name\": $(json_str "$name"), \"files\": $files_json}")" || fail "POST /v1/uploads failed for $name"
+  printf '%s' "$upload_json" >"$out/upload-$key.json"
+  id="$(printf '%s' "$upload_json" | json_get .upload.id)"
+  part_size="$(printf '%s' "$upload_json" | json_get .upload.partSizeBytes)"
+  for i in "${!paths[@]}"; do
+    parts="$(printf '%s' "$upload_json" | python3 -c 'import json, sys
+print(next(f["partCount"] for f in json.load(sys.stdin)["files"] if f["path"] == sys.argv[1]))' "${paths[$i]}")"
+    etags="["
+    separator=""
+    if ((parts > 0)); then
+      links="$(api_post "/v1/uploads/$id/part-urls" -d "{\"path\": $(json_str "${paths[$i]}"),
+        \"partNumbers\": $(python3 -c 'import sys; print(list(range(1, int(sys.argv[1]) + 1)))' "$parts")}")" ||
+        fail "POST /part-urls failed for ${paths[$i]}"
+      for ((n = 1; n <= parts; n++)); do
+        url="$(printf '%s' "$links" | python3 -c 'import json, sys
+print(json.load(sys.stdin)["parts"][int(sys.argv[1]) - 1]["url"])' "$n")"
+        etag="$(dd if="${locals[$i]}" bs="$part_size" skip=$((n - 1)) count=1 2>/dev/null |
+          curl -sf -X PUT --data-binary @- -D - -o /dev/null "$url" | tr -d '\r' | sed -n 's/^[Ee][Tt]ag: *//p')"
+        [[ -n "$etag" ]] || fail "part $n of ${paths[$i]} didn't PUT"
+        etags+="$separator{\"number\": $n, \"etag\": $(json_str "$etag")}"
+        separator=","
+      done
+    fi
+    etags+="]"
+    api_post "/v1/uploads/$id/complete" -d "{\"files\": [{\"path\": $(json_str "${paths[$i]}"), \"parts\": $etags}]}" \
+      >"$out/upload-$key-complete.json" || fail "completing ${paths[$i]} of $name failed"
+  done
+  [[ "$(json_get .upload.status <"$out/upload-$key-complete.json")" == ready ]] || fail "the upload $name isn't ready"
   printf '%s\n' "$id"
 }
+# One local file $1 uploaded as $2, with idempotency key $3; prints the upload's id.
+upload_file() { upload_folder "$2" "$3" "$2" "$1"; }
 # Agent $1 (1 to $agents) with a fake GPU and the development runner (ADR 0016), in the background.
 # Its pid is in a file, since the host-loss scenario kills and restarts one from a subshell. With
 # --keep-running, each agent's fake GPU is a laptop's (fake_gpus below).
@@ -774,8 +798,8 @@ scenario_booking() {
   head -c "$size" /dev/urandom >"$file"
   local_sha="$(shasum -a 256 "$file" | cut -d' ' -f1)"
   upload="$(upload_file "$file" "e2e input.bin" booking-upload)" || exit 1
-  parts="$(json_get .partCount <"$out/upload-booking-upload.json")"
-  part_size="$(json_get .partSizeBytes <"$out/upload-booking-upload.json")"
+  parts="$(json_get .files.0.partCount <"$out/upload-booking-upload.json")"
+  part_size="$(json_get .upload.partSizeBytes <"$out/upload-booking-upload.json")"
   ((parts == 3)) || fail "a 12 MiB upload in 5 MiB parts should take 3 parts, not $parts"
   note "booking: uploaded $size bytes in $parts parts of $part_size bytes, straight to storage: ready"
 
@@ -877,20 +901,26 @@ o = json.load(open(sys.argv[1])); print(json.dumps(o["params"]), "echo", json.du
   note "booking: errors by type: input-not-accepted, insufficient-credit, upload-in-use: PASS"
 }
 
-# The simulated fine-tune (templates/development.yaml), on its own host: the renter's model (generated bytes) and a
-# small JSONL of 40 examples uploaded, fine-tune-simulated booked with the "thorough" preset and a LoRA rank, followed
-# to COMPLETED, and its adapter downloaded and read as a safetensors file, with the training log's figures matching
-# what was asked.
+# The simulated fine-tune (templates/development.yaml), on its own host: the renter's model, a generated folder of 3
+# files, and a small JSONL of 40 examples uploaded, fine-tune-simulated booked with the "standard" preset and a LoRA
+# rank, followed to COMPLETED, and its adapter downloaded and read as a safetensors file, with the training log's
+# figures matching what was asked.
 scenario_finetune() {
-  local file model upload model_upload session outputs url name
+  local file model upload model_upload session outputs url name model_bytes
   token="$booking_token"
   file="$out/finetune-examples.jsonl"
   for i in $(seq 1 40); do
     printf '{"prompt": "Question %d: what is %d plus %d?", "completion": "%d"}\n' "$i" "$i" "$i" $((2 * i))
   done >"$file"
-  model="$out/finetune-model.safetensors"
-  head -c 3145728 /dev/urandom >"$model"
-  model_upload="$(upload_file "$model" "model.safetensors" finetune-model)" || exit 1
+  model="$out/finetune-model"
+  mkdir -p "$model"
+  printf '{"model_type": "llama", "hidden_size": 64, "num_hidden_layers": 2}\n' >"$model/config.json"
+  printf '{"version": "1.0", "model": {"type": "BPE", "vocab": {}}}\n' >"$model/tokenizer.json"
+  head -c 12582912 /dev/urandom >"$model/model-00001-of-00001.safetensors"
+  model_bytes="$(cat "$model"/* | wc -c | tr -d ' ')"
+  model_upload="$(upload_folder "finetune-model" finetune-model \
+    config.json "$model/config.json" tokenizer.json "$model/tokenizer.json" \
+    model-00001-of-00001.safetensors "$model/model-00001-of-00001.safetensors")" || exit 1
   upload="$(upload_file "$file" "examples.jsonl" finetune-upload)" || exit 1
   session="$(api_post /v1/sessions -H "Idempotency-Key: \"$user-finetune-session\"" \
     -d "{\"templateId\": \"fine-tune-simulated\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000,
@@ -916,7 +946,7 @@ header = json.loads(data[8 : 8 + length])
 tensors = {name: t for name, t in header.items() if name != "__metadata__"}
 assert len(tensors) == 8 and all(t["dtype"] == "F32" and 8 in t["shape"] for t in tensors.values()), header
 assert max(t["data_offsets"][1] for t in tensors.values()) == len(data) - 8 - length, "the tensors fill the file"
-assert header["__metadata__"]["base_model"] == "your uploaded model (1 file)", header
+assert header["__metadata__"]["base_model"] == "your uploaded model (3 files)", header
 log = json.load(open(sys.argv[2]))
 assert log["training_examples"] == 40 and log["epochs"] == 3 and log["lora_rank"] == 8, log
 assert len(log["steps"]) == 15 and log["steps"][-1]["loss"] < log["steps"][0]["loss"], log
@@ -924,10 +954,11 @@ CHECK
     fail "the fine-tune's adapter or training log isn't what was asked for"
   api_get "/v1/sessions/$session/logs?limit=100" | python3 -c 'import json, sys
 text = "".join(c["text"] for c in json.load(sys.stdin)["chunks"])
-assert "your model: 1 file, 3145728 bytes in /work/input/model/" in text, text
-assert "  model.safetensors (3145728 bytes)" in text and "epoch 3/3 step 15/15 loss" in text, text' ||
+assert "your model: 3 files, %s bytes in /work/input/model/" % sys.argv[1] in text, text
+assert "  model-00001-of-00001.safetensors (12582912 bytes)" in text and "  config.json (" in text, text
+assert "  tokenizer.json (" in text and "epoch 3/3 step 15/15 loss" in text, text' "$model_bytes" ||
     fail "the fine-tune's log doesn't show its epochs and steps"
-  note "simulated fine-tune: a 3 MiB model and 40 examples, standard (3 epochs), rank 8; downloaded adapter_model.safetensors, $(wc -c <"$out/finetune-adapter_model.safetensors" | tr -d ' ') bytes, 8 F32 tensors; loss $(python3 -c 'import json, sys
+  note "simulated fine-tune: a 3-file model folder ($model_bytes bytes) and 40 examples, standard (3 epochs), rank 8; downloaded adapter_model.safetensors, $(wc -c <"$out/finetune-adapter_model.safetensors" | tr -d ' ') bytes, 8 F32 tensors; loss $(python3 -c 'import json, sys
 log = json.load(open(sys.argv[1])); print("%.4f to %.4f" % (log["steps"][0]["loss"], log["final_loss"]))' "$out/finetune-training_log.json"); the log shows every step: PASS"
 }
 

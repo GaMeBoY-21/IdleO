@@ -37,8 +37,11 @@ test("booking, from template to outputs", async ({ page }) => {
     "/v1/wallet": { json: data.asha.wallet },
     "/v1/availability": { json: data.availability },
     "/v1/uploads": { json: data.newUpload("greetings.bin", 12 * MIB), status: 201 },
+    "/v1/uploads/[^/]+/part-urls": (_call, request) => ({
+      json: data.partLinks((request.postDataJSON() as { partNumbers: number[] }).partNumbers),
+    }),
     "/v1/uploads/[^/]+/complete": {
-      json: { ...data.newUpload("greetings.bin", 12 * MIB), status: "ready" },
+      json: data.newUpload("greetings.bin", 12 * MIB, "ready"),
     },
     "/v1/session-quotes": (_call, request) =>
       data.quoteAnswer(request.postDataJSON() as { maxSpendPaise: number }),

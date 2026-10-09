@@ -160,6 +160,13 @@ class SessionStorage {
         s3.deleteObject(request -> request.bucket(properties.bucket()).key(key));
     }
 
+    /** Writes an empty object: an uploaded file of zero bytes, which has no parts to send (ADR 0022). */
+    void writeEmpty(String key) {
+        s3.putObject(
+                request -> request.bucket(properties.bucket()).key(key),
+                software.amazon.awssdk.core.sync.RequestBody.empty());
+    }
+
     URL downloadLink(String key, Duration ttl) {
         return presigner
                 .presignGetObject(request -> request.signatureDuration(ttl)

@@ -1,13 +1,14 @@
 import type { components } from "@/api/schema.gen";
 
-type NewUpload = components["schemas"]["NewUpload"];
+type UploadDetail = components["schemas"]["UploadDetail"];
 type PartLink = components["schemas"]["UploadPartLink"];
 type UploadedPart = components["schemas"]["UploadedPart"];
 
 /**
- * One file uploaded straight to storage (ADR 0019), as home internet allows:
- * - `POST /v1/uploads` opens it, with one link per part; each part is a slice of the file (Blob.slice), never the
- *   whole file in memory, PUT with XMLHttpRequest, because fetch can't report upload progress; three at a time;
+ * One file uploaded straight to storage (ADR 0019, ADR 0022), as home internet allows:
+ * - `POST /v1/uploads` opens it as an upload of one file; `POST /v1/uploads/{id}/part-urls` signs its parts' links,
+ *   a hundred at a time; each part is a slice of the file (Blob.slice), never the whole file in memory, PUT with
+ *   XMLHttpRequest, because fetch can't report upload progress; three at a time;
  * - each PUT's ETag is kept, then `POST /v1/uploads/{id}/complete` finishes it;
  * - a failed part is retried three times with backoff; an expired link (403) gets fresh links
  *   (`POST /v1/uploads/{id}/part-urls`) and the part is tried again;
@@ -15,9 +16,9 @@ type UploadedPart = components["schemas"]["UploadedPart"];
  * - cancelling aborts every request and deletes the upload.
  */
 export interface UploadApi {
-  create: (filename: string, sizeBytes: number, idempotencyKey: string) => Promise<NewUpload>;
-  partLinks: (id: string, partNumbers: number[]) => Promise<PartLink[]>;
-  complete: (id: string, parts: UploadedPart[]) => Promise<unknown>;
+  create: (filename: string, sizeBytes: number, idempotencyKey: string) => Promise<UploadDetail>;
+  partLinks: (id: string, path: string, partNumbers: number[]) => Promise<PartLink[]>;
+  complete: (id: string, path: string, parts: UploadedPart[]) => Promise<unknown>;
   remove: (id: string) => Promise<unknown>;
 }
 
@@ -57,6 +58,8 @@ export interface UploadDeps {
 }
 
 const CONCURRENCY = 3;
+/** The most part links one request asks for, as the API allows. */
+const LINKS_PER_REQUEST = 100;
 const RETRIES = 3;
 /** Speed is measured over the last few seconds, so it follows the connection without jumping about. */
 const SPEED_WINDOW_MS = 5_000;
@@ -115,28 +118,42 @@ export class Upload {
   async start(): Promise<string> {
     try {
       const opened = await this.api.create(this.file.name, this.file.size, this.key);
-      this.update({ phase: "uploading", uploadId: opened.id });
+      const id = opened.upload.id;
+      const partSize = opened.upload.partSizeBytes;
+      const partCount = opened.files[0]?.partCount ?? 0;
+      this.update({ phase: "uploading", uploadId: id });
       this.throwIfCancelled();
       // Where speed is measured from: nothing sent, now.
       this.measure();
-      const links = new Map(opened.parts.map((link) => [link.number, link.url]));
-      const queue = Array.from({ length: opened.partCount }, (_, i) => i + 1);
+      const links = new Map<number, string>();
+      for (let from = 1; from <= partCount; from += LINKS_PER_REQUEST) {
+        const numbers = Array.from(
+          { length: Math.min(LINKS_PER_REQUEST, partCount - from + 1) },
+          (_, i) => from + i,
+        );
+        for (const link of await this.api.partLinks(id, this.file.name, numbers)) {
+          links.set(link.number, link.url);
+        }
+        this.throwIfCancelled();
+      }
+      const queue = Array.from({ length: partCount }, (_, i) => i + 1);
       const parts: UploadedPart[] = [];
       const worker = async () => {
         for (let number = queue.shift(); number !== undefined; number = queue.shift()) {
-          parts.push({ number, etag: await this.part(opened, number, links) });
+          parts.push({ number, etag: await this.part(id, partSize, number, links) });
         }
       };
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, opened.partCount) }, worker));
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, partCount) }, worker));
       this.throwIfCancelled();
       this.update({ phase: "completing" });
       await this.api.complete(
-        opened.id,
+        id,
+        this.file.name,
         parts.sort((a, b) => a.number - b.number),
       );
       this.throwIfCancelled();
       this.update({ phase: "ready", percent: 100, secondsLeft: 0 });
-      return opened.id;
+      return id;
     } catch (error) {
       if (this.cancelled) {
         throw new Cancelled("cancelled");
@@ -161,9 +178,14 @@ export class Upload {
     }
   }
 
-  private async part(opened: NewUpload, number: number, links: Map<number, string>): Promise<string> {
-    const start = (number - 1) * opened.partSizeBytes;
-    const body = this.file.slice(start, Math.min(start + opened.partSizeBytes, this.file.size));
+  private async part(
+    id: string,
+    partSize: number,
+    number: number,
+    links: Map<number, string>,
+  ): Promise<string> {
+    const start = (number - 1) * partSize;
+    const body = this.file.slice(start, Math.min(start + partSize, this.file.size));
     let failures = 0;
     let refreshes = 0;
     for (;;) {
@@ -177,7 +199,7 @@ export class Upload {
         if (error instanceof PartFailed && error.status === 403 && refreshes < RETRIES) {
           // The part's link has expired: ask for a fresh one, and try again.
           refreshes++;
-          for (const link of await this.api.partLinks(opened.id, [number])) {
+          for (const link of await this.api.partLinks(id, this.file.name, [number])) {
             links.set(link.number, link.url);
           }
           continue;

@@ -154,20 +154,23 @@ sessions:
   templates:
     # templates/catalog.yaml, bundled into the jar by the build (ADR 0015).
     catalog: classpath:templates/catalog.yaml
-  # Uploads (ADR 0019): one file each, PUT by the client straight to storage in
-  # parts through pre-signed links. Every part but the last is part-size
-  # (Spring's MB is MiB); links last link-ttl. An unfinished upload is aborted
-  # after pending-ttl, a finished one deleted ready-ttl after it completed,
-  # never while a session that hasn't ended uses it. Each file is at most
-  # max-file-size; a renter holds at most quota in pending and ready uploads
+  # Uploads (ADR 0019, ADR 0022): a folder of up to max-files files, or one,
+  # each PUT by the client straight to storage in parts through pre-signed
+  # links. Every part of a file but its last is part-size (Spring's MB is
+  # MiB); links last link-ttl. An unfinished upload is aborted after
+  # pending-ttl, a finished one deleted ready-ttl after a session last used it
+  # (or after it completed, if none has), never while a session that hasn't
+  # ended uses it. An upload is at most max-upload-size, all its files
+  # together; a renter holds at most quota in pending and ready uploads
   # (technical design "Limits").
   uploads:
     part-size: 64MB
     link-ttl: 1h
     pending-ttl: 24h
     ready-ttl: 30d
-    max-file-size: 20GB
-    quota: 25GB
+    max-upload-size: 40GB
+    max-files: 1000
+    quota: 60GB
     expiry-sweep-every: 10m
   # A session accepted by its host but not RUNNING within this fails with
   # start_timeout, its hold released (ADR 0015).

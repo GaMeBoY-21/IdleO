@@ -34,6 +34,8 @@ class SessionService {
     private final CreditReservations reservations;
     private final SessionHolds holds;
     private final PriceCeilings ceilings;
+    private final UploadStore uploads;
+    private final UploadProperties uploadProperties;
     private final ApplicationEventPublisher events;
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
@@ -46,6 +48,8 @@ class SessionService {
             CreditReservations reservations,
             SessionHolds holds,
             PriceCeilings ceilings,
+            UploadStore uploads,
+            UploadProperties uploadProperties,
             ApplicationEventPublisher events,
             PlatformTransactionManager transactionManager,
             IdGenerator ids) {
@@ -56,6 +60,8 @@ class SessionService {
         this.reservations = reservations;
         this.holds = holds;
         this.ceilings = ceilings;
+        this.uploads = uploads;
+        this.uploadProperties = uploadProperties;
         this.events = events;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
@@ -65,7 +71,7 @@ class SessionService {
     record Created(SessionStore.Session session, boolean created) {}
 
     /**
-     * Creates a REQUESTED session and publishes {@link SessionRequested}. Refused, before anything is
+     * Creates a REQUESTED session, marks its uploads used, and publishes {@link SessionRequested}. Refused, before anything is
      * created, if the renter's available credit can't cover the hold the booking will need (30 minutes at
      * their maximum price, capped at their maximum spend). A booking that leaves its maximum price out gets the
      * highest price among the GPUs that fit right now (ADR 0021), or no-gpu-free when none does. The same key with
@@ -128,6 +134,8 @@ class SessionService {
                 // A concurrent request with the same key got there first.
                 return repeat(store.findByKey(renterId, idempotencyKey).orElseThrow(), hash);
             }
+            // Its uploads were just used: each is kept 30 days from now (ADR 0022).
+            uploads.used(session.uploadIds(), now, uploadProperties.readyTtl());
             events.publishEvent(new SessionRequested(session.id()));
             return new Created(session, true);
         }));

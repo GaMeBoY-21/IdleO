@@ -59,24 +59,28 @@ function setup(sizeBytes: number, partSize = 5 * MIB) {
   FakeRequest.all = [];
   const file = Object.assign(new Blob([new Uint8Array(sizeBytes)]), { name: "data.bin" });
   const partCount = Math.ceil(sizeBytes / partSize);
+  const signed = new Set<number>();
   const api: UploadApi & Record<string, ReturnType<typeof vi.fn>> = {
     create: vi.fn(async (filename: string, size: number) => ({
-      id: "u1",
-      filename,
-      sizeBytes: size,
-      partSizeBytes: partSize,
-      partCount,
-      status: "pending" as const,
-      createdAt: "",
-      expiresAt: "",
-      urlsExpireAt: "",
-      parts: Array.from({ length: partCount }, (_, i) => ({
-        number: i + 1,
-        url: `https://storage/part-${i + 1}`,
-      })),
+      upload: {
+        id: "u1",
+        name: filename,
+        sizeBytes: size,
+        fileCount: 1,
+        partSizeBytes: partSize,
+        status: "pending" as const,
+        createdAt: "",
+        expiresAt: "",
+      },
+      files: [{ path: filename, sizeBytes: size, partCount, done: false }],
     })),
-    partLinks: vi.fn(async (_id: string, numbers: number[]) =>
-      numbers.map((number) => ({ number, url: `https://storage/part-${number}?fresh` })),
+    // A part's first link, then a fresh one each time it's asked for again.
+    partLinks: vi.fn(async (_id: string, _path: string, numbers: number[]) =>
+      numbers.map((number) => {
+        const fresh = signed.has(number);
+        signed.add(number);
+        return { number, url: `https://storage/part-${number}${fresh ? "?fresh" : ""}` };
+      }),
     ),
     complete: vi.fn(async () => ({})),
     remove: vi.fn(async () => ({})),
@@ -113,7 +117,7 @@ describe("an upload", () => {
     ]);
     waiting().forEach((r, i) => r.ok(`"etag-${i + 1}"`));
     expect(await done).toBe("u1");
-    expect(api.complete).toHaveBeenCalledWith("u1", [
+    expect(api.complete).toHaveBeenCalledWith("u1", "data.bin", [
       { number: 1, etag: '"etag-1"' },
       { number: 2, etag: '"etag-2"' },
       { number: 3, etag: '"etag-3"' },
@@ -151,7 +155,7 @@ describe("an upload", () => {
     waiting()[0]!.fail(403);
     await flush();
     await flush();
-    expect(api.partLinks).toHaveBeenCalledWith("u1", [1]);
+    expect(api.partLinks).toHaveBeenCalledWith("u1", "data.bin", [1]);
     expect(waiting()[0]!.url).toBe("https://storage/part-1?fresh");
     waiting()[0]!.ok('"e1"');
     await expect(done).resolves.toBe("u1");

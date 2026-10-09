@@ -96,7 +96,7 @@ export function SessionDetail() {
   );
 
   const view = FINDING.has(current.state) ? (
-    <Finding session={current} data={{ filename: upload.data?.filename ?? null }} laptop={laptop} />
+    <Finding session={current} data={{ filename: upload.data?.upload.name ?? null }} laptop={laptop} />
   ) : STARTED.has(current.state) ? (
     <Running
       session={current}
@@ -126,7 +126,7 @@ export function SessionDetail() {
           across
           session={current}
           typicalRuntimeSeconds={template?.typicalRuntimeSeconds}
-          uploadBytes={upload.data?.sizeBytes}
+          uploadBytes={upload.data?.upload.sizeBytes}
         />
       </div>
       {current.startedAt && <LogsLater id={current.id} settled={current.settled} laptop />}

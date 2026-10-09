@@ -29,8 +29,11 @@ function api(overrides: Record<string, Answer> = {}): Record<string, Answer> {
     "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
     "/v1/availability": { json: data.availability },
     "/v1/uploads": { json: data.newUpload("greetings.bin", 12 * MIB), status: 201 },
-    "/v1/uploads/[^/]+/complete": { json: { ...data.newUpload("greetings.bin", 12 * MIB), status: "ready" } },
-    "/v1/uploads/[^/]+": { json: { ...data.newUpload("greetings.bin", 12 * MIB), status: "ready" } },
+    "/v1/uploads/[^/]+/part-urls": (_call, request) => ({
+      json: data.partLinks((request.postDataJSON() as { partNumbers: number[] }).partNumbers),
+    }),
+    "/v1/uploads/[^/]+/complete": { json: data.newUpload("greetings.bin", 12 * MIB, "ready") },
+    "/v1/uploads/[^/]+": { json: data.newUpload("greetings.bin", 12 * MIB, "ready") },
     "/v1/session-quotes": (_call, request) => data.quoteAnswer(request.postDataJSON() as QuoteBody),
     ...overrides,
   };

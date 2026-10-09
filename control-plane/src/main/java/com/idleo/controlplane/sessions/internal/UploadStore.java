@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Upload rows (ADR 0019), {@code sessions.uploads}. */
+/** Upload rows (ADR 0019, ADR 0022), {@code sessions.uploads}; their files are {@link UploadFileStore}'s. */
 @Component
 class UploadStore {
 
@@ -33,31 +33,33 @@ class UploadStore {
         DELETED
     }
 
+    /**
+     * An upload: one or more files.
+     *
+     * @param name as the renter named it: the folder's or the file's name
+     * @param sizeBytes all its files together
+     * @param partSizeBytes every part's size but each file's last, which may be smaller
+     * @param lastUsedAt when a session last took it as an input; null if none has
+     */
     record Upload(
             UUID id,
             UUID userId,
-            String filename,
-            String storedName,
+            String name,
             long sizeBytes,
-            String objectKey,
-            @Nullable String multipartId,
+            int fileCount,
             long partSizeBytes,
             Status status,
             String idempotencyKey,
             String requestHash,
             Instant createdAt,
             @Nullable Instant completedAt,
+            @Nullable Instant lastUsedAt,
             Instant expiresAt,
             int version) {
 
-        /** How many parts it uploads in: the last may be smaller than the rest, and a one-part upload is multipart. */
-        int partCount() {
-            return Math.toIntExact((sizeBytes + partSizeBytes - 1) / partSizeBytes);
-        }
-
         /** Its folder in storage, which a session's read grant covers. */
         String prefix() {
-            return objectKey.substring(0, objectKey.length() - storedName.length());
+            return StorageLayout.uploadPrefix(id);
         }
     }
 
@@ -72,20 +74,17 @@ class UploadStore {
     boolean insert(Upload upload) {
         return jdbc.sql("""
                                 insert into sessions.uploads
-                                    (id, user_id, filename, stored_name, size_bytes, object_key, multipart_id,
-                                     part_size_bytes, status, idempotency_key, request_hash, created_at, completed_at,
-                                     expires_at, version)
-                                values (:id, :userId, :filename, :storedName, :size, :key, :multipartId, :partSize,
-                                        :status, :idempotencyKey, :hash, :createdAt, null, :expiresAt, 0)
+                                    (id, user_id, name, size_bytes, file_count, part_size_bytes, status,
+                                     idempotency_key, request_hash, created_at, completed_at, expires_at, version)
+                                values (:id, :userId, :name, :size, :fileCount, :partSize, :status,
+                                        :idempotencyKey, :hash, :createdAt, null, :expiresAt, 0)
                                 on conflict (user_id, idempotency_key) do nothing
                                 """)
                         .param("id", upload.id())
                         .param("userId", upload.userId())
-                        .param("filename", upload.filename())
-                        .param("storedName", upload.storedName())
+                        .param("name", upload.name())
                         .param("size", upload.sizeBytes())
-                        .param("key", upload.objectKey())
-                        .param("multipartId", upload.multipartId())
+                        .param("fileCount", upload.fileCount())
                         .param("partSize", upload.partSizeBytes())
                         .param("status", upload.status().name().toLowerCase(java.util.Locale.ROOT))
                         .param("idempotencyKey", upload.idempotencyKey())
@@ -102,13 +101,33 @@ class UploadStore {
         jdbc.sql("""
                         update sessions.uploads
                         set status = :status, completed_at = :completedAt, expires_at = :expiresAt,
-                            multipart_id = case when :status = 'pending' then multipart_id end, version = version + 1
+                            version = version + 1
                         where id = :id
                         """)
                 .param("status", status.name().toLowerCase(java.util.Locale.ROOT))
                 .param("completedAt", completedAt == null ? null : Timestamp.from(completedAt))
                 .param("expiresAt", Timestamp.from(expiresAt))
                 .param("id", id)
+                .update();
+    }
+
+    /**
+     * A session took these uploads as inputs at {@code now}: each ready one expires {@code ttl} after that, if that's
+     * later than it would have.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    void used(java.util.Collection<UUID> ids, Instant now, java.time.Duration ttl) {
+        if (ids.isEmpty()) {
+            return;
+        }
+        jdbc.sql("""
+                        update sessions.uploads
+                        set last_used_at = :now, expires_at = greatest(expires_at, :expiresAt), version = version + 1
+                        where id in (:ids) and status = 'ready'
+                        """)
+                .param("now", Timestamp.from(now))
+                .param("expiresAt", Timestamp.from(now.plus(ttl)))
+                .param("ids", ids)
                 .update();
     }
 
@@ -184,20 +203,20 @@ class UploadStore {
 
     private static Upload upload(ResultSet rs, int row) throws SQLException {
         var completedAt = rs.getTimestamp("completed_at");
+        var lastUsedAt = rs.getTimestamp("last_used_at");
         return new Upload(
                 rs.getObject("id", UUID.class),
                 rs.getObject("user_id", UUID.class),
-                rs.getString("filename"),
-                rs.getString("stored_name"),
+                rs.getString("name"),
                 rs.getLong("size_bytes"),
-                rs.getString("object_key"),
-                rs.getString("multipart_id"),
+                rs.getInt("file_count"),
                 rs.getLong("part_size_bytes"),
                 Status.valueOf(rs.getString("status").toUpperCase(java.util.Locale.ROOT)),
                 rs.getString("idempotency_key"),
                 rs.getString("request_hash"),
                 rs.getTimestamp("created_at").toInstant(),
                 completedAt == null ? null : completedAt.toInstant(),
+                lastUsedAt == null ? null : lastUsedAt.toInstant(),
                 rs.getTimestamp("expires_at").toInstant(),
                 rs.getInt("version"));
     }

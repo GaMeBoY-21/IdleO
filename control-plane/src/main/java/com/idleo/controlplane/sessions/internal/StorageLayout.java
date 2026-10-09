@@ -3,14 +3,24 @@ package com.idleo.controlplane.sessions.internal;
 import java.util.UUID;
 
 /**
- * The bucket layout, exactly as proto/README.md "Storage layout" (ADR 0016, ADR 0019). A session's input is an
- * upload, {@code uploads/{id}/{name}}, which belongs to the uploads, not to the session.
+ * The bucket layout, exactly as proto/README.md "Storage layout" (ADR 0016, ADR 0019, ADR 0022). A session's input is
+ * an upload, its files at {@code uploads/{id}/files/{path}}, which belongs to the uploads, not to the session.
  */
 final class StorageLayout {
 
     static final String COMPLETE = "_COMPLETE";
 
     private StorageLayout() {}
+
+    /** An upload's folder, which a session's read grant covers. */
+    static String uploadPrefix(UUID uploadId) {
+        return "uploads/" + uploadId + "/";
+    }
+
+    /** One file of an upload, by its stored path. */
+    static String uploadFile(UUID uploadId, String storedPath) {
+        return uploadPrefix(uploadId) + "files/" + storedPath;
+    }
 
     static String sessionPrefix(UUID sessionId) {
         return "sessions/" + sessionId + "/";

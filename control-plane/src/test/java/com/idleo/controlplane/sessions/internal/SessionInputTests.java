@@ -113,13 +113,14 @@ class SessionInputTests {
                 .isFalse();
         assertThat(start.getInputsList()).hasSize(1);
         assertThat(start.getInputs(0).getSlot()).isEqualTo("file");
-        assertThat(start.getInputs(0).getPrefix()).isEqualTo("uploads/" + upload + "/");
+        assertThat(start.getInputs(0).getPrefix()).isEqualTo("uploads/" + upload + "/files/");
         assertThat(start.getInputs(0).getName()).isEqualTo("my_data.txt");
         assertThat(start.getInputs(0).getSizeBytes()).isEqualTo(11);
         var readGrant = start.getCredentials().getReadGrant();
         assertThat(readGrant.getPrefixesList()).containsExactly("uploads/" + upload + "/");
         try (var s3 = TestS3.as(readGrant)) {
-            assertThat(TestS3.get(s3, "uploads/" + upload + "/my_data.txt")).isEqualTo("hello world");
+            assertThat(TestS3.get(s3, "uploads/" + upload + "/files/my_data.txt"))
+                    .isEqualTo("hello world");
         }
         assertThat(jdbc.queryForObject(
                         "select params::text from sessions.sessions where id = ?", String.class, sessionId))
@@ -209,15 +210,8 @@ class SessionInputTests {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.type").value("/problems/not-found"));
 
-        var pending = JSON.readTree(mvc.perform(post("/v1/uploads")
-                                .header("Authorization", renter.bearer())
-                                .header("Idempotency-Key", UUID.randomUUID().toString())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"filename\": \"p.txt\", \"sizeBytes\": 10}"))
-                        .andReturn()
-                        .getResponse()
-                        .getContentAsString())
-                .get("id")
+        var pending = TestUploads.created(mvc, renter, "p.txt", Map.of("p.txt", 10L))
+                .at("/upload/id")
                 .asString();
         book(renter, "pending", echo(Map.of("greeting", "hi"), Map.of("uploadId", pending)))
                 .andExpect(status().isConflict())
@@ -332,6 +326,63 @@ class SessionInputTests {
             assertThat(input.getName()).isEqualTo("model.safetensors");
         });
         assertThat(start.getCredentials().getReadGrant().getPrefixesList()).containsExactly("uploads/" + model + "/");
+    }
+
+    @Test
+    void aFolderReachesTheAgentAsOneInputRefAFileWithItsPathKept() throws Exception {
+        var host = bookings.host();
+        var renter = bookings.renter();
+        var folder = new java.util.LinkedHashMap<String, byte[]>();
+        folder.put("config.json", "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        folder.put("tokenizer.json", "{\"v\": 1}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        folder.put("weights/model-00001-of-00001.safetensors", new byte[64]);
+        var model = TestUploads.readyFolder(mvc, renter, "My model", folder);
+        var data = TestUploads.ready(mvc, renter, "train.jsonl", "{\"x\": 1}\n");
+
+        book(
+                        renter,
+                        "folder",
+                        fineTune(Map.of(
+                                "inputs",
+                                Map.of("model", Map.of("uploadId", model), "data", Map.of("uploadId", data)))))
+                .andExpect(status().isCreated());
+
+        host.reply(host.awaitOffer(TestBookings.WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        var start = host.awaitStart(TestBookings.WAIT).getStartSession();
+        assertThat(start.getInputsList())
+                .extracting(input -> input.getSlot() + ":" + input.getName() + ":" + input.getSizeBytes())
+                .containsExactlyInAnyOrder(
+                        "model:config.json:2",
+                        "model:tokenizer.json:8",
+                        "model:weights/model-00001-of-00001.safetensors:64",
+                        "data:train.jsonl:9");
+        assertThat(start.getInputsList()).allMatch(input -> input.getPrefix().endsWith("/files/"));
+        try (var s3 = TestS3.as(start.getCredentials().getReadGrant())) {
+            var weights = start.getInputsList().stream()
+                    .filter(input -> input.getName().startsWith("weights/"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(TestS3.get(s3, weights.getPrefix() + weights.getName())).hasSize(64);
+        }
+    }
+
+    @Test
+    void aFileInputTakesOneFileNotAFolder() throws Exception {
+        var renter = bookings.renter();
+        var two = TestUploads.readyFolder(
+                mvc, renter, "two", Map.of("a.jsonl", new byte[] {1}, "b.jsonl", new byte[] {2}));
+
+        book(
+                        renter,
+                        "two-files",
+                        fineTune(Map.of(
+                                "inputs",
+                                Map.of(
+                                        "model", Map.of("url", "https://huggingface.co/me/model"),
+                                        "data", Map.of("uploadId", two)))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/input-not-accepted"))
+                .andExpect(jsonPath("$.errors[0].field").value("inputs.data"));
     }
 
     @Test

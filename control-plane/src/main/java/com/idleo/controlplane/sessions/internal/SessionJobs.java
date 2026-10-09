@@ -18,10 +18,12 @@ class SessionJobs {
 
     private final TemplateCatalog catalog;
     private final UploadStore uploads;
+    private final UploadFileStore files;
 
-    SessionJobs(TemplateCatalog catalog, UploadStore uploads) {
+    SessionJobs(TemplateCatalog catalog, UploadStore uploads, UploadFileStore files) {
         this.catalog = catalog;
         this.uploads = uploads;
+        this.files = files;
     }
 
     Optional<SessionSpec> spec(SessionStore.Session session) {
@@ -47,15 +49,16 @@ class SessionJobs {
     /** An upload, as the input it is. */
     record Named(String name, UploadStore.Upload upload) {}
 
-    /** Every uploaded file as the agent's StartSession names it, each in its input's slot. */
+    /** Every uploaded file as the agent's StartSession names it, each in its input's slot, its path kept. */
     List<InputRef> inputRefs(SessionStore.Session session) {
         return uploads(session).stream()
-                .map(named -> InputRef.newBuilder()
-                        .setPrefix(named.upload().prefix())
-                        .setName(named.upload().storedName())
-                        .setSizeBytes(named.upload().sizeBytes())
-                        .setSlot(named.name())
-                        .build())
+                .flatMap(named -> files.files(named.upload().id()).stream()
+                        .map(file -> InputRef.newBuilder()
+                                .setPrefix(file.prefix())
+                                .setName(file.storedPath())
+                                .setSizeBytes(file.sizeBytes())
+                                .setSlot(named.name())
+                                .build()))
                 .toList();
     }
 }

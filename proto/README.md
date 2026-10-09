@@ -130,7 +130,9 @@ Jobs move data through S3-compatible object storage (R2 today). There are no pre
 
 ```
 uploads/{upload_id}/
-  {name}                     a renter's upload, a session's input (ADR 0019);
+  files/{path}               a renter's upload, a session's input (ADR 0019, ADR
+                             0022): a folder of files, or one, each at its path,
+                             every segment only letters, digits, ".", "_" and "-";
                              agents can only read it, through the read grant
 sessions/{session_id}/
   attempt-{n}/               one folder per attempt; only attempt n can write here
@@ -146,7 +148,7 @@ sessions/{session_id}/
                              written as 8 zero-padded digits (00000001.log)
 ```
 
-The control plane writes `uploads/` itself, through pre-signed multipart links the renter's client PUTs to; nothing an agent holds can write there. An upload belongs to its renter, not to one session, so the same file can be several sessions' input.
+The control plane writes `uploads/` itself, through pre-signed multipart links the renter's client PUTs to, one multipart upload per file; nothing an agent holds can write there. An upload belongs to its renter, not to one session: it's kept in their My files, so the same model can be several sessions' input. Uploads made before folders (ADR 0022) keep their one file at `uploads/{upload_id}/{name}`; `InputRef.prefix` names whichever folder a file is in.
 
 ### Grants
 
