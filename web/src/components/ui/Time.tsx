@@ -2,8 +2,9 @@ import { useNow } from "@/lib/clock";
 import { formatDateTime, formatElapsed, formatRelative } from "@/lib/time";
 
 /**
- * A moment, relative to now ("started 18 min ago"), with the exact time in its `datetime` and its title
- * (web/DESIGN.md "Times"). It moves on with the app's one clock, every 30 seconds.
+ * A moment that has happened, relative to now ("started 18 min ago"), with the exact time in its `datetime` and its
+ * title (web/DESIGN.md "Times"). It moves on with the app's one clock, every 30 seconds; a moment newer than the
+ * clock's last tick has just happened, so it reads "just now", never "in under a minute".
  */
 export function RelativeTime({
   value,
@@ -19,7 +20,7 @@ export function RelativeTime({
   return (
     <time dateTime={value} title={exact} className={className}>
       {prefix ? `${prefix} ` : ""}
-      {formatRelative(value, now)}
+      {formatRelative(value, Math.max(now, new Date(value).getTime()))}
     </time>
   );
 }

@@ -47,7 +47,7 @@ test.describe("a session", () => {
     await expect(page.getByText("₹3.08").first()).toBeVisible();
     await expect(page.getByText("RTX 4080 Laptop · 12 GB")).toBeVisible();
     await expect(page.getByText("97% busy · 71°C")).toBeVisible();
-    await expect(page.getByText(/^Checkpoint 4 saved/)).toBeVisible();
+    await expect(page.getByText(/^Last checkpoint saved/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Stop session" })).toBeVisible();
     await expect(page.getByText(/Live, updated/)).toBeVisible();
     if (info.project.name.includes("laptop")) {

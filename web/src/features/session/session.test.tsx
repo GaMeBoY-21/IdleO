@@ -62,8 +62,16 @@ describe("the live session", () => {
 
   it("names its newest checkpoint, or says there's none yet", () => {
     const { rerender } = render(<LastCheckpoint session={data.running} />);
-    expect(screen.getByText(/^Checkpoint 4 saved/)).toBeInTheDocument();
+    expect(screen.getByText(/^Last checkpoint saved/)).toBeInTheDocument();
     rerender(<LastCheckpoint session={session({ checkpoints: [] })} />);
     expect(screen.getByText("No checkpoint saved yet")).toBeInTheDocument();
+  });
+
+  it("says a checkpoint newer than the clock's last tick was saved just now", () => {
+    const fresh = { attempt: 1, seq: 5, completedAt: new Date(Date.now() + 20_000).toISOString() };
+    const { container } = render(
+      <LastCheckpoint session={session({ checkpoints: [...data.running.checkpoints, fresh] })} />,
+    );
+    expect(container).toHaveTextContent("Last checkpoint saved just now");
   });
 });

@@ -11,7 +11,11 @@ const screens = [
   { name: "home", path: "/", ready: () => "Book again" },
   { name: "credit", path: "/credit/", ready: () => "Show older" },
   { name: "a completed session", path: `/session/?id=${data.completed.id}`, ready: () => "result.json" },
-  { name: "a running session", path: `/session/?id=${data.running.id}`, ready: () => "Checkpoint 4 saved" },
+  {
+    name: "a running session",
+    path: `/session/?id=${data.running.id}`,
+    ready: () => "Last checkpoint saved",
+  },
   {
     name: "a session finding its GPU",
     path: `/session/?id=${data.finding.id}`,

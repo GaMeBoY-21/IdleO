@@ -10,8 +10,9 @@ import { formatBytes } from "@/lib/bytes";
 import { cn } from "@/lib/cn";
 
 /**
- * "Checkpoint 3 saved 2 min ago": its newest complete checkpoint, in one line that's always there, so one arriving
- * moves nothing.
+ * "Last checkpoint saved 2 min ago": when its newest complete checkpoint was saved, in one line that's always there,
+ * so one arriving moves nothing. The line doesn't count them: a number that grows a digit, or changes width in
+ * Inter's proportional figures, would move the time after it.
  */
 export function LastCheckpoint({ session, className }: { session: Session; className?: string }) {
   const last = session.checkpoints.at(-1);
@@ -24,7 +25,7 @@ export function LastCheckpoint({ session, className }: { session: Session; class
       />
       {last ? (
         <span className="min-w-0 flex-1">
-          Checkpoint {last.seq} saved <RelativeTime value={last.completedAt} />
+          Last checkpoint saved <RelativeTime value={last.completedAt} />
         </span>
       ) : (
         <span className="min-w-0 flex-1 text-text-muted">No checkpoint saved yet</span>
