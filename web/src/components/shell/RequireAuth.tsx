@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useSearch } from "wouter";
 import { refreshRestored, restoreFor } from "@/api/persisted-cache";
 import { useAuth } from "@/auth";
+import { afterPaint } from "@/lib/after-first-screen";
 
 /**
  * The signed-in screens: a signed-out visitor goes to sign-in, and comes back here afterwards. Once sign-in has
@@ -40,10 +41,8 @@ export function RequireAuth({ children, fallback }: { children: ReactNode; fallb
 
   const restored = uid !== null && restoredFor === uid;
   useEffect(() => {
-    if (restored) {
-      // Two frames on, so the screen drawn from the restored figures has painted before anything is refetched.
-      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => refreshRestored(client), 0)));
-    }
+    // Once the screen drawn from the restored figures has painted, before anything is refetched.
+    return restored ? afterPaint(() => refreshRestored(client)) : undefined;
   }, [client, restored]);
 
   return restored ? children : fallback;

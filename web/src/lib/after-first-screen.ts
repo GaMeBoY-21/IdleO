@@ -34,37 +34,71 @@ function fontLoaded(): Promise<unknown> {
 }
 
 /**
- * False until `ready` (the screen's main content is there), its text drawn in the app's font, and two frames after
- * that, then true. For requests a screen doesn't need to paint its main content (a session's stream and logs, the
- * price hints, Book's form): started after the paint, they never hold it back (ADR 0018: what would compete with
- * the first screen waits). The font matters: until it's there, for a first frame or two, text isn't drawn at all,
- * so two frames after the content mounts can still be before its text has painted.
+ * The page's first contentful paint is on screen, or a second has passed, or the browser can't say. A signed-in
+ * screen's pre-rendered frame holds no text, so on a fresh page its first contentful paint is its content. The
+ * browser reports it once it's presented, which on a slow machine comes after two animation frames: a request
+ * started at the second frame was still counted against the paint (Book on CI: 2.14 s instead of 1.89 s).
+ */
+function firstContentPresented(): Promise<void> {
+  if (
+    typeof PerformanceObserver === "undefined" ||
+    !PerformanceObserver.supportedEntryTypes.includes("paint") ||
+    performance.getEntriesByName("first-contentful-paint").length > 0
+  ) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const done = () => {
+      observer.disconnect();
+      clearTimeout(timer);
+      resolve();
+    };
+    const observer = new PerformanceObserver((list) => {
+      if (list.getEntriesByName("first-contentful-paint").length > 0) {
+        done();
+      }
+    });
+    const timer = setTimeout(done, 1_000);
+    observer.observe({ type: "paint", buffered: true });
+  });
+}
+
+/**
+ * Runs `work` once what's on screen now has painted: its text drawn in the app's font, the page's first contentful
+ * paint presented, and two frames after that. Returns a cancel. The font matters: until it's there, for a first
+ * frame or two, text isn't drawn at all, so two frames after the content mounts can still be before its text has
+ * painted.
+ */
+export function afterPaint(work: () => void): () => void {
+  let cancelled = false;
+  let frame = 0;
+  let timer = 0;
+  void Promise.all([fontLoaded(), firstContentPresented()]).then(() => {
+    if (cancelled) {
+      return;
+    }
+    frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        timer = window.setTimeout(work, 0);
+      });
+    });
+  });
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(frame);
+    clearTimeout(timer);
+  };
+}
+
+/**
+ * False until `ready` (the screen's main content is there) and that content has painted (afterPaint), then true.
+ * For requests a screen doesn't need to paint its main content (a session's stream and logs, the price hints,
+ * Book's form): started after the paint, they never hold it back (ADR 0018: what would compete with the first
+ * screen waits).
  */
 export function useAfterPaint(ready = true): boolean {
   const [painted, setPainted] = useState(false);
-  useEffect(() => {
-    if (!ready) {
-      return;
-    }
-    let cancelled = false;
-    let frame = 0;
-    let timer = 0;
-    void fontLoaded().then(() => {
-      if (cancelled) {
-        return;
-      }
-      frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(() => {
-          timer = window.setTimeout(() => setPainted(true), 0);
-        });
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-      clearTimeout(timer);
-    };
-  }, [ready]);
+  useEffect(() => (ready ? afterPaint(() => setPainted(true)) : undefined), [ready]);
   return painted;
 }
 
