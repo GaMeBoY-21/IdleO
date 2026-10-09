@@ -111,8 +111,6 @@ class TemplateController {
                     allowableValues = {
                         "layers",
                         "code",
-                        "image",
-                        "mic",
                         "table",
                         "cube",
                         "notebook",

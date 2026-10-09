@@ -11,8 +11,8 @@
 #   id, name               stable id and display name
 #   tagline                a few words under the name ("a model on your data")
 #   running_label          what a running session of it is doing, on its live screen ("Fine-tuning")
-#   icon                   one of: layers, code, image, mic, table, cube, notebook, plug, gamepad,
-#                          flask, pulse; each client draws its own
+#   icon                   one of: layers, code, table, cube, notebook, plug, gamepad, flask, pulse;
+#                          each client draws its own
 #   hidden                 optional, true to keep it off Home and Book's list (its templates still book)
 #
 # Template fields:
@@ -60,16 +60,6 @@ services:
     tagline: your folder, our GPU
     running_label: Running your code
     icon: code
-  - id: generate-images
-    name: Generate images
-    tagline: from a list of prompts
-    running_label: Generating images
-    icon: image
-  - id: transcribe
-    name: Transcribe audio or video
-    tagline: audio or video to text
-    running_label: Transcribing
-    icon: mic
   # Checks a host's GPU works; booked by support and the CLI, not offered on Home.
   - id: diagnostics
     name: Diagnostics

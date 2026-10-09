@@ -6,7 +6,7 @@
 # refuses to start the prod profile with any catalog but the bundled one, and
 # this file isn't bundled. Same fields as catalog.yaml.
 #
-# The four production services come first, with exactly catalog.yaml's id, name, tagline,
+# The production services come first, with exactly catalog.yaml's id, name, tagline,
 # running_label and icon (a control-plane test fails if they differ), so the local stack shows the
 # real wording. Each has one template the development runner simulates (--simulate <kind>): the real
 # template's shape of parameters and input, generated log lines and outputs, never a real model. Then
@@ -22,16 +22,6 @@ services:
     tagline: your folder, our GPU
     running_label: Running your code
     icon: code
-  - id: generate-images
-    name: Generate images
-    tagline: from a list of prompts
-    running_label: Generating images
-    icon: image
-  - id: transcribe
-    name: Transcribe audio or video
-    tagline: audio or video to text
-    running_label: Transcribing
-    icon: mic
   - id: developer-tests
     name: Test jobs
     tagline: jobs for trying the platform
@@ -39,7 +29,7 @@ services:
     icon: flask
 
 templates:
-  # The four services, simulated: 60 to 120 seconds each, checkpointing every 5 seconds. Both of the
+  # The services, simulated: 90 to 120 seconds each, checkpointing every 5 seconds. Both of the
   # local stack's fake GPUs (8 and 12 GB) fit every one, so booking shows a price range.
   - id: fine-tune-simulated
     service: fine-tune
@@ -110,69 +100,6 @@ templates:
       max_size_mb: 2048
       label: Your project (zip)
       help: The folder with your code, zipped. Anything it writes to outputs/ comes back to you.
-  - id: generate-images-simulated
-    service: generate-images
-    name: Generate images (simulated)
-    description: Simulated on the development runner; makes images from your list of prompts.
-    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
-    args: ["--duration", "75s", "--simulate", "generate-images"]
-    min_vram_mb: 6144
-    typical_runtime: 75s
-    default_max_runtime: 10m
-    max_runtime_cap: 15m
-    memory_mb: 8192
-    cpu_millicores: 4000
-    pids_limit: 512
-    scratch_mb: 2048
-    checkpoint_interval: 5s
-    params:
-      - name: count
-        label: Images
-        help: How many images to make.
-        type: integer
-        default: 4
-        min: 1
-        max: 8
-      - name: size
-        label: Size, in pixels
-        help: Each image is this wide and this tall.
-        type: choice
-        default: "1024"
-        choices: ["512", "1024"]
-    input:
-      accepts: required
-      upload: true
-      max_size_mb: 10
-      label: Prompts (.txt)
-      help: One prompt a line.
-  - id: transcribe-simulated
-    service: transcribe
-    name: Transcribe a recording (simulated)
-    description: Simulated on the development runner; writes a transcript and subtitles of your recording.
-    image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
-    args: ["--duration", "60s", "--simulate", "transcribe"]
-    min_vram_mb: 4096
-    typical_runtime: 60s
-    default_max_runtime: 10m
-    max_runtime_cap: 15m
-    memory_mb: 4096
-    cpu_millicores: 4000
-    pids_limit: 512
-    scratch_mb: 4096
-    checkpoint_interval: 5s
-    params:
-      - name: language
-        label: Language
-        help: What's spoken in it; Auto works it out.
-        type: choice
-        default: Auto
-        choices: [Hindi, English, Auto]
-    input:
-      accepts: required
-      upload: true
-      max_size_mb: 2048
-      label: Audio or video
-      help: An audio or video file, up to 2 GB.
   - id: cuda-smoke-test
     service: developer-tests
     name: CUDA smoke test (development runner)

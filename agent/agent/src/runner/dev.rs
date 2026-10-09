@@ -14,8 +14,8 @@
 //! `echo-input` template), the greeting repeated `repeat` times. It writes real log lines: the start, the
 //! attempt, the checkpoint it resumed from, the parameters, the input, each checkpoint, and the finish.
 //!
-//! With `--simulate <kind>` in its arguments (fine-tune, run-code, generate-images or transcribe), it plays
-//! one of the four services instead ([`simulate`]): that service's log lines, streamed as it runs, and its
+//! With `--simulate <kind>` in its arguments (fine-tune or run-code), it plays one of the services instead
+//! ([`simulate`]): that service's log lines, streamed as it runs, and its
 //! outputs in place of `result.json`, all generated.
 
 mod simulate;
@@ -754,29 +754,6 @@ mod tests {
             log.contains("$ python train.py --fast") && log.contains("batch 16/16: ") && log.contains("Done."),
             "{log}"
         );
-    }
-
-    #[tokio::test(start_paused = true)]
-    async fn simulating_image_generation_writes_one_png_an_image() {
-        let (files, log) =
-            simulate("generate-images", b"a red fox\na lighthouse at dusk\n", &[("COUNT", "3"), ("SIZE", "512")]).await;
-
-        assert_eq!(files.keys().collect::<Vec<_>>(), ["image-1.png", "image-2.png", "image-3.png"]);
-        assert!(files.values().all(|png| png.starts_with(b"\x89PNG\r\n\x1a\n")));
-        assert!(log.contains("2 prompts; 3 images at 512x512") && log.contains("image 3 of 3: done"), "{log}");
-    }
-
-    #[tokio::test(start_paused = true)]
-    async fn simulating_a_transcription_writes_text_and_subtitles() {
-        let (files, log) = simulate("transcribe", &[0_u8; 4096], &[("LANGUAGE", "Hindi")]).await;
-
-        assert_eq!(files.keys().collect::<Vec<_>>(), ["transcript.srt", "transcript.txt"]);
-        let text = String::from_utf8(files["transcript.txt"].clone()).unwrap();
-        let srt = String::from_utf8(files["transcript.srt"].clone()).unwrap();
-        assert_eq!(text.lines().count(), 12);
-        assert!(text.starts_with("नमस्ते"), "{text}");
-        assert!(srt.starts_with("1\n00:00:00,400 --> 00:00:0"), "{srt}");
-        assert!(log.contains("language: Hindi") && log.contains("[00:00:00.400 --> "), "{log}");
     }
 
     #[tokio::test(start_paused = true)]

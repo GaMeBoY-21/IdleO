@@ -15,5 +15,5 @@ public record Service(String id, String name, String tagline, String runningLabe
 
     /** The icons a service may name; each client draws its own. */
     public static final List<String> ICONS =
-            List.of("layers", "code", "image", "mic", "table", "cube", "notebook", "plug", "gamepad", "flask", "pulse");
+            List.of("layers", "code", "table", "cube", "notebook", "plug", "gamepad", "flask", "pulse");
 }

@@ -1357,8 +1357,6 @@ components:
           enum:
           - layers
           - code
-          - image
-          - mic
           - table
           - cube
           - notebook

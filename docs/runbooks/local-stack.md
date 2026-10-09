@@ -9,7 +9,7 @@ From the repository root, it:
 1. Creates the development CA under `private/dev-ca/` if it doesn't exist yet (`control-plane/scripts/dev-ca.sh`), including the gRPC port's certificate for `localhost`.
 2. Starts the control plane on the `local` profile (`./mvnw spring-boot:run`).
    - Spring Boot starts `control-plane/compose.yaml`: PostgreSQL, Valkey, MinIO (object storage) and the development sign-in server, under the compose project name `idleo-e2e`.
-   - It uses the development template catalog (`templates/development.yaml`: the four services simulated, 60 to 120 s each; the smoke test runs 20 s, `charged-run` 150 s and `long-run` 10 minutes; each checkpointing every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
+   - It uses the development template catalog (`templates/development.yaml`: the two services simulated, 90 to 120 s each; the smoke test runs 20 s, `charged-run` 150 s and `long-run` 10 minutes; each checkpointing every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
    - Storage grants last 60 s, so every run outlives its first and the agents swap in fresh ones. Metering ticks every second and closes a session 20 s after it ends rather than 5 minutes.
    - The script waits for readiness to be UP.
 3. Gets an ID token for an invented user (`e2e-…@example.com`) from the development sign-in server.
@@ -63,7 +63,7 @@ scripts/e2e/agent-online.sh --keep-running
 This starts the stack to look at and try by hand (steps 1 to 7, without the scenarios):
 - two hosts, each an agent with the development runner and a laptop's fake GPU: **RTX 4060 Laptop**, 8 GB, listed at 12 paise a minute (₹7.20 an hour), and **RTX 4080 Laptop**, 12 GB, at 18 paise (₹10.80 an hour), so Book shows a real price range and a session a real GPU's name;
 - the web app, built against the stack and served at http://localhost:3000 (with `E2E_SERVE_WEB=0` it isn't, so `pnpm dev` can have the port);
-- an account with ₹500 of credit: sign in as `nikki@example.com` (another with `E2E_ACCOUNT=<name>`). Home shows the four services, simulated, and "Test jobs".
+- an account with ₹500 of credit: sign in as `nikki@example.com` (another with `E2E_ACCOUNT=<name>`). Home shows the two services, simulated, and "Test jobs".
 
 It prints the address and the account, and a ready `curl` with a fresh token for it, for example:
 

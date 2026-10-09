@@ -280,16 +280,14 @@ class TemplateCatalogTests {
     void bothCatalogsGroupTheirTemplatesIntoServices() throws Exception {
         try (var in = Files.newInputStream(Path.of("../templates/catalog.yaml"))) {
             var catalog = TemplateCatalog.read(in);
-            assertThat(catalog.services().keySet())
-                    .containsExactly("fine-tune", "run-code", "generate-images", "transcribe", "diagnostics");
+            assertThat(catalog.services().keySet()).containsExactly("fine-tune", "run-code", "diagnostics");
             assertThat(catalog.services().get("diagnostics").hidden()).isTrue();
             assertThat(catalog.services().get("fine-tune").runningLabel()).isEqualTo("Fine-tuning");
             assertThat(catalog.templates().get("cuda-smoke-test").service()).isEqualTo("diagnostics");
         }
         try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
             var catalog = TemplateCatalog.read(in);
-            assertThat(catalog.services().keySet())
-                    .containsExactly("fine-tune", "run-code", "generate-images", "transcribe", "developer-tests");
+            assertThat(catalog.services().keySet()).containsExactly("fine-tune", "run-code", "developer-tests");
             assertThat(catalog.services().get("developer-tests").name()).isEqualTo("Test jobs");
             assertThat(catalog.templates().get("echo-input").service()).isEqualTo("developer-tests");
         }
@@ -297,7 +295,7 @@ class TemplateCatalogTests {
 
     /**
      * The local stack shows the production services in their real words: every service the development catalog
-     * shares with catalog.yaml has the same id, name, tagline, running label and icon, all four offered ones are
+     * shares with catalog.yaml has the same id, name, tagline, running label and icon, both offered ones are
      * there, and each runs one template the development runner simulates as that service.
      */
     @Test
@@ -313,7 +311,7 @@ class TemplateCatalogTests {
         var offered = production.services().values().stream()
                 .filter(service -> !service.hidden())
                 .toList();
-        assertThat(offered).hasSize(4);
+        assertThat(offered).hasSize(2);
         for (var service : offered) {
             assertThat(development.services().get(service.id()))
                     .as("development.yaml's %s", service.id())

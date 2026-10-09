@@ -35,7 +35,7 @@ class TemplateApiTests {
 
     /**
      * Templates come grouped into services, each one tile on Home (ADR 0021), in the catalog's order: the development
-     * catalog's four simulated production services, then the test jobs.
+     * catalog's simulated production services, then the test jobs.
      */
     @Test
     void templatesComeWithTheirServices() throws Exception {
@@ -44,15 +44,14 @@ class TemplateApiTests {
         mvc.perform(get("/v1/templates").header("Authorization", user.bearer()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.services[*].id")
-                        .value(org.hamcrest.Matchers.contains(
-                                "fine-tune", "run-code", "generate-images", "transcribe", "developer-tests")))
+                        .value(org.hamcrest.Matchers.contains("fine-tune", "run-code", "developer-tests")))
                 .andExpect(jsonPath("$.services[0].name").value("Fine-tune a model"))
                 .andExpect(jsonPath("$.services[0].runningLabel").value("Fine-tuning"))
                 .andExpect(jsonPath("$.services[0].icon").value("layers"))
-                .andExpect(jsonPath("$.services[4].name").value("Test jobs"))
-                .andExpect(jsonPath("$.services[4].runningLabel").value("Running a test job"))
-                .andExpect(jsonPath("$.services[4].icon").value("flask"))
-                .andExpect(jsonPath("$.services[4].hidden").value(false))
+                .andExpect(jsonPath("$.services[2].name").value("Test jobs"))
+                .andExpect(jsonPath("$.services[2].runningLabel").value("Running a test job"))
+                .andExpect(jsonPath("$.services[2].icon").value("flask"))
+                .andExpect(jsonPath("$.services[2].hidden").value(false))
                 .andExpect(jsonPath("$.templates[?(@.id == 'fine-tune-simulated')].service")
                         .value("fine-tune"))
                 .andExpect(jsonPath("$.templates[?(@.id == 'cuda-smoke-test')].service")

@@ -1,9 +1,9 @@
-//! The four services, simulated (`--simulate <kind>` in a development template's arguments): what each
+//! The services, simulated (`--simulate <kind>` in a development template's arguments): what each
 //! writes to its log as it runs, and the outputs it leaves, so a local stack looks and behaves like the
 //! real thing. Development only, like the rest of the development runner; nothing here runs a model.
 //!
 //! Every line and every output byte is generated: from the parameters, the input's size and line count,
-//! and the session's id, never from a real model or recording. A kind's log is a schedule over the job's
+//! and the session's id, never from a real model. A kind's log is a schedule over the job's
 //! whole duration, so an attempt resumed from a checkpoint carries on where the last one stopped.
 
 use std::collections::BTreeMap;
@@ -18,8 +18,6 @@ use sha2::{Digest, Sha256};
 pub(super) enum Kind {
     FineTune,
     RunCode,
-    GenerateImages,
-    Transcribe,
 }
 
 impl FromStr for Kind {
@@ -29,9 +27,7 @@ impl FromStr for Kind {
         match value {
             "fine-tune" => Ok(Self::FineTune),
             "run-code" => Ok(Self::RunCode),
-            "generate-images" => Ok(Self::GenerateImages),
-            "transcribe" => Ok(Self::Transcribe),
-            _ => Err(format!("--simulate {value} isn't a kind: fine-tune, run-code, generate-images or transcribe")),
+            _ => Err(format!("--simulate {value} isn't a kind: fine-tune or run-code")),
         }
     }
 }
@@ -44,7 +40,7 @@ pub(super) struct Given {
     /// The staged input's name, if there's one.
     pub input_name: Option<String>,
     pub input_bytes: u64,
-    /// Lines in the input: training examples in a JSONL file, prompts in a text file.
+    /// Lines in the input: training examples in a JSONL file.
     pub input_lines: u64,
 }
 
@@ -60,10 +56,6 @@ pub(super) struct Simulation {
 /// Training steps per epoch, at most; fewer for a small file (8 examples a step).
 const MAX_STEPS_PER_EPOCH: u64 = 24;
 const RUN_CODE_BATCHES: u64 = 16;
-/// Denoising steps per image, logged at a third and two thirds.
-const IMAGE_STEPS: u64 = 30;
-/// A generated image's side, in pixels: small, whatever size was asked for.
-const IMAGE_SIDE: u32 = 64;
 /// A `LoRA` adapter's simulated hidden size, which keeps the adapter file small.
 const HIDDEN: usize = 64;
 
@@ -108,24 +100,6 @@ impl Simulation {
                 format!("$ {}", self.param("COMMAND", "python main.py")),
                 "Using device: cuda:0".to_owned(),
                 format!("Loaded config, {RUN_CODE_BATCHES} batches to run"),
-            ],
-            Kind::GenerateImages => vec![
-                "loading the image pipeline (fp16)".to_owned(),
-                format!(
-                    "{input}: {} prompts; {} images at {size}x{size}, {IMAGE_STEPS} steps each",
-                    self.given.input_lines.max(1),
-                    self.image_count(),
-                    size = self.param("SIZE", "1024")
-                ),
-            ],
-            Kind::Transcribe => vec![
-                "loading the speech model".to_owned(),
-                format!("{input}: {} bytes of audio", self.given.input_bytes),
-                match self.language() {
-                    Language::Hindi => "language: Hindi".to_owned(),
-                    Language::English => "language: English".to_owned(),
-                    Language::Detected => "language: detected English".to_owned(),
-                },
             ],
         }
     }
@@ -186,26 +160,6 @@ impl Simulation {
                 lines.push("Done.".to_owned());
                 lines
             }
-            Kind::GenerateImages => {
-                let count = self.image_count();
-                let mut lines = Vec::new();
-                for image in 1..=count {
-                    lines.push(format!("image {image} of {count}: step {}/{IMAGE_STEPS}", IMAGE_STEPS / 3));
-                    lines.push(format!("image {image} of {count}: step {}/{IMAGE_STEPS}", 2 * IMAGE_STEPS / 3));
-                    lines.push(format!(
-                        "image {image} of {count}: done, seed {}, saved image-{image}.png",
-                        self.image_seed(image)
-                    ));
-                }
-                lines
-            }
-            Kind::Transcribe => self
-                .segments()
-                .iter()
-                .map(|segment| {
-                    format!("[{} --> {}] {}", clock(segment.start, '.'), clock(segment.end, '.'), segment.text)
-                })
-                .collect(),
         }
     }
 
@@ -217,28 +171,6 @@ impl Simulation {
                 ("training_log.json".to_owned(), self.training_log()),
             ],
             Kind::RunCode => vec![("result.txt".to_owned(), self.run_result().into_bytes())],
-            Kind::GenerateImages => {
-                (1..=self.image_count()).map(|image| (format!("image-{image}.png"), self.image(image))).collect()
-            }
-            Kind::Transcribe => {
-                let segments = self.segments();
-                let text = segments.iter().fold(String::new(), |mut text, segment| {
-                    let _ = writeln!(text, "{}", segment.text);
-                    text
-                });
-                let mut srt = String::new();
-                for (i, segment) in segments.iter().enumerate() {
-                    let _ = write!(
-                        srt,
-                        "{}\n{} --> {}\n{}\n\n",
-                        i + 1,
-                        clock(segment.start, ','),
-                        clock(segment.end, ','),
-                        segment.text
-                    );
-                }
-                vec![("transcript.txt".to_owned(), text.into_bytes()), ("transcript.srt".to_owned(), srt.into_bytes())]
-            }
         }
     }
 
@@ -378,177 +310,11 @@ impl Simulation {
         text.push_str("exit code 0\n(simulated by the development runner: your code wasn't run)\n");
         text
     }
-
-    fn image_count(&self) -> u64 {
-        self.number("COUNT", 4, 1, 8)
-    }
-
-    fn image_seed(&self, image: u64) -> u32 {
-        self.draw(image, 6)
-    }
-
-    /// A small PNG: a soft two-colour gradient, its colours drawn from the seed.
-    fn image(&self, image: u64) -> Vec<u8> {
-        let colour = |stream: u8| -> [f64; 3] {
-            [0, 1, 2].map(|channel| 40.0 + self.noise(image * 3 + channel, stream) * 200.0)
-        };
-        let (from, to) = (colour(7), colour(8));
-        let side = IMAGE_SIDE;
-        let mut pixels = Vec::with_capacity((side * (side * 3 + 1)) as usize);
-        for y in 0..side {
-            pixels.push(0); // no filter
-            for x in 0..side {
-                let t = f64::from(x + y) / f64::from(2 * (side - 1));
-                for channel in 0..3 {
-                    pixels.push(byte(from[channel] + (to[channel] - from[channel]) * t));
-                }
-            }
-        }
-        png(side, side, &pixels)
-    }
-
-    fn language(&self) -> Language {
-        match self.param("LANGUAGE", "Auto").as_str() {
-            "Hindi" => Language::Hindi,
-            "English" => Language::English,
-            _ => Language::Detected,
-        }
-    }
-
-    /// The transcript's segments: each sentence's length sets how long it's spoken.
-    fn segments(&self) -> Vec<Segment> {
-        let sentences = if self.language() == Language::Hindi { HINDI } else { ENGLISH };
-        let mut at = Duration::from_millis(400);
-        sentences
-            .iter()
-            .enumerate()
-            .map(|(i, text)| {
-                let spoken = Duration::from_millis(
-                    900 + 60 * text.chars().count() as u64 + u64::from(self.draw(i as u64, 9) % 400),
-                );
-                let segment = Segment { start: at, end: at + spoken, text: (*text).to_owned() };
-                at += spoken + Duration::from_millis(250);
-                segment
-            })
-            .collect()
-    }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Language {
-    Hindi,
-    English,
-    Detected,
-}
-
-struct Segment {
-    start: Duration,
-    end: Duration,
-    text: String,
-}
-
-/// A meeting, in each language: invented sentences, never a recording.
-const ENGLISH: [&str; 12] = [
-    "Hello, and welcome to today's meeting.",
-    "First, we'll go over last week's work.",
-    "The team finished the new version on time.",
-    "A few users had said the app felt slow.",
-    "We've fixed that problem now.",
-    "Next, let's look at the plan for next month.",
-    "We want to start the service in two new cities.",
-    "For that, we'll need a few more people.",
-    "We'll talk about the budget next Monday.",
-    "Does anyone have a question?",
-    "All right, that's all for today.",
-    "Thank you, everyone.",
-];
-const HINDI: [&str; 12] = [
-    "नमस्ते, आज की बैठक में आपका स्वागत है।",
-    "सबसे पहले हम पिछले हफ़्ते के काम की बात करेंगे।",
-    "टीम ने नया संस्करण समय पर पूरा किया।",
-    "कुछ लोगों ने कहा था कि ऐप धीमा चलता है।",
-    "हमने वह समस्या अब ठीक कर दी है।",
-    "अब अगले महीने की योजना देखते हैं।",
-    "हम दो नए शहरों में सेवा शुरू करना चाहते हैं।",
-    "इसके लिए हमें कुछ और लोगों की ज़रूरत होगी।",
-    "बजट पर अगले सोमवार को बात होगी।",
-    "क्या किसी का कोई सवाल है?",
-    "ठीक है, आज के लिए इतना ही।",
-    "सबका धन्यवाद।",
-];
 
 /// A count as a real number; every count here is far below 2^32.
 fn real(count: u64) -> f64 {
     f64::from(u32::try_from(count).unwrap_or(u32::MAX))
-}
-
-/// A colour channel from a real number, rounded and kept within a byte.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // clamped to 0..=255 just before
-fn byte(value: f64) -> u8 {
-    value.round().clamp(0.0, 255.0) as u8
-}
-
-/// `00:01:02.345`, or `00:01:02,345` in a subtitle file.
-fn clock(at: Duration, separator: char) -> String {
-    let millis = at.as_millis();
-    format!(
-        "{:02}:{:02}:{:02}{separator}{:03}",
-        millis / 3_600_000,
-        millis / 60_000 % 60,
-        millis / 1_000 % 60,
-        millis % 1_000
-    )
-}
-
-/// An 8-bit RGB PNG of `rows` (each a filter byte, then its pixels), its image data in stored, uncompressed
-/// deflate blocks: no compression library needed for a few kilobytes.
-fn png(width: u32, height: u32, rows: &[u8]) -> Vec<u8> {
-    let mut zlib = vec![0x78, 0x01];
-    let mut blocks = rows.chunks(65_535).peekable();
-    while let Some(block) = blocks.next() {
-        zlib.push(u8::from(blocks.peek().is_none()));
-        let len = u16::try_from(block.len()).expect("a stored block is at most 65,535 bytes");
-        zlib.extend_from_slice(&len.to_le_bytes());
-        zlib.extend_from_slice(&(!len).to_le_bytes());
-        zlib.extend_from_slice(block);
-    }
-    zlib.extend_from_slice(&adler32(rows).to_be_bytes());
-
-    let mut header = Vec::with_capacity(13);
-    header.extend_from_slice(&width.to_be_bytes());
-    header.extend_from_slice(&height.to_be_bytes());
-    header.extend_from_slice(&[8, 2, 0, 0, 0]); // 8 bits, RGB, deflate, no filter, no interlace
-
-    let mut file = b"\x89PNG\r\n\x1a\n".to_vec();
-    for (kind, data) in [(b"IHDR", header.as_slice()), (b"IDAT", zlib.as_slice()), (b"IEND", &[][..])] {
-        file.extend_from_slice(&u32::try_from(data.len()).expect("a small chunk").to_be_bytes());
-        let start = file.len();
-        file.extend_from_slice(kind);
-        file.extend_from_slice(data);
-        let crc = crc32(&file[start..]);
-        file.extend_from_slice(&crc.to_be_bytes());
-    }
-    file
-}
-
-fn adler32(data: &[u8]) -> u32 {
-    let (mut a, mut b) = (1_u32, 0_u32);
-    for &byte in data {
-        a = (a + u32::from(byte)) % 65_521;
-        b = (b + a) % 65_521;
-    }
-    (b << 16) | a
-}
-
-fn crc32(data: &[u8]) -> u32 {
-    let mut crc = 0xffff_ffff_u32;
-    for &byte in data {
-        crc ^= u32::from(byte);
-        for _ in 0..8 {
-            crc = if crc & 1 == 1 { (crc >> 1) ^ 0xedb8_8320 } else { crc >> 1 };
-        }
-    }
-    !crc
 }
 
 #[cfg(test)]
@@ -568,7 +334,7 @@ mod tests {
     #[test]
     fn a_resumed_attempt_carries_on_where_the_last_one_stopped() {
         let total = Duration::from_secs(90);
-        for kind in [Kind::FineTune, Kind::RunCode, Kind::GenerateImages, Kind::Transcribe] {
+        for kind in [Kind::FineTune, Kind::RunCode] {
             let job = simulation(kind, &[], 100);
             let whole = job.lines_between(Duration::ZERO, total, total);
             let mut pieces = job.lines_between(Duration::ZERO, Duration::from_millis(37_250), total);
@@ -613,40 +379,10 @@ mod tests {
     }
 
     #[test]
-    fn an_image_is_a_valid_png() {
-        let png = simulation(Kind::GenerateImages, &[], 1).image(1);
-        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
-        // Each chunk: length, type, data, then the CRC of type and data.
-        let mut at = 8;
-        let mut kinds = Vec::new();
-        while at < png.len() {
-            let length = u32::from_be_bytes(png[at..at + 4].try_into().unwrap()) as usize;
-            let body = &png[at + 4..at + 8 + length];
-            let crc = u32::from_be_bytes(png[at + 8 + length..at + 12 + length].try_into().unwrap());
-            assert_eq!(crc, crc32(body));
-            kinds.push(String::from_utf8(body[..4].to_vec()).unwrap());
-            at += 12 + length;
-        }
-        assert_eq!(kinds, ["IHDR", "IDAT", "IEND"]);
-        assert_eq!(&png[16..24], [0, 0, 0, 64, 0, 0, 0, 64].as_slice(), "64 by 64");
-    }
-
-    #[test]
     fn the_same_session_gets_the_same_outputs() {
-        let job = simulation(Kind::GenerateImages, &[("COUNT", "2")], 2);
+        let job = simulation(Kind::FineTune, &[], 40);
         assert_eq!(job.outputs(), job.outputs());
-        assert_ne!(job.image(1), job.image(2), "each image its own colours");
-    }
-
-    #[test]
-    fn checksums_match_known_values() {
-        assert_eq!(crc32(b"123456789"), 0xcbf4_3926);
-        assert_eq!(adler32(b"Wikipedia"), 0x11e6_0398);
-    }
-
-    #[test]
-    fn subtitle_times_are_hours_minutes_seconds_and_milliseconds() {
-        assert_eq!(clock(Duration::from_millis(3_723_045), ','), "01:02:03,045");
-        assert_eq!(clock(Duration::from_millis(400), '.'), "00:00:00.400");
+        let other = Simulation::new(Kind::FineTune, job.given.clone(), "01a11d3e-443d-77f5-b801-ca8c40f876a4");
+        assert_ne!(job.adapter(), other.adapter(), "each session its own weights");
     }
 }

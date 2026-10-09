@@ -4,9 +4,7 @@ import {
   Code,
   FlaskConical,
   Gamepad2,
-  Image,
   Layers,
-  Mic,
   NotebookPen,
   Plug,
   Table,
@@ -20,8 +18,6 @@ type IconKey = components["schemas"]["ServiceResponse"]["icon"];
 export const SERVICE_ICONS: Record<IconKey, LucideIcon> = {
   layers: Layers,
   code: Code,
-  image: Image,
-  mic: Mic,
   table: Table,
   cube: Box,
   notebook: NotebookPen,
