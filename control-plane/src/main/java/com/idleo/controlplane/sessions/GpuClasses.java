@@ -18,4 +18,13 @@ public final class GpuClasses {
     public static int mb(int gb) {
         return gb * 1_000;
     }
+
+    /** The smallest class with at least {@code mb}; {@code mb} itself when it's above every class. */
+    public static int roundUp(int mb) {
+        return GB.stream()
+                .map(GpuClasses::mb)
+                .filter(size -> size >= mb)
+                .findFirst()
+                .orElse(mb);
+    }
 }

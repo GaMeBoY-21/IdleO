@@ -56,6 +56,8 @@ class QuoteController {
      * @param pricePaisePerMin the prices of those hosts; null when none fits
      * @param ceilingPaisePerMin the maximum price the booking would have: the renter's, or, when left out, the
      *     highest price among the GPUs that fit now
+     * @param vramNeededMb the GPU memory the booking would ask for: the renter's, or what the template and the size of
+     *     the renter's uploaded model need (ADR 0022)
      */
     record QuoteResponse(
             long holdPaise,
@@ -63,7 +65,8 @@ class QuoteController {
             boolean enoughCredit,
             int hostsFitNow,
             @Nullable PriceRange pricePaisePerMin,
-            int ceilingPaisePerMin) {}
+            int ceilingPaisePerMin,
+            int vramNeededMb) {}
 
     @PostMapping
     QuoteResponse create(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody CreateSessionRequest request) {
@@ -82,6 +85,7 @@ class QuoteController {
                 !hold.isGreaterThan(available),
                 fit.size(),
                 prices.length == 0 ? null : new PriceRange(prices[0], prices[prices.length - 1]),
-                ceiling);
+                ceiling,
+                checked.vramNeededMb());
     }
 }

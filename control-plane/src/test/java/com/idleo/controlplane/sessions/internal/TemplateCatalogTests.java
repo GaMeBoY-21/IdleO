@@ -174,6 +174,7 @@ class TemplateCatalogTests {
                     default_gb: 8
                 budget_chips: [5000, 10000]
                 default_budget: 10000
+                vram_from_input: { input: model, base_mb: 2048, per_gb_mb: 700 }
             """;
 
     /** An entry with its params and input written as YAML under it. */
@@ -227,6 +228,7 @@ class TemplateCatalogTests {
                 .isEqualTo(new Template.Question.GpuMemory("GPU memory you need", null, java.util.List.of(8, 12), 8));
         assertThat(template.budgetChips()).containsExactly(5000L, 10000L);
         assertThat(template.defaultBudget()).isEqualTo(10000L);
+        assertThat(template.vramFromInput()).isEqualTo(new Template.VramFromInput("model", 2048, 700));
     }
 
     @Test
@@ -269,6 +271,9 @@ class TemplateCatalogTests {
                 java.util.Map.entry(echoWith("default_gb: 8", "default_gb: 16"), "default_gb must be one of"),
                 java.util.Map.entry(echoWith("budget_chips: [5000, 10000]", "budget_chips: [10000, 5000]"), "rising"),
                 java.util.Map.entry(echoWith("default_budget: 10000", "default_budget: 7000"), "one of budget_chips"),
+                java.util.Map.entry(echoWith("input: model, base_mb", "input: data, base_mb"), "takes an upload"),
+                java.util.Map.entry(echoWith("input: model, base_mb", "input: weights, base_mb"), "takes an upload"),
+                java.util.Map.entry(echoWith("per_gb_mb: 700", "per_gb_mb: 0"), "per_gb_mb must be"),
                 java.util.Map.entry(echoWith("        default: 1\n", "        required: true\n"), "never required"));
         cases.forEach((block, message) ->
                 assertThatThrownBy(() -> parse(withBlocks(block))).as(block).hasMessageContaining(message));

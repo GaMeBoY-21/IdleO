@@ -782,6 +782,7 @@ export function quote(
   const fitting = free.filter((gpu) => gpu.pricePaisePerMin.min <= ceiling);
   return {
     ceilingPaisePerMin: ceiling,
+    vramNeededMb,
     holdPaise,
     availablePaise: wallet.availablePaise,
     enoughCredit: wallet.availablePaise >= holdPaise,

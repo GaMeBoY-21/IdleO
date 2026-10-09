@@ -386,6 +386,45 @@ class SessionInputTests {
     }
 
     @Test
+    void theGpuMemoryComesFromTheSizeOfTheRentersModel() throws Exception {
+        var renter = bookings.renter();
+        var model = TestUploads.ready(mvc, renter, "model.safetensors", "weights");
+        // As if it were 14.2 GiB: 2,048 + 700 x 14.2 = 11,988 MB, a 12 GB GPU.
+        jdbc.update("update sessions.uploads set size_bytes = ? where id = ?", (long) (14.2 * (1L << 30)), model);
+        var inputs =
+                Map.of("model", Map.of("uploadId", model), "data", Map.of("url", "https://example.com/train.jsonl"));
+
+        mvc.perform(post("/v1/session-quotes")
+                        .header("Authorization", renter.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(JSON.writeValueAsString(
+                                fineTune(Map.of("inputs", inputs, "maxPricePaisePerMin", 5, "maxSpendPaise", 10_000)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vramNeededMb").value(12_000));
+        book(renter, "too-little", fineTune(Map.of("inputs", inputs, "vramNeededMb", 8_000)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("vramNeededMb"))
+                .andExpect(jsonPath("$.errors[0].detail")
+                        .value("must be at least the 12000 MB the uploaded model needs."));
+        book(renter, "sized", fineTune(Map.of("inputs", inputs)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.vramNeededMb").value(12_000));
+        book(renter, "more", fineTune(Map.of("inputs", inputs, "vramNeededMb", 16_000)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.vramNeededMb").value(16_000));
+        book(
+                        renter,
+                        "linked",
+                        fineTune(Map.of(
+                                "inputs",
+                                Map.of(
+                                        "model", Map.of("url", "https://huggingface.co/me/model"),
+                                        "data", Map.of("url", "https://example.com/train.jsonl")))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.vramNeededMb").value(6_144));
+    }
+
+    @Test
     void everyMissingRequiredInputIsNamedAndAnUnknownOneIsRefused() throws Exception {
         var renter = bookings.renter();
 

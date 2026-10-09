@@ -19,6 +19,8 @@ import org.jspecify.annotations.Nullable;
  * @param questions the plain questions, in the order the booking screen asks them, after the inputs
  * @param budgetChips the spending caps the booking screen offers, in paise; empty when it offers none
  * @param defaultBudget the chip chosen at first; null exactly when there are no chips
+ * @param vramFromInput how the GPU memory a session needs grows with the renter's uploaded model; null when it
+ *     doesn't
  */
 public record Template(
         String id,
@@ -40,7 +42,8 @@ public record Template(
         List<Input> inputs,
         List<Question> questions,
         List<Long> budgetChips,
-        @Nullable Long defaultBudget) {
+        @Nullable Long defaultBudget,
+        @Nullable VramFromInput vramFromInput) {
 
     public Template {
         args = List.copyOf(args);
@@ -63,6 +66,12 @@ public record Template(
                 .map(Question.Preset.class::cast)
                 .findFirst();
     }
+
+    /**
+     * The GPU memory a model needs grows with its size (ADR 0022): {@code baseMb + perGbMb} for each GiB of the upload
+     * given as {@code input}, never below the template's minimum, rounded up to a {@link GpuClasses} class.
+     */
+    public record VramFromInput(String input, int baseMb, int perGbMb) {}
 
     /** What kind of value a parameter takes. */
     public enum ParamType {

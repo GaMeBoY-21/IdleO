@@ -59,7 +59,8 @@ class TemplateCatalog {
             "inputs",
             "questions",
             "budget_chips",
-            "default_budget");
+            "default_budget",
+            "vram_from_input");
     private static final Set<String> SERVICE_FIELDS =
             Set.of("id", "name", "tagline", "running_label", "icon", "hidden");
 
@@ -179,6 +180,7 @@ class TemplateCatalog {
         int minVramMb = positive(fields, "min_vram_mb", where);
         var params = CatalogParams.read(fields, where);
         var budget = CatalogQuestions.budget(fields, where);
+        var inputs = CatalogInputs.read(fields, where);
         return new Template(
                 id,
                 text(fields, "service", where),
@@ -196,9 +198,10 @@ class TemplateCatalog {
                 positive(fields, "scratch_mb", where),
                 duration(fields, "checkpoint_interval", where),
                 params,
-                CatalogInputs.read(fields, where),
+                inputs,
                 CatalogQuestions.read(fields, params, minVramMb, where),
                 budget == null ? List.of() : budget.chips(),
-                budget == null ? null : budget.defaultChip());
+                budget == null ? null : budget.defaultChip(),
+                CatalogInputs.vramFromInput(fields, inputs, where));
     }
 }

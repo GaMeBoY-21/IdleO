@@ -169,6 +169,18 @@ final class TemplateViews {
         }
     }
 
+    /**
+     * The GPU memory a model needs, from its size (ADR 0022): {@code baseMb + perGbMb} for each GiB of the upload given
+     * as {@code input}, never below the template's minimum, rounded up to the next GPU class (8, 12, 16 or 24 GB,
+     * asked for as 8,000, 12,000, 16,000 or 24,000 MB). A link's size isn't known: it needs the template's minimum.
+     */
+    record VramFromInputView(String input, int baseMb, int perGbMb) {
+
+        static VramFromInputView of(Template.VramFromInput rule) {
+            return new VramFromInputView(rule.input(), rule.baseMb(), rule.perGbMb());
+        }
+    }
+
     private static String lower(Enum<?> value) {
         return value.name().toLowerCase(Locale.ROOT);
     }

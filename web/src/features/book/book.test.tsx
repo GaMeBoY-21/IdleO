@@ -20,6 +20,7 @@ const quote = (overrides: Partial<Quote> = {}): QuoteState => ({
     hostsFitNow: 10,
     pricePaisePerMin: { min: 12, max: 18 },
     ceilingPaisePerMin: 18,
+    vramNeededMb: 8_192,
     ...overrides,
   },
 });

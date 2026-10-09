@@ -61,6 +61,10 @@
 #                          and default_gb
 #   budget_chips           optional: the spending caps the booking screen offers, in paise, rising; the
 #   default_budget         screen adds "Other amount". Both or neither
+#   vram_from_input        optional: { input, base_mb, per_gb_mb }. When that input is an upload, the GPU
+#                          memory needed is base_mb plus per_gb_mb for each GiB of it, never below
+#                          min_vram_mb, rounded up to a GPU class (8, 12, 16, 24 GB). A link's size isn't
+#                          known, so it needs min_vram_mb
 #
 # A template's inputs, questions and parameters are described here once; the web form, the CLI's flags and the
 # SDK's arguments are all made from GET /v1/templates.

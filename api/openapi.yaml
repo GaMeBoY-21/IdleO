@@ -1342,12 +1342,16 @@ components:
           oneOf:
           - $ref: "#/components/schemas/PriceRange"
           - type: "null"
+        vramNeededMb:
+          type: integer
+          format: int32
       required:
       - availablePaise
       - ceilingPaisePerMin
       - enoughCredit
       - holdPaise
       - hostsFitNow
+      - vramNeededMb
     ServiceResponse:
       type: object
       properties:
@@ -1798,6 +1802,10 @@ components:
           - integer
           - "null"
           format: int64
+        vramFromInput:
+          oneOf:
+          - $ref: "#/components/schemas/VramFromInputView"
+          - type: "null"
       required:
       - budgetChips
       - defaultMaxRuntimeSeconds
@@ -1964,6 +1972,21 @@ components:
       required:
       - etag
       - number
+    VramFromInputView:
+      type: object
+      properties:
+        baseMb:
+          type: integer
+          format: int32
+        input:
+          type: string
+        perGbMb:
+          type: integer
+          format: int32
+      required:
+      - baseMb
+      - input
+      - perGbMb
     WalletResponse:
       type: object
       properties:

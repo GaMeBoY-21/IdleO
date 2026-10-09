@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A template's named inputs in the catalog (ADR 0022): what the renter brings, each an upload, a link, or either.
@@ -28,6 +29,28 @@ final class CatalogInputs {
     private static final List<String> SOURCES = List.of("upload", "link");
 
     private CatalogInputs() {}
+
+    /** {@code vram_from_input}, naming an input that takes uploads; null when it's left out. */
+    static Template.@Nullable VramFromInput vramFromInput(
+            Map<?, ?> fields, List<Template.Input> inputs, String template) {
+        var value = fields.get("vram_from_input");
+        if (value == null) {
+            return null;
+        }
+        var where = template + ", vram_from_input";
+        if (!(value instanceof Map<?, ?> vram)) {
+            throw new IllegalStateException(where + ": must be a map.");
+        }
+        known(vram, Set.of("input", "base_mb", "per_gb_mb"), where);
+        var input = text(vram, "input", where);
+        if (inputs.stream().noneMatch(found -> found.name().equals(input) && found.upload())) {
+            throw new IllegalStateException(where + ": input " + input + " isn't an input that takes an upload.");
+        }
+        return new Template.VramFromInput(
+                input,
+                CatalogFields.positive(vram, "base_mb", where),
+                CatalogFields.positive(vram, "per_gb_mb", where));
+    }
 
     static List<Template.Input> read(Map<?, ?> template, String where) {
         var inputs = new ArrayList<Template.Input>();

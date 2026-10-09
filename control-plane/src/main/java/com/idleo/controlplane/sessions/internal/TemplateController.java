@@ -72,6 +72,7 @@ class TemplateController {
      * @param questions the plain questions, asked after the inputs, in this order
      * @param budgetChips the spending caps, in paise, the booking screen offers beside "Other amount"
      * @param defaultBudgetPaise the chip chosen at first; null when there are no chips
+     * @param vramFromInput how the GPU memory needed grows with the renter's uploaded model; null when it doesn't
      */
     record TemplateResponse(
             String id,
@@ -87,7 +88,8 @@ class TemplateController {
             List<TemplateViews.TemplateInput> inputs,
             List<TemplateViews.TemplateQuestion> questions,
             List<Long> budgetChips,
-            @Nullable Long defaultBudgetPaise) {
+            @Nullable Long defaultBudgetPaise,
+            TemplateViews.@Nullable VramFromInputView vramFromInput) {
 
         static TemplateResponse of(Template template) {
             return new TemplateResponse(
@@ -112,7 +114,10 @@ class TemplateController {
                             .map(question -> TemplateViews.TemplateQuestion.of(template, question))
                             .toList(),
                     template.budgetChips(),
-                    template.defaultBudget());
+                    template.defaultBudget(),
+                    template.vramFromInput() == null
+                            ? null
+                            : TemplateViews.VramFromInputView.of(template.vramFromInput()));
         }
     }
 

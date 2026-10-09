@@ -95,6 +95,7 @@ templates:
         choices: ["8", "16", "32"]
     budget_chips: [5000, 10000, 50000]
     default_budget: 10000
+    vram_from_input: { input: model, base_mb: 2048, per_gb_mb: 700 }
   - id: run-code-simulated
     service: run-code
     name: Run your Python project (simulated)

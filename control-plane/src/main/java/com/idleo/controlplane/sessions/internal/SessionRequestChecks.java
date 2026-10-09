@@ -18,7 +18,8 @@ import org.springframework.stereotype.Component;
  * The one check of a booking against its template (ADR 0019, ADR 0022), for booking and quoting alike.
  *
  * <ul>
- *   <li>The template exists; GPU memory and runtime fit it; the preset answers pass {@link SessionPresets} and the
+ *   <li>The template exists; GPU memory ({@link SessionVram}, from the model's size when the template says so) and
+ *       runtime fit it; the preset answers pass {@link SessionPresets} and the
  *       parameters {@link SessionParams}.
  *   <li>Each input is one the template names, and exactly one of an upload or a link of a kind it takes ({@code
  *       input-not-accepted}); every required one is given ({@code input-required}). Problems name the input, {@code
@@ -44,10 +45,15 @@ class SessionRequestChecks implements SessionRequests {
         var template = catalog.find(request.templateId())
                 .orElseThrow(
                         () -> ApiProblem.invalid("templateId", "There is no template " + request.templateId() + "."));
-        int vram = request.vramNeededMb() == null ? template.minVramMb() : request.vramNeededMb();
-        if (vram < template.minVramMb()) {
+        var inputs = inputs(renterId, template, request.inputs(), inputMayWait);
+        int needed = SessionVram.needed(template, inputs);
+        int vram = request.vramNeededMb() == null ? needed : request.vramNeededMb();
+        if (vram < needed) {
             throw ApiProblem.invalid(
-                    "vramNeededMb", "must be at least the template's " + template.minVramMb() + " MB.");
+                    "vramNeededMb",
+                    needed == template.minVramMb()
+                            ? "must be at least the template's " + needed + " MB."
+                            : "must be at least the " + needed + " MB the uploaded model needs.");
         }
         var maxRuntime = request.maxRuntimeSeconds() == null
                 ? template.defaultMaxRuntime()
@@ -59,7 +65,6 @@ class SessionRequestChecks implements SessionRequests {
         }
         var presets = SessionPresets.resolve(template, request.presets());
         var params = SessionParams.resolve(template, request.params(), SessionPresets.values(template, presets));
-        var inputs = inputs(renterId, template, request.inputs(), inputMayWait);
         var env = SessionParams.env(
                 params,
                 inputs.stream()
