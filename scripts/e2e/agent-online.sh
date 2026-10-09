@@ -13,15 +13,20 @@
 # sixth serves the booking contract (ADR 0019): a 12 MiB file uploaded in parts straight to storage,
 # a quote, a session with parameters and that file as its input, followed on its event stream to
 # settled, its logs, and an output proving the job saw the exact file and parameters, then three errors
-# by their types. It checks storage's CORS for the web app, runs the wallet check, then watches the
-# hosts go offline once the agents stop.
+# by their types. A seventh fine-tunes on the simulated fine-tune service with a small JSONL and
+# downloads its adapter. It checks storage's CORS for the web app, runs the wallet check, then watches
+# the hosts go offline once the agents stop.
 # Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
 #
 #   scripts/e2e/agent-online.sh                 run the check
-#   scripts/e2e/agent-online.sh --keep-running  start only the stack, print a curl with a fresh
-#                                               token, and keep it up until Ctrl-C
+#   scripts/e2e/agent-online.sh --keep-running  the stack to look at and try by hand, until Ctrl-C:
+#                                               two laptops' fake GPUs (RTX 4060 Laptop, 8 GB, at
+#                                               ₹7.20/h; RTX 4080 Laptop, 12 GB, at ₹10.80/h) with the
+#                                               development runner, the web app on :3000 (not with
+#                                               E2E_SERVE_WEB=0, for pnpm dev), and E2E_ACCOUNT (nikki)
+#                                               with ₹500 of credit; prints a curl with a fresh token
 #   scripts/e2e/agent-online.sh --web           the web app's checks (.github/workflows/web.yml): the
 #                                               stack and one agent, then every screen and state with
 #                                               axe and visual baselines, the Firebase screens, the
@@ -152,10 +157,44 @@ download_output() {
 print(next(f["url"] for f in json.load(sys.stdin)["files"] if f["path"] == "result.json"))')"
   curl -sf "$url" -o "$2" || fail "downloading $1's output failed"
 }
+# Uploads file $1 as $2, in parts straight to storage (ADR 0019), with Idempotency-Key $3, as whoever $token
+# belongs to. Prints the upload's id; the API's answer to POST /v1/uploads is kept in $out/upload-$3.json.
+upload_file() {
+  local file=$1 size upload_json parts part_size url etag etags="[" separator="" n
+  size="$(wc -c <"$file" | tr -d ' ')"
+  upload_json="$(api_post /v1/uploads -H "Idempotency-Key: \"$user-$3\"" \
+    -d "{\"filename\": $(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$2"), \"sizeBytes\": $size}")" ||
+    fail "POST /v1/uploads failed for $2"
+  printf '%s' "$upload_json" >"$out/upload-$3.json"
+  parts="$(printf '%s' "$upload_json" | json_get .partCount)"
+  part_size="$(printf '%s' "$upload_json" | json_get .partSizeBytes)"
+  for ((n = 1; n <= parts; n++)); do
+    url="$(printf '%s' "$upload_json" | python3 -c 'import json, sys
+print(json.load(sys.stdin)["parts"][int(sys.argv[1]) - 1]["url"])' "$n")"
+    etag="$(dd if="$file" bs="$part_size" skip=$((n - 1)) count=1 2>/dev/null |
+      curl -sf -X PUT --data-binary @- -D - -o /dev/null "$url" | tr -d '\r' | sed -n 's/^[Ee][Tt]ag: *//p')"
+    [[ -n "$etag" ]] || fail "part $n of $2 didn't PUT"
+    etags+="$separator{\"number\": $n, \"etag\": $(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$etag")}"
+    separator=","
+  done
+  etags+="]"
+  local id
+  id="$(printf '%s' "$upload_json" | json_get .id)"
+  [[ "$(api_post "/v1/uploads/$id/complete" -d "{\"parts\": $etags}" | json_get .status)" == ready ]] ||
+    fail "the upload of $2 didn't complete"
+  printf '%s\n' "$id"
+}
 # Agent $1 (1 to $agents) with a fake GPU and the development runner (ADR 0016), in the background.
-# Its pid is in a file, since the host-loss scenario kills and restarts one from a subshell.
+# Its pid is in a file, since the host-loss scenario kills and restarts one from a subshell. With
+# --keep-running, each agent's fake GPU is a laptop's (fake_gpus below).
 run_agent() {
-  IDLEO_LOG=info "$agent" --config "$out/agent-$1.toml" run --fake-gpu --dev-runner >>"$out/agent-$1.log" 2>&1 &
+  local gpu=()
+  if $keep_running; then
+    IFS='|' read -r model vram _ <<<"${fake_gpus[$(($1 - 1))]}"
+    gpu=(--fake-gpu-model "$model" --fake-gpu-vram-mb "$vram")
+  fi
+  # ${gpu[@]+…}: an empty array is "unbound" to macOS's bash 3.2 under set -u.
+  IDLEO_LOG=info "$agent" --config "$out/agent-$1.toml" run --fake-gpu ${gpu[@]+"${gpu[@]}"} --dev-runner >>"$out/agent-$1.log" 2>&1 &
   echo $! >"$out/agent-$1.pid"
 }
 agent_running() { [[ -f "$out/agent-$1.pid" ]] && kill -0 "$(cat "$out/agent-$1.pid")" 2>/dev/null; }
@@ -197,8 +236,12 @@ checkpointed_after_stop() {
 # Scenarios run in subshells, side by side; each writes its summary lines to its own file.
 note() { printf '%s\n' "$*" >>"$out/summary-$scenario.txt"; }
 
-# Four charged scenarios, the web journey and the booking contract, one host each; the web checks need one.
-if $web_only; then agents=1; else agents=6; fi
+# Four charged scenarios, the web journey, the booking contract and the simulated fine-tune, one host each;
+# the web checks need one. By hand (--keep-running), two laptops: model|memory in MB|price in paise a minute
+# (₹7.20 and ₹10.80 an hour), so booking shows a real price range and a session a real GPU's name.
+fake_gpus=("RTX 4060 Laptop|8188|12" "RTX 4080 Laptop|12282|18")
+account="${E2E_ACCOUNT:-nikki}"
+if $web_only; then agents=1; elif $keep_running; then agents=${#fake_gpus[@]}; else agents=7; fi
 control_plane_pid=""
 summary=()
 
@@ -350,22 +393,16 @@ if curl -si -X OPTIONS "http://localhost:$storage_port/idleo-local/uploads/probe
 fi
 summary+=("storage CORS: PUT allowed from http://localhost:$web_port, not from elsewhere: PASS")
 
-if $keep_running; then
-  printf '\nThe stack is up. Signed in as %s@example.com; the token lasts an hour.\n\n' "$user"
-  printf "  curl -s -H 'Authorization: Bearer %s' %s/v1/me\n\n" "$token" "$api"
-  printf 'A new token:\n\n'
-  printf "  curl -s -X POST %s/token -d grant_type=client_credentials -d client_id=%s -d client_secret=unused -d scope=openid\n\n" "$sign_in" "$user"
-  printf 'Control plane logs: private/e2e/control-plane.log. Ctrl-C stops everything.\n'
-  wait "$control_plane_pid" || true
-  exit 0
-fi
-
-# 4. Register the hosts and get their enrolment codes. Codes are never printed or logged.
+# 4. Register the hosts and get their enrolment codes. Codes are never printed or logged. By hand, each host
+#    is named after its laptop's GPU.
+host_name() {
+  if $keep_running; then echo "${fake_gpus[$(($1 - 1))]%%|*}"; else echo "End-to-end test host $1"; fi
+}
 host_ids=()
 codes=()
 for i in $(seq 1 "$agents"); do
   host_json="$(curl -sf -X POST "$api/v1/hosts" -H "Authorization: Bearer $token" \
-    -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-host-$i\"" -d "{\"name\":\"End-to-end test host $i\"}")" ||
+    -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-host-$i\"" -d "{\"name\":\"$(host_name "$i")\"}")" ||
     fail "POST /v1/hosts failed"
   id="$(printf '%s' "$host_json" | json_field id)"
   [[ -n "$id" ]] || fail "POST /v1/hosts returned no id"
@@ -424,9 +461,11 @@ serve_web() {
     sleep 0.2
   done
 }
-serve_web dist "$web_port"
+if ! $keep_running || [[ "${E2E_SERVE_WEB:-1}" != 0 ]]; then serve_web dist "$web_port"; fi
 $web_only && serve_web dist-firebase "$firebase_web_port"
-(cd web && pnpm exec playwright install chromium) >>"$out/web-build.log" 2>&1 || fail "installing Playwright's browser failed"
+if ! $keep_running; then
+  (cd web && pnpm exec playwright install chromium) >>"$out/web-build.log" 2>&1 || fail "installing Playwright's browser failed"
+fi
 summary+=("web app built and served: $(seconds_since "$web_started") s")
 web_url="http://localhost:$web_port"
 # Playwright, with this stack's addresses (web/playwright.config.ts).
@@ -461,12 +500,54 @@ done
 to_online="$(seconds_since "$agent_started")"
 summary+=("agents start to all $agents hosts online: $to_online s: PASS")
 host_view="$(curl -sf "$api/v1/hosts/$host_id" -H "Authorization: Bearer $token")"
-printf '%s' "$host_view" | grep -q '"gpus":\[{"model":"IdleO Fake GPU","vramMb":12282,"gone":false}\]' ||
+if $keep_running; then
+  IFS='|' read -r model vram _ <<<"${fake_gpus[0]}"
+else
+  model="IdleO Fake GPU" vram=12282
+fi
+printf '%s' "$host_view" | grep -q "\"gpus\":\[{\"model\":\"$model\",\"vramMb\":$vram,\"gone\":false}\]" ||
   fail "the host's GPUs aren't listed: $host_view"
-summary+=("fake GPU listed on the host: PASS")
+summary+=("fake GPU listed on the host ($model, $vram MB): PASS")
 
 # 7. Two renters with ₹500 of free credit each: A for the normal run alone, so its wallet shows exactly
 #    that run's charge, and B for the other three. Each host lists at 2 paise a minute and is activated.
+if $keep_running; then
+  # The account to sign in as, with ₹500 of credit, and the two laptops listed at their prices.
+  account_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$account" -d client_secret=unused -d scope=openid |
+    json_field access_token)"
+  [[ -n "$account_token" ]] || fail "no token for $account"
+  account_id="$(token="$account_token" api_get /v1/me | json_get .id)"
+  if [[ "$(token="$account_token" api_get /v1/wallet | json_get .availablePaise)" == 0 ]]; then
+    ops grant-credits --user "$account_id" --paise 50000 --reason "'Local stack credit'" --key "local-$account_id" ||
+      fail "grant-credits failed; see private/e2e/ops.log"
+  fi
+  for i in $(seq 1 "$agents"); do
+    IFS='|' read -r model vram price <<<"${fake_gpus[$((i - 1))]}"
+    curl -sf -X PUT "$api/v1/hosts/${host_ids[$((i - 1))]}/listing" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+      -d "{\"batchPricePaisePerMin\": $price, \"gpuTempCapC\": 85, \"maxConcurrentSessions\": 1}" >/dev/null || fail "PUT listing failed"
+    ops activate-host --host "${host_ids[$((i - 1))]}" --reason "'Local stack host'" || fail "activate-host failed; see private/e2e/ops.log"
+  done
+  printf '\nThe stack is up.\n\n'
+  if [[ "${E2E_SERVE_WEB:-1}" != 0 ]]; then
+    printf '  Open %s and sign in as %s@example.com (₹%s of credit).\n' "$web_url" "$account" \
+      "$(token="$account_token" api_get /v1/wallet | python3 -c 'import json, sys; print("%.2f" % (json.load(sys.stdin)["availablePaise"] / 100))')"
+  else
+    printf '  Run pnpm dev in web/ and sign in as %s@example.com.\n' "$account"
+  fi
+  for i in $(seq 1 "$agents"); do
+    IFS='|' read -r model vram price <<<"${fake_gpus[$((i - 1))]}"
+    printf '  Host %s: %s, %s MB, %s paise a minute, online.\n' "$i" "$model" "$vram" "$price"
+  done
+  printf '\nThe API, as %s (the token lasts an hour):\n\n' "$account"
+  printf "  curl -s -H 'Authorization: Bearer %s' %s/v1/me\n\n" "$account_token" "$api"
+  printf 'A new token:\n\n'
+  printf "  curl -s -X POST %s/token -d grant_type=client_credentials -d client_id=%s -d client_secret=unused -d scope=openid\n\n" "$sign_in" "$account"
+  printf 'Logs: private/e2e/ (control-plane.log, agent-N.log, web-serve.log). Ctrl-C stops everything.\n'
+  wait "$control_plane_pid" || true
+  exit 0
+fi
+
 user_id="$(api_get /v1/me | json_get .id)"
 token_b="$(curl -sf -X POST "$sign_in/token" \
   -d grant_type=client_credentials -d "client_id=$user-b" -d client_secret=unused -d scope=openid |
@@ -686,32 +767,16 @@ scenario_web() {
 # input, follow the event stream to settled, read the logs, check the output's hash and parameters and the
 # charge, and prove three errors by their types.
 scenario_booking() {
-  local file size parts upload_json upload id etags quote hold fits session stream_pid deleted
+  local file size parts part_size upload quote hold fits session stream_pid deleted
   token="$booking_token"
   file="$out/booking-input.bin"
   size=$((12 * 1024 * 1024))
   head -c "$size" /dev/urandom >"$file"
   local_sha="$(shasum -a 256 "$file" | cut -d' ' -f1)"
-  upload_json="$(api_post /v1/uploads -H "Idempotency-Key: \"$user-booking-upload\"" \
-    -d "{\"filename\": \"e2e input.bin\", \"sizeBytes\": $size}")" || fail "POST /v1/uploads failed"
-  upload="$(printf '%s' "$upload_json" | json_get .id)"
-  parts="$(printf '%s' "$upload_json" | json_get .partCount)"
-  part_size="$(printf '%s' "$upload_json" | json_get .partSizeBytes)"
+  upload="$(upload_file "$file" "e2e input.bin" booking-upload)" || exit 1
+  parts="$(json_get .partCount <"$out/upload-booking-upload.json")"
+  part_size="$(json_get .partSizeBytes <"$out/upload-booking-upload.json")"
   ((parts == 3)) || fail "a 12 MiB upload in 5 MiB parts should take 3 parts, not $parts"
-  etags="["
-  local separator=""
-  for ((n = 1; n <= parts; n++)); do
-    url="$(printf '%s' "$upload_json" | python3 -c 'import json, sys
-print(json.load(sys.stdin)["parts"][int(sys.argv[1]) - 1]["url"])' "$n")"
-    etag="$(dd if="$file" bs="$part_size" skip=$((n - 1)) count=1 2>/dev/null |
-      curl -sf -X PUT --data-binary @- -D - -o /dev/null "$url" | tr -d '\r' | sed -n 's/^[Ee][Tt]ag: *//p')"
-    [[ -n "$etag" ]] || fail "part $n of the upload didn't PUT"
-    etags+="$separator{\"number\": $n, \"etag\": $(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$etag")}"
-    separator=","
-  done
-  etags+="]"
-  [[ "$(api_post "/v1/uploads/$upload/complete" -d "{\"parts\": $etags}" | json_get .status)" == ready ]] ||
-    fail "the upload didn't complete"
   note "booking: uploaded $size bytes in $parts parts of $part_size bytes, straight to storage: ready"
 
   local body="{\"templateId\": \"echo-input\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000,
@@ -811,6 +876,55 @@ o = json.load(open(sys.argv[1])); print(json.dumps(o["params"]), "echo", json.du
   note "booking: errors by type: input-not-accepted, insufficient-credit, upload-in-use: PASS"
 }
 
+# The simulated fine-tune (templates/development.yaml), on its own host: a small JSONL of 40 examples uploaded,
+# fine-tune-simulated booked with its parameters, followed to COMPLETED, and its adapter downloaded and read as a
+# safetensors file, with the training log's figures matching what was asked.
+scenario_finetune() {
+  local file upload session outputs url name
+  token="$booking_token"
+  file="$out/finetune-examples.jsonl"
+  for i in $(seq 1 40); do
+    printf '{"prompt": "Question %d: what is %d plus %d?", "completion": "%d"}\n' "$i" "$i" "$i" $((2 * i))
+  done >"$file"
+  upload="$(upload_file "$file" "examples.jsonl" finetune-upload)" || exit 1
+  session="$(api_post /v1/sessions -H "Idempotency-Key: \"$user-finetune-session\"" \
+    -d "{\"templateId\": \"fine-tune-simulated\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000,
+         \"params\": {\"base_model\": \"Llama 3.2 1B Instruct\", \"epochs\": 3, \"lora_rank\": \"8\"},
+         \"input\": {\"uploadId\": \"$upload\"}}" | json_get .id)"
+  [[ -n "$session" ]] || fail "booking fine-tune-simulated failed"
+  await_state "$session" RUNNING 90
+  await_state "$session" COMPLETED 240
+  outputs="$(api_get "/v1/sessions/$session/outputs")" || fail "GET /outputs failed for the fine-tune"
+  [[ "$(printf '%s' "$outputs" | python3 -c 'import json, sys
+print(",".join(sorted(f["path"] for f in json.load(sys.stdin)["files"])))')" == "adapter_model.safetensors,training_log.json" ]] ||
+    fail "the fine-tune's outputs aren't the adapter and its training log: $outputs"
+  for name in adapter_model.safetensors training_log.json; do
+    url="$(printf '%s' "$outputs" | python3 -c 'import json, sys
+print(next(f["url"] for f in json.load(sys.stdin)["files"] if f["path"] == sys.argv[1]))' "$name")"
+    curl -sf "$url" -o "$out/finetune-$name" || fail "downloading the fine-tune's $name failed"
+  done
+  python3 - "$out/finetune-adapter_model.safetensors" "$out/finetune-training_log.json" <<'CHECK' ||
+import json, struct, sys
+data = open(sys.argv[1], "rb").read()
+(length,) = struct.unpack("<Q", data[:8])
+header = json.loads(data[8 : 8 + length])
+tensors = {name: t for name, t in header.items() if name != "__metadata__"}
+assert len(tensors) == 8 and all(t["dtype"] == "F32" and 8 in t["shape"] for t in tensors.values()), header
+assert max(t["data_offsets"][1] for t in tensors.values()) == len(data) - 8 - length, "the tensors fill the file"
+assert header["__metadata__"]["base_model"] == "Llama 3.2 1B Instruct", header
+log = json.load(open(sys.argv[2]))
+assert log["training_examples"] == 40 and log["epochs"] == 3 and log["lora_rank"] == 8, log
+assert len(log["steps"]) == 15 and log["steps"][-1]["loss"] < log["steps"][0]["loss"], log
+CHECK
+    fail "the fine-tune's adapter or training log isn't what was asked for"
+  api_get "/v1/sessions/$session/logs?limit=100" | python3 -c 'import json, sys
+text = "".join(c["text"] for c in json.load(sys.stdin)["chunks"])
+assert "loading base model Llama 3.2 1B Instruct" in text and "epoch 3/3 step 15/15 loss" in text, text' ||
+    fail "the fine-tune's log doesn't show its epochs and steps"
+  note "simulated fine-tune: 40 examples, 3 epochs, rank 8; downloaded adapter_model.safetensors, $(wc -c <"$out/finetune-adapter_model.safetensors" | tr -d ' ') bytes, 8 F32 tensors; loss $(python3 -c 'import json, sys
+log = json.load(open(sys.argv[1])); print("%.4f to %.4f" % (log["steps"][0]["loss"], log["final_loss"]))' "$out/finetune-training_log.json"); the log shows every step: PASS"
+}
+
 # 8 (--web). The web app's checks (ADR 0018), against this stack: every screen and state with axe and
 #    the visual baselines, the Firebase screens, zero layout shift, the journey; then Lighthouse's
 #    budgets and the first-load size budget of the production (Firebase) build.
@@ -848,11 +962,11 @@ fi
 
 if ! $web_only; then
 scenarios_started="$(now_ms)"
-scenarios=(normal stop loss cap web booking)
+scenarios=(normal stop loss cap web booking finetune)
 scenario_pids=()
 for scenario in "${scenarios[@]}"; do
   : >"$out/summary-$scenario.txt"
-  if [[ $scenario == normal || $scenario == web || $scenario == booking ]]; then
+  if [[ $scenario == normal || $scenario == web || $scenario == booking || $scenario == finetune ]]; then
     ( "scenario_$scenario" ) &
   else
     ( token="$token_b"; "scenario_$scenario" ) &
@@ -865,7 +979,7 @@ for i in "${!scenarios[@]}"; do
   while IFS= read -r line; do summary+=("$line"); done <"$out/summary-${scenarios[$i]}.txt"
 done
 [[ -z "$failed" ]] || fail "scenarios failed:$failed"
-summary+=("six scenarios side by side (four charged, the web journey and the booking contract): $(seconds_since "$scenarios_started") s")
+summary+=("seven scenarios side by side (four charged, the web journey, the booking contract and the simulated fine-tune): $(seconds_since "$scenarios_started") s")
 
 wallet_b="$(token="$token_b" api_get /v1/wallet)"
 (($(printf '%s' "$wallet_b" | json_get .balancePaise) >= 0)) && [[ "$(printf '%s' "$wallet_b" | json_get .reservedPaise)" == 0 ]] ||

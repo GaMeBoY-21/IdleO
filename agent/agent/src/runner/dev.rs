@@ -13,6 +13,12 @@
 //! every `SESSION_PARAM_*` variable from the spec, and, when there's a `greeting` parameter (the
 //! `echo-input` template), the greeting repeated `repeat` times. It writes real log lines: the start, the
 //! attempt, the checkpoint it resumed from, the parameters, the input, each checkpoint, and the finish.
+//!
+//! With `--simulate <kind>` in its arguments (fine-tune, run-code, generate-images or transcribe), it plays
+//! one of the four services instead ([`simulate`]): that service's log lines, streamed as it runs, and its
+//! outputs in place of `result.json`, all generated.
+
+mod simulate;
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -27,11 +33,14 @@ use sha2::{Digest, Sha256};
 use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 
+use self::simulate::{Given, Kind, Simulation};
 use super::{Job, Report, SessionRunner};
 use crate::storage::{ObjectStore, StorageError};
 
 /// How many times an output upload is tried before the job fails.
 const UPLOAD_TRIES: u32 = 3;
+/// The most the job sleeps between looking at the time: a simulation's lines are written as they fall due.
+const TICK: Duration = Duration::from_secs(1);
 
 /// The development runner.
 #[derive(Debug, Clone, Copy, Default)]
@@ -74,7 +83,7 @@ struct Output {
     echo: Option<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct InputSeen {
     name: String,
     size_bytes: u64,
@@ -128,9 +137,14 @@ impl SessionRunner for DevRunner {
 async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), Stop> {
     let _ = reports.send(Report::State(SessionState::Preparing));
     job.logs.line(format!("starting session {} attempt {}", job.session_id, job.attempt));
-    let duration =
-        duration_from_args(&job.spec.args).map_err(|message| Stop::Failed { code: "invalid_args", message })?;
-    let seen = observe(job).await?;
+    let invalid_args = |message| Stop::Failed { code: "invalid_args", message };
+    let duration = duration_from_args(&job.spec.args).map_err(invalid_args)?;
+    let kind = arg_value(&job.spec.args, "--simulate").map(str::parse::<Kind>).transpose().map_err(invalid_args)?;
+    let seen = observe(job, kind.is_none()).await?;
+    let simulation = kind.map(|kind| simulation(job, kind, &seen));
+    for line in simulation.iter().flat_map(Simulation::opening) {
+        job.logs.line(line);
+    }
     let interval = job
         .spec
         .checkpoint_interval
@@ -157,9 +171,10 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
     tracing::info!(session_id = %job.session_id, attempt = job.attempt, ?duration, "the job is running");
 
     let mut seq = 0;
+    let mut next_checkpoint = elapsed + interval;
     let mut stop_requested = job.stop_requested.clone();
     while elapsed < duration {
-        let step = interval.min(duration.saturating_sub(elapsed));
+        let step = TICK.min(duration.saturating_sub(elapsed)).min(next_checkpoint.saturating_sub(elapsed));
         let started = tokio::time::Instant::now();
         let asked_to_stop = *stop_requested.borrow_and_update()
             || tokio::select! {
@@ -167,8 +182,12 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
                 // A closed channel disables this branch: with nobody left to ask, no stop is coming.
                 Ok(_) = stop_requested.wait_for(|stop| *stop) => true,
             };
+        let before = elapsed;
         elapsed += started.elapsed().min(step);
         fenced(job)?;
+        for line in simulation.iter().flat_map(|simulation| simulation.lines_between(before, elapsed, duration)) {
+            job.logs.line(line);
+        }
         if asked_to_stop {
             // The last checkpoint, if storage takes it; the stop happens either way.
             match write_checkpoint(job, seq + 1, elapsed).await {
@@ -184,7 +203,8 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
             }
             return Err(Stop::Requested);
         }
-        if elapsed < duration {
+        if elapsed >= next_checkpoint && elapsed < duration {
+            next_checkpoint += interval;
             seq += 1;
             match write_checkpoint(job, seq, elapsed).await {
                 Ok(()) => {
@@ -202,36 +222,62 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
     }
 
     let _ = reports.send(Report::State(SessionState::Uploading));
-    let output = Output {
-        session_id: job.session_id.to_string(),
-        attempt: job.attempt,
-        resumed_from: job.resume_from.as_ref().map(|from| ResumedFrom { prefix: from.prefix.clone(), seq: from.seq }),
-        ran_for_ms: millis(elapsed),
-        checkpoints_written: seq,
-        input: seen.input,
-        input_url: seen.input_url,
-        params: seen.params,
-        echo: seen.echo,
-    };
     let outputs = format!("{}outputs/", job.attempt_prefix);
-    let body = serde_json::to_vec_pretty(&output).expect("the output serialises");
-    let manifest = manifest("result.json", &body);
-    upload(job, &format!("{outputs}result.json"), body).await?;
-    upload(job, &format!("{outputs}_COMPLETE"), manifest).await?;
+    let files = match &simulation {
+        Some(simulation) => simulation.outputs(),
+        None => vec![("result.json".to_owned(), result(job, &seen, elapsed, seq))],
+    };
+    for (path, body) in &files {
+        upload(job, &format!("{outputs}{path}"), body.clone()).await?;
+    }
+    upload(job, &format!("{outputs}_COMPLETE"), manifest(&files)).await?;
     tracing::info!(session_id = %job.session_id, attempt = job.attempt, "the job finished and its outputs are uploaded");
     job.logs.line(format!("finished after {} ms; outputs uploaded", millis(elapsed)));
     Ok(())
 }
 
-/// What the job was given, written to its log as it's read.
+/// `result.json`: what the job saw, and how it ran.
+fn result(job: &Job, seen: &Seen, elapsed: Duration, checkpoints_written: i32) -> Vec<u8> {
+    let output = Output {
+        session_id: job.session_id.to_string(),
+        attempt: job.attempt,
+        resumed_from: job.resume_from.as_ref().map(|from| ResumedFrom { prefix: from.prefix.clone(), seq: from.seq }),
+        ran_for_ms: millis(elapsed),
+        checkpoints_written,
+        input: seen.input.clone(),
+        input_url: seen.input_url.clone(),
+        params: seen.params.clone(),
+        echo: seen.echo.clone(),
+    };
+    serde_json::to_vec_pretty(&output).expect("the output serialises")
+}
+
+fn simulation(job: &Job, kind: Kind, seen: &Seen) -> Simulation {
+    let given = Given {
+        params: seen.params.clone(),
+        input_name: seen.input.as_ref().map(|input| input.name.clone()),
+        input_bytes: seen.input.as_ref().map_or(0, |input| input.size_bytes),
+        input_lines: seen.input_lines,
+    };
+    Simulation::new(kind, given, &job.session_id.to_string())
+}
+
+/// What the job was given; written to its log as it's read, unless a simulation writes its own.
 struct Seen {
     params: BTreeMap<String, String>,
     input: Option<InputSeen>,
+    /// Lines in the input file: a simulation's training examples or prompts.
+    input_lines: u64,
     input_url: Option<String>,
     echo: Option<Vec<String>>,
 }
 
-async fn observe(job: &Job) -> Result<Seen, Stop> {
+async fn observe(job: &Job, log: bool) -> Result<Seen, Stop> {
+    let line = |text: String| {
+        if log {
+            job.logs.line(text);
+        }
+    };
     let params: BTreeMap<String, String> = job
         .spec
         .env
@@ -240,37 +286,39 @@ async fn observe(job: &Job) -> Result<Seen, Stop> {
         .map(|(name, value)| (name.clone(), value.clone()))
         .collect();
     for (name, value) in &params {
-        job.logs.line(format!("parameter {name}={value}"));
+        line(format!("parameter {name}={value}"));
     }
-    let input = match &job.input_file {
+    let (input, input_lines) = match &job.input_file {
         Some(path) => {
-            let seen = read_input(path).await?;
-            job.logs.line(format!("input {} {} bytes sha256 {}", seen.name, seen.size_bytes, seen.sha256));
-            Some(seen)
+            let (seen, lines) = read_input(path).await?;
+            line(format!("input {} {} bytes sha256 {}", seen.name, seen.size_bytes, seen.sha256));
+            (Some(seen), lines)
         }
-        None => None,
+        None => (None, 0),
     };
     let input_url = job.spec.env.get("SESSION_INPUT_URL").cloned();
     if let Some(url) = &input_url {
-        job.logs.line(format!("input url {url} (a real job fetches it inside its sandbox)"));
+        line(format!("input url {url} (a real job fetches it inside its sandbox)"));
     }
     let echo = params.get("SESSION_PARAM_GREETING").map(|greeting| {
         let repeat = params.get("SESSION_PARAM_REPEAT").and_then(|repeat| repeat.parse::<usize>().ok()).unwrap_or(1);
         vec![greeting.clone(); repeat]
     });
-    for line in echo.iter().flatten() {
-        job.logs.line(line);
+    for text in echo.iter().flatten() {
+        line(text.clone());
     }
-    Ok(Seen { params, input, input_url, echo })
+    Ok(Seen { params, input, input_lines, input_url, echo })
 }
 
-/// The staged input's name, size and SHA-256, read in pieces.
-async fn read_input(path: &Path) -> Result<InputSeen, Stop> {
+/// The staged input's name, size and SHA-256, and how many lines it has, read in pieces.
+async fn read_input(path: &Path) -> Result<(InputSeen, u64), Stop> {
     let unreadable = |e: std::io::Error| Stop::Failed { code: "input_unreadable", message: e.to_string() };
     let mut file = tokio::fs::File::open(path).await.map_err(unreadable)?;
     let mut hasher = Sha256::new();
     let mut buffer = vec![0_u8; 64 * 1024];
     let mut size = 0_u64;
+    let mut lines = 0_u64;
+    let mut ends_in_newline = true;
     loop {
         let read = file.read(&mut buffer).await.map_err(unreadable)?;
         if read == 0 {
@@ -278,13 +326,19 @@ async fn read_input(path: &Path) -> Result<InputSeen, Stop> {
         }
         hasher.update(&buffer[..read]);
         size += read as u64;
+        lines += buffer[..read].iter().fold(0, |count, &byte| count + u64::from(byte == b'\n'));
+        ends_in_newline = buffer[read - 1] == b'\n';
+    }
+    // A last line without a newline still counts.
+    if !ends_in_newline {
+        lines += 1;
     }
     let mut sha256 = String::with_capacity(64);
     for byte in hasher.finalize() {
         let _ = write!(sha256, "{byte:02x}");
     }
     let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
-    Ok(InputSeen { name, size_bytes: size, sha256 })
+    Ok((InputSeen { name, size_bytes: size, sha256 }, lines))
 }
 
 fn fenced(job: &Job) -> Result<(), Stop> {
@@ -312,7 +366,7 @@ async fn resume(store: &dyn ObjectStore, checkpoint: &CheckpointRef) -> Result<D
 async fn write_checkpoint(job: &Job, seq: i32, elapsed: Duration) -> Result<(), Stop> {
     let folder = format!("{}checkpoints/{seq:08}/", job.attempt_prefix);
     let state = serde_json::to_vec(&State { elapsed_ms: millis(elapsed) }).expect("the state serialises");
-    let manifest = manifest("state.json", &state);
+    let manifest = manifest(&[("state.json".to_owned(), state.clone())]);
     fenced(job)?;
     job.attempt_store.put(&format!("{folder}state.json"), state).await?;
     fenced(job)?;
@@ -339,27 +393,34 @@ async fn upload(job: &Job, key: &str, body: Vec<u8>) -> Result<(), Stop> {
     }
 }
 
-fn manifest(path: &str, body: &[u8]) -> Vec<u8> {
-    serde_json::to_vec(&Manifest { files: vec![ManifestFile { path: path.to_owned(), size: body.len() as u64 }] })
-        .expect("the manifest serialises")
+/// A folder's `_COMPLETE` marker, listing every file in it.
+fn manifest(files: &[(String, Vec<u8>)]) -> Vec<u8> {
+    let files = files.iter().map(|(path, body)| ManifestFile { path: path.clone(), size: body.len() as u64 }).collect();
+    serde_json::to_vec(&Manifest { files }).expect("the manifest serialises")
 }
 
 fn millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
-/// The job's length from `--duration 20s` or `--duration=20s`, in `ms`, `s` or `m`.
-fn duration_from_args(args: &[String]) -> Result<Duration, String> {
+/// The value of `--name value` or `--name=value` in the spec's arguments; the last one given.
+fn arg_value<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
     let mut value = None;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
-        if arg == "--duration" {
+        if arg == name {
             value = args.next().map(String::as_str);
-        } else if let Some(rest) = arg.strip_prefix("--duration=") {
+        } else if let Some(rest) = arg.strip_prefix(name).and_then(|rest| rest.strip_prefix('=')) {
             value = Some(rest);
         }
     }
-    let value = value.ok_or("the development runner needs --duration, for example --duration 20s")?;
+    value
+}
+
+/// The job's length from `--duration 20s` or `--duration=20s`, in `ms`, `s` or `m`.
+fn duration_from_args(args: &[String]) -> Result<Duration, String> {
+    let value =
+        arg_value(args, "--duration").ok_or("the development runner needs --duration, for example --duration 20s")?;
     let (number, unit) = value.split_at(value.find(|c: char| !c.is_ascii_digit()).unwrap_or(value.len()));
     let number: u64 = number.parse().map_err(|_| format!("--duration {value} isn't a number with a unit"))?;
     let duration = match unit {
@@ -610,6 +671,125 @@ mod tests {
         }
     }
 
+    /// A simulated service's job: its outputs, listed in their marker, and its log, for `kind`.
+    async fn simulate(kind: &str, input: &[u8], params: &[(&str, &str)]) -> (BTreeMap<String, Vec<u8>>, String) {
+        let objects = Arc::default();
+        let session = Uuid::now_v7();
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("input/given");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, input).unwrap();
+        let (finish, finished) = tokio::sync::watch::channel(false);
+        let prefix = format!("sessions/{session}/attempt-1/");
+        let (logs, sink) =
+            crate::logs::spawn(store(&objects, &prefix, true), format!("{prefix}logs/"), finished, |_| {});
+        let mut job = job(session, 1, &objects, None);
+        job.spec = spec(&["--duration", "90s", "--simulate", kind], Duration::from_secs(5));
+        job.spec.env =
+            params.iter().map(|&(name, value)| (format!("SESSION_PARAM_{name}"), value.to_owned())).collect();
+        job.input_file = Some(path);
+        job.logs = logs;
+
+        let reports = run_to_end(job).await;
+        finish.send(true).unwrap();
+        sink.await.unwrap();
+
+        assert_eq!(reports.last(), Some(&Report::Succeeded), "{reports:?}");
+        assert_eq!(
+            reports.iter().filter(|report| matches!(report, Report::Checkpoint(_))).count(),
+            17,
+            "every 5 s, as now"
+        );
+        let objects = objects.lock().unwrap();
+        let outputs = format!("{prefix}outputs/");
+        let files: BTreeMap<String, Vec<u8>> = objects
+            .iter()
+            .filter_map(|(key, body)| key.strip_prefix(&outputs).map(|path| (path.to_owned(), body.clone())))
+            .filter(|(path, _)| path != "_COMPLETE")
+            .collect();
+        let manifest: Manifest = serde_json::from_slice(&objects[&format!("{outputs}_COMPLETE")]).unwrap();
+        let listed: BTreeMap<String, u64> = manifest.files.into_iter().map(|file| (file.path, file.size)).collect();
+        assert_eq!(
+            listed,
+            files.iter().map(|(path, body)| (path.clone(), body.len() as u64)).collect(),
+            "the marker lists every output"
+        );
+        let log = objects
+            .iter()
+            .filter(|(key, _)| key.contains("/logs/"))
+            .map(|(_, body)| String::from_utf8_lossy(body).into_owned())
+            .collect();
+        (files, log)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn simulating_a_fine_tune_writes_an_adapter_and_a_training_log() {
+        let examples = "{\"prompt\": \"a\", \"completion\": \"b\"}\n".repeat(40);
+        let (files, log) = simulate(
+            "fine-tune",
+            examples.as_bytes(),
+            &[("BASE_MODEL", "Llama 3.2 1B Instruct"), ("EPOCHS", "3"), ("LORA_RANK", "8")],
+        )
+        .await;
+
+        assert_eq!(files.keys().collect::<Vec<_>>(), ["adapter_model.safetensors", "training_log.json"]);
+        let training: serde_json::Value = serde_json::from_slice(&files["training_log.json"]).unwrap();
+        assert_eq!(training["training_examples"], 40);
+        assert_eq!(training["steps"].as_array().unwrap().len(), 15, "5 steps an epoch for 40 examples, 3 epochs");
+        assert!(log.contains("loading base model Llama 3.2 1B Instruct (4-bit)"), "{log}");
+        assert!(log.contains("epoch 3/3 step 15/15 loss "), "{log}");
+        assert!(log.contains("saving the adapter: adapter_model.safetensors"), "{log}");
+        assert!(!log.contains("SESSION_PARAM_"), "a simulation prints its own lines, not the runner's");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn simulating_run_your_code_writes_its_result() {
+        let (files, log) =
+            simulate("run-code", b"PK\x03\x04 not really a zip", &[("COMMAND", "python train.py --fast")]).await;
+
+        assert_eq!(files.keys().collect::<Vec<_>>(), ["result.txt"]);
+        let result = String::from_utf8(files["result.txt"].clone()).unwrap();
+        assert!(result.starts_with("$ python train.py --fast\n") && result.contains("exit code 0"), "{result}");
+        assert!(
+            log.contains("$ python train.py --fast") && log.contains("batch 16/16: ") && log.contains("Done."),
+            "{log}"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn simulating_image_generation_writes_one_png_an_image() {
+        let (files, log) =
+            simulate("generate-images", b"a red fox\na lighthouse at dusk\n", &[("COUNT", "3"), ("SIZE", "512")]).await;
+
+        assert_eq!(files.keys().collect::<Vec<_>>(), ["image-1.png", "image-2.png", "image-3.png"]);
+        assert!(files.values().all(|png| png.starts_with(b"\x89PNG\r\n\x1a\n")));
+        assert!(log.contains("2 prompts; 3 images at 512x512") && log.contains("image 3 of 3: done"), "{log}");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn simulating_a_transcription_writes_text_and_subtitles() {
+        let (files, log) = simulate("transcribe", &[0_u8; 4096], &[("LANGUAGE", "Hindi")]).await;
+
+        assert_eq!(files.keys().collect::<Vec<_>>(), ["transcript.srt", "transcript.txt"]);
+        let text = String::from_utf8(files["transcript.txt"].clone()).unwrap();
+        let srt = String::from_utf8(files["transcript.srt"].clone()).unwrap();
+        assert_eq!(text.lines().count(), 12);
+        assert!(text.starts_with("नमस्ते"), "{text}");
+        assert!(srt.starts_with("1\n00:00:00,400 --> 00:00:0"), "{srt}");
+        assert!(log.contains("language: Hindi") && log.contains("[00:00:00.400 --> "), "{log}");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_unknown_simulation_is_refused() {
+        let objects = Arc::default();
+        let mut job = job(Uuid::now_v7(), 1, &objects, None);
+        job.spec = spec(&["--duration", "20s", "--simulate", "mine-bitcoin"], Duration::from_secs(5));
+
+        let reports = run_to_end(job).await;
+
+        assert!(matches!(reports.last(), Some(Report::Failed { code, .. }) if code == "invalid_args"), "{reports:?}");
+    }
+
     #[test]
     fn durations_come_from_the_args() {
         let parse = |args: &[&str]| duration_from_args(&args.iter().map(|&a| a.to_owned()).collect::<Vec<_>>());
@@ -619,5 +799,8 @@ mod tests {
         assert!(parse(&["nvidia-smi"]).is_err());
         assert!(parse(&["--duration", "20"]).is_err());
         assert!(parse(&["--duration", "0s"]).is_err());
+        let args = ["--duration", "90s", "--simulate=fine-tune"].map(str::to_owned);
+        assert_eq!(arg_value(&args, "--simulate"), Some("fine-tune"));
+        assert_eq!(arg_value(&args, "--sim"), None, "a prefix isn't the argument");
     }
 }

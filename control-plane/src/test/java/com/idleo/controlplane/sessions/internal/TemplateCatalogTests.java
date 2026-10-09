@@ -288,11 +288,50 @@ class TemplateCatalogTests {
         }
         try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
             var catalog = TemplateCatalog.read(in);
-            assertThat(catalog.services().keySet()).containsExactly("developer-tests");
+            assertThat(catalog.services().keySet())
+                    .containsExactly("fine-tune", "run-code", "generate-images", "transcribe", "developer-tests");
             assertThat(catalog.services().get("developer-tests").name()).isEqualTo("Test jobs");
-            assertThat(catalog.templates().values())
-                    .allSatisfy(template -> assertThat(template.service()).isEqualTo("developer-tests"));
+            assertThat(catalog.templates().get("echo-input").service()).isEqualTo("developer-tests");
         }
+    }
+
+    /**
+     * The local stack shows the production services in their real words: every service the development catalog
+     * shares with catalog.yaml has the same id, name, tagline, running label and icon, all four offered ones are
+     * there, and each runs one template the development runner simulates as that service.
+     */
+    @Test
+    void theDevelopmentCatalogShowsTheProductionServicesWordForWord() throws Exception {
+        TemplateCatalog.Parsed production;
+        TemplateCatalog.Parsed development;
+        try (var in = Files.newInputStream(Path.of("../templates/catalog.yaml"))) {
+            production = TemplateCatalog.read(in);
+        }
+        try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
+            development = TemplateCatalog.read(in);
+        }
+        var offered = production.services().values().stream()
+                .filter(service -> !service.hidden())
+                .toList();
+        assertThat(offered).hasSize(4);
+        for (var service : offered) {
+            assertThat(development.services().get(service.id()))
+                    .as("development.yaml's %s", service.id())
+                    .isEqualTo(service);
+            assertThat(development.templates().values())
+                    .filteredOn(template -> template.service().equals(service.id()))
+                    .singleElement()
+                    .satisfies(template -> {
+                        assertThat(template.args()).containsSubsequence("--simulate", service.id());
+                        assertThat(template.name()).endsWith("(simulated)");
+                        assertThat(template.description()).contains("development runner");
+                        assertThat(template.input().accepts()).isEqualTo(Template.Accepts.REQUIRED);
+                    });
+        }
+        development.services().values().stream()
+                .filter(service -> production.services().containsKey(service.id()))
+                .forEach(service ->
+                        assertThat(service).isEqualTo(production.services().get(service.id())));
     }
 
     @Test

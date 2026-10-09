@@ -12,6 +12,6 @@ How a job gets them:
 - an uploaded input is staged by the agent at `/work/input/<name>`, named in `SESSION_INPUT_FILE`, before the job starts;
 - a URL input is `SESSION_INPUT_URL`, and the job fetches it itself, inside its sandbox, where private networks are blocked. The agent never fetches a renter's URL, because it runs outside the sandbox and could reach the host's home network.
 
-`development.yaml` is the development runner's catalog, for local runs, the tests and the end-to-end test; its `echo-input` template takes a greeting, a repeat count and a required input, and writes back what it saw.
+`development.yaml` is the development runner's catalog, for local runs, the tests and the end-to-end test. It has the four production services, word for word as `catalog.yaml` has them (a control-plane test fails if they differ), each with one template the development runner simulates (`--simulate <kind>`: the real template's parameters and input, generated log lines and outputs, 60 to 120 seconds), so the local stack looks like the real thing. Beside them, "Test jobs": among others, `echo-input` takes a greeting, a repeat count and a required input, and writes back what it saw.
 
 The first entry is a small smoke test on the CUDA base image Phase 0 pins. More batch templates follow, starting with QLoRA (`phase0/qlora-test/`) once its image is published. Notebook and endpoint templates (Jupyter, vLLM) start in Phase 2. cosign signatures are verified once the registry exists (technical design line 83).

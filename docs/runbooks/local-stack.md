@@ -9,13 +9,13 @@ From the repository root, it:
 1. Creates the development CA under `private/dev-ca/` if it doesn't exist yet (`control-plane/scripts/dev-ca.sh`), including the gRPC port's certificate for `localhost`.
 2. Starts the control plane on the `local` profile (`./mvnw spring-boot:run`).
    - Spring Boot starts `control-plane/compose.yaml`: PostgreSQL, Valkey, MinIO (object storage) and the development sign-in server, under the compose project name `idleo-e2e`.
-   - It uses the development template catalog (`templates/development.yaml`: the smoke test runs 20 s, `charged-run` 150 s and `long-run` 10 minutes, each checkpointing every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
+   - It uses the development template catalog (`templates/development.yaml`: the four services simulated, 60 to 120 s each; the smoke test runs 20 s, `charged-run` 150 s and `long-run` 10 minutes; each checkpointing every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
    - Storage grants last 60 s, so every run outlives its first and the agents swap in fresh ones. Metering ticks every second and closes a session 20 s after it ends rather than 5 minutes.
    - The script waits for readiness to be UP.
 3. Gets an ID token for an invented user (`e2e-…@example.com`) from the development sign-in server.
-4. Registers four hosts (`POST /v1/hosts` with an `Idempotency-Key`) and gets their enrolment codes (`POST /v1/hosts/{id}/enrolment-code`). Codes are never printed or logged.
-5. Builds the agent (`cargo build --release`), writes `private/e2e/agent-1.toml` to `agent-4.toml`, and enrols each into its own `private/e2e/agent-N/`.
-6. Runs four `idleo-agent run --fake-gpu --dev-runner`, and polls `GET /v1/hosts/{id}` every 500 ms until every host is `online` (30 s at most). It also checks that the fake GPU is listed.
+4. Registers seven hosts (`POST /v1/hosts` with an `Idempotency-Key`) and gets their enrolment codes (`POST /v1/hosts/{id}/enrolment-code`). Codes are never printed or logged.
+5. Builds the agent (`cargo build --release`), writes `private/e2e/agent-1.toml` to `agent-7.toml`, and enrols each into its own `private/e2e/agent-N/`.
+6. Runs seven `idleo-agent run --fake-gpu --dev-runner`, and polls `GET /v1/hosts/{id}` every 500 ms until every host is `online` (30 s at most). It also checks that the fake GPU is listed.
 7. **Sets up money and hosts:**
    - two renters get ₹500 each with the `grant-credits` operator command: A for the normal run alone, so its wallet shows exactly that charge, and B for the other three;
    - every host lists at 2 paise a minute, and is activated with `activate-host`.
@@ -27,13 +27,16 @@ From the repository root, it:
 
    - **Web journeys** (its own renter, ₹500, `web/e2e/journey.spec.ts`): in a real browser, Home following a booked session to its charge; on a laptop, a whole booking (form, a 12 MiB upload, the quote, the session live to settled, the output's SHA-256) and Run again; not enough credit; a cancelled upload; the event stream dropping and coming back; stopping a session on a phone. The summary prints seconds from Book to RUNNING, upload throughput, the quoted and held hold, and the charge.
 
+   - **Booking contract** (its own renter): a 12 MiB file uploaded in parts straight to storage, a quote, `echo-input` booked with parameters and that file, followed on its event stream to settled, its logs and output, and three errors by their types.
+   - **Simulated fine-tune** (the booking contract's renter): a JSONL of 40 examples uploaded, `fine-tune-simulated` booked with 3 epochs and rank 8, followed to `COMPLETED`, and `adapter_model.safetensors` downloaded and read as a safetensors file (8 F32 tensors of rank 8 filling the file), with `training_log.json`'s steps and falling loss, and the log showing every step.
+
    Then it checks renter B's wallet is not negative and holds nothing, that an agent resumed from a checkpoint and swapped in fresh credentials, and that no storage credential appears in any log.
 9. **Runs the wallet check** (`reconcile-wallets`) and requires 0 mismatches.
 10. Stops the agents with SIGTERM, and polls until every host is offline (30 s at most). Under 5 seconds means the clean close removed presence; anything longer would mean only the 15-second presence expiry did, and the script says which.
 11. Prints a summary, with each timing and PASS or FAIL, and exits non-zero on any failure.
 12. On exit, even after a failure or Ctrl-C, it stops the agents and the control plane and removes the compose services. It then checks that no container, control plane or agent is still running.
 
-Logs go to `private/e2e/`: `control-plane.log`, `agent-1.log` to `agent-4.log`, `agent-build.log`, `ops.log` (the operator commands) and `compose.log`, with the two downloaded outputs beside them. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
+Logs go to `private/e2e/`: `control-plane.log`, `agent-1.log` to `agent-7.log`, `agent-build.log`, `ops.log` (the operator commands) and `compose.log`, with the downloaded outputs beside them. Like everything else under `private/`, they're gitignored. The script never reads `control-plane/.env`, so a local override can't change the result.
 
 ## What you need
 
@@ -57,13 +60,18 @@ The first run downloads the images, the Maven dependencies and the crates, and b
 scripts/e2e/agent-online.sh --keep-running
 ```
 
-This starts only the stack (steps 1 to 3) and prints a ready `curl` with a fresh token, for example:
+This starts the stack to look at and try by hand (steps 1 to 7, without the scenarios):
+- two hosts, each an agent with the development runner and a laptop's fake GPU: **RTX 4060 Laptop**, 8 GB, listed at 12 paise a minute (₹7.20 an hour), and **RTX 4080 Laptop**, 12 GB, at 18 paise (₹10.80 an hour), so Book shows a real price range and a session a real GPU's name;
+- the web app, built against the stack and served at http://localhost:3000 (with `E2E_SERVE_WEB=0` it isn't, so `pnpm dev` can have the port);
+- an account with ₹500 of credit: sign in as `nikki@example.com` (another with `E2E_ACCOUNT=<name>`). Home shows the four services, simulated, and "Test jobs".
+
+It prints the address and the account, and a ready `curl` with a fresh token for it, for example:
 
 ```
 curl -s -H 'Authorization: Bearer eyJ…' http://localhost:8080/v1/me
 ```
 
-It also prints the command for a new token; tokens last an hour. Any `client_id` signs in as a different invented user, `<client_id>@example.com`. To run an agent against the stack by hand, follow `agent/README.md`, with `ca_root` set to `private/dev-ca/root.pem` and the port set to 9443.
+It also prints the command for a new token; tokens last an hour. Any `client_id` signs in as a different invented user, `<client_id>@example.com`. To run another agent against the stack by hand, follow `agent/README.md`, with `ca_root` set to `private/dev-ca/root.pem` and the port set to 9443.
 
 **Ctrl-C stops everything.** If the terminal was closed instead, run `docker compose -p idleo-e2e -f control-plane/compose.yaml down` and stop any leftover `spring-boot:run` process.
 
