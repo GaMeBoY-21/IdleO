@@ -15,8 +15,11 @@ import org.jspecify.annotations.Nullable;
  *
  * @param maxPricePaisePerMin the most a minute the renter will pay; left out, the server uses the highest price among
  *     the GPUs that fit right now (ADR 0021), and refuses with no-gpu-free when none does
- * @param params the template's parameters by name, as GET /v1/templates describes them; defaults fill the rest
- * @param input the file the job reads, when the template takes one
+ * @param params the template's parameters by name, as GET /v1/templates describes them; a preset's values, then the
+ *     defaults, fill the rest
+ * @param presets the option chosen for each of the template's preset questions, by question name; left out, a
+ *     question takes its default option
+ * @param inputs what the renter brings, by the template's input names (ADR 0022)
  */
 public record CreateSessionRequest(
         @NotBlank String templateId,
@@ -32,11 +35,13 @@ public record CreateSessionRequest(
                 additionalPropertiesSchema = ParamValue.class)
         Map<String, Object> params,
 
-        @Nullable @Valid SessionInput input) {
+        @Nullable Map<String, String> presets,
+
+        @Nullable Map<String, @Valid SessionInput> inputs) {
 
     /**
-     * The job's input: exactly one of a ready upload of the renter's, or an https URL the job fetches itself inside
-     * its sandbox.
+     * One input: exactly one of a ready upload of the renter's, or an https link the job fetches itself inside its
+     * sandbox.
      */
     public record SessionInput(
             @Nullable UUID uploadId, @Nullable String url) {}

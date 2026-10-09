@@ -104,7 +104,7 @@ class SessionStarts implements SessionCredentials {
                 .setLeaseTtl(SessionSpecs.duration(leases.ttl()))
                 .setMinuteIndexBase(minuteIndexBase)
                 .addGpuUuids(gpuUuid);
-        jobs.inputRef(session).ifPresent(start::setInput);
+        start.addAllInputs(jobs.inputRefs(session));
         if (resumeFrom != null) {
             start.setResumeFrom(CheckpointRef.newBuilder()
                     .setPrefix(StorageLayout.checkpointsPrefix(session.id(), resumeFrom.attempt()))
@@ -178,17 +178,18 @@ class SessionStarts implements SessionCredentials {
                 current.get().resumeSeq()));
     }
 
-    /** Fresh grants for the attempt: its own folder, and its uploaded input and resume checkpoint to read. */
+    /** Fresh grants for the attempt: its own folder, and its uploaded inputs and resume checkpoint to read. */
     private Credentials credentials(
             UUID sessionId, int attempt, @Nullable Integer resumeAttempt, @Nullable Integer resumeSeq) {
         var resumeFrom = resumeAttempt == null || resumeSeq == null
                 ? null
                 : new StorageGrants.ResumeFrom(resumeAttempt, resumeSeq);
-        var inputPrefix = store.find(sessionId)
-                .flatMap(jobs::input)
-                .map(UploadStore.Upload::prefix)
-                .orElse(null);
-        var minted = grants.mint(sessionId, attempt, resumeFrom, inputPrefix);
+        var inputPrefixes = store.find(sessionId).stream()
+                .flatMap(session -> jobs.uploads(session).stream())
+                .map(named -> named.upload().prefix())
+                .distinct()
+                .toList();
+        var minted = grants.mint(sessionId, attempt, resumeFrom, inputPrefixes);
         var credentials = Credentials.newBuilder().setAttemptGrant(message(minted.attemptGrant()));
         if (minted.readGrant() != null) {
             credentials.setReadGrant(message(minted.readGrant()));

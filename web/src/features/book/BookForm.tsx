@@ -20,6 +20,7 @@ import { inSheet, missingParams, settingsSummary } from "./summary";
 import { useQuote } from "./useQuote";
 import { useRequest } from "./useRequest";
 import { useUpload, type ChosenFile } from "./useUpload";
+import { firstInput } from "@/lib/inputs";
 
 export interface BookFormProps {
   template: Template;
@@ -89,7 +90,7 @@ export function BookForm({
     navigate(`/session/?id=${session.id}`);
   });
 
-  const needsInput = template.input.accepts === "required";
+  const needsInput = firstInput(template)?.required === true;
   const hasInput =
     values.inputKind === "upload"
       ? file !== null && file.progress.phase !== "failed"
@@ -162,7 +163,7 @@ export function BookForm({
         <h1 className="text-title">{needsInput && !hasInput ? serviceName : "Ready to run"}</h1>
       )}
       {choices}
-      {template.input.accepts !== "none" && (
+      {firstInput(template) !== null && (
         <InputSection
           template={template}
           file={file}

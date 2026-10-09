@@ -8,6 +8,7 @@
 
 pub mod dev;
 
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -44,9 +45,9 @@ pub struct Job {
     pub stop_requested: watch::Receiver<bool>,
     /// The attempt's scratch folder on this machine, wiped when the attempt ends.
     pub folder: PathBuf,
-    /// The staged input, `{folder}/input/{name}`, when the session has an uploaded one. A URL input is only in
-    /// `spec.env` as `SESSION_INPUT_URL`, for the job to fetch inside its sandbox.
-    pub input_file: Option<PathBuf>,
+    /// Each uploaded input's staged folder, `{folder}/input/{slot}/`, by slot. A link input is only in `spec.env` as
+    /// `SESSION_INPUT_{NAME}_URL`, for the job to fetch inside its sandbox.
+    pub inputs: BTreeMap<String, PathBuf>,
     /// Where the job's output goes: the attempt's logs, uploaded in chunks for the renter.
     pub logs: LogWriter,
 }

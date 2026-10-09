@@ -61,6 +61,7 @@ pub(crate) fn start_session(session_id: Uuid, command_id: &str, lease_ttl: i64) 
             gpu_uuids: vec![GPU.to_owned()],
             resume_from: None,
             input: None,
+            inputs: Vec::new(),
         })),
     }
 }

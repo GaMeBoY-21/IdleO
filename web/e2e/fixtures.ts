@@ -66,12 +66,27 @@ export const serviceList: Service[] = [
   },
 ];
 
+/** A basic parameter, asked as a plain question. */
+function question(param: string, label: string, help: string): Template["questions"][number] {
+  return {
+    kind: "param",
+    label,
+    help,
+    name: null,
+    options: [],
+    defaultOption: null,
+    param,
+    choicesGb: [],
+    defaultGb: null,
+  };
+}
+
 export const templateList: Template[] = [
   {
     id: "qlora-finetune",
     service: "fine-tune",
-    name: "QLoRA fine-tune of a small language model (Qwen 2.5 1.5B, 4-bit)",
-    description: "Fine-tunes a 1.5B model on your dataset with QLoRA and saves the adapter as the output.",
+    name: "QLoRA fine-tune of your model (4-bit)",
+    description: "Fine-tunes your model on your dataset with QLoRA and saves the adapter as the output.",
     image: IMAGE,
     minVramMb: 8_192,
     defaultMaxRuntimeSeconds: 3_600,
@@ -79,26 +94,11 @@ export const templateList: Template[] = [
     typicalRuntimeSeconds: 2_700,
     params: [
       {
-        name: "base_model",
-        label: "Base model",
-        help: "The model the adapter is trained on top of.",
-        type: "choice",
-        required: true,
-        defaultValue: "qwen2.5-1.5b",
-        choices: [
-          "qwen2.5-0.5b",
-          "qwen2.5-1.5b",
-          "llama-3.2-1b",
-          "llama-3.2-3b",
-          "gemma-2-2b",
-          "phi-3.5-mini",
-        ],
-      },
-      {
         name: "epochs",
         label: "Epochs",
         help: "Passes over the whole dataset.",
         type: "integer",
+        group: "basic",
         required: true,
         defaultValue: 3,
         min: 1,
@@ -110,6 +110,7 @@ export const templateList: Template[] = [
         label: "Learning rate",
         help: null,
         type: "number",
+        group: "advanced",
         required: false,
         defaultValue: 0.0002,
         min: 0.00001,
@@ -121,6 +122,7 @@ export const templateList: Template[] = [
         label: "LoRA rank",
         help: "Higher learns more and makes a bigger adapter.",
         type: "choice",
+        group: "advanced",
         required: true,
         defaultValue: "16",
         choices: ["8", "16", "32", "64"],
@@ -130,6 +132,7 @@ export const templateList: Template[] = [
         label: "Pack short examples together",
         help: "Faster on datasets of short examples.",
         type: "boolean",
+        group: "advanced",
         required: false,
         defaultValue: true,
         choices: [],
@@ -139,20 +142,38 @@ export const templateList: Template[] = [
         label: "Prompt template",
         help: "How each example is laid out; {instruction} and {response} are filled in.",
         type: "string",
+        group: "advanced",
         required: false,
         defaultValue: null,
         maxLength: 2_000,
         choices: [],
       },
     ],
-    input: {
-      accepts: "required",
-      upload: true,
-      url: true,
-      maxSizeMb: 20_480,
-      label: "Dataset",
-      help: "A JSONL file of instruction and response pairs.",
-    },
+    inputs: [
+      {
+        name: "model",
+        label: "Your model",
+        help: "Upload the model folder from your laptop, or paste a Hugging Face link.",
+        kind: "folder",
+        upload: true,
+        link: true,
+        required: true,
+        maxSizeBytes: 40 * 1024 ** 3,
+      },
+      {
+        name: "data",
+        label: "Dataset",
+        help: "A JSONL file of instruction and response pairs.",
+        kind: "file",
+        upload: true,
+        link: true,
+        required: true,
+        maxSizeBytes: 10 * 1024 ** 3,
+      },
+    ],
+    questions: [question("epochs", "Epochs", "Passes over the whole dataset.")],
+    budgetChips: [5_000, 10_000, 50_000],
+    defaultBudgetPaise: 10_000,
   },
   {
     id: "echo-input",
@@ -170,6 +191,7 @@ export const templateList: Template[] = [
         label: "Greeting",
         help: "Written back in the output, once per repeat.",
         type: "string",
+        group: "basic",
         required: true,
         defaultValue: null,
         maxLength: 200,
@@ -180,6 +202,7 @@ export const templateList: Template[] = [
         label: "Repeat",
         help: "How many times the greeting is written back.",
         type: "integer",
+        group: "advanced",
         required: false,
         defaultValue: 1,
         min: 1,
@@ -187,14 +210,21 @@ export const templateList: Template[] = [
         choices: [],
       },
     ],
-    input: {
-      accepts: "required",
-      upload: true,
-      url: true,
-      maxSizeMb: 512,
-      label: "File to echo",
-      help: "Any file; the output gives its size and SHA-256.",
-    },
+    inputs: [
+      {
+        name: "file",
+        label: "File to echo",
+        help: "Any file; the output gives its size and SHA-256.",
+        kind: "file",
+        upload: true,
+        link: true,
+        required: true,
+        maxSizeBytes: 512 * 1024 ** 2,
+      },
+    ],
+    questions: [question("greeting", "Greeting", "Written back in the output, once per repeat.")],
+    budgetChips: [],
+    defaultBudgetPaise: null,
   },
   {
     id: "cuda-smoke-test",
@@ -207,7 +237,10 @@ export const templateList: Template[] = [
     maxRuntimeCapSeconds: 900,
     typicalRuntimeSeconds: null,
     params: [],
-    input: { accepts: "none", upload: false, url: false, maxSizeMb: null, label: null, help: null },
+    inputs: [],
+    questions: [],
+    budgetChips: [],
+    defaultBudgetPaise: null,
   },
 ];
 
@@ -277,6 +310,7 @@ interface Spec {
   lowCredit?: boolean;
   gpu?: { model: string; vramMb: number };
   params?: Record<string, string | number | boolean>;
+  /** Its data: the template's "data" input, or its only one. */
   input?: { uploadId?: string; url?: string };
 }
 
@@ -426,7 +460,10 @@ function build(spec: Spec): Built {
               tempC: spec.state === "RUNNING" ? 71 : null,
             },
       params: spec.params ?? defaults(template),
-      input: spec.input ? { uploadId: spec.input.uploadId ?? null, url: spec.input.url ?? null } : null,
+      presets: {},
+      inputs: spec.input
+        ? { [dataInput(template)]: { uploadId: spec.input.uploadId ?? null, url: spec.input.url ?? null } }
+        : {},
       checkpoints,
       events,
     },
@@ -434,6 +471,10 @@ function build(spec: Spec): Built {
     settlements,
   };
 }
+
+/** The input a session's data goes in: the template's "data" input, or its first. */
+const dataInput = (template: Template) =>
+  template.inputs.find((input) => input.name === "data")?.name ?? template.inputs[0]?.name ?? "data";
 
 function defaults(template: Template): Session["params"] {
   return Object.fromEntries(
@@ -538,7 +579,7 @@ export const asha = account([
     ranMs: 6 * MINUTE + 10_000,
     price: 14,
     errorCode: "oom_killed",
-    params: { base_model: "llama-3.2-3b", epochs: 3, lora_rank: "64" },
+    params: { epochs: 3, lora_rank: "64" },
   },
   {
     n: 4,
@@ -704,9 +745,8 @@ export function logChunks(session: Session, count = 6): LogChunk[] {
     seq === 1
       ? [
           `starting session ${session.id} attempt 1`,
-          "parameter SESSION_PARAM_BASE_MODEL=qwen2.5-1.5b",
           "parameter SESSION_PARAM_EPOCHS=3",
-          "input dataset.jsonl 48213504 bytes",
+          "input data/dataset.jsonl 48213504 bytes",
           "loading the model in 4-bit",
         ]
       : Array.from(

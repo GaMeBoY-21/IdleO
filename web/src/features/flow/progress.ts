@@ -3,6 +3,7 @@ import { formatBytes } from "@/lib/bytes";
 import { aboutRuntime } from "@/lib/catalog";
 import { formatDuration } from "@/lib/time";
 import type { Stop } from "./Route";
+import { sessionInput } from "@/lib/inputs";
 
 const FINDING = new Set(["REQUESTED", "MATCHED"]);
 const RUNNING = new Set(["PROVISIONING", "RUNNING", "HOST_LOST", "FINISHING"]);
@@ -45,11 +46,12 @@ export function progressStops(session: Session, extras: ProgressExtras): Stop[] 
   const completed = session.state === "COMPLETED";
   const saved = session.checkpoints.length;
   const found = foundIn(session);
-  const data: Stop[] = session.input
+  const input = sessionInput(session);
+  const data: Stop[] = input
     ? [
         {
           title: "Data uploaded",
-          detail: session.input.url
+          detail: input.url
             ? "From your link"
             : extras.uploadBytes == null
               ? "Ready"

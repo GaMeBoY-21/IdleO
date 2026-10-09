@@ -31,11 +31,19 @@ public final class ApiProblem extends RuntimeException {
         return new ApiProblem(problem, detail, Map.of());
     }
 
-    /** A {@link Problem#VALIDATION_FAILED} naming each invalid field. */
-    public static ApiProblem invalid(String detail, List<FieldError> errors) {
+    /**
+     * The error {@code problem}, naming the fields it's about in {@code errors}, as validation errors do, so a client
+     * can point at them (an input such as {@code inputs.model}).
+     */
+    public static ApiProblem of(Problem problem, String detail, List<FieldError> errors) {
         var properties = new LinkedHashMap<String, Object>();
         properties.put("errors", List.copyOf(errors));
-        return new ApiProblem(Problem.VALIDATION_FAILED, detail, properties);
+        return new ApiProblem(problem, detail, properties);
+    }
+
+    /** A {@link Problem#VALIDATION_FAILED} naming each invalid field. */
+    public static ApiProblem invalid(String detail, List<FieldError> errors) {
+        return of(Problem.VALIDATION_FAILED, detail, errors);
     }
 
     /** A {@link Problem#VALIDATION_FAILED} for one field. */

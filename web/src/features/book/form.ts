@@ -1,6 +1,7 @@
 import * as z from "zod/mini";
 import type { components } from "@/api/schema.gen";
 import type { Session, Template } from "@/api/queries";
+import { firstInput, sessionInput } from "@/lib/inputs";
 import { paisePerMinute, parseRupees, rupeeInput } from "@/lib/money";
 import { paramDefaults, paramsSchema, paramValuesFrom, toParams, type ParamFormValues } from "./params";
 
@@ -34,7 +35,7 @@ const runtimeParts = (seconds: number) => ({
 export function defaultValues(template: Template): BookValues {
   return {
     params: paramDefaults(template.params),
-    inputKind: template.input.upload ? "upload" : "url",
+    inputKind: firstInput(template)?.upload === false ? "url" : "upload",
     inputUrl: "",
     vramMb: String(template.minVramMb),
     maxPerHour: "",
@@ -51,8 +52,8 @@ export function defaultValues(template: Template): BookValues {
 export function valuesFrom(template: Template, session: Session): BookValues {
   return {
     params: paramValuesFrom(template.params, session.params),
-    inputKind: session.input?.url ? "url" : template.input.upload ? "upload" : "url",
-    inputUrl: session.input?.url ?? "",
+    inputKind: sessionInput(session)?.url || firstInput(template)?.upload === false ? "url" : "upload",
+    inputUrl: sessionInput(session)?.url ?? "",
     vramMb: String(session.vramNeededMb),
     maxPerHour: "",
     spendingCap: rupeeInput(session.maxSpendPaise),
@@ -121,7 +122,7 @@ export function bookSchema(template: Template) {
       z.refine(
         (values) =>
           values.inputKind !== "url" ||
-          (values.inputUrl.trim() === "" && template.input.accepts !== "required") ||
+          (values.inputUrl.trim() === "" && !firstInput(template)?.required) ||
           /^https:\/\/[^\s/]+\.[^\s]*$/i.test(values.inputUrl.trim()),
         { message: "Enter a link that starts with https://", path: ["inputUrl"] },
       ),
@@ -136,10 +137,11 @@ export function toRequest(template: Template, values: BookValues, uploadId: stri
   const url = values.inputUrl.trim();
   const input =
     values.inputKind === "upload" ? (uploadId === null ? null : { uploadId }) : url === "" ? null : { url };
+  const name = firstInput(template)?.name;
   return {
     templateId: template.id,
     params: toParams(template.params, values.params),
-    input,
+    inputs: input === null || name === undefined ? {} : { [name]: input },
     vramNeededMb: Number(values.vramMb),
     maxPricePaisePerMin: values.maxPerHour.trim() === "" ? null : (paisePerMinute(values.maxPerHour) ?? 1),
     maxSpendPaise: parseRupees(values.spendingCap) ?? 1,

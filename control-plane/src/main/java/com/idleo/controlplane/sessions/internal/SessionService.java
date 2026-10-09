@@ -120,8 +120,10 @@ class SessionService {
                     null,
                     null,
                     checked.params(),
-                    checked.inputUploadId(),
-                    checked.inputUrl());
+                    checked.presets(),
+                    checked.inputs().stream()
+                            .map(input -> new SessionStore.Input(input.name(), input.uploadId(), input.url()))
+                            .toList());
             if (!store.insert(session)) {
                 // A concurrent request with the same key got there first.
                 return repeat(store.findByKey(renterId, idempotencyKey).orElseThrow(), hash);
@@ -203,7 +205,7 @@ class SessionService {
                 .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "No such session."));
     }
 
-    /** The request's fingerprint: what it books, its resolved parameters and its input. */
+    /** The request's fingerprint: what it books, its resolved parameters and presets, and its inputs. */
     private static String hash(
             String templateId,
             @org.jspecify.annotations.Nullable Integer maxPrice,
@@ -227,8 +229,11 @@ class SessionService {
                 Integer.toString(vram),
                 Long.toString(maxRuntime.toSeconds()),
                 params,
-                String.valueOf(checked.inputUploadId()),
-                String.valueOf(checked.inputUrl()));
+                checked.presets().toString(),
+                checked.inputs().stream()
+                        .map(input -> input.name() + "=" + input.uploadId() + "," + input.url())
+                        .toList()
+                        .toString());
         try {
             return HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));

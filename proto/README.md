@@ -155,7 +155,7 @@ Each attempt gets exactly two grants, inside `Credentials`:
 | Grant | Permission | Prefixes |
 | --- | --- | --- |
 | `attempt_grant` | read-write | `sessions/{session_id}/attempt-{n}/` |
-| `read_grant` | read-only | `uploads/{upload_id}/`, the folder of `StartSession.input`, and the folder of `StartSession.resume_from`, if any; absent when there's neither |
+| `read_grant` | read-only | `uploads/{upload_id}/`, the folder of each upload in `StartSession.inputs`, and the folder of `StartSession.resume_from`, if any; absent when there's none |
 
 An attempt can't write its input or another attempt's folder. That's fencing enforced by storage, not just by the agent behaving.
 
@@ -180,15 +180,18 @@ An attempt can't write its input or another attempt's folder. That's fencing enf
 - A job's outputs are complete only when `outputs/_COMPLETE` exists.
 - The agent reports `SESSION_STATE_SUCCEEDED` only after writing it.
 
-**Inputs** (ADR 0019)
-- `StartSession.input` names an uploaded input: its folder, its file name and its size. The agent downloads it into the attempt's scratch folder, `input/{name}`, while PREPARING, before minute 0, checks its size, and tries 3 times before failing the attempt with `input_unavailable`. It does this itself, not the runner, so every runner gets it; an attempt on another host stages it again from storage.
-- A URL input is never in `StartSession`: it's only `SESSION_INPUT_URL` in `SessionSpec.env`, and the job fetches it inside its sandbox, where private networks are blocked. The agent runs outside the sandbox and could reach the host's home network, so it never fetches a renter's URL.
+**Inputs** (ADR 0019, ADR 0022)
+- A template names its inputs (`model`, `data`); renters bring their own model, data and code, and we never supply a model.
+- `StartSession.inputs` lists every uploaded file the job reads, one `InputRef` each: its folder, its path inside it, its size, and its `slot`, the input it belongs to. The agent downloads each into the attempt's scratch folder, `input/{slot}/{name}`, keeping the path, while PREPARING, before minute 0. It checks each size, writes an empty file without downloading, and tries 3 times before failing the attempt with `input_unavailable`. It does this itself, not the runner, so every runner gets it; an attempt on another host stages it again from storage.
+- The job finds each uploaded input's folder as `SESSION_INPUT_{NAME}_DIR` (`/work/input/{name}/`) in `SessionSpec.env`.
+- A link input is never in `StartSession`: it's only `SESSION_INPUT_{NAME}_URL` in `SessionSpec.env`, and the job fetches it inside its sandbox, where private networks are blocked. The agent runs outside the sandbox and could reach the host's home network, so it never fetches a renter's link.
+- `StartSession.input` (field 10), the one file of a session from before inputs had names, is deprecated and no longer sent.
 
 **Logs** (ADR 0019)
 - The agent uploads the job's output in chunks through `attempt_grant`, every 5 seconds or every 64 KiB, at most 10 MiB per attempt, and never lets a log upload block, slow or fail the job.
 - `RunningSession.latest_log_seq` (in heartbeats) and `SessionStatus.latest_log_seq` report the highest chunk uploaded. The control plane keeps it per attempt, only ever raises it, and reads only the chunks it names, so it never lists storage. The last chunk is flushed before the terminal status is sent.
 
 **Downloads**
-- The input is read through `read_grant`, not a separate URL. The read grant is needed for resume anyway, so each job uses one storage mechanism, not two.
+- Inputs are read through `read_grant`, not separate URLs. The read grant is needed for resume anyway, so each job uses one storage mechanism, not two.
 - `registry_token` stays a plain token, because it's used once, to pull the image when the attempt starts.
 

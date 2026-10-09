@@ -230,11 +230,11 @@ test.describe("on a laptop", () => {
     const output = page.getByRole("link", { name: /result\.json/ });
     await expect(output).toBeVisible();
     const result = (await (await request.get((await output.getAttribute("href"))!)).json()) as {
-      input: { sha256: string; size_bytes: number } | null;
+      inputs: Record<string, { sha256: string; size_bytes: number }[]>;
       params: Record<string, string>;
       echo: string[] | null;
     };
-    expect(result.input?.sha256).toBe(sha256);
+    expect(result.inputs.file?.[0]?.sha256).toBe(sha256);
     expect(result.params).toMatchObject({ SESSION_PARAM_GREETING: "hello", SESSION_PARAM_REPEAT: "3" });
     expect(result.echo).toEqual(["hello", "hello", "hello"]);
     await expectAccessible(page);
@@ -255,7 +255,7 @@ test.describe("on a laptop", () => {
       chargedOnScreen: formatPaise(settled.chargedPaise),
       chargedByApiPaise: settled.chargedPaise,
       fileSha256: sha256,
-      outputSha256: result.input?.sha256,
+      outputSha256: result.inputs.file?.[0]?.sha256,
     };
     console.log(`journey numbers: ${JSON.stringify(numbers)}`);
     expect(session.maxPricePaisePerMin).toBe(quote.ceilingPaisePerMin);

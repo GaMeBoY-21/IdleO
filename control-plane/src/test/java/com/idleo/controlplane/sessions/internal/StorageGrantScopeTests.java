@@ -38,7 +38,7 @@ class StorageGrantScopeTests {
     void theAttemptGrantWritesOnlyItsOwnAttempt() {
         var session = UUID.randomUUID();
         var upload = "uploads/" + UUID.randomUUID() + "/";
-        var minted = grants.mint(session, 2, null, null);
+        var minted = grants.mint(session, 2, null, java.util.List.of());
         try (var attempt = TestS3.as(minted.attemptGrant())) {
             put(attempt, StorageLayout.attemptPrefix(session, 2) + "checkpoints/00000001/state.json");
 
@@ -62,7 +62,7 @@ class StorageGrantScopeTests {
             put(root, StorageLayout.checkpointFolder(session, 1, 3) + "state.json");
             put(root, StorageLayout.checkpointFolder(session, 1, 2) + "state.json");
         }
-        var minted = grants.mint(session, 2, new StorageGrants.ResumeFrom(1, 3), upload);
+        var minted = grants.mint(session, 2, new StorageGrants.ResumeFrom(1, 3), java.util.List.of(upload));
 
         try (var read = TestS3.as(minted.readGrant())) {
             assertThat(get(read, upload + "data.txt")).isEqualTo("data");
@@ -81,7 +81,7 @@ class StorageGrantScopeTests {
 
     @Test
     void aGrantNeverPrintsItsSecrets() {
-        var grant = grants.mint(UUID.randomUUID(), 1, null, null).attemptGrant();
+        var grant = grants.mint(UUID.randomUUID(), 1, null, java.util.List.of()).attemptGrant();
         assertThat(grant.toString()).doesNotContain(grant.secretAccessKey(), grant.sessionToken());
     }
 }

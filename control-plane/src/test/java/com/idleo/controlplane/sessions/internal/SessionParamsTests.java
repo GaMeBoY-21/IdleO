@@ -24,6 +24,7 @@ class SessionParamsTests {
                 name,
                 null,
                 type,
+                Template.Group.ADVANCED,
                 required,
                 defaultValue,
                 limits.length > 0 ? (BigDecimal) limits[0] : null,
@@ -55,7 +56,10 @@ class SessionParamsTests {
                     param("verbose", Template.ParamType.BOOLEAN, false, false),
                     param("mode", Template.ParamType.CHOICE, false, null, null, null, null, "fast,careful"),
                     param("notes", Template.ParamType.STRING, false, null)),
-            Template.Input.NONE);
+            List.of(),
+            List.of(),
+            List.of(),
+            null);
 
     private static Map<String, Object> values(Object... pairs) {
         var values = new HashMap<String, Object>();
@@ -67,7 +71,7 @@ class SessionParamsTests {
 
     private static List<ApiProblem.FieldError> errors(Map<String, Object> values) {
         try {
-            SessionParams.resolve(TEMPLATE, values);
+            SessionParams.resolve(TEMPLATE, values, Map.of());
         } catch (ApiProblem problem) {
             assertThat(problem.problem()).isEqualTo(Problem.VALIDATION_FAILED);
             @SuppressWarnings("unchecked")
@@ -93,7 +97,8 @@ class SessionParamsTests {
                         "mode",
                         "fast",
                         "notes",
-                        "line one\n\tline two"));
+                        "line one\n\tline two"),
+                Map.of());
 
         assertThat(resolved)
                 .containsExactly(
@@ -107,7 +112,7 @@ class SessionParamsTests {
 
     @Test
     void defaultsAreFilledInAndOptionalOnesWithoutADefaultAreLeftOut() {
-        var resolved = SessionParams.resolve(TEMPLATE, values("dataset_name", "alpaca", "rate", null));
+        var resolved = SessionParams.resolve(TEMPLATE, values("dataset_name", "alpaca", "rate", null), Map.of());
 
         assertThat(resolved)
                 .containsExactly(
@@ -154,6 +159,15 @@ class SessionParamsTests {
     }
 
     @Test
+    void aPresetsValueFillsAParameterLeftOutAndAGivenValueWins() {
+        var preset = Map.<String, Object>of("epochs", 5L, "verbose", true);
+
+        var resolved = SessionParams.resolve(TEMPLATE, values("dataset_name", "a", "verbose", false), preset);
+
+        assertThat(resolved).containsEntry("epochs", 5L).containsEntry("verbose", false);
+    }
+
+    @Test
     void anUnknownNameIsRefusedNeverIgnored() {
         assertThat(errors(values("dataset_name", "a", "epoch", 2)))
                 .containsExactly(new ApiProblem.FieldError("params.epoch", "isn't a parameter of template fine-tune."));
@@ -163,18 +177,22 @@ class SessionParamsTests {
     void valuesBecomeEnvironmentVariablesAndNothingElse() {
         var resolved = SessionParams.resolve(
                 TEMPLATE,
-                values("dataset_name", "alpaca", "rate", new BigDecimal("1E-4"), "verbose", true, "mode", "careful"));
+                values("dataset_name", "alpaca", "rate", new BigDecimal("1E-4"), "verbose", true, "mode", "careful"),
+                Map.of());
 
-        assertThat(SessionParams.env(resolved, "train.jsonl", null))
+        var inputs = List.of(
+                new SessionStore.Input("model", java.util.UUID.randomUUID(), null),
+                new SessionStore.Input("data", null, "https://example.com/data.jsonl"));
+
+        assertThat(SessionParams.env(resolved, inputs))
                 .containsExactly(
                         Map.entry("SESSION_PARAM_DATASET_NAME", "alpaca"),
                         Map.entry("SESSION_PARAM_EPOCHS", "2"),
                         Map.entry("SESSION_PARAM_RATE", "0.0001"),
                         Map.entry("SESSION_PARAM_VERBOSE", "true"),
                         Map.entry("SESSION_PARAM_MODE", "careful"),
-                        Map.entry("SESSION_INPUT_FILE", "/work/input/train.jsonl"));
-        assertThat(SessionParams.env(Map.of(), null, "https://example.com/data.jsonl"))
-                .containsExactly(Map.entry("SESSION_INPUT_URL", "https://example.com/data.jsonl"));
+                        Map.entry("SESSION_INPUT_MODEL_DIR", "/work/input/model/"),
+                        Map.entry("SESSION_INPUT_DATA_URL", "https://example.com/data.jsonl"));
     }
 
     @Test
@@ -183,10 +201,10 @@ class SessionParamsTests {
         for (int i = 0; i < 9; i++) {
             big.put("text_" + i, "x".repeat(4_000));
         }
-        assertThatThrownBy(() -> SessionParams.env(big, null, null))
+        assertThatThrownBy(() -> SessionParams.env(big, List.of()))
                 .isInstanceOf(ApiProblem.class)
                 .hasMessageContaining("invalid fields");
         big.remove("text_8");
-        assertThat(SessionParams.env(big, null, null)).hasSize(8);
+        assertThat(SessionParams.env(big, List.of())).hasSize(8);
     }
 }

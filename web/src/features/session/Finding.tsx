@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { gigabytes, gpuName, withArticle } from "@/lib/gpu";
 import { CancelAction } from "./Actions";
 import { Banners } from "./Banners";
+import { sessionInput } from "@/lib/inputs";
 
 /** What the screen knows of the session's data: its upload's name, once read. */
 export interface DataName {
@@ -40,9 +41,9 @@ export function Finding({ session, data, laptop }: { session: Session; data: Dat
         </div>
         <Banners session={session} />
         <ul className="flex w-full flex-col gap-2 text-left">
-          {session.input && (
+          {sessionInput(session) && (
             <Row done>
-              {session.input.url
+              {sessionInput(session)?.url
                 ? "Your data's link is ready"
                 : data.filename
                   ? `${data.filename} uploaded`

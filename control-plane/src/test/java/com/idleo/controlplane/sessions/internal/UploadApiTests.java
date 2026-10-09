@@ -367,7 +367,10 @@ class UploadApiTests {
     private TestBookings.Booked runningWith(TestUser renter, String uploadId) throws Exception {
         var host = bookings.host();
         var session = bookings.book(renter);
-        jdbc.update("update sessions.sessions set input_upload_id = ?::uuid where id = ?", uploadId, session);
+        jdbc.update(
+                "insert into sessions.session_inputs (session_id, name, upload_id) values (?, 'file', ?::uuid)",
+                session,
+                uploadId);
         host.reply(host.awaitOffer(TestBookings.WAIT).getOfferId(), true, TestBookings.ACCEPT);
         host.ack(host.awaitStart(TestBookings.WAIT));
         report(host, session, gpu.agent.v1.Session.SessionState.SESSION_STATE_RUNNING);

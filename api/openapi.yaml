@@ -827,10 +827,12 @@ components:
     CreateSessionRequest:
       type: object
       properties:
-        input:
-          oneOf:
-          - $ref: "#/components/schemas/SessionInput"
-          - type: "null"
+        inputs:
+          type:
+          - object
+          - "null"
+          additionalProperties:
+            $ref: "#/components/schemas/SessionInput"
         maxPricePaisePerMin:
           type:
           - integer
@@ -855,6 +857,12 @@ components:
             $ref: "#/components/schemas/ParamValue"
           description: "The template's parameters by name: strings, numbers and booleans.\
             \ Never put secrets here."
+        presets:
+          type:
+          - object
+          - "null"
+          additionalProperties:
+            type: string
         templateId:
           type: string
           minLength: 1
@@ -1228,6 +1236,26 @@ components:
           minItems: 0
       required:
       - partNumbers
+    PresetOption:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        minutes:
+          type:
+          - integer
+          - "null"
+          format: int32
+        sets:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ParamValue"
+      required:
+      - id
+      - label
+      - sets
     PriceRange:
       type: object
       properties:
@@ -1525,10 +1553,10 @@ components:
         id:
           type: string
           format: uuid
-        input:
-          oneOf:
-          - $ref: "#/components/schemas/SessionInputView"
-          - type: "null"
+        inputs:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/SessionInputView"
         lowCredit:
           type: boolean
         maxPricePaisePerMin:
@@ -1544,6 +1572,10 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/ParamValue"
+        presets:
+          type: object
+          additionalProperties:
+            type: string
         pricePaisePerMin:
           type:
           - integer
@@ -1574,11 +1606,13 @@ components:
       - createdAt
       - events
       - id
+      - inputs
       - lowCredit
       - maxPricePaisePerMin
       - maxRuntimeSeconds
       - maxSpendPaise
       - params
+      - presets
       - reservedPaise
       - settled
       - state
@@ -1594,33 +1628,37 @@ components:
     TemplateInput:
       type: object
       properties:
-        accepts:
-          type: string
-          enum:
-          - none
-          - optional
-          - required
         help:
           type:
           - string
           - "null"
+        kind:
+          type: string
+          enum:
+          - folder
+          - file
         label:
-          type:
-          - string
-          - "null"
-        maxSizeMb:
+          type: string
+        link:
+          type: boolean
+        maxSizeBytes:
           type:
           - integer
           - "null"
-          format: int32
+          format: int64
+        name:
+          type: string
+        required:
+          type: boolean
         upload:
           type: boolean
-        url:
-          type: boolean
       required:
-      - accepts
+      - kind
+      - label
+      - link
+      - name
+      - required
       - upload
-      - url
     TemplateList:
       type: object
       properties:
@@ -1649,6 +1687,11 @@ components:
           - number
           - boolean
           - "null"
+        group:
+          type: string
+          enum:
+          - basic
+          - advanced
         help:
           type:
           - string
@@ -1682,13 +1725,70 @@ components:
           - choice
       required:
       - choices
+      - group
       - label
       - name
       - required
       - type
+    TemplateQuestion:
+      type: object
+      properties:
+        choicesGb:
+          type: array
+          items:
+            type: integer
+            format: int32
+        defaultGb:
+          type:
+          - integer
+          - "null"
+          format: int32
+        defaultOption:
+          type:
+          - string
+          - "null"
+        help:
+          type:
+          - string
+          - "null"
+        kind:
+          type: string
+          enum:
+          - preset
+          - param
+          - gpu_memory
+        label:
+          type: string
+        name:
+          type:
+          - string
+          - "null"
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/PresetOption"
+        param:
+          type:
+          - string
+          - "null"
+      required:
+      - choicesGb
+      - kind
+      - label
+      - options
     TemplateResponse:
       type: object
       properties:
+        budgetChips:
+          type: array
+          items:
+            type: integer
+            format: int64
+        defaultBudgetPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
         defaultMaxRuntimeSeconds:
           type: integer
           format: int64
@@ -1698,8 +1798,10 @@ components:
           type: string
         image:
           type: string
-        input:
-          $ref: "#/components/schemas/TemplateInput"
+        inputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateInput"
         maxRuntimeCapSeconds:
           type: integer
           format: int64
@@ -1712,6 +1814,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TemplateParam"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateQuestion"
         service:
           type: string
         typicalRuntimeSeconds:
@@ -1720,15 +1826,17 @@ components:
           - "null"
           format: int64
       required:
+      - budgetChips
       - defaultMaxRuntimeSeconds
       - description
       - id
       - image
-      - input
+      - inputs
       - maxRuntimeCapSeconds
       - minVramMb
       - name
       - params
+      - questions
       - service
     UpdateMeRequest:
       type: object

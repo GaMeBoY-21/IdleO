@@ -158,10 +158,10 @@ class UploadStore {
                         """).param("userId", userId).query(Long.class).single();
     }
 
-    /** Whether a session that hasn't ended takes this upload as its input. */
+    /** Whether a session that hasn't ended takes this upload as one of its inputs. */
     boolean inUse(UUID id) {
-        return jdbc.sql("select exists (select 1 from sessions.sessions where input_upload_id = :id and state not in ("
-                        + FINAL_STATES + "))")
+        return jdbc.sql("select exists (select 1 from sessions.session_inputs i join sessions.sessions s"
+                        + " on s.id = i.session_id where i.upload_id = :id and s.state not in (" + FINAL_STATES + "))")
                 .param("id", id)
                 .query(Boolean.class)
                 .single();

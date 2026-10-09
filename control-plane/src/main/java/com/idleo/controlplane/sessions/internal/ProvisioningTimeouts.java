@@ -16,9 +16,9 @@ import org.springframework.util.unit.DataSize;
 /**
  * A session in PROVISIONING that hasn't reached RUNNING in time fails with reason {@code start_timeout}:
  * nothing billed, hold released (technical design line 232, ADR 0015). It guards against agents that
- * accept and never start. The time grows with an uploaded input, which the agent downloads before the job starts
- * (ADR 0019): the base, plus the input's size at the staging rate, so a large dataset on home internet isn't taken
- * for a failed start. Safe with several instances: each takes sessions the others haven't locked.
+ * accept and never start. The time grows with the uploaded inputs, which the agent downloads before the job starts
+ * (ADR 0019, ADR 0022): the base, plus all their sizes together at the staging rate, so a large model on home
+ * internet isn't taken for a failed start. Safe with several instances: each takes sessions the others haven't locked.
  */
 @Component
 class ProvisioningTimeouts {
@@ -57,10 +57,13 @@ class ProvisioningTimeouts {
             transactions.executeWithoutResult(status -> {
                 var stale = jdbc.sql("""
                                 select s.id from sessions.sessions s
-                                left join sessions.uploads u on u.id = s.input_upload_id
                                 where s.state = 'PROVISIONING'
                                   and s.state_changed_at
-                                      + make_interval(secs => :baseSeconds + coalesce(u.size_bytes, 0) / :bytesPerSecond)
+                                      + make_interval(secs => :baseSeconds
+                                          + (select coalesce(sum(u.size_bytes), 0)
+                                             from sessions.session_inputs i
+                                             join sessions.uploads u on u.id = i.upload_id
+                                             where i.session_id = s.id) / :bytesPerSecond)
                                       <= :now
                                 order by s.state_changed_at
                                 limit :limit

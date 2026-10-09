@@ -25,8 +25,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Sessions take parameters and an input (ADR 0019): checked against the template, stored resolved, and given to
- * the job as its environment, with an uploaded input named in the StartSession and readable through its read grant.
+ * Sessions take parameters, preset answers and named inputs (ADR 0019, ADR 0022): checked against the template,
+ * stored resolved, and given to the job as its environment, with each uploaded input named in the StartSession, in its
+ * slot, and readable through its read grant.
  */
 @ControlPlaneTest
 class SessionInputTests {
@@ -73,7 +74,9 @@ class SessionInputTests {
         var body = new java.util.LinkedHashMap<String, Object>();
         body.put("templateId", "echo-input");
         body.put("params", params);
-        body.put("input", input);
+        if (input != null) {
+            body.put("inputs", Map.of("file", input));
+        }
         return body;
     }
 
@@ -87,7 +90,7 @@ class SessionInputTests {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.params.greeting").value("hello"))
                 .andExpect(jsonPath("$.params.repeat").value(1))
-                .andExpect(jsonPath("$.input.uploadId").value(upload.toString()))
+                .andExpect(jsonPath("$.inputs.file.uploadId").value(upload.toString()))
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
@@ -98,16 +101,21 @@ class SessionInputTests {
                 .containsExactlyInAnyOrderEntriesOf(Map.of(
                         "SESSION_PARAM_GREETING", "hello",
                         "SESSION_PARAM_REPEAT", "1",
-                        "SESSION_INPUT_FILE", "/work/input/my_data.txt"));
+                        "SESSION_INPUT_FILE_DIR", "/work/input/file/"));
         host.reply(offer.getOfferId(), true, TestBookings.ACCEPT);
         var envelope = host.awaitStart(TestBookings.WAIT);
         host.ack(envelope);
         var start = envelope.getStartSession();
 
         assertThat(start.getSpec().getEnvMap()).isEqualTo(offer.getSpec().getEnvMap());
-        assertThat(start.getInput().getPrefix()).isEqualTo("uploads/" + upload + "/");
-        assertThat(start.getInput().getName()).isEqualTo("my_data.txt");
-        assertThat(start.getInput().getSizeBytes()).isEqualTo(11);
+        assertThat(start.hasInput())
+                .as("the deprecated single input is never sent")
+                .isFalse();
+        assertThat(start.getInputsList()).hasSize(1);
+        assertThat(start.getInputs(0).getSlot()).isEqualTo("file");
+        assertThat(start.getInputs(0).getPrefix()).isEqualTo("uploads/" + upload + "/");
+        assertThat(start.getInputs(0).getName()).isEqualTo("my_data.txt");
+        assertThat(start.getInputs(0).getSizeBytes()).isEqualTo(11);
         var readGrant = start.getCredentials().getReadGrant();
         assertThat(readGrant.getPrefixesList()).containsExactly("uploads/" + upload + "/");
         try (var s3 = TestS3.as(readGrant)) {
@@ -128,16 +136,16 @@ class SessionInputTests {
                         "echo-url",
                         echo(Map.of("greeting", "hi", "repeat", 3), Map.of("url", "https://example.com/d.txt")))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.input.url").value("https://example.com/d.txt"));
+                .andExpect(jsonPath("$.inputs.file.url").value("https://example.com/d.txt"));
 
         var offer = host.awaitOffer(TestBookings.WAIT);
         assertThat(offer.getSpec().getEnvMap())
-                .containsEntry("SESSION_INPUT_URL", "https://example.com/d.txt")
+                .containsEntry("SESSION_INPUT_FILE_URL", "https://example.com/d.txt")
                 .containsEntry("SESSION_PARAM_REPEAT", "3")
-                .doesNotContainKey("SESSION_INPUT_FILE");
+                .doesNotContainKey("SESSION_INPUT_FILE_DIR");
         host.reply(offer.getOfferId(), true, TestBookings.ACCEPT);
         var start = host.awaitStart(TestBookings.WAIT).getStartSession();
-        assertThat(start.hasInput()).as("the agent never fetches a URL").isFalse();
+        assertThat(start.getInputsList()).as("the agent never fetches a URL").isEmpty();
         assertThat(start.getCredentials().hasReadGrant()).isFalse();
     }
 
@@ -146,17 +154,33 @@ class SessionInputTests {
         var renter = bookings.renter();
         var upload = TestUploads.ready(mvc, renter, "a.txt", "a");
 
-        book(renter, "smoke-in", Map.of("templateId", "cuda-smoke-test", "input", Map.of("uploadId", upload)))
+        book(
+                        renter,
+                        "smoke-in",
+                        Map.of("templateId", "cuda-smoke-test", "inputs", Map.of("file", Map.of("uploadId", upload))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.type").value("/problems/input-not-accepted"));
+                .andExpect(jsonPath("$.type").value("/problems/validation-failed"))
+                .andExpect(jsonPath("$.errors[0].field").value("inputs.file"));
+        book(
+                        renter,
+                        "code-link",
+                        Map.of(
+                                "templateId",
+                                "run-code-simulated",
+                                "inputs",
+                                Map.of("code", Map.of("url", "https://example.com/code.zip"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/input-not-accepted"))
+                .andExpect(jsonPath("$.errors[0].field").value("inputs.code"));
         book(renter, "echo-none", echo(Map.of("greeting", "hi"), null))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.type").value("/problems/input-required"));
+                .andExpect(jsonPath("$.type").value("/problems/input-required"))
+                .andExpect(jsonPath("$.errors[0].field").value("inputs.file"));
         book(
                         renter,
                         "echo-both",
                         echo(Map.of("greeting", "hi"), Map.of("uploadId", upload, "url", "https://x.example/a")))
-                .andExpect(jsonPath("$.errors[0].field").value("input"));
+                .andExpect(jsonPath("$.errors[0].field").value("inputs.file"));
         for (var url : new String[] {
             "http://example.com/a",
             "https://user:pass@example.com/a",
@@ -172,7 +196,7 @@ class SessionInputTests {
         }) {
             book(renter, UUID.randomUUID().toString(), echo(Map.of("greeting", "hi"), Map.of("url", url)))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.errors[0].field").value("input.url"));
+                    .andExpect(jsonPath("$.errors[0].field").value("inputs.file.url"));
         }
     }
 
@@ -203,7 +227,8 @@ class SessionInputTests {
         jdbc.update("update sessions.uploads set size_bytes = ? where id = ?", 513L * 1024 * 1024, big);
         book(renter, "big", echo(Map.of("greeting", "hi"), Map.of("uploadId", big)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.type").value("/problems/input-too-large"));
+                .andExpect(jsonPath("$.type").value("/problems/input-too-large"))
+                .andExpect(jsonPath("$.errors[0].field").value("inputs.file"));
     }
 
     @Test
@@ -250,7 +275,7 @@ class SessionInputTests {
         // As if it were a gigabyte: at the staging rate, minutes more to download.
         jdbc.update("update sessions.uploads set size_bytes = ? where id = ?", 1L << 30, largeUpload);
         jdbc.update(
-                "update sessions.sessions set input_upload_id = ? where id = ?",
+                "update sessions.session_inputs set upload_id = ? where session_id = ?",
                 largeUpload,
                 JSON.readTree(book(renter, "large", echo(Map.of("greeting", "hi"), Map.of("uploadId", smallUpload)))
                                 .andReturn()
@@ -260,7 +285,7 @@ class SessionInputTests {
                         .asString()
                         .transform(UUID::fromString));
         var largeSession = jdbc.queryForObject(
-                "select id from sessions.sessions where input_upload_id = ?", UUID.class, largeUpload);
+                "select session_id from sessions.session_inputs where upload_id = ?", UUID.class, largeUpload);
         large.reply(large.awaitOffer(TestBookings.WAIT).getOfferId(), true, TestBookings.ACCEPT);
 
         var failed = bookings.awaitState(renter, smallSession, "FAILED");
@@ -269,5 +294,96 @@ class SessionInputTests {
         Thread.sleep(Duration.ofSeconds(1));
         JsonNode stillProvisioning = bookings.session(renter, largeSession);
         assertThat(stillProvisioning.get("state").asString()).isEqualTo("PROVISIONING");
+    }
+
+    private static Map<String, Object> fineTune(Map<String, Object> extra) {
+        var body = new java.util.LinkedHashMap<String, Object>();
+        body.put("templateId", "fine-tune-simulated");
+        body.putAll(extra);
+        return body;
+    }
+
+    @Test
+    void eachNamedInputReachesTheJobInItsOwnFolderOrAsItsOwnLink() throws Exception {
+        var host = bookings.host();
+        var renter = bookings.renter();
+        var model = TestUploads.ready(mvc, renter, "model.safetensors", "weights");
+
+        book(
+                        renter,
+                        "two-inputs",
+                        fineTune(Map.of(
+                                "inputs",
+                                Map.of(
+                                        "model", Map.of("uploadId", model),
+                                        "data", Map.of("url", "https://example.com/train.jsonl")))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.inputs.model.uploadId").value(model.toString()))
+                .andExpect(jsonPath("$.inputs.data.url").value("https://example.com/train.jsonl"));
+
+        var offer = host.awaitOffer(TestBookings.WAIT);
+        assertThat(offer.getSpec().getEnvMap())
+                .containsEntry("SESSION_INPUT_MODEL_DIR", "/work/input/model/")
+                .containsEntry("SESSION_INPUT_DATA_URL", "https://example.com/train.jsonl");
+        host.reply(offer.getOfferId(), true, TestBookings.ACCEPT);
+        var start = host.awaitStart(TestBookings.WAIT).getStartSession();
+        assertThat(start.getInputsList()).singleElement().satisfies(input -> {
+            assertThat(input.getSlot()).isEqualTo("model");
+            assertThat(input.getName()).isEqualTo("model.safetensors");
+        });
+        assertThat(start.getCredentials().getReadGrant().getPrefixesList()).containsExactly("uploads/" + model + "/");
+    }
+
+    @Test
+    void everyMissingRequiredInputIsNamedAndAnUnknownOneIsRefused() throws Exception {
+        var renter = bookings.renter();
+
+        book(renter, "none", fineTune(Map.of()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/input-required"))
+                .andExpect(jsonPath("$.errors[*].field")
+                        .value(org.hamcrest.Matchers.contains("inputs.model", "inputs.data")));
+        book(renter, "unknown", fineTune(Map.of("inputs", Map.of("weights", Map.of("url", "https://example.com/w")))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("inputs.weights"));
+    }
+
+    @Test
+    void aPresetSetsItsParametersAndIsKeptForRunAgain() throws Exception {
+        var renter = bookings.renter();
+        var links = Map.of(
+                "model", Map.of("url", "https://huggingface.co/me/model"),
+                "data", Map.of("url", "https://example.com/train.jsonl"));
+
+        book(renter, "default", fineTune(Map.of("inputs", links)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.presets.thoroughness").value("standard"))
+                .andExpect(jsonPath("$.params.epochs").value(3));
+        book(renter, "quick", fineTune(Map.of("inputs", links, "presets", Map.of("thoroughness", "quick"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.presets.thoroughness").value("quick"))
+                .andExpect(jsonPath("$.params.epochs").value(1));
+        book(
+                        renter,
+                        "advanced",
+                        fineTune(Map.of(
+                                "inputs",
+                                links,
+                                "presets",
+                                Map.of("thoroughness", "quick"),
+                                "params",
+                                Map.of("epochs", 4))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.params.epochs").value(4));
+        book(renter, "slow", fineTune(Map.of("inputs", links, "presets", Map.of("thoroughness", "slow"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("questions.thoroughness"))
+                .andExpect(jsonPath("$.errors[0].detail").value("must be one of quick, standard, thorough."));
+        book(renter, "speed", fineTune(Map.of("inputs", links, "presets", Map.of("speed", "fast"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("questions.speed"));
+        book(renter, "quick", fineTune(Map.of("inputs", links, "presets", Map.of("thoroughness", "thorough"))))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("/problems/idempotency-key-reused"));
     }
 }

@@ -3,12 +3,15 @@ package com.idleo.controlplane.sessions.internal;
 import gpu.agent.v1.Session.InputRef;
 import gpu.agent.v1.Session.SessionSpec;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
- * What a session's attempts run (ADR 0019): its spec, with the environment made from its parameters and input, the
- * same in its Offer and every StartSession; and the uploaded input the agent stages, which its read grant covers.
+ * What a session's attempts run (ADR 0019, ADR 0022): its spec, with the environment made from its parameters and
+ * inputs, the same in its Offer and every StartSession; and the uploaded files the agent stages, each into its input's
+ * folder, which the attempt's read grant covers.
  */
 @Component
 class SessionJobs {
@@ -27,26 +30,32 @@ class SessionJobs {
                         template,
                         session.vramNeededMb(),
                         Duration.ofSeconds(session.maxRuntimeSeconds()),
-                        SessionParams.env(
-                                session.params(),
-                                input(session)
-                                        .map(UploadStore.Upload::storedName)
-                                        .orElse(null),
-                                session.inputUrl())));
+                        SessionParams.env(session.params(), session.inputs())));
     }
 
-    /** The session's uploaded input, if it has one. */
-    Optional<UploadStore.Upload> input(SessionStore.Session session) {
-        return session.inputUploadId() == null ? Optional.empty() : uploads.find(session.inputUploadId());
+    /** The session's uploaded inputs, by input name. */
+    List<Named> uploads(SessionStore.Session session) {
+        var named = new ArrayList<Named>();
+        for (var input : session.inputs()) {
+            if (input.uploadId() != null) {
+                uploads.find(input.uploadId()).ifPresent(upload -> named.add(new Named(input.name(), upload)));
+            }
+        }
+        return named;
     }
 
-    /** The input as the agent's StartSession names it. */
-    Optional<InputRef> inputRef(SessionStore.Session session) {
-        return input(session)
-                .map(upload -> InputRef.newBuilder()
-                        .setPrefix(upload.prefix())
-                        .setName(upload.storedName())
-                        .setSizeBytes(upload.sizeBytes())
-                        .build());
+    /** An upload, as the input it is. */
+    record Named(String name, UploadStore.Upload upload) {}
+
+    /** Every uploaded file as the agent's StartSession names it, each in its input's slot. */
+    List<InputRef> inputRefs(SessionStore.Session session) {
+        return uploads(session).stream()
+                .map(named -> InputRef.newBuilder()
+                        .setPrefix(named.upload().prefix())
+                        .setName(named.upload().storedName())
+                        .setSizeBytes(named.upload().sizeBytes())
+                        .setSlot(named.name())
+                        .build())
+                .toList();
     }
 }

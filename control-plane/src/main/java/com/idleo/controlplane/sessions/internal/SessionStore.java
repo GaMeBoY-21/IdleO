@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -69,13 +70,32 @@ class SessionStore {
             @Nullable Instant startedAt,
             @Nullable String errorCode,
             Map<String, Object> params,
-            @Nullable UUID inputUploadId,
-            @Nullable String inputUrl) {
+            Map<String, String> presets,
+            List<Input> inputs) {
 
         Session {
             params = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(params));
+            presets = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(presets));
+            inputs = List.copyOf(inputs);
+        }
+
+        /** The uploads among its inputs. */
+        List<UUID> uploadIds() {
+            return inputs.stream().map(Input::uploadId).filter(Objects::nonNull).toList();
         }
     }
+
+    /** One of a session's inputs, by the template's name for it: exactly one of an upload or a link. */
+    record Input(
+            String name, @Nullable UUID uploadId, @Nullable String url) {}
+
+    /** Every session column, and its inputs as JSON, {@code inputs_json}. */
+    private static final String SELECT = """
+            select s.*, (select coalesce(jsonb_agg(jsonb_build_object(
+                                'name', i.name, 'uploadId', i.upload_id, 'url', i.url) order by i.name), '[]')
+                         from sessions.session_inputs i where i.session_id = s.id) as inputs_json
+            from sessions.sessions s
+            """;
 
     /**
      * Parameters as JSON in {@code sessions.params}, read back as they were checked: whole numbers as Long, others as
@@ -121,10 +141,10 @@ class SessionStore {
                             (id, renter_id, host_id, type, state, attempt, template_id, image_digest, vram_needed_mb,
                              max_price_paise_per_min, price_paise_per_min, max_spend_paise, max_runtime_seconds,
                              idempotency_key, request_hash, state_changed_at, version, created_at, params,
-                             input_upload_id, input_url)
+                             presets)
                         values (:id, :renterId, null, :type, :state, 1, :templateId, :image, :vram,
                                 :maxPrice, null, :maxSpend, :maxRuntime, :key, :hash, :now, 0, :now,
-                                cast(:params as jsonb), :inputUploadId, :inputUrl)
+                                cast(:params as jsonb), cast(:presets as jsonb))
                         on conflict (renter_id, idempotency_key) do nothing
                         """)
                 .param("id", session.id())
@@ -141,10 +161,20 @@ class SessionStore {
                 .param("hash", session.requestHash())
                 .param("now", Timestamp.from(session.createdAt()))
                 .param("params", PARAMS.writeValueAsString(session.params()))
-                .param("inputUploadId", session.inputUploadId())
-                .param("inputUrl", session.inputUrl())
+                .param("presets", PARAMS.writeValueAsString(session.presets()))
                 .update();
         if (inserted == 1) {
+            for (var input : session.inputs()) {
+                jdbc.sql("""
+                                insert into sessions.session_inputs (session_id, name, upload_id, url)
+                                values (:sessionId, :name, :uploadId, :url)
+                                """)
+                        .param("sessionId", session.id())
+                        .param("name", input.name())
+                        .param("uploadId", input.uploadId())
+                        .param("url", input.url())
+                        .update();
+            }
             event(session.id(), null, session.state(), "requested", session.createdAt());
         }
         return inserted == 1;
@@ -248,7 +278,7 @@ class SessionStore {
     /** The session, locked for the rest of the caller's transaction. */
     @Transactional(propagation = Propagation.MANDATORY)
     Optional<Session> lock(UUID sessionId) {
-        return jdbc.sql("select * from sessions.sessions where id = :id for update")
+        return jdbc.sql(SELECT + "where s.id = :id for update of s")
                 .param("id", sessionId)
                 .query(SessionStore::session)
                 .optional();
@@ -267,14 +297,14 @@ class SessionStore {
     }
 
     Optional<Session> find(UUID sessionId) {
-        return jdbc.sql("select * from sessions.sessions where id = :id")
+        return jdbc.sql(SELECT + "where s.id = :id")
                 .param("id", sessionId)
                 .query(SessionStore::session)
                 .optional();
     }
 
     Optional<Session> findByKey(UUID renterId, String idempotencyKey) {
-        return jdbc.sql("select * from sessions.sessions where renter_id = :renterId and idempotency_key = :key")
+        return jdbc.sql(SELECT + "where s.renter_id = :renterId and s.idempotency_key = :key")
                 .param("renterId", renterId)
                 .param("key", idempotencyKey)
                 .query(SessionStore::session)
@@ -288,9 +318,9 @@ class SessionStore {
     List<Session> page(UUID renterId, @Nullable UUID after, @Nullable Boolean active, int limit) {
         var ended = "state in (" + UploadStore.FINAL_STATES + ")";
         var filter = active == null ? "" : active ? " and not " + ended : " and " + ended;
-        return jdbc.sql("select * from sessions.sessions where renter_id = :renterId"
-                        + " and (cast(:after as uuid) is null or id < cast(:after as uuid))" + filter
-                        + " order by id desc limit :limit")
+        return jdbc.sql(SELECT + "where s.renter_id = :renterId"
+                        + " and (cast(:after as uuid) is null or s.id < cast(:after as uuid))" + filter
+                        + " order by s.id desc limit :limit")
                 .param("renterId", renterId)
                 .param("after", after)
                 .param("limit", limit)
@@ -335,8 +365,26 @@ class SessionStore {
                 instant(rs, "started_at"),
                 rs.getString("error_code"),
                 params(rs.getString("params")),
-                rs.getObject("input_upload_id", UUID.class),
-                rs.getString("input_url"));
+                presets(rs.getString("presets")),
+                inputs(rs.getString("inputs_json")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> presets(@Nullable String json) {
+        return json == null ? Map.of() : PARAMS.readValue(json, java.util.LinkedHashMap.class);
+    }
+
+    private static List<Input> inputs(String json) {
+        var inputs = new java.util.ArrayList<Input>();
+        for (var input : PARAMS.readTree(json)) {
+            var uploadId = input.get("uploadId");
+            var url = input.get("url");
+            inputs.add(new Input(
+                    input.get("name").asString(),
+                    uploadId == null || uploadId.isNull() ? null : UUID.fromString(uploadId.asString()),
+                    url == null || url.isNull() ? null : url.asString()));
+        }
+        return inputs;
     }
 
     @SuppressWarnings("unchecked")

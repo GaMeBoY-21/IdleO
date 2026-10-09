@@ -26,12 +26,12 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/session-not-cancellable` | 409 | Session can't be cancelled | Only a session that hasn't run (REQUESTED, MATCHED or PROVISIONING) can be cancelled; stop a running one. |
 | `/problems/session-not-running` | 409 | Session isn't running | Only a RUNNING session can be stopped: cancel one that hasn't started; one that has ended can't be stopped. |
 | `/problems/outputs-not-ready` | 409 | Outputs not ready | Outputs can be downloaded once the session is COMPLETED. |
-| `/problems/input-not-accepted` | 400 | Template takes no such input | The template takes no input, or not of this kind (an upload or a URL). |
-| `/problems/input-required` | 400 | Input required | The template needs an input: an upload or a URL. |
-| `/problems/input-too-large` | 400 | Input too large | The upload is larger than the template's largest input. |
+| `/problems/input-not-accepted` | 400 | Template takes no such input | The input doesn't take this kind: an upload where it takes only a link, or a link where it takes only an upload. |
+| `/problems/input-required` | 400 | Input required | An input the template needs is missing: give it an upload or a link. |
+| `/problems/input-too-large` | 400 | Input too large | The upload is larger than the input takes. |
 | `/problems/upload-not-ready` | 409 | Upload not ready | The upload can't be used as an input until it's ready, and can't be completed or get fresh part links once it's no longer pending: it may have failed, expired or been deleted. |
 | `/problems/upload-parts-invalid` | 400 | Upload parts don't make the file | A part is missing or its ETag doesn't match what storage holds, or the finished file isn't the size the upload declared; a wrong size fails the upload. |
-| `/problems/upload-in-use` | 409 | Upload in use | A session that hasn't ended uses this upload as its input; delete it once the session ends. |
+| `/problems/upload-in-use` | 409 | Upload in use | A session that hasn't ended uses this upload as an input; delete it once the session ends. |
 | `/problems/upload-quota-exceeded` | 409 | Upload quota reached | Pending and ready uploads together would be more than the per-renter quota; delete some first. |
 | `/problems/too-many-streams` | 429 | Too many open streams | This renter already has the most event streams open at once; close one first. |
 | `/problems/internal-error` | 500 | Internal error | Something failed on our side. Nothing about it is in the response; it's logged for us. |

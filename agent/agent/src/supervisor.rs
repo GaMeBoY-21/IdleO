@@ -17,15 +17,16 @@
 //!   and the last, partial minute when the job ends, with its real seconds. Nothing after a lease
 //!   lapses: only the minutes that ended before the deadline are reported. Usage reports wait in the
 //!   same queue as statuses. The agent meters, never the runner.
-//! - **Input** (ADR 0019): an uploaded input is staged into the attempt's scratch folder before the runner
-//!   starts ([`crate::staging`]); a failure ends the attempt `input_unavailable` before RUNNING.
+//! - **Inputs** (ADR 0019, ADR 0022): every uploaded input file is staged into the attempt's scratch folder, in its
+//!   input's folder, before the runner starts ([`crate::staging`]); a failure ends the attempt `input_unavailable`
+//!   before RUNNING.
 //! - **Logs** (ADR 0019): each attempt has its own log sink ([`crate::logs`]); heartbeats and statuses carry the
 //!   highest chunk uploaded. When an attempt ends, its terminal status waits until the sink has flushed, at most
 //!   [`crate::logs::FLUSH_FOR`].
 //! - **Scratch**: each attempt's folder under the agent's work folder is wiped when the attempt ends, and the
 //!   whole work folder when the agent starts.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -355,11 +356,7 @@ impl Supervisor {
         if start.resume_from.is_some() && read_grant.is_none() {
             return Err("resume_from without a read grant".to_owned());
         }
-        if let Some(input) = &start.input {
-            staging::check(input)?;
-            let grant = read_grant.as_ref().ok_or("an input without a read grant")?;
-            grant.check(&staging::key(input), false).map_err(|_| "the read grant doesn't cover the input")?;
-        }
+        staging::check_covered(&start.inputs, read_grant.as_ref())?;
         let attempt_s3 = Arc::new(S3Store::new(attempt_grant, http.clone(), Arc::clone(&self.clock))?);
         let read_s3 = match read_grant {
             Some(grant) => Some(Arc::new(S3Store::new(grant, http, Arc::clone(&self.clock))?)),
@@ -376,7 +373,7 @@ impl Supervisor {
                 let _ = reports.send(Tagged { session_id, attempt: number, reported: Reported::Logs(event) });
             });
         let folder = self.work_root.join(format!("{session_id}-{}", start.attempt));
-        let staging = start.input.clone().zip(read_store.clone());
+        let staging = (!start.inputs.is_empty()).then(|| start.inputs.clone()).zip(read_store.clone());
         let job = Job {
             session_id,
             attempt: start.attempt,
@@ -388,7 +385,7 @@ impl Supervisor {
             fence: fence.clone(),
             stop_requested,
             folder: folder.clone(),
-            input_file: None,
+            inputs: BTreeMap::new(),
             logs,
         };
         let tasks = spawn(runner, job, staging, self.reports.clone());
@@ -764,23 +761,23 @@ impl Supervisor {
     }
 }
 
-/// Runs the job in its own task, forwarding its reports tagged with the attempt, then saying it ended. An uploaded
-/// input is staged first, through the read store; if it can't be, the job never starts and the attempt fails
+/// Runs the job in its own task, forwarding its reports tagged with the attempt, then saying it ended. Uploaded
+/// inputs are staged first, through the read store; if they can't be, the job never starts and the attempt fails
 /// `input_unavailable`, before RUNNING.
 fn spawn(
     runner: Arc<dyn SessionRunner>,
     mut job: Job,
-    staging: Option<(InputRef, Arc<dyn ObjectStore>)>,
+    staging: Option<(Vec<InputRef>, Arc<dyn ObjectStore>)>,
     reports: mpsc::UnboundedSender<Tagged>,
 ) -> Vec<AbortHandle> {
     let (session_id, attempt) = (job.session_id, job.attempt);
     let (sender, mut receiver) = mpsc::unbounded_channel();
     let mut work: JoinHandle<()> = match staging {
         None => tokio::spawn(runner.run(job, sender)),
-        Some((input, store)) => tokio::spawn(async move {
+        Some((inputs, store)) => tokio::spawn(async move {
             let _ = sender.send(Report::State(SessionState::Preparing));
-            match staging::stage(store.as_ref(), &input, &job.folder, &job.logs).await {
-                Ok(path) => job.input_file = Some(path),
+            match staging::stage(store, &inputs, &job.folder, &job.logs).await {
+                Ok(folders) => job.inputs = folders,
                 Err(message) => {
                     let _ =
                         sender.send(Report::Failed { code: "input_unavailable".to_owned(), message, exit_code: None });
@@ -924,6 +921,7 @@ mod tests {
             gpu_uuids: vec![GPU.to_owned()],
             resume_from: None,
             input: None,
+            inputs: Vec::new(),
         }
     }
 
@@ -1308,7 +1306,12 @@ mod tests {
         read_grant.prefixes = vec![upload.to_owned()];
         read_grant.permission = StoragePermission::ReadOnly.into();
         message.credentials.as_mut().unwrap().read_grant = Some(read_grant);
-        message.input = Some(InputRef { prefix: upload.to_owned(), name: "train.jsonl".to_owned(), size_bytes: 12 });
+        message.inputs = vec![InputRef {
+            prefix: upload.to_owned(),
+            name: "train.jsonl".to_owned(),
+            size_bytes: 12,
+            slot: "data".to_owned(),
+        }];
 
         setup.shared.lock().start("m1", message, Duration::ZERO);
         let mut sent = Vec::new();
@@ -1334,11 +1337,12 @@ mod tests {
         let setup = setup();
         let session = Uuid::now_v7();
         let mut message = start(session, 1, "c1");
-        message.input = Some(InputRef {
+        message.inputs = vec![InputRef {
             prefix: "uploads/0190f3a2-0000-7000-8000-00000000000a/".to_owned(),
             name: "train.jsonl".to_owned(),
             size_bytes: 12,
-        });
+            slot: "data".to_owned(),
+        }];
 
         setup.shared.lock().start("m1", message, Duration::ZERO);
 

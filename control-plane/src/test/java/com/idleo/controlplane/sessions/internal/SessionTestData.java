@@ -40,8 +40,8 @@ final class SessionTestData {
                         null,
                         null,
                         java.util.Map.of(),
-                        null,
-                        null)));
+                        java.util.Map.of(),
+                        java.util.List.of())));
         return id;
     }
 }

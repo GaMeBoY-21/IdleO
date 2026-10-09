@@ -168,20 +168,22 @@ export function toParams(params: TemplateParam[], values: ParamFormValues): Reco
 }
 
 /**
- * The form field a server's `errors[].field` names (`params.epochs`, `maxPricePaisePerMin`), so its message lands
+ * The form field a server's `errors[].field` names (`params.epochs`, `maxPricePaisePerMin`, `inputs.file.url`), so its message lands
  * on the right field; null for one the form doesn't have.
  */
 export function fieldOf(serverField: string): string | null {
   if (serverField.startsWith("params.")) {
     return serverField;
   }
+  // The form asks for one input, whatever its name (ADR 0022): inputs.<name> and inputs.<name>.url land on it.
+  if (/^inputs\.[a-z][a-z0-9_]*(\.url)?$/.test(serverField)) {
+    return "inputUrl";
+  }
   const fields: Record<string, string> = {
     maxPricePaisePerMin: "maxPerHour",
     maxSpendPaise: "spendingCap",
     maxRuntimeSeconds: "runtimeHours",
     vramNeededMb: "vramMb",
-    "input.url": "inputUrl",
-    input: "inputUrl",
   };
   return fields[serverField] ?? null;
 }

@@ -126,30 +126,54 @@ class TemplateCatalogTests {
                   - name: greeting
                     label: Greeting
                     type: string
+                    group: basic
                     required: true
                     max_length: 200
                   - name: repeat
                     label: Repeat
                     help: How many times.
                     type: integer
+                    group: advanced
                     default: 1
                     min: 1
                     max: 5
                   - name: rate
                     label: Learning rate
                     type: number
+                    group: advanced
                     default: 0.0002
                   - name: mode
                     label: Mode
                     type: choice
+                    group: advanced
                     choices: [fast, careful]
                     default: careful
-                input:
-                  accepts: required
-                  upload: true
-                  url: true
-                  max_size_mb: 512
-                  label: Training data
+                inputs:
+                  - name: model
+                    label: Your model
+                    kind: folder
+                    accepts: [upload, link]
+                    required: true
+                    max_size_gb: 40
+                  - name: data
+                    label: Training data
+                    help: One example a line.
+                    kind: file
+                    accepts: [link]
+                questions:
+                  - preset: thoroughness
+                    label: How thorough?
+                    options:
+                      - { id: quick, label: Quick, minutes: 15, sets: { repeat: 1, mode: fast } }
+                      - { id: thorough, label: Thorough, sets: { repeat: 5 } }
+                    default: thorough
+                  - param: greeting
+                  - gpu_memory: true
+                    label: GPU memory you need
+                    choices_gb: [8, 12]
+                    default_gb: 8
+                budget_chips: [5000, 10000]
+                default_budget: 10000
             """;
 
     /** An entry with its params and input written as YAML under it. */
@@ -166,7 +190,7 @@ class TemplateCatalogTests {
     }
 
     @Test
-    void parametersAndAnInputLoadWithTheirDefaultsChecked() {
+    void parametersInputsAndQuestionsLoadWithTheirDefaultsChecked() {
         var template = parse(withBlocks(ECHO_PARAMS)).get("smoke");
 
         assertThat(template.params())
@@ -178,48 +202,117 @@ class TemplateCatalogTests {
         assertThat(repeat.min()).isEqualByComparingTo("1");
         assertThat(template.params().get(2).defaultValue()).isEqualTo(new java.math.BigDecimal("0.0002"));
         assertThat(template.params().get(3).choices()).containsExactly("fast", "careful");
-        assertThat(template.input())
-                .isEqualTo(new Template.Input(Template.Accepts.REQUIRED, true, true, 512, "Training data", null));
+        assertThat(template.params().get(0).group()).isEqualTo(Template.Group.BASIC);
+        assertThat(template.inputs())
+                .containsExactly(
+                        new Template.Input(
+                                "model", "Your model", null, Template.InputKind.FOLDER, true, true, true, 40L << 30),
+                        new Template.Input(
+                                "data",
+                                "Training data",
+                                "One example a line.",
+                                Template.InputKind.FILE,
+                                false,
+                                true,
+                                false,
+                                null));
+        var preset = template.preset("thoroughness").orElseThrow();
+        assertThat(preset.defaultOption()).isEqualTo("thorough");
+        assertThat(preset.option("quick").orElseThrow().sets())
+                .isEqualTo(java.util.Map.of("repeat", 1L, "mode", "fast"));
+        assertThat(preset.option("quick").orElseThrow().minutes()).isEqualTo(15);
+        assertThat(preset.option("thorough").orElseThrow().minutes()).isNull();
+        assertThat(template.questions().get(1)).isEqualTo(new Template.Question.Basic("greeting"));
+        assertThat(template.questions().get(2))
+                .isEqualTo(new Template.Question.GpuMemory("GPU memory you need", null, java.util.List.of(8, 12), 8));
+        assertThat(template.budgetChips()).containsExactly(5000L, 10000L);
+        assertThat(template.defaultBudget()).isEqualTo(10000L);
     }
 
     @Test
-    void aTemplateWithoutAnInputTakesNone() {
-        assertThat(parse(entry("")).get("smoke").input()).isEqualTo(Template.Input.NONE);
-        assertThat(parse(entry("")).get("smoke").params()).isEmpty();
+    void aTemplateWithoutInputsOrQuestionsTakesNone() {
+        var template = parse(entry("")).get("smoke");
+        assertThat(template.inputs()).isEmpty();
+        assertThat(template.params()).isEmpty();
+        assertThat(template.questions()).isEmpty();
+        assertThat(template.budgetChips()).isEmpty();
+        assertThat(template.defaultBudget()).isNull();
+    }
+
+    /** A block of YAML with one line replaced, for the cases below. */
+    private static String echoWith(String line, String replacement) {
+        if (!ECHO_PARAMS.contains(line)) {
+            throw new AssertionError("not in the block: " + line);
+        }
+        return ECHO_PARAMS.replace(line, replacement);
     }
 
     @Test
-    void malformedParametersAndInputsAreRefused() {
+    void malformedInputsQuestionsAndBudgetsAreRefused() {
         var cases = java.util.Map.ofEntries(
-                java.util.Map.entry("params:\n  - name: Greeting\n    label: G\n    type: string\n", "must match"),
+                java.util.Map.entry(echoWith("kind: folder", "kind: archive"), "kind must be folder or file"),
+                java.util.Map.entry(echoWith("accepts: [link]", "accepts: [url]"), "accepts must list"),
+                java.util.Map.entry(echoWith("accepts: [link]", "accepts: []"), "accepts must list"),
+                java.util.Map.entry(echoWith("max_size_gb: 40", "max_size_gb: 0"), "max_size_gb above 0"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: string\n  - name: a\n    label: A\n    type: string\n",
+                        echoWith("accepts: [link]", "accepts: [link]\n        max_size_gb: 1"),
+                        "only for an input that takes an upload"),
+                java.util.Map.entry(echoWith("- name: data", "- name: model"), "input model appears twice"),
+                java.util.Map.entry(echoWith("sets: { repeat: 5 }", "sets: { epochs: 5 }"), "sets epochs, which isn't"),
+                java.util.Map.entry(
+                        echoWith("sets: { repeat: 5 }", "sets: { greeting: hi }"), "advanced parameters only"),
+                java.util.Map.entry(echoWith("sets: { repeat: 5 }", "sets: { repeat: 9 }"), "repeat must be at most 5"),
+                java.util.Map.entry(echoWith("default: thorough", "default: slow"), "one of its options"),
+                java.util.Map.entry(echoWith("      - param: greeting\n", ""), "must be asked as a question"),
+                java.util.Map.entry(echoWith("- param: greeting", "- param: repeat"), "isn't a basic parameter"),
+                java.util.Map.entry(echoWith("choices_gb: [8, 12]", "choices_gb: [8, 10]"), "choices_gb must be"),
+                java.util.Map.entry(echoWith("default_gb: 8", "default_gb: 16"), "default_gb must be one of"),
+                java.util.Map.entry(echoWith("budget_chips: [5000, 10000]", "budget_chips: [10000, 5000]"), "rising"),
+                java.util.Map.entry(echoWith("default_budget: 10000", "default_budget: 7000"), "one of budget_chips"),
+                java.util.Map.entry(echoWith("        default: 1\n", "        required: true\n"), "never required"));
+        cases.forEach((block, message) ->
+                assertThatThrownBy(() -> parse(withBlocks(block))).as(block).hasMessageContaining(message));
+    }
+
+    @Test
+    void aGpuMemoryChoiceBelowTheTemplatesMinimumIsRefused() {
+        assertThatThrownBy(() -> parse(withBlocks(ECHO_PARAMS).replace("min_vram_mb: 1024", "min_vram_mb: 10000")))
+                .hasMessageContaining("8 GB is below the template's min_vram_mb");
+    }
+
+    @Test
+    void malformedParametersAreRefused() {
+        var cases = java.util.Map.ofEntries(
+                java.util.Map.entry(
+                        "params:\n  - name: Greeting\n    label: G\n    type: string\n    group: advanced\n",
+                        "must match"),
+                java.util.Map.entry(
+                        "params:\n  - name: a\n    label: A\n    type: string\n    group: advanced\n  - name: a\n    label: A\n    type: string\n    group: advanced\n",
                         "appears twice"),
                 java.util.Map.entry("params:\n  - name: a\n    label: A\n    type: date\n", "type must be"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: integer\n    default: 9\n    max: 5\n",
+                        "params:\n  - name: a\n    label: A\n    type: integer\n    group: advanced\n    default: 9\n    max: 5\n",
                         "the default must be at most 5"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: integer\n    min: 5\n    max: 1\n",
+                        "params:\n  - name: a\n    label: A\n    type: integer\n    group: advanced\n    min: 5\n    max: 1\n",
                         "min is above max"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: string\n    max_length: 5000\n",
+                        "params:\n  - name: a\n    label: A\n    type: string\n    group: advanced\n    max_length: 5000\n",
                         "max_length must be"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: string\n    min: 1\n", "only for integer"),
+                        "params:\n  - name: a\n    label: A\n    type: string\n    group: advanced\n    min: 1\n",
+                        "only for integer"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: choice\n    choices: [only]\n", "at least 2"),
+                        "params:\n  - name: a\n    label: A\n    type: choice\n    group: advanced\n    choices: [only]\n",
+                        "at least 2"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: string\n    required: true\n    default: x\n",
+                        "params:\n  - name: a\n    label: A\n    type: string\n    group: advanced\n    required: true\n    default: x\n",
                         "has no default"),
                 java.util.Map.entry(
-                        "params:\n  - name: a\n    label: A\n    type: string\n    secret: true\n", "unknown field"),
-                java.util.Map.entry("input:\n  accepts: sometimes\n", "accepts must be"),
-                java.util.Map.entry("input:\n  accepts: optional\n  label: X\n", "an upload, a URL or both"),
-                java.util.Map.entry(
-                        "input:\n  accepts: optional\n  upload: true\n  max_size_mb: 4096\n  label: X\n",
-                        "above the template's scratch_mb"),
-                java.util.Map.entry("input:\n  accepts: optional\n  url: true\n", "label is required"));
+                        "params:\n  - name: a\n    label: A\n    type: string\n    group: advanced\n    secret: true\n",
+                        "unknown field"),
+                java.util.Map.entry("params:\n  - name: a\n    label: A\n    type: string\n", "group is required"),
+                java.util.Map.entry("input:\n  accepts: none\n", "unknown field input"));
         cases.forEach((block, message) ->
                 assertThatThrownBy(() -> parse(withBlocks(block))).as(block).hasMessageContaining(message));
     }
@@ -231,14 +324,17 @@ class TemplateCatalogTests {
             assertThat(echo.params()).extracting(Template.Param::name).containsExactly("greeting", "repeat");
             assertThat(echo.params().getFirst().required()).isTrue();
             assertThat(echo.params().get(1).defaultValue()).isEqualTo(1L);
-            assertThat(echo.input().accepts()).isEqualTo(Template.Accepts.REQUIRED);
-            assertThat(echo.input().upload()).isTrue();
-            assertThat(echo.input().url()).isTrue();
+            var file = echo.input("file").orElseThrow();
+            assertThat(file.required()).isTrue();
+            assertThat(file.kind()).isEqualTo(Template.InputKind.FILE);
+            assertThat(file.upload()).isTrue();
+            assertThat(file.link()).isTrue();
+            assertThat(file.maxSizeBytes()).isEqualTo(512L << 20);
         }
         try (var in = Files.newInputStream(Path.of("../templates/catalog.yaml"))) {
             var smoke = TemplateCatalog.parse(in).get("cuda-smoke-test");
             assertThat(smoke.params()).isEmpty();
-            assertThat(smoke.input().accepts()).isEqualTo(Template.Accepts.NONE);
+            assertThat(smoke.inputs()).isEmpty();
             assertThat(smoke.description()).isNotBlank();
         }
     }
@@ -323,7 +419,7 @@ class TemplateCatalogTests {
                         assertThat(template.args()).containsSubsequence("--simulate", service.id());
                         assertThat(template.name()).endsWith("(simulated)");
                         assertThat(template.description()).contains("development runner");
-                        assertThat(template.input().accepts()).isEqualTo(Template.Accepts.REQUIRED);
+                        assertThat(template.inputs()).anyMatch(Template.Input::required);
                     });
         }
         development.services().values().stream()

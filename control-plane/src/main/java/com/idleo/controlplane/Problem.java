@@ -126,17 +126,15 @@ public enum Problem {
             "input-not-accepted",
             HttpStatus.BAD_REQUEST,
             "Template takes no such input",
-            "The template takes no input, or not of this kind (an upload or a URL)."),
+            "The input doesn't take this kind: an upload where it takes only a link, or a link where it takes only "
+                    + "an upload."),
     INPUT_REQUIRED(
             "input-required",
             HttpStatus.BAD_REQUEST,
             "Input required",
-            "The template needs an input: an upload or a URL."),
+            "An input the template needs is missing: give it an upload or a link."),
     INPUT_TOO_LARGE(
-            "input-too-large",
-            HttpStatus.BAD_REQUEST,
-            "Input too large",
-            "The upload is larger than the template's largest input."),
+            "input-too-large", HttpStatus.BAD_REQUEST, "Input too large", "The upload is larger than the input takes."),
     UPLOAD_NOT_READY(
             "upload-not-ready",
             HttpStatus.CONFLICT,
@@ -153,7 +151,7 @@ public enum Problem {
             "upload-in-use",
             HttpStatus.CONFLICT,
             "Upload in use",
-            "A session that hasn't ended uses this upload as its input; delete it once the session ends."),
+            "A session that hasn't ended uses this upload as an input; delete it once the session ends."),
     UPLOAD_QUOTA_EXCEEDED(
             "upload-quota-exceeded",
             HttpStatus.CONFLICT,

@@ -7,17 +7,18 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A template's parameters (ADR 0019): the one check of a renter's values against the catalog, which booking and
- * quoting both use, and how the values reach the job, as environment variables and nothing else.
+ * A template's parameters (ADR 0019, ADR 0022): the one check of a renter's values against the catalog, which booking
+ * and quoting both use, and how the values and inputs reach the job, as environment variables and nothing else.
  *
  * <ul>
  *   <li>Each value is checked against its parameter's type and limits; an unknown name is refused, never ignored;
- *       a missing optional one takes its default, or is left out when it has none.
+ *       a missing one takes what its preset option sets, then its default, or is left out when it has neither.
  *   <li>Values are kept as a Long (integer), BigDecimal (number), Boolean or String (string, choice), and become
  *       {@code SESSION_PARAM_<NAME>}: integers as plain decimals, numbers as {@code toPlainString()}, booleans as
  *       {@code true} or {@code false}, strings and choices as given.
@@ -28,9 +29,9 @@ import org.jspecify.annotations.Nullable;
 final class SessionParams {
 
     static final String PREFIX = "SESSION_PARAM_";
-    static final String INPUT_FILE = "SESSION_INPUT_FILE";
-    static final String INPUT_URL = "SESSION_INPUT_URL";
-    /** Where the agent stages an uploaded input inside the job's scratch disk. */
+    /** An input's variables: {@code SESSION_INPUT_<NAME>_DIR} for an upload, {@code _URL} for a link. */
+    static final String INPUT_PREFIX = "SESSION_INPUT_";
+    /** Where the agent stages each uploaded input, in a folder of its name, inside the job's scratch disk. */
     static final String INPUT_FOLDER = "/work/input/";
     /** Every variable's name and value together, in UTF-8 bytes. */
     static final int ENV_LIMIT_BYTES = 32 * 1024;
@@ -50,12 +51,14 @@ final class SessionParams {
     }
 
     /**
-     * The renter's values for {@code template}, checked, with defaults filled in, in the catalog's order. Each problem
-     * is a {@code validation-failed} error naming its field, {@code params.<name>}.
+     * The renter's values for {@code template}, checked, with preset values and defaults filled in, in the catalog's
+     * order. Each problem is a {@code validation-failed} error naming its field, {@code params.<name>}.
      *
      * @param given the request's {@code params}: JSON values as Java ones (Number, Boolean, String; null for absent)
+     * @param presetValues what the chosen preset options set ({@link SessionPresets#values}), already checked
      */
-    static Map<String, Object> resolve(Template template, @Nullable Map<String, ?> given) {
+    static Map<String, Object> resolve(
+            Template template, @Nullable Map<String, ?> given, Map<String, Object> presetValues) {
         var values = given == null ? Map.<String, Object>of() : given;
         var errors = new ArrayList<ApiProblem.FieldError>();
         var known = template.params().stream().map(Template.Param::name).toList();
@@ -68,7 +71,9 @@ final class SessionParams {
         for (var param : template.params()) {
             var value = values.get(param.name());
             if (value == null) {
-                if (param.defaultValue() != null) {
+                if (presetValues.containsKey(param.name())) {
+                    resolved.put(param.name(), presetValues.get(param.name()));
+                } else if (param.defaultValue() != null) {
                     resolved.put(param.name(), param.defaultValue());
                 } else if (param.required()) {
                     errors.add(new ApiProblem.FieldError("params." + param.name(), "is required."));
@@ -155,18 +160,19 @@ final class SessionParams {
     }
 
     /**
-     * The job's environment: each resolved parameter, and the input as {@code SESSION_INPUT_FILE} (an upload, staged
-     * at {@code /work/input/<name>}) or {@code SESSION_INPUT_URL}. Nothing else goes in it.
+     * The job's environment: each resolved parameter, and each input as {@code SESSION_INPUT_<NAME>_DIR} (an upload,
+     * staged in {@code /work/input/<name>/}) or {@code SESSION_INPUT_<NAME>_URL} (a link). Nothing else goes in it.
      */
-    static Map<String, String> env(
-            Map<String, Object> resolved, @Nullable String inputFileName, @Nullable String inputUrl) {
+    static Map<String, String> env(Map<String, Object> resolved, List<SessionStore.Input> inputs) {
         var env = new LinkedHashMap<String, String>();
         resolved.forEach((name, value) -> env.put(PREFIX + name.toUpperCase(Locale.ROOT), render(value)));
-        if (inputFileName != null) {
-            env.put(INPUT_FILE, INPUT_FOLDER + inputFileName);
-        }
-        if (inputUrl != null) {
-            env.put(INPUT_URL, inputUrl);
+        for (var input : inputs) {
+            var variable = INPUT_PREFIX + input.name().toUpperCase(Locale.ROOT);
+            if (input.url() != null) {
+                env.put(variable + "_URL", input.url());
+            } else {
+                env.put(variable + "_DIR", INPUT_FOLDER + input.name() + "/");
+            }
         }
         long bytes = env.entrySet().stream()
                 .mapToLong(entry -> entry.getKey().getBytes(StandardCharsets.UTF_8).length

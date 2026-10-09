@@ -3,16 +3,22 @@ package com.idleo.controlplane.sessions;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
  * One entry of the template catalog (templates/catalog.yaml, ADR 0015): what a renter can run, the limits its
- * container gets, and what it takes (ADR 0019): its parameters and its input, described once here, from which every
- * surface's form, flags and arguments are made.
+ * container gets, and what it takes (ADR 0019, ADR 0022): its named inputs, the plain questions the booking screen
+ * asks, its parameters and its budget choices, described once here, from which every surface's form, flags and
+ * arguments are made. Renters bring their own model, data and code; a template never supplies a model.
  *
  * @param service the {@link Service} it's one way to run
  * @param description one line on what it does
  * @param typicalRuntime about how long it usually takes, for the booking screen; null if there's no usual
+ * @param questions the plain questions, in the order the booking screen asks them, after the inputs
+ * @param budgetChips the spending caps the booking screen offers, in paise; empty when it offers none
+ * @param defaultBudget the chip chosen at first; null exactly when there are no chips
  */
 public record Template(
         String id,
@@ -31,11 +37,31 @@ public record Template(
         int scratchMb,
         Duration checkpointInterval,
         List<Param> params,
-        Input input) {
+        List<Input> inputs,
+        List<Question> questions,
+        List<Long> budgetChips,
+        @Nullable Long defaultBudget) {
 
     public Template {
         args = List.copyOf(args);
         params = List.copyOf(params);
+        inputs = List.copyOf(inputs);
+        questions = List.copyOf(questions);
+        budgetChips = List.copyOf(budgetChips);
+    }
+
+    /** The input named {@code name}, if the template has one. */
+    public Optional<Input> input(String name) {
+        return inputs.stream().filter(input -> input.name().equals(name)).findFirst();
+    }
+
+    /** The preset question named {@code name}, if the template asks one. */
+    public Optional<Question.Preset> preset(String name) {
+        return questions.stream()
+                .filter(question -> question instanceof Question.Preset preset
+                        && preset.name().equals(name))
+                .map(Question.Preset.class::cast)
+                .findFirst();
     }
 
     /** What kind of value a parameter takes. */
@@ -45,6 +71,12 @@ public record Template(
         NUMBER,
         BOOLEAN,
         CHOICE
+    }
+
+    /** Where the booking screen shows a parameter: as a plain question, or behind the one "Advanced" row. */
+    public enum Group {
+        BASIC,
+        ADVANCED
     }
 
     /**
@@ -64,6 +96,7 @@ public record Template(
             String label,
             @Nullable String help,
             ParamType type,
+            Group group,
             boolean required,
             @Nullable Object defaultValue,
             @Nullable BigDecimal min,
@@ -76,27 +109,83 @@ public record Template(
         }
     }
 
-    /** Whether a template takes an input. */
-    public enum Accepts {
-        NONE,
-        OPTIONAL,
-        REQUIRED
+    /** What an input holds: a folder of files (a model, a project), or exactly one file (a dataset, a zip). */
+    public enum InputKind {
+        FOLDER,
+        FILE
     }
 
     /**
-     * The one file a job reads: an upload, staged by the agent, or an https URL the job fetches itself inside its
-     * sandbox.
+     * Something the renter brings, by name: an upload of theirs, staged by the agent into {@code /work/input/<name>/}
+     * ({@code SESSION_INPUT_<NAME>_DIR}), or an https link the job fetches itself inside its sandbox ({@code
+     * SESSION_INPUT_<NAME>_URL}).
      *
-     * @param maxSizeMb the largest upload it takes, never above the template's scratch disk
+     * @param name {@code ^[a-z][a-z0-9_]{0,31}$}, unique in its template
+     * @param upload it takes an upload
+     * @param link it takes a link
+     * @param maxSizeBytes the largest upload it takes; null when it takes only a link
      */
     public record Input(
-            Accepts accepts,
+            String name,
+            String label,
+            @Nullable String help,
+            InputKind kind,
             boolean upload,
-            boolean url,
-            @Nullable Integer maxSizeMb,
-            @Nullable String label,
-            @Nullable String help) {
+            boolean link,
+            boolean required,
+            @Nullable Long maxSizeBytes) {}
 
-        public static final Input NONE = new Input(Accepts.NONE, false, false, null, null, null);
+    /** One plain question the booking screen asks, after the inputs. */
+    public sealed interface Question {
+
+        /**
+         * A choice that sets several parameters at once, such as "How thorough?". The booking keeps the chosen
+         * option's id, so Run again asks it the same way.
+         *
+         * @param name {@code ^[a-z][a-z0-9_]{0,31}$}, unique among the template's questions
+         * @param defaultOption the id of the option chosen when the renter picks none
+         */
+        record Preset(String name, String label, @Nullable String help, List<Option> options, String defaultOption)
+                implements Question {
+
+            public Preset {
+                options = List.copyOf(options);
+            }
+
+            public Optional<Option> option(String id) {
+                return options.stream().filter(option -> option.id().equals(id)).findFirst();
+            }
+        }
+
+        /**
+         * One option of a preset.
+         *
+         * @param minutes about how long it typically runs, for the screen's time and price; null if there's no usual
+         * @param sets the advanced parameters it sets, by name, each value checked against its parameter
+         */
+        record Option(String id, String label, @Nullable Integer minutes, Map<String, Object> sets) {
+
+            public Option {
+                sets = Map.copyOf(sets);
+            }
+        }
+
+        /** A basic parameter, asked here as a plain question. */
+        record Basic(String param) implements Question {}
+
+        /**
+         * How much GPU memory the job needs, asked as a choice of GPU classes; the answer is the booking's {@code
+         * vramNeededMb}.
+         *
+         * @param choicesGb the classes offered, from {@link GpuClasses#GB}
+         * @param defaultGb the one chosen at first
+         */
+        record GpuMemory(String label, @Nullable String help, List<Integer> choicesGb, int defaultGb)
+                implements Question {
+
+            public GpuMemory {
+                choicesGb = List.copyOf(choicesGb);
+            }
+        }
     }
 }

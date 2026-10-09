@@ -82,7 +82,9 @@ message SessionSpec {
   // Maximum number of processes inside the container.
   // Zero is invalid; the receiver rejects the message.
   int32 pids_limit = 8;
-  // Size of the fixed-size scratch disk mounted at /work, in MB.
+  // Size of the fixed-size scratch disk mounted at /work, in MB. The staged
+  // inputs (StartSession.inputs) come on top: the disk holds them and
+  // scratch_mb more.
   // Zero is invalid; the receiver rejects the message.
   int32 scratch_mb = 9;
   // How often the job should checkpoint.
@@ -155,7 +157,7 @@ message Credentials {
   // secret: never log.
   // Absent is invalid; the receiver rejects the message.
   StorageGrant attempt_grant = 6;
-  // Read-only on the upload named in StartSession.input,
+  // Read-only on the folder of each upload in StartSession.inputs,
   // "uploads/{upload_id}/", and on the checkpoint named in
   // StartSession.resume_from, if any. Absent when there's neither.
   // secret: never log.
@@ -174,22 +176,30 @@ message CheckpointRef {
   int32 seq = 2;
 }
 
-// The file a session reads as its input: one uploaded object, read through
+// One file of a session's input: one uploaded object, read through
 // Credentials.read_grant. The agent downloads it into the attempt's scratch
-// folder, input/{name}, before the job starts, and checks its size.
+// folder, input/{slot}/{name}, before the job starts, and checks its size.
+// An upload of a folder is one InputRef per file, all with the same slot.
 message InputRef {
-  // The upload's folder, for example
-  // "uploads/0190f3a2-0000-7000-8000-000000000000/". Ends in "/".
+  // The folder the object's name is relative to, for example
+  // "uploads/0190f3a2-0000-7000-8000-000000000000/files/". Ends in "/".
   // Empty is invalid; the receiver rejects the message.
   string prefix = 1;
-  // The object's name inside that folder, which is also the file's name in
-  // the job's input folder: only letters, digits, ".", "_" and "-", and
-  // never "." or "..".
+  // The object's path inside that folder, which is also the file's path in
+  // the input's folder: one or more segments joined by "/", each only
+  // letters, digits, ".", "_" and "-", and never "." or "..". In
+  // StartSession.input (deprecated), a single segment.
   // Empty is invalid; the receiver rejects the message.
   string name = 2;
   // The object's size in bytes; a download of any other size is refused.
-  // Zero is invalid; the receiver rejects the message.
+  // Zero is valid: the agent writes an empty file without downloading.
   int64 size_bytes = 3;
+  // The template's name for the input this file belongs to, such as
+  // "model": the job finds it in /work/input/{slot}/ (SESSION_INPUT_{SLOT}_DIR).
+  // Matches ^[a-z][a-z0-9_]{0,31}$. Empty only in StartSession.input
+  // (deprecated); in StartSession.inputs, empty is invalid and the receiver
+  // rejects the message.
+  string slot = 4;
 }
 
 // One session as the agent sees it right now. Shared by Hello and Heartbeat.
@@ -313,11 +323,15 @@ message StartSession {
   // checked that the checkpoint's completion marker exists. Absent when the
   // job starts fresh. Readable through Credentials.read_grant.
   CheckpointRef resume_from = 9;
-  // The uploaded file the job reads, staged by the agent while PREPARING,
-  // before minute 0. Absent when the session has no uploaded input; a URL
-  // input is only in SessionSpec.env, fetched by the job inside its sandbox,
-  // never by the agent. Readable through Credentials.read_grant.
+  // Deprecated: no longer sent; inputs replaces it. The one uploaded file
+  // of a session with a single input. The number stays reserved for it.
   InputRef input = 10;
+  // Every uploaded file the job reads, one per file, each staged by the agent
+  // into input/{slot}/{name} while PREPARING, before minute 0. Empty when the
+  // session has no uploaded input. A link input is never here: it's only
+  // SESSION_INPUT_{NAME}_URL in SessionSpec.env, fetched by the job inside
+  // its sandbox, never by the agent. Readable through Credentials.read_grant.
+  repeated InputRef inputs = 11;
 }
 
 // Control plane to agent: fresh storage credentials for a running attempt.

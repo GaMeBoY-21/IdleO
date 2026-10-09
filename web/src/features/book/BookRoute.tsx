@@ -9,10 +9,12 @@ import { uploadLine } from "./FilePicker";
 import { settingsSummary } from "./summary";
 import type { QuoteState } from "./useQuote";
 import type { ChosenFile } from "./useUpload";
+import { firstInput } from "@/lib/inputs";
 
 /** The session's data as the route's first stop; null for a template that takes none. */
 export function dataStop(template: Template, values: BookValues, file: ChosenFile | null): DataStop | null {
-  if (template.input.accepts === "none") {
+  const input = firstInput(template);
+  if (input === null) {
     return null;
   }
   if (values.inputKind === "url" && values.inputUrl.trim() !== "") {
@@ -22,8 +24,8 @@ export function dataStop(template: Template, values: BookValues, file: ChosenFil
     return { detail: `${file.name} · ${uploadLine(file)}`, done: file.progress.phase === "ready" };
   }
   return {
-    detail: template.input.accepts === "optional" ? "None: it's optional" : "Upload a file or give a link",
-    done: template.input.accepts === "optional",
+    detail: input.required ? "Upload a file or give a link" : "None: it's optional",
+    done: !input.required,
   };
 }
 

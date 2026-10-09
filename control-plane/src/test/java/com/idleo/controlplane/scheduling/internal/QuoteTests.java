@@ -210,39 +210,41 @@ class QuoteTests {
                 Map.entry(rich, body("cuda-smoke-test")),
                 Map.entry(rich, body("no-such-template")),
                 Map.entry(rich, body("cuda-smoke-test", "vramNeededMb", 1)),
-                Map.entry(rich, body("cuda-smoke-test", "input", Map.of("url", "https://example.com/a"))),
+                Map.entry(
+                        rich,
+                        body("cuda-smoke-test", "inputs", Map.of("file", Map.of("url", "https://example.com/a")))),
                 Map.entry(
                         rich,
                         body(
                                 "echo-input",
                                 "params",
                                 Map.of("repeat", 9),
-                                "input",
-                                Map.of("url", "https://example.com/a"))),
+                                "inputs",
+                                Map.of("file", Map.of("url", "https://example.com/a")))),
                 Map.entry(
                         rich,
                         body(
                                 "echo-input",
                                 "params",
                                 Map.of("greeting", "hi"),
-                                "input",
-                                Map.of("url", "http://example.com/a"))),
+                                "inputs",
+                                Map.of("file", Map.of("url", "http://example.com/a")))),
                 Map.entry(
                         rich,
                         body(
                                 "echo-input",
                                 "params",
                                 Map.of("greeting", "hi"),
-                                "input",
-                                Map.of("uploadId", UUID.randomUUID()))),
+                                "inputs",
+                                Map.of("file", Map.of("uploadId", UUID.randomUUID())))),
                 Map.entry(
                         rich,
                         body(
                                 "echo-input",
                                 "params",
                                 Map.of("greeting", "hi"),
-                                "input",
-                                Map.of("url", "https://example.com/a"))),
+                                "inputs",
+                                Map.of("file", Map.of("url", "https://example.com/a")))),
                 Map.entry(broke, body("cuda-smoke-test")),
                 Map.entry(
                         broke,
@@ -250,8 +252,8 @@ class QuoteTests {
                                 "echo-input",
                                 "params",
                                 Map.of("greeting", "hi"),
-                                "input",
-                                Map.of("url", "https://example.com/a"))));
+                                "inputs",
+                                Map.of("file", Map.of("url", "https://example.com/a")))));
 
         for (var request : cases) {
             var quote = call("/v1/session-quotes", request.getKey(), request.getValue());
@@ -358,7 +360,12 @@ class QuoteTests {
         var notReady = call(
                 "/v1/session-quotes",
                 renter,
-                body("echo-input", "params", Map.of("greeting", "hi"), "input", Map.of("uploadId", UUID.randomUUID())));
+                body(
+                        "echo-input",
+                        "params",
+                        Map.of("greeting", "hi"),
+                        "inputs",
+                        Map.of("file", Map.of("uploadId", UUID.randomUUID()))));
         assertThat(notReady.status()).isEqualTo(404);
     }
 }

@@ -27,27 +27,42 @@
 #   typical_runtime        optional: about how long it usually takes, for the booking screen
 #   memory_mb, cpu_millicores, pids_limit, scratch_mb   container limits (technical design, compute sandbox)
 #   checkpoint_interval    how often the job checkpoints
+#   inputs                 optional: what the renter brings (ADR 0022). We provide the GPU; renters bring
+#                          their own model, data and code, and no template ever supplies a model.
+#     - name               ^[a-z][a-z0-9_]{0,31}$, unique in the template
+#       label, help        what the booking screen shows
+#       kind               folder (a model, a project; one file, a zip, is fine too) | file (exactly one)
+#       accepts            [upload], [link] or [upload, link]. An upload is staged by the agent into
+#                          /work/input/<name>/, paths kept (SESSION_INPUT_<NAME>_DIR); a link is an https URL,
+#                          SESSION_INPUT_<NAME>_URL, which the job fetches itself inside its sandbox; the
+#                          agent never fetches a renter's link
+#       required           true or false (default false)
+#       max_size_gb        for uploads: the largest it takes, in GiB (2^30 bytes); 0.5 is fine
 #   params                 optional: what the renter can set (ADR 0019), each reaching the job as the
 #                          environment variable SESSION_PARAM_<NAME>; never secrets, which come later
 #                          through Credentials:
 #     - name               ^[a-z][a-z0-9_]{0,31}$, unique in the template
 #       label, help        what the booking form, the CLI and the SDK show
 #       type               string | integer | number | boolean | choice
+#       group              basic (asked as a plain question, so listed in questions) | advanced (behind the
+#                          one "Advanced" row, with its default set; never required)
 #       required           true or false (default false); a required parameter has no default
 #       default            optional; must itself pass the rules below
 #       min, max           integer and number only
 #       max_length         string only; 1,000 if not given, never above 4,096
 #       choices            choice only: at least 2
-#   input                  optional: the one file the job reads (ADR 0019)
-#     accepts              none | optional | required
-#     upload               true if it takes an upload, staged by the agent at /work/input/<name>
-#                          (SESSION_INPUT_FILE)
-#     url                  true if it takes an https URL, which the job fetches itself inside its
-#                          sandbox (SESSION_INPUT_URL); the agent never fetches a renter's URL
-#     max_size_mb          for uploads: the largest it takes, never above scratch_mb
-#     label, help          what the booking form shows
+#   questions              optional: the plain questions, asked after the inputs, in this order; each one of
+#     - preset: <name>     a choice that sets several advanced parameters at once, with label, help,
+#                          default (an option's id) and options, each { id, label, minutes (typical, for
+#                          the screen's time and price), sets: { <param>: <value> } }. The booking keeps
+#                          the chosen option's id, so Run again asks the same way
+#     - param: <name>      a basic parameter; every basic parameter is asked exactly once
+#     - gpu_memory: true   the GPU memory the job needs, with label, help, choices_gb (from 8, 12, 16, 24)
+#                          and default_gb
+#   budget_chips           optional: the spending caps the booking screen offers, in paise, rising; the
+#   default_budget         screen adds "Other amount". Both or neither
 #
-# A template's parameters and input are described here once; the web form, the CLI's flags and the
+# A template's inputs, questions and parameters are described here once; the web form, the CLI's flags and the
 # SDK's arguments are all made from GET /v1/templates.
 services:
   - id: fine-tune
@@ -86,5 +101,3 @@ templates:
     scratch_mb: 1024
     checkpoint_interval: 5m
     typical_runtime: 30s
-    input:
-      accepts: none

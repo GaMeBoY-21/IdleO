@@ -5,8 +5,7 @@ import { RadioGroup } from "@/components/ui/Inputs";
 import type { BookValues } from "./form";
 import { FilePicker } from "./FilePicker";
 import type { ChosenFile } from "./useUpload";
-
-const MIB = 1024 * 1024;
+import { firstInput } from "@/lib/inputs";
 
 /**
  * "Your data" (docs/design/redesign/book-laptop.html): the session's input, as the template takes it: a file,
@@ -30,7 +29,10 @@ export function InputSection({
 }) {
   const form = useFormContext<BookValues>();
   const kind = useWatch({ control: form.control, name: "inputKind" });
-  const { input } = template;
+  const input = firstInput(template);
+  if (input === null) {
+    return null;
+  }
   const about = [input.label, input.help].filter(Boolean).join(": ");
 
   return (
@@ -38,11 +40,11 @@ export function InputSection({
       <div className="flex flex-col gap-0.5">
         <h2 id="input-title" className={laptop ? "text-section font-bold" : "text-option font-semibold"}>
           Your data
-          {input.accepts === "optional" && <span className="font-medium text-text-muted"> (optional)</span>}
+          {!input.required && <span className="font-medium text-text-muted"> (optional)</span>}
         </h2>
         {about && <p className="text-small text-text-muted">{about}</p>}
       </div>
-      {input.upload && input.url && (
+      {input.upload && input.link && (
         <RadioGroup
           legend="How you'll give it"
           options={[
@@ -54,7 +56,7 @@ export function InputSection({
       )}
       {kind === "upload" && input.upload ? (
         <FilePicker
-          maxBytes={input.maxSizeMb === null || input.maxSizeMb === undefined ? null : input.maxSizeMb * MIB}
+          maxBytes={input.maxSizeBytes ?? null}
           templateName={template.name}
           file={file}
           onChoose={onChoose}

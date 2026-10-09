@@ -63,7 +63,7 @@ class SessionViews {
             @Nullable Integer utilPct,
             @Nullable Integer tempC) {}
 
-    /** The job's input: an upload of the renter's, or an https URL the job fetches itself. */
+    /** One input: an upload of the renter's, or an https link the job fetches itself. */
     record SessionInputView(
             @Nullable UUID uploadId, @Nullable String url) {}
 
@@ -81,8 +81,9 @@ class SessionViews {
      * @param endedAt when it reached its final state
      * @param gpu the GPU of its current or latest attempt; null before a host accepted it
      * @param checkpoints its complete checkpoints, oldest first
-     * @param params its parameters, with the template's defaults filled in
-     * @param input the file it reads; null if it reads none
+     * @param params its parameters, with presets and the template's defaults filled in
+     * @param presets the option chosen for each of its template's preset questions
+     * @param inputs what it reads, by the template's input names, in the template's order
      */
     record SessionResponse(
             UUID id,
@@ -111,7 +112,8 @@ class SessionViews {
             @Schema(additionalPropertiesSchema = CreateSessionRequest.ParamValue.class)
             Map<String, Object> params,
 
-            @Nullable SessionInputView input) {}
+            Map<String, String> presets,
+            Map<String, SessionInputView> inputs) {}
 
     SessionResponse of(SessionStore.Session session) {
         var costs = this.costs.getIfAvailable();
@@ -146,9 +148,24 @@ class SessionViews {
                 gpu(session.id(), session.state() == SessionState.RUNNING),
                 checkpoints(session.id()),
                 params(session),
-                session.inputUploadId() == null && session.inputUrl() == null
-                        ? null
-                        : new SessionInputView(session.inputUploadId(), session.inputUrl()));
+                session.presets(),
+                inputs(session));
+    }
+
+    /** The session's inputs in its template's order. */
+    private Map<String, SessionInputView> inputs(SessionStore.Session session) {
+        var order = catalog.find(session.templateId())
+                .map(template ->
+                        template.inputs().stream().map(Template.Input::name).toList())
+                .orElse(List.of());
+        var ordered = new LinkedHashMap<String, SessionInputView>();
+        session.inputs().stream()
+                .sorted(java.util.Comparator.comparingInt(input -> {
+                    int at = order.indexOf(input.name());
+                    return at < 0 ? Integer.MAX_VALUE : at;
+                }))
+                .forEach(input -> ordered.put(input.name(), new SessionInputView(input.uploadId(), input.url())));
+        return ordered;
     }
 
     /** The session's parameters in its template's order. */

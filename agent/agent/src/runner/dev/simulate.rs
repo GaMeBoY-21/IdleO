@@ -2,8 +2,9 @@
 //! writes to its log as it runs, and the outputs it leaves, so a local stack looks and behaves like the
 //! real thing. Development only, like the rest of the development runner; nothing here runs a model.
 //!
-//! Every line and every output byte is generated: from the parameters, the input's size and line count,
-//! and the session's id, never from a real model. A kind's log is a schedule over the job's
+//! Every line and every output byte is generated: from the parameters, the renter's staged files (their paths,
+//! sizes and line counts) and links, and the session's id, never from a real model. Renters bring their own model,
+//! data and code (ADR 0022); the simulations list what they were given and never name a model of ours. A kind's log is a schedule over the job's
 //! whole duration, so an attempt resumed from a checkpoint carries on where the last one stopped.
 
 use std::collections::BTreeMap;
@@ -37,12 +38,22 @@ impl FromStr for Kind {
 pub(super) struct Given {
     /// Every `SESSION_PARAM_*` variable, by its full name.
     pub params: BTreeMap<String, String>,
-    /// The staged input's name, if there's one.
-    pub input_name: Option<String>,
-    pub input_bytes: u64,
-    /// Lines in the input: training examples in a JSONL file.
-    pub input_lines: u64,
+    /// Each uploaded input's staged files, by input name.
+    pub inputs: BTreeMap<String, Vec<GivenFile>>,
+    /// Each link input, by input name.
+    pub links: BTreeMap<String, String>,
 }
+
+/// One staged file: its path inside its input's folder, its size, and its lines (a JSONL file's examples).
+#[derive(Debug, Clone)]
+pub(super) struct GivenFile {
+    pub path: String,
+    pub size_bytes: u64,
+    pub lines: u64,
+}
+
+/// The most files of an input a simulation lists, one a line, before "and N more".
+const LISTED_FILES: usize = 10;
 
 /// One simulated job.
 #[derive(Debug, Clone)]
@@ -73,34 +84,81 @@ impl Simulation {
         self.param(name, "").parse().unwrap_or(default).clamp(min, max)
     }
 
-    fn input(&self) -> String {
-        self.given.input_name.clone().unwrap_or_else(|| "no input".to_owned())
+    /// An input's files, empty when it wasn't uploaded.
+    fn files(&self, name: &str) -> &[GivenFile] {
+        self.given.inputs.get(name).map_or(&[], Vec::as_slice)
+    }
+
+    /// How the renter's model is described: the files they uploaded, or the link they gave.
+    fn model(&self) -> String {
+        match (self.files("model"), self.given.links.get("model")) {
+            (files, _) if !files.is_empty() => {
+                format!("your uploaded model ({} file{})", files.len(), if files.len() == 1 { "" } else { "s" })
+            }
+            (_, Some(link)) => link.clone(),
+            _ => "no model".to_owned(),
+        }
+    }
+
+    /// Training examples: the lines of the data the renter uploaded; none known for a link.
+    fn examples(&self) -> u64 {
+        self.files("data").iter().map(|file| file.lines).sum()
+    }
+
+    /// An input as the job finds it: its folder and files, each listed, or its link.
+    fn describe(&self, name: &str, what: &str) -> Vec<String> {
+        let files = self.files(name);
+        if let Some(link) = self.given.links.get(name) {
+            return vec![format!("{what}: fetching {link} inside the sandbox")];
+        }
+        if files.is_empty() {
+            return vec![format!("{what}: none given")];
+        }
+        let bytes: u64 = files.iter().map(|file| file.size_bytes).sum();
+        let mut lines = vec![format!(
+            "{what}: {} file{}, {bytes} bytes in /work/input/{name}/",
+            files.len(),
+            if files.len() == 1 { "" } else { "s" }
+        )];
+        lines
+            .extend(files.iter().take(LISTED_FILES).map(|file| format!("  {} ({} bytes)", file.path, file.size_bytes)));
+        if files.len() > LISTED_FILES {
+            lines.push(format!("  and {} more", files.len() - LISTED_FILES));
+        }
+        lines
     }
 
     /// What every attempt prints before its work starts, a resumed one included.
     pub(super) fn opening(&self) -> Vec<String> {
-        let input = self.input();
         match self.kind {
-            Kind::FineTune => vec![
-                format!("loading base model {} (4-bit)", self.param("BASE_MODEL", "Qwen2.5 0.5B Instruct")),
-                format!(
-                    "{input}: {} training examples, {} steps an epoch at batch size 8",
-                    self.given.input_lines,
+            Kind::FineTune => {
+                let mut lines = self.describe("model", "your model");
+                lines.push(format!("loading {} in 4-bit", self.model()));
+                lines.extend(self.describe("data", "your training data"));
+                lines.push(format!(
+                    "{} training examples, {} steps an epoch at batch size 8",
+                    self.examples(),
                     self.steps_per_epoch()
-                ),
-                format!(
-                    "LoRA rank {}, alpha {}, {} epochs, learning rate 2e-4",
+                ));
+                lines.push(format!(
+                    "LoRA rank {}, alpha {}, {} epochs, learning rate {}",
                     self.lora_rank(),
                     2 * self.lora_rank(),
-                    self.epochs()
-                ),
-            ],
-            Kind::RunCode => vec![
-                format!("unpacked {input} ({} bytes) into /work/code", self.given.input_bytes),
-                format!("$ {}", self.param("COMMAND", "python main.py")),
-                "Using device: cuda:0".to_owned(),
-                format!("Loaded config, {RUN_CODE_BATCHES} batches to run"),
-            ],
+                    self.epochs(),
+                    self.param("LEARNING_RATE", "0.0002")
+                ));
+                lines
+            }
+            Kind::RunCode => {
+                let mut lines = self.describe("code", "your code");
+                lines.extend(self.describe("data", "your data"));
+                lines.extend([
+                    format!("$ {}", self.param("COMMAND", "python main.py")),
+                    "Using device: cuda:0".to_owned(),
+                    format!("Loaded config, {RUN_CODE_BATCHES} batches to run"),
+                ]);
+                lines
+            }
         }
     }
 
@@ -131,9 +189,10 @@ impl Simulation {
                 for step in 1..=per_epoch * epochs {
                     let epoch = (step - 1) / per_epoch + 1;
                     lines.push(format!(
-                        "epoch {epoch}/{epochs} step {step}/{} loss {:.4} lr 2.0e-04 grad_norm {:.3}",
+                        "epoch {epoch}/{epochs} step {step}/{} loss {:.4} lr {} grad_norm {:.3}",
                         per_epoch * epochs,
                         self.loss(step),
+                        self.param("LEARNING_RATE", "0.0002"),
                         0.4 + self.noise(step, 3) * 0.3
                     ));
                     if step % per_epoch == 0 {
@@ -214,7 +273,7 @@ impl Simulation {
     }
 
     fn steps_per_epoch(&self) -> u64 {
-        self.given.input_lines.div_ceil(8).clamp(4, MAX_STEPS_PER_EPOCH)
+        self.examples().div_ceil(8).clamp(4, MAX_STEPS_PER_EPOCH)
     }
 
     /// Training loss at a step: falling fast, then flattening, with a little noise.
@@ -232,7 +291,7 @@ impl Simulation {
             "__metadata__".to_owned(),
             serde_json::json!({
                 "format": "pt",
-                "base_model": self.param("BASE_MODEL", "Qwen2.5 0.5B Instruct"),
+                "base_model": self.model(),
                 "lora_rank": rank.to_string(),
                 "simulated": "true",
             }),
@@ -287,10 +346,10 @@ impl Simulation {
             })
             .collect();
         let log = serde_json::json!({
-            "base_model": self.param("BASE_MODEL", "Qwen2.5 0.5B Instruct"),
+            "base_model": self.model(),
             "epochs": self.epochs(),
             "lora_rank": self.lora_rank(),
-            "training_examples": self.given.input_lines,
+            "training_examples": self.examples(),
             "steps": steps,
             "final_loss": (self.loss(per_epoch * self.epochs()) * 10_000.0).round() / 10_000.0,
             "simulated": true,
@@ -322,11 +381,11 @@ mod tests {
     use super::*;
 
     fn simulation(kind: Kind, params: &[(&str, &str)], input_lines: u64) -> Simulation {
+        let data = GivenFile { path: "train.jsonl".to_owned(), size_bytes: 1_000, lines: input_lines };
         let given = Given {
             params: params.iter().map(|&(name, value)| (format!("SESSION_PARAM_{name}"), value.to_owned())).collect(),
-            input_name: Some("given".to_owned()),
-            input_bytes: 1_000,
-            input_lines,
+            inputs: BTreeMap::from([("data".to_owned(), vec![data.clone()]), ("code".to_owned(), vec![data])]),
+            links: BTreeMap::from([("model".to_owned(), "https://huggingface.co/me/model".to_owned())]),
         };
         Simulation::new(kind, given, "01a11d3e-443d-77f5-b801-ca8c40f876a3")
     }

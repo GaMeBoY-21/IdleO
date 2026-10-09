@@ -9,10 +9,11 @@
 //! the checkpoint it resumed from, then `outputs/_COMPLETE`, and succeeds with exit code 0. Asked to stop,
 //! it writes one more checkpoint with the time so far and stops.
 //!
-//! It proves what the job saw (ADR 0019): `result.json` has the staged input's name, size and SHA-256,
-//! every `SESSION_PARAM_*` variable from the spec, and, when there's a `greeting` parameter (the
-//! `echo-input` template), the greeting repeated `repeat` times. It writes real log lines: the start, the
-//! attempt, the checkpoint it resumed from, the parameters, the input, each checkpoint, and the finish.
+//! It proves what the job saw (ADR 0019, ADR 0022): `result.json` has every staged input file's path, size and
+//! SHA-256, by input, each link input, every `SESSION_PARAM_*` variable from the spec, and, when there's a
+//! `greeting` parameter (the `echo-input` template), the greeting repeated `repeat` times. It writes real log lines:
+//! the start, the attempt, the checkpoint it resumed from, the parameters, the inputs, each checkpoint, and the
+//! finish.
 //!
 //! With `--simulate <kind>` in its arguments (fine-tune or run-code), it plays one of the services instead
 //! ([`simulate`]): that service's log lines, streamed as it runs, and its
@@ -33,7 +34,7 @@ use sha2::{Digest, Sha256};
 use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 
-use self::simulate::{Given, Kind, Simulation};
+use self::simulate::{Given, GivenFile, Kind, Simulation};
 use super::{Job, Report, SessionRunner};
 use crate::storage::{ObjectStore, StorageError};
 
@@ -73,19 +74,21 @@ struct Output {
     resumed_from: Option<ResumedFrom>,
     ran_for_ms: u64,
     checkpoints_written: i32,
-    /// The staged input, as the job read it.
-    input: Option<InputSeen>,
-    /// `SESSION_INPUT_URL`, which a real job would fetch inside its sandbox; this one only records it.
-    input_url: Option<String>,
+    /// Each uploaded input's files, as the job read them, by input name.
+    inputs: BTreeMap<String, Vec<InputSeen>>,
+    /// Each link input, `SESSION_INPUT_<NAME>_URL`, by input name: a real job fetches it inside its sandbox; this one
+    /// only records it.
+    links: BTreeMap<String, String>,
     /// Every `SESSION_PARAM_*` variable the job saw.
     params: BTreeMap<String, String>,
     /// For a `greeting` parameter: the greeting, `repeat` times.
     echo: Option<Vec<String>>,
 }
 
+/// One staged file, as the job read it: its path inside its input's folder.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct InputSeen {
-    name: String,
+    path: String,
     size_bytes: u64,
     sha256: String,
 }
@@ -244,8 +247,12 @@ fn result(job: &Job, seen: &Seen, elapsed: Duration, checkpoints_written: i32) -
         resumed_from: job.resume_from.as_ref().map(|from| ResumedFrom { prefix: from.prefix.clone(), seq: from.seq }),
         ran_for_ms: millis(elapsed),
         checkpoints_written,
-        input: seen.input.clone(),
-        input_url: seen.input_url.clone(),
+        inputs: seen
+            .inputs
+            .iter()
+            .map(|(name, files)| (name.clone(), files.iter().map(|(file, _)| file.clone()).collect()))
+            .collect(),
+        links: seen.links.clone(),
         params: seen.params.clone(),
         echo: seen.echo.clone(),
     };
@@ -255,9 +262,22 @@ fn result(job: &Job, seen: &Seen, elapsed: Duration, checkpoints_written: i32) -
 fn simulation(job: &Job, kind: Kind, seen: &Seen) -> Simulation {
     let given = Given {
         params: seen.params.clone(),
-        input_name: seen.input.as_ref().map(|input| input.name.clone()),
-        input_bytes: seen.input.as_ref().map_or(0, |input| input.size_bytes),
-        input_lines: seen.input_lines,
+        inputs: seen
+            .inputs
+            .iter()
+            .map(|(name, files)| {
+                let files = files
+                    .iter()
+                    .map(|(file, lines)| GivenFile {
+                        path: file.path.clone(),
+                        size_bytes: file.size_bytes,
+                        lines: *lines,
+                    })
+                    .collect();
+                (name.clone(), files)
+            })
+            .collect(),
+        links: seen.links.clone(),
     };
     Simulation::new(kind, given, &job.session_id.to_string())
 }
@@ -265,10 +285,9 @@ fn simulation(job: &Job, kind: Kind, seen: &Seen) -> Simulation {
 /// What the job was given; written to its log as it's read, unless a simulation writes its own.
 struct Seen {
     params: BTreeMap<String, String>,
-    input: Option<InputSeen>,
-    /// Lines in the input file: a simulation's training examples or prompts.
-    input_lines: u64,
-    input_url: Option<String>,
+    /// Each uploaded input's files, with how many lines each has: a simulation's training examples.
+    inputs: BTreeMap<String, Vec<(InputSeen, u64)>>,
+    links: BTreeMap<String, String>,
     echo: Option<Vec<String>>,
 }
 
@@ -288,17 +307,25 @@ async fn observe(job: &Job, log: bool) -> Result<Seen, Stop> {
     for (name, value) in &params {
         line(format!("parameter {name}={value}"));
     }
-    let (input, input_lines) = match &job.input_file {
-        Some(path) => {
-            let (seen, lines) = read_input(path).await?;
-            line(format!("input {} {} bytes sha256 {}", seen.name, seen.size_bytes, seen.sha256));
-            (Some(seen), lines)
+    let mut inputs = BTreeMap::new();
+    for (name, folder) in &job.inputs {
+        let files = read_folder(folder).await?;
+        for (file, _) in &files {
+            line(format!("input {name}/{} {} bytes sha256 {}", file.path, file.size_bytes, file.sha256));
         }
-        None => (None, 0),
-    };
-    let input_url = job.spec.env.get("SESSION_INPUT_URL").cloned();
-    if let Some(url) = &input_url {
-        line(format!("input url {url} (a real job fetches it inside its sandbox)"));
+        inputs.insert(name.clone(), files);
+    }
+    let links: BTreeMap<String, String> = job
+        .spec
+        .env
+        .iter()
+        .filter_map(|(variable, url)| {
+            let name = variable.strip_prefix("SESSION_INPUT_")?.strip_suffix("_URL")?;
+            Some((name.to_ascii_lowercase(), url.clone()))
+        })
+        .collect();
+    for (name, url) in &links {
+        line(format!("input {name} link {url} (a real job fetches it inside its sandbox)"));
     }
     let echo = params.get("SESSION_PARAM_GREETING").map(|greeting| {
         let repeat = params.get("SESSION_PARAM_REPEAT").and_then(|repeat| repeat.parse::<usize>().ok()).unwrap_or(1);
@@ -307,10 +334,33 @@ async fn observe(job: &Job, log: bool) -> Result<Seen, Stop> {
     for text in echo.iter().flatten() {
         line(text.clone());
     }
-    Ok(Seen { params, input, input_lines, input_url, echo })
+    Ok(Seen { params, inputs, links, echo })
 }
 
-/// The staged input's name, size and SHA-256, and how many lines it has, read in pieces.
+/// Every file in a staged input's folder, by path inside it, sorted, each with its line count.
+async fn read_folder(folder: &Path) -> Result<Vec<(InputSeen, u64)>, Stop> {
+    let unreadable = |e: std::io::Error| Stop::Failed { code: "input_unreadable", message: e.to_string() };
+    let mut files = Vec::new();
+    let mut folders = vec![folder.to_path_buf()];
+    while let Some(next) = folders.pop() {
+        let mut entries = tokio::fs::read_dir(&next).await.map_err(unreadable)?;
+        while let Some(entry) = entries.next_entry().await.map_err(unreadable)? {
+            if entry.file_type().await.map_err(unreadable)?.is_dir() {
+                folders.push(entry.path());
+            } else {
+                let (mut seen, lines) = read_input(&entry.path()).await?;
+                let relative = entry.path().strip_prefix(folder).map(Path::to_path_buf).unwrap_or_default();
+                seen.path =
+                    relative.components().map(|part| part.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/");
+                files.push((seen, lines));
+            }
+        }
+    }
+    files.sort_by(|a, b| a.0.path.cmp(&b.0.path));
+    Ok(files)
+}
+
+/// A staged file's size and SHA-256, and how many lines it has, read in pieces.
 async fn read_input(path: &Path) -> Result<(InputSeen, u64), Stop> {
     let unreadable = |e: std::io::Error| Stop::Failed { code: "input_unreadable", message: e.to_string() };
     let mut file = tokio::fs::File::open(path).await.map_err(unreadable)?;
@@ -338,7 +388,7 @@ async fn read_input(path: &Path) -> Result<(InputSeen, u64), Stop> {
         let _ = write!(sha256, "{byte:02x}");
     }
     let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
-    Ok((InputSeen { name, size_bytes: size, sha256 }, lines))
+    Ok((InputSeen { path: name, size_bytes: size, sha256 }, lines))
 }
 
 fn fenced(job: &Job) -> Result<(), Stop> {
@@ -480,7 +530,7 @@ mod tests {
             fence: Fence::new(),
             stop_requested: tokio::sync::watch::channel(false).1,
             folder: std::env::temp_dir(),
-            input_file: None,
+            inputs: BTreeMap::new(),
             logs: LogWriter::discard(),
         }
     }
@@ -604,15 +654,22 @@ mod tests {
         let objects = Arc::default();
         let session = Uuid::now_v7();
         let folder = tempfile::tempdir().unwrap();
-        let input = folder.path().join("input/train.jsonl");
-        std::fs::create_dir_all(input.parent().unwrap()).unwrap();
-        std::fs::write(&input, b"hello world").unwrap();
+        let input = folder.path().join("input/file");
+        std::fs::create_dir_all(input.join("nested")).unwrap();
+        std::fs::write(input.join("train.jsonl"), b"hello world").unwrap();
+        std::fs::write(input.join("nested/empty.txt"), b"").unwrap();
         let mut job = job(session, 1, &objects, None);
-        job.input_file = Some(input);
-        job.spec.env = [("SESSION_PARAM_GREETING", "hello"), ("SESSION_PARAM_REPEAT", "3"), ("PATH", "/bin")]
-            .into_iter()
-            .map(|(name, value)| (name.to_owned(), value.to_owned()))
-            .collect();
+        job.inputs = BTreeMap::from([("file".to_owned(), input)]);
+        job.spec.env = [
+            ("SESSION_PARAM_GREETING", "hello"),
+            ("SESSION_PARAM_REPEAT", "3"),
+            ("SESSION_INPUT_FILE_DIR", "/work/input/file/"),
+            ("SESSION_INPUT_DATA_URL", "https://example.com/data.jsonl"),
+            ("PATH", "/bin"),
+        ]
+        .into_iter()
+        .map(|(name, value)| (name.to_owned(), value.to_owned()))
+        .collect();
 
         run_to_end(job).await;
 
@@ -620,13 +677,29 @@ mod tests {
         let output: Output =
             serde_json::from_slice(&objects[&format!("sessions/{session}/attempt-1/outputs/result.json")]).unwrap();
         assert_eq!(
-            output.input,
-            Some(InputSeen {
-                name: "train.jsonl".to_owned(),
-                size_bytes: 11,
-                // sha256("hello world")
-                sha256: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9".to_owned(),
-            })
+            output.inputs,
+            BTreeMap::from([(
+                "file".to_owned(),
+                vec![
+                    InputSeen {
+                        path: "nested/empty.txt".to_owned(),
+                        size_bytes: 0,
+                        // sha256 of nothing
+                        sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_owned(),
+                    },
+                    InputSeen {
+                        path: "train.jsonl".to_owned(),
+                        size_bytes: 11,
+                        // sha256("hello world")
+                        sha256: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9".to_owned(),
+                    },
+                ]
+            )])
+        );
+        assert_eq!(
+            output.links,
+            BTreeMap::from([("data".to_owned(), "https://example.com/data.jsonl".to_owned())]),
+            "a link is recorded, never fetched"
         );
         assert_eq!(
             output.params,
@@ -671,14 +744,23 @@ mod tests {
         }
     }
 
-    /// A simulated service's job: its outputs, listed in their marker, and its log, for `kind`.
-    async fn simulate(kind: &str, input: &[u8], params: &[(&str, &str)]) -> (BTreeMap<String, Vec<u8>>, String) {
+    /// A simulated service's job given `files` (input, path, contents): its outputs, listed in their marker, and its
+    /// log, for `kind`.
+    async fn simulate(
+        kind: &str,
+        files: &[(&str, &str, &[u8])],
+        params: &[(&str, &str)],
+    ) -> (BTreeMap<String, Vec<u8>>, String) {
         let objects = Arc::default();
         let session = Uuid::now_v7();
         let folder = tempfile::tempdir().unwrap();
-        let path = folder.path().join("input/given");
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(&path, input).unwrap();
+        let mut inputs = BTreeMap::new();
+        for (input, path, contents) in files {
+            let staged = folder.path().join("input").join(input);
+            std::fs::create_dir_all(staged.join(path).parent().unwrap()).unwrap();
+            std::fs::write(staged.join(path), contents).unwrap();
+            inputs.insert((*input).to_owned(), staged);
+        }
         let (finish, finished) = tokio::sync::watch::channel(false);
         let prefix = format!("sessions/{session}/attempt-1/");
         let (logs, sink) =
@@ -687,7 +769,7 @@ mod tests {
         job.spec = spec(&["--duration", "90s", "--simulate", kind], Duration::from_secs(5));
         job.spec.env =
             params.iter().map(|&(name, value)| (format!("SESSION_PARAM_{name}"), value.to_owned())).collect();
-        job.input_file = Some(path);
+        job.inputs = inputs;
         job.logs = logs;
 
         let reports = run_to_end(job).await;
@@ -723,20 +805,34 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn simulating_a_fine_tune_writes_an_adapter_and_a_training_log() {
+    async fn simulating_a_fine_tune_lists_the_renters_model_and_writes_an_adapter_and_a_training_log() {
         let examples = "{\"prompt\": \"a\", \"completion\": \"b\"}\n".repeat(40);
         let (files, log) = simulate(
             "fine-tune",
-            examples.as_bytes(),
-            &[("BASE_MODEL", "Llama 3.2 1B Instruct"), ("EPOCHS", "3"), ("LORA_RANK", "8")],
+            &[
+                ("model", "config.json", b"{}"),
+                ("model", "tokenizer.json", b"{\"v\":1}"),
+                ("model", "model-00001-of-00001.safetensors", &[7; 64]),
+                ("data", "train.jsonl", examples.as_bytes()),
+            ],
+            &[("EPOCHS", "3"), ("LORA_RANK", "8")],
         )
         .await;
 
         assert_eq!(files.keys().collect::<Vec<_>>(), ["adapter_model.safetensors", "training_log.json"]);
         let training: serde_json::Value = serde_json::from_slice(&files["training_log.json"]).unwrap();
         assert_eq!(training["training_examples"], 40);
+        assert_eq!(training["base_model"], "your uploaded model (3 files)");
         assert_eq!(training["steps"].as_array().unwrap().len(), 15, "5 steps an epoch for 40 examples, 3 epochs");
-        assert!(log.contains("loading base model Llama 3.2 1B Instruct (4-bit)"), "{log}");
+        for line in [
+            "your model: 3 files, 73 bytes in /work/input/model/",
+            "  model-00001-of-00001.safetensors (64 bytes)",
+            "  tokenizer.json (7 bytes)",
+            "your training data: 1 file, 1400 bytes in /work/input/data/",
+            "40 training examples, 5 steps an epoch at batch size 8",
+        ] {
+            assert!(log.contains(line), "{line:?} not in the log:\n{log}");
+        }
         assert!(log.contains("epoch 3/3 step 15/15 loss "), "{log}");
         assert!(log.contains("saving the adapter: adapter_model.safetensors"), "{log}");
         assert!(!log.contains("SESSION_PARAM_"), "a simulation prints its own lines, not the runner's");
@@ -744,8 +840,12 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn simulating_run_your_code_writes_its_result() {
-        let (files, log) =
-            simulate("run-code", b"PK\x03\x04 not really a zip", &[("COMMAND", "python train.py --fast")]).await;
+        let (files, log) = simulate(
+            "run-code",
+            &[("code", "main.py", b"print('hi')\n"), ("code", "lib/util.py", b"")],
+            &[("COMMAND", "python train.py --fast")],
+        )
+        .await;
 
         assert_eq!(files.keys().collect::<Vec<_>>(), ["result.txt"]);
         let result = String::from_utf8(files["result.txt"].clone()).unwrap();
@@ -754,6 +854,11 @@ mod tests {
             log.contains("$ python train.py --fast") && log.contains("batch 16/16: ") && log.contains("Done."),
             "{log}"
         );
+        assert!(
+            log.contains("your code: 2 files, 12 bytes in /work/input/code/")
+                && log.contains("  lib/util.py (0 bytes)")
+        );
+        assert!(log.contains("your data: none given"), "{log}");
     }
 
     #[tokio::test(start_paused = true)]

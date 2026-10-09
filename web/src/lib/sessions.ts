@@ -6,12 +6,7 @@ export const costSoFar = (session: Pick<Session, "chargedPaise" | "accruedPaise"
 
 /** A setup: the template, its settings and its data, which "Book again" offers each once. */
 const setupKey = (session: Session) =>
-  JSON.stringify([
-    session.templateId,
-    session.params,
-    session.input?.uploadId ?? null,
-    session.input?.url ?? null,
-  ]);
+  JSON.stringify([session.templateId, session.params, session.presets, session.inputs]);
 
 /** The renter's last distinct setups, newest first. */
 export function lastSetups(sessions: Session[], count: number): Session[] {

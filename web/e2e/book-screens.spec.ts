@@ -100,7 +100,6 @@ test("settings: every kind of parameter, generated from the catalog", async ({ p
   await signIn(page, "asha", "/book/?service=fine-tune");
   await page.getByRole("button", { name: /^Settings/ }).click();
   const sheet = page.getByRole("dialog", { name: "Settings" });
-  await expect(sheet.getByLabel("Base model")).toHaveValue("qwen2.5-1.5b");
   await expect(sheet.getByLabel("Epochs")).toHaveValue("3");
   await expect(sheet.getByRole("radio", { name: "16" })).toBeChecked();
   await expect(sheet.getByRole("switch", { name: "Pack short examples together" })).toBeChecked();
@@ -130,7 +129,7 @@ test("what's wrong, on each field", async ({ page }, info) => {
 });
 
 test("a file too large is refused before anything is sent", async ({ page }, info) => {
-  const small = { ...echo, input: { ...echo.input, maxSizeMb: 1 } };
+  const small = { ...echo, inputs: [{ ...echo.inputs[0]!, maxSizeBytes: MIB }] };
   await fakeApi(page, api({ "/v1/templates": { json: { ...data.templates, templates: [small] } } }));
   await signIn(page, "asha", ECHO);
   const created = page.waitForRequest("**/v1/uploads", { timeout: 1_000 }).catch(() => null);

@@ -12,6 +12,7 @@ import { useLaptop } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { BookLayout } from "./BookLayout";
 import { ServiceChoice, TemplateChoice } from "./WhatToRun";
+import { firstInput } from "@/lib/inputs";
 
 const loadForm = () => import("./Prepared");
 const Prepared = lazy(() => loadForm().then((module) => ({ default: module.Prepared })));
@@ -109,9 +110,7 @@ export function Book() {
           {laptop ? (
             question
           ) : (
-            <h1 className="text-title">
-              {template.input.accepts === "required" ? service.name : "Ready to run"}
-            </h1>
+            <h1 className="text-title">{firstInput(template)?.required ? service.name : "Ready to run"}</h1>
           )}
           {laptop && services}
           {choice}

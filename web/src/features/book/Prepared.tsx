@@ -3,6 +3,7 @@ import { useSession, useUploadInfo, type Template } from "@/api/queries";
 import { BookForm, type BookFormProps } from "./BookForm";
 import { defaultValues, readDraft, valuesFrom } from "./form";
 import { readyFile } from "./useUpload";
+import { sessionInput } from "@/lib/inputs";
 
 /**
  * What the form starts with (src/features/book/Book.tsx): an earlier session (Run again and Book again, `&from=`), the
@@ -22,7 +23,7 @@ export function Prepared({
   const earlier = useSession(from);
   const draft = useMemo(() => (from === null ? readDraft(template.id) : null), [from, template.id]);
   const source = from !== null && earlier.data?.templateId === template.id ? earlier.data : null;
-  const uploadId = source ? (source.input?.uploadId ?? null) : (draft?.upload?.id ?? null);
+  const uploadId = source ? (sessionInput(source)?.uploadId ?? null) : (draft?.upload?.id ?? null);
   const upload = useUploadInfo(uploadId);
 
   if ((from !== null && earlier.isPending) || (uploadId !== null && upload.isPending)) {

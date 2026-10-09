@@ -17,6 +17,7 @@ import { Ended } from "./Ended";
 import { Finding } from "./Finding";
 import { LogsLater } from "./LogsLater";
 import { Running } from "./Running";
+import { sessionInput } from "@/lib/inputs";
 
 const FINDING = new Set(["REQUESTED", "MATCHED", "PROVISIONING"]);
 const STARTED = new Set(["RUNNING", "HOST_LOST", "FINISHING"]);
@@ -37,7 +38,7 @@ export function SessionDetail() {
   const templates = useTemplates();
   const laptop = useLaptop();
   const painted = useAfterPaint(session.data !== undefined);
-  const uploadId = session.data?.input?.uploadId ?? null;
+  const uploadId = (session.data && sessionInput(session.data)?.uploadId) ?? null;
   const upload = useUploadInfo(uploadId, painted);
 
   const frame = (left: ReactNode, right: ReactNode = null) =>
