@@ -16,7 +16,7 @@ use idleo_agent::lease_clock::SystemLeaseClock;
 use idleo_agent::owner::SystemOwner;
 use idleo_agent::runner::SessionRunner;
 use idleo_agent::runner::dev::DevRunner;
-use idleo_agent::telemetry::{self, FakeGpus, GpuSource};
+use idleo_agent::telemetry::{self, FakeGpus, FakeModel, GpuSource};
 use idleo_agent::{pki, state, tls};
 use tokio::sync::watch;
 use tracing_subscriber::filter::Targets;
@@ -60,6 +60,12 @@ enum Command {
         /// Use N invented GPUs instead of NVML, for development and tests [default: 1].
         #[arg(long, value_name = "N", num_args = 0..=1, default_missing_value = "1")]
         fake_gpu: Option<u8>,
+        /// Only with --fake-gpu: the model name the fake GPUs report [default: IdleO Fake GPU].
+        #[arg(long, value_name = "NAME", requires = "fake_gpu")]
+        fake_gpu_model: Option<String>,
+        /// Only with --fake-gpu: each fake GPU's memory in MB, at least 1024 [default: 12282].
+        #[arg(long, value_name = "MB", requires = "fake_gpu", value_parser = clap::value_parser!(i32).range(i64::from(FakeModel::MIN_VRAM_MB)..))]
+        fake_gpu_vram_mb: Option<i32>,
         /// Run sessions with the development runner, which simulates jobs against real object storage.
         /// Only with --fake-gpu: a real host never runs it. Without a runner the agent declines offers.
         #[arg(long, requires = "fake_gpu")]
@@ -82,7 +88,14 @@ fn main() -> ExitCode {
     runtime.block_on(async move {
         match cli.command {
             Command::Enrol { code, force } => enrol_command(&config, &code, force).await,
-            Command::Run { fake_gpu, dev_runner } => run_command(config, fake_gpu, dev_runner).await,
+            Command::Run { fake_gpu, fake_gpu_model, fake_gpu_vram_mb, dev_runner } => {
+                let defaults = FakeModel::default();
+                let model = FakeModel {
+                    name: fake_gpu_model.unwrap_or(defaults.name),
+                    vram_mb: fake_gpu_vram_mb.unwrap_or(defaults.vram_mb),
+                };
+                run_command(config, fake_gpu.map(|count| (count, model)), dev_runner).await
+            }
         }
     })
 }
@@ -113,7 +126,7 @@ async fn enrol_command(config: &Config, code: &str, force: bool) -> ExitCode {
     }
 }
 
-async fn run_command(config: Config, fake_gpu: Option<u8>, dev_runner: bool) -> ExitCode {
+async fn run_command(config: Config, fake_gpu: Option<(u8, FakeModel)>, dev_runner: bool) -> ExitCode {
     // clap already refuses --dev-runner alone; this keeps the rule even if the parser changes.
     if dev_runner && fake_gpu.is_none() {
         return fail(exit::CONFIG, &"--dev-runner needs --fake-gpu");
@@ -125,9 +138,9 @@ async fn run_command(config: Config, fake_gpu: Option<u8>, dev_runner: bool) -> 
         None
     };
     let gpus: Arc<dyn GpuSource> = match fake_gpu {
-        Some(count) => {
-            tracing::warn!(count, "using fake GPUs, as asked by --fake-gpu");
-            Arc::new(FakeGpus::new(count))
+        Some((count, model)) => {
+            tracing::warn!(count, model = %model.name, vram_mb = model.vram_mb, "using fake GPUs, as asked by --fake-gpu");
+            Arc::new(FakeGpus::new(count, &model))
         }
         None => match telemetry::system() {
             Ok(source) => Arc::from(source),

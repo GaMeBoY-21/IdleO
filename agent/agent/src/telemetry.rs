@@ -8,7 +8,7 @@ mod fake;
 #[cfg(all(feature = "nvml", any(windows, target_os = "linux")))]
 mod nvml;
 
-pub use fake::FakeGpus;
+pub use fake::{FakeGpus, FakeModel};
 #[cfg(all(feature = "nvml", any(windows, target_os = "linux")))]
 pub use nvml::NvmlGpus;
 

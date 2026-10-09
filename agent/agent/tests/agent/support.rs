@@ -25,7 +25,7 @@ use idleo_agent::enrol::{self, Enrolled, EnrolmentCode};
 use idleo_agent::lease_clock::SystemLeaseClock;
 use idleo_agent::owner::OwnerActivity;
 use idleo_agent::runner::{Job, Report, SessionRunner};
-use idleo_agent::telemetry::FakeGpus;
+use idleo_agent::telemetry::{FakeGpus, FakeModel};
 use idleo_agent::tls::{Dialer, Io, Target};
 use rcgen::{
     BasicConstraints, CertificateParams, CertificateSigningRequestParams, DistinguishedName, DnType,
@@ -426,7 +426,7 @@ impl TestServer {
             target: self.target.clone(),
             roots: self.pki().agent_roots(),
             data_dir: data_dir.to_owned(),
-            gpus: Arc::new(FakeGpus::new(1)),
+            gpus: Arc::new(FakeGpus::new(1, &FakeModel::default())),
             owner: Arc::new(Owner(false)),
             lease_clock: Arc::new(SystemLeaseClock),
             runner: Some(Arc::new(TestRunner::default())),

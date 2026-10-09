@@ -3,6 +3,7 @@
 mod support;
 
 mod backoff;
+mod cli;
 mod enrolment;
 mod offers;
 mod renewal;
