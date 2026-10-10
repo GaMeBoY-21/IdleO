@@ -1,5 +1,7 @@
 import { expect, test, type Request } from "@playwright/test";
 import * as data from "./fixtures";
+import * as hosting from "./fixtures-hosting";
+import { hostingApi } from "./hosting-api";
 import { fakeApi, recordLayoutShifts, signIn } from "./support";
 
 /**
@@ -25,6 +27,24 @@ const screens = [
   { name: "book", path: "/book/", ready: () => "Run your code" },
   { name: "book, a service", path: "/book/?service=fine-tune", ready: () => "≈ ₹3–8" },
   { name: "my files", path: "/files/", ready: () => "my-llm-7b/" },
+  { name: "hosting", path: "/hosting/", ready: () => "Add a machine" },
+  { name: "a running machine", path: `/hosting/machine/?id=${hosting.ROG.id}`, ready: () => "Pause hosting" },
+  {
+    name: "a machine's price",
+    path: `/hosting/price/?id=${hosting.ROG.id}`,
+    ready: () => "One session at a time",
+  },
+  {
+    name: "what a machine ran",
+    path: `/hosting/sessions/?id=${hosting.ROG.id}`,
+    ready: () => "Fine-tuning · 18 min",
+  },
+  { name: "earnings", path: "/hosting/earnings/", ready: () => "Given back for lost time" },
+  {
+    name: "adding a machine",
+    path: `/hosting/add/?id=${hosting.hostNew.id}`,
+    ready: () => "Save and finish",
+  },
 ];
 
 test("sign-in loads without moving, its form arriving in the space kept for it", async ({ page }) => {
@@ -40,6 +60,7 @@ for (const screen of screens) {
   test(`${screen.name} loads without moving`, async ({ page }) => {
     await page.clock.setFixedTime(data.NOW);
     const routes = {
+      ...hostingApi(),
       "/v1/me": { json: data.me() },
       "/v1/templates": { json: data.templates },
       "/v1/wallet": { json: data.asha.wallet },

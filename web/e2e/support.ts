@@ -47,7 +47,7 @@ export async function fakeApi(
     const cors = () => ({
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Headers": "authorization,content-type,idempotency-key,accept",
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE",
+      "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE",
       "Access-Control-Expose-Headers": "ETag, Location",
     });
     if (route.request().method() === "OPTIONS") {
