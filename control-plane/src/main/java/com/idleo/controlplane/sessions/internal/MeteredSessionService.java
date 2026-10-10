@@ -21,18 +21,32 @@ class MeteredSessionService implements MeteredSessions {
     private final LeaseProperties leaseProperties;
     private final JdbcClient jdbc;
     private final Checkpoints checkpoints;
+    private final TemplateCatalog catalog;
 
     MeteredSessionService(
             SessionStore store,
             LeaseBook leases,
             LeaseProperties leaseProperties,
             JdbcClient jdbc,
-            Checkpoints checkpoints) {
+            Checkpoints checkpoints,
+            TemplateCatalog catalog) {
         this.store = store;
         this.leases = leases;
         this.leaseProperties = leaseProperties;
         this.jdbc = jdbc;
         this.checkpoints = checkpoints;
+        this.catalog = catalog;
+    }
+
+    @Override
+    public java.util.Map<UUID, String> serviceNames(java.util.Collection<UUID> sessionIds) {
+        var names = new java.util.HashMap<UUID, String>();
+        for (var sessionId : sessionIds) {
+            store.find(sessionId)
+                    .flatMap(session -> catalog.serviceOf(session.templateId()))
+                    .ifPresent(service -> names.put(sessionId, service.name()));
+        }
+        return names;
     }
 
     @Override

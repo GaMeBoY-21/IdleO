@@ -159,6 +159,17 @@ class HostWorkTests {
         assertThat(row.get("minutes").asInt()).isPositive();
         assertThat(row.get("outcome").asString()).isEqualTo("failed");
         assertThat(ran.toString()).doesNotContain(renter.id().toString()).doesNotContain("renter");
+
+        // The owner's earnings across machines say the same, with the service and minutes behind the amount.
+        var all = json("/v1/earnings", host.agent().bearer);
+        assertThat(all.get("totalPaise").asLong()).isEqualTo(ledgerNet(host.id()));
+        var entry = all.get("history").get("entries").get(0);
+        assertThat(entry.get("amountPaise").asLong()).isEqualTo(40);
+        assertThat(entry.get("minutes").asInt()).isEqualTo(1);
+        assertThat(entry.get("serviceName").asString())
+                .isEqualTo(row.get("serviceName").asString());
+        assertThat(all.get("minutesRentedThisWeek").asLong()).isEqualTo(1);
+        assertThat(all.toString()).doesNotContain(renter.id().toString());
         host.disconnect();
     }
 

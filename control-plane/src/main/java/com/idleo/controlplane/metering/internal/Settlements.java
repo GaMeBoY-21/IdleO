@@ -76,6 +76,7 @@ class Settlements {
         var limit = limit(session);
         var claimed = new ArrayList<Minute>();
         var parts = new LinkedHashMap<UUID, Paise>();
+        var minutesByHost = new java.util.HashMap<UUID, Integer>();
         var total = Paise.ZERO;
         for (var minute : billable(session.sessionId(), windowEnd)) {
             var attempt = attempts.get(minute.attempt());
@@ -88,6 +89,7 @@ class Settlements {
             }
             total = total.plus(price);
             parts.merge(attempt.hostId(), price, Paise::plus);
+            minutesByHost.merge(attempt.hostId(), 1, Integer::sum);
             claimed.add(minute);
         }
         if (claimed.isEmpty()) {
@@ -134,13 +136,15 @@ class Settlements {
                 .update();
         for (var host : charged.hosts()) {
             jdbc.sql("""
-                            insert into metering.settlement_parts (txn_id, host_id, amount_paise, host_share_paise)
-                            values (:txnId, :hostId, :amount, :share)
+                            insert into metering.settlement_parts
+                                (txn_id, host_id, amount_paise, host_share_paise, minutes)
+                            values (:txnId, :hostId, :amount, :share, :minutes)
                             """)
                     .param("txnId", txnId)
                     .param("hostId", host.hostId())
                     .param("amount", host.amount().value())
                     .param("share", host.share().value())
+                    .param("minutes", minutesByHost.get(host.hostId()))
                     .update();
         }
         jdbc.sql("update metering.metered_sessions set settlements = :number where session_id = :sessionId")

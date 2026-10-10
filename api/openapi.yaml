@@ -27,6 +27,37 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - availability
+  /v1/earnings:
+    get:
+      operationId: ownerEarningsGet
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerEarnings"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - ownerEarnings
   /v1/hosts:
     get:
       operationId: hostList
@@ -1131,6 +1162,90 @@ components:
       - balancePaise
       - history
       - hostId
+    EarningsDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        earnedPaise:
+          type: integer
+          format: int64
+      required:
+      - date
+      - earnedPaise
+    EarningsEntry:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        hostId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        label:
+          type: string
+        machineName:
+          type: string
+        minutes:
+          type: integer
+          format: int32
+        serviceName:
+          type:
+          - string
+          - "null"
+        sessionId:
+          type: string
+          format: uuid
+      required:
+      - amountPaise
+      - createdAt
+      - hostId
+      - id
+      - kind
+      - label
+      - machineName
+      - minutes
+      - sessionId
+    EarningsMachine:
+      type: object
+      properties:
+        earnedPaise:
+          type: integer
+          format: int64
+        hostId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        removed:
+          type: boolean
+      required:
+      - earnedPaise
+      - hostId
+      - name
+      - removed
+    EarningsPage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarningsEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - entries
     EnrolmentCodeResponse:
       type: object
       properties:
@@ -1481,6 +1596,42 @@ components:
       - files
       - linksExpireAt
       - sessionId
+    OwnerEarnings:
+      type: object
+      properties:
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarningsDay"
+        history:
+          $ref: "#/components/schemas/EarningsPage"
+        machines:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarningsMachine"
+        minutesRentedThisWeek:
+          type: integer
+          format: int64
+        payoutsStart:
+          type: string
+        totalPaise:
+          type: integer
+          format: int64
+        weekPaise:
+          type: integer
+          format: int64
+        weekStartsAt:
+          type: string
+          format: date-time
+      required:
+      - days
+      - history
+      - machines
+      - minutesRentedThisWeek
+      - payoutsStart
+      - totalPaise
+      - weekPaise
+      - weekStartsAt
     ParamValue:
       type:
       - string

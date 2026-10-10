@@ -77,6 +77,13 @@ class HostService implements HostOwners, HostGpus {
         return hosts.findByIdAndOwnerUserId(hostId, ownerUserId);
     }
 
+    @Override
+    public List<OwnedHost> ownedBy(UUID userId) {
+        return hosts.findAllByOwnerUserIdOrderByCreatedAt(userId).stream()
+                .map(host -> new OwnedHost(host.id(), host.name(), host.removed()))
+                .toList();
+    }
+
     /** The owner's hosts, not the ones they removed. */
     List<Host> list(UUID ownerUserId) {
         return hosts.findAllByOwnerUserIdAndRemovedAtIsNullOrderByCreatedAt(ownerUserId);

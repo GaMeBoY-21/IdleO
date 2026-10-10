@@ -9,5 +9,7 @@ interface HostRepository extends CrudRepository<Host, UUID> {
 
     Optional<Host> findByIdAndOwnerUserId(UUID id, UUID ownerUserId);
 
+    List<Host> findAllByOwnerUserIdOrderByCreatedAt(UUID ownerUserId);
+
     List<Host> findAllByOwnerUserIdAndRemovedAtIsNullOrderByCreatedAt(UUID ownerUserId);
 }

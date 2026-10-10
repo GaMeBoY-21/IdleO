@@ -44,6 +44,9 @@ public interface MeteredSessions {
 
     Optional<Session> session(UUID sessionId);
 
+    /** The name of the service each session ran ("Fine-tune a model"), for those whose template is still in the catalog. */
+    java.util.Map<UUID, String> serviceNames(java.util.Collection<UUID> sessionIds);
+
     /** The session's attempts, first first. */
     List<Attempt> attempts(UUID sessionId);
 

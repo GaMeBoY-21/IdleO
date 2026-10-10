@@ -34,6 +34,11 @@ final class FakeMeteredSessions implements MeteredSessions {
     }
 
     @Override
+    public Map<UUID, String> serviceNames(java.util.Collection<UUID> sessionIds) {
+        return Map.of();
+    }
+
+    @Override
     public List<Attempt> attempts(UUID sessionId) {
         return attempts.getOrDefault(sessionId, List.of());
     }
