@@ -230,6 +230,13 @@ scheduling:
   # is tried this often, for up to this long, then it's NO_HOST_FREE (ADR 0016).
   rematch-retry-every: 5s
   rematch-wait: 10m
+  # The price range suggested to a host when fewer than 3 other active hosts have its GPU model (ADR 0023), by
+  # GPU memory class in GB, in paise a minute: 1 paisa a minute is ₹0.60 an hour.
+  price-band-defaults:
+    8: { low-paise-per-min: 8, high-paise-per-min: 14 }
+    12: { low-paise-per-min: 12, high-paise-per-min: 20 }
+    16: { low-paise-per-min: 16, high-paise-per-min: 28 }
+    24: { low-paise-per-min: 24, high-paise-per-min: 42 }
 
 events:
   # Publications whose listener failed are retried this often, once this old.

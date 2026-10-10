@@ -121,6 +121,31 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - hostEarnings
+  /v1/hosts/{hostId}/price-band:
+    get:
+      operationId: priceBandGet
+      parameters:
+      - in: path
+        name: hostId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBand"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - priceBand
   /v1/hosts/{id}:
     delete:
       operationId: hostLifecycleRemove
@@ -1365,6 +1390,22 @@ components:
       - id
       - label
       - sets
+    PriceBand:
+      type: object
+      properties:
+        highPaisePerMin:
+          type: integer
+          format: int32
+        lowPaisePerMin:
+          type: integer
+          format: int32
+        sampleSize:
+          type: integer
+          format: int32
+      required:
+      - highPaisePerMin
+      - lowPaisePerMin
+      - sampleSize
     PriceRange:
       type: object
       properties:
@@ -1454,6 +1495,7 @@ components:
           - /problems/too-many-streams
           - /problems/host-busy
           - /problems/host-removed
+          - /problems/host-no-gpu
           - /problems/pause-too-long
           - /problems/internal-error
       required:

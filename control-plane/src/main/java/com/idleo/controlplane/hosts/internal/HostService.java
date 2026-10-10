@@ -62,6 +62,17 @@ class HostService implements HostOwners, HostGpus {
     }
 
     /** The owner's host, removed or not: the ledger still points at a removed one. */
+    @Override
+    public Optional<Gpu> largest(UUID hostId) {
+        return jdbc.sql("""
+                        select model, vram_mb from hosts.host_gpus where host_id = :hostId and gone_at is null
+                        order by vram_mb desc, gpu_uuid limit 1
+                        """)
+                .param("hostId", hostId)
+                .query((rs, n) -> new Gpu(rs.getString("model"), rs.getInt("vram_mb")))
+                .optional();
+    }
+
     Optional<Host> find(UUID ownerUserId, UUID hostId) {
         return hosts.findByIdAndOwnerUserId(hostId, ownerUserId);
     }

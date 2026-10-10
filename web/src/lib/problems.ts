@@ -44,6 +44,11 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "Your uploads are using all their space. Delete ones you no longer need in My files, then try again.",
   "too-many-streams":
     "Too many sessions are open live in your other tabs. Close some; this page checks every few seconds meanwhile.",
+  "host-busy":
+    "This machine is running a session. Pause it so it takes no new work, and remove it when the session is over.",
+  "host-removed": "This machine was removed. Add it again to rent it out.",
+  "host-no-gpu": "This machine hasn't reported its GPU yet. Wait for it to connect, then try again.",
+  "pause-too-long": "A pause can last 7 days at most. Choose a shorter one, or pause until you resume.",
   "internal-error": "Something went wrong on our side. Try again in a moment.",
 };
 

@@ -14,4 +14,10 @@ public interface HostGpus {
 
     /** The GPU {@code gpuUuid} of host {@code hostId}, as its agent last reported it; empty if unknown. */
     Optional<Gpu> gpu(UUID hostId, String gpuUuid);
+
+    /**
+     * The host's largest reported GPU that isn't gone (ties by uuid): the one a session would run on. Empty before its
+     * agent has reported any (ADR 0023).
+     */
+    Optional<Gpu> largest(UUID hostId);
 }

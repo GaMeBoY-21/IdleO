@@ -175,6 +175,11 @@ public enum Problem {
             HttpStatus.GONE,
             "The host was removed",
             "This host was removed and never comes back; add the machine again to rent it out."),
+    HOST_NO_GPU(
+            "host-no-gpu",
+            HttpStatus.CONFLICT,
+            "The host hasn't reported a GPU",
+            "A price can only be suggested once the host's agent has connected and reported its GPU."),
     PAUSE_TOO_LONG(
             "pause-too-long",
             HttpStatus.BAD_REQUEST,
