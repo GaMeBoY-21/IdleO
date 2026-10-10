@@ -10,9 +10,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Hosts that could take a session (technical design line 352), each fact from the module that owns it:
- * active, listed and big enough (hosts); online, current, owner away, every GPU below the cap, and room on its disk
- * for the session's files (agent gateway presence, ADR 0022); no live session (sessions); and not already offered
- * this session.
+ * active, listed, not paused and big enough (hosts); online, current, owner away, every GPU below the cap, and room
+ * on its disk for the session's files once the owner's share is kept free (agent gateway presence, ADRs 0022, 0023);
+ * no live session (sessions); and not already offered this session.
  *
  * <p>These are the scheduler's hard filters, in one place: matching, quotes and availability all use {@link #look}
  * (ADR 0019), so a quote that says a host fits never disagrees with the booking that follows.
@@ -33,9 +33,11 @@ class CandidateFinder {
     /**
      * A listed host as the scheduler sees it now.
      *
-     * @param online its agent's presence is live
-     * @param free it could take a session now: online, current, owner away, every GPU below its cap, at least the
-     *     disk asked for free (a host that hasn't reported its free disk has none), no live session
+     * @param online its agent's presence is live and it isn't paused: a paused host is neither offered sessions nor
+     *     counted in availability or its price range
+     * @param free it could take a session now: not paused, online, current, owner away, every GPU below its cap, at
+     *     least the disk asked for free beyond what its owner keeps (a host that hasn't reported its free disk has
+     *     none), no live session
      */
     record Looked(SchedulableHosts.Candidate candidate, boolean online, boolean free) {}
 
@@ -51,13 +53,14 @@ class CandidateFinder {
                 .map(candidate -> {
                     var agent = live.get(candidate.hostId());
                     boolean free = agent != null
+                            && !candidate.paused()
                             && !agent.updateRequired()
                             && !agent.ownerActive()
                             && agent.gpuTempsC().stream().allMatch(temp -> temp < candidate.gpuTempCapC())
                             && agent.freeDiskMb() != null
-                            && agent.freeDiskMb() >= diskNeededMb
+                            && agent.freeDiskMb() - candidate.keepFreeMb() >= diskNeededMb
                             && !busy.contains(candidate.hostId());
-                    return new Looked(candidate, agent != null, free);
+                    return new Looked(candidate, agent != null && !candidate.paused(), free);
                 })
                 .toList();
     }

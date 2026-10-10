@@ -61,12 +61,14 @@ class HostService implements HostOwners, HostGpus {
                 .optional();
     }
 
+    /** The owner's host, removed or not: the ledger still points at a removed one. */
     Optional<Host> find(UUID ownerUserId, UUID hostId) {
         return hosts.findByIdAndOwnerUserId(hostId, ownerUserId);
     }
 
+    /** The owner's hosts, not the ones they removed. */
     List<Host> list(UUID ownerUserId) {
-        return hosts.findAllByOwnerUserIdOrderByCreatedAt(ownerUserId);
+        return hosts.findAllByOwnerUserIdAndRemovedAtIsNullOrderByCreatedAt(ownerUserId);
     }
 
     /** The GPUs each of these hosts reported, in the order they were first seen. */

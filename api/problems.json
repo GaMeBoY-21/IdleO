@@ -27,5 +27,8 @@
   { "slug": "upload-in-use", "status": 409, "title": "Upload in use" },
   { "slug": "upload-quota-exceeded", "status": 409, "title": "Upload quota reached" },
   { "slug": "too-many-streams", "status": 429, "title": "Too many open streams" },
+  { "slug": "host-busy", "status": 409, "title": "The host is running a session" },
+  { "slug": "host-removed", "status": 410, "title": "The host was removed" },
+  { "slug": "pause-too-long", "status": 400, "title": "The pause is too long" },
   { "slug": "internal-error", "status": 500, "title": "Internal error" }
 ]

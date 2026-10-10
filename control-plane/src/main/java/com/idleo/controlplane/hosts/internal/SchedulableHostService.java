@@ -1,6 +1,9 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.hosts.SchedulableHosts;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -12,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 class SchedulableHostService implements SchedulableHosts {
 
     private final JdbcClient jdbc;
+    private final Clock clock;
 
-    SchedulableHostService(JdbcClient jdbc) {
+    SchedulableHostService(JdbcClient jdbc, Clock clock) {
         this.jdbc = jdbc;
+        this.clock = clock;
     }
 
     @Override
@@ -22,7 +27,8 @@ class SchedulableHostService implements SchedulableHosts {
         return jdbc.sql("""
                         select * from (
                             select distinct on (h.id) h.id, l.price_paise_per_min, h.gpu_temp_cap_c, g.gpu_uuid,
-                                   g.vram_mb, g.model
+                                   g.vram_mb, g.model, h.keep_free_gb,
+                                   h.paused_at is not null and (h.paused_until is null or h.paused_until > :now) as paused
                             from hosts.hosts h
                             join hosts.price_listings l on l.host_id = h.id and l.workload_type = 'batch'
                             join hosts.host_gpus g on g.host_id = h.id and g.gone_at is null
@@ -33,13 +39,16 @@ class SchedulableHostService implements SchedulableHosts {
                         """)
                 .param("maxPrice", maxPricePaisePerMin)
                 .param("vram", vramNeededMb)
+                .param("now", Timestamp.from(Instant.now(clock)))
                 .query((rs, n) -> new Candidate(
                         rs.getObject("id", UUID.class),
                         rs.getInt("price_paise_per_min"),
                         rs.getInt("gpu_temp_cap_c"),
                         rs.getString("gpu_uuid"),
                         rs.getInt("vram_mb"),
-                        rs.getString("model")))
+                        rs.getString("model"),
+                        rs.getInt("keep_free_gb") * 1024,
+                        rs.getBoolean("paused")))
                 .list();
     }
 

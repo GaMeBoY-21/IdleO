@@ -9,9 +9,19 @@ public interface SchedulableHosts {
     /**
      * An active host listed for batch work, and the GPU a session would run on: its largest reported GPU
      * that isn't gone (ties by uuid).
+     *
+     * @param keepFreeMb the disk its owner keeps free for themselves, in MB (ADR 0023)
+     * @param paused its owner paused it, and the pause hasn't ended: no new offers
      */
     record Candidate(
-            UUID hostId, int pricePaisePerMin, int gpuTempCapC, String gpuUuid, int gpuVramMb, String gpuModel) {}
+            UUID hostId,
+            int pricePaisePerMin,
+            int gpuTempCapC,
+            String gpuUuid,
+            int gpuVramMb,
+            String gpuModel,
+            int keepFreeMb,
+            boolean paused) {}
 
     /**
      * Active hosts listed for batch work at or under {@code maxPricePaisePerMin}, whose largest reported GPU

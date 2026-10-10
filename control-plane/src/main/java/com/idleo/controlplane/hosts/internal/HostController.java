@@ -1,10 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
-import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdempotentRequests;
-import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostListings;
-import com.idleo.controlplane.hosts.HostPresence;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,7 +16,6 @@ import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.CacheControl;
@@ -44,14 +40,13 @@ class HostController {
 
     private final HostService hosts;
     private final HostListingService listings;
-    private final HostPresence presence;
+    private final HostViews views;
     private final IdempotentRequests idempotency;
 
-    HostController(
-            HostService hosts, HostListingService listings, HostPresence presence, IdempotentRequests idempotency) {
+    HostController(HostService hosts, HostListingService listings, HostViews views, IdempotentRequests idempotency) {
         this.hosts = hosts;
         this.listings = listings;
-        this.presence = presence;
+        this.views = views;
         this.idempotency = idempotency;
     }
 
@@ -62,58 +57,33 @@ class HostController {
     record ListingRequest(
             @NotNull @Min(1) Integer batchPricePaisePerMin,
             @NotNull @Min(60) @Max(95) Integer gpuTempCapC,
-            @NotNull @Min(1) @Max(1) Integer maxConcurrentSessions) {}
+            @NotNull @Min(1) @Max(1) Integer maxConcurrentSessions,
+
+            @Min(HostListings.Listing.MIN_KEEP_FREE_GB) @Max(HostListings.Listing.MAX_KEEP_FREE_GB) @Nullable
+            Integer keepFreeGb) {}
 
     @PutMapping("/{id}/listing")
     HostListings.Listing putListing(
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID id,
             @Valid @RequestBody ListingRequest request) {
+        views.owned(user.id(), id);
         return listings.put(
                         user.id(),
                         id,
                         new HostListings.Listing(
                                 request.batchPricePaisePerMin(),
                                 request.gpuTempCapC(),
-                                request.maxConcurrentSessions()))
-                .orElseThrow(HostController::notFound);
+                                request.maxConcurrentSessions(),
+                                request.keepFreeGb() == null
+                                        ? HostListings.Listing.DEFAULT_KEEP_FREE_GB
+                                        : request.keepFreeGb()))
+                .orElseThrow(HostViews::notFound);
     }
 
     record CreateHostRequest(@NotBlank @Size(max = 100) String name) {}
 
-    record GpuResponse(String model, int vramMb, boolean gone) {}
-
-    /**
-     * A host as its owner sees it. {@code online} is whether its agent has a live stream now; {@code
-     * lastSeenAt} is when the agent was last seen, to the minute.
-     */
-    record HostResponse(
-            UUID id,
-            String name,
-            String status,
-            boolean online,
-            @Nullable Instant lastSeenAt,
-            List<GpuResponse> gpus,
-            HostListings.@Nullable Listing listing,
-            Instant createdAt) {
-
-        static HostResponse of(
-                Host host, boolean online, List<HostService.ReportedGpu> gpus, HostListings.@Nullable Listing listing) {
-            return new HostResponse(
-                    host.id(),
-                    host.name(),
-                    host.status(),
-                    online,
-                    host.lastSeenAt(),
-                    gpus.stream()
-                            .map(gpu -> new GpuResponse(gpu.model(), gpu.vramMb(), gpu.gone()))
-                            .toList(),
-                    listing,
-                    host.createdAt());
-        }
-    }
-
-    record HostList(List<HostResponse> hosts) {}
+    record HostList(List<HostViews.HostResponse> hosts) {}
 
     record EnrolmentCodeResponse(String code, Instant expiresAt) {}
 
@@ -122,41 +92,25 @@ class HostController {
             responseCode = "201",
             description = "The new host; a repeat with the same key returns the first response",
             headers = @Header(name = "Location", description = "The host's URL", schema = @Schema(type = "string")),
-            content = @Content(schema = @Schema(implementation = HostResponse.class)))
+            content = @Content(schema = @Schema(implementation = HostViews.HostResponse.class)))
     ResponseEntity<String> create(
             @AuthenticationPrincipal CurrentUser user,
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
             @Valid @RequestBody CreateHostRequest request) {
         return idempotency.execute(IDEMPOTENCY_TABLE, user.id(), idempotencyKey, request, () -> {
             var host = hosts.create(user.id(), request.name().strip());
-            return ResponseEntity.created(URI.create("/v1/hosts/" + host.id()))
-                    .body(HostResponse.of(host, false, List.of(), null));
+            return ResponseEntity.created(URI.create("/v1/hosts/" + host.id())).body(views.view(host));
         });
     }
 
     @GetMapping
     HostList list(@AuthenticationPrincipal CurrentUser user) {
-        return new HostList(views(hosts.list(user.id())));
+        return new HostList(views.views(hosts.list(user.id())));
     }
 
     @GetMapping("/{id}")
-    HostResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
-        var host = hosts.find(user.id(), id).orElseThrow(HostController::notFound);
-        return views(List.of(host)).getFirst();
-    }
-
-    /** One presence lookup and one GPU query for the whole list. */
-    private List<HostResponse> views(List<Host> list) {
-        var ids = list.stream().map(Host::id).toList();
-        var online = ids.isEmpty() ? Set.<UUID>of() : presence.online(ids);
-        var gpus = hosts.gpus(ids);
-        return list.stream()
-                .map(host -> HostResponse.of(
-                        host,
-                        online.contains(host.id()),
-                        gpus.getOrDefault(host.id(), List.of()),
-                        listings.listing(host.id()).orElse(null)))
-                .toList();
+    HostViews.HostResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+        return views.view(views.owned(user.id(), id));
     }
 
     /** The code is shown once and never stored, so the response must not be cached either. */
@@ -167,13 +121,10 @@ class HostController {
             content = @Content(schema = @Schema(implementation = EnrolmentCodeResponse.class)))
     ResponseEntity<EnrolmentCodeResponse> issueEnrolmentCode(
             @AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
-        var issued = hosts.issueCode(user.id(), id).orElseThrow(HostController::notFound);
+        views.owned(user.id(), id);
+        var issued = hosts.issueCode(user.id(), id).orElseThrow(HostViews::notFound);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .cacheControl(CacheControl.noStore())
                 .body(new EnrolmentCodeResponse(issued.code(), issued.expiresAt()));
-    }
-
-    private static ApiProblem notFound() {
-        return ApiProblem.of(Problem.NOT_FOUND, "No such host.");
     }
 }

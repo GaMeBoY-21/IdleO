@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.idleo.controlplane.ControlPlaneTest;
+import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
 import java.time.Duration;
@@ -431,7 +432,7 @@ class SessionInputTests {
         var upload = TestUploads.ready(mvc, renter, "big.bin", "x");
         // As if it were 300 MiB: with the 1,024 MB scratch disk and a 10% margin, the session needs 1,457 MB.
         jdbc.update("update sessions.uploads set size_bytes = ? where id = ?", 300L << 20, upload);
-        host.freeDiskMb().set(1_456);
+        host.freeDiskMb().set(1_456 + TestHosts.DEFAULT_KEEP_FREE_MB);
         Thread.sleep(Duration.ofSeconds(1));
 
         var cramped = UUID.fromString(JSON.readTree(
@@ -444,7 +445,7 @@ class SessionInputTests {
                 .asString());
         bookings.awaitState(renter, cramped, "NO_HOST_FREE");
 
-        host.freeDiskMb().set(1_457);
+        host.freeDiskMb().set(1_457 + TestHosts.DEFAULT_KEEP_FREE_MB);
         Thread.sleep(Duration.ofSeconds(1));
         book(renter, "roomy", echo(Map.of("greeting", "hi"), Map.of("uploadId", upload)))
                 .andExpect(status().isCreated());

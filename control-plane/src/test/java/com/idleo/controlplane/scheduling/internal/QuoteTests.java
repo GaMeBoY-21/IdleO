@@ -393,14 +393,14 @@ class QuoteTests {
         var cramped = host(2);
         var renter = renter(50_000);
         // cuda-smoke-test has no inputs and a 1,024 MB scratch disk: it needs 1,127 MB with the 10% margin.
-        cramped.freeDiskMb().set(1_126);
+        cramped.freeDiskMb().set(1_126 + TestHosts.DEFAULT_KEEP_FREE_MB);
         assertThat(fitNow(renter, body("cuda-smoke-test"), 0)).isZero();
         var noCeiling = call("/v1/sessions", renter, withoutCeiling(body("cuda-smoke-test")));
         assertThat(noCeiling.status()).isEqualTo(409);
         assertThat(noCeiling.body().get("type").asString()).isEqualTo("/problems/no-gpu-free");
         assertThat(noCeiling.body().get("detail").asString()).contains("1127 MB of disk free");
 
-        cramped.freeDiskMb().set(1_127);
+        cramped.freeDiskMb().set(1_127 + TestHosts.DEFAULT_KEEP_FREE_MB);
         assertThat(fitNow(renter, body("cuda-smoke-test"), 1)).isEqualTo(1);
         assertThat(call("/v1/sessions", renter, withoutCeiling(body("cuda-smoke-test")))
                         .status())

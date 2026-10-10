@@ -71,7 +71,7 @@ class HostAgentReportService implements HostAgentReports {
     }
 
     @Override
-    public void recordSeen(UUID hostId) {
+    public boolean recordSeen(UUID hostId) {
         var now = Instant.now(clock);
         jdbc.sql("""
                         update hosts.hosts set last_seen_at = :now
@@ -81,5 +81,9 @@ class HostAgentReportService implements HostAgentReports {
                 .param("cutoff", Timestamp.from(now.minus(SEEN_WRITE_INTERVAL)))
                 .param("hostId", hostId)
                 .update();
+        return !jdbc.sql("select exists (select 1 from hosts.hosts where id = :hostId and status = 'removed')")
+                .param("hostId", hostId)
+                .query(Boolean.class)
+                .single();
     }
 }

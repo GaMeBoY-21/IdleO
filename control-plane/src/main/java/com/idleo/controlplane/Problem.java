@@ -163,6 +163,24 @@ public enum Problem {
             "Too many open streams",
             "This renter already has the most event streams open at once; close one first."),
 
+    // Hosts.
+    HOST_BUSY(
+            "host-busy",
+            HttpStatus.CONFLICT,
+            "The host is running a session",
+            "A host can't be removed while it has a session that hasn't ended. Pause it so it takes no new work, "
+                    + "and remove it when the session is over."),
+    HOST_REMOVED(
+            "host-removed",
+            HttpStatus.GONE,
+            "The host was removed",
+            "This host was removed and never comes back; add the machine again to rent it out."),
+    PAUSE_TOO_LONG(
+            "pause-too-long",
+            HttpStatus.BAD_REQUEST,
+            "The pause is too long",
+            "A pause with an end must end within 7 days from now. Pause until you resume it for longer."),
+
     // Server.
     INTERNAL_ERROR(
             "internal-error",

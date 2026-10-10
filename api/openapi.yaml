@@ -122,6 +122,26 @@ paths:
       tags:
       - hostEarnings
   /v1/hosts/{id}:
+    delete:
+      operationId: hostLifecycleRemove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLifecycle
     get:
       operationId: hostGet
       parameters:
@@ -146,6 +166,36 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - host
+    patch:
+      operationId: hostLifecycleRename
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLifecycle
   /v1/hosts/{id}/enrolment-code:
     post:
       operationId: hostIssueEnrolmentCode
@@ -202,6 +252,61 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - host
+  /v1/hosts/{id}/pause:
+    post:
+      operationId: hostLifecyclePause
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PauseRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLifecycle
+  /v1/hosts/{id}/resume:
+    post:
+      operationId: hostLifecycleResume
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLifecycle
   /v1/me:
     get:
       operationId: meGet
@@ -1043,6 +1148,10 @@ components:
     HostResponse:
       type: object
       properties:
+        agentVersion:
+          type:
+          - string
+          - "null"
         createdAt:
           type: string
           format: date-time
@@ -1066,6 +1175,13 @@ components:
           type: string
         online:
           type: boolean
+        paused:
+          type: boolean
+        pausedUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
         status:
           type: string
       required:
@@ -1074,6 +1190,7 @@ components:
       - id
       - name
       - online
+      - paused
       - status
     Listing:
       type: object
@@ -1084,12 +1201,16 @@ components:
         gpuTempCapC:
           type: integer
           format: int32
+        keepFreeGb:
+          type: integer
+          format: int32
         maxConcurrentSessions:
           type: integer
           format: int32
       required:
       - batchPricePaisePerMin
       - gpuTempCapC
+      - keepFreeGb
       - maxConcurrentSessions
     ListingRequest:
       type: object
@@ -1103,6 +1224,13 @@ components:
           format: int32
           maximum: 95
           minimum: 60
+        keepFreeGb:
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 500
+          minimum: 10
         maxConcurrentSessions:
           type: integer
           format: int32
@@ -1209,6 +1337,14 @@ components:
       required:
       - partNumbers
       - path
+    PauseRequest:
+      type: object
+      properties:
+        until:
+          type:
+          - string
+          - "null"
+          format: date-time
     PresetOption:
       type: object
       properties:
@@ -1316,6 +1452,9 @@ components:
           - /problems/upload-in-use
           - /problems/upload-quota-exceeded
           - /problems/too-many-streams
+          - /problems/host-busy
+          - /problems/host-removed
+          - /problems/pause-too-long
           - /problems/internal-error
       required:
       - status
@@ -1352,6 +1491,15 @@ components:
       - holdPaise
       - hostsFitNow
       - vramNeededMb
+    RenameRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - name
     ServiceResponse:
       type: object
       properties:

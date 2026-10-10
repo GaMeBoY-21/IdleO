@@ -16,8 +16,11 @@ public interface HostAgentReports {
      */
     void recordHello(UUID hostId, AgentHello hello);
 
-    /** Records that the host's agent was seen now. Writes at most once a minute per host. */
-    void recordSeen(UUID hostId);
+    /**
+     * Records that the host's agent was seen now. Writes at most once a minute per host. Returns false when the
+     * owner has removed the host, so a stream held by another instance closes within a minute (ADR 0023).
+     */
+    boolean recordSeen(UUID hostId);
 
     /** A validated Hello. */
     record AgentHello(String os, String agentVersion, List<ReportedGpu> gpus) {

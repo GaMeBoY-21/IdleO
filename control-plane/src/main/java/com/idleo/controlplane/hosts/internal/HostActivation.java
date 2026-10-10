@@ -66,6 +66,9 @@ class HostActivation {
                     .query(String.class)
                     .optional()
                     .orElseThrow(() -> new Refused("there is no host " + hostId));
+            if (from.equals(HostStatus.REMOVED.dbValue())) {
+                throw new Refused("host " + hostId + " was removed by its owner and never comes back");
+            }
             if (from.equals(to.dbValue())) {
                 return new Change(hostId, from, from, false);
             }

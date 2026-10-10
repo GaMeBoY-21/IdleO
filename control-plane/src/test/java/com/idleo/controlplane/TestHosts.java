@@ -19,6 +19,9 @@ import org.springframework.test.web.servlet.MockMvc;
 /** Hosts for tests in any package: enrolled, connected with GPUs reported, and listed. */
 public final class TestHosts {
 
+    /** The disk a host keeps free for its owner until the owner says otherwise: 20 GB (ADR 0023). */
+    public static final int DEFAULT_KEEP_FREE_MB = 20 * 1024;
+
     private TestHosts() {}
 
     /**
