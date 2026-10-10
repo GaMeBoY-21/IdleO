@@ -146,6 +146,43 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - priceBand
+  /v1/hosts/{hostId}/sessions:
+    get:
+      operationId: hostSessionsList
+      parameters:
+      - in: path
+        name: hostId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostSessionPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostSessions
   /v1/hosts/{id}:
     delete:
       operationId: hostLifecycleRemove
@@ -1061,6 +1098,24 @@ components:
       required:
       - files
       - name
+    CurrentSession:
+      type: object
+      properties:
+        earnedSoFarPaise:
+          type: integer
+          format: int64
+        runningLabel:
+          type: string
+        serviceName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+      required:
+      - earnedSoFarPaise
+      - runningLabel
+      - serviceName
+      - startedAt
     Earnings:
       type: object
       properties:
@@ -1205,6 +1260,10 @@ components:
         createdAt:
           type: string
           format: date-time
+        currentSession:
+          oneOf:
+          - $ref: "#/components/schemas/CurrentSession"
+          - type: "null"
         gpus:
           type: array
           items:
@@ -1250,6 +1309,57 @@ components:
       - paused
       - status
       - updateRequired
+    HostSession:
+      type: object
+      properties:
+        earnedPaise:
+          type: integer
+          format: int64
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        givenBackPaise:
+          type: integer
+          format: int64
+        id:
+          type: string
+          format: uuid
+        minutes:
+          type: integer
+          format: int32
+        outcome:
+          type: string
+        runningLabel:
+          type: string
+        serviceName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+      required:
+      - earnedPaise
+      - givenBackPaise
+      - id
+      - minutes
+      - outcome
+      - runningLabel
+      - serviceName
+      - startedAt
+    HostSessionPage:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/HostSession"
+      required:
+      - sessions
     Listing:
       type: object
       properties:

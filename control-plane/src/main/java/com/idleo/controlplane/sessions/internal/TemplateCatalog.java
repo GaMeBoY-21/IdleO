@@ -93,6 +93,11 @@ class TemplateCatalog {
                 .toList();
     }
 
+    /** The service a template is one way to run, if the template and its service are in the catalog. */
+    Optional<Service> serviceOf(String templateId) {
+        return find(templateId).map(template -> services.get(template.service()));
+    }
+
     Optional<Template> find(String id) {
         return Optional.ofNullable(templates.get(id));
     }

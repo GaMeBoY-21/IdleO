@@ -53,6 +53,30 @@ final class Cursors {
         throw invalid();
     }
 
+    /** After one of a host's attempts, in a list newest first: when it started running, and which attempt. */
+    static String ofHostAttempt(java.time.Instant startedAt, UUID sessionId, int attempt) {
+        return encode("h:" + startedAt.getEpochSecond() + "." + startedAt.getNano() + ":" + sessionId + ":" + attempt);
+    }
+
+    /** What a host-attempt cursor points after. */
+    record HostAttemptPosition(java.time.Instant startedAt, UUID sessionId, int attempt) {}
+
+    static HostAttemptPosition hostAttempt(String cursor) {
+        var parts = decode(cursor).split(":");
+        try {
+            if (parts.length == 4 && parts[0].equals("h")) {
+                var time = parts[1].split("\\.");
+                return new HostAttemptPosition(
+                        java.time.Instant.ofEpochSecond(Long.parseLong(time[0]), Long.parseLong(time[1])),
+                        UUID.fromString(parts[2]),
+                        Integer.parseInt(parts[3]));
+            }
+        } catch (RuntimeException e) {
+            // Refused below.
+        }
+        throw invalid();
+    }
+
     /** A page size from 1 to {@code max}; {@code validation-failed} on {@code limit} otherwise. */
     static int limit(int limit, int max) {
         if (limit < 1 || limit > max) {

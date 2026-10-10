@@ -2,7 +2,9 @@ package com.idleo.controlplane.sessions.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.idleo.controlplane.ControlPlaneTest;
@@ -280,6 +282,30 @@ class HostLossTests {
                         booked.sessionId())
                 .toInstant();
         assertThat(lostAt).isAfterOrEqualTo(expiresAt.plusSeconds(1));
+    }
+
+    @Test
+    void aHostThatLostASessionSeesItAsLostAndNeverSeesWhoRentedIt() throws Exception {
+        var booked = bookings.bookAndAccept();
+        run(booked);
+        booked.host().disconnect();
+        leaseEndsAt(booked.sessionId(), Instant.now().minusSeconds(5));
+        bookings.awaitState(booked.renter(), booked.sessionId(), "REQUESTED");
+
+        var response = mvc.perform(get("/v1/hosts/" + booked.host().id() + "/sessions")
+                        .header("Authorization", booked.host().agent().bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessions.length()").value(1))
+                .andExpect(jsonPath("$.sessions[0].id").value(booked.sessionId().toString()))
+                .andExpect(jsonPath("$.sessions[0].outcome").value("lost"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(response)
+                .doesNotContain(booked.renter().id().toString())
+                .doesNotContain("renter")
+                .doesNotContain("params")
+                .doesNotContain("input");
     }
 
     @Test
