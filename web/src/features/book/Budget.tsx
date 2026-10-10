@@ -25,8 +25,8 @@ export function Budget({ chips, laptop }: { chips: number[]; laptop: boolean }) 
     if (paise !== null) {
       form.setValue("budget", rupeeInput(paise), { shouldDirty: true, shouldValidate: true });
     } else {
-      // Typing starts from the amount chosen, ready to change.
-      queueMicrotask(() => form.setFocus("budget"));
+      // Typing starts from the amount chosen, ready to change, once its field is drawn.
+      setTimeout(() => form.setFocus("budget"), 0);
     }
   };
   const chip = (selected: boolean) =>

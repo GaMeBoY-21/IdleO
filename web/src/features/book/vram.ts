@@ -10,6 +10,8 @@ import { formatBytes } from "@/lib/bytes";
 /** The classes renters choose between, in GB; a class asks for its size in thousands of MB, which every card has. */
 export const GPU_CLASSES_GB = [8, 12, 16, 24] as const;
 export const classMb = (gb: number) => gb * 1_000;
+/** The smallest class: a job that needs less fits any GPU here. */
+export const SMALLEST_MB = classMb(GPU_CLASSES_GB[0]);
 /** The most memory any GPU here has: above this, nothing fits. */
 export const BIGGEST_MB = classMb(GPU_CLASSES_GB[GPU_CLASSES_GB.length - 1]!);
 

@@ -98,6 +98,11 @@ describe("the GPU card", () => {
     expect(screen.getByText("₹9.00–10.80/h")).toBeInTheDocument();
   });
 
+  it("names no size when the job needs less than the smallest class, which every GPU here has", () => {
+    render(<GpuCard quote={quote({ vramNeededMb: 6_144 })} vramMb={6_144} typicalMinutes={null} laptop />);
+    expect(screen.getByText("Best free GPU")).toBeInTheDocument();
+  });
+
   it("says when no GPU is free", () => {
     render(
       <GpuCard quote={{ kind: "none-free", quote: null }} vramMb={16_000} typicalMinutes={null} laptop />,

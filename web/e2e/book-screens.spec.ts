@@ -101,7 +101,8 @@ test("Fine-tune a model: three plain questions, the best free GPU and its price"
   // 45 minutes at 6 to 18 paise: ₹2.70 to ₹8.10.
   await expect(page.getByRole("button", { name: /^Standard/ })).toContainText("≈ ₹3–8");
   await expect(page.getByRole("button", { name: "Stop at ₹100" })).toHaveAttribute("aria-pressed", "true");
-  await expect(yourRequest(page).getByText("Best free 6 GB GPU")).toBeVisible();
+  // 6 GB is below the smallest class, so the card names no size.
+  await expect(yourRequest(page).getByText("Best free GPU", { exact: true })).toBeVisible();
   await expect(yourRequest(page).getByText("₹3.60–10.80/h")).toBeVisible();
   await expect(page.getByText("₹5.40 is held while it runs. You have ₹462.12.")).toBeVisible();
   await expectAccessible(page);

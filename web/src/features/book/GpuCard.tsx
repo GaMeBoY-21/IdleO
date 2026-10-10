@@ -6,7 +6,7 @@ import { SkeletonLine } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { formatEstimate, formatPaiseRange } from "@/lib/money";
 import type { QuoteState } from "./useQuote";
-import { BIGGEST_MB, classGigabytes } from "./vram";
+import { BIGGEST_MB, classGigabytes, SMALLEST_MB } from "./vram";
 
 /** The GPU memory the quote says the booking needs, or, before it says, what the form asks for. */
 export function memoryNeeded(quote: QuoteState | null, asked: number): number {
@@ -35,7 +35,8 @@ export function GpuCard({
   laptop: boolean;
 }) {
   const needed = memoryNeeded(quote, vramMb);
-  let title: ReactNode = `Best free ${classGigabytes(needed)} GPU`;
+  // Below the smallest class every GPU fits, so the card names no size.
+  let title: ReactNode = needed < SMALLEST_MB ? "Best free GPU" : `Best free ${classGigabytes(needed)} GPU`;
   let detail: ReactNode;
   let price: ReactNode = null;
 
