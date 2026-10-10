@@ -67,56 +67,62 @@ export function Advanced({
           strokeWidth={2}
         />
       </button>
+      {/* Its fields are drawn only once it's opened: the screen's first paint doesn't wait on them, and their
+          values are kept in the form meanwhile. */}
       <div id="advanced" hidden={!open} className="flex flex-col gap-5">
-        {advancedParams(template).length > 0 && <ParamFields params={advancedParams(template)} />}
-        {!asksGpuMemory(template) && (
-          <Select
-            label="GPU memory"
-            hint="More than the job needs only narrows the GPUs that fit."
-            error={errors.vramMb?.message}
-            {...form.register("vramMb")}
-          >
-            <option value="">What it needs: {classGigabytes(neededMb)}</option>
-            {more.map((mb) => (
-              <option key={mb} value={String(mb)}>
-                At least {classGigabytes(mb)}
-              </option>
-            ))}
-          </Select>
+        {open && (
+          <>
+            {advancedParams(template).length > 0 && <ParamFields params={advancedParams(template)} />}
+            {!asksGpuMemory(template) && (
+              <Select
+                label="GPU memory"
+                hint="More than the job needs only narrows the GPUs that fit."
+                error={errors.vramMb?.message}
+                {...form.register("vramMb")}
+              >
+                <option value="">What it needs: {classGigabytes(neededMb)}</option>
+                {more.map((mb) => (
+                  <option key={mb} value={String(mb)}>
+                    At least {classGigabytes(mb)}
+                  </option>
+                ))}
+              </Select>
+            )}
+            <Field
+              label="The most per hour, in ₹ (optional)"
+              type="number"
+              inputMode="decimal"
+              step={PRICE_STEP}
+              min={PRICE_STEP}
+              placeholder="We pick"
+              hint="Leave it empty and we match the best free GPU. Set it, and only GPUs at this price or less."
+              error={errors.maxPerHour?.message}
+              {...form.register("maxPerHour")}
+            />
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 text-small font-medium">Time limit</legend>
+              <div className="grid grid-cols-2 gap-3">
+                {(["runtimeHours", "runtimeMinutes"] as const).map((name) => (
+                  <Field
+                    key={name}
+                    label={name === "runtimeHours" ? "Hours" : "Minutes"}
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    max={name === "runtimeMinutes" ? "59" : undefined}
+                    step="1"
+                    aria-invalid={errors[name] ? true : undefined}
+                    {...form.register(name)}
+                  />
+                ))}
+              </div>
+              <p className={cn("text-caption", runtimeError ? "text-danger" : "text-text-muted")}>
+                {runtimeError ??
+                  `It stops after this long, up to ${hoursAndMinutes(template.maxRuntimeCapSeconds)}.`}
+              </p>
+            </fieldset>
+          </>
         )}
-        <Field
-          label="The most per hour, in ₹ (optional)"
-          type="number"
-          inputMode="decimal"
-          step={PRICE_STEP}
-          min={PRICE_STEP}
-          placeholder="We pick"
-          hint="Leave it empty and we match the best free GPU. Set it, and only GPUs at this price or less."
-          error={errors.maxPerHour?.message}
-          {...form.register("maxPerHour")}
-        />
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-small font-medium">Time limit</legend>
-          <div className="grid grid-cols-2 gap-3">
-            {(["runtimeHours", "runtimeMinutes"] as const).map((name) => (
-              <Field
-                key={name}
-                label={name === "runtimeHours" ? "Hours" : "Minutes"}
-                type="number"
-                inputMode="numeric"
-                min="0"
-                max={name === "runtimeMinutes" ? "59" : undefined}
-                step="1"
-                aria-invalid={errors[name] ? true : undefined}
-                {...form.register(name)}
-              />
-            ))}
-          </div>
-          <p className={cn("text-caption", runtimeError ? "text-danger" : "text-text-muted")}>
-            {runtimeError ??
-              `It stops after this long, up to ${hoursAndMinutes(template.maxRuntimeCapSeconds)}.`}
-          </p>
-        </fieldset>
       </div>
     </section>
   );

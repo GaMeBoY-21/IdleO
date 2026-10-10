@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 /**
  * Runs `work` once the first screen has had its chance to load: two seconds in, when the browser is next idle.
@@ -98,7 +98,9 @@ export function afterPaint(work: () => void): () => void {
  */
 export function useAfterPaint(ready = true): boolean {
   const [painted, setPainted] = useState(false);
-  useEffect(() => (ready ? afterPaint(() => setPainted(true)) : undefined), [ready]);
+  // A transition: what this unlocks (Book's whole form) is drawn in slices of a few milliseconds, which the browser
+  // can interleave with input, rather than in one long task that counts against total blocking time.
+  useEffect(() => (ready ? afterPaint(() => startTransition(() => setPainted(true))) : undefined), [ready]);
   return painted;
 }
 

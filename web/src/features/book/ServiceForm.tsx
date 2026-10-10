@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { FormProvider, useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useLocation } from "wouter";
 import { ApiError, type FieldError } from "@/api/errors";
@@ -68,8 +68,10 @@ export function ServiceForm({
 }: ServiceFormProps) {
   const [, navigate] = useLocation();
   const client = useQueryClient();
+  // Made once per template: every render checks the answers against it.
+  const schema = useMemo(() => bookSchema(template), [template]);
   const form = useForm<BookValues>({
-    resolver: zodResolver(bookSchema(template)),
+    resolver: zodResolver(schema),
     defaultValues: initial,
     mode: "onTouched",
   });
@@ -91,7 +93,7 @@ export function ServiceForm({
 
   const request = toRequest(template, values, uploads);
   // Answers the form can see are wrong aren't quoted: the questions say what's needed.
-  const quotable = bookSchema(template).safeParse(values).success;
+  const quotable = schema.safeParse(values).success;
   const quote = useQuote(quotable ? request : null, painted);
   const book = useRequest(request, (session) => {
     forgetDraft(template.id);
