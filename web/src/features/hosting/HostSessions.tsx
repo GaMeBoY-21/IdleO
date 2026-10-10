@@ -7,8 +7,8 @@ import { RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
 import { formatMinutes, outcomeLabel } from "@/lib/hosting";
 import { useTitle } from "@/lib/title";
-import { HostFlow } from "./HostFlow";
-import { useHostId } from "./useHostId";
+import { HostFlow } from "@/components/shell/HostFlow";
+import { useHostId } from "@/lib/use-host-id";
 
 const ROW = "flex min-h-18 items-center gap-3 py-4";
 

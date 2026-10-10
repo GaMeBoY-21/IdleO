@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { useLocation } from "wouter";
 import { useRemove, useRename, type Host } from "@/api/hosting";
@@ -46,9 +46,9 @@ export function ManageMachine({ host }: { host: Host }) {
           <span className="text-body font-semibold">Rename or remove</span>
           <span className="text-small text-text-muted">Removing it stops all new sessions</span>
         </span>
-        <ChevronDown
+        <ChevronRight
           aria-hidden="true"
-          className={cn("size-5 shrink-0 transition-transform duration-120", open && "rotate-180")}
+          className={cn("size-5 shrink-0 transition-transform duration-120", open && "rotate-90")}
           strokeWidth={2}
         />
       </button>

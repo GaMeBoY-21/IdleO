@@ -3,9 +3,9 @@ import { useHost } from "@/api/hosting";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { useTitle } from "@/lib/title";
-import { HostFlow } from "./HostFlow";
+import { HostFlow } from "@/components/shell/HostFlow";
 import { PriceForm } from "./PriceForm";
-import { useHostId } from "./useHostId";
+import { useHostId } from "@/lib/use-host-id";
 
 /** A machine's price and limits (docs/design/hosting/price-phone.html): the form, and Save back to the machine. */
 export function Price() {

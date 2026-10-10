@@ -19,10 +19,10 @@ import { rupeesAnHour } from "@/lib/hosting";
 import { problemMessage } from "@/lib/problems";
 import { useTitle } from "@/lib/title";
 import { EnrolmentCodeCard } from "./EnrolmentCode";
-import { HostFlow } from "./HostFlow";
+import { HostFlow } from "@/components/shell/HostFlow";
 import { PriceForm } from "./PriceForm";
 import { Step } from "./Step";
-import { useHostId } from "./useHostId";
+import { useHostId } from "@/lib/use-host-id";
 
 const MAX_NAME = 100;
 
