@@ -30,7 +30,16 @@
  *       {@code balancePaise}, the host's payable balance, and {@code history}, its entries paged the same way,
  *       of kind {@code session_earning} or {@code lost_minutes_refunded}. Nothing is paid out or held in
  *       escrow yet: payouts come with the payment partner.
+ *   <li>{@code GET /v1/earnings?cursor=…&limit=…}: the same across every machine the user owns, removed ones
+ *       too (ADR 0023): the total, this week's (Monday to Sunday, IST), the minutes rented this week, each of the
+ *       last 7 days, each machine's total, and a paged history in which lost-time givebacks are negative entries.
+ *       Read only from the ledger, so it always equals it; the service and minutes beside each amount come from
+ *       the {@link com.idleo.controlplane.billing.EarningDetails} port, which metering implements. {@code
+ *       payoutsStart} is {@code paid-pilot}.
  * </ul>
+ *
+ * <p>{@link com.idleo.controlplane.billing.HostEarnings} gives the sessions module what a host earned from each
+ * session, from the same entries.
  */
 @ApplicationModule
 package com.idleo.controlplane.billing;

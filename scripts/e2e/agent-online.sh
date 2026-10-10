@@ -15,8 +15,12 @@
 # settled, its logs, and an output proving the job saw the exact file and parameters, then three errors
 # by their types. A seventh fine-tunes on the simulated fine-tune service with a small JSONL and
 # downloads its adapter. An eighth has the only 24 GB GPU but too little free disk for any session, so it
-# is never offered one (the web journeys check it). It checks storage's CORS for the web app, runs the
-# wallet check, then watches the hosts go offline once the agents stop.
+# is never offered one (the web journeys check it). It checks storage's CORS for the web app. Once the
+# sessions are done, it checks hosting (ADR 0023) on the same hosts: it renames two of them after laptops, pauses
+# the rest and the cheaper laptop, books, and sees the session go to the other laptop; resumes the cheaper laptop and
+# sees the next one go back to it; reads a host's running session and telemetry and the sessions it ran; and
+# checks that GET /v1/earnings equals the sum of the ledger's entries. Then it runs the wallet check and watches
+# the hosts go offline once the agents stop.
 # Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
@@ -96,6 +100,14 @@ for key in sys.argv[1].strip(".").split("."):
     value = value[int(key)] if isinstance(value, list) else value[key]
 print(value)' "$1"; }
 api_get() { curl -sf "$api$1" -H "Authorization: Bearer $token"; }
+api_patch() { curl -sf -X PATCH "$api$1" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "${@:2}"; }
+# Sets a host's listing: $1 the host, $2 its price in paise a minute. It keeps the least disk free (10 GB), so a
+# small machine still has room for the test sessions' files.
+list_host() {
+  curl -sf -X PUT "$api/v1/hosts/$1/listing" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+    -d "{\"batchPricePaisePerMin\": $2, \"gpuTempCapC\": 85, \"maxConcurrentSessions\": 1, \"keepFreeGb\": 10}" >/dev/null ||
+    fail "PUT listing failed for host $1"
+}
 json_str() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
 api_post() { curl -sf -X POST "$api$1" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "${@:2}"; }
 # An operator command (docs/runbooks/granting-credits.md, hosts.md) against the running stack.
@@ -218,15 +230,16 @@ upload_file() { upload_folder "$2" "$3" "$2" "$1"; }
 # Agent $1 (1 to $agents) with a fake GPU and the development runner (ADR 0016), in the background.
 # Its pid is in a file, since the host-loss scenario kills and restarts one from a subshell. With
 # --keep-running, each agent's fake GPU is a laptop's (fake_gpus below). Otherwise the last agent is the
-# small-disk host: the only 24 GB GPU, on a disk with 1,000 MB free, less than any template's scratch
-# space, so matching never offers it a session (ADR 0022; web/e2e/journey.spec.ts checks it).
+# small-disk host: the only 24 GB GPU, on a disk with 1,000 MB free beyond the 10 GB its owner keeps free
+# (list_host), less than any template's scratch space, so it counts as idle but matching never offers it a
+# session (ADRs 0022, 0023; web/e2e/journey.spec.ts checks it).
 run_agent() {
   local gpu=()
   if $keep_running; then
     IFS='|' read -r model vram _ <<<"${fake_gpus[$(($1 - 1))]}"
     gpu=(--fake-gpu-model "$model" --fake-gpu-vram-mb "$vram")
   elif (($1 == agents)); then
-    gpu=(--fake-gpu-model "RTX 4090" --fake-gpu-vram-mb 24564 --fake-free-disk-mb 1000)
+    gpu=(--fake-gpu-model "RTX 4090" --fake-gpu-vram-mb 24564 --fake-free-disk-mb 11240)
   fi
   # ${gpu[@]+…}: an empty array is "unbound" to macOS's bash 3.2 under set -u.
   IDLEO_LOG=info "$agent" --config "$out/agent-$1.toml" run --fake-gpu ${gpu[@]+"${gpu[@]}"} --dev-runner >>"$out/agent-$1.log" 2>&1 &
@@ -562,8 +575,7 @@ if $keep_running; then
   fi
   for i in $(seq 1 "$agents"); do
     IFS='|' read -r model vram price <<<"${fake_gpus[$((i - 1))]}"
-    curl -sf -X PUT "$api/v1/hosts/${host_ids[$((i - 1))]}/listing" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-      -d "{\"batchPricePaisePerMin\": $price, \"gpuTempCapC\": 85, \"maxConcurrentSessions\": 1}" >/dev/null || fail "PUT listing failed"
+    list_host "${host_ids[$((i - 1))]}" "$price"
     ops activate-host --host "${host_ids[$((i - 1))]}" --reason "'Local stack host'" || fail "activate-host failed; see private/e2e/ops.log"
   done
   printf '\nThe stack is up.\n\n'
@@ -628,8 +640,7 @@ for renter in "${renters[@]}"; do
     fail "grant-credits failed; see private/e2e/ops.log"
 done
 for id in "${host_ids[@]}"; do
-  curl -sf -X PUT "$api/v1/hosts/$id/listing" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-    -d '{"batchPricePaisePerMin": 2, "gpuTempCapC": 85, "maxConcurrentSessions": 1}' >/dev/null || fail "PUT listing failed"
+  list_host "$id" 2
   ops activate-host --host "$id" --reason "'End-to-end test host'" || fail "activate-host failed; see private/e2e/ops.log"
 done
 summary+=("credit for ${#renters[@]} renters, $agents hosts listed and activated: $(seconds_since "$setup_started") s")
@@ -1059,6 +1070,89 @@ for field in secret_access_key session_token X-Amz-Security-Token X-Amz-Credenti
   fi
 done
 summary+=("no storage credentials in the agent or control-plane logs: PASS")
+
+# Hosting (ADR 0023), on the hosts the scenarios used, once they're idle: two of them become "laptops", the cheaper
+# preferred by the scheduler (cheaper scores higher), and every other host is paused, so the choice is between the two.
+# Pausing the preferred laptop sends the next session to the other; resuming it brings sessions back. Along the way
+# the preferred host shows its running session and telemetry, and afterwards the sessions it ran. Finally the owner's
+# earnings equal the ledger's host_payable entries, host by host and in all.
+scenario_hosting() {
+  local preferred="${host_ids[0]}" other="${host_ids[1]}" i session chosen sessions=() view
+  api_patch "/v1/hosts/$preferred" -d '{"name": "RTX 4080 Laptop"}' >/dev/null || fail "renaming host $preferred failed"
+  api_patch "/v1/hosts/$other" -d '{"name": "RTX 4060 Laptop"}' >/dev/null || fail "renaming host $other failed"
+  [[ "$(api_get "/v1/hosts/$preferred" | json_get .name)" == "RTX 4080 Laptop" ]] || fail "the rename didn't stick"
+  list_host "$preferred" 3
+  list_host "$other" 4
+  for ((i = 2; i < agents; i++)); do
+    [[ "$(api_post "/v1/hosts/${host_ids[$i]}/pause" -d '{}' | json_get .paused)" == True ]] || fail "pausing host ${host_ids[$i]} didn't pause it"
+  done
+  # Books a long run, with the hosts as they are, and follows it to RUNNING on its host ($chosen); with "watch",
+  # reads that host's running session and telemetry; then stops it and waits until metering has closed it
+  # ($session, and added to $sessions).
+  book_and_stop() {
+    session="$(book "$1" long-run 10000)"
+    [[ -n "$session" ]] || fail "booking $1 failed"
+    await_state "$session" RUNNING 90
+    chosen="$(api_get "/v1/sessions/$session" | json_get .hostId)"
+    if [[ "${2:-}" == watch ]]; then
+      view="$(api_get "/v1/hosts/$chosen")"
+      printf '%s' "$view" | python3 -c 'import json, sys
+host = json.load(sys.stdin)
+current = host["currentSession"]
+assert current and current["serviceName"] and current["runningLabel"] and current["earnedSoFarPaise"] >= 0, host
+assert "renter" not in json.dumps(host), host
+assert host["online"] and host["onlineSince"] and host["agentVersion"] and not host["updateRequired"], host' ||
+        fail "the host's view doesn't show its running session: $view"
+      api_get "/v1/hosts/$chosen/telemetry" | python3 -c 'import json, sys
+telemetry = json.load(sys.stdin)
+assert telemetry["now"] and telemetry["now"]["gpus"], telemetry
+assert len(telemetry["lastHour"]) >= 1, telemetry' || fail "the host's telemetry has no reading"
+    fi
+    [[ "$(api_post "/v1/sessions/$session/stop" -d '{}' | json_get .state)" == FINISHING ]] || fail "POST /stop didn't move $session to FINISHING"
+    await_state "$session" COMPLETED 90
+    await_closed "$session" 60
+    sessions+=("$session")
+  }
+  book_and_stop hosting-before watch
+  [[ "$chosen" == "$preferred" ]] || fail "with nothing paused, session $session went to $chosen, not the preferred laptop $preferred"
+  note "hosting: nothing paused: session $session went to the cheaper laptop (RTX 4080 Laptop, $preferred): PASS"
+  api_post "/v1/hosts/$preferred/pause" -d '{}' >/dev/null || fail "pausing the preferred laptop failed"
+  [[ "$(api_get "/v1/hosts/$preferred" | json_get .paused)" == True ]] || fail "the preferred laptop isn't paused"
+  book_and_stop hosting-paused
+  [[ "$chosen" == "$other" ]] || fail "with the preferred laptop paused, session $session went to $chosen, not $other"
+  note "hosting: RTX 4080 Laptop ($preferred) paused: session $session went to RTX 4060 Laptop ($other): PASS"
+  [[ "$(api_post "/v1/hosts/$preferred/resume" | json_get .paused)" == False ]] || fail "resuming the preferred laptop didn't resume it"
+  book_and_stop hosting-resumed
+  [[ "$chosen" == "$preferred" ]] || fail "after resuming, session $session went to $chosen, not $preferred"
+  note "hosting: resumed: session $session went back to RTX 4080 Laptop: PASS"
+  api_get "/v1/hosts/$other/sessions" | python3 -c 'import json, sys
+ran = json.load(sys.stdin)["sessions"]
+assert ran and ran[0]["id"] == sys.argv[1] and ran[0]["outcome"] == "stopped", ran
+assert "renter" not in json.dumps(ran), ran' "${sessions[1]}" || fail "the host's sessions don't list the stopped session"
+  note "hosting: the 4060's sessions list shows ${sessions[1]} as stopped, with no renter: PASS"
+  # Owner-wide earnings are the ledger's host_payable entries: in all, and for each machine.
+  local earnings ledger
+  earnings="$(api_get /v1/earnings)"
+  ledger="$(sql "select owner_id || '|' || coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0)
+                 from billing.ledger_entries where account = 'host_payable' group by owner_id")"
+  printf '%s' "$earnings" | python3 -c 'import json, sys
+earnings = json.load(sys.stdin)
+ledger = dict(line.split("|") for line in sys.argv[1].split() if line)
+hosts = set(sys.argv[2].split())
+expected = {h: int(v) for h, v in ledger.items() if h in hosts}
+machines = {m["hostId"]: m["earnedPaise"] for m in earnings["machines"]}
+assert earnings["totalPaise"] == sum(expected.values()) and earnings["totalPaise"] > 0, (earnings["totalPaise"], expected)
+assert {h: v for h, v in machines.items() if v} == {h: v for h, v in expected.items() if v}, (machines, expected)
+assert 0 < earnings["weekPaise"] <= earnings["totalPaise"] and earnings["payoutsStart"] == "paid-pilot", earnings
+assert "renter" not in json.dumps(earnings), earnings
+print(earnings["totalPaise"], sum(expected.values()))' "$ledger" "${host_ids[*]}" >"$out/earnings-check.txt" ||
+    fail "GET /v1/earnings doesn't match the ledger: $earnings; ledger: $ledger"
+  note "hosting: GET /v1/earnings = $(cut -d' ' -f1 "$out/earnings-check.txt") paise; the host_payable ledger entries of the same hosts sum to $(cut -d' ' -f2 "$out/earnings-check.txt") paise: PASS"
+}
+scenario="hosting"
+: >"$out/summary-hosting.txt"
+scenario_hosting
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-hosting.txt"
 fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.

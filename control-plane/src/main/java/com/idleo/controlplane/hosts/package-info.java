@@ -35,9 +35,26 @@
  *   <li>{@code PUT /v1/hosts/{id}/listing}, body {@code {"batchPricePaisePerMin": …, "gpuTempCapC": 60–95,
  *       "maxConcurrentSessions": 1}}: the host's batch price and limits (ADR 0015). The temperature cap goes
  *       to the agent in Welcome.
- *   <li>{@code GET /v1/hosts}: my hosts. {@code GET /v1/hosts/{id}}: one of my hosts. Each says whether
- *       it is online now, when its agent was last seen (to the minute), and the GPUs it reported.
+ *   <li>{@code GET /v1/hosts}: my hosts, not the ones I removed. {@code GET /v1/hosts/{id}}: one of my hosts.
+ *       Each says whether it is online now and since when, when its agent was last seen (to the minute), the
+ *       agent's version and whether it must update, the GPUs it reported, whether it's paused (and until when),
+ *       and the session it's running now with what it has earned from it so far, never for whom (ADR 0023).
+ *   <li>{@code POST /v1/hosts/{id}/pause}, body {@code {"until": …}} optional, within 7 days
+ *       ({@code pause-too-long} otherwise), and {@code POST /v1/hosts/{id}/resume}: a paused host gets no new
+ *       offers and a running session finishes; a pause with an end ends by itself.
+ *   <li>{@code PATCH /v1/hosts/{id}}, body {@code {"name": …}}: renames it. {@code DELETE /v1/hosts/{id}}: removes it
+ *       for good (409 {@code host-busy} while it runs a session): its certificates are revoked, its agent stream
+ *       closes and it leaves the lists; the row stays, because the ledger points at it, and it answers 410
+ *       {@code host-removed} from then on.
+ *   <li>{@code GET /v1/hosts/{id}/telemetry}: the latest GPU readings and the last hour, a point a minute, kept in
+ *       Valkey. For the owner's screen only; billing never reads it.
  * </ul>
+ *
+ * <p>The listing's {@code keepFreeGb} (10 to 500, default 20) is the disk the owner keeps for themselves: a session
+ * is offered only when the host's free disk less this still covers its files. Ports other modules implement:
+ * {@link com.idleo.controlplane.hosts.HostWork} (sessions: is the host busy, and what it's running),
+ * {@link com.idleo.controlplane.hosts.HostTelemetry} (agent gateway). {@link com.idleo.controlplane.hosts.HostRemoved}
+ * is published when an owner removes a host.
  */
 @ApplicationModule
 package com.idleo.controlplane.hosts;
