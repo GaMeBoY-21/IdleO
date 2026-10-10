@@ -14,8 +14,9 @@
 # a quote, a session with parameters and that file as its input, followed on its event stream to
 # settled, its logs, and an output proving the job saw the exact file and parameters, then three errors
 # by their types. A seventh fine-tunes on the simulated fine-tune service with a small JSONL and
-# downloads its adapter. It checks storage's CORS for the web app, runs the wallet check, then watches
-# the hosts go offline once the agents stop.
+# downloads its adapter. An eighth has the only 24 GB GPU but too little free disk for any session, so it
+# is never offered one (the web journeys check it). It checks storage's CORS for the web app, runs the
+# wallet check, then watches the hosts go offline once the agents stop.
 # Everything it writes
 # (dev CA, agent config and keys, logs) stays under the gitignored private/. Everything it starts is
 # stopped on exit, even on failure, and the script checks that nothing is left.
@@ -28,7 +29,8 @@
 #                                               E2E_SERVE_WEB=0, for pnpm dev), and E2E_ACCOUNT (nikki)
 #                                               with ₹500 of credit; prints a curl with a fresh token
 #   scripts/e2e/agent-online.sh --web           the web app's checks (.github/workflows/web.yml): the
-#                                               stack and one agent, then every screen and state with
+#                                               stack, one agent and the small-disk host, then every
+#                                               screen and state with
 #                                               axe and visual baselines, the Firebase screens, the
 #                                               journey, Lighthouse's budgets and the size budget
 #
@@ -215,12 +217,16 @@ print(json.load(sys.stdin)["parts"][int(sys.argv[1]) - 1]["url"])' "$n")"
 upload_file() { upload_folder "$2" "$3" "$2" "$1"; }
 # Agent $1 (1 to $agents) with a fake GPU and the development runner (ADR 0016), in the background.
 # Its pid is in a file, since the host-loss scenario kills and restarts one from a subshell. With
-# --keep-running, each agent's fake GPU is a laptop's (fake_gpus below).
+# --keep-running, each agent's fake GPU is a laptop's (fake_gpus below). Otherwise the last agent is the
+# small-disk host: the only 24 GB GPU, on a disk with 1,000 MB free, less than any template's scratch
+# space, so matching never offers it a session (ADR 0022; web/e2e/journey.spec.ts checks it).
 run_agent() {
   local gpu=()
   if $keep_running; then
     IFS='|' read -r model vram _ <<<"${fake_gpus[$(($1 - 1))]}"
     gpu=(--fake-gpu-model "$model" --fake-gpu-vram-mb "$vram")
+  elif (($1 == agents)); then
+    gpu=(--fake-gpu-model "RTX 4090" --fake-gpu-vram-mb 24564 --fake-free-disk-mb 1000)
   fi
   # ${gpu[@]+…}: an empty array is "unbound" to macOS's bash 3.2 under set -u.
   IDLEO_LOG=info "$agent" --config "$out/agent-$1.toml" run --fake-gpu ${gpu[@]+"${gpu[@]}"} --dev-runner >>"$out/agent-$1.log" 2>&1 &
@@ -270,7 +276,7 @@ note() { printf '%s\n' "$*" >>"$out/summary-$scenario.txt"; }
 # (₹7.20 and ₹10.80 an hour), so booking shows a real price range and a session a real GPU's name.
 fake_gpus=("RTX 4060 Laptop|8188|12" "RTX 4080 Laptop|12282|18")
 account="${E2E_ACCOUNT:-nikki}"
-if $web_only; then agents=1; elif $keep_running; then agents=${#fake_gpus[@]}; else agents=7; fi
+if $web_only; then agents=2; elif $keep_running; then agents=${#fake_gpus[@]}; else agents=8; fi
 control_plane_pid=""
 summary=()
 
@@ -442,6 +448,9 @@ for i in $(seq 1 "$agents"); do
 done
 host_id="${host_ids[0]}"
 summary+=("hosts registered: ${host_ids[*]}")
+if ! $keep_running; then
+  export E2E_SMALL_DISK_HOST="${host_ids[$((agents - 1))]}"
+fi
 
 # 5. Build and enrol the agents.
 log "building the agent"
@@ -778,18 +787,23 @@ assert reasons[-2:] == ["max_spend_reached", "stopped"], reasons' || fail "the c
   note "spending cap: COMPLETED after max_spend_reached and a final checkpoint; charged $charged paise (cap 6) for the minutes it ran: PASS"
 }
 
-# The web journeys (ADR 0018, ADR 0021, web/e2e/journey.spec.ts), one after another on whichever host is
-# free: Home following a session booked through the API; on a laptop the whole request (a service, its
-# settings, a 12 MiB upload, the quote without a ceiling, Request a GPU, finding and found, the session live
-# to settled, the output's SHA-256, the server's ceiling and the hold it took) and Run again; no GPU free;
-# not enough credit; cancelling an upload; the event stream dropping and coming
-# back; and stopping a session on a phone.
+# The web journeys (ADR 0018, ADR 0021, ADR 0022, web/e2e/journey.spec.ts), one after another on whichever
+# host is free: Home following a session booked through the API; on a laptop, from Home through "Fine-tune a
+# model" (a generated 3-file model folder and 40 examples uploaded, Quick, a budget chip, Request a GPU, live to
+# settled, the adapter downloaded and read, the server's ceiling and the hold it took) and Run again from My
+# files; an upload interrupted by a reload carrying on from its last part; the small-disk host never offered
+# a session; not enough credit; cancelling an upload; the event stream dropping and coming back; and stopping
+# a session on a phone.
 scenario_web() {
+  local host free_disk
   E2E_WEB_USER="$web_user" E2E_JOURNEY_REPORT="$out/web-journey.json" SKIP_VISUAL=1 \
     web_test --project=journey --reporter=line >>"$out/web-journey.log" 2>&1 ||
     fail "the web journeys failed; see private/e2e/web-journey.log"
-  note "web journeys: $(grep -Eo '[0-9]+ passed' "$out/web-journey.log" | tail -1) (Home, a request on a laptop, Run again, no GPU free, not enough credit, cancelled upload, stream drop, stop on a phone): PASS"
-  note "web request: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1])); print("Request a GPU to found %ss and to RUNNING %ss, upload %s MiB/s, ceiling chosen %d paise/min (highest fitting %s), hold quoted %d and held %d paise (30 min at the ceiling %d), charged %s (API %d paise), SHA-256 %s" % (n["requestToFoundSeconds"], n["requestToRunningSeconds"], n["uploadMiBPerSecond"], n["ceilingChosenPaisePerMin"], n["highestFittingPaisePerMin"], n["quotedHoldPaise"], n["heldWhileRunningPaise"], n["thirtyMinutesAtCeilingPaise"], n["chargedOnScreen"], n["chargedByApiPaise"], "matches" if n["fileSha256"] == n["outputSha256"] else "DIFFERS"))' "$out/web-journey.json")"
+  note "web journeys: $(grep -Eo '[0-9]+ passed' "$out/web-journey.log" | tail -1) (Home, the fine-tune from Home with a folder upload, Run again, a resumed upload, the small-disk host, not enough credit, cancelled upload, stream drop, stop on a phone): PASS"
+  host="$(json_get .fineTune.hostId <"$out/web-journey.json")"
+  free_disk="$(presence "$host" free_disk_mb | tr -d '\r')"
+  note "web fine-tune: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1]))["fineTune"]; print("model folder %s (%d bytes), uploaded in %ss; GPU memory asked %d MB; host %s with %s MB free disk; Request a GPU to RUNNING %ss (server %ss); ceiling %d paise/min (highest fitting %s), hold quoted %d and held %d paise; adapter %d bytes; charged %d paise" % (", ".join("%s %d" % f for f in n["modelFiles"].items()), n["modelBytes"], n["uploadSeconds"], n["vramNeededMb"], n["hostId"], sys.argv[2], n["requestToRunningSeconds"], n["serverRunningAfterSeconds"], n["ceilingPaisePerMin"], n["highestFittingPaisePerMin"], n["quotedHoldPaise"], n["heldPaise"], n["adapterBytes"], n["chargedPaise"]))' "$out/web-journey.json" "$free_disk")"
+  note "web resumed upload: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1]))["resumedUpload"]; print("%d bytes in %d parts; %d taken before the reload, then carried on from part %d, sending %d; %ss in all" % (n["sizeBytes"], n["parts"], n["takenBeforeTheReload"], n["resumedFromPart"], n["sentAfterTheReload"], n["totalSeconds"]))' "$out/web-journey.json")"
 }
 
 # The booking contract (ADR 0019), on its own host: upload, quote, book with parameters and the upload as the
@@ -1029,7 +1043,7 @@ for i in "${!scenarios[@]}"; do
   while IFS= read -r line; do summary+=("$line"); done <"$out/summary-${scenarios[$i]}.txt"
 done
 [[ -z "$failed" ]] || fail "scenarios failed:$failed"
-summary+=("seven scenarios side by side (four charged, the web journey, the booking contract and the simulated fine-tune): $(seconds_since "$scenarios_started") s")
+summary+=("seven scenarios side by side (four charged, the web journeys, the booking contract and the simulated fine-tune), beside the small-disk host: $(seconds_since "$scenarios_started") s")
 
 wallet_b="$(token="$token_b" api_get /v1/wallet)"
 (($(printf '%s' "$wallet_b" | json_get .balancePaise) >= 0)) && [[ "$(printf '%s' "$wallet_b" | json_get .reservedPaise)" == 0 ]] ||

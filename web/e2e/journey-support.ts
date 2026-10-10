@@ -64,6 +64,16 @@ export async function book(request: APIRequestContext, templateId: string, key: 
   return (await response.json()) as Session;
 }
 
+/** The highest price among the GPUs free now with at least this much memory, as availability says. */
+export async function highestFitting(request: APIRequestContext, vramMb: number): Promise<number | null> {
+  const response = await request.get(`${API}/v1/availability`, { headers: await authorised(request) });
+  const { gpus } = (await response.json()) as {
+    gpus: { vramMb: number; hostsIdle: number; pricePaisePerMin: { max: number } }[];
+  };
+  const fitting = gpus.filter((gpu) => gpu.hostsIdle > 0 && gpu.vramMb >= vramMb);
+  return fitting.length === 0 ? null : Math.max(...fitting.map((gpu) => gpu.pricePaisePerMin.max));
+}
+
 /** Seconds from a session's request to the first time it reached `state`, as the control plane recorded it. */
 export function secondsTo(session: Session, state: string): number | null {
   const at = session.events.find((event) => event.state === state)?.at;

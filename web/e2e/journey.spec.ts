@@ -7,6 +7,7 @@ import {
   examples,
   fileOf,
   getSession,
+  highestFitting,
   laptop,
   modelFolder,
   secondsTo,
@@ -105,6 +106,13 @@ test.describe("on a laptop", () => {
     await expect(page).toHaveURL(/\/book\/\?service=fine-tune$/);
     await expect(page.getByRole("heading", { level: 1, name: "Fine-tune a model" })).toBeVisible();
 
+    // The last quote the screen showed before "Request a GPU": no ceiling was set, so it's the server's.
+    let quote: { ceilingPaisePerMin: number; holdPaise: number; vramNeededMb: number } | null = null;
+    page.on("response", async (r) => {
+      if (r.url().endsWith("/v1/session-quotes") && r.ok()) {
+        quote = (await r.json()) as typeof quote;
+      }
+    });
     const chosenAt = Date.now();
     await page.getByTestId("model-folder").setInputFiles(model.path);
     await page.getByTestId("data-file").setInputFiles(examples());
@@ -124,7 +132,9 @@ test.describe("on a laptop", () => {
     await expect(card.getByText("finetune-model/")).toBeVisible();
     await expect(card.getByText("Quick · about 15 min")).toBeVisible();
     await expect(card.getByText(/^Best free 8 GB GPU$/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/^₹\d+\.\d\d is held while it runs\./)).toBeVisible();
     await expectAccessible(page);
+    const highest = await highestFitting(request, 8_000);
 
     const created = page.waitForResponse(
       (r) => r.url().endsWith("/v1/sessions") && r.request().method() === "POST",
@@ -135,7 +145,16 @@ test.describe("on a laptop", () => {
     await expect(page).toHaveURL(new RegExp(`/session/\\?id=${session.id}`));
     await expect(page.getByTestId("state-chip").first()).toHaveText("Running", { timeout: 120_000 });
     const runningSeconds = (Date.now() - pressedAt) / 1000;
-    const hostId = (await getSession(request, session.id)).hostId;
+    const live = await getSession(request, session.id);
+    const hostId = live.hostId;
+    // ADR 0021: without a ceiling of the renter's own, the server's is the highest price among the GPUs that fit,
+    // and the quote held 30 minutes at it, within the budget; the hold taken is at the matched GPU's price.
+    const quoted = quote!;
+    expect(quoted.vramNeededMb).toBe(8_000);
+    expect(live.maxPricePaisePerMin).toBe(quoted.ceilingPaisePerMin);
+    expect(live.maxPricePaisePerMin).toBe(highest);
+    expect(quoted.holdPaise).toBe(Math.min(30 * quoted.ceilingPaisePerMin, 5_000));
+    expect(live.reservedPaise).toBeLessThanOrEqual(quoted.holdPaise);
     await expect(page.getByTestId("log-panel")).toContainText("your model: 3 files", { timeout: 60_000 });
     await expectAccessible(page);
 
@@ -169,6 +188,10 @@ test.describe("on a laptop", () => {
       uploadSeconds: Number(uploadSeconds.toFixed(1)),
       vramNeededMb: done.vramNeededMb,
       hostId,
+      ceilingPaisePerMin: live.maxPricePaisePerMin,
+      highestFittingPaisePerMin: highest,
+      quotedHoldPaise: quoted.holdPaise,
+      heldPaise: live.reservedPaise,
       requestToRunningSeconds: Number(runningSeconds.toFixed(1)),
       serverRunningAfterSeconds: secondsTo(done, "RUNNING"),
       adapterBytes: bytes.length,
