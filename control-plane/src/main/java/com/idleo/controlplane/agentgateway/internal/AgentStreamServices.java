@@ -31,6 +31,7 @@ class AgentStreamServices implements DisposableBean {
     private final ObjectProvider<UsageReports> usageReports;
     private final ObjectProvider<CommandDelivery> delivery;
     private final Presence presence;
+    private final TelemetryRing telemetry;
     private final ConnectedAgents connected;
     private final AgentGatewayMetrics metrics;
     private final AgentGatewayProperties properties;
@@ -56,6 +57,7 @@ class AgentStreamServices implements DisposableBean {
             ObjectProvider<UsageReports> usageReports,
             ObjectProvider<CommandDelivery> delivery,
             Presence presence,
+            TelemetryRing telemetry,
             ConnectedAgents connected,
             AgentGatewayMetrics metrics,
             AgentGatewayProperties properties,
@@ -73,6 +75,7 @@ class AgentStreamServices implements DisposableBean {
         this.usageReports = usageReports;
         this.delivery = delivery;
         this.presence = presence;
+        this.telemetry = telemetry;
         this.connected = connected;
         this.metrics = metrics;
         this.properties = properties;
@@ -128,6 +131,10 @@ class AgentStreamServices implements DisposableBean {
 
     Presence presence() {
         return presence;
+    }
+
+    TelemetryRing telemetry() {
+        return telemetry;
     }
 
     ConnectedAgents connected() {

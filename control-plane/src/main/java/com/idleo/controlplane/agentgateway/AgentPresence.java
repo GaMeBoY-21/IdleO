@@ -1,5 +1,6 @@
 package com.idleo.controlplane.agentgateway;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -18,8 +19,9 @@ public interface AgentPresence {
      * One GPU's latest reading.
      *
      * @param utilPct how busy it is, 0 to 100
+     * @param vramUsedMb the GPU memory in use
      */
-    record GpuReading(String gpuUuid, int utilPct, int tempC) {}
+    record GpuReading(String gpuUuid, int utilPct, int tempC, int vramUsedMb) {}
 
     /**
      * One live agent.
@@ -28,9 +30,11 @@ public interface AgentPresence {
      *     agent couldn't read it
      * @param gpuTempsC the latest temperature of each GPU, empty before the first heartbeat
      * @param gpus the latest reading of each GPU, empty before the first heartbeat
+     * @param connectedAt when its current stream opened
      */
     record LiveAgent(
             UUID hostId,
+            Instant connectedAt,
             boolean updateRequired,
             boolean ownerActive,
             @Nullable Integer freeDiskMb,

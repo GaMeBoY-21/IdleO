@@ -332,6 +332,31 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - hostLifecycle
+  /v1/hosts/{id}/telemetry:
+    get:
+      operationId: hostTelemetryGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Telemetry"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostTelemetry
   /v1/me:
     get:
       operationId: meGet
@@ -1200,6 +1225,11 @@ components:
           type: string
         online:
           type: boolean
+        onlineSince:
+          type:
+          - string
+          - "null"
+          format: date-time
         paused:
           type: boolean
         pausedUntil:
@@ -1209,6 +1239,8 @@ components:
           format: date-time
         status:
           type: string
+        updateRequired:
+          type: boolean
       required:
       - createdAt
       - gpus
@@ -1217,6 +1249,7 @@ components:
       - online
       - paused
       - status
+      - updateRequired
     Listing:
       type: object
       properties:
@@ -1370,6 +1403,19 @@ components:
           - string
           - "null"
           format: date-time
+    Point:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        gpus:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reading"
+      required:
+      - at
+      - gpus
     PresetOption:
       type: object
       properties:
@@ -1533,6 +1579,25 @@ components:
       - holdPaise
       - hostsFitNow
       - vramNeededMb
+    Reading:
+      type: object
+      properties:
+        gpuUuid:
+          type: string
+        tempC:
+          type: integer
+          format: int32
+        utilPct:
+          type: integer
+          format: int32
+        vramUsedMb:
+          type: integer
+          format: int32
+      required:
+      - gpuUuid
+      - tempC
+      - utilPct
+      - vramUsedMb
     RenameRequest:
       type: object
       properties:
@@ -1792,6 +1857,19 @@ components:
           type:
           - boolean
           - "null"
+    Telemetry:
+      type: object
+      properties:
+        lastHour:
+          type: array
+          items:
+            $ref: "#/components/schemas/Point"
+        now:
+          oneOf:
+          - $ref: "#/components/schemas/Point"
+          - type: "null"
+      required:
+      - lastHour
     TemplateInput:
       type: object
       properties:

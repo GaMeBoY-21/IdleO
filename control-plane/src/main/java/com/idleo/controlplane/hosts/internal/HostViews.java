@@ -8,7 +8,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -23,7 +23,8 @@ class HostViews {
      * A host as its owner sees it. {@code online} is whether its agent has a live stream now; {@code
      * lastSeenAt} is when the agent was last seen, to the minute. {@code paused} is true from the owner's pause until
      * it ends or they resume; {@code pausedUntil} is empty for a pause with no end. {@code agentVersion} is what
-     * the agent last reported.
+     * the agent last reported; {@code updateRequired} says it's older than the oldest release we support, and {@code
+     * onlineSince} when its current stream opened, empty while it's offline.
      */
     record HostResponse(
             UUID id,
@@ -34,6 +35,8 @@ class HostViews {
             boolean paused,
             @Nullable Instant pausedUntil,
             @Nullable String agentVersion,
+            boolean updateRequired,
+            @Nullable Instant onlineSince,
             List<GpuResponse> gpus,
             HostListings.@Nullable Listing listing,
             Instant createdAt) {}
@@ -66,21 +69,24 @@ class HostViews {
     /** One presence lookup and one GPU query for the whole list. */
     List<HostResponse> views(Collection<Host> list) {
         var ids = list.stream().map(Host::id).toList();
-        var online = ids.isEmpty() ? Set.<UUID>of() : presence.online(ids);
+        var connections = ids.isEmpty() ? Map.<UUID, HostPresence.Connection>of() : presence.connections(ids);
         var gpus = hosts.gpus(ids);
         var now = Instant.now(clock);
         return list.stream()
                 .map(host -> {
                     boolean paused = host.paused(now);
+                    var connection = connections.get(host.id());
                     return new HostResponse(
                             host.id(),
                             host.name(),
                             host.status(),
-                            online.contains(host.id()),
+                            connection != null,
                             host.lastSeenAt(),
                             paused,
                             paused ? host.pausedUntil() : null,
                             host.agentVersion(),
+                            connection != null && connection.updateRequired(),
+                            connection == null ? null : connection.since(),
                             gpus.getOrDefault(host.id(), List.of()).stream()
                                     .map(gpu -> new GpuResponse(gpu.model(), gpu.vramMb(), gpu.gone()))
                                     .toList(),

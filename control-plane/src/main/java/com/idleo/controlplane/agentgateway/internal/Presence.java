@@ -111,6 +111,15 @@ class Presence implements HostPresence, AgentPresence {
         }
     }
 
+    @Override
+    public Map<UUID, Connection> connections(Collection<UUID> hostIds) {
+        var connections = new java.util.HashMap<UUID, Connection>();
+        live(hostIds)
+                .forEach((hostId, agent) ->
+                        connections.put(hostId, new Connection(agent.connectedAt(), agent.updateRequired())));
+        return connections;
+    }
+
     /** What a presence record holds. */
     record Snapshot(
             UUID hostId,
@@ -188,13 +197,17 @@ class Presence implements HostPresence, AgentPresence {
                     readings.add(new GpuReading(
                             reading.get("uuid").asString(),
                             reading.get("util_pct").asInt(),
-                            reading.get("temp_c").asInt()));
+                            reading.get("temp_c").asInt(),
+                            reading.has("vram_used_mb")
+                                    ? reading.get("vram_used_mb").asInt()
+                                    : 0));
                 }
             }
         }
         var freeDisk = text(fields, "free_disk_mb");
         return new LiveAgent(
                 hostId,
+                Instant.parse(text(fields, "connected_at")),
                 Boolean.parseBoolean(text(fields, "update_required")),
                 Boolean.parseBoolean(text(fields, "owner_active")),
                 freeDisk.isEmpty() ? null : Integer.valueOf(freeDisk),

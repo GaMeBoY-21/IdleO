@@ -1,7 +1,9 @@
 package com.idleo.controlplane.hosts;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -17,6 +19,17 @@ public interface HostPresence {
 
     /** The hosts among {@code hostIds} that have a live agent stream. */
     Set<UUID> online(Collection<UUID> hostIds);
+
+    /**
+     * A live agent's stream, for its owner's view of the machine.
+     *
+     * @param since when the stream opened
+     * @param updateRequired the agent is older than the oldest release the control plane supports
+     */
+    record Connection(Instant since, boolean updateRequired) {}
+
+    /** The live streams among {@code hostIds}; a host with none isn't in the map. Empty when presence can't be read. */
+    Map<UUID, Connection> connections(Collection<UUID> hostIds);
 
     /** Whether this host has a live agent stream. */
     default boolean isOnline(UUID hostId) {

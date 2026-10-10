@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.google.protobuf.Duration;
 import com.idleo.controlplane.hosts.HostListings;
+import com.idleo.controlplane.hosts.HostTelemetry;
 import gpu.agent.v1.AgentGateway.Ack;
 import gpu.agent.v1.AgentGateway.AgentPolicy;
 import gpu.agent.v1.AgentGateway.OpenStreamRequest;
@@ -354,6 +355,14 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                 return;
             }
             services.metrics().heartbeat("recorded");
+            services.telemetry()
+                    .record(
+                            hostId,
+                            Instant.now(services.clock()),
+                            heartbeat.getGpusList().stream()
+                                    .map(gpu -> new HostTelemetry.Reading(
+                                            gpu.getUuid(), gpu.getTempC(), gpu.getUtilPct(), gpu.getVramUsedMb()))
+                                    .toList());
         } catch (RuntimeException valkeyDown) {
             services.metrics().heartbeat("not_recorded");
         }
