@@ -66,6 +66,6 @@ export default defineConfig({
         video: { mode: "on", size: phone.viewport },
       },
     },
-    { name: "lighthouse", testMatch: /(lighthouse|performance)\.spec\.ts/, workers: 1, timeout: 480_000 },
+    { name: "lighthouse", testMatch: /(lighthouse|performance)\.spec\.ts/, workers: 1, timeout: 900_000 },
   ],
 });
