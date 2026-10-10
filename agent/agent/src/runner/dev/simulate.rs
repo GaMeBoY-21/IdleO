@@ -404,6 +404,19 @@ mod tests {
     }
 
     #[test]
+    fn a_model_given_as_a_link_is_fetched_in_the_sandbox_not_listed() {
+        let job = simulation(Kind::FineTune, &[], 40);
+
+        let opening = job.opening();
+
+        assert_eq!(opening[0], "your model: fetching https://huggingface.co/me/model inside the sandbox");
+        assert_eq!(opening[1], "loading https://huggingface.co/me/model in 4-bit");
+        assert!(opening.contains(&"40 training examples, 5 steps an epoch at batch size 8".to_owned()), "{opening:?}");
+        let training: serde_json::Value = serde_json::from_slice(&job.training_log()).unwrap();
+        assert_eq!(training["base_model"], "https://huggingface.co/me/model");
+    }
+
+    #[test]
     fn the_loss_falls() {
         let job = simulation(Kind::FineTune, &[("EPOCHS", "2")], 200);
         let steps = job.steps_per_epoch() * 2;

@@ -246,6 +246,40 @@ mod tests {
         assert_eq!(error.unwrap_err(), "data/train.jsonl is 5 bytes, not the 8 expected");
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn a_folder_of_many_files_arrives_whole() {
+        let objects = Objects::default();
+        let inputs: Vec<InputRef> = (1..=25)
+            .map(|i| {
+                let name = format!("shards/part-{i:03}.bin");
+                objects.lock().unwrap().insert(format!("{UPLOAD}{name}"), vec![u8::try_from(i).unwrap(); i]);
+                input("model", &name, i64::try_from(i).unwrap())
+            })
+            .collect();
+        let folder = tempfile::tempdir().unwrap();
+
+        stage(store(&objects), &inputs, folder.path(), &LogWriter::discard()).await.unwrap();
+
+        let staged = std::fs::read_dir(folder.path().join("input/model/shards")).unwrap().count();
+        assert_eq!(staged, 25);
+        assert_eq!(std::fs::read(folder.path().join("input/model/shards/part-025.bin")).unwrap(), vec![25; 25]);
+    }
+
+    #[test]
+    fn every_input_must_be_inside_the_read_grant() {
+        let objects = Objects::default();
+        let grant = MemoryStore::new(&objects, &[UPLOAD], false).grant();
+        let elsewhere = InputRef {
+            prefix: "uploads/0190f3a2-0000-7000-8000-00000000000b/files/".to_owned(),
+            ..input("data", "a", 1)
+        };
+
+        assert!(check_covered(&[input("model", "a", 1)], Some(&grant)).is_ok());
+        assert!(check_covered(&[input("model", "a", 1), elsewhere], Some(&grant)).is_err());
+        assert!(check_covered(&[input("model", "a", 1)], None).is_err(), "no read grant");
+        assert!(check_covered(&[], None).is_ok(), "nothing to stage");
+    }
+
     #[test]
     fn only_safe_slots_paths_and_whole_prefixes_pass() {
         assert!(check(&[input("model", "a/b/config.json", 1), input("data", "a", 0)]).is_ok());

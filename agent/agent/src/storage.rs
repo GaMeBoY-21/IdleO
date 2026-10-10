@@ -389,6 +389,11 @@ pub(crate) mod testing {
             }
         }
 
+        /// The grant it checks keys against.
+        pub(crate) fn grant(&self) -> Grant {
+            self.grant.clone()
+        }
+
         /// Refuses the next `count` writes, as storage that's briefly down would.
         pub(crate) fn fail_puts(&self, count: u32) {
             self.failing_puts.store(count, Ordering::SeqCst);
