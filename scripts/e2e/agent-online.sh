@@ -234,10 +234,12 @@ upload_file() { upload_folder "$2" "$3" "$2" "$1"; }
 # (list_host), less than any template's scratch space, so it counts as idle but matching never offers it a
 # session (ADRs 0022, 0023; web/e2e/journey.spec.ts checks it).
 run_agent() {
-  local gpu=()
+  # Every host reports 200 GB free unless it's the small-disk one: a CI runner's real free disk, less the 10 GB each
+  # host keeps for its owner, may not hold even a small session's files (ADR 0023).
+  local gpu=(--fake-free-disk-mb 200000)
   if $keep_running; then
     IFS='|' read -r model vram _ <<<"${fake_gpus[$(($1 - 1))]}"
-    gpu=(--fake-gpu-model "$model" --fake-gpu-vram-mb "$vram")
+    gpu+=(--fake-gpu-model "$model" --fake-gpu-vram-mb "$vram")
   elif (($1 == agents)); then
     gpu=(--fake-gpu-model "RTX 4090" --fake-gpu-vram-mb 24564 --fake-free-disk-mb 11240)
   fi

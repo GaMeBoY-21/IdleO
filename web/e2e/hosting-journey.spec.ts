@@ -98,6 +98,8 @@ test("adds a machine from its name to connected, sets its price, and an operator
         "RTX 4060 Laptop",
         "--fake-gpu-vram-mb",
         "8188",
+        "--fake-free-disk-mb",
+        "200000",
         "--dev-runner",
       ],
       { stdio: "ignore", env: { ...process.env, IDLEO_LOG: "info" } },
