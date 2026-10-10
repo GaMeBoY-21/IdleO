@@ -327,7 +327,7 @@ test.describe("on a laptop", () => {
       mimeType: "application/octet-stream",
       buffer: randomBytes(24 * MIB),
     });
-    const upload = (await (await opened).json()) as { id: string };
+    const upload = ((await (await opened).json()) as { upload: { id: string } }).upload;
     await page.getByRole("button", { name: "Cancel the upload of big.bin" }).click();
     await expect(page.getByText("Choose a file", { exact: true })).toBeVisible();
     await expect
@@ -336,7 +336,7 @@ test.describe("on a laptop", () => {
           const response = await request.get(`${API}/v1/uploads/${upload.id}`, {
             headers: { Authorization: `Bearer ${await token(request)}` },
           });
-          return ((await response.json()) as { status: string }).status;
+          return ((await response.json()) as { upload: { status: string } }).upload.status;
         },
         { timeout: 30_000 },
       )
