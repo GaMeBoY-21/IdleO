@@ -1,0 +1,194 @@
+import { useEarnings, useHosts, type EarningsEntry, type OwnerEarnings } from "@/api/hosting";
+import { Page } from "@/components/shell/AppShell";
+import { Button } from "@/components/ui/Button";
+import { SectionTitle } from "@/components/ui/Card";
+import { Money } from "@/components/ui/Money";
+import { SkeletonLine } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
+import { RelativeTime } from "@/components/ui/Time";
+import { cn } from "@/lib/cn";
+import { formatMinutes } from "@/lib/hosting";
+import { useTitle } from "@/lib/title";
+
+const BETA_NOTE =
+  "During the free beta your earnings are recorded here. Weekly UPI payouts start with the paid pilot.";
+
+const ROW = "flex min-h-18 items-center gap-3 py-4";
+
+/**
+ * Earnings across every machine (docs/design/hosting/earnings-phone.html): the total, this week and the time rented,
+ * then every credit and every lost-time giveback, newest first, a page at a time. All of it is the ledger's. Payouts
+ * aren't built: the note says they start with the paid pilot (ADR 0023).
+ */
+export function Earnings() {
+  useTitle("Earnings");
+  const hosts = useHosts();
+  const live = hosts.data?.hosts.some((host) => host.currentSession != null) ?? false;
+  const earnings = useEarnings(live);
+  const owner = earnings.data?.pages[0];
+  const entries = earnings.data?.pages.flatMap((page) => page.history.entries);
+  const since = staleSince(earnings);
+
+  return (
+    <Page title="Earnings">
+      {since !== null && <StaleNotice updatedAt={since} />}
+      {owner && entries ? (
+        <>
+          <Totals owner={owner} />
+          <History
+            entries={entries}
+            next={{
+              has: earnings.hasNextPage,
+              busy: earnings.isFetchingNextPage,
+              failed: earnings.isFetchNextPageError,
+              load: () => void earnings.fetchNextPage(),
+            }}
+          />
+        </>
+      ) : earnings.isError ? (
+        <ErrorState
+          error={earnings.error}
+          what="your earnings"
+          onRetry={() => void earnings.refetch()}
+          retrying={earnings.isFetching}
+        />
+      ) : (
+        <EarningsSkeleton />
+      )}
+    </Page>
+  );
+}
+
+/** The totals, this week and the hours rented, the free-beta note, and each machine when there are several. */
+function Totals({ owner }: { owner: OwnerEarnings }) {
+  return (
+    <section aria-label="Totals" className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <p className="text-small font-semibold text-text-muted">All machines, in total</p>
+        <Money paise={owner.totalPaise} className="block text-timer" />
+      </div>
+      <dl className="grid grid-cols-2 gap-2">
+        <Figure label="This week">
+          <Money paise={owner.weekPaise} />
+        </Figure>
+        <Figure label="Hours rented">
+          <span className="tabular">{formatMinutes(owner.minutesRentedThisWeek)}</span>
+        </Figure>
+      </dl>
+      <p className="max-w-prose text-small text-text-muted">{BETA_NOTE}</p>
+      {owner.machines.length > 1 && (
+        <ul aria-label="Each machine" className="flex flex-col divide-y divide-divider">
+          {owner.machines.map((machine) => (
+            <li key={machine.hostId} className="flex min-h-touch items-center justify-between gap-3 py-2">
+              <span className="text-small font-semibold break-words">
+                {machine.name}
+                {machine.removed && <span className="font-normal text-text-muted"> (removed)</span>}
+              </span>
+              <Money paise={machine.earnedPaise} className="text-small font-semibold" />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** Every credit and giveback, newest first, a page at a time. */
+function History({
+  entries,
+  next,
+}: {
+  entries: EarningsEntry[];
+  next: { has: boolean; busy: boolean; failed: boolean; load: () => void };
+}) {
+  return (
+    <section aria-labelledby="history-title" className="flex flex-col gap-1">
+      <SectionTitle id="history-title">History</SectionTitle>
+      <div className="flex flex-col gap-4">
+        {entries.length === 0 ? (
+          <EmptyState title="Nothing earned yet">
+            What your machines earn, and any time given back for a lost session, will be listed here.
+          </EmptyState>
+        ) : (
+          <ul className="flex flex-col divide-y divide-divider">
+            {entries.map((entry) => (
+              <EntryRow key={entry.id} entry={entry} />
+            ))}
+          </ul>
+        )}
+        {next.has && (
+          <Button variant="secondary" className="self-center" busy={next.busy} onClick={next.load}>
+            Show older
+          </Button>
+        )}
+        {next.failed && (
+          <p className="text-small text-danger" role="alert">
+            We couldn&apos;t load older entries. Try again.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** Both sections' shape, as one block that the content replaces whole, so nothing in it moves. */
+function EarningsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-7">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1">
+          <SkeletonLine size="small" width="w-1/3" />
+          <SkeletonLine size="timer" width="w-1/2" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="skeleton h-18 rounded-control" />
+          <div className="skeleton h-18 rounded-control" />
+        </div>
+        <p className="max-w-prose text-small text-text-muted">{BETA_NOTE}</p>
+      </div>
+      <div className="flex flex-col divide-y divide-divider">
+        {[0, 1, 2, 3].map((key) => (
+          <div key={key} className={ROW}>
+            <div className="flex flex-1 flex-col gap-0.5">
+              <SkeletonLine size="option" width="w-1/2" />
+              <SkeletonLine size="small" width="w-1/3" />
+            </div>
+            <SkeletonLine size="option" width="w-1/4" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Figure({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-fill px-4 py-3.5">
+      <dt className="text-small text-text-muted">{label}</dt>
+      <dd className="text-option font-semibold">{children}</dd>
+    </div>
+  );
+}
+
+/** One credit or giveback: what it was for and for how long, the machine and when, and the amount. */
+function EntryRow({ entry }: { entry: EarningsEntry }) {
+  const givenBack = entry.amountPaise < 0;
+  return (
+    <li className={ROW}>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-option font-semibold break-words">
+          {entry.label}
+          {!givenBack && entry.minutes > 0 && ` · ${formatMinutes(entry.minutes)}`}
+        </p>
+        <p className="text-small text-text-muted first-letter:uppercase">
+          {entry.machineName} · <RelativeTime value={entry.createdAt} />
+        </p>
+      </div>
+      <p className={cn("text-option font-semibold tabular", !givenBack && "text-running")}>
+        <span className="sr-only">{givenBack ? "Taken back" : "Earned"} </span>
+        <span aria-hidden="true">{givenBack ? "−" : "+"}</span>
+        <Money paise={Math.abs(entry.amountPaise)} />
+      </p>
+    </li>
+  );
+}

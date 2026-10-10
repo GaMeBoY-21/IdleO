@@ -11,6 +11,10 @@ export const config = {
     issuer: import.meta.env.VITE_OIDC_ISSUER ?? "",
     clientId: import.meta.env.VITE_OIDC_CLIENT_ID ?? "",
   },
+  /** The host app's install steps, for the add-a-machine screen, until there's an installer (ADR 0023). */
+  hostRunbookUrl:
+    import.meta.env.VITE_HOST_RUNBOOK_URL ??
+    "https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/hosts.md",
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "",
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "",

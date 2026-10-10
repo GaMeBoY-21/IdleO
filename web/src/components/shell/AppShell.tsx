@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           flow && "hidden",
         )}
       >
-        <ul className="grid grid-cols-3">
+        <ul className="grid grid-cols-4">
           {phoneTabs.map(({ href, label, icon: Icon }) => {
             const current = isCurrent(pathname, href);
             return (

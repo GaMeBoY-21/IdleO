@@ -12,6 +12,12 @@ export const SIGNED_IN_SCREENS = [
   "/sessions/",
   "/book/",
   "/files/",
+  "/hosting/",
+  "/hosting/machine/",
+  "/hosting/price/",
+  "/hosting/sessions/",
+  "/hosting/earnings/",
+  "/hosting/add/",
   "/welcome/",
 ];
 
@@ -22,6 +28,12 @@ export const SCREENS: Record<string, string | null> = {
   "/sessions/": "src/features/sessions/AllSessions.tsx",
   "/book/": "src/features/book/Book.tsx",
   "/files/": "src/features/files/MyFiles.tsx",
+  "/hosting/": "src/features/hosting/Hosting.tsx",
+  "/hosting/machine/": "src/features/hosting/Machine.tsx",
+  "/hosting/price/": "src/features/hosting/Price.tsx",
+  "/hosting/sessions/": "src/features/hosting/HostSessions.tsx",
+  "/hosting/earnings/": "src/features/hosting/Earnings.tsx",
+  "/hosting/add/": "src/features/hosting/AddMachine.tsx",
   // The form loads just after the screen paints, not before (src/features/sign-in/LazyEmailForm.tsx).
   "/sign-in/": null,
   "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",

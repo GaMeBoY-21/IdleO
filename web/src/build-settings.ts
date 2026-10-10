@@ -13,6 +13,8 @@ export interface BuildEnv {
   VITE_API_URL?: string | undefined;
   /** Object storage, which the browser uploads inputs to straight from the page (ADR 0019). */
   VITE_STORAGE_URL?: string | undefined;
+  /** Where the add-a-machine screen sends owners for the install steps; the repository's runbook if left out. */
+  VITE_HOST_RUNBOOK_URL?: string | undefined;
   VITE_OIDC_ISSUER?: string | undefined;
   VITE_OIDC_CLIENT_ID?: string | undefined;
   VITE_FIREBASE_API_KEY?: string | undefined;

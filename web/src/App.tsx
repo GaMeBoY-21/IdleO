@@ -40,6 +40,12 @@ const screens = {
   "/sessions/": screen(() => import("@/features/sessions/AllSessions").then((m) => m.AllSessions)),
   "/book/": screen(() => import("@/features/book/Book").then((m) => m.Book)),
   "/files/": screen(() => import("@/features/files/MyFiles").then((m) => m.MyFiles)),
+  "/hosting/": screen(() => import("@/features/hosting/Hosting").then((m) => m.Hosting)),
+  "/hosting/machine/": screen(() => import("@/features/hosting/Machine").then((m) => m.Machine)),
+  "/hosting/price/": screen(() => import("@/features/hosting/Price").then((m) => m.Price)),
+  "/hosting/sessions/": screen(() => import("@/features/hosting/HostSessions").then((m) => m.HostSessions)),
+  "/hosting/earnings/": screen(() => import("@/features/hosting/Earnings").then((m) => m.Earnings)),
+  "/hosting/add/": screen(() => import("@/features/hosting/AddMachine").then((m) => m.AddMachine)),
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
 };
@@ -55,11 +61,18 @@ const AllSessions = screens["/sessions/"].Screen;
 const SessionDetail = screens["/session/"].Screen;
 const Book = screens["/book/"].Screen;
 const MyFiles = screens["/files/"].Screen;
+const Hosting = screens["/hosting/"].Screen;
+const Machine = screens["/hosting/machine/"].Screen;
+const Price = screens["/hosting/price/"].Screen;
+const HostSessions = screens["/hosting/sessions/"].Screen;
+const Earnings = screens["/hosting/earnings/"].Screen;
+const AddMachine = screens["/hosting/add/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
-const SIGNED_IN = /^\/(credit\/|session\/|sessions\/|book\/|files\/)?$/;
+const SIGNED_IN =
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -87,6 +100,12 @@ function SignedInArea() {
             <Route path="/sessions/" component={AllSessions} />
             <Route path="/book/" component={Book} />
             <Route path="/files/" component={MyFiles} />
+            <Route path="/hosting/" component={Hosting} />
+            <Route path="/hosting/machine/" component={Machine} />
+            <Route path="/hosting/price/" component={Price} />
+            <Route path="/hosting/sessions/" component={HostSessions} />
+            <Route path="/hosting/earnings/" component={Earnings} />
+            <Route path="/hosting/add/" component={AddMachine} />
           </Switch>
         </Suspense>
       </AppShell>
