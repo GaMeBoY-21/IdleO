@@ -58,7 +58,7 @@ A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBA
 | `pnpm test` | Vitest: units and components |
 | `pnpm size` | The first-load JavaScript budget, on `dist/` (or `IDLEO_DIST`) |
 | `pnpm e2e` | Playwright: every screen and state, and the journeys; needs the stack and `pnpm serve` |
-| `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book and the session screen, the 10 MiB log test, then `lhci assert` |
+| `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book, the session screen, the Hosting tab and one machine, the 10 MiB log test, then `lhci assert` |
 | `pnpm gallery` | The review gallery (below) |
 
 CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.sh --web` for the browser checks against the real stack. The end-to-end workflow runs the web journeys too.
@@ -73,6 +73,13 @@ CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.
 5. Cancelling an upload deletes it.
 6. The event stream drops (through a proxy the test cuts): the stale notice appears, polling keeps the figures moving, and the stream comes back.
 7. On a phone, a running `long-run` session is stopped, shows its charge, and Run again works.
+
+The owner's journeys are `e2e/hosting-journey.spec.ts` (the `hosting-journey` project), run by `scripts/e2e/agent-online.sh` once every other scenario is over, so the machine they add changes nothing for them. They enrol a real agent with a fake RTX 4060 Laptop from the code on the page (`E2E_AGENT`, `E2E_AGENT_CA`, `E2E_GRPC_PORT`), and call `scripts/e2e/activate-host.sh` for the step an operator does by hand:
+1. Add a machine from its name to connected, set its price, and have it activated.
+2. Pause it and resume it; one host fewer fits a quote while it's paused.
+3. Change its price; the quote's top price moves with it.
+4. Earn from a session; the Hosting tab, Earnings and Sessions it ran agree, and equal the ledger.
+5. Remove it; its agent is signed out and its earnings stay.
 
 `scripts/e2e/agent-online.sh` (and `--web`) runs them. By hand against `--keep-running`: enrol and activate an agent and grant a user credit as the script's steps 4 to 7 do (docs/runbooks/local-stack.md), then `E2E_WEB_USER=<user> pnpm exec playwright test --project=journey`, with a fresh user each run.
 

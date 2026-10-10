@@ -27,7 +27,8 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 | Session: finding, found, live, done | Phone | Laptop |
 | All sessions | Phone | Laptop |
 | Credit history | Phone | Laptop |
-| Host home and earnings (later) | Phone | Laptop |
+| Hosting: the tab, one machine, price and limits, sessions it ran, earnings | Phone | Laptop |
+| Add a machine | Laptop | Phone |
 
 ## Principles
 
@@ -161,9 +162,9 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
 
 - **Navigation:**
   - **Laptop:** a 64 px top bar with the wordmark (a link to Home), pill navigation (Book · Sessions · Credit, the current one a black pill), and on the right a grey credit pill and a black round account button.
-  - **Phone:** a top bar with the wordmark, the credit pill and the account button, and bottom tabs: Home · Book · Credit. Book and the session screen are flows: on a phone they replace both bars with a back button, the way a ride app's booking does.
+  - **Phone:** a top bar with the wordmark, the credit pill and the account button, and bottom tabs: Home · Book · Hosting · Credit. Book and the session screen are flows: on a phone they replace both bars with a back button, the way a ride app's booking does.
   - On a phone, All sessions is a row on Home, under Book again, since it has no tab.
-  - Hosting joins both when it exists.
+  - Hosting is the third tab on a phone (Home · Book · Hosting · Credit) and a pill on a laptop (Book · Sessions · Hosting · Credit). A machine, its price and limits, its sessions and adding one are flows on a phone, with their own back button; the Hosting tab and its earnings keep the bars.
 
 ## Motion
 
@@ -229,6 +230,18 @@ The session screen follows the state, like a ride (docs/design/redesign/matching
 | Ended otherwise | Why, in plain words, and what to do; the charge, often "Nothing was charged" | Try again, filled from it |
 
 Raising the cap and sharing a live link are in the references but not built yet.
+
+## Hosting
+
+The owner's screens (docs/design/hosting/, ADR 0023), for someone who wants to know "is my machine earning, and is it safe?" from their phone:
+- **The Hosting tab:** what they earned this week, big, with the total beside "payouts start with the paid pilot"; the last 7 days as bars, today in black and a day with nothing a thin line; their machines, each with its state in words; "Add a machine". With none, what hosting is and that one step.
+- **A machine's states,** one at a time, in this order: running a session (a black row, its dot pulsing, "earning ₹2.73 so far"), paused (until when), update needed, offline, checking (not yet activated), suspended, idle. A paused machine finishes a session it's running, and says so.
+- **One machine:** its state, name and GPU; its temperature and use against the limit its owner set; "Right now", the session running and what it has earned so far; the privacy line ("Renters never see who you are, and their work never touches your files."); rows to its price and limits, the sessions it ran, and renaming or removing it; and at the foot, "Pause hosting" (a choice of how long, opened in place) or "Resume".
+- **Money is the server's:** "earned so far" is read again every 5 seconds while a session runs and changes in place; it's never counted up on the client (principle 4). The elapsed time ticks.
+- **Price and limits:** the price an hour with − and + in ₹0.60 steps, what the owner keeps of it and the 20% fee, worked out from whole paise; the range others charge (or the usual range for a GPU like theirs); the temperature to pause above (60 to 95 °C); the disk to keep free (10 to 500 GB); and a fixed line that it's one session at a time.
+- **Removing** asks first in a sheet that names the machine, never a browser dialog; the one other dialog the app has.
+- **Add a machine** is four numbered steps: name it; install, with the code, its countdown, Copy code, New code, and "Waiting for your machine" that moves on by itself when the agent connects; quick checks, pending until an operator activates it; set your price. The code lives only in the page's memory.
+- **Words:** here, and only here, a host's owner calls their own host a **machine**. Renters never see "host" or "machine"; owners never see who rented one.
 
 ## Voice
 

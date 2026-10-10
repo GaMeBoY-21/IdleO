@@ -44,6 +44,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
     let sessionId = "";
     let liveId = "";
     let logsInpMs = 0;
+    let machineId = "";
     for (const [name, signedIn] of [
       ["sign-in", false],
       ["home", true],
@@ -51,6 +52,9 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       ["session", true],
       // For the record, not a budget: a session the app has never listed, opened by a link (ADR 0020).
       ["session-link", true],
+      // An owner's two screens (ADR 0023): the Hosting tab, and one of its machines.
+      ["hosting", true],
+      ["machine", true],
     ] as const) {
       if (name === "home") {
         await signIn(page, user);
@@ -80,12 +84,17 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         await stopOne(context.request, liveId);
         sessionId = await bookOne(context.request, "link", "cuda-smoke-test");
       }
+      if (name === "hosting") {
+        machineId = await addMachine(context.request);
+      }
       const path = {
         "sign-in": "/sign-in/",
         home: "/",
         book: "/book/?service=fine-tune",
         session: `/session/?id=${sessionId}`,
         "session-link": `/session/?id=${sessionId}`,
+        hosting: "/hosting/",
+        machine: `/hosting/machine/?id=${machineId}`,
       }[name];
       for (const formFactor of ["mobile", "desktop"] as const) {
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.
@@ -143,10 +152,11 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
     summary["home (mobile)"]!.inpMs = await interactionToNextPaint(page);
     summary["book (mobile)"]!.inpMs = await typingInp(page);
     summary["session (mobile)"]!.inpMs = logsInpMs;
+    summary["machine (mobile)"]!.inpMs = await hostingInp(page);
     mkdirSync(".lighthouseci", { recursive: true });
     writeFileSync(".lighthouseci/summary.json", `${JSON.stringify(summary, null, 2)}\n`);
     console.table(summary);
-    for (const name of ["home", "book", "session"]) {
+    for (const name of ["home", "book", "session", "machine"]) {
       expect(
         summary[`${name} (mobile)`]!.inpMs,
         `${name}: interaction to next paint, ms`,
@@ -162,6 +172,32 @@ async function renterToken(request: APIRequestContext): Promise<string> {
     form: { grant_type: "client_credentials", client_id: user, client_secret: "unused", scope: "openid" },
   });
   return ((await tokenResponse.json()) as { access_token: string }).access_token;
+}
+
+/** A machine for the Hosting tab to list, added through the API as the web app's first step does. */
+async function addMachine(request: APIRequestContext): Promise<string> {
+  const added = await request.post(`${API}/v1/hosts`, {
+    headers: {
+      Authorization: `Bearer ${await renterToken(request)}`,
+      "Idempotency-Key": `${user}-lighthouse-machine`,
+    },
+    data: { name: "Lighthouse laptop" },
+  });
+  expect(added.ok(), `adding a machine for the Hosting tab: ${added.status()}`).toBe(true);
+  return ((await added.json()) as { id: string }).id;
+}
+
+/** The owner's screens: opening a machine from the Hosting tab, and choosing how long to pause it. */
+async function hostingInp(page: Page): Promise<number> {
+  const cdp = await measured(page, "/hosting/");
+  await page.getByRole("link", { name: /Lighthouse laptop/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lighthouse laptop" })).toBeVisible();
+  await page.getByRole("button", { name: "Pause hosting" }).click();
+  await page.getByLabel("1 hour").check();
+  await page.getByLabel("Until I resume").check();
+  await page.getByRole("button", { name: "Keep hosting" }).click();
+  await page.getByRole("button", { name: /Rename or remove/ }).click();
+  return finish(page, cdp);
 }
 
 /** A session for the session screen, booked through the API as the CLI would. */
