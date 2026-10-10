@@ -7,16 +7,17 @@ The renter and host web app: sign-in, Home, booking a GPU, a session live, all s
 | Path | Screen |
 | --- | --- |
 | `/` | Home: "What do you want to run?", a black bar for a running session, the services as tiles, "Book again" |
-| `/book/` | Book, one screen: what to run (`?service=…&template=…`), your data, your GPU (the best free one, its price and an estimate), Settings in a sheet, and "Request a GPU"; Book again and Run again add `&from=<session id>` |
+| `/book/` | Book: the services, then a service's own screen made from its template (`?service=…&template=…`): its numbered inputs and questions, the budget, Advanced, and "Your request" with the best free GPU, its price and "Request a GPU" (web/DESIGN.md "Book"); Book again and Run again add `&from=<session id>` |
+| `/files/` | My files: the renter's uploads, to use again or delete |
 | `/session/?id=…` | One session, following its state like a ride: finding its GPU, GPU found, running (timer, cost against the cap, the GPU's use and temperature, checkpoint, logs), then done with its outputs, or why it ended |
 | `/sessions/` | All sessions, active or ended (`?show=ended`), a page at a time |
 | `/credit/` | Credit and its history |
 | `/welcome/`, `/sign-in/` | A new account's first screen; sign-in |
 
 How they're built, in short:
-- **Forms for template parameters are generated** from the catalog (`src/features/book/params.ts`), never written per template.
+- **A service's booking screen is generated** from its template in the catalog (`src/features/book/steps.ts`, `params.ts`), never written per service.
 - **Session state lives only in the query cache.** The session screen's event stream (`src/api/useLiveSession.ts`) and the lists' polling write it there (`writeSession`); it polls only while the stream is down.
-- **Uploads go straight to storage** in parts (`src/features/book/upload.ts`), so the build needs storage's origin for its Content Security Policy (`VITE_STORAGE_URL`).
+- **Uploads go straight to storage** in parts (`src/features/book/upload.ts`), a folder of files or one, each part's ETag remembered in IndexedDB so the same files chosen again carry on where they stopped (`upload-resume.ts`); the build needs storage's origin for its Content Security Policy (`VITE_STORAGE_URL`).
 - **Every problem type and every way a session can end has words:** `src/lib/problems.ts` (checked against `../api/problems.json`) and `src/lib/labels.ts` (checked against the control plane's and the agent's sources).
 
 - **The design language:** [DESIGN.md](DESIGN.md). Every screen is checked against it.
@@ -91,7 +92,7 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 
 The 10 MiB log test held its interactions to 100 ms until Oct 9, stricter than the app's own budget; it's now held to the app's 200 ms (Nikki's yes), and still to 2,000 lines in the page.
 
-Lighthouse measures sign-in, Home, Book (at a template, where the form is) and the session screen (a long run, live) three times each on the mobile profile, each from a cold cache, and `lhci` asserts the median of the three: one run alone carries the machine's noise. The desktop profile runs once per screen, for the record. It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020). Every run's report, JSON and HTML, is in `.lighthouseci/` (`reports/` for the HTML) and `.lighthouseci-desktop/`, and CI keeps them as the `lighthouse` artifact of every run, passed or failed.
+Lighthouse measures sign-in, Home, Book (at the fine-tune's screen, where the questions are) and the session screen (a long run, live) three times each on the mobile profile, each from a cold cache, and `lhci` asserts the median of the three: one run alone carries the machine's noise. The desktop profile runs once per screen, for the record. It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020). Every run's report, JSON and HTML, is in `.lighthouseci/` (`reports/` for the HTML) and `.lighthouseci-desktop/`, and CI keeps them as the `lighthouse` artifact of every run, passed or failed.
 
 What keeps them, learnt by measuring (ADR 0018):
 - each page's first frame is pre-rendered and adopted, not redrawn;
@@ -107,12 +108,13 @@ What keeps them, learnt by measuring (ADR 0018):
 ## Looking at the screens by hand
 
 The pictures aren't compared this round (Nikki, Oct 8): look at the screens yourself, in light and dark, at a phone's width and a laptop's.
-- **Every screen and state, from invented data:** with the stack up and `pnpm dev` (or `pnpm build && pnpm serve`) on :3000, `GALLERY_DIR=/tmp/screens pnpm exec playwright test e2e/screens.spec.ts e2e/session-screens.spec.ts e2e/book-screens.spec.ts` writes a full-page picture of each into that folder, named `<state>--<phone|laptop>-<light|dark>.png`.
+- **Every screen and state, from invented data:** with the stack up and `pnpm dev` (or `pnpm build && pnpm serve`) on :3000, `GALLERY_DIR=/tmp/screens pnpm exec playwright test e2e/screens.spec.ts e2e/session-screens.spec.ts e2e/book-screens.spec.ts e2e/files-screens.spec.ts` writes a full-page picture of each into that folder, named `<state>--<phone|laptop>-<light|dark>.png`.
 - **The real thing:** sign in at http://localhost:3000 as a user with credit, with an agent online (docs/runbooks/local-stack.md), and use the browser's device toolbar at 390 px and a window of 1280 px. The theme is in the account menu. How to reach each state:
   - **Finding and found:** they last well under a second on the local stack; `/session/?id=…` of a session the fixtures hold shows them, as above.
   - **Running:** request "Long run, 10 minutes" from Book.
-  - **Done:** request "Echo an input" with any file, or stop a long run.
-  - **No GPU free:** Book's "Needs a big GPU" (80 GB): the card says "No GPU is free right now" and the button waits.
+  - **Done:** request "Fine-tune a model" with any folder as the model ("Choose folder") and any file as the data, or stop a long run. Both stay in My files (the account menu) for Run again.
+  - **A resumed upload:** choose a large file, reload while it's going, and choose the same file again: it carries on from its last part.
+  - **No GPU free:** Book's "Needs a big GPU" (24 GB): the card says "No GPU is free right now" and the button waits.
   - **Failed:** stop the agent (Ctrl-C) while a long run is going; the session moves on, then fails once no other host is free.
   - **Low credit:** a user whose credit covers only a few minutes (grant a small amount), on a long run.
   - **Stale:** stop the control plane while a session screen is open: "Live updates stopped", then "Couldn't refresh".
@@ -147,7 +149,7 @@ It's under the gitignored `private/`, and the data in it is invented.
 | `src/auth/` | Sign-in: the adapters, and the one place the Firebase SDK is imported |
 | `src/api/` | The typed client, the 401 retry, the queries and their cache rules, the home's kept figures, the event stream (`stream.ts`, `session-follower.ts`, `useLiveSession.ts`) and logs |
 | `src/components/` | The shell (bars, menu) and the UI components |
-| `src/features/` | The screens: `home`, `book` (the form generator, the upload manager, the quote), `session` (live: figures, logs, checkpoints), `sessions`, `credit`, `sign-in` |
+| `src/features/` | The screens: `home`, `book` (the screen generator, the upload manager, the quote), `files` (My files), `session` (live: figures, logs, checkpoints), `sessions`, `credit`, `sign-in` |
 | `src/lib/money.ts` | `formatPaise`, the only way money is shown |
 | `e2e/` | Playwright: screens (`*screens.spec.ts`), layout shift, Firebase sign-in, the journeys, Lighthouse, the 10 MiB log, the gallery recordings; `fixtures.ts` is the one builder of invented data, and its figures add up (`src/test/fixtures.test.ts`) |
 | `scripts/` | The theme generator, post-build (CSP, screens, pre-render), the server, the size check, the font subset, the wordmark, the gallery |

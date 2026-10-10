@@ -43,7 +43,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
    - Nothing pretends to have succeeded before the server agrees. No optimistic money updates, ever: a charge, a hold or a stop appears only once the API has returned it.
 5. **Calm, fast and quiet.**
    - No spinner where a skeleton fits. A spinner is allowed only inside a button that has been pressed, for at most the length of that request.
-   - No modal where a page works. The one dialog confirms stopping a session. Settings open in a sheet: a side drawer on a laptop, a bottom sheet on a phone.
+   - No modal where a page works. The one dialog confirms stopping a session. What can wait (a service's advanced settings) is one row that opens in place, with its defaults set; deleting from My files asks once more in its own row.
    - No jargon. Say "GPU memory", not "VRAM", unless it's next to a number ("24 GB GPU memory").
    - Error messages say what happened and what to do next, in that order: "Your sign-in link has expired. Send a new one."
 6. **Speed is a feature.** Navigation feels instant. Every interaction shows a response within 100 ms, even if that's only a pressed state. Data a screen has already seen is shown at once from the cache, then refreshed.
@@ -204,6 +204,18 @@ Every view that shows data designs four states before it's built:
 
 On a phone, a screen whose next step is used while watching something (Stop session while it runs, Cancel request while finding, Download outputs or Try again once it ends) puts that action at the foot of the screen, in a bar with a 1 px divider above it. The bar is stuck to the bottom of the screen but takes its own place at the end of the page, so it covers nothing and nothing moves when it appears. It holds that one action, a second outlined one at most ("Run again"), and a line under it ("Saves a checkpoint first. Nothing more is charged."). On a laptop the same actions end the left panel.
 
+## Book
+
+Book is the services first ("What do you want to run?"), then each service's own screen (docs/design/redesign/book-finetune-laptop.html), made from its template in the catalog, never written by hand (ADR 0022):
+- **Top:** "← All services", the service's name in big type, and a line on what you bring and what you get.
+- **Numbered questions:** each input ("1. Your model"), with Upload (a folder or a file, starting as soon as it's chosen and carrying on where it stopped if the same files are chosen again), From My files and, where the template allows, Link; then each plain question: a preset as option cards with their typical time and "≈ ₹" at today's prices, labelled as typical; a basic setting; or the GPU memory the job needs.
+- **Budget:** the template's chips ("Stop at ₹100") and "Other amount".
+- **Advanced:** one row, closed, naming what's inside, with every default set; it opens by itself when something in it needs fixing.
+- **Your request:** on a laptop, a white card beside the questions (each answer, what you get, the GPU card with how many fit now and the price, "Request a GPU", what's held); on a phone, the GPU card, the button and the hold line in a sheet at the foot, taking its own place at the end of the page.
+- **The GPU card** names the memory the job needs, from the model's size when the template says so ("Your 14.2 GB model needs a 12 GB GPU"). A model too big for any GPU here says how much it needs and that the biggest have 24 GB, and the button stays off; it never says "No GPU free", since waiting won't help.
+
+My files is a list of the renter's uploads (name, size, files, when last used), reached from the account menu and from each input's From My files; Delete asks once more in its row.
+
 ## The session screen
 
 The session screen follows the state, like a ride (docs/design/redesign/matching-phone.html, live-phone.html, live-laptop.html):
@@ -247,4 +259,4 @@ The product name isn't decided. **IdleO** is the working name.
 
 ## Icons
 
-One set only: **Lucide**, imported one icon at a time. 20 to 22 px in controls and rows, 16 px inline with text, 1.75 px stroke (2 px for chevrons), coloured with the text they sit beside. A service names its icon by a key from a fixed list (`layers`, `code`, `image`, `mic`, `table`, `cube`, `notebook`, `plug`, `gamepad`, `flask`, `pulse`); `src/lib/service-icons.ts` maps each to its Lucide icon. An icon-only button always has a visible tooltip or an accessible label.
+One set only: **Lucide**, imported one icon at a time. 20 to 22 px in controls and rows, 16 px inline with text, 1.75 px stroke (2 px for chevrons), coloured with the text they sit beside. A service names its icon by a key from a fixed list (`layers`, `code`, `table`, `cube`, `notebook`, `plug`, `gamepad`, `flask`, `pulse`); `src/lib/service-icons.ts` maps each to its Lucide icon. An icon-only button always has a visible tooltip or an accessible label.
