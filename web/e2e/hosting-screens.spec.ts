@@ -171,13 +171,15 @@ test.describe("one machine", () => {
 
   test("pausing: a choice of how long, then the machine is paused", async ({ page }, info) => {
     let body: unknown = null;
+    // The server remembers: a read after the pause (a refetch, a refocus) says it's paused too.
+    let current: hosting.Host = hosting.hostIdle;
     await open(page, at(hosting.hostIdle), {
       "/v1/hosts/[^/]+/pause": (_call, request) => {
         body = request.postDataJSON();
-        return {
-          json: { ...hosting.hostIdle, paused: true, pausedUntil: (body as { until: string }).until },
-        };
+        current = { ...hosting.hostIdle, paused: true, pausedUntil: (body as { until: string }).until };
+        return { json: current };
       },
+      "/v1/hosts/[^/]+": () => ({ json: current }),
     });
     await page.getByRole("button", { name: "Pause hosting" }).click();
     await expect(page.getByRole("group", { name: "Pause for" })).toBeVisible();
@@ -190,8 +192,13 @@ test.describe("one machine", () => {
   });
 
   test("resuming", async ({ page }) => {
+    let current: hosting.Host = hosting.hostPaused;
     await open(page, at(hosting.hostPaused), {
-      "/v1/hosts/[^/]+/resume": { json: { ...hosting.hostPaused, paused: false, pausedUntil: null } },
+      "/v1/hosts/[^/]+/resume": () => {
+        current = { ...hosting.hostPaused, paused: false, pausedUntil: null };
+        return { json: current };
+      },
+      "/v1/hosts/[^/]+": () => ({ json: current }),
     });
     await page.getByRole("button", { name: "Resume" }).click();
     await expect(page.getByRole("button", { name: "Pause hosting" })).toBeVisible();
