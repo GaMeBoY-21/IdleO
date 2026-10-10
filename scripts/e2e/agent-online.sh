@@ -1152,6 +1152,28 @@ print(earnings["totalPaise"], sum(expected.values()))' "$ledger" "${host_ids[*]}
 scenario="hosting"
 : >"$out/summary-hosting.txt"
 scenario_hosting
+
+# The owner's journeys in a browser (web/e2e/hosting-journey.spec.ts), on a machine the journey adds itself: its name
+# to connected with a real agent enrolled from the code on the page, paused and resumed, its price changed and the
+# quote's range with it, an earning session read on three screens, and removing it. Once everything else is over, so
+# the machine it adds changes nothing for the scenarios. The one step an operator does by hand is activate-host.sh.
+scenario_hosting_web() {
+  local host sum report="$out/hosting-journey.json"
+  E2E_WEB_USER="$web_user" E2E_AGENT="$agent" E2E_AGENT_CA="$root/private/dev-ca/root.pem" E2E_GRPC_PORT="$grpc_port" \
+    E2E_ACTIVATE_HOST="$root/scripts/e2e/activate-host.sh" LOCAL_SIGN_IN_PORT="$sign_in_port" \
+    COMPOSE_PROJECT_NAME="$compose_project" E2E_HOSTING_REPORT="$report" SKIP_VISUAL=1 \
+    web_test --project=hosting-journey --reporter=line >>"$out/hosting-journey.log" 2>&1 ||
+    fail "the hosting journeys failed; see private/e2e/hosting-journey.log"
+  note "hosting journeys: $(grep -Eo '[0-9]+ passed' "$out/hosting-journey.log" | tail -1) (a machine added from its name to connected with a real agent, activated, paused and resumed, its price changed, an earning session, removed): PASS"
+  host="$(json_get .addedMachine.hostId <"$report")"
+  note "hosting journey: pausing the machine took the hosts that fit a quote from $(json_get .pause.hostsFitBefore <"$report") to $(json_get .pause.hostsFitWhilePaused <"$report") and resuming brought it back; its price went from $(json_get .price.before <"$report") to $(json_get .price.after <"$report") paise a minute and the quote's top price followed: PASS"
+  sum="$(sql "select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0)
+              from billing.ledger_entries where account = 'host_payable' and owner_id = '$host'")"
+  [[ "$sum" == "$(json_get .earnings.totalPaise <"$report")" && "$sum" == "$(json_get .removed.earningsKept <"$report")" ]] ||
+    fail "the journey's earnings ($(json_get .earnings.totalPaise <"$report") paise) aren't the ledger's $sum for host $host"
+  note "hosting journey: session $(json_get .earnings.sessionId <"$report") charged $(json_get .earnings.chargedPaise <"$report") paise; the Hosting tab, Earnings and Sessions it ran showed $sum paise, the host_payable ledger sum of host $host; still $sum after removing it: PASS"
+}
+scenario_hosting_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-hosting.txt"
 fi
 

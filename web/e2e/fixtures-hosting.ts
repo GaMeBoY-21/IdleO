@@ -243,7 +243,7 @@ export const priceBand = { lowPaisePerMin: 15, highPaisePerMin: 20, sampleSize: 
 export const priceBandDefault = { lowPaisePerMin: 12, highPaisePerMin: 20, sampleSize: 0 };
 
 export const enrolmentCode = {
-  code: "K7Q2-9XMD",
+  code: "K7Q2M-9XMD4-H8TQ3-R5W2N",
   expiresAt: iso(NOW.getTime() + 58 * MINUTE + 12_000),
 };
 

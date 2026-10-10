@@ -29,7 +29,7 @@ export function EnrolmentCodeCard({
     <div className="flex flex-col gap-4">
       <p className="text-small text-text-muted">Install the host app and enter this code.</p>
       <div className="flex flex-col gap-1 rounded-panel bg-fill p-5">
-        <p className="text-title tabular break-all">{usable ? code.code : "No code yet"}</p>
+        <p className="text-section tabular break-all md:text-title">{usable ? code.code : "No code yet"}</p>
         <p className="min-h-5 text-small text-text-muted tabular" role="timer">
           {usable
             ? `Works once · expires in ${left}`

@@ -1,0 +1,258 @@
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { authorised, getSession, laptop, startAt, user } from "./journey-support";
+import { API, expectAccessible } from "./support";
+
+/**
+ * The owner's journeys against the real local stack (scripts/e2e/agent-online.sh), with a real agent on a fake RTX 4060
+ * Laptop that the journey enrols itself, from the code the page shows (ADR 0023). They run after every other scenario
+ * is over, so the machine they add is the only change in the stack, and one after another, on one machine:
+ * - add it from its name to connected, set its price, and have an operator activate it (the one step done by hand);
+ * - pause it and resume it, and see the scheduler follow: one host fewer fits while it's paused;
+ * - change its price, and see the quote's range move with it;
+ * - earn from a session, and see the Hosting tab, the earnings and the machine's sessions agree with the ledger;
+ * - remove it, which signs its agent out and keeps its earnings.
+ * The numbers go to E2E_HOSTING_REPORT for the run's summary.
+ */
+const agentBinary = process.env.E2E_AGENT ?? "";
+test.skip(
+  !user || !agentBinary,
+  "needs the local stack, E2E_WEB_USER and E2E_AGENT (scripts/e2e/agent-online.sh)",
+);
+test.describe.configure({ mode: "serial" });
+test.use(laptop);
+
+const run = promisify(execFile);
+const numbers: Record<string, unknown> = {};
+const agents: ChildProcess[] = [];
+let hostId = "";
+
+function report() {
+  const path = process.env.E2E_HOSTING_REPORT;
+  if (path) {
+    mkdirSync(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    writeFileSync(path, `${JSON.stringify(numbers, null, 2)}\n`);
+  }
+}
+
+test.afterAll(() => agents.forEach((agent) => agent.kill("SIGTERM")));
+
+/** How many hosts a quote for a small job says fit now, and the price range among them. */
+async function quote(request: APIRequestContext) {
+  const response = await request.post(`${API}/v1/session-quotes`, {
+    headers: await authorised(request),
+    data: { templateId: "cuda-smoke-test", maxSpendPaise: 10_000 },
+  });
+  expect(response.status()).toBe(200);
+  return (await response.json()) as {
+    hostsFitNow: number;
+    pricePaisePerMin: { min: number; max: number } | null;
+  };
+}
+
+const earnings = async (request: APIRequestContext) =>
+  (await (await request.get(`${API}/v1/earnings`, { headers: await authorised(request) })).json()) as {
+    totalPaise: number;
+    weekPaise: number;
+    history: { entries: { amountPaise: number; minutes: number; machineName: string }[] };
+  };
+
+test("adds a machine from its name to connected, sets its price, and an operator activates it", async ({
+  page,
+}) => {
+  await startAt(page, "/hosting/add/");
+  await expect(page.getByRole("heading", { level: 1, name: "Add this machine" })).toBeVisible();
+  await expectAccessible(page);
+  await page.getByLabel("What do you call this machine?").fill("Journey laptop");
+  await page.getByRole("button", { name: "Next" }).click();
+  const codeBox = page.getByText(/^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}$/);
+  await expect(codeBox).toBeVisible({ timeout: 30_000 });
+  const code = await codeBox.innerText();
+  await expect(page.getByText(/^Works once · expires in 5\d:\d\d$/)).toBeVisible();
+  await expect(page.getByText("Waiting for your machine")).toBeVisible();
+  await expectAccessible(page);
+  hostId = new URL(page.url()).searchParams.get("id")!;
+  expect(hostId).toMatch(/^[0-9a-f-]{36}$/);
+
+  // The host app, as an owner would run it: enrolled with the code, then connected. The code is never logged.
+  const dir = mkdtempSync(join(tmpdir(), "idleo-hosting-"));
+  const config = join(dir, "agent.toml");
+  writeFileSync(
+    config,
+    `ca_root = "${process.env.E2E_AGENT_CA}"\ndata_dir = "${join(dir, "data")}"\nlog_format = "text"\n\n[control_plane]\nhost = "localhost"\nport = ${process.env.E2E_GRPC_PORT}\n`,
+  );
+  await run(agentBinary, ["--config", config, "enrol", "--code", code]);
+  agents.push(
+    spawn(
+      agentBinary,
+      [
+        "--config",
+        config,
+        "run",
+        "--fake-gpu",
+        "--fake-gpu-model",
+        "RTX 4060 Laptop",
+        "--fake-gpu-vram-mb",
+        "8188",
+        "--dev-runner",
+      ],
+      { stdio: "ignore", env: { ...process.env, IDLEO_LOG: "info" } },
+    ),
+  );
+
+  // The page moves on by itself.
+  await expect(page.getByText("Connected · RTX 4060 Laptop · 8 GB")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/^Pending\. We check your machine once you've set a price/)).toBeVisible();
+  await expect(page.getByText(/Hosts with a GPU like yours usually charge/)).toBeVisible();
+  await page.getByLabel("Keep free on my disk (GB)").fill("10");
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Save and finish" }).click();
+  await expect(
+    page.getByText("You're set. Your machine starts earning once it passes our checks."),
+  ).toBeVisible();
+
+  // The check an operator does by hand until onboarding's benchmark exists.
+  await run(process.env.E2E_ACTIVATE_HOST!, [hostId], { timeout: 300_000 });
+  await page.goto(`/hosting/machine/?id=${hostId}`);
+  await expect(page.getByTestId("machine-chip")).toHaveText("Idle", { timeout: 30_000 });
+  await expect(page.getByRole("heading", { level: 1, name: "Journey laptop" })).toBeVisible();
+  await expect(page.getByText(/^Online since/)).toBeVisible();
+  await expectAccessible(page);
+  await page.getByRole("link", { name: "Hosting", exact: true }).first().click();
+  await expect(page.getByRole("link", { name: /Journey laptop/ })).toContainText(
+    "Idle · RTX 4060 Laptop · 8 GB",
+  );
+  numbers.addedMachine = { hostId, name: "Journey laptop" };
+  report();
+});
+
+test("pauses it and resumes it, and one host fewer fits while it's paused", async ({ page, request }) => {
+  const before = await quote(request);
+  await startAt(page, `/hosting/machine/?id=${hostId}`);
+  await page.getByRole("button", { name: "Pause hosting" }).click();
+  await page.getByLabel("1 hour").check();
+  await page.getByRole("button", { name: "Pause hosting" }).click();
+  await expect(page.getByTestId("machine-chip")).toHaveText("Paused");
+  await expect(page.getByText(/^Paused until .*A session that's running finishes first\./)).toBeVisible();
+  await expectAccessible(page);
+  await expect.poll(async () => (await quote(request)).hostsFitNow).toBe(before.hostsFitNow - 1);
+  await page.getByRole("button", { name: "Resume" }).click();
+  await expect(page.getByTestId("machine-chip")).toHaveText("Idle");
+  await expect.poll(async () => (await quote(request)).hostsFitNow).toBe(before.hostsFitNow);
+  numbers.pause = { hostsFitBefore: before.hostsFitNow, hostsFitWhilePaused: before.hostsFitNow - 1 };
+  report();
+});
+
+test("changes its price, and the quote's range moves with it", async ({ page, request }) => {
+  await startAt(page, `/hosting/price/?id=${hostId}`);
+  const priceText = (
+    await page
+      .getByRole("status")
+      .filter({ hasText: /^Price:/ })
+      .innerText()
+  ).replace(/\s+/g, " ");
+  const rupees = /₹(\d+)\.(\d\d)/.exec(priceText)!;
+  const hourly = Number(rupees[1]) * 100 + Number(rupees[2]);
+  const price = hourly / 60;
+  expect(Number.isInteger(price)).toBe(true);
+  const before = await quote(request);
+  // Its price is the highest on the stack (the others ask 2 paise a minute), so it's the top of the range.
+  expect(before.pricePaisePerMin?.max).toBe(price);
+  for (let step = 0; step < 3; step++) {
+    await page.getByRole("button", { name: "Raise the price by ₹0.60 an hour" }).click();
+  }
+  await expect(page.getByText(`₹${(((price + 3) * 60 * 0.8) / 100).toFixed(2)} an hour`)).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page).toHaveURL(/\/hosting\/machine\/\?id=/);
+  await expect(page.getByRole("link", { name: /Price and limits/ })).toContainText(
+    `₹${((price + 3) * 0.6).toFixed(2)} an hour`,
+  );
+  await expect.poll(async () => (await quote(request)).pricePaisePerMin?.max).toBe(price + 3);
+  numbers.price = {
+    before: price,
+    after: price + 3,
+    quoteMaxBefore: before.pricePaisePerMin?.max,
+    quoteMaxAfter: price + 3,
+  };
+  report();
+});
+
+test("earns from a session, and the Hosting tab, earnings and sessions it ran agree with the ledger", async ({
+  page,
+  request,
+}) => {
+  // The cheapest host on the stack, so the session comes here: 1 paisa a minute.
+  const saved = await request.put(`${API}/v1/hosts/${hostId}/listing`, {
+    headers: await authorised(request),
+    data: { batchPricePaisePerMin: 1, gpuTempCapC: 85, maxConcurrentSessions: 1, keepFreeGb: 10 },
+  });
+  expect(saved.status()).toBe(200);
+  const booked = await request.post(`${API}/v1/sessions`, {
+    headers: { ...(await authorised(request)), "Idempotency-Key": `${user}-hosting-journey` },
+    data: { templateId: "charged-run", maxSpendPaise: 10_000 },
+  });
+  expect(booked.status()).toBe(201);
+  const { id } = (await booked.json()) as { id: string };
+
+  await startAt(page, `/hosting/machine/?id=${hostId}`);
+  await expect(page.getByTestId("machine-chip")).toHaveText("Running a session", { timeout: 90_000 });
+  expect((await getSession(request, id)).hostId).toBe(hostId);
+  await expect(page.getByText(/earned so far · you keep 80%/)).toBeVisible();
+  await expectAccessible(page);
+
+  await expect.poll(async () => (await getSession(request, id)).settled, { timeout: 300_000 }).toBe(true);
+  const session = await getSession(request, id);
+  // 150 s is 3 started minutes at 1 paisa: charged 3, of which the host keeps 2 (80%, rounded down).
+  expect(session.chargedPaise).toBe(3);
+  await expect.poll(async () => (await earnings(request)).totalPaise, { timeout: 60_000 }).toBe(2);
+  const all = await earnings(request);
+  expect(all.weekPaise).toBe(2);
+  expect(all.history.entries[0]).toMatchObject({ amountPaise: 2, minutes: 3, machineName: "Journey laptop" });
+
+  await page.goto("/hosting/");
+  await expect(page.getByText("₹0.02").first()).toBeVisible();
+  await expect(page.getByText(/in total · payouts start with the paid pilot/)).toContainText("₹0.02");
+  await expectAccessible(page);
+  await page.getByRole("link", { name: /Earnings, all machines/ }).click();
+  await expect(page.getByRole("main")).toContainText("Journey laptop");
+  await expect(page.getByRole("main")).toContainText("+₹0.02");
+  await expect(page.getByRole("main")).toContainText("3 min");
+  await expectAccessible(page);
+  await page.goto(`/hosting/sessions/?id=${hostId}`);
+  const row = page.getByRole("main").getByRole("listitem").first();
+  await expect(row).toContainText("3 min");
+  await expect(row).toContainText("+₹0.02");
+  await expect(row).toContainText("Completed");
+  await expect(page.getByRole("main")).not.toContainText(user);
+  await expectAccessible(page);
+  numbers.earnings = {
+    sessionId: id,
+    chargedPaise: session.chargedPaise,
+    totalPaise: all.totalPaise,
+    weekPaise: all.weekPaise,
+  };
+  report();
+});
+
+test("removes it, which signs its agent out and keeps what it earned", async ({ page, request }) => {
+  await startAt(page, `/hosting/machine/?id=${hostId}`);
+  await page.getByRole("button", { name: /Rename or remove/ }).click();
+  await page.getByRole("button", { name: "Remove this machine" }).click();
+  await expect(page.getByRole("dialog", { name: "Remove Journey laptop?" })).toBeVisible();
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Remove Journey laptop" }).click();
+  await expect(page).toHaveURL(/\/hosting\/$/);
+  await expect(page.getByText("Earn from the GPU you aren't using")).toBeVisible();
+  const gone = await request.get(`${API}/v1/hosts/${hostId}`, { headers: await authorised(request) });
+  expect(gone.status()).toBe(410);
+  expect(((await gone.json()) as { type: string }).type).toBe("/problems/host-removed");
+  expect((await earnings(request)).totalPaise).toBe(2);
+  await page.goto("/hosting/earnings/");
+  await expect(page.getByRole("main")).toContainText("₹0.02");
+  numbers.removed = { hostId, earningsKept: 2 };
+  report();
+});

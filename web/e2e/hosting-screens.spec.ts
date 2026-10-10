@@ -429,7 +429,7 @@ test.describe("adding a machine", () => {
     });
     await page.getByLabel("What do you call this machine?").fill("My new machine");
     await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByText("K7Q2-9XMD")).toBeVisible();
+    await expect(page.getByText("K7Q2M-9XMD4-H8TQ3-R5W2N")).toBeVisible();
     expect(created).toEqual({ name: "My new machine" });
     await expect(page.getByText(/^Works once · expires in 58:/)).toBeVisible();
     await expect(page.getByText("Waiting for your machine")).toBeVisible();

@@ -82,7 +82,7 @@ describe("the enrolment code", () => {
       expiresAt: new Date(Date.now() + 58 * 60_000 + 12_000).toISOString(),
     };
     render(<EnrolmentCodeCard code={code} issuing={false} onNewCode={() => undefined} />);
-    expect(screen.getByText("K7Q2-9XMD")).toBeInTheDocument();
+    expect(screen.getByText("K7Q2M-9XMD4-H8TQ3-R5W2N")).toBeInTheDocument();
     expect(screen.getByText(/^Works once · expires in \d\d:\d\d$/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Install the host app" })).toHaveAttribute("href");
     expect(
@@ -91,11 +91,11 @@ describe("the enrolment code", () => {
   });
 
   it("says when it has expired, and leaves Copy code off", () => {
-    const expired = { code: "K7Q2-9XMD", expiresAt: "2020-01-01T00:00:00Z" };
+    const expired = { code: "K7Q2M-9XMD4-H8TQ3-R5W2N", expiresAt: "2020-01-01T00:00:00Z" };
     render(<EnrolmentCodeCard code={expired} issuing={false} onNewCode={() => undefined} />);
     expect(screen.getByText("This code has expired. Get a new one.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Copy code/ })).toBeDisabled();
-    expect(screen.queryByText("K7Q2-9XMD")).not.toBeInTheDocument();
+    expect(screen.queryByText("K7Q2M-9XMD4-H8TQ3-R5W2N")).not.toBeInTheDocument();
   });
 
   it("asks for a code when it has none, as after a reload", () => {
