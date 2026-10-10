@@ -47,7 +47,7 @@ export function GpuCard({
     detail = "Answer the questions to see the price";
   } else if (quote.kind === "none-free") {
     title = "No GPU is free right now";
-    detail = laptop ? `${classGigabytes(needed)} or more · we look again every 15 s` : "Checked every 15 s";
+    detail = "Checked every 15 s";
   } else if (quote.kind === "error") {
     detail =
       quote.error instanceof ApiError && quote.error.type === "/problems/validation-failed"
@@ -64,7 +64,9 @@ export function GpuCard({
     );
   } else {
     const { hostsFitNow, pricePaisePerMin: range } = quote.quote;
-    detail = laptop ? `${hostsFitNow} free now · picked for you` : `${hostsFitNow} free now`;
+    // One short line, as its skeleton is: beside the price it has about 180 px, and a second line would move the
+    // card and the button under it once the quote arrives.
+    detail = `${hostsFitNow} free now`;
     if (range) {
       const perHour = formatPaiseRange(range.min * 60, range.max * 60);
       const estimate =

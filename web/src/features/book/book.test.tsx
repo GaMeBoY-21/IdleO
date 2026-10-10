@@ -92,7 +92,7 @@ describe("the GPU card", () => {
   it("shows the best free GPU with the memory needed, how many fit, the price per hour and an estimate", () => {
     render(<GpuCard quote={quote()} vramMb={12_000} typicalMinutes={45} laptop />);
     expect(screen.getByText("Best free 12 GB GPU")).toBeInTheDocument();
-    expect(screen.getByText("3 free now · picked for you")).toBeInTheDocument();
+    expect(screen.getByText("3 free now")).toBeInTheDocument();
     // 45 minutes at 15 to 18 paise a minute.
     expect(screen.getByText("≈ ₹7–8")).toBeInTheDocument();
     expect(screen.getByText("₹9.00–10.80/h")).toBeInTheDocument();
@@ -108,7 +108,7 @@ describe("the GPU card", () => {
       <GpuCard quote={{ kind: "none-free", quote: null }} vramMb={16_000} typicalMinutes={null} laptop />,
     );
     expect(screen.getByText("No GPU is free right now")).toBeInTheDocument();
-    expect(screen.getByText(/16 GB or more/)).toBeInTheDocument();
+    expect(screen.getByText("Checked every 15 s")).toBeInTheDocument();
   });
 
   it("says a model too big for every GPU here is too big, never that none is free", () => {
