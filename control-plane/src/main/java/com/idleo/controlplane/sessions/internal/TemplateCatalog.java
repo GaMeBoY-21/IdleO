@@ -3,6 +3,7 @@ package com.idleo.controlplane.sessions.internal;
 import static com.idleo.controlplane.sessions.internal.CatalogFields.duration;
 import static com.idleo.controlplane.sessions.internal.CatalogFields.flag;
 import static com.idleo.controlplane.sessions.internal.CatalogFields.known;
+import static com.idleo.controlplane.sessions.internal.CatalogFields.optionalText;
 import static com.idleo.controlplane.sessions.internal.CatalogFields.positive;
 import static com.idleo.controlplane.sessions.internal.CatalogFields.text;
 
@@ -60,7 +61,8 @@ class TemplateCatalog {
             "questions",
             "budget_chips",
             "default_budget",
-            "vram_from_input");
+            "vram_from_input",
+            "you_get");
     private static final Set<String> SERVICE_FIELDS =
             Set.of("id", "name", "tagline", "running_label", "icon", "hidden");
 
@@ -202,6 +204,7 @@ class TemplateCatalog {
                 CatalogQuestions.read(fields, params, minVramMb, where),
                 budget == null ? List.of() : budget.chips(),
                 budget == null ? null : budget.defaultChip(),
-                CatalogInputs.vramFromInput(fields, inputs, where));
+                CatalogInputs.vramFromInput(fields, inputs, where),
+                optionalText(fields, "you_get", where));
     }
 }

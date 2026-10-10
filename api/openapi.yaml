@@ -1806,6 +1806,10 @@ components:
           oneOf:
           - $ref: "#/components/schemas/VramFromInputView"
           - type: "null"
+        youGet:
+          type:
+          - string
+          - "null"
       required:
       - budgetChips
       - defaultMaxRuntimeSeconds

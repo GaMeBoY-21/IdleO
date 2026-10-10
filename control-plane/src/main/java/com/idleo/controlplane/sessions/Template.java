@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
  * @param defaultBudget the chip chosen at first; null exactly when there are no chips
  * @param vramFromInput how the GPU memory a session needs grows with the renter's uploaded model; null when it
  *     doesn't
+ * @param youGet what the renter gets back, in a few words, for the booking screen's summary; null if it doesn't say
  */
 public record Template(
         String id,
@@ -43,7 +44,8 @@ public record Template(
         List<Question> questions,
         List<Long> budgetChips,
         @Nullable Long defaultBudget,
-        @Nullable VramFromInput vramFromInput) {
+        @Nullable VramFromInput vramFromInput,
+        @Nullable String youGet) {
 
     public Template {
         args = List.copyOf(args);

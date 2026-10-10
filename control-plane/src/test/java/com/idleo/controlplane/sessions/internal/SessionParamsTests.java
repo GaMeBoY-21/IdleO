@@ -60,6 +60,7 @@ class SessionParamsTests {
             List.of(),
             List.of(),
             null,
+            null,
             null);
 
     private static Map<String, Object> values(Object... pairs) {

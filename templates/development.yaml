@@ -34,7 +34,7 @@ templates:
   - id: fine-tune-simulated
     service: fine-tune
     name: Fine-tune your model (simulated)
-    description: Simulated on the development runner; trains a LoRA adapter for your model on your JSONL examples.
+    description: Bring your model and your examples; you get back a LoRA adapter for your model. Simulated on the development runner.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "120s", "--simulate", "fine-tune"]
     min_vram_mb: 6144
@@ -96,10 +96,11 @@ templates:
     budget_chips: [5000, 10000, 50000]
     default_budget: 10000
     vram_from_input: { input: model, base_mb: 2048, per_gb_mb: 700 }
+    you_get: adapter_model.safetensors and its training log
   - id: run-code-simulated
     service: run-code
     name: Run your Python project (simulated)
-    description: Simulated on the development runner; runs a command in your project folder.
+    description: Bring your project folder; we run your command on a GPU and you get back what it writes to outputs/. Simulated on the development runner.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "90s", "--simulate", "run-code"]
     min_vram_mb: 4096
@@ -141,6 +142,7 @@ templates:
         max_length: 500
     budget_chips: [5000, 10000, 50000]
     default_budget: 10000
+    you_get: whatever your code writes to outputs/
   - id: cuda-smoke-test
     service: developer-tests
     name: CUDA smoke test (development runner)
@@ -232,15 +234,17 @@ templates:
         max_size_gb: 0.5
     questions:
       - param: greeting
-  # More GPU memory than any development host has, so the booking screen can show "No GPU is free
-  # right now" on any local stack, and a booking without a price ceiling gets no-gpu-free.
+  # The biggest GPU class, 24 GB. The local stack's laptops have 8 and 12 GB; the end-to-end test's only
+  # 24 GB host has too little free disk for any session (ADR 0022). So no host is ever free for it: the
+  # booking screen shows "No GPU is free right now", a booking without a price ceiling gets no-gpu-free,
+  # and one with a ceiling ends NO_HOST_FREE without an offer.
   - id: needs-big-gpu
     service: developer-tests
     name: Needs a big GPU (development runner)
-    description: Asks for 80 GB of GPU memory, which no development host has.
+    description: Asks for a 24 GB GPU, which no development host has free.
     image: nvidia/cuda:12.8.1-base-ubuntu24.04@sha256:133c78a0575303be34164d0b90137a042172bdf60696af01a3c424ab402d86e2
     args: ["--duration", "20s"]
-    min_vram_mb: 81920
+    min_vram_mb: 24000
     default_max_runtime: 5m
     max_runtime_cap: 15m
     memory_mb: 2048

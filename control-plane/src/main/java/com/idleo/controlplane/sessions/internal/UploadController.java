@@ -208,6 +208,7 @@ class UploadController {
                         .toList()));
     }
 
+    /** My files: the renter's pending and ready uploads, newest first. */
     @GetMapping
     UploadList list(
             @AuthenticationPrincipal CurrentUser user,

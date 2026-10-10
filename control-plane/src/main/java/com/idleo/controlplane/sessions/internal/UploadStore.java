@@ -155,11 +155,15 @@ class UploadStore {
                 .optional();
     }
 
-    /** The user's uploads, newest first, after {@code after} if given; at most {@code limit}. */
+    /**
+     * My files: the user's pending and ready uploads, newest first, after {@code after} if given; at most
+     * {@code limit}. Deleted, expired and failed ones hold nothing, so they aren't listed.
+     */
     List<Upload> page(UUID userId, @Nullable UUID after, int limit) {
         return jdbc.sql("""
                         select * from sessions.uploads
-                        where user_id = :userId and (cast(:after as uuid) is null or id < cast(:after as uuid))
+                        where user_id = :userId and status in ('pending', 'ready')
+                          and (cast(:after as uuid) is null or id < cast(:after as uuid))
                         order by id desc limit :limit
                         """)
                 .param("userId", userId)

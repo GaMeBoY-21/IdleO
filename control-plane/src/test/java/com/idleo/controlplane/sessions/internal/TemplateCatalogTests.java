@@ -175,6 +175,7 @@ class TemplateCatalogTests {
                 budget_chips: [5000, 10000]
                 default_budget: 10000
                 vram_from_input: { input: model, base_mb: 2048, per_gb_mb: 700 }
+                you_get: adapter_model.safetensors
             """;
 
     /** An entry with its params and input written as YAML under it. */
@@ -229,6 +230,7 @@ class TemplateCatalogTests {
         assertThat(template.budgetChips()).containsExactly(5000L, 10000L);
         assertThat(template.defaultBudget()).isEqualTo(10000L);
         assertThat(template.vramFromInput()).isEqualTo(new Template.VramFromInput("model", 2048, 700));
+        assertThat(template.youGet()).isEqualTo("adapter_model.safetensors");
     }
 
     @Test
@@ -239,6 +241,7 @@ class TemplateCatalogTests {
         assertThat(template.questions()).isEmpty();
         assertThat(template.budgetChips()).isEmpty();
         assertThat(template.defaultBudget()).isNull();
+        assertThat(template.youGet()).isNull();
     }
 
     /** A block of YAML with one line replaced, for the cases below. */

@@ -73,6 +73,7 @@ class TemplateController {
      * @param budgetChips the spending caps, in paise, the booking screen offers beside "Other amount"
      * @param defaultBudgetPaise the chip chosen at first; null when there are no chips
      * @param vramFromInput how the GPU memory needed grows with the renter's uploaded model; null when it doesn't
+     * @param youGet what the renter gets back, in a few words ("A LoRA adapter for your model"); null if it doesn't say
      */
     record TemplateResponse(
             String id,
@@ -89,7 +90,8 @@ class TemplateController {
             List<TemplateViews.TemplateQuestion> questions,
             List<Long> budgetChips,
             @Nullable Long defaultBudgetPaise,
-            TemplateViews.@Nullable VramFromInputView vramFromInput) {
+            TemplateViews.@Nullable VramFromInputView vramFromInput,
+            @Nullable String youGet) {
 
         static TemplateResponse of(Template template) {
             return new TemplateResponse(
@@ -117,7 +119,8 @@ class TemplateController {
                     template.defaultBudget(),
                     template.vramFromInput() == null
                             ? null
-                            : TemplateViews.VramFromInputView.of(template.vramFromInput()));
+                            : TemplateViews.VramFromInputView.of(template.vramFromInput()),
+                    template.youGet());
         }
     }
 

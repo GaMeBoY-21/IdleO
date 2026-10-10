@@ -379,6 +379,8 @@ class UploadApiTests {
         mvc.perform(get("/v1/uploads/" + id).header("Authorization", renter.bearer()))
                 .andExpect(jsonPath("$.upload.status").value("deleted"));
         assertThat(storage.size(objectKey(id, "data.txt"))).isEmpty();
+        mvc.perform(get("/v1/uploads").header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.uploads[?(@.id == '" + id + "')]").isEmpty());
         mvc.perform(delete("/v1/uploads/" + id).header("Authorization", renter.bearer()))
                 .andExpect(status().isNoContent());
     }
