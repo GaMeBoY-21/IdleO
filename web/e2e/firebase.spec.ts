@@ -91,10 +91,14 @@ test("a blocked Google popup says what to do", async ({ page }, info) => {
     window.open = () => null;
   });
   await page.goto("/sign-in/");
-  await page.getByRole("button", { name: "Continue with Google" }).click();
-  await expect(
-    page.getByText("Your browser blocked the Google sign-in window.", { exact: false }),
-  ).toBeVisible();
+  // A press before the page has taken over from its pre-rendered frame does nothing, so a busy machine can miss
+  // it: press again until the message is there.
+  await expect(async () => {
+    await page.getByRole("button", { name: "Continue with Google" }).click();
+    await expect(
+      page.getByText("Your browser blocked the Google sign-in window.", { exact: false }),
+    ).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   await expectAccessible(page);
   await capture(page, info, "sign-in-popup-blocked");
 });
