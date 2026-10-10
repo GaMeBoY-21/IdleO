@@ -75,7 +75,7 @@ export const ENDINGS: Record<string, Ending> = {
   },
   insufficient_credit: {
     sentence: "There wasn't enough credit to hold for it when a host was found.",
-    next: "Lower the most per hour or the spending cap, and book it again.",
+    next: "Choose a lower budget, or a lower most per hour in Advanced, and book it again.",
   },
   credit_exhausted: {
     sentence: "Your credit ran out, so it saved a checkpoint and stopped.",
@@ -83,7 +83,7 @@ export const ENDINGS: Record<string, Ending> = {
   },
   max_spend_reached: {
     sentence: "It reached your spending cap, so it saved a checkpoint and stopped.",
-    next: "Run it again with a higher spending cap if it needs longer.",
+    next: "Run it again with a higher budget if it needs longer.",
   },
   renter_cancelled: {
     sentence: "You cancelled it before it started.",

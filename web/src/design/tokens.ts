@@ -162,8 +162,10 @@ export const layout = {
   rail: 480,
   /** The card inside the laptop's right panel. */
   card: 600,
-  /** The side drawer for Settings on a laptop. */
-  drawer: 440,
+  /** A service's booking screen on a laptop: the questions, wider than the rail for three option cards a row. */
+  form: 720,
+  /** The "Your request" card beside them. */
+  request: 460,
   /** Menus and popovers. */
   menu: 256,
   /** Single-card screens: sign-in and welcome. */

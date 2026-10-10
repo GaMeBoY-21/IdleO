@@ -5,7 +5,15 @@
  * screens also preload the sign-in adapter, which they need for a token before their first API call.
  */
 /** The screens that need a signed-in user's token at once. */
-export const SIGNED_IN_SCREENS = ["/", "/credit/", "/session/", "/sessions/", "/book/", "/welcome/"];
+export const SIGNED_IN_SCREENS = [
+  "/",
+  "/credit/",
+  "/session/",
+  "/sessions/",
+  "/book/",
+  "/files/",
+  "/welcome/",
+];
 
 export const SCREENS: Record<string, string | null> = {
   "/": null,
@@ -13,6 +21,7 @@ export const SCREENS: Record<string, string | null> = {
   "/session/": "src/features/session/SessionDetail.tsx",
   "/sessions/": "src/features/sessions/AllSessions.tsx",
   "/book/": "src/features/book/Book.tsx",
+  "/files/": "src/features/files/MyFiles.tsx",
   // The form loads just after the screen paints, not before (src/features/sign-in/LazyEmailForm.tsx).
   "/sign-in/": null,
   "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",

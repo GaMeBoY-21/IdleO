@@ -15,6 +15,7 @@ export type HistoryEntry = components["schemas"]["HistoryEntry"];
 export type Output = components["schemas"]["Output"];
 export type SessionList = components["schemas"]["SessionList"];
 export type Template = components["schemas"]["TemplateResponse"];
+export type UploadInfo = components["schemas"]["UploadResponse"];
 
 /**
  * The cache rules (ADR 0018), in one place:
@@ -76,6 +77,8 @@ export const keys = {
   outputs: (id: string) => ["outputs", id] as const,
   history: ["history"] as const,
   availability: ["availability"] as const,
+  /** My files, every page; an upload's own entry is ["upload", id]. */
+  uploads: ["uploads"] as const,
 };
 
 type CachedList = SessionList | InfiniteData<SessionList>;
@@ -206,10 +209,30 @@ export function useHistory() {
  * back (useAfterPaint). An upload that's gone is a 404, which isn't retried.
  */
 export function useUploadInfo(id: string | null, enabled = true) {
-  return useQuery({
-    queryKey: ["upload", id],
-    enabled: id !== null && enabled,
-    queryFn: () => data(api.GET("/v1/uploads/{id}", { params: { path: { id: id! } } })),
+  return useQuery({ ...uploadInfo(id ?? ""), enabled: id !== null && enabled });
+}
+
+/** One upload's query, for a screen that reads several (useQueries). */
+export const uploadInfo = (id: string) => ({
+  queryKey: ["upload", id],
+  queryFn: () => data(api.GET("/v1/uploads/{id}", { params: { path: { id } } })),
+});
+
+export const UPLOADS_PAGE = 20;
+
+/** My files (ADR 0022): the renter's uploads, newest first, a page at a time. */
+export function useUploadPages(enabled = true) {
+  return useInfiniteQuery({
+    queryKey: keys.uploads,
+    enabled,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      data(
+        api.GET("/v1/uploads", {
+          params: { query: { limit: UPLOADS_PAGE, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    getNextPageParam: (last) => last.nextCursor ?? null,
   });
 }
 

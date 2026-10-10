@@ -23,7 +23,8 @@ const screens = [
   },
   { name: "all sessions", path: "/sessions/?show=ended", ready: () => "Show more" },
   { name: "book", path: "/book/", ready: () => "Run your code" },
-  { name: "book, a service", path: "/book/?service=fine-tune", ready: () => "≈ ₹5–8" },
+  { name: "book, a service", path: "/book/?service=fine-tune", ready: () => "≈ ₹3–8" },
+  { name: "my files", path: "/files/", ready: () => "my-llm-7b/" },
 ];
 
 test("sign-in loads without moving, its form arriving in the space kept for it", async ({ page }) => {
@@ -56,6 +57,7 @@ for (const screen of screens) {
       [`/v1/sessions/${data.running.id}`]: { json: data.running },
       [`/v1/sessions/${data.finding.id}`]: { json: data.finding },
       "/v1/uploads/[^/]+": { json: data.sessionUpload },
+      "/v1/uploads": { json: data.uploadsPage() },
       "/v1/session-quotes": (_call: number, request: Request) =>
         data.quoteAnswer(request.postDataJSON() as { maxSpendPaise: number; vramNeededMb?: number }),
       "/v1/sessions/[^/]+": { json: data.completed },

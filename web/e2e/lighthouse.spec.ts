@@ -83,7 +83,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       const path = {
         "sign-in": "/sign-in/",
         home: "/",
-        book: "/book/?service=developer-tests&template=echo-input",
+        book: "/book/?service=fine-tune",
         session: `/session/?id=${sessionId}`,
         "session-link": `/session/?id=${sessionId}`,
       }[name];
@@ -215,22 +215,25 @@ async function finish(page: Page, cdp: CDPSession): Promise<number> {
   return Math.round(inp);
 }
 
-/** Typing in the booking form's settings: the greeting, a number, the price and the cap, as a renter fills them. */
+/**
+ * Answering a service's questions as a renter does: a preset, a budget of their own, and Advanced's fields typed in
+ * (the learning rate, the most per hour), on the fine-tune's screen.
+ */
 async function typingInp(page: Page): Promise<number> {
-  const cdp = await measured(page, "/book/?service=developer-tests&template=echo-input");
-  await page.getByRole("button", { name: /^Settings/ }).click();
-  const sheet = page.getByRole("dialog", { name: "Settings" });
+  const cdp = await measured(page, "/book/?service=fine-tune");
+  await page.getByRole("button", { name: /^Quick/ }).click();
+  await page.getByRole("button", { name: "Other amount" }).click();
+  await page.getByRole("button", { name: /^Advanced/ }).click();
   for (const [label, text] of [
-    ["Greeting", "hello from lighthouse"],
-    ["Repeat (optional)", "3"],
+    ["Stop at, in ₹", "250"],
+    ["Learning rate (optional)", "0.0003"],
     ["The most per hour, in ₹ (optional)", "7.20"],
-    ["Spending cap, in ₹", "250"],
   ] as const) {
-    const field = sheet.getByLabel(label, { exact: true });
+    const field = page.getByLabel(label, { exact: true });
     await field.fill("");
     await field.pressSequentially(text, { delay: 50 });
   }
-  await sheet.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: /^Thorough/ }).click();
   return finish(page, cdp);
 }
 

@@ -7,22 +7,31 @@ import type { ReactNode } from "react";
  * only grows it downwards and moves nothing (web/DESIGN.md "Motion": no layout shift); it stays in view while the
  * left panel scrolls. `right` is null while the screen is loading: the grey panel, without a card yet. `bare`: the
  * right panel holds its own blocks, full width, as the live session's route and logs do
- * (docs/design/redesign/live-laptop.html).
+ * (docs/design/redesign/live-laptop.html). `wide`: a service's booking screen
+ * (docs/design/redesign/book-finetune-laptop.html), its questions up to 720 px and the request card beside them.
  */
 export function TwoPanels({
   left,
   right,
   rightLabel,
   bare = false,
+  wide = false,
 }: {
   left: ReactNode;
   right: ReactNode;
   rightLabel: string;
   bare?: boolean;
+  wide?: boolean;
 }) {
   return (
     <div className="flex flex-1">
-      <div className="flex w-full max-w-rail min-w-0 shrink-0 flex-col gap-8 border-r border-divider px-8 pt-10 pb-8">
+      <div
+        className={
+          wide
+            ? "flex w-full max-w-form min-w-0 shrink flex-col gap-8 border-r border-divider px-10 pt-8 pb-10"
+            : "flex w-full max-w-rail min-w-0 shrink-0 flex-col gap-8 border-r border-divider px-8 pt-10 pb-8"
+        }
+      >
         {left}
       </div>
       <section
@@ -36,7 +45,13 @@ export function TwoPanels({
         {bare
           ? right
           : right !== null && (
-              <div className="sticky top-24 flex h-fit w-full max-w-card flex-col gap-8 rounded-panel bg-ground p-10">
+              <div
+                className={
+                  wide
+                    ? "sticky top-24 flex h-fit w-full max-w-request flex-col gap-5 rounded-panel bg-ground p-7"
+                    : "sticky top-24 flex h-fit w-full max-w-card flex-col gap-8 rounded-panel bg-ground p-10"
+                }
+              >
                 {right}
               </div>
             )}

@@ -66,8 +66,10 @@ export const serviceList: Service[] = [
   },
 ];
 
+const GIB = 1024 ** 3;
+
 /** A basic parameter, asked as a plain question. */
-function question(param: string, label: string, help: string): Template["questions"][number] {
+function question(param: string, label: string, help: string | null = null): Template["questions"][number] {
   return {
     kind: "param",
     label,
@@ -81,51 +83,64 @@ function question(param: string, label: string, help: string): Template["questio
   };
 }
 
+/** How long the fine-tune's presets take, and the epochs each sets. */
+const THOROUGHNESS = [
+  { id: "quick", label: "Quick", minutes: 15, sets: { epochs: 1 } },
+  { id: "standard", label: "Standard", minutes: 45, sets: { epochs: 3 } },
+  { id: "thorough", label: "Thorough", minutes: 75, sets: { epochs: 5 } },
+];
+
+const BUDGET = { budgetChips: [5_000, 10_000, 50_000], defaultBudgetPaise: 10_000 };
+
+/**
+ * The templates, as the development catalog's simulated ones are shaped (templates/development.yaml): the renter
+ * brings the model, the data and the code; nothing here supplies a model (ADR 0022).
+ */
 export const templateList: Template[] = [
   {
     id: "qlora-finetune",
     service: "fine-tune",
-    name: "QLoRA fine-tune of your model (4-bit)",
-    description: "Fine-tunes your model on your dataset with QLoRA and saves the adapter as the output.",
+    name: "Fine-tune your model (LoRA)",
+    description: "Bring your model and your examples; you get back a LoRA adapter for your model.",
     image: IMAGE,
-    minVramMb: 8_192,
-    defaultMaxRuntimeSeconds: 3_600,
+    minVramMb: 6_144,
+    defaultMaxRuntimeSeconds: 7_200,
     maxRuntimeCapSeconds: 14_400,
     typicalRuntimeSeconds: 2_700,
     params: [
       {
         name: "epochs",
         label: "Epochs",
-        help: "Passes over the whole dataset.",
+        help: "How many times training goes through your examples.",
         type: "integer",
-        group: "basic",
-        required: true,
+        group: "advanced",
+        required: false,
         defaultValue: 3,
         min: 1,
-        max: 10,
+        max: 5,
         choices: [],
       },
       {
         name: "learning_rate",
         label: "Learning rate",
-        help: null,
+        help: "How big each training step is.",
         type: "number",
         group: "advanced",
         required: false,
         defaultValue: 0.0002,
-        min: 0.00001,
+        min: 0.000001,
         max: 0.01,
         choices: [],
       },
       {
         name: "lora_rank",
         label: "LoRA rank",
-        help: "Higher learns more and makes a bigger adapter.",
+        help: "A higher rank learns more, and makes a bigger adapter.",
         type: "choice",
         group: "advanced",
-        required: true,
+        required: false,
         defaultValue: "16",
-        choices: ["8", "16", "32", "64"],
+        choices: ["8", "16", "32"],
       },
       {
         name: "pack_sequences",
@@ -139,7 +154,7 @@ export const templateList: Template[] = [
       },
       {
         name: "prompt_template",
-        label: "Prompt template",
+        label: "Prompt format",
         help: "How each example is laid out; {instruction} and {response} are filled in.",
         type: "string",
         group: "advanced",
@@ -153,31 +168,107 @@ export const templateList: Template[] = [
       {
         name: "model",
         label: "Your model",
-        help: "Upload the model folder from your laptop, or paste a Hugging Face link.",
+        help: "Upload the model folder from your laptop, pick it from My files, or paste a Hugging Face link.",
         kind: "folder",
         upload: true,
         link: true,
         required: true,
-        maxSizeBytes: 40 * 1024 ** 3,
+        maxSizeBytes: 40 * GIB,
       },
       {
         name: "data",
-        label: "Dataset",
-        help: "A JSONL file of instruction and response pairs.",
+        label: "Your training data",
+        help: "A JSONL file, one example a line.",
         kind: "file",
         upload: true,
         link: true,
         required: true,
-        maxSizeBytes: 10 * 1024 ** 3,
+        maxSizeBytes: 10 * GIB,
       },
     ],
-    questions: [question("epochs", "Epochs", "Passes over the whole dataset.")],
-    budgetChips: [5_000, 10_000, 50_000],
-    defaultBudgetPaise: 10_000,
+    questions: [
+      {
+        kind: "preset",
+        name: "thoroughness",
+        label: "How thorough?",
+        help: null,
+        options: THOROUGHNESS,
+        defaultOption: "standard",
+        param: null,
+        choicesGb: [],
+        defaultGb: null,
+      },
+    ],
+    ...BUDGET,
+    vramFromInput: { input: "model", baseMb: 2_048, perGbMb: 700 },
+    youGet: "adapter_model.safetensors and its training log",
+  },
+  {
+    id: "run-python",
+    service: "run-code",
+    name: "Run your Python project",
+    description:
+      "Bring your project folder; we run your command on a GPU and you get back what it writes to outputs/.",
+    image: IMAGE,
+    minVramMb: 4_096,
+    defaultMaxRuntimeSeconds: 3_600,
+    maxRuntimeCapSeconds: 14_400,
+    typicalRuntimeSeconds: null,
+    params: [
+      {
+        name: "command",
+        label: "Command",
+        help: "What to run, from the top of your folder.",
+        type: "string",
+        group: "basic",
+        required: false,
+        defaultValue: "python main.py",
+        maxLength: 500,
+        choices: [],
+      },
+    ],
+    inputs: [
+      {
+        name: "code",
+        label: "Your code",
+        help: "Your project folder, or a zip of it. Anything it writes to outputs/ comes back to you.",
+        kind: "folder",
+        upload: true,
+        link: false,
+        required: true,
+        maxSizeBytes: 10 * GIB,
+      },
+      {
+        name: "data",
+        label: "Your data",
+        help: "A folder your code reads, if it needs one.",
+        kind: "folder",
+        upload: true,
+        link: false,
+        required: false,
+        maxSizeBytes: 40 * GIB,
+      },
+    ],
+    questions: [
+      question("command", "Command"),
+      {
+        kind: "gpu_memory",
+        name: null,
+        label: "GPU memory you need",
+        help: null,
+        options: [],
+        defaultOption: null,
+        param: null,
+        choicesGb: [8, 12, 16, 24],
+        defaultGb: 8,
+      },
+    ],
+    ...BUDGET,
+    youGet: "whatever your code writes to outputs/",
   },
   {
     id: "echo-input",
-    service: "run-code",
+    service: "diagnostics",
     name: "Echo an input",
     description: "Reads its input and parameters back, proving the job saw them exactly.",
     image: IMAGE,
@@ -312,6 +403,8 @@ interface Spec {
   params?: Record<string, string | number | boolean>;
   /** Its data: the template's "data" input, or its only one. */
   input?: { uploadId?: string; url?: string };
+  /** A fine-tune's model. */
+  model?: { uploadId?: string; url?: string };
 }
 
 const START_DELAY_MS = 40_000;
@@ -460,10 +553,17 @@ function build(spec: Spec): Built {
               tempC: spec.state === "RUNNING" ? 71 : null,
             },
       params: spec.params ?? defaults(template),
-      presets: {},
-      inputs: spec.input
-        ? { [dataInput(template)]: { uploadId: spec.input.uploadId ?? null, url: spec.input.url ?? null } }
-        : {},
+      presets: Object.fromEntries(
+        template.questions.flatMap((q) => (q.name && q.defaultOption ? [[q.name, q.defaultOption]] : [])),
+      ),
+      inputs: {
+        ...(spec.model
+          ? { model: { uploadId: spec.model.uploadId ?? null, url: spec.model.url ?? null } }
+          : {}),
+        ...(spec.input
+          ? { [dataInput(template)]: { uploadId: spec.input.uploadId ?? null, url: spec.input.url ?? null } }
+          : {}),
+      },
       checkpoints,
       events,
     },
@@ -548,6 +648,7 @@ export function account(specs: Spec[], { grant = GRANT, createdAt = "2026-09-01T
 }
 
 const UPLOAD_ID = "01a11300-0000-7000-8000-00000000f11e";
+const MODEL_ID = "01a11300-0000-7000-8000-00000000f11f";
 
 /** Asha's account: a QLoRA fine-tune running now, and three weeks of sessions behind it. */
 export const asha = account([
@@ -559,6 +660,7 @@ export const asha = account([
     price: 14,
     maxPrice: 18,
     gpu: GPU_4080,
+    model: { uploadId: MODEL_ID },
     input: { uploadId: UPLOAD_ID },
   },
   {
@@ -832,8 +934,71 @@ export function newUpload(
   };
 }
 
+/**
+ * An upload of these files, as POST /v1/uploads opens it (the screen's own request body) or, `ready`, as completing it
+ * leaves it: 5 MiB parts, as the local stack's storage has them.
+ */
+export function uploadOf(
+  body: { name: string; files: { path: string; sizeBytes: number }[] },
+  status: "pending" | "ready" = "pending",
+  partSizeBytes = 5 * 1024 * 1024,
+) {
+  const one = newUpload(body.name, 0, status, partSizeBytes);
+  const sizeBytes = body.files.reduce((sum, file) => sum + file.sizeBytes, 0);
+  return {
+    upload: { ...one.upload, sizeBytes, fileCount: body.files.length },
+    files: body.files.map((file) => ({
+      ...file,
+      partCount: Math.ceil(file.sizeBytes / partSizeBytes),
+      done: status === "ready",
+    })),
+  };
+}
+
 /** The running fine-tune's data, as GET /v1/uploads/{id} describes it. */
 export const sessionUpload = newUpload("dataset.jsonl", 48_213_504, "ready");
+
+type UploadInfo = Schemas["UploadResponse"];
+
+/** A ready upload in My files, last used `usedAgoMs` ago (null: never), kept 30 days after that. */
+function kept(
+  id: string,
+  name: string,
+  sizeBytes: number,
+  fileCount: number,
+  uploadedAgoMs: number,
+  usedAgoMs: number | null,
+): UploadInfo {
+  const uploaded = NOW.getTime() - uploadedAgoMs;
+  const used = usedAgoMs === null ? null : NOW.getTime() - usedAgoMs;
+  return {
+    id,
+    name,
+    sizeBytes,
+    fileCount,
+    status: "ready",
+    partSizeBytes: 64 * 1024 * 1024,
+    createdAt: new Date(uploaded - MINUTE).toISOString(),
+    completedAt: new Date(uploaded).toISOString(),
+    lastUsedAt: used === null ? null : new Date(used).toISOString(),
+    expiresAt: new Date((used ?? uploaded) + 30 * DAY).toISOString(),
+  };
+}
+
+/**
+ * Asha's My files, newest first: the model and data her running fine-tune uses (last used when it was booked), a
+ * code project, and a 38 GiB model, more than any GPU here can hold once loaded (2,048 + 700 x 38 = 28,648 MB).
+ */
+export const myFiles: UploadInfo[] = [
+  kept(id(9_303), "llama-3-70b", 38 * 1024 ** 3, 31, 2 * HOUR, null),
+  kept(UPLOAD_ID, "support-chats.jsonl", 48_213_504, 1, DAY, 22 * MINUTE + 40_000),
+  kept(MODEL_ID, "my-llm-7b", Math.round(4.6 * 1024 ** 3), 4, 3 * DAY, 22 * MINUTE + 40_000),
+  kept(id(9_302), "vision-project.zip", 12_582_912, 1, 4 * DAY, 2 * DAY),
+];
+export const tooBigModel = myFiles[0]!;
+
+/** My files as GET /v1/uploads serves it. */
+export const uploadsPage = (uploads: UploadInfo[] = myFiles) => ({ uploads, nextCursor: null });
 
 /** Part links as POST /v1/uploads/{id}/part-urls signs them, for the parts asked for. */
 export function partLinks(partNumbers: number[]) {

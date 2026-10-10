@@ -26,14 +26,15 @@ export const TextArea = forwardRef<
   HTMLTextAreaElement,
   TextareaHTMLAttributes<HTMLTextAreaElement> & {
     label: string;
+    hideLabel?: boolean;
     error?: string | undefined;
     hint?: ReactNode;
   }
->(function TextArea({ label, error, hint, className, ...props }, ref) {
+>(function TextArea({ label, hideLabel = false, error, hint, className, ...props }, ref) {
   const id = useId();
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <label htmlFor={id} className="text-small font-medium">
+      <label htmlFor={id} className={hideLabel ? "sr-only" : "text-small font-medium"}>
         {label}
       </label>
       <textarea
@@ -52,12 +53,17 @@ export const TextArea = forwardRef<
 
 export const Select = forwardRef<
   HTMLSelectElement,
-  SelectHTMLAttributes<HTMLSelectElement> & { label: string; error?: string | undefined; hint?: ReactNode }
->(function Select({ label, error, hint, className, children, ...props }, ref) {
+  SelectHTMLAttributes<HTMLSelectElement> & {
+    label: string;
+    hideLabel?: boolean;
+    error?: string | undefined;
+    hint?: ReactNode;
+  }
+>(function Select({ label, hideLabel = false, error, hint, className, children, ...props }, ref) {
   const id = useId();
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <label htmlFor={id} className="text-small font-medium">
+      <label htmlFor={id} className={hideLabel ? "sr-only" : "text-small font-medium"}>
         {label}
       </label>
       <select
@@ -110,9 +116,15 @@ export const Switch = forwardRef<
   );
 });
 
-/** One of a few choices, all visible: a fieldset of radio buttons. */
+/**
+ * One of a few choices, all visible: a fieldset of radio buttons. `hideLegend` keeps the legend for screen readers
+ * only, where a heading above already says what's chosen; `quiet`: a choice that never has help or an error, so
+ * keeps no line for one.
+ */
 export function RadioGroup({
   legend,
+  hideLegend = false,
+  quiet = false,
   options,
   error,
   hint,
@@ -120,6 +132,8 @@ export function RadioGroup({
   className,
 }: {
   legend: string;
+  hideLegend?: boolean;
+  quiet?: boolean;
   options: { value: string; label: string }[];
   error?: string | undefined;
   hint?: ReactNode;
@@ -128,13 +142,16 @@ export function RadioGroup({
 }) {
   const id = useId();
   return (
-    <fieldset className={cn("flex flex-col gap-2", className)} aria-describedby={`${id}-message`}>
-      <legend className="mb-2 text-small font-medium">{legend}</legend>
+    <fieldset
+      className={cn("flex flex-col gap-2", className)}
+      aria-describedby={quiet ? undefined : `${id}-message`}
+    >
+      <legend className={hideLegend ? "sr-only" : "mb-2 text-small font-medium"}>{legend}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
           <label
             key={option.value}
-            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full border-2 border-transparent bg-fill px-4 text-small font-semibold has-checked:border-text has-checked:bg-fill-selected"
+            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full border-2 border-transparent bg-fill px-3.5 text-small font-semibold has-checked:border-text has-checked:bg-fill-selected"
           >
             <input
               type="radio"
@@ -146,7 +163,7 @@ export function RadioGroup({
           </label>
         ))}
       </div>
-      <Message id={`${id}-message`} error={error} hint={hint} />
+      {!quiet && <Message id={`${id}-message`} error={error} hint={hint} />}
     </fieldset>
   );
 }

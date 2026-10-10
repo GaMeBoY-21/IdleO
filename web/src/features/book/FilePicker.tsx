@@ -1,101 +1,96 @@
-import { FileText, FileUp } from "lucide-react";
+import { FileText, FileUp, Folder, FolderUp } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
+import type { components } from "@/api/schema.gen";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/Inputs";
 import { formatBytes } from "@/lib/bytes";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
-import type { ChosenFile } from "./useUpload";
+import {
+  fromDrop,
+  fromFolderPicker,
+  MAX_FILES,
+  oneFile,
+  totalBytes,
+  type Chosen,
+  type DroppedEntry,
+} from "./chosen-files";
+import { uploadLine } from "./upload-line";
+import type { InputUpload } from "./useUploads";
 
-/** "about 40 s left", "about 3 min left". */
-function timeLeft(seconds: number | null): string {
-  if (seconds === null) {
-    return "working out the time left";
-  }
-  return seconds < 60 ? `about ${Math.max(1, seconds)} s left` : `about ${Math.ceil(seconds / 60)} min left`;
-}
+type TemplateInput = components["schemas"]["TemplateInput"];
 
-/** How the upload stands, in a line: "48.2 MB · uploaded", "64% of 48.2 MB · 2.1 MB/s · about 40 s left". */
-export function uploadLine(file: ChosenFile): string {
-  const { progress } = file;
-  const size = formatBytes(file.size);
-  switch (progress.phase) {
-    case "ready":
-      return `${size} · uploaded`;
-    case "failed":
-      return `${size} · the upload stopped`;
-    case "completing":
-      return `${size} · finishing`;
-    default:
-      return `${progress.percent}% of ${size}${
-        progress.bytesPerSecond === null ? "" : ` · ${formatBytes(progress.bytesPerSecond)}/s`
-      } · ${timeLeft(progress.secondsLeft)}`;
+/** Why these files can't be this input, before a byte is sent; null when they can. */
+export function refusal(input: TemplateInput, chosen: Chosen): string | null {
+  if (input.kind === "file" && chosen.folder) {
+    return `${input.label} takes one file, not a folder.`;
   }
+  if (chosen.files.length > MAX_FILES) {
+    return `${chosen.name} has ${chosen.files.length.toLocaleString("en-IN")} files. An upload holds up to ${MAX_FILES.toLocaleString("en-IN")}: zip the folder and upload the zip.`;
+  }
+  const size = totalBytes(chosen);
+  if (input.maxSizeBytes != null && size > input.maxSizeBytes) {
+    return `${chosen.name} is ${formatBytes(size)}. ${input.label} takes up to ${formatBytes(input.maxSizeBytes)}.`;
+  }
+  return null;
 }
 
 /**
- * A file as the session's input (docs/design/redesign/book-laptop.html "Your data"): a grey row with its name and how
- * its upload stands, which starts as soon as it's chosen. A file over the template's limit is refused before a byte
- * is sent. Before one is chosen, the row is the place to choose or drop one.
+ * An input's upload (docs/design/redesign/book-finetune-laptop.html): a grey row with its name and how the upload
+ * stands. It starts as soon as the files are chosen, with "Choose folder" for a folder input beside "Choose file",
+ * or by dropping either on the row. Files the input can't take are refused before anything is sent; an upload that
+ * stopped can be tried again, carrying on from where it stopped.
  */
 export function FilePicker({
-  maxBytes,
-  templateName,
-  file,
+  input,
+  upload,
   onChoose,
   onRemove,
+  onRetry,
   missing,
 }: {
-  maxBytes: number | null;
-  templateName: string;
-  file: ChosenFile | null;
-  onChoose: (file: File) => void;
+  input: TemplateInput;
+  upload: InputUpload | null;
+  onChoose: (chosen: Chosen) => void;
   onRemove: () => void;
+  onRetry: () => void;
   missing: boolean;
 }) {
   const id = useId();
-  const picker = useRef<HTMLInputElement>(null);
+  const filePicker = useRef<HTMLInputElement>(null);
+  const folderPicker = useRef<HTMLInputElement>(null);
   const [refused, setRefused] = useState<string | null>(null);
   const [over, setOver] = useState(false);
+  const folder = input.kind === "folder";
 
-  const take = (chosen: File | undefined) => {
+  const take = (chosen: Chosen | null) => {
     if (!chosen) {
       return;
     }
-    if (maxBytes !== null && chosen.size > maxBytes) {
-      setRefused(
-        `${chosen.name} is ${formatBytes(chosen.size)}. ${templateName} takes files up to ${formatBytes(maxBytes)}.`,
-      );
-      return;
+    const why = refusal(input, chosen);
+    setRefused(why);
+    if (why === null) {
+      onChoose(chosen);
     }
-    setRefused(null);
-    onChoose(chosen);
   };
   const drop = (event: DragEvent) => {
     event.preventDefault();
     setOver(false);
-    take(event.dataTransfer.files[0]);
+    const item = event.dataTransfer.items[0];
+    const entry = (item?.webkitGetAsEntry() ?? null) as DroppedEntry | null;
+    void fromDrop(entry, event.dataTransfer.files[0] ?? null).then(take);
   };
-  const input = (
-    <input
-      ref={picker}
-      type="file"
-      className="sr-only"
-      tabIndex={-1}
-      aria-hidden="true"
-      data-testid="input-file"
-      onChange={(event) => {
-        take(event.target.files?.[0]);
-        event.target.value = "";
-      }}
-    />
-  );
-  const failed = file?.progress.phase === "failed";
-  const ready = file?.progress.phase === "ready";
+  const failed = upload?.progress.phase === "failed";
+  const ready = upload?.progress.phase === "ready";
+  const going = upload !== null && !ready && !failed;
+  const Icon = upload ? (upload.folder ? Folder : FileText) : folder ? FolderUp : FileUp;
+  const label = upload?.name ?? input.label;
+  const open = (which: "file" | "folder") =>
+    (which === "file" ? filePicker.current : folderPicker.current)?.click();
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Dropping a file is a pointer shortcut; the button inside is the way for everyone. */}
+      {/* Dropping is a pointer shortcut; the buttons inside are the way for everyone. */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- see above */}
       <div
         onDragOver={(event) => {
@@ -107,63 +102,105 @@ export function FilePicker({
         className={cn(
           "flex flex-col gap-3 rounded-control border-2 bg-fill px-4 py-3.5",
           over ? "border-text" : "border-transparent",
-          !file && (missing || refused) && "ring-2 ring-danger",
+          !upload && (missing || refused) && "ring-2 ring-danger",
         )}
       >
-        <div className="flex items-center gap-3.5">
-          {file ? (
-            <FileText aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={1.75} />
-          ) : (
-            <FileUp aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={1.75} />
-          )}
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p className="text-body font-semibold break-words">{file ? file.name : "Choose a file"}</p>
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+          <Icon aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={1.75} />
+          <div className="flex min-w-0 flex-1 basis-menu flex-col gap-0.5">
+            <p className="text-body font-semibold break-words">
+              {upload
+                ? `${upload.name}${upload.folder ? "/" : ""}`
+                : folder
+                  ? "Choose a folder, or one file"
+                  : "Choose a file"}
+            </p>
             <p id={`${id}-line`} className="text-small text-text-muted tabular" aria-live="polite">
-              {file
-                ? uploadLine(file)
-                : `${maxBytes === null ? "Any size" : `Up to ${formatBytes(maxBytes)}`}, or drop it here. It uploads straight away.`}
+              {upload
+                ? uploadLine(upload)
+                : `${input.maxSizeBytes == null ? "Any size" : `Up to ${formatBytes(input.maxSizeBytes)}`}, or drop it here. It uploads straight away.`}
             </p>
           </div>
-          {file && !ready && !failed ? (
-            <Button variant="quiet" onClick={onRemove} aria-label={`Cancel the upload of ${file.name}`}>
-              Cancel
-            </Button>
-          ) : (
-            <span className="flex shrink-0">
-              {file && (
-                <Button
-                  variant="quiet"
-                  className="px-2"
-                  onClick={onRemove}
-                  aria-label={`Remove ${file.name}`}
-                >
-                  Remove
-                </Button>
-              )}
-              <Button
-                variant="quiet"
-                className="px-2"
-                onClick={() => picker.current?.click()}
-                aria-describedby={`${id}-line`}
-                aria-label={file ? `Change ${file.name}` : undefined}
-              >
-                {file ? "Change" : "Choose"}
+          <span className="flex shrink-0">
+            {going ? (
+              <Button variant="quiet" onClick={onRemove} aria-label={`Cancel the upload of ${label}`}>
+                Cancel
               </Button>
-            </span>
-          )}
+            ) : (
+              <>
+                {failed && (
+                  <Button variant="quiet" className="px-2" onClick={onRetry}>
+                    Try again
+                  </Button>
+                )}
+                {upload && (
+                  <Button variant="quiet" className="px-2" onClick={onRemove} aria-label={`Remove ${label}`}>
+                    Remove
+                  </Button>
+                )}
+                {(upload || folder) && (
+                  <Button
+                    variant="quiet"
+                    className="px-2"
+                    onClick={() => open(folder ? "folder" : "file")}
+                    aria-describedby={`${id}-line`}
+                    aria-label={upload ? `Change ${label}` : undefined}
+                  >
+                    {upload ? "Change" : "Choose folder"}
+                  </Button>
+                )}
+                {!upload && (
+                  <Button
+                    variant="quiet"
+                    className="px-2"
+                    onClick={() => open("file")}
+                    aria-describedby={`${id}-line`}
+                  >
+                    {folder ? "Choose file" : "Choose"}
+                  </Button>
+                )}
+              </>
+            )}
+          </span>
         </div>
-        {file && !ready && !failed && (
-          <ProgressBar percent={file.progress.percent} label={`Uploading ${file.name}`} />
+        {going && <ProgressBar percent={upload.progress.percent} label={`Uploading ${label}`} />}
+        <input
+          ref={filePicker}
+          type="file"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          data-testid={`${input.name}-file`}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            take(file ? oneFile(file) : null);
+            event.target.value = "";
+          }}
+        />
+        {folder && (
+          <input
+            ref={folderPicker}
+            type="file"
+            // A folder, with each file's path inside it (webkitRelativePath).
+            {...{ webkitdirectory: "" }}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            data-testid={`${input.name}-folder`}
+            onChange={(event) => {
+              take(fromFolderPicker(event.target.files ?? []));
+              event.target.value = "";
+            }}
+          />
         )}
-        {input}
       </div>
       <p
         className="min-h-4.5 text-caption text-danger"
         role={refused || missing || failed ? "alert" : undefined}
       >
         {failed
-          ? problemMessage(file.progress.error)
-          : (refused ?? (missing ? "Choose a file to upload." : ""))}
+          ? `${problemMessage(upload.progress.error)} Trying again carries on from where it stopped.`
+          : (refused ?? (missing ? `Choose ${folder ? "your folder" : "a file"} to upload.` : ""))}
       </p>
     </div>
   );

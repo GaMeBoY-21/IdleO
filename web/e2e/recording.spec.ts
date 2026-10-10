@@ -28,7 +28,7 @@ test("sign-in to home on a phone", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Running now" })).toBeVisible();
   await slowly(page, 1500);
   await page.getByRole("region", { name: "Running now" }).getByRole("link").click();
-  await expect(page.getByRole("heading", { name: /QLoRA/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Fine-tun/ })).toBeVisible();
   await slowly(page, 1500);
   await keep(page, "sign-in-to-home--phone");
 });

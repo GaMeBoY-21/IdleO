@@ -1,38 +1,35 @@
+import { ApiError } from "@/api/errors";
 import type { components } from "@/api/schema.gen";
+import { fingerprint, totalBytes, type Chosen } from "./chosen-files";
+import { Cancelled, PartFailed, putPart, type PartRequest } from "./part-put";
+import { browserResumeStore, type ResumeStore, type Unfinished } from "./upload-resume";
 
 type UploadDetail = components["schemas"]["UploadDetail"];
 type PartLink = components["schemas"]["UploadPartLink"];
 type UploadedPart = components["schemas"]["UploadedPart"];
 
 /**
- * One file uploaded straight to storage (ADR 0019, ADR 0022), as home internet allows:
- * - `POST /v1/uploads` opens it as an upload of one file; `POST /v1/uploads/{id}/part-urls` signs its parts' links,
- *   a hundred at a time; each part is a slice of the file (Blob.slice), never the whole file in memory, PUT with
- *   XMLHttpRequest, because fetch can't report upload progress; three at a time;
- * - each PUT's ETag is kept, then `POST /v1/uploads/{id}/complete` finishes it;
- * - a failed part is retried three times with backoff; an expired link (403) gets fresh links
- *   (`POST /v1/uploads/{id}/part-urls`) and the part is tried again;
+ * A folder of files, or one file, uploaded straight to storage (ADR 0019, ADR 0022), as home internet allows:
+ * - `POST /v1/uploads` opens it with each file's path and size; each file's parts are signed on demand
+ *   (`POST /v1/uploads/{id}/part-urls`), a hundred at a time, so a 4,000-part model never asks for 4,000 links at once;
+ * - each part is a slice of its file (Blob.slice), never a whole file in memory, PUT three at a time;
+ * - each ETag is remembered in IndexedDB as it arrives (src/features/book/upload-resume.ts): choosing the same files
+ *   again, after a reload or a dropped connection, opens the same upload with the same Idempotency-Key and sends
+ *   only the parts storage hasn't taken;
+ * - every file is then completed (`POST /v1/uploads/{id}/complete`), a hundred to a call;
+ * - a failed part is retried three times with backoff; an expired link (403) gets a fresh one;
  * - progress counts bytes storage has taken, not bytes handed to the browser, with speed and time left;
- * - cancelling aborts every request and deletes the upload.
+ * - cancelling aborts every request, deletes the upload and forgets it.
  */
 export interface UploadApi {
-  create: (filename: string, sizeBytes: number, idempotencyKey: string) => Promise<UploadDetail>;
+  create: (
+    name: string,
+    files: { path: string; sizeBytes: number }[],
+    idempotencyKey: string,
+  ) => Promise<UploadDetail>;
   partLinks: (id: string, path: string, partNumbers: number[]) => Promise<PartLink[]>;
-  complete: (id: string, path: string, parts: UploadedPart[]) => Promise<unknown>;
+  complete: (id: string, files: { path: string; parts: UploadedPart[] }[]) => Promise<unknown>;
   remove: (id: string) => Promise<unknown>;
-}
-
-/** The part of XMLHttpRequest an upload uses, so tests can stand in for it. */
-export interface PartRequest {
-  open(method: string, url: string): void;
-  send(body: Blob): void;
-  abort(): void;
-  getResponseHeader(name: string): string | null;
-  readonly status: number;
-  upload: { onprogress: ((event: { loaded: number }) => void) | null };
-  onload: (() => void) | null;
-  onerror: (() => void) | null;
-  onabort: (() => void) | null;
 }
 
 export type UploadPhase = "starting" | "uploading" | "completing" | "ready" | "failed" | "cancelled";
@@ -46,11 +43,14 @@ export interface UploadProgress {
   percent: number;
   bytesPerSecond: number | null;
   secondsLeft: number | null;
+  /** Parts storage already had from an earlier try, so weren't sent again; 0 for a fresh upload. */
+  resumedParts: number;
   error: unknown;
 }
 
 export interface UploadDeps {
   api: UploadApi;
+  resume?: ResumeStore;
   request?: () => PartRequest;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -58,101 +58,114 @@ export interface UploadDeps {
 }
 
 const CONCURRENCY = 3;
-/** The most part links one request asks for, as the API allows. */
-const LINKS_PER_REQUEST = 100;
+/** The most part links, and the most files to complete, one request takes, as the API allows. */
+const PER_REQUEST = 100;
 const RETRIES = 3;
 /** Speed is measured over the last few seconds, so it follows the connection without jumping about. */
 const SPEED_WINDOW_MS = 5_000;
 
-class Cancelled extends Error {}
-class PartFailed extends Error {
-  readonly status: number;
-  constructor(status: number) {
-    super(`part upload failed with ${status}`);
-    this.status = status;
-  }
-}
+const partKey = (path: string, number: number) => `${number}:${path}`;
 
 export class Upload {
-  private readonly file: Blob & { name: string };
+  private readonly chosen: Chosen;
+  private readonly fp: string;
+  private readonly total: number;
   private readonly onProgress: (progress: UploadProgress) => void;
-  private readonly api: UploadApi;
-  private readonly request: () => PartRequest;
-  private readonly now: () => number;
-  private readonly sleep: (ms: number) => Promise<void>;
-  private readonly key: string;
+  private readonly deps: Required<UploadDeps>;
   private readonly inFlight = new Set<PartRequest>();
-  /** Bytes storage has taken, per part; a part being retried starts again from 0. */
-  private readonly sent = new Map<number, number>();
+  /** Bytes storage has taken of each part sent in this try; a part being retried starts again from 0. */
+  private readonly sent = new Map<string, number>();
+  /** Bytes storage already had when this try started: whole files, and parts from an earlier try. */
+  private base = 0;
+  private readonly links = new Map<string, Map<number, string>>();
+  private readonly fetching = new Map<string, Promise<void>>();
   private readonly samples: { at: number; bytes: number }[] = [];
+  private unfinished: Unfinished | null = null;
   private cancelled = false;
   /** A part failed for good: the other parts stop too. */
   private failed = false;
   private progress: UploadProgress;
 
-  constructor(
-    file: Blob & { name: string },
-    deps: UploadDeps,
-    onProgress: (progress: UploadProgress) => void,
-  ) {
-    this.file = file;
+  constructor(chosen: Chosen, deps: UploadDeps, onProgress: (progress: UploadProgress) => void) {
+    this.chosen = chosen;
+    this.fp = fingerprint(chosen);
+    this.total = totalBytes(chosen);
     this.onProgress = onProgress;
-    this.api = deps.api;
-    this.request = deps.request ?? (() => new XMLHttpRequest() as unknown as PartRequest);
-    this.now = deps.now ?? (() => performance.now());
-    this.sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-    this.key = (deps.idempotencyKey ?? (() => crypto.randomUUID()))();
+    this.deps = {
+      resume: browserResumeStore,
+      request: () => new XMLHttpRequest() as unknown as PartRequest,
+      now: () => performance.now(),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      idempotencyKey: () => crypto.randomUUID(),
+      ...deps,
+    };
     this.progress = {
       phase: "starting",
       uploadId: null,
       sentBytes: 0,
-      totalBytes: file.size,
+      totalBytes: this.total,
       percent: 0,
       bytesPerSecond: null,
       secondsLeft: null,
+      resumedParts: 0,
       error: null,
     };
   }
 
-  /** Uploads the file; resolves with the upload's id once it's ready. */
+  /** Uploads the files, or carries on with them; resolves with the upload's id once it's ready. */
   async start(): Promise<string> {
     try {
-      const opened = await this.api.create(this.file.name, this.file.size, this.key);
+      const opened = await this.open();
       const id = opened.upload.id;
       const partSize = opened.upload.partSizeBytes;
-      const partCount = opened.files[0]?.partCount ?? 0;
-      this.update({ phase: "uploading", uploadId: id });
-      this.throwIfCancelled();
-      // Where speed is measured from: nothing sent, now.
-      this.measure();
-      const links = new Map<number, string>();
-      for (let from = 1; from <= partCount; from += LINKS_PER_REQUEST) {
-        const numbers = Array.from(
-          { length: Math.min(LINKS_PER_REQUEST, partCount - from + 1) },
-          (_, i) => from + i,
-        );
-        for (const link of await this.api.partLinks(id, this.file.name, numbers)) {
-          links.set(link.number, link.url);
+      const record = this.unfinished!;
+      this.update({ uploadId: id });
+      const files = new Map(this.chosen.files.map(({ path, file }) => [path, file]));
+      const todo: { path: string; number: number }[] = [];
+      const left = opened.upload.status === "ready" ? [] : opened.files.filter((file) => !file.done);
+      let resumed = 0;
+      for (const file of opened.files) {
+        if (!left.includes(file)) {
+          this.base += file.sizeBytes;
+          continue;
         }
-        this.throwIfCancelled();
+        const taken = (record.parts[file.path] ??= {});
+        for (let number = 1; number <= file.partCount; number++) {
+          if (taken[number]) {
+            this.base += Math.min(partSize, file.sizeBytes - (number - 1) * partSize);
+            resumed++;
+          } else {
+            todo.push({ path: file.path, number });
+          }
+        }
       }
-      const queue = Array.from({ length: partCount }, (_, i) => i + 1);
-      const parts: UploadedPart[] = [];
+      this.throwIfCancelled();
+      // Where speed is measured from: what storage has, now.
+      this.measure();
+      this.update({ phase: "uploading", resumedParts: resumed });
       const worker = async () => {
-        for (let number = queue.shift(); number !== undefined; number = queue.shift()) {
-          parts.push({ number, etag: await this.part(id, partSize, number, links) });
+        for (let next = todo.shift(); next !== undefined; next = todo.shift()) {
+          const { path, number } = next;
+          const etag = await this.part(id, partSize, files.get(path)!, path, number, todo);
+          record.parts[path]![number] = etag;
+          void this.deps.resume.write(this.fp, record);
         }
       };
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, partCount) }, worker));
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, worker));
       this.throwIfCancelled();
       this.update({ phase: "completing" });
-      await this.api.complete(
-        id,
-        this.file.name,
-        parts.sort((a, b) => a.number - b.number),
-      );
-      this.throwIfCancelled();
-      this.update({ phase: "ready", percent: 100, secondsLeft: 0 });
+      const finished = left.map((file) => ({
+        path: file.path,
+        parts: Object.entries(record.parts[file.path] ?? {})
+          .map(([number, etag]) => ({ number: Number(number), etag }))
+          .sort((a, b) => a.number - b.number),
+      }));
+      for (let from = 0; from < finished.length; from += PER_REQUEST) {
+        await this.deps.api.complete(id, finished.slice(from, from + PER_REQUEST));
+        this.throwIfCancelled();
+      }
+      await this.deps.resume.forget(this.fp);
+      this.update({ phase: "ready", sentBytes: this.total, percent: 100, secondsLeft: 0 });
       return id;
     } catch (error) {
       if (this.cancelled) {
@@ -165,7 +178,7 @@ export class Upload {
     }
   }
 
-  /** Stops every request and deletes what was uploaded. */
+  /** Stops every request, deletes what was uploaded, and forgets it. */
   async cancel(): Promise<void> {
     if (this.cancelled || this.progress.phase === "ready") {
       return;
@@ -173,82 +186,133 @@ export class Upload {
     this.cancelled = true;
     this.abortAll();
     this.update({ phase: "cancelled" });
+    await this.deps.resume.forget(this.fp);
     if (this.progress.uploadId !== null) {
-      await this.api.remove(this.progress.uploadId);
+      await this.deps.api.remove(this.progress.uploadId);
     }
+  }
+
+  /**
+   * The upload these files went to before, if this browser remembers one that's still pending or ready, opened again
+   * with its key; otherwise a new one.
+   */
+  private async open(): Promise<UploadDetail> {
+    const { api, resume } = this.deps;
+    const specs = this.chosen.files.map(({ path, file }) => ({ path, sizeBytes: file.size }));
+    const saved = await resume.read(this.fp);
+    if (saved) {
+      try {
+        const again = await api.create(this.chosen.name, specs, saved.key);
+        if (
+          again.upload.id === saved.uploadId &&
+          (again.upload.status === "pending" || again.upload.status === "ready")
+        ) {
+          this.unfinished = saved;
+          return again;
+        }
+      } catch (error) {
+        if (!(error instanceof ApiError && error.status < 500)) {
+          throw error;
+        }
+      }
+      // Gone, failed, or refused: start over.
+      await resume.forget(this.fp);
+    }
+    const key = this.deps.idempotencyKey();
+    const opened = await api.create(this.chosen.name, specs, key);
+    this.unfinished = { uploadId: opened.upload.id, key, parts: {} };
+    await resume.write(this.fp, this.unfinished);
+    return opened;
   }
 
   private async part(
     id: string,
     partSize: number,
+    file: File,
+    path: string,
     number: number,
-    links: Map<number, string>,
+    todo: readonly { path: string; number: number }[],
   ): Promise<string> {
     const start = (number - 1) * partSize;
-    const body = this.file.slice(start, Math.min(start + partSize, this.file.size));
+    const body = file.slice(start, Math.min(start + partSize, file.size));
+    const key = partKey(path, number);
     let failures = 0;
     let refreshes = 0;
     for (;;) {
       this.throwIfCancelled();
       try {
-        return await this.put(links.get(number)!, body, number);
+        const url = await this.link(id, path, number, todo);
+        const request = this.deps.request();
+        this.inFlight.add(request);
+        try {
+          return await putPart(request, url, body, (bytes) => {
+            this.sent.set(key, bytes);
+            this.measure();
+          });
+        } finally {
+          this.inFlight.delete(request);
+        }
       } catch (error) {
         this.throwIfCancelled();
-        this.sent.set(number, 0);
+        this.sent.set(key, 0);
         this.measure();
         if (error instanceof PartFailed && error.status === 403 && refreshes < RETRIES) {
-          // The part's link has expired: ask for a fresh one, and try again.
+          // The part's link has expired: forget it, so the next try asks for a fresh one.
           refreshes++;
-          for (const link of await this.api.partLinks(id, this.file.name, [number])) {
-            links.set(link.number, link.url);
-          }
+          this.links.get(path)?.delete(number);
           continue;
         }
         if (++failures > RETRIES) {
           throw error;
         }
-        await this.sleep(1_000 * 2 ** (failures - 1));
+        await this.deps.sleep(1_000 * 2 ** (failures - 1));
       }
     }
   }
 
-  private put(url: string, body: Blob, number: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const request = this.request();
-      this.inFlight.add(request);
-      const done = () => this.inFlight.delete(request);
-      request.upload.onprogress = (event) => {
-        this.sent.set(number, Math.min(event.loaded, body.size));
-        this.measure();
-      };
-      request.onload = () => {
-        done();
-        const etag = request.getResponseHeader("ETag");
-        if (request.status >= 200 && request.status < 300 && etag) {
-          this.sent.set(number, body.size);
-          this.measure();
-          resolve(etag);
-        } else {
-          reject(new PartFailed(request.status));
-        }
-      };
-      request.onerror = () => {
-        done();
-        reject(new PartFailed(0));
-      };
-      request.onabort = () => {
-        done();
-        reject(new Cancelled("aborted"));
-      };
-      request.open("PUT", url);
-      request.send(body);
-    });
+  /** The link for one part, asking for it and the file's next parts still to send, a hundred at most. */
+  private async link(
+    id: string,
+    path: string,
+    number: number,
+    todo: readonly { path: string; number: number }[],
+  ): Promise<string> {
+    for (;;) {
+      const url = this.links.get(path)?.get(number);
+      if (url) {
+        return url;
+      }
+      const asking = this.fetching.get(path);
+      if (asking) {
+        await asking;
+        continue;
+      }
+      const wanted = [number, ...todo.filter((part) => part.path === path).map((part) => part.number)].slice(
+        0,
+        PER_REQUEST,
+      );
+      const fetch = this.deps.api.partLinks(id, path, wanted).then((links) => {
+        const known = this.links.get(path) ?? new Map<number, string>();
+        links.forEach((link) => known.set(link.number, link.url));
+        this.links.set(path, known);
+      });
+      this.fetching.set(path, fetch);
+      try {
+        await fetch;
+      } finally {
+        this.fetching.delete(path);
+      }
+      this.throwIfCancelled();
+      if (!this.links.get(path)?.has(number)) {
+        throw new Error(`no link for part ${number} of ${path}`);
+      }
+    }
   }
 
   /** Progress from the bytes storage has taken, with the speed over the last few seconds and the time left. */
   private measure(): void {
-    const sentBytes = [...this.sent.values()].reduce((sum, bytes) => sum + bytes, 0);
-    const at = this.now();
+    const sentBytes = this.base + [...this.sent.values()].reduce((sum, bytes) => sum + bytes, 0);
+    const at = this.deps.now();
     this.samples.push({ at, bytes: sentBytes });
     while (this.samples.length > 2 && at - this.samples[0]!.at > SPEED_WINDOW_MS) {
       this.samples.shift();
@@ -260,9 +324,9 @@ export class Upload {
     this.update({
       sentBytes,
       // Never 100 until storage has put the parts together.
-      percent: Math.min(99, Math.floor((sentBytes / Math.max(1, this.file.size)) * 100)),
+      percent: Math.min(99, Math.floor((sentBytes / Math.max(1, this.total)) * 100)),
       bytesPerSecond,
-      secondsLeft: bytesPerSecond === null ? null : Math.ceil((this.file.size - sentBytes) / bytesPerSecond),
+      secondsLeft: bytesPerSecond === null ? null : Math.ceil((this.total - sentBytes) / bytesPerSecond),
     });
   }
 

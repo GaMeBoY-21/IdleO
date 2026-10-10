@@ -39,6 +39,7 @@ const screens = {
   "/session/": screen(() => import("@/features/session/SessionDetail").then((m) => m.SessionDetail)),
   "/sessions/": screen(() => import("@/features/sessions/AllSessions").then((m) => m.AllSessions)),
   "/book/": screen(() => import("@/features/book/Book").then((m) => m.Book)),
+  "/files/": screen(() => import("@/features/files/MyFiles").then((m) => m.MyFiles)),
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
 };
@@ -53,11 +54,12 @@ const CreditHistory = screens["/credit/"].Screen;
 const AllSessions = screens["/sessions/"].Screen;
 const SessionDetail = screens["/session/"].Screen;
 const Book = screens["/book/"].Screen;
+const MyFiles = screens["/files/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
-const SIGNED_IN = /^\/(credit\/|session\/|sessions\/|book\/)?$/;
+const SIGNED_IN = /^\/(credit\/|session\/|sessions\/|book\/|files\/)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -84,6 +86,7 @@ function SignedInArea() {
             <Route path="/session/" component={SessionDetail} />
             <Route path="/sessions/" component={AllSessions} />
             <Route path="/book/" component={Book} />
+            <Route path="/files/" component={MyFiles} />
           </Switch>
         </Suspense>
       </AppShell>

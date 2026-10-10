@@ -1,43 +1,44 @@
-import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "wouter";
+import { FlowHeader } from "@/components/shell/AppShell";
 import { TwoPanels } from "@/features/flow/TwoPanels";
 
 /**
- * Book's frame. On a laptop, the two panels (docs/design/redesign/book-laptop.html): the choices and the button on
- * the left, what happens next on the right. On a phone (book-phone.html), a flow without the bars: a grey area with
- * a back button and the route's summary, and under it a sheet holding the rest, the button at its foot.
+ * Book's frame. On a laptop, two panels: the services, or a service's questions, on the left; on the right what
+ * happens next, or "Your request" (docs/design/redesign/book-finetune-laptop.html, `service`). On a phone, a flow
+ * without the bars: the list of services under a back button, or a service's questions with "Your request" held at
+ * the foot as a sheet (part of `left`), its own "← All services" at the top.
  */
 export function BookLayout({
   laptop,
   left,
   right,
-  summary,
-  back,
+  service = false,
 }: {
   laptop: boolean;
   left: ReactNode;
   right: ReactNode;
-  summary: ReactNode;
-  back: string;
+  service?: boolean;
 }) {
   if (laptop) {
-    return <TwoPanels left={left} right={right} rightLabel="What happens next" />;
+    return (
+      <TwoPanels
+        wide={service}
+        left={left}
+        right={right}
+        rightLabel={service ? "Your request" : "What happens next"}
+      />
+    );
   }
   return (
-    <div className="flex flex-1 flex-col bg-fill">
-      <div className="flex flex-col gap-4 px-4 pt-3 pb-5 md:px-6">
-        <Link
-          href={back}
-          aria-label="Back"
-          className="flex size-11 items-center justify-center rounded-full bg-ground hover:bg-fill-selected"
-        >
-          <ChevronLeft aria-hidden="true" className="size-5.5" strokeWidth={2} />
-        </Link>
-        {summary}
-      </div>
-      <div className="flex flex-1 flex-col gap-4 rounded-t-sheet bg-ground px-4 pt-3 pb-5 shadow-sheet md:px-6">
-        <span aria-hidden="true" className="h-1.5 w-10 self-center rounded-full bg-divider" />
+    <div className="flex flex-1 flex-col">
+      {!service && <FlowHeader back="/" />}
+      <div
+        className={
+          service
+            ? "flex flex-1 flex-col gap-7 px-4 pt-4 md:px-6"
+            : "flex flex-1 flex-col gap-5 px-4 pb-8 md:px-6"
+        }
+      >
         {left}
       </div>
     </div>

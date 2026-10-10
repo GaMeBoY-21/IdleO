@@ -13,13 +13,15 @@ const settingsRefused = (error: unknown) =>
 
 /**
  * "Request a GPU", the screen's one primary button, and the line under it: what's held while it runs and the credit
- * there is, both from the quote (docs/design/redesign/book-laptop.html). It waits, saying why, while the upload is
- * going ("Waiting for your upload… 64%"), while no GPU is free, and when the credit is short (both figures). With
- * settings still to finish it can be pressed, and pressing opens them.
+ * there is, both from the quote (docs/design/redesign/book-finetune-laptop.html). It waits, saying why, while an
+ * upload is going ("Waiting for your upload… 64%"), while no GPU is free, when the credit is short (both figures),
+ * and for good when no GPU here has the memory the model needs. With answers still to give it can be pressed, and
+ * pressing points at them.
  */
 export function RequestButton({
   quote,
   uploadingPercent,
+  tooBig,
   busy,
   error,
   onRequest,
@@ -27,6 +29,7 @@ export function RequestButton({
 }: {
   quote: QuoteState | null;
   uploadingPercent: number | null;
+  tooBig: boolean;
   busy: boolean;
   error: unknown;
   onRequest: () => void;
@@ -35,6 +38,7 @@ export function RequestButton({
   const quoted = quote?.kind === "quoted" ? quote.quote : null;
   const short = quoted !== null && !quoted.enoughCredit;
   const waiting =
+    tooBig ||
     uploadingPercent !== null ||
     short ||
     quote?.kind === "loading" ||
@@ -42,8 +46,10 @@ export function RequestButton({
     (quote?.kind === "error" && !settingsRefused(quote.error));
 
   let line: ReactNode;
-  if (quote === null || (quote.kind === "error" && settingsRefused(quote.error))) {
-    line = "Finish your settings to see what's held while it runs.";
+  if (tooBig) {
+    line = "No GPU here has that much memory, so this can't be requested.";
+  } else if (quote === null || (quote.kind === "error" && settingsRefused(quote.error))) {
+    line = "Answer the questions to see what's held while it runs.";
   } else if (quote.kind === "loading") {
     line = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" />;
   } else if (quote.kind === "none-free") {
@@ -54,7 +60,7 @@ export function RequestButton({
     line = (
       <>
         <Money paise={quote.quote.holdPaise} /> is held while it runs, and you have{" "}
-        <Money paise={quote.quote.availablePaise} />. Lower the spending cap in Settings.
+        <Money paise={quote.quote.availablePaise} />. Choose a lower budget.
       </>
     );
   } else {
@@ -81,7 +87,7 @@ export function RequestButton({
         className={cn(
           "text-center tabular",
           laptop ? "min-h-5 text-small" : "min-h-4.5 text-caption",
-          short ? "text-danger" : "text-text-muted",
+          short || tooBig ? "text-danger" : "text-text-muted",
         )}
       >
         {line}

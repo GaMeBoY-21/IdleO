@@ -168,20 +168,25 @@ export function toParams(params: TemplateParam[], values: ParamFormValues): Reco
 }
 
 /**
- * The form field a server's `errors[].field` names (`params.epochs`, `maxPricePaisePerMin`, `inputs.file.url`), so its message lands
- * on the right field; null for one the form doesn't have.
+ * The form field a server's `errors[].field` names, so its message lands on the right one (ADR 0022 names inputs and
+ * questions): `params.epochs`, `inputs.model` and `inputs.model.url` (the input), `questions.thoroughness` (the
+ * preset), `maxSpendPaise` (the budget); null for one the form doesn't have.
  */
 export function fieldOf(serverField: string): string | null {
   if (serverField.startsWith("params.")) {
     return serverField;
   }
-  // The form asks for one input, whatever its name (ADR 0022): inputs.<name> and inputs.<name>.url land on it.
-  if (/^inputs\.[a-z][a-z0-9_]*(\.url)?$/.test(serverField)) {
-    return "inputUrl";
+  const input = /^inputs\.([a-z][a-z0-9_]*)(\.url)?$/.exec(serverField);
+  if (input) {
+    return `inputs.${input[1]!}`;
+  }
+  const question = /^questions\.([a-z][a-z0-9_]*)$/.exec(serverField);
+  if (question) {
+    return `presets.${question[1]!}`;
   }
   const fields: Record<string, string> = {
     maxPricePaisePerMin: "maxPerHour",
-    maxSpendPaise: "spendingCap",
+    maxSpendPaise: "budget",
     maxRuntimeSeconds: "runtimeHours",
     vramNeededMb: "vramMb",
   };

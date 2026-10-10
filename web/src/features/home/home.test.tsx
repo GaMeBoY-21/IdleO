@@ -26,9 +26,9 @@ describe("the catalog", () => {
   });
 
   it("finds a template's service, and links Book to it", () => {
-    expect(serviceOf(catalog, "echo-input")?.id).toBe("run-code");
+    expect(serviceOf(catalog, "run-python")?.id).toBe("run-code");
     expect(serviceOf(catalog, "gone")).toBeUndefined();
-    expect(bookHref("run-code", "echo-input")).toBe("/book/?service=run-code&template=echo-input");
+    expect(bookHref("run-code", "run-python")).toBe("/book/?service=run-code&template=run-python");
   });
 
   it("says a typical runtime roughly", () => {

@@ -1,6 +1,7 @@
-import { Check, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { Check, FolderOpen, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
+import { Link } from "wouter";
 import { signOut, useAuth } from "@/auth";
 import { applyThemeChoice, readThemeChoice, type ThemeChoice } from "@/design/theme";
 import { cn } from "@/lib/cn";
@@ -15,7 +16,7 @@ const themeChoices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = 
 const item =
   "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-fill";
 
-/** Who's signed in, the theme switch, and signing out. */
+/** Who's signed in, My files, the theme switch, and signing out. */
 export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const auth = useAuth();
   const [theme, setTheme] = useState<ThemeChoice>(readThemeChoice);
@@ -41,6 +42,13 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
               Signed in as {email}
             </DropdownMenu.Label>
           )}
+          <DropdownMenu.Separator className="my-1 h-px bg-divider" />
+          <DropdownMenu.Item asChild className={item}>
+            <Link href="/files/">
+              <FolderOpen aria-hidden="true" className="size-5" strokeWidth={1.75} />
+              My files
+            </Link>
+          </DropdownMenu.Item>
           <DropdownMenu.Separator className="my-1 h-px bg-divider" />
           <DropdownMenu.Label className="px-3 pt-2 pb-1 text-caption font-medium text-text-muted">
             Theme

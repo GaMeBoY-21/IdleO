@@ -290,7 +290,7 @@ test.describe("all sessions", () => {
   test("active", async ({ page }, info) => {
     await fakeApi(page, list());
     await signIn(page, "asha", "/sessions/");
-    await expect(page.getByRole("link", { name: /QLoRA fine-tune.*Running/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Fine-tune your model.*Running/ })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "sessions-active");
   });

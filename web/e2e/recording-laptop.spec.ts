@@ -4,7 +4,8 @@ import { fakeApi, fakeStorage, keep, slowly, snapshot, type Answer } from "./sup
 
 /**
  * The laptop recording for the review gallery (e2e/recording.spec.ts has the phone ones): booking, from picking a
- * template to downloading the outputs, with invented data. Only when GALLERY_DIR is set.
+ * service to downloading the outputs, with invented data: the model from My files, the examples uploaded. Only when
+ * GALLERY_DIR is set.
  */
 test.skip(!process.env.GALLERY_DIR, "only for the review gallery (GALLERY_DIR)");
 test.use({
@@ -15,7 +16,6 @@ test.use({
 });
 
 const MIB = 1024 * 1024;
-const echo = data.templateList.find((t) => t.id === "echo-input")!;
 
 test("booking, from template to outputs", async ({ page }) => {
   await page.clock.setFixedTime(data.NOW);
@@ -36,12 +36,15 @@ test("booking, from template to outputs", async ({ page }) => {
     "/v1/templates": { json: data.templates },
     "/v1/wallet": { json: data.asha.wallet },
     "/v1/availability": { json: data.availability },
-    "/v1/uploads": { json: data.newUpload("greetings.bin", 12 * MIB), status: 201 },
+    "/v1/uploads": (_call, request) =>
+      request.method() === "POST"
+        ? { json: data.newUpload("support-chats.jsonl", 12 * MIB), status: 201 }
+        : { json: data.uploadsPage() },
     "/v1/uploads/[^/]+/part-urls": (_call, request) => ({
       json: data.partLinks((request.postDataJSON() as { partNumbers: number[] }).partNumbers),
     }),
     "/v1/uploads/[^/]+/complete": {
-      json: data.newUpload("greetings.bin", 12 * MIB, "ready"),
+      json: data.newUpload("support-chats.jsonl", 12 * MIB, "ready"),
     },
     "/v1/session-quotes": (_call, request) =>
       data.quoteAnswer(request.postDataJSON() as { maxSpendPaise: number }),
@@ -72,22 +75,24 @@ test("booking, from template to outputs", async ({ page }) => {
   await page.waitForURL((url) => url.pathname === "/");
   await page.goto("/book/");
   await slowly(page, 1200);
-  await page.getByRole("button", { name: new RegExp(echo.name) }).click();
+  await page.getByRole("button", { name: /^Fine-tune a model/ }).click();
   await slowly(page);
-  await page.getByLabel("Greeting", { exact: true }).pressSequentially("hello", { delay: 80 });
-  await page.getByLabel("Repeat (optional)").fill("3");
-  await slowly(page, 500);
-  await page.getByTestId("input-file").setInputFiles({
-    name: "greetings.bin",
-    mimeType: "application/octet-stream",
+  const model = page.getByRole("region", { name: "1. Your model" });
+  await model.getByText("From My files").click();
+  await slowly(page, 600);
+  await model.getByRole("button", { name: /^my-llm-7b\// }).click();
+  await slowly(page, 600);
+  await page.getByTestId("data-file").setInputFiles({
+    name: "support-chats.jsonl",
+    mimeType: "application/jsonl",
     buffer: Buffer.alloc(12 * MIB, 7),
   });
-  await expect(page.getByText("12 MB · uploaded")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("12 MB · in My files")).toBeVisible({ timeout: 20_000 });
   await slowly(page);
-  await page.getByRole("button", { name: "Review" }).click();
-  await expect(page.getByText(/is held now/)).toBeVisible();
+  await page.getByRole("button", { name: /^Quick/ }).click();
+  await expect(page.getByText(/is held while it runs/)).toBeVisible();
   await slowly(page, 2000);
-  await page.getByRole("button", { name: /Book for up to/ }).click();
+  await page.getByRole("button", { name: "Request a GPU" }).click();
   await expect(page.getByTestId("state-chip").first()).toHaveText("Running", { timeout: 20_000 });
   await slowly(page, 3000);
   await expect(page.getByTestId("state-chip").first()).toHaveText("Completed", { timeout: 20_000 });

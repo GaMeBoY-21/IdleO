@@ -45,8 +45,8 @@ describe("the form a template's parameters make", () => {
 
   it("steps whole numbers by one and decimals freely, within the catalog's limits", () => {
     const [epochs, rate] = paramFields(qlora);
-    expect(epochs).toMatchObject({ step: "1", min: 1, max: 10 });
-    expect(rate).toMatchObject({ step: "any", min: 0.00001, max: 0.01 });
+    expect(epochs).toMatchObject({ step: "1", min: 1, max: 5 });
+    expect(rate).toMatchObject({ step: "any", min: 0.000001, max: 0.01 });
   });
 
   it("starts from the catalog's defaults, and from a session's values for Run again", () => {
@@ -96,8 +96,10 @@ describe("the form a template's parameters make", () => {
   it("puts each field the server refuses on the matching form field", () => {
     expect(fieldOf("params.epochs")).toBe("params.epochs");
     expect(fieldOf("maxPricePaisePerMin")).toBe("maxPerHour");
-    expect(fieldOf("inputs.file.url")).toBe("inputUrl");
-    expect(fieldOf("inputs.model")).toBe("inputUrl");
+    expect(fieldOf("inputs.data.url")).toBe("inputs.data");
+    expect(fieldOf("inputs.model")).toBe("inputs.model");
+    expect(fieldOf("questions.thoroughness")).toBe("presets.thoroughness");
+    expect(fieldOf("maxSpendPaise")).toBe("budget");
     expect(fieldOf("somethingElse")).toBeNull();
   });
 });

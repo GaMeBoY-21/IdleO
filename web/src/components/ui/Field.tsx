@@ -7,13 +7,19 @@ import { cn } from "@/lib/cn";
  */
 export const Field = forwardRef<
   HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | undefined; hint?: ReactNode }
->(function Field({ label, error, hint, className, ...props }, ref) {
+  InputHTMLAttributes<HTMLInputElement> & {
+    label: string;
+    /** For screen readers only, where a heading above already names the field. */
+    hideLabel?: boolean;
+    error?: string | undefined;
+    hint?: ReactNode;
+  }
+>(function Field({ label, hideLabel = false, error, hint, className, ...props }, ref) {
   const id = useId();
   const messageId = `${id}-message`;
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <label htmlFor={id} className="text-small font-medium">
+      <label htmlFor={id} className={hideLabel ? "sr-only" : "text-small font-medium"}>
         {label}
       </label>
       <input

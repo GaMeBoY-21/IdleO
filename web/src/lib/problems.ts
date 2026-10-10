@@ -26,22 +26,22 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "That repeats an earlier request with different details. Review it, then try again.",
   "version-required": "This changed since you opened it. Reload to see the latest, then try again.",
   "version-stale": "This changed since you opened it. Reload to see the latest, then try again.",
-  "insufficient-credit":
-    "You don't have enough credit for this booking's hold. Lower the most per hour or the spending cap.",
+  "insufficient-credit": "You don't have enough credit for this booking's hold. Choose a lower budget.",
   "no-gpu-free": "No GPU is free right now. Try again in a minute; nothing was charged.",
   "session-not-cancellable": "This session has already started, so it can't be cancelled. Stop it instead.",
   "session-not-running": "This session isn't running any more, so there's nothing to stop.",
   "outputs-not-ready": "The outputs aren't ready yet. You can download them once the session completes.",
   "input-not-accepted":
     "This template doesn't take that kind of input. Choose the other kind, or leave it out.",
-  "input-required": "This template needs an input. Upload a file or give a link to one.",
-  "input-too-large": "That file is larger than this template takes. Choose a smaller one.",
+  "input-required":
+    "This needs every input marked as needed. Upload it, pick it from My files, or give a link.",
+  "input-too-large": "That's larger than this input takes. Choose a smaller one.",
   "upload-not-ready":
-    "That upload isn't finished, or has expired. Wait for it to finish, or upload the file again.",
-  "upload-parts-invalid": "The file didn't arrive complete. Upload it again.",
+    "That upload isn't finished, or has expired. Wait for it to finish, or upload it again.",
+  "upload-parts-invalid": "Your files didn't arrive complete. Upload them again.",
   "upload-in-use": "A session that hasn't ended uses this upload. You can delete it once the session ends.",
   "upload-quota-exceeded":
-    "Your uploads are using all their space. Delete ones you no longer need, then try again.",
+    "Your uploads are using all their space. Delete ones you no longer need in My files, then try again.",
   "too-many-streams":
     "Too many sessions are open live in your other tabs. Close some; this page checks every few seconds meanwhile.",
   "internal-error": "Something went wrong on our side. Try again in a moment.",
