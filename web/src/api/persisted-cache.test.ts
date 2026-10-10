@@ -12,7 +12,7 @@ const { forget, restoreFor } = await import("./persisted-cache");
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 1_100));
 
-describe("the home cache", () => {
+describe("the kept figures", () => {
   beforeEach(async () => {
     await forget();
     stored.clear();
@@ -32,6 +32,30 @@ describe("the home cache", () => {
     await fresh.restoreFor(next, "asha");
     expect(next.getQueryData(["wallet"])).toEqual({ availablePaise: 49_940 });
     expect(next.getQueryData(["session", "x"])).toBeUndefined();
+    await fresh.forget();
+  });
+
+  it("brings back an owner's machines, a machine and their earnings, but nothing that hangs off a machine", async () => {
+    const first = new QueryClient();
+    await restoreFor(first, "asha");
+    first.setQueryData(["hosts"], { hosts: [] });
+    first.setQueryData(["host", "h1"], { id: "h1" });
+    first.setQueryData(["earnings"], { pages: [], pageParams: [] });
+    first.setQueryData(["host", "h1", "telemetry"], { now: null });
+    first.setQueryData(["host", "h1", "sessions"], { pages: [] });
+    first.setQueryData(["host", "h1", "price-band"], { lowPaisePerMin: 1 });
+    await settle();
+
+    vi.resetModules();
+    const fresh = await import("./persisted-cache");
+    const next = new QueryClient();
+    await fresh.restoreFor(next, "asha");
+    expect(next.getQueryData(["hosts"])).toEqual({ hosts: [] });
+    expect(next.getQueryData(["host", "h1"])).toEqual({ id: "h1" });
+    expect(next.getQueryData(["earnings"])).toEqual({ pages: [], pageParams: [] });
+    expect(next.getQueryData(["host", "h1", "telemetry"])).toBeUndefined();
+    expect(next.getQueryData(["host", "h1", "sessions"])).toBeUndefined();
+    expect(next.getQueryData(["host", "h1", "price-band"])).toBeUndefined();
     await fresh.forget();
   });
 

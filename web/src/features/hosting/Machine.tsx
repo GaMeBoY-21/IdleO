@@ -5,6 +5,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { ApiError } from "@/api/errors";
 import { useNow } from "@/lib/clock";
 import { machineState, rupeesAnHour } from "@/lib/hosting";
+import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { HostFlow } from "./HostFlow";
 import { MachineChip } from "./MachineChip";
@@ -13,6 +14,9 @@ import { MachineLink } from "./MachineLink";
 import { ManageMachine } from "./ManageMachine";
 import { PauseControl } from "./PauseControl";
 import { useHostId } from "./useHostId";
+
+/** Figures updated before this were restored from an earlier visit (src/api/persisted-cache.ts). */
+const PAGE_OPENED_AT = Date.now();
 
 /**
  * One machine (docs/design/hosting/machine-phone.html, designed for the phone first): its state and name, its GPU with
@@ -61,6 +65,7 @@ export function Machine() {
   }
 
   const machine = host.data;
+  const restored = host.isFetching && !host.isRefetchError && host.dataUpdatedAt < PAGE_OPENED_AT;
   const state = machineState(machine, now);
   const listing = machine.listing;
   return (
@@ -70,7 +75,11 @@ export function Machine() {
         <MachineChip state={state} />
         <h1 className="text-title break-words">{machine.name}</h1>
         <p className="min-h-5 text-small text-text-muted">
-          {machine.online && machine.onlineSince ? (
+          {restored ? (
+            <>
+              Updated <span className="tabular">{formatTime(host.dataUpdatedAt)}</span> · refreshing
+            </>
+          ) : machine.online && machine.onlineSince ? (
             <>
               Online since <RelativeTime value={machine.onlineSince} /> ·{" "}
               {machine.updateRequired ? "host app needs an update" : "host app up to date"}

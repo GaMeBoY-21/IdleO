@@ -5,13 +5,20 @@ import { del, get, set } from "idb-keyval";
 
 /**
  * What the renter saw last time, shown at once when they come back, then refreshed (web/DESIGN.md principles 3
- * and 5). Only the home's figures are kept: the user, the wallet, the session list and the template names. The
+ * and 5). Only these are kept: the home's (the user, the wallet, the session list and the template names) and an
+ * owner's (their machines, each machine, their earnings; ADR 0023), so the Hosting tab's figure and a machine's
+ * name don't wait on the network for their first paint, which a cold start would otherwise make a second slower
+ * than the budget. A machine's telemetry, price band and sessions are never kept. The
  * cache is kept in this browser's IndexedDB for the signed-in user only: it's restored only once sign-in has said
  * who that is, a different user's cache is thrown away, it's dropped after a day, and signing out removes it.
  * Restored figures always show when they're from until fresh ones arrive, and they're never taken as fresh: however
  * recent, they're refetched once the screen has shown them (refreshRestored), so the network never holds it back.
  */
-const KEPT = new Set(["me", "wallet", "sessions", "templates"]);
+const KEPT = new Set(["me", "wallet", "sessions", "templates", "hosts", "host", "earnings"]);
+
+/** A kept query: one of KEPT's, but not what hangs off a machine (its telemetry, price band and sessions). */
+const isKept = (key: readonly unknown[]) =>
+  KEPT.has(String(key[0])) && (key[0] !== "host" || key.length === 2);
 const MAX_AGE_MS = 24 * 60 * 60_000;
 
 const persister = createAsyncStoragePersister({
@@ -39,8 +46,7 @@ export async function restoreFor(client: QueryClient, uid: string): Promise<void
     buster: uid,
     maxAge: MAX_AGE_MS,
     dehydrateOptions: {
-      shouldDehydrateQuery: (query) =>
-        query.state.status === "success" && KEPT.has(String(query.queryKey[0])),
+      shouldDehydrateQuery: (query) => query.state.status === "success" && isKept(query.queryKey),
     },
   });
   active = { uid, stop };
@@ -54,7 +60,7 @@ export function refreshRestored(client: QueryClient): void {
     return;
   }
   unrefreshed = false;
-  void client.invalidateQueries({ predicate: (query) => KEPT.has(String(query.queryKey[0])) });
+  void client.invalidateQueries({ predicate: (query) => isKept(query.queryKey) });
 }
 
 /** Signing out forgets the figures, in memory and in the browser. */

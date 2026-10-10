@@ -7,9 +7,13 @@ import { SectionTitle } from "@/components/ui/Card";
 import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
+import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { MachineRow } from "./MachineRow";
 import { WeekBars, WeekBarsSkeleton } from "./WeekBars";
+
+/** Figures updated before this were restored from an earlier visit (src/api/persisted-cache.ts). */
+const PAGE_OPENED_AT = Date.now();
 
 /**
  * The Hosting tab (docs/design/hosting/hosting-phone.html, designed for the phone first): what you earned this week and
@@ -24,6 +28,8 @@ export function Hosting() {
   const owner = earnings.data?.pages[0];
   const since = staleSince(hosts, earnings);
   const machines = hosts.data?.hosts;
+  // Figures kept from an earlier visit say when they're from until the fresh ones arrive.
+  const restored = earnings.isFetching && !earnings.isRefetchError && earnings.dataUpdatedAt < PAGE_OPENED_AT;
 
   return (
     <Page title="Hosting">
@@ -39,7 +45,16 @@ export function Hosting() {
             {owner ? (
               <>
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-small font-semibold text-text-muted">Earned this week</p>
+                  <p className="text-small font-semibold text-text-muted">
+                    Earned this week
+                    {restored && (
+                      <span className="font-normal">
+                        {" "}
+                        · from <span className="tabular">{formatTime(earnings.dataUpdatedAt)}</span>,
+                        refreshing
+                      </span>
+                    )}
+                  </p>
                   <Money paise={owner.weekPaise} className="block text-timer" />
                   <p className="text-small text-text-muted tabular">
                     <Money paise={owner.totalPaise} /> in total · payouts start with the paid pilot
@@ -89,7 +104,7 @@ export function Hosting() {
               </div>
             )}
           </section>
-          <AddLink />
+          {machines && <AddLink />}
         </>
       )}
     </Page>
