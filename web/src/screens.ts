@@ -19,6 +19,8 @@ export const SIGNED_IN_SCREENS = [
   "/hosting/earnings/",
   "/hosting/add/",
   "/welcome/",
+  "/invite/",
+  "/account/",
 ];
 
 export const SCREENS: Record<string, string | null> = {
@@ -38,4 +40,8 @@ export const SCREENS: Record<string, string | null> = {
   "/sign-in/": null,
   "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",
   "/welcome/": "src/features/home/Welcome.tsx",
+  "/invite/": "src/features/invite/Invite.tsx",
+  "/account/": "src/features/account/Account.tsx",
+  "/terms/": "src/features/legal/Legal.tsx",
+  "/privacy/": "src/features/legal/Legal.tsx",
 };

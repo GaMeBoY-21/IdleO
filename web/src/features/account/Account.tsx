@@ -1,0 +1,120 @@
+import { useNotifications } from "@/api/account";
+import { useMe } from "@/api/queries";
+import { signOut } from "@/auth";
+import { Page } from "@/components/shell/AppShell";
+import { Button } from "@/components/ui/Button";
+import { SectionTitle } from "@/components/ui/Card";
+import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
+import { useTitle } from "@/lib/title";
+import { NameRow, ROW } from "./NameRow";
+import { NotificationChoices } from "./NotificationChoices";
+
+const METHODS: Record<string, string> = { google: "Google", "email-link": "An email link" };
+
+/**
+ * The account: who you are, how you sign in, and what you're told about (ADR 0024). The notification choices come
+ * last on purpose, so their loading skeleton, whatever height their rows turn out, moves nothing below it.
+ */
+export function Account() {
+  useTitle("Account");
+  const me = useMe();
+  const notifications = useNotifications();
+  const since = staleSince(me, notifications);
+  const methods = me.data?.signInMethods.map((method) => METHODS[method] ?? method).join(", ") ?? "";
+
+  return (
+    <Page title="Account">
+      {since !== null && <StaleNotice updatedAt={since} />}
+      <section aria-labelledby="you-title" className="flex flex-col gap-1">
+        <SectionTitle id="you-title">You</SectionTitle>
+        {me.data ? (
+          <div className="flex flex-col divide-y divide-divider">
+            <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
+            <Fact label="Email" value={me.data.email ?? "No email on file"} />
+            {methods !== "" && <Fact label="Signed in with" value={methods} />}
+          </div>
+        ) : me.isError ? (
+          <ErrorState
+            error={me.error}
+            what="your account"
+            onRetry={() => void me.refetch()}
+            retrying={me.isFetching}
+          />
+        ) : (
+          <div
+            className="flex flex-col divide-y divide-divider"
+            role="status"
+            aria-label="Loading your account"
+          >
+            {[0, 1, 2].map((key) => (
+              <div key={key} className={ROW}>
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <SkeletonLine size="caption" width="w-16" />
+                  <SkeletonLine size="option" width="w-1/2" />
+                </div>
+                {key === 0 && <Skeleton className="h-touch w-16" />}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="pt-4">
+          <Button variant="secondary" onClick={() => void signOut()}>
+            Sign out
+          </Button>
+        </div>
+      </section>
+      <section aria-labelledby="notifications-title" className="flex flex-col gap-1">
+        <SectionTitle id="notifications-title">Notifications</SectionTitle>
+        <p className="mb-2 max-w-prose text-small text-text-muted">
+          Choose what we tell you about. Messages about your money and your safety always stay on.
+        </p>
+        {notifications.data ? (
+          notifications.data.items.length === 0 ? (
+            <EmptyState title="Nothing to choose yet">
+              The messages we send will be listed here, each with a switch.
+            </EmptyState>
+          ) : (
+            <NotificationChoices items={notifications.data.items} />
+          )
+        ) : notifications.isError ? (
+          <ErrorState
+            error={notifications.error}
+            what="your notification choices"
+            onRetry={() => void notifications.refetch()}
+            retrying={notifications.isFetching}
+          />
+        ) : (
+          <div
+            className="flex flex-col divide-y divide-divider"
+            role="status"
+            aria-label="Loading your notification choices"
+          >
+            {[0, 1, 2, 3, 4].map((key) => (
+              <div key={key} className={ROW}>
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <SkeletonLine size="option" width="w-2/3" />
+                </div>
+                <Skeleton className="h-7 w-12" />
+                <Skeleton className="h-7 w-12" />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </Page>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={ROW}>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-caption text-text-muted">{label}</p>
+        <p className="truncate text-option font-semibold" title={value}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}

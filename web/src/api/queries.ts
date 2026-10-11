@@ -1,4 +1,6 @@
 import {
+  MutationCache,
+  QueryCache,
   QueryClient,
   useInfiniteQuery,
   useQuery,
@@ -7,9 +9,11 @@ import {
 } from "@tanstack/react-query";
 import { api, data } from "./client";
 import { ApiError } from "./errors";
+import { sendToInviteStep } from "./invite-required";
 import type { components } from "./schema.gen";
 
 export type Session = components["schemas"]["SessionResponse"];
+type Me = components["schemas"]["MeResponse"];
 export type Wallet = components["schemas"]["WalletResponse"];
 export type HistoryEntry = components["schemas"]["HistoryEntry"];
 export type Output = components["schemas"]["Output"];
@@ -28,7 +32,16 @@ export type UploadInfo = components["schemas"]["UploadResponse"];
  * - Money is only ever what the server last returned: nothing is updated optimistically.
  */
 export function createQueryClient(): QueryClient {
-  const client = new QueryClient({
+  // An account the server says has no invite code yet is waiting, whatever was cached about it; the invite step
+  // then stays, rather than sending it back to where it came from.
+  const onError = (error: unknown) => {
+    if (sendToInviteStep(error)) {
+      client.setQueryData<Me>(keys.me, (me) => (me ? { ...me, status: "waiting" } : me));
+    }
+  };
+  const client: QueryClient = new QueryClient({
+    queryCache: new QueryCache({ onError }),
+    mutationCache: new MutationCache({ onError }),
     defaultOptions: {
       queries: {
         staleTime: 30_000,

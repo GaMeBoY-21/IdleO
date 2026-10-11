@@ -11,34 +11,19 @@ import org.jspecify.annotations.Nullable;
  * holds when it starts.
  */
 enum NotificationKind {
-    SESSION_COMPLETED("session-completed", "A session finished, with the charge and a link to the outputs", null),
-    SESSION_FAILED("session-failed", "A session failed, and why", null),
-    STOPPED_FOR_CREDIT(
-            "stopped-for-credit",
-            "A session stopped because credit ran out or the spending cap was reached",
-            "A stopped session is about your money, so you're always told."),
-    LOW_CREDIT("low-credit", "Credit is low: under 10 minutes left on a running session", null),
-    NO_HOST_FREE("no-host-free", "No machine was free for your session", null),
-    HOST_LOST(
-            "host-lost",
-            "The machine running your session was lost, and what happened next",
-            "A lost machine changes your session and your charges, so you're always told."),
-    OUTPUTS_EXPIRING("outputs-expiring", "Your outputs are about to expire", null),
-    MACHINE_OFFLINE(
-            "machine-offline",
-            "Your machine went offline during a session",
-            "Your machine going offline affects a renter's work and your earnings, so you're always told."),
-    AGENT_UPDATE_NEEDED("agent-update-needed", "Your host software needs an update", null),
-    WEEKLY_EARNINGS("weekly-earnings", "Your weekly earnings summary", null),
-    PAYOUT("payout", "A payout was sent or failed", "A payout is your money, so you're always told."),
-    TOP_UP_CONFIRMED(
-            "top-up-confirmed",
-            "A top-up was confirmed, with the receipt",
-            "A top-up is your money, so you're always told."),
-    NEW_DEVICE_SIGN_IN(
-            "new-device-sign-in",
-            "Someone signed in to your account from a new device",
-            "It protects your account, so you're always told.");
+    SESSION_COMPLETED("session-completed", "Session finished", null),
+    SESSION_FAILED("session-failed", "Session failed", null),
+    STOPPED_FOR_CREDIT("stopped-for-credit", "Stopped for credit or cap", "Stopped sessions are about your money."),
+    LOW_CREDIT("low-credit", "Low credit", null),
+    NO_HOST_FREE("no-host-free", "No GPU free", null),
+    HOST_LOST("host-lost", "Host lost", "A lost host changes your charges."),
+    OUTPUTS_EXPIRING("outputs-expiring", "Outputs expiring soon", null),
+    MACHINE_OFFLINE("machine-offline", "Machine offline", "It affects a renter and your earnings."),
+    AGENT_UPDATE_NEEDED("agent-update-needed", "Host update needed", null),
+    WEEKLY_EARNINGS("weekly-earnings", "Weekly earnings", null),
+    PAYOUT("payout", "Payout sent or failed", "Payouts are your money."),
+    TOP_UP_CONFIRMED("top-up-confirmed", "Top-up confirmed", "Top-ups are your money."),
+    NEW_DEVICE_SIGN_IN("new-device-sign-in", "New device sign-in", "It protects your account.");
 
     private final String slug;
     private final String title;

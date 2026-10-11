@@ -1,4 +1,4 @@
-import { Check, FolderOpen, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { Check, FolderOpen, LogOut, Monitor, Moon, Sun, User } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { Link } from "wouter";
@@ -43,6 +43,12 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
             </DropdownMenu.Label>
           )}
           <DropdownMenu.Separator className="my-1 h-px bg-divider" />
+          <DropdownMenu.Item asChild className={item}>
+            <Link href="/account/">
+              <User aria-hidden="true" className="size-5" strokeWidth={1.75} />
+              Account
+            </Link>
+          </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={item}>
             <Link href="/files/">
               <FolderOpen aria-hidden="true" className="size-5" strokeWidth={1.75} />

@@ -48,6 +48,10 @@ const screens = {
   "/hosting/add/": screen(() => import("@/features/hosting/AddMachine").then((m) => m.AddMachine)),
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
+  "/invite/": screen(() => import("@/features/invite/Invite").then((m) => m.Invite)),
+  "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
+  "/terms/": screen(() => import("@/features/legal/Legal").then((m) => m.Terms)),
+  "/privacy/": screen(() => import("@/features/legal/Legal").then((m) => m.Privacy)),
 };
 
 /** Loads the code of the screen at `path`, if it has its own; resolves at once for the others. */
@@ -69,10 +73,14 @@ const Earnings = screens["/hosting/earnings/"].Screen;
 const AddMachine = screens["/hosting/add/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
+const Invite = screens["/invite/"].Screen;
+const Account = screens["/account/"].Screen;
+const Terms = screens["/terms/"].Screen;
+const Privacy = screens["/privacy/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -100,6 +108,7 @@ function SignedInArea() {
             <Route path="/sessions/" component={AllSessions} />
             <Route path="/book/" component={Book} />
             <Route path="/files/" component={MyFiles} />
+            <Route path="/account/" component={Account} />
             <Route path="/hosting/" component={Hosting} />
             <Route path="/hosting/machine/" component={Machine} />
             <Route path="/hosting/price/" component={Price} />
@@ -140,6 +149,21 @@ export function App() {
       <Route path="/welcome/">
         <SignedOutScreen>
           <Welcome />
+        </SignedOutScreen>
+      </Route>
+      <Route path="/invite/">
+        <SignedOutScreen>
+          <Invite />
+        </SignedOutScreen>
+      </Route>
+      <Route path="/terms/">
+        <SignedOutScreen>
+          <Terms />
+        </SignedOutScreen>
+      </Route>
+      <Route path="/privacy/">
+        <SignedOutScreen>
+          <Privacy />
         </SignedOutScreen>
       </Route>
       <Route path={SIGNED_IN}>
