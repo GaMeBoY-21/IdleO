@@ -18,7 +18,7 @@ export async function signIn(page: Page, user: string, path = "/"): Promise<void
 
 /** How the fake API answers one path: data, a status with a problem detail, or nothing (held, to show loading). */
 export type Answer =
-  | { json: unknown; status?: number }
+  | { json: unknown; status?: number; etag?: string }
   | { status: number; problem?: string; errors?: { field: string; detail: string }[] }
   | { events: string }
   | "hold"
@@ -26,7 +26,7 @@ export type Answer =
       call: number,
       request: PlaywrightRequest,
     ) =>
-      | { json: unknown; status?: number }
+      | { json: unknown; status?: number; etag?: string }
       | { status: number; problem?: string }
       | { events: string }
       | "hold");
@@ -68,7 +68,11 @@ export async function fakeApi(
       }
     }
     if (answer && "json" in answer) {
-      await route.fulfill({ status: answer.status ?? 200, json: answer.json, headers: cors() });
+      await route.fulfill({
+        status: answer.status ?? 200,
+        json: answer.json,
+        headers: { ...cors(), ...(answer.etag ? { ETag: answer.etag } : {}) },
+      });
     } else if (answer && "events" in answer) {
       await route.fulfill({
         status: 200,

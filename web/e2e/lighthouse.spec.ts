@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { API, signIn } from "./support";
 
 /**
- * The performance and accessibility budgets (ADR 0018, web/README.md), on sign-in, Home, Book and the session screen. Lighthouse
+ * The performance and accessibility budgets (ADR 0018, web/README.md), on sign-in, Home, Book, the session screen, the Hosting tab, a machine and Account. Lighthouse
  * runs in the same browser profile the test signed in with (sign-in lives in IndexedDB, so Lighthouse's own tab is
  * signed in too, with storage reset off). Each screen is measured three times on the mobile profile, each from a cold
  * cache, and `lhci assert` holds the median of the three to the budgets in lighthouserc.json: one run alone carries
@@ -55,6 +55,8 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       // An owner's two screens (ADR 0023): the Hosting tab, and one of its machines.
       ["hosting", true],
       ["machine", true],
+      // The account, with its notification choices (ADR 0024).
+      ["account", true],
     ] as const) {
       if (name === "home") {
         await signIn(page, user);
@@ -95,6 +97,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         "session-link": `/session/?id=${sessionId}`,
         hosting: "/hosting/",
         machine: `/hosting/machine/?id=${machineId}`,
+        account: "/account/",
       }[name];
       for (const formFactor of ["mobile", "desktop"] as const) {
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.

@@ -55,6 +55,7 @@ export default defineConfig({
       use: { ...laptop, colorScheme: "dark" },
     },
     { name: "journey", testMatch: "journey.spec.ts", use: { ...phone }, timeout: 240_000 },
+    { name: "account-journey", testMatch: "account-journey.spec.ts", use: { ...phone }, timeout: 120_000 },
     { name: "hosting-journey", testMatch: "hosting-journey.spec.ts", use: { ...laptop }, timeout: 480_000 },
     {
       name: "recording",

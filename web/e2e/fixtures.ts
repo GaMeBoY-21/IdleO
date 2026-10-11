@@ -26,12 +26,46 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-export const me = (createdAt = "2026-09-01T10:00:00Z") => ({
+export const me = (createdAt = "2026-09-01T10:00:00Z", status = "active") => ({
   id: "01a11300-0000-7000-8000-00000000000a",
   email: "asha@example.com",
   displayName: "Asha",
-  status: "active",
+  status,
+  signInMethods: ["google"],
   createdAt,
+});
+
+/** An account that hasn't entered an invite code yet (ADR 0024). */
+export const meWaiting = () => me("2026-10-07T06:30:00Z", "waiting");
+
+type Notification = Schemas["NotificationItem"];
+
+const choice = (kind: string, title: string, lockedReason?: string): Notification => ({
+  kind,
+  title,
+  locked: lockedReason !== undefined,
+  lockedReason: lockedReason ?? null,
+  email: true,
+  inApp: true,
+});
+
+/** The notification kinds as the server lists them: every one on, the money and safety ones locked. */
+export const notificationChoices = (): { items: Notification[] } => ({
+  items: [
+    choice("session-completed", "Session finished"),
+    choice("session-failed", "Session failed"),
+    choice("stopped-for-credit", "Stopped for credit or cap", "Stopped sessions are about your money."),
+    choice("low-credit", "Low credit"),
+    choice("no-host-free", "No GPU free"),
+    choice("host-lost", "Host lost", "A lost host changes your charges."),
+    choice("outputs-expiring", "Outputs expiring soon"),
+    choice("machine-offline", "Machine offline", "It affects a renter and your earnings."),
+    choice("agent-update-needed", "Host update needed"),
+    choice("weekly-earnings", "Weekly earnings"),
+    choice("payout", "Payout sent or failed", "Payouts are your money."),
+    choice("top-up-confirmed", "Top-up confirmed", "Top-ups are your money."),
+    choice("new-device-sign-in", "New device sign-in", "It protects your account."),
+  ],
 });
 
 const IMAGE = "registry.example/idleo@sha256:0";

@@ -40,6 +40,7 @@ const screens = [
     ready: () => "Fine-tuning · 18 min",
   },
   { name: "earnings", path: "/hosting/earnings/", ready: () => "Given back for lost time" },
+  { name: "account", path: "/account/", ready: () => "New device sign-in" },
   {
     name: "adding a machine",
     path: `/hosting/add/?id=${hosting.hostNew.id}`,
@@ -62,6 +63,7 @@ for (const screen of screens) {
     const routes = {
       ...hostingApi(),
       "/v1/me": { json: data.me() },
+      "/v1/me/notifications": { json: data.notificationChoices() },
       "/v1/templates": { json: data.templates },
       "/v1/wallet": { json: data.asha.wallet },
       "/v1/availability": { json: data.availability },

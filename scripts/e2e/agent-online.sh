@@ -118,6 +118,17 @@ ops() {
       ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="$*"
   ) >>"$out/ops.log" 2>&1
 }
+# Access is by invitation (ADR 0024): the run's accounts are activated with codes an operator made, as a person
+# would enter one. An account that's already active is left alone, so this also works with E2E_INVITE_ONLY=false.
+invite_codes=()
+invite_next=0
+activate_user() {
+  local code="${invite_codes[$invite_next]:-}"
+  [[ -n "$code" ]] || fail "no invite code left for the run's accounts"
+  invite_next=$((invite_next + 1))
+  curl -sf -X POST "$api/v1/me/activate" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
+    -d "{\"code\":\"$code\"}" >/dev/null || fail "an account couldn't be activated with its invite code"
+}
 await_state() {
   local session=$1 wanted=$2 limit=$3 state=""
   local deadline=$((SECONDS + limit))
@@ -390,8 +401,9 @@ set -m
   export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
   # The web app's origin, which may call the API from a browser (ADR 0018).
   export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
-  # Signing in needs no invite code, except where a run asks for one (E2E_INVITE_ONLY=true).
-  export IDENTITY_INVITE_ONLY="${E2E_INVITE_ONLY:-false}"
+  # Access is by invitation, as in production (ADR 0024): the run's accounts are activated with codes below.
+  # E2E_INVITE_ONLY=false lets anyone in, to look at the stack by hand without a code.
+  export IDENTITY_INVITE_ONLY="${E2E_INVITE_ONLY:-true}"
   # The smoke test as the development runner runs it: 20 s, a checkpoint every 5 s (ADR 0016).
   export SESSIONS_TEMPLATES_CATALOG="file:$root/templates/development.yaml"
   # A short lease, renewed every 3 s; a lost host counts as lost 2 s after it ends.
@@ -430,6 +442,15 @@ token="$(curl -sf -X POST "$sign_in/token" \
   -d grant_type=client_credentials -d "client_id=$user" -d client_secret=unused -d scope=openid |
   json_field access_token)"
 [[ -n "$token" ]] || fail "no token from the development sign-in server"
+
+# 3a. Invite codes (docs/runbooks/invites.md): one for each account the run makes, and two spare for the web
+#     journey that signs in as a new person and enters one.
+log "making invite codes for the run's accounts"
+ops create-invites --count 9 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 9))
+((${#invite_codes[@]} == 9)) || fail "create-invites didn't print 9 codes; see private/e2e/ops.log"
+export E2E_INVITE_CODE="${invite_codes[7]}"
+activate_user "$token"
 
 # 3b. Browsers PUT upload parts straight to storage (ADR 0019): storage answers the web app's preflight, and
 #     no one else's.
@@ -572,6 +593,7 @@ if $keep_running; then
     -d grant_type=client_credentials -d "client_id=$account" -d client_secret=unused -d scope=openid |
     json_field access_token)"
   [[ -n "$account_token" ]] || fail "no token for $account"
+  activate_user "$account_token"
   account_id="$(token="$account_token" api_get /v1/me | json_get .id)"
   if [[ "$(token="$account_token" api_get /v1/wallet | json_get .availablePaise)" == 0 ]]; then
     ops grant-credits --user "$account_id" --paise 50000 --reason "'Local stack credit'" --key "local-$account_id" ||
@@ -607,6 +629,7 @@ token_b="$(curl -sf -X POST "$sign_in/token" \
   -d grant_type=client_credentials -d "client_id=$user-b" -d client_secret=unused -d scope=openid |
   json_field access_token)"
 [[ -n "$token_b" ]] || fail "no token for the second renter"
+activate_user "$token_b"
 user_b_id="$(token="$token_b" api_get /v1/me | json_get .id)"
 setup_started="$(now_ms)"
 # The web journey's renter (ADR 0018): created by a first request with the same invented identity the
@@ -616,6 +639,7 @@ web_token="$(curl -sf -X POST "$sign_in/token" \
   -d grant_type=client_credentials -d "client_id=$web_user" -d client_secret=unused -d scope=openid |
   json_field access_token)"
 [[ -n "$web_token" ]] || fail "no token for the web journey's renter"
+activate_user "$web_token"
 web_user_id="$(token="$web_token" api_get /v1/me | json_get .id)"
 renters=("$web_user_id")
 if $web_only; then
@@ -624,6 +648,7 @@ if $web_only; then
     -d grant_type=client_credentials -d "client_id=$user-lighthouse" -d client_secret=unused -d scope=openid |
     json_field access_token)"
   [[ -n "$lighthouse_token" ]] || fail "no token for Lighthouse's renter"
+  activate_user "$lighthouse_token"
   renters+=("$(token="$lighthouse_token" api_get /v1/me | json_get .id)")
 fi
 if ! $web_only; then
@@ -635,6 +660,8 @@ if ! $web_only; then
     -d grant_type=client_credentials -d "client_id=$user-broke" -d client_secret=unused -d scope=openid |
     json_field access_token)"
   [[ -n "$booking_token" && -n "$broke_token" ]] || fail "no tokens for the booking contract's renters"
+  activate_user "$booking_token"
+  activate_user "$broke_token"
   booking_user_id="$(token="$booking_token" api_get /v1/me | json_get .id)"
   token="$broke_token" api_get /v1/me >/dev/null
   renters+=("$user_id" "$user_b_id" "$booking_user_id")
@@ -1179,6 +1206,20 @@ scenario_hosting_web() {
 }
 scenario_hosting_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-hosting.txt"
+
+# Access by invitation and the account in a browser (web/e2e/account-journey.spec.ts, ADR 0024): a new person signs in
+# and is asked for a code, a wrong one is refused, the script's spare one lets them in, a code works once, and Account
+# saves a name and a choice that survive a reload, shows the locked kinds locked, and signs out.
+scenario_account_web() {
+  E2E_WEB_USER="$web_user" SKIP_VISUAL=1 \
+    web_test --project=account-journey --reporter=line >>"$out/account-journey.log" 2>&1 ||
+    fail "the account journeys failed; see private/e2e/account-journey.log"
+  note "account journeys: $(grep -Eo '[0-9]+ passed' "$out/account-journey.log" | tail -1) (first sign-in asks for an invite code, a wrong code is refused, the right one lets the person in, a code works once; Account saves a name and a choice across a reload, shows the money and safety kinds locked, and signs out): PASS"
+}
+scenario="account"
+: >"$out/summary-account.txt"
+scenario_account_web
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-account.txt"
 fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.
