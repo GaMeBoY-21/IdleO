@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -30,11 +31,30 @@ class SignInAuthenticationConverter implements Converter<Jwt, AbstractAuthentica
                 token.getClaimAsString("email"),
                 Boolean.TRUE.equals(token.getClaimAsBoolean("email_verified")),
                 token.getClaimAsString("name"));
+        var methods = signInMethods(token);
         return switch (signIn.signIn(claims)) {
-            case SignInOutcome.Active active -> IdentityAuthenticationToken.allowed(new CurrentUser(active.userId()));
+            case SignInOutcome.Active active ->
+                IdentityAuthenticationToken.allowed(new CurrentUser(active.userId()), methods);
+            case SignInOutcome.Waiting waiting ->
+                IdentityAuthenticationToken.waiting(new CurrentUser(waiting.userId()), methods);
             case SignInOutcome.Suspended _ -> IdentityAuthenticationToken.denied(Problem.ACCOUNT_SUSPENDED, SUSPENDED);
             case SignInOutcome.EmailNotVerified _ ->
                 IdentityAuthenticationToken.denied(Problem.EMAIL_NOT_VERIFIED, EMAIL_NOT_VERIFIED);
+        };
+    }
+
+    /**
+     * How this sign-in happened, from Identity Platform's {@code firebase.sign_in_provider} claim: Google, or
+     * an email link (the provider id Identity Platform gives it is {@code password}; we have no passwords).
+     * Any other provider is left out rather than guessed.
+     */
+    static List<String> signInMethods(Jwt token) {
+        var firebase = token.getClaimAsMap("firebase");
+        var provider = firebase == null ? null : firebase.get("sign_in_provider");
+        return switch (String.valueOf(provider)) {
+            case "google.com" -> List.of("google");
+            case "password" -> List.of("email-link");
+            default -> List.of();
         };
     }
 }

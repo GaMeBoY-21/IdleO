@@ -19,6 +19,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>A new account needs a verified email.
  *   <li>A new (issuer, subject) is never linked to an existing user by email; that's how accounts get
  *       taken over. Linking happens only in the provider move's controlled migration (ADR 0009).
+ *   <li>While access is by invitation ({@code identity.invite-only}) a new user is {@code waiting}, until an
+ *       invite code activates them.
  *   <li>{@code last_sign_in_at} is written at most once a minute per identity, so requests aren't
  *       writes.
  * </ul>
@@ -33,9 +35,16 @@ class SignInService {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final IdentityProperties properties;
 
     SignInService(
-            JdbcClient jdbc, UserRepository users, TransactionTemplate transactions, IdGenerator ids, Clock clock) {
+            JdbcClient jdbc,
+            UserRepository users,
+            TransactionTemplate transactions,
+            IdGenerator ids,
+            Clock clock,
+            IdentityProperties properties) {
+        this.properties = properties;
         this.jdbc = jdbc;
         this.users = users;
         this.transactions = transactions;
@@ -54,7 +63,9 @@ class SignInService {
         }
         var created = create(claims);
         if (created.isPresent()) {
-            return new SignInOutcome.Active(created.get());
+            return properties.inviteOnly()
+                    ? new SignInOutcome.Waiting(created.get())
+                    : new SignInOutcome.Active(created.get());
         }
         // Another request created this identity first; use theirs.
         return outcome(find(claims).orElseThrow(() -> new IllegalStateException("identity vanished after conflict")));
@@ -64,7 +75,8 @@ class SignInService {
         return transactions.execute(status -> {
             var now = Instant.now(clock);
             var userId = ids.newId();
-            users.save(User.newUser(userId, claims.email(), claims.displayName(), now));
+            var newStatus = properties.inviteOnly() ? UserStatus.WAITING : UserStatus.ACTIVE;
+            users.save(User.newUser(userId, newStatus, claims.email(), claims.displayName(), now));
             int inserted = jdbc.sql("""
                             insert into identity.external_identities
                                 (id, user_id, issuer, subject, created_at, last_sign_in_at)
@@ -120,6 +132,7 @@ class SignInService {
 
     private static SignInOutcome outcome(KnownIdentity identity) {
         return switch (identity.status()) {
+            case WAITING -> new SignInOutcome.Waiting(identity.userId());
             case ACTIVE -> new SignInOutcome.Active(identity.userId());
             case SUSPENDED -> new SignInOutcome.Suspended(identity.userId());
         };

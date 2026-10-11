@@ -19,6 +19,10 @@ spring:
     server:
       port: 0
 
+# Tests that aren't about invites sign people in without an invite code (ADR 0024).
+identity:
+  invite-only: false
+
 # Short enough to watch real Valkey expiry and the hello timeout in tests.
 agentgateway:
   allow-development-hosts: true

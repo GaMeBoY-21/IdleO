@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -10,7 +11,9 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 /**
  * The result of a verified ID token. It holds our user, never the token or the provider's ids. A
  * token can be valid while access is still denied (a suspended account, an unverified email); the
- * denial is then the reason, written for the client, with its problem type.
+ * denial is then the reason, written for the client, with its problem type. A waiting user (no invite
+ * code yet) is let through and then limited to their own account by {@link
+ * IdentitySecurityConfiguration}.
  */
 final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
 
@@ -21,20 +24,39 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
 
     private final @Nullable CurrentUser user;
     private final @Nullable Denial denial;
+    private final boolean waiting;
+    private final ArrayList<String> signInMethods;
 
-    private IdentityAuthenticationToken(@Nullable CurrentUser user, @Nullable Denial denial) {
+    private IdentityAuthenticationToken(
+            @Nullable CurrentUser user, @Nullable Denial denial, boolean waiting, List<String> signInMethods) {
         super(List.of());
         this.user = user;
         this.denial = denial;
+        this.waiting = waiting;
+        this.signInMethods = new ArrayList<>(signInMethods);
         setAuthenticated(true);
     }
 
-    static IdentityAuthenticationToken allowed(CurrentUser user) {
-        return new IdentityAuthenticationToken(user, null);
+    /** An active user, signed in with these methods ({@code google} or {@code email-link}). */
+    static IdentityAuthenticationToken allowed(CurrentUser user, List<String> signInMethods) {
+        return new IdentityAuthenticationToken(user, null, false, signInMethods);
+    }
+
+    /** A user who hasn't entered an invite code yet: they may only reach their own account. */
+    static IdentityAuthenticationToken waiting(CurrentUser user, List<String> signInMethods) {
+        return new IdentityAuthenticationToken(user, null, true, signInMethods);
     }
 
     static IdentityAuthenticationToken denied(Problem problem, String reason) {
-        return new IdentityAuthenticationToken(null, new Denial(problem, reason));
+        return new IdentityAuthenticationToken(null, new Denial(problem, reason), false, List.of());
+    }
+
+    boolean isWaiting() {
+        return waiting;
+    }
+
+    List<String> signInMethods() {
+        return List.copyOf(signInMethods);
     }
 
     Optional<Denial> denial() {

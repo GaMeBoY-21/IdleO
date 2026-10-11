@@ -390,6 +390,8 @@ set -m
   export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
   # The web app's origin, which may call the API from a browser (ADR 0018).
   export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
+  # Signing in needs no invite code, except where a run asks for one (E2E_INVITE_ONLY=true).
+  export IDENTITY_INVITE_ONLY="${E2E_INVITE_ONLY:-false}"
   # The smoke test as the development runner runs it: 20 s, a checkpoint every 5 s (ADR 0016).
   export SESSIONS_TEMPLATES_CATALOG="file:$root/templates/development.yaml"
   # A short lease, renewed every 3 s; a lost host counts as lost 2 s after it ends.

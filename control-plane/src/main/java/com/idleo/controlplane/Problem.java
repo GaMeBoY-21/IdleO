@@ -42,6 +42,22 @@ public enum Problem {
             HttpStatus.FORBIDDEN,
             "Email not verified",
             "The sign-in's email address isn't verified yet."),
+    INVITE_REQUIRED(
+            "invite-required",
+            HttpStatus.FORBIDDEN,
+            "Invite code required",
+            "Access is by invitation. Until the account is activated with an invite code, only reading and "
+                    + "changing the account itself and activating it are allowed."),
+    INVITE_INVALID(
+            "invite-invalid",
+            HttpStatus.BAD_REQUEST,
+            "Invite code not accepted",
+            "The code isn't one that can be used: it's wrong, already used or expired. The response never says which."),
+    TOO_MANY_ATTEMPTS(
+            "too-many-attempts",
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Too many attempts",
+            "Too many invite codes were tried in the last hour. Wait, then try again."),
     ACCESS_DENIED("access-denied", HttpStatus.FORBIDDEN, "Access denied", "The caller may not do this."),
     NOT_FOUND(
             "not-found",

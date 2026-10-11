@@ -11,6 +11,9 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/unauthenticated` | 401 | Sign-in required | No bearer token was sent, or it's invalid or has expired. Sign in again and retry. |
 | `/problems/account-suspended` | 403 | Account suspended | The account is suspended, so nothing can be done with it until it's reinstated. |
 | `/problems/email-not-verified` | 403 | Email not verified | The sign-in's email address isn't verified yet. |
+| `/problems/invite-required` | 403 | Invite code required | Access is by invitation. Until the account is activated with an invite code, only reading and changing the account itself and activating it are allowed. |
+| `/problems/invite-invalid` | 400 | Invite code not accepted | The code isn't one that can be used: it's wrong, already used or expired. The response never says which. |
+| `/problems/too-many-attempts` | 429 | Too many attempts | Too many invite codes were tried in the last hour. Wait, then try again. |
 | `/problems/access-denied` | 403 | Access denied | The caller may not do this. |
 | `/problems/not-found` | 404 | Not found | There's nothing at this address, or it belongs to someone else. |
 | `/problems/method-not-allowed` | 405 | Method not allowed | This address doesn't take that HTTP method. |

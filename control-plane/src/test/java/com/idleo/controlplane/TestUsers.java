@@ -3,6 +3,9 @@ package com.idleo.controlplane;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.UUID;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.json.JsonMapper;
@@ -18,7 +21,17 @@ public final class TestUsers {
     public record TestUser(String bearer, UUID id) {}
 
     public static TestUser signUp(MockMvc mvc) throws Exception {
-        var bearer = "Bearer " + TestIssuers.get().validToken();
+        return signUp(mvc, TestIssuers.get().validToken());
+    }
+
+    /** A user whose token outlives {@code lifetime}, for tests that move the clock forward. */
+    public static TestUser signUpLasting(MockMvc mvc, Duration lifetime) throws Exception {
+        var expires = Date.from(Instant.now().plus(lifetime));
+        return signUp(mvc, TestIssuers.get().token(claims -> claims.expirationTime(expires)));
+    }
+
+    private static TestUser signUp(MockMvc mvc, String token) throws Exception {
+        var bearer = "Bearer " + token;
         var body = mvc.perform(get("/v1/me").header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andReturn()

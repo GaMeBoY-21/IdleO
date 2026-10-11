@@ -19,8 +19,8 @@ record User(
         Instant updatedAt,
         @Version @Nullable Long version) {
 
-    static User newUser(UUID id, @Nullable String email, @Nullable String displayName, Instant now) {
-        return new User(id, UserStatus.ACTIVE.dbValue(), email, true, displayName, now, now, null);
+    static User newUser(UUID id, UserStatus status, @Nullable String email, @Nullable String displayName, Instant now) {
+        return new User(id, status.dbValue(), email, true, displayName, now, now, null);
     }
 
     UserStatus userStatus() {

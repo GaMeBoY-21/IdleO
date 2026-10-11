@@ -13,14 +13,17 @@ import jakarta.validation.constraints.Size;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,28 +34,51 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/me")
 class MeController {
 
+    static final String INVALID = "That code isn't one we can accept.";
+    static final String TOO_MANY = "Too many codes were tried. Wait an hour, then try again.";
+
     private final UserRepository users;
+    private final InviteService invites;
     private final Clock clock;
 
-    MeController(UserRepository users, Clock clock) {
+    MeController(UserRepository users, InviteService invites, Clock clock) {
         this.users = users;
+        this.invites = invites;
         this.clock = clock;
     }
 
+    /**
+     * The account. {@code status} is {@code waiting} (no invite code yet), {@code active} or {@code
+     * suspended}; {@code signInMethods} says how this token signed in: {@code google} or {@code email-link}.
+     */
     record MeResponse(
-            UUID id, @Nullable String email, @Nullable String displayName, String status, Instant createdAt) {
+            UUID id,
+            @Nullable String email,
+            @Nullable String displayName,
+            String status,
+            List<String> signInMethods,
+            Instant createdAt) {
 
-        static MeResponse of(User user) {
+        static MeResponse of(User user, Authentication authentication) {
             return new MeResponse(
                     user.id(),
                     user.email(),
                     user.displayName(),
                     user.userStatus().dbValue(),
+                    authentication instanceof IdentityAuthenticationToken token ? token.signInMethods() : List.of(),
                     user.createdAt());
         }
     }
 
-    record UpdateMeRequest(@NotBlank @Size(max = 100) String displayName) {}
+    /** The display name is 1 to 60 characters once the spaces around it are removed. */
+    record ActivateRequest(@NotBlank @Size(max = 64) String code) {}
+
+    record UpdateMeRequest(@NotBlank @Size(max = 60) String displayName) {
+
+        UpdateMeRequest {
+            displayName = displayName == null ? null : displayName.strip();
+        }
+    }
 
     @GetMapping
     @ApiResponse(
@@ -64,9 +90,9 @@ class MeController {
                             description = "Send it back as If-Match to change the user",
                             schema = @Schema(type = "string")),
             content = @Content(schema = @Schema(implementation = MeResponse.class)))
-    ResponseEntity<MeResponse> get(@AuthenticationPrincipal CurrentUser currentUser) {
+    ResponseEntity<MeResponse> get(@AuthenticationPrincipal CurrentUser currentUser, Authentication authentication) {
         var user = load(currentUser);
-        return ResponseEntity.ok().eTag(etag(user)).body(MeResponse.of(user));
+        return ResponseEntity.ok().eTag(etag(user)).body(MeResponse.of(user, authentication));
     }
 
     @PatchMapping
@@ -81,6 +107,7 @@ class MeController {
             content = @Content(schema = @Schema(implementation = MeResponse.class)))
     ResponseEntity<MeResponse> update(
             @AuthenticationPrincipal CurrentUser currentUser,
+            Authentication authentication,
             @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) @Nullable String ifMatch,
             @Valid @RequestBody UpdateMeRequest request) {
         if (ifMatch == null || ifMatch.isBlank() || ifMatch.trim().equals("*")) {
@@ -91,11 +118,39 @@ class MeController {
             throw stale();
         }
         try {
-            var saved = users.save(user.withDisplayName(request.displayName().strip(), Instant.now(clock)));
-            return ResponseEntity.ok().eTag(etag(saved)).body(MeResponse.of(saved));
+            var saved = users.save(user.withDisplayName(request.displayName(), Instant.now(clock)));
+            return ResponseEntity.ok().eTag(etag(saved)).body(MeResponse.of(saved, authentication));
         } catch (OptimisticLockingFailureException concurrentChange) {
             throw stale();
         }
+    }
+
+    /**
+     * Activates a waiting account with an invite code (ADR 0024). 200 with the active account. A wrong, used or
+     * expired code is 400 {@code invite-invalid}, and the answer never says which. An account that's already
+     * active is answered 200 without using the code.
+     */
+    @PostMapping("/activate")
+    @ApiResponse(
+            responseCode = "200",
+            description = "The activated account",
+            headers =
+                    @Header(
+                            name = "ETag",
+                            description = "The new version, for the next If-Match",
+                            schema = @Schema(type = "string")),
+            content = @Content(schema = @Schema(implementation = MeResponse.class)))
+    ResponseEntity<MeResponse> activate(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            Authentication authentication,
+            @Valid @RequestBody ActivateRequest request) {
+        switch (invites.activate(currentUser.id(), request.code())) {
+            case INVALID -> throw ApiProblem.of(Problem.INVITE_INVALID, INVALID);
+            case TOO_MANY_ATTEMPTS -> throw ApiProblem.of(Problem.TOO_MANY_ATTEMPTS, TOO_MANY);
+            case ACTIVATED, ALREADY_ACTIVE -> {}
+        }
+        var user = load(currentUser);
+        return ResponseEntity.ok().eTag(etag(user)).body(MeResponse.of(user, authentication));
     }
 
     private User load(CurrentUser currentUser) {

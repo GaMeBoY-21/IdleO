@@ -6,6 +6,8 @@ sealed interface SignInOutcome {
 
     record Active(UUID userId) implements SignInOutcome {}
 
+    record Waiting(UUID userId) implements SignInOutcome {}
+
     record Suspended(UUID userId) implements SignInOutcome {}
 
     record EmailNotVerified() implements SignInOutcome {}

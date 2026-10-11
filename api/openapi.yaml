@@ -486,6 +486,36 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - me
+  /v1/me/activate:
+    post:
+      operationId: meActivate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+          description: The activated account
+          headers:
+            ETag:
+              description: "The new version, for the next If-Match"
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - me
   /v1/session-quotes:
     post:
       operationId: quoteCreate
@@ -1019,6 +1049,15 @@ paths:
       - wallet
 components:
   schemas:
+    ActivateRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 64
+          minLength: 0
+      required:
+      - code
     Availability:
       type: object
       properties:
@@ -1555,11 +1594,16 @@ components:
         id:
           type: string
           format: uuid
+        signInMethods:
+          type: array
+          items:
+            type: string
         status:
           type: string
       required:
       - createdAt
       - id
+      - signInMethods
       - status
     Output:
       type: object
@@ -1777,6 +1821,9 @@ components:
           - /problems/unauthenticated
           - /problems/account-suspended
           - /problems/email-not-verified
+          - /problems/invite-required
+          - /problems/invite-invalid
+          - /problems/too-many-attempts
           - /problems/access-denied
           - /problems/not-found
           - /problems/method-not-allowed
@@ -2357,7 +2404,7 @@ components:
       properties:
         displayName:
           type: string
-          maxLength: 100
+          maxLength: 60
           minLength: 0
       required:
       - displayName

@@ -140,6 +140,45 @@ class CreditCommandProcessTests {
     }
 
     @Test
+    void invitesArePrintedOnceAndStoredOnlyAsHashes() throws Exception {
+        var made = run("create-invites", "--count", "3", "--note", "process test", "--expires", "30d");
+        assertThat(made.exitCode()).as(made.stderr()).isZero();
+        assertThat(made.stdout()).contains("made 3 invite codes for \"process test\", each valid for 30 days");
+        assertNoServerStarted(made);
+        var codes = made.stdout()
+                .lines()
+                .map(String::strip)
+                .filter(line -> line.matches("IDLE-[A-Z0-9]{4}-[A-Z0-9]{4}"))
+                .toList();
+        assertThat(codes).hasSize(3).doesNotHaveDuplicates();
+
+        var jdbc = new JdbcTemplate(
+                new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()));
+        var rows = jdbc.queryForList(
+                "select created_by, note, expires_at > created_at + interval '29 days' as long_enough, "
+                        + "length(code_hash) as hash_bytes from identity.invite_codes where note = 'process test'");
+        assertThat(rows).hasSize(3).allSatisfy(row -> {
+            assertThat(row.get("created_by")).isEqualTo("process-test");
+            assertThat(row.get("long_enough")).isEqualTo(true);
+            assertThat(row.get("hash_bytes")).isEqualTo(32);
+        });
+        var stored = String.join(" ", jdbc.queryForList("select t::text from identity.invite_codes t", String.class));
+        assertThat(codes).noneMatch(code -> stored.contains(code.substring(5)));
+    }
+
+    @Test
+    void invitesRefuseABadCommandLine() throws Exception {
+        assertThat(run("create-invites", "--count", "0", "--note", "x").exitCode())
+                .isEqualTo(2);
+        assertThat(run("create-invites", "--count", "201", "--note", "x").exitCode())
+                .isEqualTo(2);
+        assertThat(run("create-invites", "--count", "1").exitCode()).isEqualTo(2);
+        assertThat(run("create-invites", "--count", "1", "--note", "x", "--expires", "soon")
+                        .exitCode())
+                .isEqualTo(2);
+    }
+
+    @Test
     void theWalletCheckExitsZeroWhenEverythingMatchesAndFourWhenSomethingDoesnt() throws Exception {
         var clean = run("reconcile-wallets");
         assertThat(clean.exitCode()).as(clean.stderr()).isZero();
