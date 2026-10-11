@@ -16,6 +16,12 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "Your account is suspended, so nothing can be booked. Contact us to have it reinstated.",
   "email-not-verified": "Your email address isn't verified yet. Open the link we sent you, then try again.",
   "access-denied": "This account can't do that.",
+  "invite-required": "Enter your invite code to get started.",
+  "invite-invalid":
+    "That code isn't one we can accept. Check it and try again, or ask the person who invited you.",
+  "too-many-attempts": "Too many codes were tried. Wait an hour, then try again.",
+  "notification-locked":
+    "Messages about your money and your safety always stay on, so they can't be turned off.",
   "not-found": "We couldn't find that. It may have been removed, or the link is wrong.",
   "method-not-allowed": "That request isn't one we accept. Reload the page and try again.",
   "not-acceptable": "That request isn't one we accept. Reload the page and try again.",

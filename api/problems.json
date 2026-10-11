@@ -12,6 +12,7 @@
   { "slug": "method-not-allowed", "status": 405, "title": "Method not allowed" },
   { "slug": "not-acceptable", "status": 406, "title": "Not acceptable" },
   { "slug": "unsupported-media-type", "status": 415, "title": "Unsupported media type" },
+  { "slug": "notification-locked", "status": 422, "title": "That notification can't be turned off" },
   { "slug": "idempotency-key-invalid", "status": 400, "title": "Idempotency-Key missing or invalid" },
   { "slug": "request-in-progress", "status": 409, "title": "Request still in progress" },
   { "slug": "idempotency-key-reused", "status": 422, "title": "Idempotency-Key used for another request" },

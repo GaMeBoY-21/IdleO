@@ -516,6 +516,47 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - me
+  /v1/me/notifications:
+    get:
+      operationId: notificationsGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationChoices"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - notifications
+    put:
+      operationId: notificationsPut
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationChoices"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - notifications
   /v1/session-quotes:
     post:
       operationId: quoteCreate
@@ -1514,6 +1555,19 @@ components:
             $ref: "#/components/schemas/HostSession"
       required:
       - sessions
+    KindChoice:
+      type: object
+      properties:
+        email:
+          type: boolean
+        inApp:
+          type: boolean
+        kind:
+          type: string
+      required:
+      - email
+      - inApp
+      - kind
     Listing:
       type: object
       properties:
@@ -1605,6 +1659,38 @@ components:
       - id
       - signInMethods
       - status
+    NotificationChoices:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationItem"
+      required:
+      - items
+    NotificationItem:
+      type: object
+      properties:
+        email:
+          type: boolean
+        inApp:
+          type: boolean
+        kind:
+          type: string
+        locked:
+          type: boolean
+        lockedReason:
+          type:
+          - string
+          - "null"
+        title:
+          type: string
+      required:
+      - email
+      - inApp
+      - kind
+      - locked
+      - title
     Output:
       type: object
       properties:
@@ -1829,6 +1915,7 @@ components:
           - /problems/method-not-allowed
           - /problems/not-acceptable
           - /problems/unsupported-media-type
+          - /problems/notification-locked
           - /problems/idempotency-key-invalid
           - /problems/request-in-progress
           - /problems/idempotency-key-reused
@@ -1915,6 +2002,17 @@ components:
           minLength: 0
       required:
       - name
+    ReplaceRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KindChoice"
+          maxItems: 50
+          minItems: 0
+      required:
+      - items
     ServiceResponse:
       type: object
       properties:

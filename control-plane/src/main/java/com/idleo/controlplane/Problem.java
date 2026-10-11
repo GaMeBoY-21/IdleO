@@ -80,6 +80,13 @@ public enum Problem {
             "Unsupported media type",
             "The body's Content-Type isn't one this address takes; send application/json."),
 
+    NOTIFICATION_LOCKED(
+            "notification-locked",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "That notification can't be turned off",
+            "Messages about money and safety are always on, by email and in the app: stopped for credit or the "
+                    + "spending cap, a host lost, a machine offline, payouts and top-ups, and a new device signing in."),
+
     // Idempotency and versions.
     IDEMPOTENCY_KEY_INVALID(
             "idempotency-key-invalid",
