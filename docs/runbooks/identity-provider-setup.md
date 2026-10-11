@@ -1,8 +1,10 @@
 # Identity provider setup (one time, by Nikki)
 
-**Nothing from this runbook is ever committed.** The project id goes only into your local, gitignored `control-plane/.env`, and into the production environment's variables. Claude Code doesn't touch your Google account; you do every step yourself.
+**Nothing from this runbook is ever committed.** Your project id and the web app's settings go only into two gitignored files, `control-plane/.env` and `web/.env.local`, and later into the production environment's variables. Claude Code doesn't touch your Google account and never asks for a key; you do every step yourself.
 
 The control plane accepts ID tokens from Google Identity Platform, using Google sign-in and passwordless email links, with no passwords (ADR 0009). The Google Cloud console's labels change from time to time; if one below has moved, look for the same setting nearby.
+
+It takes about 20 minutes. At the end you sign in to the local web app with your own Google account (section 10).
 
 ## 1. Create the Google Cloud project
 
@@ -15,40 +17,106 @@ The control plane accepts ID tokens from Google Identity Platform, using Google 
 1. In the console, open **Identity Platform**: search for it in the top bar, or use https://console.cloud.google.com/customer-identity.
 2. Click **Enable Identity Platform**.
 
-## 3. Enable Google and email-link sign-in, and nothing else
+## 3. Set up the OAuth consent screen
+
+Google sign-in shows this screen to the person signing in. Do it before adding the Google provider.
+
+1. Open **APIs & Services → OAuth consent screen** (https://console.cloud.google.com/apis/credentials/consent). In the newer console it is called **Google Auth Platform**; use **Branding**, **Audience** and **Data access** there.
+2. **App name:** `IdleO`.
+3. **User support email:** your own address.
+4. **Developer contact email:** your own address.
+5. **Audience / User type:** **External**. Leave the publishing status on **Testing**.
+6. Under **Test users**, click **Add users** and add the Google address you will sign in with. Only test users can sign in while the app is in Testing; anyone else sees "Access blocked".
+7. Save. Leave scopes as they are: the default `email`, `profile` and `openid` are all we use.
+
+## 4. Enable Google and email-link sign-in, and nothing else
 
 Under **Identity Platform → Providers**:
-1. **Add a provider → Google.** Enable it, and follow the console's prompts to set up the OAuth consent screen. Save.
-2. **Add a provider → Email / Password.** Enable it with **passwordless sign-in (email link)** turned on, and sign-in with a password turned off. Save.
+1. **Add a provider → Google.** Enable it. The console fills in the web client for you; if it asks for a "Web SDK configuration", leave the defaults. Save.
+2. **Add a provider → Email / Password.** Enable it with **Email link (passwordless sign-in)** turned on. Leave **Password** sign-in off. Save.
 3. Leave every other provider off, including **Phone**. Phone verification comes later, with host payouts.
 
 Check the provider list: Google and Email (link only) are enabled, and no password sign-in is.
 
-## 4. Set the authorized domains
+## 5. Set the authorized domains
 
 Under **Identity Platform → Settings → Security → Authorized domains**:
-- Keep `localhost`, for local development.
-- Add the web app's domain once it exists.
+- Keep `localhost`, for local development. (Nothing else is needed for it: not `127.0.0.1`, and no port.)
+- Add the web app's real domain once it exists. Sign-in redirects and email links work only for these domains.
 
-Sign-in redirects and email links work only for these domains.
+## 6. Set up the email-link message
 
-## 5. Find the project id and put it in your local `.env`
+Under **Identity Platform → Settings → Templates** (or **Email templates**, if the console words it that way), open **Email link sign-in**:
+1. **Sender name:** `IdleO`. The sender address stays Google's own until we have our domain.
+2. **Subject:** leave the default, or use `Your IdleO sign-in link`.
+3. **Action URL:** the link in the email goes to Google's handler first, on your project's own domain (`<project-id>.firebaseapp.com`), then returns to the page the web app asked for. For local development leave the default. When the real domain exists, customise the action URL to it and add it to the authorized domains (section 5).
 
-1. The project id is on the console's project picker and on the project's **Dashboard → Project info**.
-2. In `control-plane/`, copy the example file once:
-   ```
-   cp .env.example .env
-   ```
-3. Edit `.env` and replace `demo-project` in both lines of the "Local" section with your project id:
-   ```
-   IDENTITY_ISSUERS_0_ISSUERURI=https://securetoken.google.com/<your-project-id>
-   IDENTITY_ISSUERS_0_AUDIENCE=<your-project-id>
-   ```
-4. Start the app with the local script, which loads `.env` and always uses the local profile:
-   ```
-   scripts/run-local.sh
-   ```
+## 7. Find the web app's settings
 
-`.env` is gitignored. Run `git status` and confirm it never shows up. For production, set the same two variables in the platform's environment settings, never in a file in the repo.
+1. In **Identity Platform → Providers**, click **Application setup details** (top right of the page).
+2. A box shows a snippet with `apiKey`, `authDomain` and the project id. You need those three values. The API key isn't a secret, but it still lives only in env files and build settings, never in tracked files.
 
-The project id isn't a secret, but it's still configuration: it lives in the environment, never in code or tracked files.
+## 8. Put the values in the two env files
+
+**Control plane**, in `control-plane/`:
+```
+cp .env.example .env
+```
+Edit `.env` and add these two lines, with your project id in both:
+```
+IDENTITY_ISSUERS_0_ISSUERURI=https://securetoken.google.com/<your-project-id>
+IDENTITY_ISSUERS_0_AUDIENCE=<your-project-id>
+```
+The issuer ends in the same project id as the audience. Both must be the **project id** (for example `idleo-dev-123456`), not the project's display name or number.
+
+**Web app**, in `web/`:
+```
+cp env.local.example .env.local
+```
+Edit `.env.local`: change `VITE_AUTH` to `firebase`, delete the two `VITE_OIDC_*` lines, and add the three values from section 7:
+```
+IDLEO_DEPLOYMENT=local
+VITE_API_URL=http://localhost:8080
+VITE_STORAGE_URL=http://localhost:9100
+VITE_AUTH=firebase
+VITE_FIREBASE_API_KEY=<apiKey>
+VITE_FIREBASE_AUTH_DOMAIN=<authDomain>
+VITE_FIREBASE_PROJECT_ID=<your-project-id>
+```
+
+Both files are gitignored. Run `git status` and confirm neither ever shows up. For production, set the same variables in the platform's environment settings, never in a file in the repo.
+
+## 9. Start everything with real sign-in
+
+The development sign-in server stays the default: `scripts/run-local.sh` ignores the two issuer lines in `.env`. To use your project instead, pass the switch.
+
+1. In `control-plane/`:
+   ```
+   scripts/run-local.sh --real-sign-in
+   ```
+   It refuses to start, and names the line to check, if either value is missing, still the example, or the two don't match. When it starts it prints `real sign-in: trusting project <your-project-id>`.
+2. In `web/`: `pnpm dev`. It reads `.env.local`, so it uses Firebase.
+3. Open http://localhost:3000.
+
+To go back to the development sign-in server, start `scripts/run-local.sh` without the switch and put `.env.local` back to `VITE_AUTH=oidc-mock`.
+
+Access is by invite while the app is invite-only: a first sign-in lands on a code step, and `docs/runbooks/invites.md` shows how to make a code.
+
+## 10. Check it worked
+
+1. Click **Continue with Google** and choose your test-user account.
+2. If a code is asked for, enter one from `create-invites`.
+3. Open **Account** from the avatar button. It shows your name and your Google email address.
+
+## 11. Troubleshooting
+
+| What you see | Cause and fix |
+| --- | --- |
+| `Firebase: Error (auth/unauthorized-domain)` | The page's domain isn't authorized. Add it in section 5. For local use it must be `localhost`: open http://localhost:3000, not http://127.0.0.1:3000. |
+| Google sign-in works, but every API call answers 401 `unauthenticated` (the web app sends you back to sign in) | The control plane rejects the token. Check the two lines in `control-plane/.env`: `IDENTITY_ISSUERS_0_AUDIENCE` must equal `VITE_FIREBASE_PROJECT_ID`, and `IDENTITY_ISSUERS_0_ISSUERURI` must be exactly `https://securetoken.google.com/<your-project-id>` with no trailing slash. Both are the project id, not its display name. Restart `scripts/run-local.sh --real-sign-in`. To see Spring's reason, add `LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY=DEBUG` to `.env` and look for "Failed to authenticate since the JWT was invalid". |
+| `Firebase: Error (auth/popup-blocked)` | The browser blocked the Google window. Allow pop-ups for localhost:3000 and try again. |
+| `Error 403: access_denied` or "Access blocked: IdleO has not completed the Google verification process" | The app is in Testing and your address isn't a test user. Add it in section 3. |
+| `Firebase: Error (auth/api-key-not-valid...)` or `auth/invalid-api-key` | `VITE_FIREBASE_API_KEY` is missing or mistyped in `web/.env.local`. Copy it again from section 7, then restart `pnpm dev`: it reads the file only at start. |
+| `Firebase: Error (auth/operation-not-allowed)` | That provider isn't enabled. Check section 4. |
+| The email link says it has expired or was already used | Links work once. Ask for a new one; open it in the same browser you asked from. |
+| `run-local: ... Check those two lines in control-plane/.env` | `scripts/run-local.sh --real-sign-in` found the issuer or audience missing, left as the example, or not matching. Fix the line it names. |
