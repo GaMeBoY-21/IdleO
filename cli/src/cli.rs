@@ -203,8 +203,13 @@ mod tests {
 
     #[test]
     fn the_binary_is_named_by_the_same_constant() {
-        let manifest = include_str!("../Cargo.toml");
-        assert!(manifest.contains(&format!("name = \"{BIN_NAME}\"\npath = \"src/main.rs\"")), "Cargo.toml's [[bin]]");
+        // Line by line, so a Windows checkout's CRLF endings don't matter.
+        let lines: Vec<&str> = include_str!("../Cargo.toml").lines().collect();
+        let named = format!("name = \"{BIN_NAME}\"");
+        assert!(
+            lines.windows(2).any(|pair| pair[0] == named && pair[1] == "path = \"src/main.rs\""),
+            "Cargo.toml's [[bin]]"
+        );
     }
 
     #[test]
