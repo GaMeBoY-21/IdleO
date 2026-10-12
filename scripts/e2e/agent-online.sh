@@ -1340,13 +1340,19 @@ PY
   "$idleo" run fine-tune-simulated --input "model=$work/big-model" --input "data=$work/train.jsonl" --detach \
     >"$work/cut.out" 2>"$work/cut.err" &
   local cut_pid=$!
-  for _ in $(seq 1 120); do
-    parts="$(cat "$config"/uploads/*.json 2>/dev/null | python3 -c 'import json, sys
-try:
-    d = json.loads(sys.stdin.read())
-    print(sum(len(v) for v in d["parts"].values()))
-except Exception:
-    print(0)')"
+  parts=0
+  for _ in $(seq 1 300); do
+    parts="$(python3 - "$config/uploads" <<'PY'
+import glob, json, sys
+total = 0
+for path in glob.glob(sys.argv[1] + "/*.json"):
+    try:
+        total += sum(len(v) for v in json.load(open(path))["parts"].values())
+    except (OSError, ValueError, KeyError):
+        pass
+print(total)
+PY
+)"
     ((parts >= 30)) && break
     sleep 0.1
   done

@@ -111,7 +111,8 @@ async fn fetch(ctx: &Context, file: &Output, part: &Path, size: u64) -> Result<(
     if have > 0 {
         request = request.header(reqwest::header::RANGE, format!("bytes={have}-"));
     }
-    let response = request.send().await.map_err(|e| CliError::network(format!("the download failed: {e}")))?;
+    let response =
+        request.send().await.map_err(|e| CliError::network(format!("the download failed: {}", e.without_url())))?;
     let append = match response.status() {
         StatusCode::PARTIAL_CONTENT => true,
         StatusCode::OK => false,

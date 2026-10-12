@@ -255,9 +255,23 @@ impl std::fmt::Display for Failure {
     }
 }
 
+/// A network error with everything underneath it ("error sending request: connection reset by peer"), and without the
+/// signed link, which carries the grant's signature and has no business in a message.
+fn describe(error: reqwest::Error) -> String {
+    let error = error.without_url();
+    let mut text = error.to_string();
+    let mut source = std::error::Error::source(&error);
+    while let Some(cause) = source {
+        text.push_str(": ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    text
+}
+
 /// One part to its signed link; storage's answer carries the part's `ETag`.
 async fn put(http: &reqwest::Client, url: &str, body: Vec<u8>) -> std::result::Result<String, Failure> {
-    let response = http.put(url).body(body).send().await.map_err(|e| Failure::Other(e.to_string()))?;
+    let response = http.put(url).body(body).send().await.map_err(|e| Failure::Other(describe(e)))?;
     if !response.status().is_success() {
         return Err(Failure::Status(response.status().as_u16()));
     }
