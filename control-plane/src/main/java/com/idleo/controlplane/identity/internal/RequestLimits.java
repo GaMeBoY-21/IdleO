@@ -3,6 +3,7 @@ package com.idleo.controlplane.identity.internal;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
@@ -47,6 +48,10 @@ class RequestLimits implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        // An event stream is dispatched again when it ends (Servlet async); it was counted when it opened.
+        if (request.getDispatcherType() != DispatcherType.REQUEST) {
+            return true;
+        }
         var path = request.getRequestURI();
         if (LOGS.matcher(path).matches() && request.getParameter("cursor") != null) {
             return true;

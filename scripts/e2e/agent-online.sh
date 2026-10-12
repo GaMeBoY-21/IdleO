@@ -401,9 +401,10 @@ set -m
   export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
   # The web app's origin, which may call the API from a browser (ADR 0018).
   export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
-  # The renter limits (ADR 0025) are production's for requests, but not for sessions: the run's few accounts are
-  # new, and book far more than 2 sessions in their first hour (the web journeys alone book a dozen). The control
-  # plane's own tests hold the session limits.
+  # The renter limits (ADR 0025) are lifted for the run: its few accounts are a test harness, not renters. They
+  # poll every half second, several scenarios to an account at once (far past 60 requests a minute), and book far
+  # more than 2 sessions in their first hour. The control plane's own tests hold every limit (RenterLimitsTests).
+  export LIMITS_REQUESTS_PER_MINUTE=100000 LIMITS_CLI_LOGINS_PER_HOUR=100000
   export SESSIONS_LIMITS_NEW_PER_HOUR=1000 SESSIONS_LIMITS_NEW_PER_HOUR_FIRST_DAY=1000 SESSIONS_LIMITS_AT_ONCE=1000
   # Access is by invitation, as in production (ADR 0024): the run's accounts are activated with codes below.
   # E2E_INVITE_ONLY=false lets anyone in, to look at the stack by hand without a code.

@@ -166,6 +166,22 @@ class RenterLimitsTests {
     }
 
     @Test
+    void anEventStreamOverTheLimitIsAProblemTheClientCanRead() throws Exception {
+        var renter = TestUsers.signUpLasting(mvc, Duration.ofHours(1));
+        for (int i = 0; i < 4; i++) {
+            mvc.perform(get("/v1/me").header("Authorization", renter.bearer()));
+        }
+        var session = SessionTestData.requested(store, transactions, renter.id(), 5, 1000);
+
+        mvc.perform(get("/v1/sessions/" + session + "/events")
+                        .header("Authorization", renter.bearer())
+                        .accept(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(jsonPath("$.type").value("/problems/rate-limited"));
+    }
+
+    @Test
     void anAddressStartsAtMostTwoCliSignInsAnHour() throws Exception {
         for (int i = 0; i < 2; i++) {
             mvc.perform(from(post("/v1/cli-logins"))
