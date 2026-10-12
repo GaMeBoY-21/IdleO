@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { SectionTitle } from "@/components/ui/Card";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { useTitle } from "@/lib/title";
 import { NameRow, ROW } from "./NameRow";
 import { NotificationChoices } from "./NotificationChoices";
@@ -19,7 +20,10 @@ const METHODS: Record<string, string> = { google: "Google", "email-link": "An em
 export function Account() {
   useTitle("Account");
   const me = useMe();
-  const notifications = useNotifications();
+  // The choices aren't what the screen paints first, so they're asked for once it has painted: a request made
+  // before the first paint counts against the speed budgets (ADR 0018).
+  const painted = useAfterPaint();
+  const notifications = useNotifications(painted);
   const since = staleSince(me, notifications);
   const methods = me.data?.signInMethods.map((method) => METHODS[method] ?? method).join(", ") ?? "";
 

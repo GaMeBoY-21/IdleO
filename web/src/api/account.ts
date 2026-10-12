@@ -9,10 +9,14 @@ export type NotificationItem = components["schemas"]["NotificationItem"];
 
 export const notificationKeys = { choices: ["notifications"] as const };
 
-/** The person's notification choices, one entry for every kind, in the server's order. */
-export function useNotifications() {
+/**
+ * The person's notification choices, one entry for every kind, in the server's order. `enabled` false holds the
+ * first fetch back (useAfterPaint): the screen paints before they're asked for.
+ */
+export function useNotifications(enabled = true) {
   return useQuery({
     queryKey: notificationKeys.choices,
+    enabled,
     queryFn: () => data(api.GET("/v1/me/notifications")),
   });
 }
