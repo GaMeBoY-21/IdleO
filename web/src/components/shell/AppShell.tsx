@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { Wordmark } from "@/brand/Wordmark";
 import { cn } from "@/lib/cn";
 import { CreditChip } from "./CreditChip";
+import { NotificationBanners } from "./NotificationBanners";
+import { NotificationBell } from "./NotificationBell";
 import { isCurrent, isFlow, laptopDestinations, phoneTabs } from "./nav";
 import { UserMenuButton } from "./UserMenuButton";
 
@@ -51,10 +53,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             <CreditChip />
+            <NotificationBell />
             <UserMenuButton />
           </div>
         </div>
       </header>
+      <NotificationBanners />
       <main id="main" className={cn("flex w-full flex-1 flex-col", !flow && "pb-clear-nav md:pb-0")}>
         {children}
       </main>

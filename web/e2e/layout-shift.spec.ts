@@ -42,6 +42,7 @@ const screens = [
   { name: "earnings", path: "/hosting/earnings/", ready: () => "Given back for lost time" },
   { name: "account", path: "/account/", ready: () => "New device sign-in" },
   { name: "API keys", path: "/account/keys/", ready: () => "Dashboard" },
+  { name: "notifications", path: "/notifications/", ready: () => "Your credit is running low" },
   { name: "a CLI sign-in to approve", path: "/cli-login/?code=WDJB-MJHT", ready: () => "Approve" },
   {
     name: "adding a machine",
@@ -67,6 +68,7 @@ for (const screen of screens) {
       "/v1/me": { json: data.me() },
       "/v1/me/notifications": { json: data.notificationChoices() },
       "/v1/api-keys": { json: data.apiKeys() },
+      "/v1/notifications": { json: data.inbox() },
       "/v1/cli-logins": { json: data.pendingCliLogin() },
       "/v1/templates": { json: data.templates },
       "/v1/wallet": { json: data.asha.wallet },

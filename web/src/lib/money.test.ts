@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { formatEstimate, formatPaise, formatPaiseRange } from "./money";
 
@@ -97,5 +98,17 @@ describe("formatEstimate", () => {
   it("refuses what isn't whole paise, low to high", () => {
     expect(() => formatEstimate(5.5, 10)).toThrow(RangeError);
     expect(() => formatEstimate(10, 5)).toThrow(RangeError);
+  });
+});
+
+describe("formatPaise and the control plane's Rupees.format", () => {
+  it("write every case in api/money-format.json alike, so an email and a screen show one figure", () => {
+    const { cases } = JSON.parse(
+      readFileSync(new URL("../../../api/money-format.json", import.meta.url), "utf8"),
+    ) as { cases: { paise: number; text: string }[] };
+    expect(cases.length).toBeGreaterThan(10);
+    for (const { paise, text } of cases) {
+      expect(formatPaise(paise), `${paise} paise`).toBe(text);
+    }
   });
 });

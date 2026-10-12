@@ -132,8 +132,15 @@ function fromLists(client: QueryClient, id: string): { session: Session; at: num
   return undefined;
 }
 
+const meQuery = () => ({ queryKey: keys.me, queryFn: () => data(api.GET("/v1/me")), staleTime: 5 * 60_000 });
+
 export function useMe() {
-  return useQuery({ queryKey: keys.me, queryFn: () => data(api.GET("/v1/me")), staleTime: 5 * 60_000 });
+  return useQuery(meQuery());
+}
+
+/** The account only as far as it's already known (restored or fetched by a screen): it never asks for it. */
+export function useCachedMe() {
+  return useQuery({ ...meQuery(), enabled: false });
 }
 
 export function useSessions() {

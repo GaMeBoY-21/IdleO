@@ -38,6 +38,13 @@ export async function fakeApi(
   { delayMs = 0 } = {},
 ): Promise<void> {
   const calls = new Map<string, number>();
+  // Every signed-in screen's bell asks for the person's notifications: an empty list unless a test gives another.
+  routes = {
+    ...routes,
+    ...("/v1/notifications" in routes
+      ? {}
+      : { "/v1/notifications": { json: { items: [], nextCursor: null, unread: 0 } } }),
+  };
   await page.route(`${API}/v1/**`, async (route) => {
     if (delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));

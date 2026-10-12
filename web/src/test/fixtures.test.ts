@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as data from "../../e2e/fixtures";
+import { formatPaise } from "@/lib/money";
 
 /**
  * The invented data adds up on every screen (e2e/fixtures.ts): the review found "on hold ₹0.60" beside a session
@@ -71,5 +72,32 @@ describe("the sessions on their own", () => {
     expect(data.quote(undefined, 50_000)?.ceilingPaisePerMin).toBe(18);
     expect(data.quote(undefined, 50_000, data.asha.wallet, data.availability, 16_000)).toBeNull();
     expect(data.quote(undefined, 50_000, data.asha.wallet, data.noAvailability)).toBeNull();
+  });
+});
+
+describe("the notifications", () => {
+  const { inbox, completed, failed, running } = data;
+
+  it("are newest first, with ids in time order, and `unread` of them unread, newest first", () => {
+    const page = inbox(3);
+    expect(page.items.map((item) => item.createdAt)).toEqual(
+      [...page.items.map((item) => item.createdAt)].sort().reverse(),
+    );
+    expect(page.items.map((item) => item.id)).toEqual(
+      [...page.items.map((item) => item.id)].sort().reverse(),
+    );
+    expect(page.items.map((item) => item.read)).toEqual([false, false, false, true]);
+    expect(page.unread).toBe(3);
+    expect(inbox(0).items.every((item) => item.read)).toBe(true);
+  });
+
+  it("name what their session cost, as the session itself says", () => {
+    const { items } = inbox();
+    const finished = items.find((item) => item.kind === "session-completed")!;
+    expect(finished.body).toContain(formatPaise(completed.chargedPaise));
+    expect(finished.link).toBe(`/session/?id=${completed.id}#outputs`);
+    const didNotFinish = items.find((item) => item.kind === "session-failed")!;
+    expect(didNotFinish.body).toContain(formatPaise(failed.chargedPaise));
+    expect(items.find((item) => item.kind === "low-credit")!.link).toBe(`/session/?id=${running.id}`);
   });
 });

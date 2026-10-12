@@ -22,7 +22,8 @@ import { API, expectAccessible, signIn } from "./support";
  * The renter's journeys against the real local stack (scripts/e2e/agent-online.sh), with real agents running the
  * sessions on their development runner. The script creates E2E_WEB_USER and grants it ₹500 before this runs; the
  * journeys share their hosts, so they run one after another.
- * - a booked session followed on Home to its charge (booked through the API);
+ * - a booked session followed on Home to its charge (booked through the API), its end then told in the bell and
+ *   the list of notifications, read with "Mark all read";
  * - on a laptop, from Home through "Fine-tune a model": a generated model folder and examples uploaded, Quick, a
  *   budget, "Request a GPU", the session live to settled, and its adapter downloaded and read; then Run again,
  *   filled from it with the same files from My files;
@@ -87,6 +88,26 @@ test("a booked session shows live on the home screen, through to its charge", as
   await expect(page.getByText("Charged", { exact: true })).toBeVisible();
   await expect(page.getByText(formatPaise(charged), { exact: true })).toBeVisible();
   await expectAccessible(page);
+
+  // Its end reached the bell and the list, with what it cost (ADR 0026): one unread; opening it reads it.
+  await page.goto("/");
+  const bell = page.getByRole("link", { name: "Notifications, 1 unread" });
+  await expect(bell).toBeVisible({ timeout: 30_000 });
+  await bell.click();
+  const told = page.getByRole("listitem").filter({ hasText: `It cost ${formatPaise(charged)}.` });
+  await expect(told).toHaveCount(1);
+  await expect(told).toContainText("finished");
+  await expect(told).toContainText("Unread:");
+  await expect(page.getByText("1 unread")).toBeVisible();
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Mark all read" }).click();
+  await expect(page.getByText("All read", { exact: true })).toBeVisible();
+  await expect(told).not.toContainText("Unread:");
+  await page.reload();
+  await expect(page.getByText("All read", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Notifications", exact: true })).toBeVisible();
+  await told.getByRole("link").click();
+  await expect(page).toHaveURL(new RegExp(`/session/\\?id=${session.id}`));
 });
 
 test.describe("on a laptop", () => {

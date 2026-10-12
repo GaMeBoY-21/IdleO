@@ -1,4 +1,6 @@
+import endings from "../../api/endings.json" with { type: "json" };
 import type { components } from "../src/api/schema.gen";
+import { formatPaise } from "../src/lib/money";
 
 type Schemas = components["schemas"];
 export type Session = Schemas["SessionResponse"];
@@ -33,6 +35,7 @@ export const me = (createdAt = "2026-09-01T10:00:00Z", status = "active") => ({
   status,
   signInMethods: ["google"],
   createdAt,
+  unreadNotifications: 0,
 });
 
 /** An account that hasn't entered an invite code yet (ADR 0024). */
@@ -1085,4 +1088,80 @@ export const pendingCliLogin = (): Schemas["PendingCliLogin"] => ({
   id: "01a12ffa-0000-7000-8000-0000000000a1",
   deviceName: "asha-laptop",
   expiresAt: new Date(NOW.getTime() + 8 * MINUTE).toISOString(),
+});
+
+type InboxItem = Schemas["InboxItem"];
+
+/**
+ * What the control plane has told Asha about her ended sessions, newest first, in the words it uses (ADR 0026): the
+ * charge in each is the session's own, and why one failed or found no GPU is api/endings.json's. `unread` of them,
+ * the newest first, haven't been read.
+ */
+export const inbox = (unread = 3): Schemas["InboxPage"] => {
+  const codes: Record<string, { sentence: string; next: string }> = endings.codes;
+  const words = (code: string) => codes[code]!;
+  const failedWhy = words(failed.errorCode ?? "job_failed");
+  const noHostWhy = words("offers_exhausted");
+  const item = (
+    n: number,
+    kind: string,
+    title: string,
+    body: string,
+    link: string,
+    agoMs: number,
+  ): InboxItem => ({
+    id: id(40_000 + n),
+    kind,
+    title,
+    body,
+    link,
+    createdAt: new Date(NOW.getTime() - agoMs).toISOString(),
+    read: false,
+  });
+  const items = [
+    item(
+      4,
+      "low-credit",
+      "Your credit is running low",
+      `Fine-tune a model has under 10 minutes of credit left. When it runs out it saves a checkpoint and stops, and you can carry on from there.`,
+      `/session/?id=${running.id}`,
+      4 * MINUTE,
+    ),
+    item(
+      3,
+      "session-completed",
+      "Fine-tune a model finished",
+      `It cost ${formatPaise(completed.chargedPaise)}. Your outputs are ready to download.`,
+      `/session/?id=${completed.id}#outputs`,
+      40 * MINUTE,
+    ),
+    item(
+      2,
+      "session-failed",
+      "Fine-tune a model didn't finish",
+      `${failedWhy.sentence} It cost ${formatPaise(failed.chargedPaise)}. ${failedWhy.next}`,
+      `/session/?id=${failed.id}`,
+      3 * HOUR,
+    ),
+    item(
+      1,
+      "no-host-free",
+      "No GPU was free",
+      `${noHostWhy.sentence} You weren't charged. ${noHostWhy.next}`,
+      `/session/?id=${noHostFree.id}`,
+      DAY + 2 * HOUR,
+    ),
+  ].map((one, index) => ({ ...one, read: index >= unread }));
+  return { items, nextCursor: null, unread };
+};
+
+/** A waiting message, as the bell's banner and the list show it, for the page's poll to bring in. */
+export const newMessage = (): InboxItem => ({
+  id: id(40_005),
+  kind: "session-completed",
+  title: "Fine-tune a model finished",
+  body: `It cost ${formatPaise(stopped.chargedPaise)}. Your outputs are ready to download.`,
+  link: `/session/?id=${stopped.id}#outputs`,
+  createdAt: NOW.toISOString(),
+  read: false,
 });
