@@ -117,6 +117,13 @@ public enum Problem {
             "The CLI sign-in has expired, or its key was already handed out. Start a new one with idleo login "
                     + "(RFC 8628's expired_token)."),
 
+    RATE_LIMITED(
+            "rate-limited",
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Too many requests",
+            "More requests than the limit allows: 60 a minute for each person, counted once for a session's event "
+                    + "stream and its logs. Retry-After says how many seconds to wait."),
+
     // Idempotency and versions.
     IDEMPOTENCY_KEY_INVALID(
             "idempotency-key-invalid",
@@ -216,6 +223,17 @@ public enum Problem {
             HttpStatus.CONFLICT,
             "Upload quota reached",
             "Pending and ready uploads together would be more than the per-renter quota; delete some first."),
+    TOO_MANY_NEW_SESSIONS(
+            "too-many-new-sessions",
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Too many new sessions",
+            "More sessions booked in the last hour than the limit: 10, or 2 for an account less than a day old. "
+                    + "Retry-After says when the next one may be booked."),
+    TOO_MANY_SESSIONS(
+            "too-many-sessions",
+            HttpStatus.CONFLICT,
+            "Too many sessions at once",
+            "A person may have at most 3 sessions that haven't ended. Wait for one to finish, or stop one."),
     TOO_MANY_STREAMS(
             "too-many-streams",
             HttpStatus.TOO_MANY_REQUESTS,

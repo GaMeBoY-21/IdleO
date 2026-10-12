@@ -1,9 +1,12 @@
 package com.idleo.controlplane;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An error for the client: one entry of the {@link Problem} catalog and a {@code detail} written for this case
@@ -19,11 +22,30 @@ public final class ApiProblem extends RuntimeException {
 
     private final Problem problem;
     private final transient Map<String, Object> properties;
+    private final @Nullable Duration retryAfter;
 
-    private ApiProblem(Problem problem, String detail, Map<String, Object> properties) {
+    private ApiProblem(Problem problem, String detail, Map<String, Object> properties, @Nullable Duration retryAfter) {
         super(detail, null, false, false);
         this.problem = Objects.requireNonNull(problem);
         this.properties = Map.copyOf(properties);
+        this.retryAfter = retryAfter;
+    }
+
+    private ApiProblem(Problem problem, String detail, Map<String, Object> properties) {
+        this(problem, detail, properties, null);
+    }
+
+    /**
+     * The same problem, telling the client when to try again: a {@code Retry-After} header, in whole seconds,
+     * rounded up and at least one (RFC 9110 section 10.2.3). For the limits' 429s.
+     */
+    public ApiProblem retryAfter(Duration wait) {
+        return new ApiProblem(problem, detail(), properties, wait);
+    }
+
+    /** When the client may try again, if the problem says. */
+    public Optional<Duration> retryAfter() {
+        return Optional.ofNullable(retryAfter);
     }
 
     /** The error {@code problem}, with {@code detail} saying what happened, for the client. */

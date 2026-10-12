@@ -88,7 +88,8 @@ class ValkeyOutageTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("UP"));
 
-            // The host page still answers, showing the host offline, and the miss is counted (ADR 0013).
+            // The host page still answers, showing the host offline, and the miss is counted (ADR 0013). The request
+            // limit, counted in Valkey, lets it through rather than refusing it (RequestLimits, ADR 0025).
             var unavailableBefore =
                     meters.counter("agents.presence.unavailable").count();
             mvc.perform(get("/v1/hosts/" + agent.hostId).header("Authorization", agent.bearer))

@@ -46,7 +46,12 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> problem(ApiProblem exception) {
         var problem = detail(exception.problem(), exception.problem().status(), exception.detail());
         exception.properties().forEach(problem::setProperty);
-        return ResponseEntity.status(problem.getStatus()).body(problem);
+        var response = ResponseEntity.status(problem.getStatus());
+        exception
+                .retryAfter()
+                .ifPresent(wait -> response.header(
+                        HttpHeaders.RETRY_AFTER, Long.toString(Math.max(1, (wait.toMillis() + 999) / 1000))));
+        return response.body(problem);
     }
 
     @ExceptionHandler(AuthenticationException.class)

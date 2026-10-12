@@ -92,6 +92,12 @@ management:
         readiness:
           include: readinessState, db
 
+# The renter's request limit (technical design "Limits", ADR 0025): requests a minute for each person (or each
+# address without a sign-in), counted in Valkey; CLI sign-ins started an hour from one address.
+limits:
+  requests-per-minute: 60
+  cli-logins-per-hour: 10
+
 # The web app, where a CLI sign-in is approved (ADR 0025): its /cli-login/ page is the link `idleo login` shows.
 # Production sets IDENTITY_WEB_APP_URL; the prod profile refuses plain HTTP or this machine (ProductionSettingsGuard).
 identity:
@@ -143,6 +149,12 @@ billing:
     zone: Asia/Kolkata
 
 sessions:
+  # The renter's session limits (technical design "Limits", ADR 0025): new sessions an hour (fewer for an account
+  # less than a day old) and sessions that haven't ended, counted in PostgreSQL as each is booked.
+  limits:
+    new-per-hour: 10
+    new-per-hour-first-day: 2
+    at-once: 3
   # Object storage (ADR 0016): R2 in production, from the environment (see
   # application-prod.yaml and docs/runbooks/object-storage.md); MinIO locally.
   storage:

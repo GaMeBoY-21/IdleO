@@ -27,6 +27,21 @@
  *       expired code, without saying which; 429 {@code too-many-attempts} after five tries in an hour.
  * </ul>
  *
+ * <p>API keys (ADR 0025) are the second credential, for the CLI, the SDK and scripts. A bearer value starting {@code
+ * idleo_} is checked as a key, anything else as an ID token, in one place ({@code IdentitySecurityConfiguration}). A
+ * key is shown once and stored as a SHA-256 hash; {@code read} keys make GET requests only; and no key may create a
+ * key, approve a CLI sign-in, add, remove or price a machine, issue its enrolment code, or change notification
+ * choices ({@code browser-sign-in-required}). The CLI gets its key by device sign-in, shaped like RFC 8628.
+ *
+ * <ul>
+ *   <li>{@code GET /v1/api-keys}, {@code POST /v1/api-keys} (Idempotency-Key; a repeat is 409 {@code
+ *       secret-shown-once}; at most 20 keys), {@code DELETE /v1/api-keys/{id}}.
+ *   <li>{@code POST /v1/cli-logins} (no sign-in), {@code GET /v1/cli-logins?code=} and {@code POST
+ *       /v1/cli-logins/{id}/approve} (a browser's sign-in), {@code POST /v1/cli-logins/{id}/token} (no sign-in; the
+ *       poll token): 400 {@code authorization-pending} until approved, then the key once, then 400 {@code
+ *       cli-login-expired}.
+ * </ul>
+ *
  * <p>Every request also gets: 401 with {@code WWW-Authenticate: Bearer} for a missing or rejected
  * token; 403 for a suspended account; 403 for a first sign-in whose email isn't verified.
  */

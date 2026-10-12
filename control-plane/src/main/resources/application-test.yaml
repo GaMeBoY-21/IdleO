@@ -32,7 +32,17 @@ agentgateway:
   command-sweep-interval: 1s
   command-resend-after: 1s
 
+# The limits are production's in their own tests (RenterLimitsTests); here they're out of the way, since test
+# users make many requests and sessions in seconds.
+limits:
+  requests-per-minute: 100000
+  cli-logins-per-hour: 100000
+
 sessions:
+  limits:
+    new-per-hour: 100000
+    new-per-hour-first-day: 100000
+    at-once: 100000
   # The development catalog, as the end-to-end test runs it: it has echo-input, with parameters and an
   # input (ADR 0019). Tests run from control-plane/.
   templates:

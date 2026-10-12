@@ -40,6 +40,8 @@ class SessionService {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
 
+    private final SessionLimits limits;
+
     SessionService(
             SessionStore store,
             SessionStops stops,
@@ -52,7 +54,9 @@ class SessionService {
             UploadProperties uploadProperties,
             ApplicationEventPublisher events,
             PlatformTransactionManager transactionManager,
-            IdGenerator ids) {
+            IdGenerator ids,
+            SessionLimits limits) {
+        this.limits = limits;
         this.store = store;
         this.stops = stops;
         this.runningStops = runningStops;
@@ -94,6 +98,7 @@ class SessionService {
             if (existing.isPresent()) {
                 return repeat(existing.get(), hash);
             }
+            limits.checkNewSession(renterId);
             int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), vram, checked.diskNeededMb());
             var hold = CreditReservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
             var available = reservations.available(renterId);

@@ -1,6 +1,8 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.identity.UserDirectory;
+import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -16,5 +18,10 @@ class UserDirectoryService implements UserDirectory {
     @Override
     public boolean exists(UUID userId) {
         return users.existsById(userId);
+    }
+
+    @Override
+    public Optional<Instant> createdAt(UUID userId) {
+        return users.findById(userId).map(User::createdAt);
     }
 }

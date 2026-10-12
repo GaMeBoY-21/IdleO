@@ -2215,6 +2215,7 @@ components:
           - /problems/too-many-api-keys
           - /problems/authorization-pending
           - /problems/cli-login-expired
+          - /problems/rate-limited
           - /problems/idempotency-key-invalid
           - /problems/request-in-progress
           - /problems/secret-shown-once
@@ -2233,6 +2234,8 @@ components:
           - /problems/upload-parts-invalid
           - /problems/upload-in-use
           - /problems/upload-quota-exceeded
+          - /problems/too-many-new-sessions
+          - /problems/too-many-sessions
           - /problems/too-many-streams
           - /problems/host-busy
           - /problems/host-removed

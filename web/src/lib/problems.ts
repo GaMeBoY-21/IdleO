@@ -33,6 +33,7 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "That key was already created, and it's shown only once. Revoke it in the list, then create another.",
   "authorization-pending": "Waiting for you to approve the sign-in in the web app.",
   "cli-login-expired": "That sign-in link has expired or was already used. Run idleo login again.",
+  "rate-limited": "That's a lot of requests at once. Wait a moment, then try again.",
   "idempotency-key-invalid": "That request couldn't be sent safely. Reload the page and try again.",
   "request-in-progress": "We're still working on your last request. Wait a moment, then try again.",
   "idempotency-key-reused":
@@ -55,6 +56,10 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "upload-in-use": "A session that hasn't ended uses this upload. You can delete it once the session ends.",
   "upload-quota-exceeded":
     "Your uploads are using all their space. Delete ones you no longer need in My files, then try again.",
+  "too-many-new-sessions":
+    "You've booked the most sessions allowed in an hour. Try again a little later; nothing was charged.",
+  "too-many-sessions":
+    "You have 3 sessions that haven't ended, the most at once. Wait for one to finish, or stop one.",
   "too-many-streams":
     "Too many sessions are open live in your other tabs. Close some; this page checks every few seconds meanwhile.",
   "host-busy":

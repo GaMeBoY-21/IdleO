@@ -25,6 +25,7 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/too-many-api-keys` | 409 | Too many API keys | A person can have at most 20 keys that aren't revoked. Revoke one you no longer use first. |
 | `/problems/authorization-pending` | 400 | Waiting for approval | The CLI sign-in hasn't been approved in the web app yet. Keep polling at the interval it gave (RFC 8628's authorization_pending). |
 | `/problems/cli-login-expired` | 400 | CLI sign-in expired or used | The CLI sign-in has expired, or its key was already handed out. Start a new one with idleo login (RFC 8628's expired_token). |
+| `/problems/rate-limited` | 429 | Too many requests | More requests than the limit allows: 60 a minute for each person, counted once for a session's event stream and its logs. Retry-After says how many seconds to wait. |
 | `/problems/idempotency-key-invalid` | 400 | Idempotency-Key missing or invalid | A create request needs an Idempotency-Key header: 1 to 255 visible ASCII characters, without spaces. |
 | `/problems/request-in-progress` | 409 | Request still in progress | A request with this Idempotency-Key is still being processed. Retry shortly with the same key. |
 | `/problems/secret-shown-once` | 409 | Already created; its secret was shown once | A request with this Idempotency-Key already created it, and its secret was shown only in that first answer. Revoke it (the detail names it) and create another. |
@@ -43,6 +44,8 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/upload-parts-invalid` | 400 | Upload parts don't make the file | A part is missing or its ETag doesn't match what storage holds, or the finished file isn't the size the upload declared; a wrong size fails the upload. |
 | `/problems/upload-in-use` | 409 | Upload in use | A session that hasn't ended uses this upload as an input; delete it once the session ends. |
 | `/problems/upload-quota-exceeded` | 409 | Upload quota reached | Pending and ready uploads together would be more than the per-renter quota; delete some first. |
+| `/problems/too-many-new-sessions` | 429 | Too many new sessions | More sessions booked in the last hour than the limit: 10, or 2 for an account less than a day old. Retry-After says when the next one may be booked. |
+| `/problems/too-many-sessions` | 409 | Too many sessions at once | A person may have at most 3 sessions that haven't ended. Wait for one to finish, or stop one. |
 | `/problems/too-many-streams` | 429 | Too many open streams | This renter already has the most event streams open at once; close one first. |
 | `/problems/host-busy` | 409 | The host is running a session | A host can't be removed while it has a session that hasn't ended. Pause it so it takes no new work, and remove it when the session is over. |
 | `/problems/host-removed` | 410 | The host was removed | This host was removed and never comes back; add the machine again to rent it out. |
