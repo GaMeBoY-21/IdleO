@@ -13,6 +13,7 @@ import {
   secondsTo,
   startAt,
   user,
+  trackApiRate,
 } from "./journey-support";
 import { streamDropJourney } from "./journey-stream";
 import { API, expectAccessible, signIn } from "./support";
@@ -99,6 +100,7 @@ test.describe("on a laptop", () => {
     test.setTimeout(420_000);
     const model = modelFolder();
     await startAt(page, "/");
+    const requestsInBusiestMinute = trackApiRate(page);
     await page
       .getByRole("link", { name: /Fine-tune a model/ })
       .first()
@@ -196,7 +198,10 @@ test.describe("on a laptop", () => {
       serverRunningAfterSeconds: secondsTo(done, "RUNNING"),
       adapterBytes: bytes.length,
       chargedPaise: done.chargedPaise,
+      // The renter limit is 60 a minute (ADR 0025); the booking, its uploads and following it live stay well under.
+      requestsInBusiestMinute: requestsInBusiestMinute(),
     };
+    expect(requestsInBusiestMinute(), "API requests in the busiest minute").toBeLessThanOrEqual(45);
     report();
   });
 

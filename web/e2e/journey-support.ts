@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { busiestMinute } from "./api-rate";
 import { API, signIn } from "./support";
 
 /**
@@ -87,6 +88,29 @@ export async function stopAndSettle(request: APIRequestContext, id: string): Pro
     data: { checkpointFirst: false },
   });
   await expect.poll(async () => (await getSession(request, id)).settled, { timeout: 120_000 }).toBe(true);
+}
+
+/**
+ * How many requests the page makes to the API in its busiest minute, counted as the control plane's request limit
+ * counts them (ADR 0025): every call to /v1 but a CORS preflight and a log read with a cursor, and an event stream
+ * once. The end-to-end run lifts the limit, so this is how we know the web app stays well under 60 a minute.
+ */
+export function trackApiRate(page: Page): () => number {
+  const times: number[] = [];
+  const api = new URL(API);
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    const free = /^\/v1\/sessions\/[^/]+\/logs$/.test(url.pathname) && url.searchParams.has("cursor");
+    if (
+      url.origin === api.origin &&
+      url.pathname.startsWith("/v1/") &&
+      request.method() !== "OPTIONS" &&
+      !free
+    ) {
+      times.push(Date.now());
+    }
+  });
+  return () => busiestMinute(times);
 }
 
 export async function startAt(page: Page, path: string, who = user) {
