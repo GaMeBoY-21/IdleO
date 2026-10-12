@@ -8,7 +8,7 @@ From the repository root, it:
 
 1. Creates the development CA under `private/dev-ca/` if it doesn't exist yet (`control-plane/scripts/dev-ca.sh`), including the gRPC port's certificate for `localhost`.
 2. Starts the control plane on the `local` profile (`./mvnw spring-boot:run`).
-   - Spring Boot starts `control-plane/compose.yaml`: PostgreSQL, Valkey, MinIO (object storage) and the development sign-in server, under the compose project name `idleo-e2e`.
+   - Spring Boot starts `control-plane/compose.yaml`: PostgreSQL, Valkey, MinIO (object storage), the development sign-in server and Mailpit (every email the stack sends, kept and shown at http://localhost:8025, none delivered; docs/runbooks/email.md), under the compose project name `idleo-e2e`.
    - It uses the development template catalog (`templates/development.yaml`: the two services simulated, 90 to 120 s each; the smoke test runs 20 s, `charged-run` 150 s and `long-run` 10 minutes; each checkpointing every 5 s) and a 10-second lease renewed every 3 s (`E2E_LEASE_TTL`; production uses 2 minutes and 30 s).
    - Storage grants last 60 s, so every run outlives its first and the agents swap in fresh ones. Metering ticks every second and closes a session 20 s after it ends rather than 5 minutes.
    - The script waits for readiness to be UP.
@@ -29,6 +29,8 @@ From the repository root, it:
 
    - **Booking contract** (its own renter): a 12 MiB file uploaded in parts straight to storage, a quote, `echo-input` booked with parameters and that file, followed on its event stream to settled, its logs and output, and three errors by their types.
    - **Simulated fine-tune** (the booking contract's renter): a JSONL of 40 examples uploaded, `fine-tune-simulated` booked with 3 epochs and rank 8, followed to `COMPLETED`, and `adapter_model.safetensors` downloaded and read as a safetensors file (8 F32 tensors of rank 8 filling the file), with `training_log.json`'s steps and falling loss, and the log showing every step.
+
+   Each scenario's emails are read from Mailpit's API (ADR 0026): the normal run's and the simulated fine-tune's "finished" with what they cost (exactly one each), the spending cap's "Stopped: it reached your spending cap", the host loss's "went offline during a session" to the machine's owner with no renter and no session in it, and nothing for the session its renter stopped.
 
    Then it checks renter B's wallet is not negative and holds nothing, that an agent resumed from a checkpoint and swapped in fresh credentials, and that no storage credential appears in any log.
 9. **Runs the wallet check** (`reconcile-wallets`) and requires 0 mismatches.
@@ -82,6 +84,7 @@ It also prints the command for a new token; tokens last an hour. Any `client_id`
 | 8080 | The control plane's HTTP API | `E2E_HTTP_PORT` |
 | 9443 | The agents' gRPC port (TLS) | `E2E_GRPC_PORT` |
 | 8099 | The development sign-in server. The issuer URL in every token includes it, so it's fixed rather than random | `LOCAL_SIGN_IN_PORT` (compose and the `local` profile read the same variable) |
+| 1025, 8025 | Mailpit's SMTP port and its web view and API (ADR 0026) | `LOCAL_MAIL_SMTP_PORT`, `LOCAL_MAIL_WEB_PORT` (compose and the `local` profile read the same variables) |
 | 9100 | MinIO's S3 API. Agents' grants and renters' download links carry this endpoint, so it's fixed | `LOCAL_STORAGE_PORT` (compose and the `local` profile read the same variable) |
 
 PostgreSQL and Valkey get random ports. If a port is busy, the script stops before starting anything and names the port. A stack already started by `control-plane/scripts/run-local.sh` uses the same fixed ports, so stop it first.

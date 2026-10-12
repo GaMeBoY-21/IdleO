@@ -39,7 +39,8 @@
 #                                               journey, Lighthouse's budgets and the size budget
 #
 # Ports, from the environment: E2E_HTTP_PORT (8080), E2E_GRPC_PORT (9443), LOCAL_SIGN_IN_PORT (8099),
-# LOCAL_STORAGE_PORT (9100), E2E_WEB_PORT (3000), E2E_FIREBASE_WEB_PORT (3001).
+# LOCAL_STORAGE_PORT (9100), LOCAL_MAIL_SMTP_PORT (1025), LOCAL_MAIL_WEB_PORT (8025), E2E_WEB_PORT (3000),
+# E2E_FIREBASE_WEB_PORT (3001).
 # --web compares screenshots with VISUAL_BASELINE_DIR (web/visual-baseline): an empty one is filled
 # first; otherwise every picture must match, and a new or changed picture fails until accepted with
 # E2E_UPDATE_SNAPSHOTS=all (Playwright's --update-snapshots; web/README.md "Screenshots").
@@ -61,6 +62,8 @@ http_port="${E2E_HTTP_PORT:-8080}"
 grpc_port="${E2E_GRPC_PORT:-9443}"
 sign_in_port="${LOCAL_SIGN_IN_PORT:-8099}"
 storage_port="${LOCAL_STORAGE_PORT:-9100}"
+mail_smtp_port="${LOCAL_MAIL_SMTP_PORT:-1025}"
+mail_web_port="${LOCAL_MAIL_WEB_PORT:-8025}"
 web_port="${E2E_WEB_PORT:-3000}"
 firebase_web_port="${E2E_FIREBASE_WEB_PORT:-3001}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
@@ -267,6 +270,62 @@ await_closed() {
     sleep 0.5
   done
 }
+# Email (ADR 0026): what Mailpit has kept, read through its API.
+mail_api="http://localhost:$mail_web_port/api/v1"
+# Money as the control plane writes it, for amounts under ₹1,000: 9 paise is ₹0.09.
+rupees() { printf '₹%d.%02d' $(($1 / 100)) $(($1 % 100)); }
+# Waits up to $3 s (60) for an email to $1 whose text holds $2, and prints it as JSON: subject, text, html.
+await_email() {
+  local deadline=$((SECONDS + ${3:-60})) found
+  while ((SECONDS < deadline)); do
+    found="$(python3 - "$mail_api" "$1" "$2" <<'PY' 2>/dev/null || true
+import json, sys, urllib.request
+api, to, needle = sys.argv[1:4]
+def get(path):
+    return json.load(urllib.request.urlopen(api + path, timeout=10))
+for m in get("/messages?limit=500")["messages"]:
+    if any(t["Address"].lower() == to.lower() for t in m["To"]):
+        full = get("/message/" + m["ID"])
+        if needle in full["Text"]:
+            print(json.dumps({"subject": full["Subject"], "text": full["Text"], "html": full["HTML"]}))
+            break
+PY
+)"
+    if [[ -n "$found" ]]; then printf '%s' "$found"; return 0; fi
+    sleep 1
+  done
+  printf 'e2e: FAIL: no email to %s holding "%s" within %s s\n' "$1" "$2" "${3:-60}" >&2
+  return 1
+}
+# How many emails to $1 hold $2.
+count_emails() {
+  python3 - "$mail_api" "$1" "$2" <<'PY'
+import json, sys, urllib.request
+api, to, needle = sys.argv[1:4]
+def get(path):
+    return json.load(urllib.request.urlopen(api + path, timeout=10))
+print(sum(1 for m in get("/messages?limit=500")["messages"]
+          if any(t["Address"].lower() == to.lower() for t in m["To"])
+          and needle in get("/message/" + m["ID"])["Text"]))
+PY
+}
+# Checks an email ($1, JSON) against its subject's ending ($2) and the text it must hold (the rest); plain text and
+# HTML both, no images or tracking, and the footer saying why it came.
+check_email() {
+  local mail=$1 ending=$2
+  shift 2
+  python3 - "$mail" "$ending" "$@" <<'PY' || fail "an email isn't what the control plane promises: $mail"
+import json, sys
+mail, ending, held = json.loads(sys.argv[1]), sys.argv[2], sys.argv[3:]
+assert mail["subject"].endswith(ending), mail["subject"]
+for text in held:
+    assert text in mail["text"], (text, mail["text"])
+assert "Change what we email you in Account: http://localhost" in mail["text"], mail["text"]
+for forbidden in ("<img", "<script", "<link", "url("):
+    assert forbidden not in mail["html"], forbidden
+PY
+}
+
 # How many of a session's minutes are charged, net of refunds (of attempt $2 only, if given).
 billed_minutes() {
   sql "select count(*) from metering.usage_minutes where session_id = '$1' and billed and refund_txn is null${2:+ and agent_attempt = $2}"
@@ -379,9 +438,9 @@ on_signal() {
 }
 trap on_signal INT TERM
 
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$web_port" "$firebase_web_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port"; do
   if port_in_use "$port"; then
-    fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, E2E_WEB_PORT or E2E_FIREBASE_WEB_PORT"
+    fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, LOCAL_MAIL_SMTP_PORT, LOCAL_MAIL_WEB_PORT, E2E_WEB_PORT or E2E_FIREBASE_WEB_PORT"
   fi
 done
 docker info >/dev/null 2>&1 || fail "Docker isn't running"
@@ -399,6 +458,9 @@ set -m
   unset IDENTITY_ISSUERS_0_ISSUERURI IDENTITY_ISSUERS_0_AUDIENCE SPRING_PROFILES_ACTIVE SPRING_PROFILES_INCLUDE
   export SERVER_PORT="$http_port" SPRING_GRPC_SERVER_PORT="$grpc_port" LOCAL_SIGN_IN_PORT="$sign_in_port"
   export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
+  # Email goes to Mailpit from compose.yaml (ADR 0026), and its links to this run's web app.
+  export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
+  export NOTIFICATIONS_WEB_APP_URL="http://localhost:$web_port"
   # The web app's origin, which may call the API from a browser (ADR 0018).
   export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
   # The renter limits (ADR 0025) are lifted for the run: its few accounts are a test harness, not renters. They
@@ -626,6 +688,7 @@ if $keep_running; then
     IFS='|' read -r model vram price <<<"${fake_gpus[$((i - 1))]}"
     printf '  Host %s: %s, %s MB, %s paise a minute, online.\n' "$i" "$model" "$vram" "$price"
   done
+  printf '  Email (every message the stack sends, kept, none delivered): http://localhost:%s\n' "$mail_web_port"
   printf '\nThe API, as %s (the token lasts an hour):\n\n' "$account"
   printf "  curl -s -H 'Authorization: Bearer %s' %s/v1/me\n\n" "$account_token" "$api"
   printf 'A new token:\n\n'
@@ -736,6 +799,10 @@ PY
              from billing.ledger_entries where ref_id = '$id'")" == "host_payable:credit:4,platform_revenue:credit:2,renter_wallet:debit:6" ]] ||
     fail "the normal run's ledger transaction isn't 6 from the renter, 4 to the host, 2 to the platform"
   note "normal run charged: 3 minutes = $charged paise, balanced: PASS"
+  mail="$(await_email "$user@example.com" "/session/?id=$id#outputs")" || exit 1
+  check_email "$mail" " finished" "It cost $(rupees "$charged")." "Open it: $web_url/session/?id=$id#outputs"
+  [[ "$(count_emails "$user@example.com" "/session/?id=$id#outputs")" == 1 ]] || fail "the normal run was emailed more than once"
+  note "normal run emailed: \"$(printf '%s' "$mail" | json_get .subject)\", It cost $(rupees "$charged"). (one email): PASS"
   while IFS= read -r line; do note "  ledger: $line"; done < <(print_ledger "$id")
   earnings="$(api_get "/v1/hosts/$host/earnings")"
   printf '%s' "$earnings" | python3 -c 'import json, sys
@@ -767,6 +834,13 @@ assert reasons[-2:] == ["renter_stopped", "stopped"], reasons' || fail "the stop
     fail "the stopped session was charged $charged paise for $minutes minutes run"
   [[ "$(ledger_balanced "$id")" == t ]] || fail "the stopped session's ledger doesn't balance"
   note "stop at ~70 s: COMPLETED (stopped) after a final checkpoint; charged $charged paise for the $minutes minutes it ran: PASS"
+  # A session its renter stopped says nothing: they did it themselves (ADR 0026).
+  await_closed "$id" 60
+  sleep 3
+  [[ "$(count_emails "$user-b@example.com" "/session/?id=$id")" == 0 ]] || fail "a session its renter stopped was emailed"
+  [[ "$(sql "select count(*) from notifications.notifications where dedupe_key = 'session-ended:$id'")" == 0 ]] ||
+    fail "a session its renter stopped made a notification"
+  note "stop at ~70 s: no email and no notification for a session the renter stopped: PASS"
 }
 
 # Host loss (renter B): kill -9 the agent once minute 0 is reported and a checkpoint is past it. The
@@ -825,6 +899,18 @@ PY
   [[ "$charged" == $((2 * (first + second))) ]] || fail "the lost session was charged $charged paise for $((first + second)) minutes"
   [[ "$(ledger_balanced "$id")" == t ]] || fail "the lost session's ledger doesn't balance"
   note "host loss charged: attempt 1 $first minutes (none after its checkpoint), attempt 2 $second minutes, total $charged paise: PASS"
+  # The machine's owner is emailed that it went offline during a session, and never told who rented it or what
+  # ran; the renter hears it is moving, in the app only (ADR 0026).
+  mail="$(await_email "$user@example.com" "went offline during a session")" || exit 1
+  check_email "$mail" " went offline during a session" "It was running a session when it lost its connection"
+  [[ "$(printf '%s' "$mail" | python3 -c 'import json, sys
+mail = json.load(sys.stdin); text = mail["text"] + mail["html"]
+print(all(word not in text for word in (sys.argv[1], sys.argv[2], "Fine-tune", "charged-run")))' "$id" "$user-b")" == True ]] ||
+    fail "the owner's email names the session or its renter: $mail"
+  [[ "$(sql "select count(*) from notifications.notifications where dedupe_key = 'host-lost:$id:1' and email_wanted")" == 0 &&
+    "$(sql "select count(*) from notifications.notifications where dedupe_key = 'host-lost:$id:1' and in_app")" == 1 ]] ||
+    fail "the renter's host-lost message isn't in the app only"
+  note "host loss told: the owner emailed \"$(printf '%s' "$mail" | json_get .subject)\" with no renter and no session in it; the renter told in the app only: PASS"
   note "  waiver: $waiver"
   while IFS= read -r line; do note "  ledger: $line"; done < <(print_ledger "$id")
 }
@@ -851,6 +937,9 @@ assert reasons[-2:] == ["max_spend_reached", "stopped"], reasons' || fail "the c
     fail "the capped session wasn't charged exactly the minutes it ran"
   [[ "$(ledger_balanced "$id")" == t ]] || fail "the capped session's ledger doesn't balance"
   note "spending cap: COMPLETED after max_spend_reached and a final checkpoint; charged $charged paise (cap 6) for the minutes it ran: PASS"
+  mail="$(await_email "$user-b@example.com" "/session/?id=$id")" || exit 1
+  check_email "$mail" "Stopped: it reached your spending cap" "It cost $(rupees "$charged")."
+  note "spending cap emailed: \"$(printf '%s' "$mail" | json_get .subject)\", It cost $(rupees "$charged").: PASS"
 }
 
 # The web journeys (ADR 0018, ADR 0021, ADR 0022, web/e2e/journey.spec.ts), one after another on whichever
@@ -1051,6 +1140,15 @@ assert "your model: 3 files, %s bytes in /work/input/model/" % sys.argv[1] in te
 assert "  model-00001-of-00001.safetensors (12582912 bytes)" in text and "  config.json (" in text, text
 assert "  tokenizer.json (" in text and "epoch 3/3 step 15/15 loss" in text, text' "$model_bytes" ||
     fail "the fine-tune's log doesn't show its epochs and steps"
+  # The renter is emailed that it finished, with what it cost and a link to its outputs (ADR 0026).
+  await_closed "$session" 60
+  local charged mail
+  charged="$(api_get "/v1/sessions/$session" | json_get .chargedPaise)"
+  [[ "$charged" -gt 0 ]] || fail "the simulated fine-tune was charged nothing"
+  mail="$(await_email "$user-booking@example.com" "/session/?id=$session#outputs")" || exit 1
+  check_email "$mail" " finished" "It cost $(rupees "$charged"). Your outputs are ready to download." "Open it: $web_url/session/?id=$session#outputs"
+  [[ "$(count_emails "$user-booking@example.com" "/session/?id=$session#outputs")" == 1 ]] || fail "the simulated fine-tune was emailed more than once"
+  note "simulated fine-tune emailed: \"$(printf '%s' "$mail" | json_get .subject)\", It cost $(rupees "$charged"). (one email, Mailpit): PASS"
   note "simulated fine-tune: a 3-file model folder (config.json, tokenizer.json, model-00001-of-00001.safetensors; $model_bytes bytes) and 40 examples, standard (3 epochs), rank 8; downloaded adapter_model.safetensors, $(wc -c <"$out/finetune-adapter_model.safetensors" | tr -d ' ') bytes, 8 F32 tensors; loss $(python3 -c 'import json, sys
 log = json.load(open(sys.argv[1])); print("%.4f to %.4f" % (log["steps"][0]["loss"], log["final_loss"]))' "$out/finetune-training_log.json"); the log shows every step: PASS"
 }
