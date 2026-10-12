@@ -4,6 +4,8 @@ import { AppShell, ShellSkeleton } from "@/components/shell/AppShell";
 import { RequireAuth } from "@/components/shell/RequireAuth";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Home } from "@/features/home/Home";
+import { Invite } from "@/features/invite/Invite";
+import { Privacy, Terms } from "@/features/legal/Legal";
 import { SignIn } from "@/features/sign-in/SignIn";
 import { SignInFrame } from "@/features/sign-in/SignInFrame";
 import { afterFirstScreen } from "@/lib/after-first-screen";
@@ -48,10 +50,7 @@ const screens = {
   "/hosting/add/": screen(() => import("@/features/hosting/AddMachine").then((m) => m.AddMachine)),
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
-  "/invite/": screen(() => import("@/features/invite/Invite").then((m) => m.Invite)),
   "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
-  "/terms/": screen(() => import("@/features/legal/Legal").then((m) => m.Terms)),
-  "/privacy/": screen(() => import("@/features/legal/Legal").then((m) => m.Privacy)),
 };
 
 /** Loads the code of the screen at `path`, if it has its own; resolves at once for the others. */
@@ -73,10 +72,7 @@ const Earnings = screens["/hosting/earnings/"].Screen;
 const AddMachine = screens["/hosting/add/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
-const Invite = screens["/invite/"].Screen;
 const Account = screens["/account/"].Screen;
-const Terms = screens["/terms/"].Screen;
-const Privacy = screens["/privacy/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
@@ -151,21 +147,11 @@ export function App() {
           <Welcome />
         </SignedOutScreen>
       </Route>
-      <Route path="/invite/">
-        <SignedOutScreen>
-          <Invite />
-        </SignedOutScreen>
-      </Route>
-      <Route path="/terms/">
-        <SignedOutScreen>
-          <Terms />
-        </SignedOutScreen>
-      </Route>
-      <Route path="/privacy/">
-        <SignedOutScreen>
-          <Privacy />
-        </SignedOutScreen>
-      </Route>
+      {/* In the first load, not their own chunks: small, and drawn whole on the server, so a page opened on one
+          hydrates without a Suspense boundary to rebuild. */}
+      <Route path="/invite/" component={Invite} />
+      <Route path="/terms/" component={Terms} />
+      <Route path="/privacy/" component={Privacy} />
       <Route path={SIGNED_IN}>
         <SignedInArea />
       </Route>

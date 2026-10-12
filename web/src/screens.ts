@@ -40,8 +40,8 @@ export const SCREENS: Record<string, string | null> = {
   "/sign-in/": null,
   "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",
   "/welcome/": "src/features/home/Welcome.tsx",
-  "/invite/": "src/features/invite/Invite.tsx",
+  "/invite/": null,
   "/account/": "src/features/account/Account.tsx",
-  "/terms/": "src/features/legal/Legal.tsx",
-  "/privacy/": "src/features/legal/Legal.tsx",
+  "/terms/": null,
+  "/privacy/": null,
 };

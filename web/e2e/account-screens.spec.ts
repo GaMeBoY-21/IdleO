@@ -171,7 +171,9 @@ test.describe("the account", () => {
     );
     await signIn(page, "asha", "/account/");
     await expect(page.getByRole("switch")).toHaveCount(26);
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    // The choices are fresh for 30 s; coming back to the tab later reads them again, and that read fails.
+    await page.clock.setFixedTime(new Date(data.NOW.getTime() + 10 * 60_000));
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await expect(page.getByText(/Couldn't refresh/)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("switch")).toHaveCount(26);
     await expectAccessible(page);
