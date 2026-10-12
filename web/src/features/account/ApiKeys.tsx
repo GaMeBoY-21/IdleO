@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link } from "wouter";
 import { ChevronLeft } from "lucide-react";
 import { useApiKeys, useRevokeKey, type ApiKey } from "@/api/keys";
@@ -13,7 +13,12 @@ import { problemMessage } from "@/lib/problems";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { useTitle } from "@/lib/title";
 import { CreateKey } from "./CreateKey";
-import { RevokeDialog } from "./RevokeDialog";
+
+// The sheet (Radix) isn't needed until Revoke is pressed, and loading it with the screen would count against its
+// speed budget (ADR 0018).
+const RevokeDialog = lazy(() =>
+  import("./RevokeDialog").then((module) => ({ default: module.RevokeDialog })),
+);
 
 const ROW = "flex min-h-18 items-center gap-3 py-3";
 const SCOPES: Record<ApiKey["scope"], string> = { full: "Full access", read: "Read only" };
@@ -89,23 +94,25 @@ export function ApiKeys() {
           </div>
         )}
       </section>
-      <RevokeDialog
-        name={revoking?.name ?? ""}
-        open={revoking !== null}
-        revoking={revoke.isPending}
-        error={revoke.isError ? <Banner tone="danger">{problemMessage(revoke.error)}</Banner> : null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRevoking(null);
-            revoke.reset();
-          }
-        }}
-        onRevoke={() => {
-          if (revoking) {
-            revoke.mutate(revoking.id, { onSuccess: () => setRevoking(null) });
-          }
-        }}
-      />
+      {revoking !== null && (
+        <Suspense fallback={null}>
+          <RevokeDialog
+            name={revoking.name}
+            open
+            revoking={revoke.isPending}
+            error={revoke.isError ? <Banner tone="danger">{problemMessage(revoke.error)}</Banner> : null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setRevoking(null);
+                revoke.reset();
+              }
+            }}
+            onRevoke={() => {
+              revoke.mutate(revoking.id, { onSuccess: () => setRevoking(null) });
+            }}
+          />
+        </Suspense>
+      )}
     </Page>
   );
 }
