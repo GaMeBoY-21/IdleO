@@ -502,6 +502,12 @@ log "building the agent"
 (cd agent && cargo build --release --locked --quiet) >"$out/agent-build.log" 2>&1 ||
   fail "cargo build failed; see private/e2e/agent-build.log"
 agent="$root/agent/target/release/idleo-agent"
+if ! $keep_running && ! $web_only; then
+  # The renter CLI the CLI scenario drives (cli/rust-toolchain.toml pins the same toolchain).
+  log "building the CLI"
+  (cd cli && cargo build --release --locked --quiet) >"$out/cli-build.log" 2>&1 ||
+    fail "cargo build of the CLI failed; see private/e2e/cli-build.log"
+fi
 for i in $(seq 1 "$agents"); do
   rm -rf "$out/agent-$i"
   cat >"$out/agent-$i.toml" <<TOML
@@ -675,7 +681,14 @@ if ! $web_only; then
   activate_user "$broke_token"
   booking_user_id="$(token="$booking_token" api_get /v1/me | json_get .id)"
   token="$broke_token" api_get /v1/me >/dev/null
-  renters+=("$user_id" "$user_b_id" "$booking_user_id")
+  # The renter CLI's account: its sign-in is approved below with this account's browser token.
+  cli_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$user-cli" -d client_secret=unused -d scope=openid |
+    json_field access_token)"
+  [[ -n "$cli_token" ]] || fail "no token for the CLI's renter"
+  activate_user "$cli_token"
+  cli_user_id="$(token="$cli_token" api_get /v1/me | json_get .id)"
+  renters+=("$user_id" "$user_b_id" "$booking_user_id" "$cli_user_id")
 fi
 for renter in "${renters[@]}"; do
   ops grant-credits --user "$renter" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$renter" ||
@@ -1231,6 +1244,159 @@ scenario="account"
 : >"$out/summary-account.txt"
 scenario_account_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-account.txt"
+
+# The renter CLI (cli/, ADR 0025) against this stack, as a person would use it: sign in (approved in the "browser" with
+# the account's own token, as the web page would), run the simulated fine-tune with a model folder and examples,
+# follow it to the end, read its logs, download the adapter, list and revoke keys, and sign out.
+scenario_cli() {
+  local idleo="$root/cli/target/release/idleo" work="$out/cli-work" config="$out/cli-config" code login_id
+  local run_started run_seconds session adapter parts
+  rm -rf "$work" "$config" && mkdir -p "$work/my-model"
+  export IDLEO_API_URL="$api" IDLEO_CONFIG_DIR="$config" IDLEO_NO_KEYCHAIN=1
+
+  # Signed out first: a command that needs a key says so, with the exit code a script can branch on.
+  local code_out=0
+  "$idleo" whoami >/dev/null 2>&1 || code_out=$?
+  [[ "$code_out" == 5 ]] || fail "idleo whoami with no key exited $code_out, not 5"
+
+  # login: the CLI prints a link and a code and waits; the account approves that code; the CLI is handed its key.
+  "$idleo" login --no-browser --device-name "e2e-laptop" >"$work/login.out" 2>&1 &
+  local login_pid=$!
+  for _ in $(seq 1 30); do grep -q "check that the code is" "$work/login.out" 2>/dev/null && break; sleep 0.5; done
+  code="$(grep -o 'check that the code is [A-Z-]*' "$work/login.out" | awk '{print $NF}')"
+  [[ -n "$code" ]] || fail "idleo login printed no code: $(cat "$work/login.out")"
+  login_id="$(curl -sf -H "Authorization: Bearer $cli_token" "$api/v1/cli-logins?code=$code" | json_get .id)"
+  [[ -n "$login_id" ]] || fail "the browser couldn't find the CLI's sign-in by its code $code"
+  curl -sf -X POST -H "Authorization: Bearer $cli_token" "$api/v1/cli-logins/$login_id/approve" >/dev/null ||
+    fail "approving the CLI's sign-in failed"
+  wait "$login_pid" || fail "idleo login failed: $(cat "$work/login.out")"
+  grep -q "^Signed in as $user-cli@example.com" "$work/login.out" || fail "idleo login didn't say who signed in: $(cat "$work/login.out")"
+  [[ "$("$idleo" --json whoami | json_get .email)" == "$user-cli@example.com" ]] || fail "idleo whoami names the wrong account"
+  note "cli login: the code $code approved with the account's token, the CLI handed its key once (a file only its owner can read), whoami names the account: PASS"
+
+  # The reading commands.
+  "$idleo" credit | grep -q "Available  ₹500.00" || fail "idleo credit doesn't say ₹500.00: $("$idleo" credit)"
+  "$idleo" templates | grep -q "fine-tune-simulated" || fail "idleo templates doesn't list the fine-tune"
+  "$idleo" templates show fine-tune-simulated | grep -q -- "--input NAME=PATH" || fail "idleo templates show doesn't say how to give inputs"
+  for gb in "8 GB" "12 GB" "16 GB" "24 GB"; do
+    "$idleo" gpus | grep -q "^$gb" || fail "idleo gpus lacks the $gb class"
+  done
+  [[ "$("$idleo" run no-such-template 2>/dev/null; echo $?)" == 2 ]] || fail "idleo run with an unknown template didn't exit 2"
+
+  # run: a model folder (three files, 12 MiB of weights) and 40 examples, uploaded, booked, followed to the end.
+  printf '{"model_type": "llama", "hidden_size": 64, "num_hidden_layers": 2}\n' >"$work/my-model/config.json"
+  printf '{"version": "1.0", "model": {"type": "BPE", "vocab": {}}}\n' >"$work/my-model/tokenizer.json"
+  head -c 12582912 /dev/urandom >"$work/my-model/model-00001-of-00001.safetensors"
+  python3 -c '
+import json
+for i in range(40):
+    print(json.dumps({"text": f"### Question {i}\nWhat is {i}+{i}?\n### Answer\n{i * 2}"}))' >"$work/train.jsonl"
+  run_started="$(now_ms)"
+  "$idleo" --json run fine-tune-simulated --input "model=$work/my-model" --input "data=$work/train.jsonl" \
+    >"$work/run.json" 2>"$work/run.err" || fail "idleo run failed (exit $?): $(tail -5 "$work/run.err")"
+  run_seconds="$(( ($(now_ms) - run_started) / 1000 ))"
+  session="$(json_get .session.id <"$work/run.json")"
+  [[ "$(json_get .session.state <"$work/run.json")" == COMPLETED ]] || fail "the CLI's session didn't complete: $(head -c 400 "$work/run.json")"
+  grep -q "saving the adapter" "$work/run.err" || fail "idleo run didn't follow the logs live: $(tail -3 "$work/run.err")"
+  grep -q "uploaded 12.0 MB" "$work/run.err" || fail "idleo run didn't say it uploaded the model folder"
+  adapter="$(python3 -c 'import json, sys
+files = json.load(open(sys.argv[1]))["outputs"]["files"]
+print([f["sizeBytes"] for f in files if f["path"] == "adapter_model.safetensors"][0])' "$work/run.json")" ||
+    fail "the CLI's run result doesn't list the adapter"
+
+  # The session as the API has it: the CLI booked it for this account, and its charge is the ledger's.
+  token="$cli_token" api_get "/v1/sessions/$session" >"$work/session.json"
+  [[ "$(json_get .state <"$work/session.json")" == COMPLETED ]] || fail "the API says the CLI's session isn't completed"
+  local charged to_running
+  charged="$(json_get .chargedPaise <"$work/session.json")"
+  [[ "$charged" == "$(json_get .session.chargedPaise <"$work/run.json")" ]] || fail "the CLI's charge differs from the API's"
+  to_running="$(token="$cli_token" event_seconds "$session" REQUESTED RUNNING)"
+
+  # logs, status, ls, outputs.
+  "$idleo" logs "$session" | grep -q "saving the adapter" || fail "idleo logs doesn't hold the whole log"
+  "$idleo" status "$session" | grep -q "completed" || fail "idleo status doesn't say completed"
+  "$idleo" ls --all | grep -q "$session" || fail "idleo ls --all doesn't list the session"
+  "$idleo" outputs "$session" | grep -q "adapter_model.safetensors" || fail "idleo outputs doesn't list the adapter"
+  "$idleo" outputs "$session" --download "$work/out" >/dev/null 2>&1 || fail "idleo outputs --download failed"
+  [[ -s "$work/out/adapter_model.safetensors" ]] || fail "the adapter wasn't downloaded"
+  # A partly downloaded file carries on from where it stopped, and a whole one isn't fetched again.
+  local whole; whole="$(wc -c <"$work/out/adapter_model.safetensors" | tr -d ' ')"
+  head -c 10000 "$work/out/adapter_model.safetensors" >"$work/out/adapter_model.safetensors.idleo-part"
+  rm "$work/out/adapter_model.safetensors"
+  "$idleo" outputs "$session" --download "$work/out" >/dev/null 2>&1 || fail "the resumed download failed"
+  [[ "$(wc -c <"$work/out/adapter_model.safetensors" | tr -d ' ')" == "$whole" ]] || fail "the resumed download isn't whole"
+  python3 - "$work/out/adapter_model.safetensors" <<'PY' || fail "the downloaded adapter isn't a safetensors file with its 8 tensors"
+import json, struct, sys
+data = open(sys.argv[1], "rb").read()
+header = json.loads(data[8 : 8 + struct.unpack("<Q", data[:8])[0]])
+tensors = [name for name in header if name != "__metadata__"]
+assert len(tensors) == 8, tensors
+PY
+
+  # An upload cut off part-way carries on: kill the CLI once storage has taken a few parts of a 1.5 GB file, run
+  # the same command again, and it picks up where it stopped instead of sending it all again.
+  mkdir -p "$work/big-model" && head -c 1572864000 /dev/zero >"$work/big-model/weights.safetensors"
+  printf '{}\n' >"$work/big-model/config.json"
+  "$idleo" run fine-tune-simulated --input "model=$work/big-model" --input "data=$work/train.jsonl" --detach \
+    >"$work/cut.out" 2>"$work/cut.err" &
+  local cut_pid=$!
+  for _ in $(seq 1 120); do
+    parts="$(cat "$config"/uploads/*.json 2>/dev/null | python3 -c 'import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    print(sum(len(v) for v in d["parts"].values()))
+except Exception:
+    print(0)')"
+    ((parts >= 30)) && break
+    sleep 0.1
+  done
+  kill -9 "$cut_pid" 2>/dev/null || true
+  wait "$cut_pid" 2>/dev/null || true
+  ((parts >= 30)) || fail "the CLI's big upload never got 30 parts in before it was cut off ($parts)"
+  [[ ! -s "$work/cut.out" ]] || fail "a cut-off run printed a session id: $(cat "$work/cut.out")"
+  "$idleo" run fine-tune-simulated --input "model=$work/big-model" --input "data=$work/train.jsonl" --detach \
+    >"$work/resumed.out" 2>"$work/resumed.err" || fail "idleo run didn't carry on after being cut off: $(tail -3 "$work/resumed.err")"
+  grep -q "carrying on from where it stopped" "$work/resumed.err" || fail "the second run started the upload over: $(head -5 "$work/resumed.err")"
+  local resumed_session
+  resumed_session="$(head -1 "$work/resumed.out")"
+  "$idleo" stop "$resumed_session" >/dev/null || "$idleo" cancel "$resumed_session" >/dev/null || true
+  rm -rf "$work/big-model"
+
+  # keys: this computer's key is listed; a second is made by device approval and revoked; the first signs out.
+  "$idleo" keys | grep -q "CLI on e2e-laptop" || fail "idleo keys doesn't list this computer's key"
+  "$idleo" keys create --name e2e-extra >"$work/extra.out" 2>&1 &
+  local extra_pid=$!
+  for _ in $(seq 1 30); do grep -q "check that the code is" "$work/extra.out" 2>/dev/null && break; sleep 0.5; done
+  code="$(grep -o 'check that the code is [A-Z-]*' "$work/extra.out" | awk '{print $NF}')"
+  login_id="$(curl -sf -H "Authorization: Bearer $cli_token" "$api/v1/cli-logins?code=$code" | json_get .id)"
+  curl -sf -X POST -H "Authorization: Bearer $cli_token" "$api/v1/cli-logins/$login_id/approve" >/dev/null || fail "approving the extra key failed"
+  wait "$extra_pid" || fail "idleo keys create failed: $(cat "$work/extra.out")"
+  local extra_key extra_id
+  extra_key="$(grep -o 'idleo_[a-z2-7]*' "$work/extra.out" | head -1)"
+  [[ "$extra_key" =~ ^idleo_[a-z2-7]{52}$ ]] || fail "idleo keys create didn't print a key"
+  [[ "$(IDLEO_API_KEY="$extra_key" "$idleo" --json whoami | json_get .email)" == "$user-cli@example.com" ]] || fail "the new key doesn't sign in"
+  extra_id="$("$idleo" --json keys | python3 -c 'import json,sys; print([k["id"] for k in json.load(sys.stdin)["keys"] if k["name"] == "CLI on e2e-extra"][0])')"
+  "$idleo" keys revoke "$extra_id" | grep -q "Revoked." || fail "idleo keys revoke didn't say so"
+  local after=0
+  IDLEO_API_KEY="$extra_key" "$idleo" whoami >/dev/null 2>&1 || after=$?
+  [[ "$after" == 5 ]] || fail "a revoked key exited $after, not 5"
+  local first_key
+  first_key="$(python3 -c 'import json, sys; print(list(json.load(open(sys.argv[1])).values())[0]["key"])' "$config/credentials.json")"
+  [[ "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $first_key" "$api/v1/me")" == 200 ]] || fail "the CLI's own key doesn't work before logout"
+  "$idleo" logout | grep -q "Signed out" || fail "idleo logout didn't say so"
+  after=0
+  "$idleo" whoami >/dev/null 2>&1 || after=$?
+  [[ "$after" == 5 ]] || fail "after logout, whoami exited $after, not 5"
+  [[ "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $first_key" "$api/v1/me")" == 401 ]] || fail "logout left the key working on the server"
+  [[ ! -e "$config/credentials.json" ]] || fail "logout left the key in the file"
+  note "cli fine-tune: idleo run fine-tune-simulated with a 3-file model folder (12 MiB) and 40 examples, uploaded, booked, followed live to the end in ${run_seconds} s; requested to running ${to_running} s; charged ${charged} paise (the API's, equal); adapter ${adapter:-?} bytes downloaded, resumed from a part file and read (8 tensors): PASS"
+  note "cli keys: this computer's key listed; a second made by device approval, working, revoked, then refused (exit 5); logout revoked the first and whoami exits 5: PASS"
+  unset IDLEO_API_URL IDLEO_CONFIG_DIR IDLEO_NO_KEYCHAIN
+}
+scenario="cli"
+: >"$out/summary-cli.txt"
+scenario_cli
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-cli.txt"
 fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.
