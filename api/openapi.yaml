@@ -738,6 +738,61 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - notifications
+  /v1/notifications:
+    get:
+      operationId: inboxList
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - inbox
+  /v1/notifications/read:
+    post:
+      operationId: inboxRead
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReadRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Unread"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - inbox
   /v1/session-quotes:
     post:
       operationId: quoteCreate
@@ -1825,6 +1880,50 @@ components:
             $ref: "#/components/schemas/HostSession"
       required:
       - sessions
+    InboxItem:
+      type: object
+      properties:
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        link:
+          type: string
+        read:
+          type: boolean
+        title:
+          type: string
+      required:
+      - body
+      - createdAt
+      - id
+      - kind
+      - link
+      - read
+      - title
+    InboxPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxItem"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        unread:
+          type: integer
+          format: int32
+      required:
+      - items
+      - unread
     KindChoice:
       type: object
       properties:
@@ -1924,11 +2023,15 @@ components:
             type: string
         status:
           type: string
+        unreadNotifications:
+          type: integer
+          format: int32
       required:
       - createdAt
       - id
       - signInMethods
       - status
+      - unreadNotifications
     NotificationChoices:
       type: object
       properties:
@@ -2277,6 +2380,14 @@ components:
       - holdPaise
       - hostsFitNow
       - vramNeededMb
+    ReadRequest:
+      type: object
+      properties:
+        upTo:
+          type: string
+          format: uuid
+      required:
+      - upTo
     Reading:
       type: object
       properties:
@@ -2838,6 +2949,14 @@ components:
       - params
       - questions
       - service
+    Unread:
+      type: object
+      properties:
+        unread:
+          type: integer
+          format: int32
+      required:
+      - unread
     UpdateMeRequest:
       type: object
       properties:

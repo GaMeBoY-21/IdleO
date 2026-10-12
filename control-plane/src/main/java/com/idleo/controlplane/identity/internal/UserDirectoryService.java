@@ -24,4 +24,9 @@ class UserDirectoryService implements UserDirectory {
     public Optional<Instant> createdAt(UUID userId) {
         return users.findById(userId).map(User::createdAt);
     }
+
+    @Override
+    public Optional<String> verifiedEmail(UUID userId) {
+        return users.findById(userId).filter(User::emailVerified).map(User::email);
+    }
 }

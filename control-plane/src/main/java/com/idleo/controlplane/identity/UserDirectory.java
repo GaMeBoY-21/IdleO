@@ -12,4 +12,7 @@ public interface UserDirectory {
 
     /** When the user's account was made, by their first sign-in; empty for no such user. */
     Optional<Instant> createdAt(UUID userId);
+
+    /** The address to write to: the user's email, when there is one and the sign-in provider has verified it. */
+    Optional<String> verifiedEmail(UUID userId);
 }

@@ -4,6 +4,7 @@ import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.AttemptLost;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import com.idleo.controlplane.sessions.SessionEnded;
+import com.idleo.controlplane.sessions.SessionMilestones;
 import com.idleo.controlplane.sessions.SessionStarted;
 import com.idleo.controlplane.sessions.SessionUpdates;
 import java.sql.Timestamp;
@@ -41,6 +42,7 @@ class MeteringJobs {
     private final CreditGuard credit;
     private final Waivers waivers;
     private final SessionUpdates updates;
+    private final SessionMilestones milestones;
     private final CreditReservations reservations;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -56,6 +58,7 @@ class MeteringJobs {
             Waivers waivers,
             CreditReservations reservations,
             SessionUpdates updates,
+            SessionMilestones milestones,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             Clock clock,
@@ -68,6 +71,7 @@ class MeteringJobs {
         this.waivers = waivers;
         this.reservations = reservations;
         this.updates = updates;
+        this.milestones = milestones;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.clock = clock;
@@ -210,6 +214,7 @@ class MeteringJobs {
                 .param("now", Timestamp.from(now))
                 .param("sessionId", sessionId)
                 .update();
+        milestones.settled(sessionId);
         log.info("Closed session {}'s usage; {} minutes went to review", sessionId, reviewed);
     }
 

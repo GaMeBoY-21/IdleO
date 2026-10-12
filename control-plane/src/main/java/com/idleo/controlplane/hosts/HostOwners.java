@@ -12,6 +12,9 @@ public interface HostOwners {
     /** One of a user's machines. A removed one is kept, because the ledger still points at it. */
     record OwnedHost(UUID id, String name, boolean removed) {}
 
+    /** The user who owns the host, removed or not; empty for a host that doesn't exist. */
+    java.util.Optional<UUID> ownerOf(UUID hostId);
+
     /** Every machine the user owns, removed ones too, oldest first. */
     List<OwnedHost> ownedBy(UUID userId);
 }

@@ -3,6 +3,7 @@ package com.idleo.controlplane.identity.internal;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.UnreadNotifications;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,11 +41,13 @@ class MeController {
     private final UserRepository users;
     private final InviteService invites;
     private final Clock clock;
+    private final UnreadNotifications unread;
 
-    MeController(UserRepository users, InviteService invites, Clock clock) {
+    MeController(UserRepository users, InviteService invites, Clock clock, UnreadNotifications unread) {
         this.users = users;
         this.invites = invites;
         this.clock = clock;
+        this.unread = unread;
     }
 
     /**
@@ -57,16 +60,18 @@ class MeController {
             @Nullable String displayName,
             String status,
             List<String> signInMethods,
-            Instant createdAt) {
+            Instant createdAt,
+            int unreadNotifications) {
 
-        static MeResponse of(User user, Authentication authentication) {
+        static MeResponse of(User user, Authentication authentication, int unreadNotifications) {
             return new MeResponse(
                     user.id(),
                     user.email(),
                     user.displayName(),
                     user.userStatus().dbValue(),
                     authentication instanceof IdentityAuthenticationToken token ? token.signInMethods() : List.of(),
-                    user.createdAt());
+                    user.createdAt(),
+                    unreadNotifications);
         }
     }
 
@@ -92,7 +97,9 @@ class MeController {
             content = @Content(schema = @Schema(implementation = MeResponse.class)))
     ResponseEntity<MeResponse> get(@AuthenticationPrincipal CurrentUser currentUser, Authentication authentication) {
         var user = load(currentUser);
-        return ResponseEntity.ok().eTag(etag(user)).body(MeResponse.of(user, authentication));
+        return ResponseEntity.ok()
+                .eTag(etag(user))
+                .body(MeResponse.of(user, authentication, unread.countFor(user.id())));
     }
 
     @PatchMapping
@@ -119,7 +126,9 @@ class MeController {
         }
         try {
             var saved = users.save(user.withDisplayName(request.displayName(), Instant.now(clock)));
-            return ResponseEntity.ok().eTag(etag(saved)).body(MeResponse.of(saved, authentication));
+            return ResponseEntity.ok()
+                    .eTag(etag(saved))
+                    .body(MeResponse.of(saved, authentication, unread.countFor(saved.id())));
         } catch (OptimisticLockingFailureException concurrentChange) {
             throw stale();
         }
@@ -150,7 +159,9 @@ class MeController {
             case ACTIVATED, ALREADY_ACTIVE -> {}
         }
         var user = load(currentUser);
-        return ResponseEntity.ok().eTag(etag(user)).body(MeResponse.of(user, authentication));
+        return ResponseEntity.ok()
+                .eTag(etag(user))
+                .body(MeResponse.of(user, authentication, unread.countFor(user.id())));
     }
 
     private User load(CurrentUser currentUser) {

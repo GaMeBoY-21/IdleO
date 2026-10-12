@@ -138,5 +138,10 @@ class MeteringFlowTests {
                         Long.class,
                         booked.renter().id()))
                 .isEqualTo(50_000L - 2);
+
+        // Its end reaches the renter by the real events, with what it cost (ADR 0026).
+        var told = bookings.awaitNotification(booked.renter().id(), "session-failed");
+        assertThat(told.get("body").toString()).contains("It cost ₹0.02.");
+        assertThat(told.get("link")).isEqualTo("/session/?id=" + booked.sessionId());
     }
 }

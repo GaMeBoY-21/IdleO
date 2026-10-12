@@ -3,6 +3,7 @@ package com.idleo.controlplane.sessions.internal;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.sessions.AttemptLost;
 import com.idleo.controlplane.sessions.SessionEnded;
+import com.idleo.controlplane.sessions.SessionNeverRan;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -244,6 +245,8 @@ class SessionStore {
         }
         if (to.get().isFinal && (Boolean) current.get()[3]) {
             events.publishEvent(new SessionEnded(sessionId));
+        } else if (to.get() == SessionState.NO_HOST_FREE || to.get() == SessionState.FAILED) {
+            events.publishEvent(new SessionNeverRan(sessionId));
         }
         return Outcome.APPLIED;
     }

@@ -4,6 +4,11 @@ spring:
     compose:
       enabled: true
       file: compose.yaml
+  # Email goes to Mailpit from compose.yaml (ADR 0026), which keeps it and shows it at http://localhost:8025. Fixed
+  # ports, like storage's; LOCAL_MAIL_SMTP_PORT moves the SMTP one, and compose reads the same variable.
+  mail:
+    host: localhost
+    port: ${LOCAL_MAIL_SMTP_PORT:1025}
 
 logging:
   structured:
@@ -30,6 +35,8 @@ sessions:
     access-key-id: local-storage-root
     secret-access-key: local-only-not-a-secret
 
+# Email goes to Mailpit from compose.yaml (ADR 0026), which keeps it and shows it at http://localhost:8025. Fixed
+# ports, like storage's; LOCAL_MAIL_SMTP_PORT moves the SMTP one, and compose reads the same variable.
 # The web app's development server and the end-to-end test's static server
 # call the API from these origins (ADR 0018).
 web:

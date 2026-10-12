@@ -119,6 +119,26 @@ final class TestBookings implements AutoCloseable {
     }
 
     /**
+     * Waits for the notification of this kind to a user: made by the real events, in a listener of its own, a
+     * moment after what caused it (ADR 0026).
+     */
+    java.util.Map<String, Object> awaitNotification(UUID userId, String kind) throws InterruptedException {
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        while (System.nanoTime() < deadline) {
+            var rows = jdbc.queryForList(
+                    "select kind, title, body, link, in_app, email_wanted, email_sent_at"
+                            + " from notifications.notifications where user_id = ? and kind = ? order by id",
+                    userId,
+                    kind);
+            if (!rows.isEmpty()) {
+                return rows.getFirst();
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("no " + kind + " notification for " + userId);
+    }
+
+    /**
      * Waits until the session holds no credit. A session that ran keeps its hold until metering closes its usage,
      * a moment after it ends (ADR 0017).
      */

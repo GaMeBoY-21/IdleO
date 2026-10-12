@@ -78,6 +78,11 @@ class HostService implements HostOwners, HostGpus {
     }
 
     @Override
+    public Optional<UUID> ownerOf(UUID hostId) {
+        return hosts.findById(hostId).map(Host::ownerUserId);
+    }
+
+    @Override
     public List<OwnedHost> ownedBy(UUID userId) {
         return hosts.findAllByOwnerUserIdOrderByCreatedAt(userId).stream()
                 .map(host -> new OwnedHost(host.id(), host.name(), host.removed()))

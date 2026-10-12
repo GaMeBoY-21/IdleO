@@ -212,6 +212,19 @@ class HostLossTests {
                         Integer.class,
                         booked.sessionId()))
                 .isEqualTo(1);
+
+        // The renter hears it is moving; the machine's owner, that it went offline (ADR 0026).
+        assertThat(bookings.awaitNotification(booked.renter().id(), "host-lost").get("title"))
+                .isEqualTo("Your session is moving to another GPU");
+        var owner = jdbc.queryForObject(
+                "select h.owner_user_id from sessions.attempts a join hosts.hosts h on h.id = a.host_id"
+                        + " where a.session_id = ? and a.attempt = 1",
+                UUID.class,
+                booked.sessionId());
+        var offline = bookings.awaitNotification(owner, "machine-offline");
+        assertThat(offline.get("title").toString()).endsWith("went offline during a session");
+        assertThat(offline.get("body").toString())
+                .doesNotContain(booked.sessionId().toString());
     }
 
     @Test

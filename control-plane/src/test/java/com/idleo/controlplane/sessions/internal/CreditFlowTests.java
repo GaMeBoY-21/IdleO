@@ -227,6 +227,13 @@ class CreditFlowTests {
                         .get("chargedPaise")
                         .asLong())
                 .isEqualTo(60);
+
+        // The renter is told, in the app and by email: it ran low, then it stopped, with what it cost (ADR 0026).
+        assertThat(bookings.awaitNotification(renterId, "low-credit").get("title"))
+                .isEqualTo("Your credit is running low");
+        var told = bookings.awaitNotification(renterId, "stopped-for-credit");
+        assertThat(told.get("title")).isEqualTo("Stopped: your credit ran out");
+        assertThat(told.get("body").toString()).contains("It cost ₹0.60.");
     }
 
     @Test
@@ -254,6 +261,8 @@ class CreditFlowTests {
         var charged = 50_000 - balance(renterId);
         assertThat(charged).as("exactly the minutes it ran").isEqualTo(2L * minutes);
         assertThat(charged).as("and never past the cap").isLessThanOrEqualTo(6);
+        assertThat(bookings.awaitNotification(renterId, "stopped-for-credit").get("title"))
+                .isEqualTo("Stopped: it reached your spending cap");
     }
 
     @Test

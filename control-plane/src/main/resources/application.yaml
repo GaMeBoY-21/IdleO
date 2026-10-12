@@ -103,6 +103,14 @@ limits:
 identity:
   web-app-url: ${IDENTITY_WEB_APP_URL:http://localhost:3000}
 
+# Notifications (ADR 0026): where an email's links go and who it comes from. Production sets both, and the mail
+# server in spring.mail.*, from the environment; the prod profile refuses a link that is plain HTTP or on this
+# machine, and a mail server on this machine (ProductionSettingsGuard). docs/runbooks/email.md.
+notifications:
+  web-app-url: ${NOTIFICATIONS_WEB_APP_URL:http://localhost:3000}
+  email:
+    from: ${NOTIFICATIONS_EMAIL_FROM:IdleO <notifications@localhost>}
+
 # The web app's origins, comma-separated (WEB_ALLOWED_ORIGINS), allowed to call /v1 with a bearer
 # token (ADR 0018). None by default; production refuses *, plain HTTP and localhost.
 web:

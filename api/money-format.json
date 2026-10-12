@@ -1,0 +1,18 @@
+{
+  "comment": "Integer paise and how both clients write them: the control plane's Rupees.format and the web app's formatPaise. Each side's tests read this file.",
+  "cases": [
+    { "paise": 0, "text": "₹0.00" },
+    { "paise": 1, "text": "₹0.01" },
+    { "paise": 9, "text": "₹0.09" },
+    { "paise": 99, "text": "₹0.99" },
+    { "paise": 100, "text": "₹1.00" },
+    { "paise": 49994, "text": "₹499.94" },
+    { "paise": 123456, "text": "₹1,234.56" },
+    { "paise": 12345678, "text": "₹1,23,456.78" },
+    { "paise": 100000000, "text": "₹10,00,000.00" },
+    { "paise": 1000000000, "text": "₹1,00,00,000.00" },
+    { "paise": 123456789012, "text": "₹1,23,45,67,890.12" },
+    { "paise": -250, "text": "−₹2.50" },
+    { "paise": -12345678, "text": "−₹1,23,456.78" }
+  ]
+}

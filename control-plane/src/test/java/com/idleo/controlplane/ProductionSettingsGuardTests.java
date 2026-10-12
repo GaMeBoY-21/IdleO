@@ -14,9 +14,13 @@ class ProductionSettingsGuardTests {
             new ApplicationContextRunner().withUserConfiguration(ProductionSettingsGuard.class);
 
     private ApplicationContextRunner prod(String... properties) {
-        // Production's web app, unless a test sets another.
+        // Production's web app and email, unless a test sets another.
         return runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("prod"))
-                .withPropertyValues("identity.web-app-url=https://app.example.invalid")
+                .withPropertyValues(
+                        "identity.web-app-url=https://app.example.invalid",
+                        "notifications.web-app-url=https://app.example.invalid",
+                        "notifications.email.from=IdleO <notifications@example.invalid>",
+                        "spring.mail.host=smtp.example.invalid")
                 .withPropertyValues(properties);
     }
 
@@ -119,5 +123,20 @@ class ProductionSettingsGuardTests {
                         "agentgateway.allow-development-hosts=true",
                         "identity.issuers[0].issuer-uri=http://localhost:8099/idleo-local")
                 .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void prodRefusesDevelopmentEmailSettings() {
+        for (var setting : new String[][] {
+            {"notifications.web-app-url=http://localhost:3000", "notifications.web-app-url http://localhost:3000"},
+            {"notifications.web-app-url=http://app.example.invalid", "notifications.web-app-url http://app"},
+            {"notifications.email.from=IdleO <notifications@localhost>", "notifications.email.from"},
+            {"spring.mail.host=localhost", "spring.mail.host is localhost, on this machine"},
+            {"spring.mail.host=", "spring.mail.host is missing"},
+            {"notifications.email.provider=recording", "notifications.email.provider is recording, not smtp"}
+        }) {
+            prod(setting[0], "identity.issuers[0].issuer-uri=" + GOOGLE)
+                    .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+        }
     }
 }

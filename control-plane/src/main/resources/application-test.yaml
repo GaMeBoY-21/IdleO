@@ -19,6 +19,11 @@ spring:
     server:
       port: 0
 
+# Email is recorded, not sent (RecordingEmailSender); the notifications tests read it (ADR 0026).
+notifications:
+  email:
+    provider: recording
+
 # Tests that aren't about invites sign people in without an invite code (ADR 0024).
 identity:
   invite-only: false

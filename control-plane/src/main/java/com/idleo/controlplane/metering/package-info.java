@@ -8,7 +8,8 @@
  * MeteredSessions}, sets {@code lease_alive}. Only a minute with both is billable.
  *
  * <p>It depends on sessions and the agent gateway, and listens to {@code SessionStarted} and {@code
- * SessionEnded}. Nothing depends on it.
+ * SessionEnded}. It reports a session's closed usage and a credit that ran low through the sessions module's
+ * {@code SessionMilestones} port, which sessions announces as events (ADR 0026). Nothing depends on it.
  */
 @ApplicationModule
 package com.idleo.controlplane.metering;

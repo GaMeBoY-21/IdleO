@@ -8,6 +8,16 @@ spring:
   data:
     redis:
       url: ${VALKEY_URL}
+  # The mail server for email (ADR 0026, docs/runbooks/email.md).
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
 
 # Cloudflare R2 (ADR 0016, docs/runbooks/object-storage.md).
 sessions:
@@ -22,3 +32,10 @@ sessions:
       account-id: ${SESSIONS_STORAGE_R2_ACCOUNT_ID}
       api-token: ${SESSIONS_STORAGE_R2_API_TOKEN}
       parent-access-key-id: ${SESSIONS_STORAGE_ACCESS_KEY_ID}
+
+# Email (ADR 0026, docs/runbooks/email.md): any provider that speaks SMTP, picked later. Until its settings exist the
+# prod profile refuses to start: it needs a mail server (above), a sender address and the web app's address.
+notifications:
+  web-app-url: ${NOTIFICATIONS_WEB_APP_URL}
+  email:
+    from: ${NOTIFICATIONS_EMAIL_FROM}

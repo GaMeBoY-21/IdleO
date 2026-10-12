@@ -444,6 +444,9 @@ class SessionInputTests {
                 .get("id")
                 .asString());
         bookings.awaitState(renter, cramped, "NO_HOST_FREE");
+        var told = bookings.awaitNotification(renter.id(), "no-host-free");
+        assertThat(told.get("title")).isEqualTo("No GPU was free");
+        assertThat(told.get("email_wanted")).as("in the app only").isEqualTo(false);
 
         host.freeDiskMb().set(1_457 + TestHosts.DEFAULT_KEEP_FREE_MB);
         Thread.sleep(Duration.ofSeconds(1));

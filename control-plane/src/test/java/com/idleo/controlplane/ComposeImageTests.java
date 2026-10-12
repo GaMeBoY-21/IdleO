@@ -17,5 +17,7 @@ class ComposeImageTests {
         assertThat(compose).contains("image: " + TestcontainersConfiguration.VALKEY_IMAGE);
         assertThat(compose).contains("image: " + LocalSignInContainer.IMAGE);
         assertThat(compose).contains("image: " + TestStorageConfiguration.MINIO_IMAGE);
+        // The mail catcher is development only, so no test starts it: its image is pinned by digest all the same.
+        assertThat(compose).containsPattern("image: axllent/mailpit:v[0-9.]+@sha256:[0-9a-f]{64}");
     }
 }

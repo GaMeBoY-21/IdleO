@@ -103,6 +103,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- Email goes through Spring's mail sender over SMTP (ADR 0026). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
@@ -233,6 +238,14 @@
                 <targetPath>templates</targetPath>
                 <includes>
                     <include>catalog.yaml</include>
+                </includes>
+            </resource>
+            <!-- The renter's words for how a session ended live at the repository root too, shared with the web app. -->
+            <resource>
+                <directory>${project.basedir}/../api</directory>
+                <targetPath>api</targetPath>
+                <includes>
+                    <include>endings.json</include>
                 </includes>
             </resource>
         </resources>

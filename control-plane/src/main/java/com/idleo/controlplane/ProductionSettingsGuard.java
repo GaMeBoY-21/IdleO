@@ -24,6 +24,9 @@ import org.springframework.stereotype.Component;
  *   <li>a web origin in {@code web.allowed-origins} that is {@code *}, plain HTTP or on this machine (ADR 0018);
  *   <li>an {@code identity.web-app-url}, where CLI sign-ins are approved, that is plain HTTP or on this machine
  *       (ADR 0025);
+ *   <li>a {@code notifications.web-app-url}, where an email's links go, that is plain HTTP or on this machine; a
+ *       {@code notifications.email.from} on this machine; a mail server ({@code spring.mail.host}) on this machine,
+ *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026);
  *   <li>{@code springdoc.api-docs.enabled}: the API contract is generated in tests and committed, never served
  *       (ADR 0018).
  * </ul>
@@ -85,6 +88,23 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         var webApp = binder.bind("identity.web-app-url", String.class).orElse("");
         if (isDevelopmentIssuer(webApp)) {
             problems.add("identity.web-app-url " + webApp + " is plain HTTP or on this machine");
+        }
+        var emailLinks = binder.bind("notifications.web-app-url", String.class).orElse("");
+        if (isDevelopmentIssuer(emailLinks)) {
+            problems.add("notifications.web-app-url " + emailLinks + " is plain HTTP or on this machine");
+        }
+        var from = binder.bind("notifications.email.from", String.class).orElse("");
+        if (from.toLowerCase(Locale.ROOT).contains("localhost")) {
+            problems.add("notifications.email.from " + from + " is on this machine");
+        }
+        var mailHost = binder.bind("spring.mail.host", String.class).orElse("");
+        if (mailHost.isBlank() || LOCAL_HOSTS.contains(mailHost.strip().toLowerCase(Locale.ROOT))) {
+            problems.add("spring.mail.host is " + (mailHost.isBlank() ? "missing" : mailHost + ", on this machine"));
+        }
+        var emailProvider =
+                binder.bind("notifications.email.provider", String.class).orElse("smtp");
+        if (!"smtp".equalsIgnoreCase(emailProvider)) {
+            problems.add("notifications.email.provider is " + emailProvider + ", not smtp");
         }
         return problems;
     }

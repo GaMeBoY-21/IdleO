@@ -11,6 +11,7 @@ import com.idleo.controlplane.billing.SessionCharges;
 import com.idleo.controlplane.billing.internal.TestCredit;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import com.idleo.controlplane.sessions.SessionControl;
+import com.idleo.controlplane.sessions.SessionMilestones;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -133,6 +134,14 @@ class SettlementTests {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> work.run());
     }
 
+    private static final SessionMilestones NO_MILESTONES = new SessionMilestones() {
+        @Override
+        public void settled(UUID sessionId) {}
+
+        @Override
+        public void lowOnCredit(UUID sessionId) {}
+    };
+
     private MeteringJobs jobs() {
         return new MeteringJobs(
                 sessions,
@@ -144,10 +153,12 @@ class SettlementTests {
                         reservations,
                         settlements,
                         new Costs(sessions, settlements, jdbc),
+                        NO_MILESTONES,
                         jdbc),
                 new Waivers(sessions, charges, jdbc),
                 reservations,
                 sessionId -> {},
+                NO_MILESTONES,
                 jdbc,
                 transactionManager,
                 java.time.Clock.systemUTC(),

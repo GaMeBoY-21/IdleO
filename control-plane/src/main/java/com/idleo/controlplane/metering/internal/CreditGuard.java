@@ -4,6 +4,7 @@ import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import com.idleo.controlplane.sessions.SessionControl;
+import com.idleo.controlplane.sessions.SessionMilestones;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -40,6 +41,7 @@ class CreditGuard {
     private final CreditReservations reservations;
     private final Settlements settlements;
     private final Costs costs;
+    private final SessionMilestones milestones;
     private final JdbcClient jdbc;
 
     CreditGuard(
@@ -48,12 +50,14 @@ class CreditGuard {
             CreditReservations reservations,
             Settlements settlements,
             Costs costs,
+            SessionMilestones milestones,
             JdbcClient jdbc) {
         this.sessions = sessions;
         this.control = control;
         this.reservations = reservations;
         this.settlements = settlements;
         this.costs = costs;
+        this.milestones = milestones;
         this.jdbc = jdbc;
     }
 
@@ -110,10 +114,14 @@ class CreditGuard {
             }
         }
         boolean low = hold.plus(available).minus(committed).compareTo(price.times(LOW_CREDIT_MINUTES)) < 0;
-        jdbc.sql("""
+        int flipped =
+                jdbc.sql("""
                         update metering.metered_sessions set low_credit = :low
                         where session_id = :sessionId and low_credit <> :low
                         """).param("low", low).param("sessionId", sessionId).update();
+        if (low && flipped == 1) {
+            milestones.lowOnCredit(sessionId);
+        }
     }
 
     /** Billable minutes not settled, plus the current attempt's started minutes not decided yet. */
