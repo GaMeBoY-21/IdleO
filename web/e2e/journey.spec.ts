@@ -239,6 +239,19 @@ test.describe("on a laptop", () => {
         await route.continue();
       }
     });
+    // The progress shows a part's bytes as storage takes them; its ETag, which resuming needs, arrives with storage's
+    // answer a moment later. So the reload waits for both answers.
+    const answered = new Promise<void>((resolve) => {
+      let count = 0;
+      page.on("response", (r) => {
+        if (r.request().method() === "PUT" && r.url().includes("/idleo-local/uploads/") && r.ok()) {
+          count++;
+          if (count === 2) {
+            resolve();
+          }
+        }
+      });
+    });
     const opened = page.waitForResponse(
       (r) => r.url().endsWith("/v1/uploads") && r.request().method() === "POST",
     );
@@ -248,6 +261,7 @@ test.describe("on a laptop", () => {
     const first = ((await (await opened).json()) as { upload: { id: string } }).upload.id;
     // Two 5 MiB parts of 24 MiB.
     await expect(data.getByText(/^41% of 24 MB/)).toBeVisible({ timeout: 30_000 });
+    await answered;
     await page.waitForTimeout(500);
 
     await page.unrouteAll({ behavior: "ignoreErrors" });
