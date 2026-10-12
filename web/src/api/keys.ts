@@ -12,9 +12,12 @@ export const keyKeys = {
   cliLogin: (code: string) => ["cli-login", code] as const,
 };
 
-/** The person's API keys, newest first: never a secret, only the first characters of each (ADR 0025). */
-export function useApiKeys() {
-  return useQuery({ queryKey: keyKeys.list, queryFn: () => data(api.GET("/v1/api-keys")) });
+/**
+ * The person's API keys, newest first: never a secret, only the first characters of each (ADR 0025). `enabled` false
+ * holds the first fetch back (useAfterPaint): the screen paints before they're asked for.
+ */
+export function useApiKeys(enabled = true) {
+  return useQuery({ queryKey: keyKeys.list, enabled, queryFn: () => data(api.GET("/v1/api-keys")) });
 }
 
 /**

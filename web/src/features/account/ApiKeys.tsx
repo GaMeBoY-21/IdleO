@@ -10,6 +10,7 @@ import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
 import { problemMessage } from "@/lib/problems";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { useTitle } from "@/lib/title";
 import { CreateKey } from "./CreateKey";
 import { RevokeDialog } from "./RevokeDialog";
@@ -24,7 +25,10 @@ const SCOPES: Record<ApiKey["scope"], string> = { full: "Full access", read: "Re
  */
 export function ApiKeys() {
   useTitle("API keys");
-  const keys = useApiKeys();
+  // The list isn't what the screen paints first, so it's asked for once it has painted: a request made before the
+  // first paint counts against the speed budgets (ADR 0018).
+  const painted = useAfterPaint();
+  const keys = useApiKeys(painted);
   const revoke = useRevokeKey();
   const [revoking, setRevoking] = useState<ApiKey | null>(null);
   const since = staleSince(keys);
