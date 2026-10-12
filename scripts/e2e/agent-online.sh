@@ -958,7 +958,7 @@ scenario_web() {
   host="$(json_get .fineTune.hostId <"$out/web-journey.json")"
   free_disk="$(presence "$host" free_disk_mb | tr -d '\r')"
   note "web fine-tune: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1]))["fineTune"]; print("model folder %s (%d bytes), uploaded in %ss; GPU memory asked %d MB; host %s with %s MB free disk; Request a GPU to RUNNING %ss (server %ss); ceiling %d paise/min (highest fitting %s), hold quoted %d and held %d paise; adapter %d bytes; charged %d paise" % (", ".join("%s %d" % f for f in n["modelFiles"].items()), n["modelBytes"], n["uploadSeconds"], n["vramNeededMb"], n["hostId"], sys.argv[2], n["requestToRunningSeconds"], n["serverRunningAfterSeconds"], n["ceilingPaisePerMin"], n["highestFittingPaisePerMin"], n["quotedHoldPaise"], n["heldPaise"], n["adapterBytes"], n["chargedPaise"]))' "$out/web-journey.json" "$free_disk")"
-  note "web resumed upload: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1]))["resumedUpload"]; print("%d bytes in %d parts; %d taken before the reload, then carried on from part %d, sending %d; %ss in all" % (n["sizeBytes"], n["parts"], n["takenBeforeTheReload"], n["resumedFromPart"], n["sentAfterTheReload"], n["totalSeconds"]))' "$out/web-journey.json")"
+  note "web resumed upload: $(python3 -c 'import json,sys; n=json.load(open(sys.argv[1]))["resumedUpload"]; print("%d bytes in %d parts; %d taken before the reload, then only the %d others sent (the first of them part %d); %ss in all" % (n["sizeBytes"], n["parts"], n["takenBeforeTheReload"], n["sentAfterTheReload"], n["resumedFromPart"], n["totalSeconds"]))' "$out/web-journey.json")"
 }
 
 # The booking contract (ADR 0019), on its own host: upload, quote, book with parameters and the upload as the

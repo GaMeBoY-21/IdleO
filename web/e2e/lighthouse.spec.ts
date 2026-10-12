@@ -111,6 +111,10 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         const runs: Measured[] = [];
         for (let run = 1; run <= (asserted ? RUNS : 1); run++) {
           if (signedIn) {
+            // This tab only signs in and books; left open on a screen it keeps polling (the bell asks for notifications
+            // every 30 s), and each poll saves its own few figures over the ones the measured page kept for the next
+            // run (the Hosting tab's machines), so a later run began cold.
+            await page.goto("about:blank");
             // A cold cache, as a first visit has; only the sign-in, in IndexedDB, is kept.
             const cdp = await context.newCDPSession(page);
             await cdp.send("Network.clearBrowserCache");

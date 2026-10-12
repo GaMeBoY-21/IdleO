@@ -252,11 +252,14 @@ test.describe("on a laptop", () => {
     page.on("dialog", (dialog) => void dialog.accept());
     // Storage takes the first two parts; the rest wait, as if the connection had dropped.
     let taken = 0;
+    const takenParts: number[] = [];
     await page.route(/\/idleo-local\/uploads\//, async (route) => {
       if (route.request().method() !== "PUT") {
         await route.continue();
       } else if (taken < 2) {
         taken++;
+        // Parts go up several at a time, so which two storage takes first isn't always parts 1 and 2.
+        takenParts.push(Number(new URL(route.request().url()).searchParams.get("partNumber")));
         await route.continue();
       }
     });
@@ -308,7 +311,9 @@ test.describe("on a laptop", () => {
     });
     const totalSeconds = (Date.now() - startedAt) / 1000;
     expect(resumed.upload.id).toBe(first);
-    expect(parts.sort((a, b) => a - b)).toEqual([3, 4, 5]);
+    // Only what storage didn't take is sent again.
+    expect(takenParts).toHaveLength(2);
+    expect(parts.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5].filter((part) => !takenParts.includes(part)));
     const ready = await request.get(`${API}/v1/uploads/${first}`, { headers: await authorised(request) });
     expect(((await ready.json()) as { upload: { status: string; sizeBytes: number } }).upload).toMatchObject({
       status: "ready",
