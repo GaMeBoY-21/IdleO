@@ -57,6 +57,8 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       ["machine", true],
       // The account, with its notification choices (ADR 0024).
       ["account", true],
+      // Its keys, which the command line and scripts act through (ADR 0025).
+      ["keys", true],
     ] as const) {
       if (name === "home") {
         await signIn(page, user);
@@ -98,6 +100,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         hosting: "/hosting/",
         machine: `/hosting/machine/?id=${machineId}`,
         account: "/account/",
+        keys: "/account/keys/",
       }[name];
       for (const formFactor of ["mobile", "desktop"] as const) {
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.

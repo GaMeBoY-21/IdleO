@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { expectAccessible, watchConsole } from "./support";
+import { API, expectAccessible, signIn, watchConsole } from "./support";
 
 /**
  * Access by invitation and the account, on the real stack (ADR 0024, scripts/e2e/agent-online.sh): a new person signs in
@@ -97,5 +97,77 @@ test("a code can be used once", async ({ page }) => {
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("That code isn't one we can accept.")).toBeVisible();
   await expect(page).toHaveURL(/\/invite\//);
+  finish();
+});
+
+test("a key is made, shown once, works, and is revoked", async ({ page, request }) => {
+  const finish = watchConsole(page);
+  // The person from the first test, whose invite code was used.
+  await signIn(page, `${base}-invite`, "/account/keys/");
+  await expect(page.getByRole("heading", { level: 1, name: "API keys" })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByLabel("Name").fill("Journey key");
+  await page.getByRole("button", { name: "Create key" }).click();
+  const shown = page.getByTestId("new-key");
+  await expect(shown).toBeVisible();
+  await expect(page.getByText("You won't see it again.")).toBeVisible();
+  const key = (await shown.textContent()) ?? "";
+  expect(key).toMatch(/^idleo_[a-z2-7]{52}$/);
+
+  // The key acts as the person: it reads their account, and can't make another key.
+  const asKey = { Authorization: `Bearer ${key}` };
+  expect((await request.get(`${API}/v1/me`, { headers: asKey })).status()).toBe(200);
+  const another = await request.post(`${API}/v1/api-keys`, {
+    headers: { ...asKey, "Idempotency-Key": "journey-another" },
+    data: { name: "another", scope: "full" },
+  });
+  expect(another.status()).toBe(403);
+  expect(((await another.json()) as { type: string }).type).toBe("/problems/browser-sign-in-required");
+
+  // Done: the key is gone from the page, and the list has it by its first characters.
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText(key)).toHaveCount(0);
+  await expect(page.getByText("Journey key", { exact: true })).toBeVisible();
+  await expect(page.getByText(`${key.slice(0, 14)}…`)).toBeVisible();
+
+  // Revoke, after being asked: the key stops working at once.
+  await page.getByRole("button", { name: "Revoke Journey key" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Revoke Journey key?");
+  await page.getByRole("dialog").getByRole("button", { name: "Revoke Journey key" }).click();
+  await expect(page.getByText("Journey key", { exact: true })).toHaveCount(0);
+  expect((await request.get(`${API}/v1/me`, { headers: asKey })).status()).toBe(401);
+  finish();
+});
+
+test("a command line's sign-in is approved in the browser, and it gets its key", async ({
+  page,
+  request,
+}) => {
+  const finish = watchConsole(page);
+  const started = await request.post(`${API}/v1/cli-logins`, { data: { deviceName: "journey-laptop" } });
+  expect(started.status()).toBe(201);
+  const login = (await started.json()) as { id: string; userCode: string; pollToken: string };
+  const poll = () =>
+    request.post(`${API}/v1/cli-logins/${login.id}/token`, { data: { pollToken: login.pollToken } });
+  expect((await poll()).status()).toBe(400);
+
+  await signIn(page, `${base}-invite`, `/cli-login/?code=${login.userCode}`);
+  await expect(page.getByRole("heading", { name: "Sign in the command line?" })).toBeVisible();
+  await expect(page.getByText("On journey-laptop")).toBeVisible();
+  await expect(page.getByLabel("The code to compare")).toHaveText(login.userCode);
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByText("You can close this tab.")).toBeVisible();
+
+  // The waiting command line is handed a full key, named for the computer, once.
+  const done = await poll();
+  expect(done.status()).toBe(200);
+  const key = (await done.json()) as { key: string; name: string; scope: string };
+  expect(key).toMatchObject({ name: "CLI on journey-laptop", scope: "full" });
+  expect((await poll()).status()).toBe(400);
+  expect(
+    (await request.get(`${API}/v1/me`, { headers: { Authorization: `Bearer ${key.key}` } })).status(),
+  ).toBe(200);
   finish();
 });

@@ -41,6 +41,8 @@ const screens = [
   },
   { name: "earnings", path: "/hosting/earnings/", ready: () => "Given back for lost time" },
   { name: "account", path: "/account/", ready: () => "New device sign-in" },
+  { name: "API keys", path: "/account/keys/", ready: () => "Dashboard" },
+  { name: "a CLI sign-in to approve", path: "/cli-login/?code=WDJB-MJHT", ready: () => "Approve" },
   {
     name: "adding a machine",
     path: `/hosting/add/?id=${hosting.hostNew.id}`,
@@ -64,6 +66,8 @@ for (const screen of screens) {
       ...hostingApi(),
       "/v1/me": { json: data.me() },
       "/v1/me/notifications": { json: data.notificationChoices() },
+      "/v1/api-keys": { json: data.apiKeys() },
+      "/v1/cli-logins": { json: data.pendingCliLogin() },
       "/v1/templates": { json: data.templates },
       "/v1/wallet": { json: data.asha.wallet },
       "/v1/availability": { json: data.availability },

@@ -8,6 +8,8 @@ import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { useTitle } from "@/lib/title";
+import { ChevronRight } from "lucide-react";
+import { Link } from "wouter";
 import { NameRow, ROW } from "./NameRow";
 import { NotificationChoices } from "./NotificationChoices";
 
@@ -37,6 +39,17 @@ export function Account() {
             <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
             <Fact label="Email" value={me.data.email ?? "No email on file"} />
             {methods !== "" && <Fact label="Signed in with" value={methods} />}
+            <Link href="/account/keys/" className={`${ROW} hover:bg-fill`}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-option font-semibold">API keys</p>
+                <p className="text-small text-text-muted">For the command line, scripts and the SDK</p>
+              </div>
+              <ChevronRight
+                aria-hidden="true"
+                className="size-5 shrink-0 text-text-muted"
+                strokeWidth={1.75}
+              />
+            </Link>
           </div>
         ) : me.isError ? (
           <ErrorState

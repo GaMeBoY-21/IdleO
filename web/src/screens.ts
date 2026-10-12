@@ -21,6 +21,7 @@ export const SIGNED_IN_SCREENS = [
   "/welcome/",
   "/invite/",
   "/account/",
+  "/account/keys/",
 ];
 
 export const SCREENS: Record<string, string | null> = {
@@ -42,6 +43,8 @@ export const SCREENS: Record<string, string | null> = {
   "/welcome/": "src/features/home/Welcome.tsx",
   "/invite/": null,
   "/account/": "src/features/account/Account.tsx",
+  "/account/keys/": "src/features/account/ApiKeys.tsx",
+  "/cli-login/": null,
   "/terms/": null,
   "/privacy/": null,
 };

@@ -4,6 +4,7 @@ import { AppShell, ShellSkeleton } from "@/components/shell/AppShell";
 import { RequireAuth } from "@/components/shell/RequireAuth";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Home } from "@/features/home/Home";
+import { CliLogin } from "@/features/cli-login/CliLogin";
 import { Invite } from "@/features/invite/Invite";
 import { Privacy, Terms } from "@/features/legal/Legal";
 import { SignIn } from "@/features/sign-in/SignIn";
@@ -51,6 +52,7 @@ const screens = {
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
   "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
+  "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
 };
 
 /** Loads the code of the screen at `path`, if it has its own; resolves at once for the others. */
@@ -73,10 +75,11 @@ const AddMachine = screens["/hosting/add/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
 const Account = screens["/account/"].Screen;
+const ApiKeys = screens["/account/keys/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -105,6 +108,7 @@ function SignedInArea() {
             <Route path="/book/" component={Book} />
             <Route path="/files/" component={MyFiles} />
             <Route path="/account/" component={Account} />
+            <Route path="/account/keys/" component={ApiKeys} />
             <Route path="/hosting/" component={Hosting} />
             <Route path="/hosting/machine/" component={Machine} />
             <Route path="/hosting/price/" component={Price} />
@@ -150,6 +154,7 @@ export function App() {
       {/* In the first load, not their own chunks: small, and drawn whole on the server, so a page opened on one
           hydrates without a Suspense boundary to rebuild. */}
       <Route path="/invite/" component={Invite} />
+      <Route path="/cli-login/" component={CliLogin} />
       <Route path="/terms/" component={Terms} />
       <Route path="/privacy/" component={Privacy} />
       <Route path={SIGNED_IN}>

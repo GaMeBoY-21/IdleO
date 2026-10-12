@@ -1044,3 +1044,45 @@ export function partLinks(partNumbers: number[]) {
     urlsExpireAt: new Date(NOW.getTime() + HOUR).toISOString(),
   };
 }
+
+type ApiKeyResponse = Schemas["ApiKeyResponse"];
+
+/** The person's API keys, newest first: a read key made in the web app and the CLI's, which has been used. */
+export const apiKeys = (): { keys: ApiKeyResponse[] } => ({
+  keys: [
+    {
+      id: "01a12ffa-0000-7000-8000-000000000002",
+      name: "CLI on asha-laptop",
+      prefix: "idleo_k3j9x2mq",
+      scope: "full",
+      createdVia: "cli-login",
+      createdAt: new Date(NOW.getTime() - 3 * DAY).toISOString(),
+      lastUsedAt: new Date(NOW.getTime() - 12 * MINUTE).toISOString(),
+    },
+    {
+      id: "01a12ffa-0000-7000-8000-000000000001",
+      name: "Dashboard",
+      prefix: "idleo_q7m2d8vz",
+      scope: "read",
+      createdVia: "web",
+      createdAt: new Date(NOW.getTime() - 20 * DAY).toISOString(),
+    },
+  ],
+});
+
+/** The key the web app has just made, in the one answer that shows it. */
+export const newApiKey = (name: string, scope: "full" | "read"): Schemas["CreatedApiKey"] => ({
+  id: "01a12ffa-0000-7000-8000-000000000003",
+  name,
+  prefix: "idleo_z5w2n9ca",
+  scope,
+  createdAt: NOW.toISOString(),
+  key: `idleo_z5w2n9ca${"x".repeat(44)}`,
+});
+
+/** A CLI sign-in waiting for approval, as the approval page finds it by its code. */
+export const pendingCliLogin = (): Schemas["PendingCliLogin"] => ({
+  id: "01a12ffa-0000-7000-8000-0000000000a1",
+  deviceName: "asha-laptop",
+  expiresAt: new Date(NOW.getTime() + 8 * MINUTE).toISOString(),
+});
