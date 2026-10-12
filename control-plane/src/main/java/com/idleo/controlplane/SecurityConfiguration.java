@@ -23,8 +23,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
  * Deny by default. Only the two health probes are open. Every other request, including every other
- * actuator endpoint, needs a valid ID token from a trusted issuer, belonging to an active user with a
- * verified email. The identity module provides both the token verification and the access rule, as
+ * actuator endpoint, needs a valid ID token from a trusted issuer or an API key (ADR 0025), belonging to an
+ * active user. The identity module provides both the token verification and the access rule, as
  * plain Spring Security beans, so this shared code never depends on it.
  */
 @Configuration(proxyBeanMethods = false)
@@ -68,7 +68,7 @@ class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            AuthenticationManagerResolver<HttpServletRequest> idTokens,
+            AuthenticationManagerResolver<HttpServletRequest> bearers,
             AuthorizationManager<RequestAuthorizationContext> activeUser,
             ProblemDetailsSecurityHandler problems,
             CorsConfigurationSource webOrigins) {
@@ -77,7 +77,7 @@ class SecurityConfiguration {
                         .anyRequest()
                         .access(activeUser))
                 .oauth2ResourceServer(resourceServer -> resourceServer
-                        .authenticationManagerResolver(idTokens)
+                        .authenticationManagerResolver(bearers)
                         .authenticationEntryPoint(problems)
                         .accessDeniedHandler(problems))
                 .exceptionHandling(

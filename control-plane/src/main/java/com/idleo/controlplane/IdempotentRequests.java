@@ -33,6 +33,9 @@ import tools.jackson.databind.json.JsonMapper;
  *   <li>Keys are scoped to the user and expire after 24 hours.
  * </ul>
  *
+ * <p>A response that carries a secret shown once (an API key) is run with {@link #executeShownOnce}: its body is
+ * never stored, and a repeat with the same key is told what was created rather than shown the secret again.
+ *
  * <p>One implementation, shared by every module; each module keeps its own {@code
  * <schema>.idempotency_keys} table, so no module reads another's. The action and the stored
  * response commit in one transaction, so a created resource always has its response recorded. If
@@ -74,6 +77,30 @@ public class IdempotentRequests {
             @Nullable String idempotencyKeyHeader,
             Object request,
             Supplier<ResponseEntity<?>> action) {
+        return run(table, userId, idempotencyKeyHeader, request, action, false);
+    }
+
+    /**
+     * Like {@link #execute}, for a response whose body holds a secret shown only once. The body isn't stored; a
+     * repeat gets 409 {@code secret-shown-once} naming what was created (the first response's {@code Location}),
+     * so the client can revoke it and try again. The action's response must have a {@code Location}.
+     */
+    public ResponseEntity<String> executeShownOnce(
+            String table,
+            UUID userId,
+            @Nullable String idempotencyKeyHeader,
+            Object request,
+            Supplier<ResponseEntity<?>> action) {
+        return run(table, userId, idempotencyKeyHeader, request, action, true);
+    }
+
+    private ResponseEntity<String> run(
+            String table,
+            UUID userId,
+            @Nullable String idempotencyKeyHeader,
+            Object request,
+            Supplier<ResponseEntity<?>> action,
+            boolean shownOnce) {
         if (!TABLE.matcher(table).matches()) {
             throw new IllegalArgumentException("not an idempotency key table: " + table);
         }
@@ -91,6 +118,12 @@ public class IdempotentRequests {
                         "This Idempotency-Key was already used with a different request body.");
             }
             if (earlier.completed()) {
+                if (shownOnce) {
+                    throw ApiProblem.of(
+                            Problem.SECRET_SHOWN_ONCE,
+                            "This request already created " + earlier.responseLocation()
+                                    + "; its secret was shown once. Revoke it and create another.");
+                }
                 return replay(earlier);
             }
             if (!takeOverAbandoned(table, userId, key)) {
@@ -105,6 +138,9 @@ public class IdempotentRequests {
                 var response = action.get();
                 var body = json.writeValueAsString(response.getBody());
                 var location = response.getHeaders().getLocation();
+                if (shownOnce && location == null) {
+                    throw new IllegalStateException("a response shown once needs a Location");
+                }
                 jdbc.sql("""
                                 update %s
                                 set state = 'completed', response_status = :status,
@@ -113,7 +149,7 @@ public class IdempotentRequests {
                                 """.formatted(table))
                         .param("status", response.getStatusCode().value())
                         .param("location", location == null ? null : location.toString())
-                        .param("body", body)
+                        .param("body", shownOnce ? null : body)
                         .param("userId", userId)
                         .param("key", key)
                         .update();

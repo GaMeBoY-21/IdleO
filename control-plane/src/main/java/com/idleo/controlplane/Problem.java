@@ -58,6 +58,17 @@ public enum Problem {
             HttpStatus.TOO_MANY_REQUESTS,
             "Too many attempts",
             "Too many invite codes were tried in the last hour. Wait, then try again."),
+    BROWSER_SIGN_IN_REQUIRED(
+            "browser-sign-in-required",
+            HttpStatus.FORBIDDEN,
+            "Sign in with a browser for this",
+            "API keys can't manage keys, approve a CLI sign-in, add, remove or price a machine, issue its enrolment "
+                    + "code or change notification choices. Do it in the web app, signed in."),
+    API_KEY_READ_ONLY(
+            "api-key-read-only",
+            HttpStatus.FORBIDDEN,
+            "This key can only read",
+            "A read key can only make GET requests (and revoke itself). Use a full key to change anything."),
     ACCESS_DENIED("access-denied", HttpStatus.FORBIDDEN, "Access denied", "The caller may not do this."),
     NOT_FOUND(
             "not-found",
@@ -87,6 +98,12 @@ public enum Problem {
             "Messages about money and safety are always on, by email and in the app: stopped for credit or the "
                     + "spending cap, a host lost, a machine offline, payouts and top-ups, and a new device signing in."),
 
+    TOO_MANY_API_KEYS(
+            "too-many-api-keys",
+            HttpStatus.CONFLICT,
+            "Too many API keys",
+            "A person can have at most 20 keys that aren't revoked. Revoke one you no longer use first."),
+
     // Idempotency and versions.
     IDEMPOTENCY_KEY_INVALID(
             "idempotency-key-invalid",
@@ -98,6 +115,12 @@ public enum Problem {
             HttpStatus.CONFLICT,
             "Request still in progress",
             "A request with this Idempotency-Key is still being processed. Retry shortly with the same key."),
+    SECRET_SHOWN_ONCE(
+            "secret-shown-once",
+            HttpStatus.CONFLICT,
+            "Already created; its secret was shown once",
+            "A request with this Idempotency-Key already created it, and its secret was shown only in that first "
+                    + "answer. Revoke it (the detail names it) and create another."),
     IDEMPOTENCY_KEY_REUSED(
             "idempotency-key-reused",
             HttpStatus.UNPROCESSABLE_CONTENT,

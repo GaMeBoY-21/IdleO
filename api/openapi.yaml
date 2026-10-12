@@ -9,6 +9,84 @@ servers:
 security:
 - idToken: []
 paths:
+  /v1/api-keys:
+    get:
+      operationId: apiKeyList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - apiKey
+    post:
+      operationId: apiKeyCreate
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApiKey"
+          description: "The new key, with its secret this once; a repeat with the\
+            \ same Idempotency-Key is a 409 secret-shown-once naming it"
+          headers:
+            Location:
+              description: The key's URL
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - apiKey
+  /v1/api-keys/{id}:
+    delete:
+      operationId: apiKeyRevoke
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - apiKey
   /v1/availability:
     get:
       operationId: availabilityGet
@@ -1099,6 +1177,52 @@ components:
           minLength: 0
       required:
       - code
+    ApiKeyList:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyResponse"
+      required:
+      - keys
+    ApiKeyResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        createdVia:
+          type: string
+          enum:
+          - web
+          - cli-login
+        id:
+          type: string
+          format: uuid
+        lastUsedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        name:
+          type: string
+        prefix:
+          type: string
+          description: "The key's first characters, like idleo_k3j9x2mq, to recognise\
+            \ it by"
+        scope:
+          type: string
+          enum:
+          - read
+          - full
+      required:
+      - createdAt
+      - createdVia
+      - id
+      - name
+      - prefix
+      - scope
     Availability:
       type: object
       properties:
@@ -1134,6 +1258,21 @@ components:
       required:
       - parts
       - path
+    CreateApiKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+          minLength: 0
+        scope:
+          type: string
+          enum:
+          - read
+          - full
+      required:
+      - name
+      - scope
     CreateHostRequest:
       type: object
       properties:
@@ -1209,6 +1348,34 @@ components:
       required:
       - files
       - name
+    CreatedApiKey:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          description: "The key itself. It is shown only in this answer, never again"
+        name:
+          type: string
+        prefix:
+          type: string
+        scope:
+          type: string
+          enum:
+          - read
+          - full
+      required:
+      - createdAt
+      - id
+      - key
+      - name
+      - prefix
+      - scope
     CurrentSession:
       type: object
       properties:
@@ -1910,14 +2077,18 @@ components:
           - /problems/invite-required
           - /problems/invite-invalid
           - /problems/too-many-attempts
+          - /problems/browser-sign-in-required
+          - /problems/api-key-read-only
           - /problems/access-denied
           - /problems/not-found
           - /problems/method-not-allowed
           - /problems/not-acceptable
           - /problems/unsupported-media-type
           - /problems/notification-locked
+          - /problems/too-many-api-keys
           - /problems/idempotency-key-invalid
           - /problems/request-in-progress
+          - /problems/secret-shown-once
           - /problems/idempotency-key-reused
           - /problems/version-required
           - /problems/version-stale

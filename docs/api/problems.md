@@ -14,14 +14,18 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/invite-required` | 403 | Invite code required | Access is by invitation. Until the account is activated with an invite code, only reading and changing the account itself and activating it are allowed. |
 | `/problems/invite-invalid` | 400 | Invite code not accepted | The code isn't one that can be used: it's wrong, already used or expired. The response never says which. |
 | `/problems/too-many-attempts` | 429 | Too many attempts | Too many invite codes were tried in the last hour. Wait, then try again. |
+| `/problems/browser-sign-in-required` | 403 | Sign in with a browser for this | API keys can't manage keys, approve a CLI sign-in, add, remove or price a machine, issue its enrolment code or change notification choices. Do it in the web app, signed in. |
+| `/problems/api-key-read-only` | 403 | This key can only read | A read key can only make GET requests (and revoke itself). Use a full key to change anything. |
 | `/problems/access-denied` | 403 | Access denied | The caller may not do this. |
 | `/problems/not-found` | 404 | Not found | There's nothing at this address, or it belongs to someone else. |
 | `/problems/method-not-allowed` | 405 | Method not allowed | This address doesn't take that HTTP method. |
 | `/problems/not-acceptable` | 406 | Not acceptable | The response can't be given in any media type the request's Accept header allows. |
 | `/problems/unsupported-media-type` | 415 | Unsupported media type | The body's Content-Type isn't one this address takes; send application/json. |
 | `/problems/notification-locked` | 422 | That notification can't be turned off | Messages about money and safety are always on, by email and in the app: stopped for credit or the spending cap, a host lost, a machine offline, payouts and top-ups, and a new device signing in. |
+| `/problems/too-many-api-keys` | 409 | Too many API keys | A person can have at most 20 keys that aren't revoked. Revoke one you no longer use first. |
 | `/problems/idempotency-key-invalid` | 400 | Idempotency-Key missing or invalid | A create request needs an Idempotency-Key header: 1 to 255 visible ASCII characters, without spaces. |
 | `/problems/request-in-progress` | 409 | Request still in progress | A request with this Idempotency-Key is still being processed. Retry shortly with the same key. |
+| `/problems/secret-shown-once` | 409 | Already created; its secret was shown once | A request with this Idempotency-Key already created it, and its secret was shown only in that first answer. Revoke it (the detail names it) and create another. |
 | `/problems/idempotency-key-reused` | 422 | Idempotency-Key used for another request | This Idempotency-Key was already used with a different request body. Use a new key for a new request. |
 | `/problems/version-required` | 428 | If-Match required | A change needs If-Match with the ETag from the last read of the resource. |
 | `/problems/version-stale` | 412 | Changed since it was read | The resource changed since the ETag in If-Match was read. Read it again and retry. |
