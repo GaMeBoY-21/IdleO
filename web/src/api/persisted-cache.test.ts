@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const stored = new Map<string, string>();
@@ -74,6 +74,47 @@ describe("the kept figures", () => {
     expect(restored?.isStale()).toBe(false);
     fresh.refreshRestored(next);
     expect(restored?.isStale()).toBe(true);
+    await fresh.forget();
+  });
+
+  it("refreshes only what came from the restore, not what this page has fetched since", async () => {
+    const first = new QueryClient();
+    await restoreFor(first, "asha");
+    first.setQueryData(["sessions"], { sessions: [] });
+    await settle();
+
+    vi.resetModules();
+    const fresh = await import("./persisted-cache");
+    const next = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
+    await fresh.restoreFor(next, "asha");
+    // The screen's own request, made after the restore and answered before the screen's first paint.
+    let fetches = 0;
+    const observer = new QueryObserver(next, {
+      queryKey: ["hosts"],
+      queryFn: () => {
+        fetches++;
+        return Promise.resolve({ hosts: [] });
+      },
+    });
+    const stop = observer.subscribe(() => undefined);
+    await vi.waitFor(() => expect(next.getQueryData(["hosts"])).toEqual({ hosts: [] }));
+
+    fresh.refreshRestored(next);
+
+    expect(fetches, "the screen's own request wasn't sent a second time").toBe(1);
+    expect(
+      next
+        .getQueryCache()
+        .find({ queryKey: ["sessions"] })
+        ?.isStale(),
+    ).toBe(true);
+    expect(
+      next
+        .getQueryCache()
+        .find({ queryKey: ["hosts"] })
+        ?.isStale(),
+    ).toBe(false);
+    stop();
     await fresh.forget();
   });
 

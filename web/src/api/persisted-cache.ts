@@ -33,6 +33,8 @@ const persister = createAsyncStoragePersister({
 
 let active: { uid: string; stop: () => void } | null = null;
 let unrefreshed = false;
+/** When the restore finished: what was fetched after it is newer than anything restored. */
+let restoredAt = 0;
 
 /** Restores the signed-in user's last figures into the client, and keeps saving them; safe to call again. */
 export async function restoreFor(client: QueryClient, uid: string): Promise<void> {
@@ -51,16 +53,24 @@ export async function restoreFor(client: QueryClient, uid: string): Promise<void
   });
   active = { uid, stop };
   await restored.catch(() => persister.removeClient());
+  restoredAt = Date.now();
   unrefreshed = true;
 }
 
-/** Marks what restoreFor brought back as stale, refetching what's on screen; once per restore. */
+/**
+ * Marks what restoreFor brought back as stale, refetching what's on screen; once per restore. Only what came from the
+ * restore: a figure this page has fetched since is already fresh, and refetching it put a second copy of the screen's
+ * own requests on the network just after its first paint (the Hosting tab's LCP, 2.4 s instead of 1.95 s, whenever its
+ * data had arrived before the paint).
+ */
 export function refreshRestored(client: QueryClient): void {
   if (!unrefreshed) {
     return;
   }
   unrefreshed = false;
-  void client.invalidateQueries({ predicate: (query) => isKept(query.queryKey) });
+  void client.invalidateQueries({
+    predicate: (query) => isKept(query.queryKey) && query.state.dataUpdatedAt < restoredAt,
+  });
 }
 
 /** Signing out forgets the figures, in memory and in the browser. */
@@ -68,5 +78,6 @@ export async function forget(): Promise<void> {
   active?.stop();
   active = null;
   unrefreshed = false;
+  restoredAt = 0;
   await persister.removeClient();
 }
