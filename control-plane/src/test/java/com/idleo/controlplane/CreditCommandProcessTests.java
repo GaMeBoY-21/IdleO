@@ -57,6 +57,8 @@ class CreditCommandProcessTests {
                 "--sessions.storage.region=us-east-1",
                 "--sessions.storage.access-key-id=unused",
                 "--sessions.storage.secret-access-key=unused",
+                // No command sends email; the mail sender only has to be configured.
+                "--spring.mail.host=127.0.0.1",
                 // Startup at info, so a server that started would say so.
                 "--logging.level.root=info",
                 "--logging.structured.format.console="));
