@@ -640,6 +640,12 @@ web_token="$(curl -sf -X POST "$sign_in/token" \
   json_field access_token)"
 [[ -n "$web_token" ]] || fail "no token for the web journey's renter"
 activate_user "$web_token"
+# The web journey that has no credit signs in as its own invented person, who is never given any.
+web_broke_token="$(curl -sf -X POST "$sign_in/token" \
+  -d grant_type=client_credentials -d "client_id=$web_user-broke" -d client_secret=unused -d scope=openid |
+  json_field access_token)"
+[[ -n "$web_broke_token" ]] || fail "no token for the web journey's renter without credit"
+activate_user "$web_broke_token"
 web_user_id="$(token="$web_token" api_get /v1/me | json_get .id)"
 renters=("$web_user_id")
 if $web_only; then
