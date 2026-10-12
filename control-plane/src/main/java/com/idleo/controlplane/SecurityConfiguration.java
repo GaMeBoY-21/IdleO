@@ -3,6 +3,7 @@ package com.idleo.controlplane;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -17,12 +18,14 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Deny by default. Only the two health probes are open. Every other request, including every other
+ * Deny by default. Only the two health probes are open, and the calls the identity module names as needing no
+ * sign-in ({@code signedOutCalls}: starting and polling a CLI sign-in). Every other request, including every other
  * actuator endpoint, needs a valid ID token from a trusted issuer or an API key (ADR 0025), belonging to an
  * active user. The identity module provides both the token verification and the access rule, as
  * plain Spring Security beans, so this shared code never depends on it.
@@ -71,8 +74,11 @@ class SecurityConfiguration {
             AuthenticationManagerResolver<HttpServletRequest> bearers,
             AuthorizationManager<RequestAuthorizationContext> activeUser,
             ProblemDetailsSecurityHandler problems,
-            CorsConfigurationSource webOrigins) {
+            CorsConfigurationSource webOrigins,
+            @Qualifier("signedOutCalls") RequestMatcher signedOutCalls) {
         return http.authorizeHttpRequests(requests -> requests.requestMatchers(OPEN_PATHS)
+                        .permitAll()
+                        .requestMatchers(signedOutCalls)
                         .permitAll()
                         .anyRequest()
                         .access(activeUser))

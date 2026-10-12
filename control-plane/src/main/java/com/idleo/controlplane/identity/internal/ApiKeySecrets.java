@@ -33,8 +33,12 @@ final class ApiKeySecrets {
     }
 
     static byte[] hash(String key) {
+        return sha256(key);
+    }
+
+    static byte[] sha256(String value) {
         try {
-            return MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
+            return MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
@@ -45,7 +49,8 @@ final class ApiKeySecrets {
         return key.substring(0, PREFIX.length() + SHOWN);
     }
 
-    private static String base32(byte[] bytes) {
+    /** Lower-case base32 without padding (RFC 4648 alphabet). */
+    static String base32(byte[] bytes) {
         var out = new StringBuilder();
         int buffer = 0;
         int bits = 0;

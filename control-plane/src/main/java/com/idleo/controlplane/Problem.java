@@ -104,6 +104,19 @@ public enum Problem {
             "Too many API keys",
             "A person can have at most 20 keys that aren't revoked. Revoke one you no longer use first."),
 
+    AUTHORIZATION_PENDING(
+            "authorization-pending",
+            HttpStatus.BAD_REQUEST,
+            "Waiting for approval",
+            "The CLI sign-in hasn't been approved in the web app yet. Keep polling at the interval it gave "
+                    + "(RFC 8628's authorization_pending)."),
+    CLI_LOGIN_EXPIRED(
+            "cli-login-expired",
+            HttpStatus.BAD_REQUEST,
+            "CLI sign-in expired or used",
+            "The CLI sign-in has expired, or its key was already handed out. Start a new one with idleo login "
+                    + "(RFC 8628's expired_token)."),
+
     // Idempotency and versions.
     IDEMPOTENCY_KEY_INVALID(
             "idempotency-key-invalid",

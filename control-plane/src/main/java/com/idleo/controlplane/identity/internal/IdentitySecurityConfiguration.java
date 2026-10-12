@@ -7,10 +7,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
  * What the application's security configuration needs from the identity module, as plain Spring
@@ -31,6 +35,18 @@ class IdentitySecurityConfiguration {
             case "/v1/me/activate" -> method.equals("POST");
             default -> false;
         };
+    }
+
+    /**
+     * The calls that need no sign-in: starting a CLI sign-in and polling it (ADR 0025). The poll's own token is its
+     * credential.
+     */
+    @Bean
+    RequestMatcher signedOutCalls() {
+        var paths = PathPatternRequestMatcher.withDefaults();
+        return new OrRequestMatcher(
+                paths.matcher(HttpMethod.POST, "/v1/cli-logins"),
+                paths.matcher(HttpMethod.POST, "/v1/cli-logins/{id}/token"));
     }
 
     /**

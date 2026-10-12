@@ -105,6 +105,109 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - availability
+  /v1/cli-logins:
+    get:
+      operationId: cliLoginFind
+      parameters:
+      - in: query
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingCliLogin"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - cliLogin
+    post:
+      operationId: cliLoginStart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartCliLoginRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedCliLogin"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - cliLogin
+  /v1/cli-logins/{id}/approve:
+    post:
+      operationId: cliLoginApprove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingCliLogin"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - cliLogin
+  /v1/cli-logins/{id}/token:
+    post:
+      operationId: cliLoginPoll
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PollCliLoginRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApiKey"
+          description: "The CLI's new key, with its secret this once"
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - cliLogin
   /v1/earnings:
     get:
       operationId: ownerEarningsGet
@@ -1961,6 +2064,21 @@ components:
           - string
           - "null"
           format: date-time
+    PendingCliLogin:
+      type: object
+      properties:
+        deviceName:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+      required:
+      - deviceName
+      - expiresAt
+      - id
     Point:
       type: object
       properties:
@@ -1974,6 +2092,15 @@ components:
       required:
       - at
       - gpus
+    PollCliLoginRequest:
+      type: object
+      properties:
+        pollToken:
+          type: string
+          maxLength: 128
+          minLength: 0
+      required:
+      - pollToken
     PresetOption:
       type: object
       properties:
@@ -2086,6 +2213,8 @@ components:
           - /problems/unsupported-media-type
           - /problems/notification-locked
           - /problems/too-many-api-keys
+          - /problems/authorization-pending
+          - /problems/cli-login-expired
           - /problems/idempotency-key-invalid
           - /problems/request-in-progress
           - /problems/secret-shown-once
@@ -2427,6 +2556,44 @@ components:
       - state
       - templateId
       - vramNeededMb
+    StartCliLoginRequest:
+      type: object
+      properties:
+        deviceName:
+          type: string
+          maxLength: 60
+          minLength: 0
+      required:
+      - deviceName
+    StartedCliLogin:
+      type: object
+      properties:
+        expiresInSeconds:
+          type: integer
+          format: int64
+        id:
+          type: string
+          format: uuid
+        intervalSeconds:
+          type: integer
+          format: int64
+        pollToken:
+          type: string
+          description: The CLI's secret for polling; never shown to the person
+        userCode:
+          type: string
+          description: "The code to compare in the browser, like WDJB-MJHT"
+        verificationUrl:
+          type: string
+          description: "The web app's page that approves this login, with the code\
+            \ in it"
+      required:
+      - expiresInSeconds
+      - id
+      - intervalSeconds
+      - pollToken
+      - userCode
+      - verificationUrl
     StopRequest:
       type: object
       properties:

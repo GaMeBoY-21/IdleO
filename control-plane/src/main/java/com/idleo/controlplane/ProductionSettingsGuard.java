@@ -22,6 +22,8 @@ import org.springframework.stereotype.Component;
  *   <li>a {@code sessions.templates.catalog} other than the bundled one, such as templates/development.yaml
  *       for the agent's development runner (ADR 0016);
  *   <li>a web origin in {@code web.allowed-origins} that is {@code *}, plain HTTP or on this machine (ADR 0018);
+ *   <li>an {@code identity.web-app-url}, where CLI sign-ins are approved, that is plain HTTP or on this machine
+ *       (ADR 0025);
  *   <li>{@code springdoc.api-docs.enabled}: the API contract is generated in tests and committed, never served
  *       (ADR 0018).
  * </ul>
@@ -79,6 +81,10 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             if (isDevelopmentIssuer(issuer.issuerUri())) {
                 problems.add("identity issuer " + issuer.issuerUri() + " is plain HTTP or on this machine");
             }
+        }
+        var webApp = binder.bind("identity.web-app-url", String.class).orElse("");
+        if (isDevelopmentIssuer(webApp)) {
+            problems.add("identity.web-app-url " + webApp + " is plain HTTP or on this machine");
         }
         return problems;
     }

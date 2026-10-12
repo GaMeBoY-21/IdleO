@@ -92,6 +92,11 @@ management:
         readiness:
           include: readinessState, db
 
+# The web app, where a CLI sign-in is approved (ADR 0025): its /cli-login/ page is the link `idleo login` shows.
+# Production sets IDENTITY_WEB_APP_URL; the prod profile refuses plain HTTP or this machine (ProductionSettingsGuard).
+identity:
+  web-app-url: ${IDENTITY_WEB_APP_URL:http://localhost:3000}
+
 # The web app's origins, comma-separated (WEB_ALLOWED_ORIGINS), allowed to call /v1 with a bearer
 # token (ADR 0018). None by default; production refuses *, plain HTTP and localhost.
 web:

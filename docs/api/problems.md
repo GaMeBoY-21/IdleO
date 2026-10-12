@@ -23,6 +23,8 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/unsupported-media-type` | 415 | Unsupported media type | The body's Content-Type isn't one this address takes; send application/json. |
 | `/problems/notification-locked` | 422 | That notification can't be turned off | Messages about money and safety are always on, by email and in the app: stopped for credit or the spending cap, a host lost, a machine offline, payouts and top-ups, and a new device signing in. |
 | `/problems/too-many-api-keys` | 409 | Too many API keys | A person can have at most 20 keys that aren't revoked. Revoke one you no longer use first. |
+| `/problems/authorization-pending` | 400 | Waiting for approval | The CLI sign-in hasn't been approved in the web app yet. Keep polling at the interval it gave (RFC 8628's authorization_pending). |
+| `/problems/cli-login-expired` | 400 | CLI sign-in expired or used | The CLI sign-in has expired, or its key was already handed out. Start a new one with idleo login (RFC 8628's expired_token). |
 | `/problems/idempotency-key-invalid` | 400 | Idempotency-Key missing or invalid | A create request needs an Idempotency-Key header: 1 to 255 visible ASCII characters, without spaces. |
 | `/problems/request-in-progress` | 409 | Request still in progress | A request with this Idempotency-Key is still being processed. Retry shortly with the same key. |
 | `/problems/secret-shown-once` | 409 | Already created; its secret was shown once | A request with this Idempotency-Key already created it, and its secret was shown only in that first answer. Revoke it (the detail names it) and create another. |

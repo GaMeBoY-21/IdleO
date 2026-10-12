@@ -16,6 +16,8 @@
   { "slug": "unsupported-media-type", "status": 415, "title": "Unsupported media type" },
   { "slug": "notification-locked", "status": 422, "title": "That notification can't be turned off" },
   { "slug": "too-many-api-keys", "status": 409, "title": "Too many API keys" },
+  { "slug": "authorization-pending", "status": 400, "title": "Waiting for approval" },
+  { "slug": "cli-login-expired", "status": 400, "title": "CLI sign-in expired or used" },
   { "slug": "idempotency-key-invalid", "status": 400, "title": "Idempotency-Key missing or invalid" },
   { "slug": "request-in-progress", "status": 409, "title": "Request still in progress" },
   { "slug": "secret-shown-once", "status": 409, "title": "Already created; its secret was shown once" },

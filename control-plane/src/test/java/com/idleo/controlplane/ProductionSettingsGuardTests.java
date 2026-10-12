@@ -14,7 +14,9 @@ class ProductionSettingsGuardTests {
             new ApplicationContextRunner().withUserConfiguration(ProductionSettingsGuard.class);
 
     private ApplicationContextRunner prod(String... properties) {
+        // Production's web app, unless a test sets another.
         return runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("prod"))
+                .withPropertyValues("identity.web-app-url=https://app.example.invalid")
                 .withPropertyValues(properties);
     }
 
@@ -91,6 +93,17 @@ class ProductionSettingsGuardTests {
                         .hasFailed()
                         .getFailure()
                         .hasMessageContaining("springdoc.api-docs.enabled is true"));
+    }
+
+    @Test
+    void prodRefusesAWebAppForCliSignInsThatIsLocalOrPlainHttp() {
+        for (var url : new String[] {"http://localhost:3000", "https://127.0.0.1", "http://app.example.invalid"}) {
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.web-app-url=" + url)
+                    .run(context -> assertThat(context)
+                            .hasFailed()
+                            .getFailure()
+                            .hasMessageContaining("identity.web-app-url " + url));
+        }
     }
 
     @Test

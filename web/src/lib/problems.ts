@@ -31,6 +31,8 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "unsupported-media-type": "That request isn't one we accept. Reload the page and try again.",
   "secret-shown-once":
     "That key was already created, and it's shown only once. Revoke it in the list, then create another.",
+  "authorization-pending": "Waiting for you to approve the sign-in in the web app.",
+  "cli-login-expired": "That sign-in link has expired or was already used. Run idleo login again.",
   "idempotency-key-invalid": "That request couldn't be sent safely. Reload the page and try again.",
   "request-in-progress": "We're still working on your last request. Wait a moment, then try again.",
   "idempotency-key-reused":
