@@ -73,12 +73,16 @@ pub fn describe(session: &SessionResponse, now: DateTime<Utc>) -> String {
     if let Some(seconds) = ran_for(session, now) {
         lines.push(format!("Ran for   {}", duration(seconds)));
     }
-    lines.push(format!(
-        "Cost      {} so far; {} held; at most {}",
-        format_paise(cost(session)),
-        format_paise(session.reserved_paise),
-        format_paise(session.max_spend_paise)
-    ));
+    lines.push(if session.settled {
+        format!("Cost      {}", format_paise(session.charged_paise))
+    } else {
+        format!(
+            "Cost      {} so far; {} held; at most {}",
+            format_paise(cost(session)),
+            format_paise(session.reserved_paise),
+            format_paise(session.max_spend_paise)
+        )
+    });
     if !session.checkpoints.is_empty() {
         lines.push(format!("Saved     {} checkpoints", session.checkpoints.len()));
     }
@@ -128,6 +132,14 @@ mod tests {
     fn an_id_must_be_an_id() {
         assert!(parse_id("01a10e8e-9c65-7789-a526-473491c82218").is_ok());
         assert_eq!(parse_id("nope").unwrap_err().exit, Exit::Usage);
+    }
+
+    #[test]
+    fn a_settled_session_says_only_what_it_was_charged() {
+        let mut settled = session("COMPLETED");
+        settled.settled = true;
+        let text = describe(&settled, Utc::now());
+        assert!(text.contains("Cost      ₹0.04") && !text.contains("held"), "{text}");
     }
 
     #[test]

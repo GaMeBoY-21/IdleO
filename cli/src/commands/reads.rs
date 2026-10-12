@@ -147,7 +147,7 @@ fn describe(template: &TemplateResponse) -> String {
     if !template.params.is_empty() {
         out.push("\nParameters (--param NAME=VALUE):".to_owned());
         for param in &template.params {
-            out.push(format!("  {:<14} {:?}, {}", param.name, param.type_, param.label));
+            out.push(format!("  {:<14} {}, {}", param.name, format!("{:?}", param.type_).to_lowercase(), param.label));
         }
     }
     out.join("\n")
@@ -166,6 +166,7 @@ pub async fn gpus(ctx: &Context) -> Result<()> {
                     cards.iter().map(|gpu| gpu.price_paise_per_min.min).min(),
                     cards.iter().map(|gpu| gpu.price_paise_per_min.max).max(),
                 ) {
+                    (Some(low), Some(high)) if free > 0 && low == high => format_per_hour(i64::from(low)),
                     (Some(low), Some(high)) if free > 0 => {
                         format!("{}–{}", format_per_hour(i64::from(low)), format_per_hour(i64::from(high)))
                     }

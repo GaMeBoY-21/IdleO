@@ -31,7 +31,8 @@ const CALLS: &[(&str, &str, &str)] = &[
 ];
 
 fn contract() -> Value {
-    let text = fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../api/openapi.yaml")).expect("api/openapi.yaml");
+    let text =
+        fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../api/openapi.yaml")).expect("api/openapi.yaml");
     serde_norway::from_str(&text).expect("the contract is YAML")
 }
 
@@ -64,6 +65,9 @@ fn a_waiting_cli_sign_in_and_a_spent_one_are_problems_the_contract_lists() {
         "too-many-new-sessions",
         "unauthenticated",
     ] {
-        assert!(types.contains(&format!("/problems/{slug}").as_str()), "the CLI branches on {slug}, which the contract no longer lists");
+        assert!(
+            types.contains(&format!("/problems/{slug}").as_str()),
+            "the CLI branches on {slug}, which the contract no longer lists"
+        );
     }
 }
