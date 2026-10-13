@@ -181,4 +181,19 @@ mod tests {
         assert_eq!(codes, (0..=7).collect::<Vec<_>>());
         assert!(markdown().contains("| 4 | No host free |"));
     }
+
+    /// The reference the docs site is built from (docs/site/generated/cli.md, ADR 0029) is what the command line says
+    /// now. After changing a command: `IDLEO_DOCS_WRITE=1 cargo test docs_reference`.
+    #[test]
+    fn docs_reference_is_current() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/site/generated/cli.md");
+        if std::env::var("IDLEO_DOCS_WRITE").is_ok_and(|value| value == "1") {
+            std::fs::write(&path, markdown()).unwrap();
+        }
+        let committed = std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n");
+        assert!(
+            committed == markdown(),
+            "docs/site/generated/cli.md is out of date: run IDLEO_DOCS_WRITE=1 cargo test docs_reference"
+        );
+    }
 }
