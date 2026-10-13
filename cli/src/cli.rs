@@ -51,6 +51,16 @@ pub enum Command {
     Outputs(OutputsArgs),
     /// Your API keys.
     Keys(KeysArgs),
+    /// Print this command line's reference as Markdown, for the docs site.
+    #[command(hide = true)]
+    Docs(DocsArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct DocsArgs {
+    /// Print the reference as Markdown.
+    #[arg(long)]
+    pub markdown: bool,
 }
 
 #[derive(Debug, Args)]

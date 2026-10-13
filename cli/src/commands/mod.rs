@@ -4,6 +4,7 @@
 //! (src/error.rs); saying so on each one would only repeat it.
 #![allow(clippy::missing_errors_doc)]
 
+pub mod docs;
 pub mod keys;
 pub mod login;
 pub mod outputs;

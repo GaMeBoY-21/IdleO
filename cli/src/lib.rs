@@ -8,6 +8,7 @@ pub mod client;
 pub mod commands;
 pub mod config;
 pub mod context;
+pub mod docs;
 pub mod error;
 pub mod events;
 pub mod files;
@@ -35,6 +36,10 @@ use error::Result;
 /// # Errors
 /// Whatever the command fails with, carrying the exit code it should end the process with.
 pub async fn execute(cli: Cli) -> Result<()> {
+    // The reference needs neither an API nor a key.
+    if let Command::Docs(args) = &cli.command {
+        return commands::docs::docs(args);
+    }
     let env = |name: &str| std::env::var(name).ok();
     let api = config::api_url(cli.api.as_deref(), env("IDLEO_API_URL").as_deref())?;
     let dir = config::config_dir(env("IDLEO_CONFIG_DIR").as_deref())?;
@@ -61,5 +66,6 @@ pub async fn execute(cli: Cli) -> Result<()> {
         Command::Cancel(args) => commands::sessions::cancel(&ctx, &args).await,
         Command::Outputs(args) => commands::outputs::outputs(&ctx, &args).await,
         Command::Keys(args) => commands::keys::keys(&ctx, args.command.as_ref()).await,
+        Command::Docs(_) => unreachable!("answered before the API is looked up"),
     }
 }
