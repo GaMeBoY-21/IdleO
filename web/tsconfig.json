@@ -31,5 +31,5 @@
     "types": ["node", "vitest/globals", "@testing-library/jest-dom"]
   },
   "include": ["src", "scripts", "e2e", "*.ts", "eslint-rules"],
-  "exclude": ["node_modules", "dist", "dist-ssr", "dist-firebase"]
+  "exclude": ["node_modules", "dist", "dist-ssr", "dist-site", "dist-site-ssr", "dist-firebase"]
 }

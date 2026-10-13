@@ -67,6 +67,4 @@ export const SCREENS: Record<string, string | null> = {
   "/admin/invites/": "src/features/admin/AdminConsole.tsx",
   "/admin/audit/": "src/features/admin/AdminConsole.tsx",
   "/cli-login/": null,
-  "/terms/": null,
-  "/privacy/": null,
 };

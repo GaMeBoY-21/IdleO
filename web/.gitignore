@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-ssr/
+dist-site/
+dist-site-ssr/
 dist-firebase/
 *.tsbuildinfo
 # Generated from api/openapi.yaml and src/design/tokens.ts on every build, typecheck and test.

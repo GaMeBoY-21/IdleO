@@ -1,0 +1,142 @@
+/* The public pages' style sheet (ADR 0029): the app's tokens and type, and only the classes these pages use. Tailwind is
+   told to read nothing but this folder and the wordmark, so none of the app's styles are in it. */
+@import "tailwindcss" source(none);
+@source "./";
+@source "../brand";
+@import "../design/tokens.gen.css";
+
+/* The same font file as the app (web/DESIGN.md "Typography"), preloaded from each page; never swapped in late. */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-4.1-subset.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107.12%;
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
+@theme {
+  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@layer base {
+  html {
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply text-body;
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  select,
+  input,
+  button {
+    font: inherit;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility skeleton {
+  background: var(--fill-selected);
+  background-image: linear-gradient(90deg, transparent, var(--ground), transparent);
+  background-size: 200% 100%;
+  animation: idleo-shimmer 1.4s linear infinite;
+}
+
+@keyframes idleo-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The docs' pages are Markdown turned into HTML when the site is built, so their elements are styled here, from the
+   same tokens, rather than by classes on each one. */
+@layer components {
+  .docs {
+    @apply text-body text-text;
+  }
+  .docs > div > * + * {
+    @apply mt-4;
+  }
+  .docs h2 {
+    @apply mt-10 text-section font-semibold;
+  }
+  .docs h3 {
+    @apply mt-8 text-option font-semibold;
+  }
+  .docs h4 {
+    @apply mt-6 text-body font-semibold;
+  }
+  .docs p,
+  .docs li {
+    @apply max-w-prose;
+  }
+  .docs ul {
+    @apply list-disc space-y-1 pl-6;
+  }
+  .docs ol {
+    @apply list-decimal space-y-1 pl-6;
+  }
+  .docs a {
+    @apply underline underline-offset-4;
+  }
+  .docs code {
+    @apply rounded-full bg-fill px-1.5 font-mono text-small;
+  }
+  .docs pre {
+    @apply overflow-x-auto rounded-control bg-log-ground p-4 text-log-text;
+  }
+  .docs pre code {
+    @apply bg-transparent p-0 text-small text-log-text;
+  }
+  .docs table {
+    @apply block w-full overflow-x-auto text-small;
+  }
+  .docs th {
+    @apply bg-fill px-3 py-2 text-left font-semibold;
+  }
+  .docs td {
+    @apply border-b border-divider px-3 py-2 align-top;
+  }
+  .docs blockquote {
+    @apply rounded-control bg-fill px-4 py-3 text-text-muted;
+  }
+  .docs :target {
+    scroll-margin-top: 1rem;
+  }
+  .docs .method {
+    @apply mr-2 inline-block rounded-full bg-fill px-2 font-mono text-caption font-semibold;
+  }
+}

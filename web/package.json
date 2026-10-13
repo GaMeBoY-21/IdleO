@@ -12,13 +12,14 @@
     "tokens": "node scripts/tokens-css.ts",
     "prepare-sources": "pnpm api:types && pnpm tokens",
     "dev": "pnpm prepare-sources && vite",
-    "build": "pnpm prepare-sources && tsc --noEmit && vite build && vite build --ssr src/prerender.tsx --outDir dist-ssr && node scripts/postbuild.ts",
+    "build": "pnpm prepare-sources && tsc --noEmit && vite build && vite build --ssr src/prerender.tsx --outDir dist-ssr && node scripts/postbuild.ts && pnpm build:site",
+    "build:site": "vite build --config vite.site.config.ts && vite build --config vite.site.config.ts --ssr src/site/render.tsx --outDir dist-site-ssr && node scripts/build-site.ts",
     "serve": "node scripts/serve.ts",
     "typecheck": "pnpm prepare-sources && tsc --noEmit",
     "lint": "pnpm prepare-sources && eslint . --max-warnings 0 && prettier --check .",
     "format": "prettier --write .",
     "test": "pnpm prepare-sources && vitest run",
-    "size": "node scripts/first-load.ts",
+    "size": "node scripts/first-load.ts && node scripts/site-size.ts",
     "e2e": "playwright test --project='screens-*' --project=journey",
     "gallery": "GALLERY_DIR=${GALLERY_DIR:-../private/review/web-booking} SKIP_VISUAL=1 playwright test --project='screens-*' --project=recording && GALLERY_DIR=${GALLERY_DIR:-../private/review/web-booking} BEFORE_DIR=${BEFORE_DIR:-../private/review/web-foundations} node scripts/gallery.ts",
     "lighthouse": "playwright test --project=lighthouse && lhci assert --config=lighthouserc.json"
@@ -62,6 +63,7 @@
     "globals": "17.13.0",
     "jsdom": "30.1.2",
     "lighthouse": "13.5.0",
+    "marked": "18.1.1",
     "openapi-typescript": "7.13.0",
     "prettier": "3.9.9",
     "tailwindcss": "4.3.3",
@@ -69,6 +71,7 @@
     "typescript-eslint": "8.71.1",
     "vite": "8.3.3",
     "vitest": "5.0.3",
-    "web-vitals": "6.2.3"
+    "web-vitals": "6.2.3",
+    "yaml": "2.9.1"
   }
 }

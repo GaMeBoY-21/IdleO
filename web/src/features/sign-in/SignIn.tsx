@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { MailCheck } from "lucide-react";
-import { Link, useLocation, useSearch } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useEffect, useState } from "react";
 import { authProvider, signIn, useAuth } from "@/auth";
 import { Banner } from "@/components/ui/Banner";
@@ -104,13 +104,13 @@ export function SignIn() {
         />
         <p className="text-caption text-text-muted">
           By continuing you agree to the{" "}
-          <Link href="/terms/" className="underline">
+          <a href="/terms/" className="underline">
             terms
-          </Link>{" "}
+          </a>{" "}
           and have read the{" "}
-          <Link href="/privacy/" className="underline">
+          <a href="/privacy/" className="underline">
             privacy notice
-          </Link>
+          </a>
           .
         </p>
       </div>

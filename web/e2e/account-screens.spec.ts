@@ -3,7 +3,7 @@ import * as data from "./fixtures";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
 
 /**
- * Signing in with an invite code, the Account screen, and the terms and privacy pages (ADR 0024), every state, light
+ * Signing in with an invite code, the Account screen, and the way sign-in links to the terms (ADR 0024), every state, light
  * and dark, phone and laptop: zero axe violations, no console errors. The API answers from fixtures.
  */
 
@@ -292,20 +292,8 @@ test.describe("the account", () => {
   });
 });
 
+// The terms and privacy pages are public pages, not the app's (ADR 0029): public-pages.spec.ts holds them.
 test.describe("terms and privacy", () => {
-  for (const [path, title] of [
-    ["/terms/", "Terms"],
-    ["/privacy/", "Privacy"],
-  ] as const) {
-    test(`${title} says it's being drafted`, async ({ page }, info) => {
-      await page.goto(path);
-      await expect(page.getByRole("heading", { name: title })).toBeVisible();
-      await expect(page.getByText("Being drafted. Ask Nikki for the current version.")).toBeVisible();
-      await expectAccessible(page);
-      await capture(page, info, title.toLowerCase());
-    });
-  }
-
   test("are linked from sign-in, in one line", async ({ page }) => {
     await page.goto("/sign-in/");
     await page.getByRole("link", { name: "terms" }).click();

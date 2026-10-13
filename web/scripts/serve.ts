@@ -19,6 +19,7 @@ const types: Record<string, string> = {
   ".woff2": "font/woff2",
   ".json": "application/json",
   ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
 };
 
 interface Served {
@@ -39,7 +40,7 @@ function load(directory: string): void {
     }
     const type = types[extname(path)] ?? "application/octet-stream";
     const raw = readFileSync(path);
-    const compressible = /^(text\/|application\/json|image\/svg)/.test(type);
+    const compressible = /^(text\/|application\/(json|xml)|image\/svg)/.test(type);
     files.set(`/${relative(dist, path)}`, {
       type,
       raw,
@@ -70,7 +71,10 @@ createServer((request, response) => {
     ...headers,
     "Content-Type": file.type,
     "Content-Length": body.length,
-    "Cache-Control": path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-cache",
+    "Cache-Control":
+      path.startsWith("/assets/") || path.startsWith("/site-assets/")
+        ? "public, max-age=31536000, immutable"
+        : "no-cache",
     Vary: "Accept-Encoding",
     ...(encoding ? { "Content-Encoding": encoding } : {}),
   });

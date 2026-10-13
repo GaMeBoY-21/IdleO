@@ -13,6 +13,8 @@ export default defineConfig(
     ignores: [
       "dist",
       "dist-ssr",
+      "dist-site",
+      "dist-site-ssr",
       "dist-firebase",
       "node_modules",
       "src/api/schema.gen.ts",

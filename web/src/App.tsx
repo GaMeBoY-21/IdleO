@@ -6,7 +6,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Home } from "@/features/home/Home";
 import { CliLogin } from "@/features/cli-login/CliLogin";
 import { Invite } from "@/features/invite/Invite";
-import { Privacy, Terms } from "@/features/legal/Legal";
 import { SignIn } from "@/features/sign-in/SignIn";
 import { SignInFrame } from "@/features/sign-in/SignInFrame";
 import { afterFirstScreen } from "@/lib/after-first-screen";
@@ -172,8 +171,6 @@ export function App() {
           hydrates without a Suspense boundary to rebuild. */}
       <Route path="/invite/" component={Invite} />
       <Route path="/cli-login/" component={CliLogin} />
-      <Route path="/terms/" component={Terms} />
-      <Route path="/privacy/" component={Privacy} />
       {/* Signed in first, so the pre-rendered frame is this empty one, never the console's chunk. */}
       <Route path={ADMIN_PATH}>
         <RequireAuth fallback={<div className="min-h-dvh" />}>
