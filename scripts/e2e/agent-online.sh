@@ -1501,6 +1501,90 @@ scenario="cli"
 : >"$out/summary-cli.txt"
 scenario_cli
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-cli.txt"
+
+# The admin console in a browser (web/e2e/admin-journey.spec.ts, ADR 0027), last, so what it changes touches no other
+# scenario. The script makes a new person an admin with grant-admin, enrols one more host and leaves it pending, and
+# books a long run for the web journey's renter; the journey enrols a second factor and reaches the dashboard,
+# activates the pending host, grants credit and finds it in the audit log, and force-stops the run. Each action's one
+# audit row is then read from the database, and the stopped run is followed to its settlement.
+scenario_admin_web() {
+  local admin_user="$user-admin" admin_token admin_id pending_json pending code n session report="$out/admin-journey.json"
+  local rows charged
+  admin_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$admin_user" -d client_secret=unused -d scope=openid |
+    json_field access_token)"
+  [[ -n "$admin_token" ]] || fail "no token for the admin journey's person"
+  # The spare code (index 7) belongs to the account journey; the admin takes the last one.
+  invite_next=8
+  activate_user "$admin_token"
+  admin_id="$(token="$admin_token" api_get /v1/me | json_get .id)"
+  ops grant-admin "$admin_user@example.com" --reason "'End-to-end admin journey'" ||
+    fail "grant-admin failed; see private/e2e/ops.log"
+
+  # One more host, enrolled and connected but never activated: the journey activates it.
+  n=$((agents + 1))
+  pending_json="$(api_post /v1/hosts -H "Idempotency-Key: \"$user-host-pending\"" -d '{"name":"End-to-end pending host"}')" ||
+    fail "POST /v1/hosts failed for the pending host"
+  pending="$(printf '%s' "$pending_json" | json_field id)"
+  code="$(api_post "/v1/hosts/$pending/enrolment-code" | json_field code)"
+  [[ -n "$pending" && -n "$code" ]] || fail "no pending host or enrolment code"
+  rm -rf "$out/agent-$n"
+  sed "s#agent-1#agent-$n#" "$out/agent-1.toml" >"$out/agent-$n.toml"
+  "$agent" --config "$out/agent-$n.toml" enrol --code "$code" >>"$out/agent-$n.log" 2>&1 ||
+    fail "enrolment of the pending host failed; see private/e2e/agent-$n.log"
+  unset code
+  run_agent "$n"
+  local deadline=$((SECONDS + 30))
+  until host_online "$pending" true; do
+    ((SECONDS < deadline)) || fail "the pending host didn't come online within 30 s"
+    sleep 0.5
+  done
+  list_host "$pending" 2
+  [[ "$(api_get "/v1/hosts/$pending" | json_get .status)" == pending ]] || fail "the pending host isn't pending"
+
+  session="$(token="$web_token" user="$web_user" book admin-stop long-run 10000)"
+  [[ -n "$session" ]] || fail "booking the run the admin stops failed"
+  token="$web_token" await_state "$session" RUNNING 90
+
+  E2E_ADMIN_USER="$admin_user" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
+    E2E_ADMIN_REPORT="$report" SKIP_VISUAL=1 \
+    web_test --project=admin-journey --reporter=line >>"$out/admin-journey.log" 2>&1 ||
+    fail "the admin journeys failed; see private/e2e/admin-journey.log"
+  note "admin journeys: $(grep -Eo '[0-9]+ passed' "$out/admin-journey.log" | tail -1) (a second factor enrolled from its QR code's secret and the dashboard reached, a pending host activated, ₹1.25 granted and found in the audit log, a running session force-stopped): PASS"
+
+  # Each action wrote exactly one audit row, by the admin, with the reason typed in the sheet.
+  rows="$(sql "select string_agg(action || '=' || n, ' ' order by action) from (
+      select action, count(*) as n from identity.audit_log
+      where actor_user_id = '$admin_id'
+        and ((action = 'admin.second_factor_confirm' and target_id = '$admin_id')
+          or (action = 'host.activate' and target_id = '$pending' and reason = 'passed the end-to-end checks')
+          or (action = 'credit.grant' and target_id = '$web_user_id' and reason = 'end-to-end admin grant'
+              and (after->>'amountPaise')::bigint = 125)
+          or (action = 'session.force_stop' and target_id = '$session' and reason = 'end-to-end force stop'))
+      group by action) counted")"
+  [[ "$rows" == "admin.second_factor_confirm=1 credit.grant=1 host.activate=1 session.force_stop=1" ]] ||
+    fail "the admin journey's audit rows aren't one per action: $rows"
+  [[ "$(sql "select count(*) from identity.audit_log where action = 'admin.grant' and target_id = '$admin_id' and actor_name = 'e2e-script'")" == 1 ]] ||
+    fail "grant-admin wrote no audit row"
+  note "admin journey audit rows: grant-admin by the operator, then one row each by the admin ($rows), each with its reason: PASS"
+
+  # The stopped run settles like any stop: COMPLETED, its minutes charged, its hold released.
+  await_closed "$session" 120
+  charged="$(token="$web_token" api_get "/v1/sessions/$session" | json_get .chargedPaise)"
+  [[ "$(token="$web_token" api_get "/v1/sessions/$session" | json_get .state)" == COMPLETED ]] ||
+    fail "the force-stopped session $session didn't complete"
+  [[ "$charged" == "$(sql "select coalesce(sum(amount_paise), 0) from metering.settlements where session_id = '$session'")" ]] ||
+    fail "the force-stopped session's charge $charged isn't its settlements'"
+  note "admin force stop: session $session stopped for operator_stopped, completed and settled at $charged paise, its settlements' sum: PASS"
+
+  kill -TERM "$(cat "$out/agent-$n.pid")" 2>/dev/null
+  wait "$(cat "$out/agent-$n.pid")" 2>/dev/null || true
+  rm -f "$out/agent-$n.pid"
+}
+scenario="admin"
+: >"$out/summary-admin.txt"
+scenario_admin_web
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-admin.txt"
 fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.
