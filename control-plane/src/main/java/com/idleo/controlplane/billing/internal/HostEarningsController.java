@@ -61,6 +61,7 @@ class HostEarningsController {
         return switch (refType) {
             case SessionChargeService.CHARGE_REF -> "session_earning";
             case SessionChargeService.REFUND_REF -> "lost_minutes_refunded";
+            case SessionRefundService.REFUND_REF -> "refunded_to_renter";
             default -> refType;
         };
     }

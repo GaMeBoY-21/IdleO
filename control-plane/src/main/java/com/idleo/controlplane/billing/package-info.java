@@ -25,15 +25,17 @@
  *       zeros before the first credit.
  *   <li>{@code GET /v1/wallet/transactions?cursor=…&limit=…}: their wallet's entries, newest first, each
  *       with its amount, direction, kind ({@code free_credit}, {@code free_credit_reversed}, {@code
- *       session_charge}, {@code session_refund}), reference and time. {@code limit} is 1 to 50 (default 20);
+ *       session_charge}, {@code session_refund}, {@code dispute_refund}), reference and time. {@code limit} is 1 to 50 (default 20);
  *       {@code nextCursor} fetches the next page, and is null on the last.
  *   <li>{@code GET /v1/hosts/{id}/earnings?cursor=…&limit=…}, for the host's owner (anyone else gets a 404):
  *       {@code balancePaise}, the host's payable balance, and {@code history}, its entries paged the same way,
- *       of kind {@code session_earning} or {@code lost_minutes_refunded}. Nothing is paid out or held in
+ *       of kind {@code session_earning}, {@code lost_minutes_refunded} or {@code refunded_to_renter}. Nothing is paid out or held in
  *       escrow yet: payouts come with the payment partner.
  *   <li>{@code GET /v1/earnings?cursor=…&limit=…}: the same across every machine the user owns, removed ones
  *       too (ADR 0023): the total, this week's (Monday to Sunday, IST), the minutes rented this week, each of the
- *       last 7 days, each machine's total, and a paged history in which lost-time givebacks are negative entries.
+ *       last 7 days, each machine's total, and a paged history in which lost-time givebacks and refunds to renters
+ *       ("Refunded to renter") are negative entries, and an entry whose session has an open report is {@code
+ *       payoutHeld}.
  *       Read only from the ledger, so it always equals it; the service and minutes beside each amount come from
  *       the {@link com.idleo.controlplane.billing.EarningDetails} port, which metering implements. {@code
  *       payoutsStart} is {@code paid-pilot}.
@@ -41,6 +43,12 @@
  *
  * <p>{@link com.idleo.controlplane.billing.HostEarnings} gives the sessions module what a host earned from each
  * session, from the same entries.
+ *
+ * <p>For the trust module's reports (ADR 0028): {@link com.idleo.controlplane.billing.SessionRefunds} reads what a
+ * session paid from its own ledger entries and refunds up to that, from the platform's commission first and then the
+ * hosts' shares, as one balanced {@code dispute_refund} transaction; {@link com.idleo.controlplane.billing.PayoutHolds}
+ * records, in {@code billing.payout_holds}, the sessions whose host earnings are held while a report is open, for the
+ * payouts to come.
  *
  * <p>The admin console (ADR 0027): {@code POST /admin/v1/credit-grants} (Idempotency-Key, the grant's own key) and
  * {@code POST /admin/v1/credit-grants/{id}/reverse}, each with a reason and audited; {@code GET

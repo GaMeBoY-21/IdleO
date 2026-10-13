@@ -30,16 +30,24 @@ class OwnerEarningsController {
 
     static final ZoneId IST = ZoneId.of("Asia/Kolkata");
     static final String GIVEN_BACK = "Given back for lost time";
+    static final String REFUNDED = "Refunded to renter";
 
     private final HostOwners owners;
     private final OwnerEarningsQueries queries;
     private final EarningDetails details;
+    private final PayoutHoldService holds;
     private final Clock clock;
 
-    OwnerEarningsController(HostOwners owners, OwnerEarningsQueries queries, EarningDetails details, Clock clock) {
+    OwnerEarningsController(
+            HostOwners owners,
+            OwnerEarningsQueries queries,
+            EarningDetails details,
+            PayoutHoldService holds,
+            Clock clock) {
         this.owners = owners;
         this.queries = queries;
         this.details = details;
+        this.holds = holds;
         this.clock = clock;
     }
 
@@ -52,12 +60,14 @@ class OwnerEarningsController {
     /**
      * One ledger entry.
      *
-     * @param amountPaise what it added to the host's earnings; negative for time given back
-     * @param label what to call it: the service's name, or {@code Given back for lost time}
+     * @param amountPaise what it added to the host's earnings; negative for time given back or a refund
+     * @param label what to call it: the service's name, {@code Given back for lost time} or {@code Refunded to renter}
      * @param serviceName the service, when the session's template is still in the catalog
-     * @param minutes the minutes it was for (given back, for a giveback); 0 when not known
-     * @param kind {@code session_earning} or {@code lost_minutes_refunded}
+     * @param minutes the minutes it was for (given back, for a giveback); 0 when not known, and for a refund
+     * @param kind {@code session_earning}, {@code lost_minutes_refunded} or {@code refunded_to_renter}
      * @param sessionId the session it came from, which carries no one's identity
+     * @param payoutHeld a report about the session is open, so what it earned is held from payout until it's resolved
+     *     (ADR 0028)
      */
     record EarningsEntry(
             UUID id,
@@ -69,6 +79,7 @@ class OwnerEarningsController {
             int minutes,
             long amountPaise,
             UUID sessionId,
+            boolean payoutHeld,
             Instant createdAt) {}
 
     record EarningsPage(
@@ -176,21 +187,28 @@ class OwnerEarningsController {
                 .map(entry -> new EarningDetails.Key(entry.txnId(), entry.hostId()))
                 .distinct()
                 .toList());
+        var held = holds.held(
+                shown.stream().map(OwnerEarningsQueries.Entry::refId).distinct().toList());
         var entries = shown.stream()
                 .map(entry -> {
                     var detail = found.get(new EarningDetails.Key(entry.txnId(), entry.hostId()));
-                    boolean givenBack = entry.refType().equals(SessionChargeService.REFUND_REF);
                     var service = detail == null ? null : detail.serviceName();
+                    var label = switch (entry.refType()) {
+                        case SessionChargeService.REFUND_REF -> GIVEN_BACK;
+                        case SessionRefundService.REFUND_REF -> REFUNDED;
+                        default -> service == null ? "Session" : service;
+                    };
                     return new EarningsEntry(
                             entry.id(),
                             entry.hostId(),
                             names.getOrDefault(entry.hostId(), "Removed machine"),
                             HostEarningsController.kind(entry.refType()),
-                            givenBack ? GIVEN_BACK : service == null ? "Session" : service,
+                            label,
                             service,
                             detail == null ? 0 : detail.minutes(),
                             entry.amountPaise(),
                             entry.refId(),
+                            held.contains(entry.refId()),
                             entry.createdAt());
                 })
                 .toList();

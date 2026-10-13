@@ -56,6 +56,7 @@ class WalletController {
             case CreditGrants.REVERSAL_REF -> "free_credit_reversed";
             case SessionChargeService.CHARGE_REF -> "session_charge";
             case SessionChargeService.REFUND_REF -> "session_refund";
+            case SessionRefundService.REFUND_REF -> "dispute_refund";
             default -> refType;
         };
     }

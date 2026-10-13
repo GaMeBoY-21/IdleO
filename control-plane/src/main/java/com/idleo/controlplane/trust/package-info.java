@@ -1,5 +1,6 @@
 /**
- * The trust module. Owns: ratings, and later disputes, canary jobs, abuse flags and bans.
+ * The trust module. Owns: ratings and disputes (renters' reports of a problem), and later canary jobs, abuse flags
+ * and bans.
  *
  * <p>Its tables live in the {@code trust} database schema, and no other module reads them. See
  * docs/plan/technical-design.md, "Control plane modules and API".
@@ -19,6 +20,25 @@
  *       that ended in the last 90 days, shown on the owner's host from 5 ratings. A host never learns who rated it,
  *       or reads a comment.
  *   <li>{@code GET /admin/v1/ratings?host=&session=}: the ratings with their comments, for admins only.
+ * </ul>
+ *
+ * <p>Reports (ADR 0028):
+ *
+ * <ul>
+ *   <li>{@code POST /v1/disputes {sessionId, reason, details?}}, with an {@code Idempotency-Key}: the renter's own
+ *       ended session, within 7 days of it ending ({@code report-window-closed} after), one open report a session
+ *       ({@code report-already-open}); the reason is {@code didnt_start}, {@code failed}, {@code slow}, {@code
+ *       wrong_output}, {@code charged_wrong} or {@code other}, the details up to 2,000 characters. While it's open, the
+ *       session's host earnings are held from payout (billing's {@link com.idleo.controlplane.billing.PayoutHolds}).
+ *   <li>{@code GET /v1/disputes?session=&cursor=&limit=} and {@code GET /v1/disputes/{id}}: the renter's reports,
+ *       newest first, {@code open}, {@code refunded} or {@code not_refunded}, with our answer once resolved.
+ *   <li>The admin console: {@code GET /admin/v1/disputes?state=} (open first, oldest first) and {@code
+ *       /admin/v1/disputes/{id}} (the report, the session's end, what it cost and who kept what, from the ledger, and
+ *       its rating); {@code POST /admin/v1/disputes/{id}/refund {amountPaise, reason}} and {@code /no-refund
+ *       {reason}}, once each report, with a reason the renter reads. Audited in the same transaction.
+ *   <li>A refund goes through billing's {@link com.idleo.controlplane.billing.SessionRefunds}: up to what the renter
+ *       paid for the session net, from the platform's commission first and then the hosts' shares, in one balanced
+ *       ledger transaction whose {@code txn_id} is a name-based UUID of the report.
  * </ul>
  */
 @ApplicationModule

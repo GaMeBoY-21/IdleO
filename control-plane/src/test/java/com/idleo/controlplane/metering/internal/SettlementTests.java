@@ -8,6 +8,7 @@ import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.billing.SessionCharges;
+import com.idleo.controlplane.billing.SessionRefunds;
 import com.idleo.controlplane.billing.internal.TestCredit;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import com.idleo.controlplane.sessions.SessionControl;
@@ -57,6 +58,9 @@ class SettlementTests {
 
     @Autowired
     CreditReservations reservations;
+
+    @Autowired
+    SessionRefunds refunds;
 
     private final FakeMeteredSessions sessions = new FakeMeteredSessions();
     private Settlements settlements;
@@ -152,7 +156,7 @@ class SettlementTests {
                         context.getBean(SessionControl.class),
                         reservations,
                         settlements,
-                        new Costs(sessions, settlements, jdbc),
+                        new Costs(sessions, settlements, refunds, jdbc),
                         NO_MILESTONES,
                         jdbc),
                 new Waivers(sessions, charges, jdbc),

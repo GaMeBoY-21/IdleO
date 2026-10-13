@@ -89,6 +89,12 @@ class Ratings implements HostRatings {
         return sessions.ofRenter(renterId, sessionId).map(session -> standing(session, find(sessionId)));
     }
 
+    /** The session's rating, for an admin; null if it has none. */
+    @Nullable
+    GivenRating given(UUID sessionId) {
+        return find(sessionId);
+    }
+
     /** Gives the session its rating, or changes the one it has. */
     Outcome rate(UUID renterId, UUID sessionId, int stars, @Nullable String comment) {
         if (stars < 1 || stars > 5) {

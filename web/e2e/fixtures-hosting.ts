@@ -106,6 +106,7 @@ const settled: Settled[] = runs.map((run, index) => {
       minutes,
       amountPaise: hostShare(minutes * run.machine.price),
       sessionId,
+      payoutHeld: false,
       createdAt: iso(at),
     };
   });
@@ -122,6 +123,7 @@ const settled: Settled[] = runs.map((run, index) => {
       minutes: run.givenBackMinutes,
       amountPaise: -givenBackPaise,
       sessionId,
+      payoutHeld: false,
       createdAt: iso(at + 3 * MINUTE),
     });
   }

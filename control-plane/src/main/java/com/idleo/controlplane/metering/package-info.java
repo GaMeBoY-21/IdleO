@@ -17,6 +17,11 @@
  * audited. A charged minute is a settlement of its own through billing's {@code SessionCharges}, at its attempt's
  * price, never past the cap or the renter's credit; a waived one moves no money. It implements identity's {@code
  * DashboardFigures} for the settlement backlog and the review queue's size.
+ *
+ * <p>For reports (ADR 0028): {@code GET /admin/v1/sessions/{id}/usage}, each of a session's minutes as both witnesses
+ * saw it, with its settlements and waivers. A session's {@code chargedPaise} is net of refunds for reports too, read
+ * from billing's {@code SessionRefunds}; its spending cap still counts charges before them, so a refund never lets a
+ * session be charged more.
  */
 @ApplicationModule
 package com.idleo.controlplane.metering;

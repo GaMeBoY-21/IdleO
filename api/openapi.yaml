@@ -192,6 +192,146 @@ paths:
         idToken: []
       tags:
       - adminDashboard
+  /admin/v1/disputes:
+    get:
+      operationId: adminDisputesList
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: session
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDisputePage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDisputes
+  /admin/v1/disputes/{id}:
+    get:
+      operationId: adminDisputesGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDispute"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDisputes
+  /admin/v1/disputes/{id}/no-refund:
+    post:
+      operationId: adminDisputesNoRefund
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDispute"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDisputes
+  /admin/v1/disputes/{id}/refund:
+    post:
+      operationId: adminDisputesRefund
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRefund"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDispute"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDisputes
   /admin/v1/hosts:
     get:
       operationId: adminHostsSearch
@@ -960,6 +1100,34 @@ paths:
         idToken: []
       tags:
       - adminSessions
+  /admin/v1/sessions/{id}/usage:
+    get:
+      operationId: adminUsageGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminUsage
   /admin/v1/users:
     get:
       operationId: adminUsersSearch
@@ -1298,6 +1466,107 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - cliLogin
+  /v1/disputes:
+    get:
+      operationId: disputeList
+      parameters:
+      - in: query
+        name: session
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisputePage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - dispute
+    post:
+      operationId: disputeCreate
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDisputeRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisputeResponse"
+          description: The new report; a repeat with the same key returns the first
+            response
+          headers:
+            Location:
+              description: The report's URL
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - dispute
+  /v1/disputes/{id}:
+    get:
+      operationId: disputeGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisputeResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - dispute
   /v1/earnings:
     get:
       operationId: ownerEarningsGet
@@ -2597,6 +2866,146 @@ components:
       - sessionsRunning
       - sessionsToday
       - settlementBacklog
+    AdminDispute:
+      type: object
+      properties:
+        dispute:
+          $ref: "#/components/schemas/AdminDisputeSummary"
+        rating:
+          oneOf:
+          - $ref: "#/components/schemas/AdminDisputeRating"
+          - type: "null"
+        session:
+          $ref: "#/components/schemas/AdminDisputeSession"
+      required:
+      - dispute
+      - session
+    AdminDisputePage:
+      type: object
+      properties:
+        disputes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDisputeSummary"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - disputes
+    AdminDisputeRating:
+      type: object
+      properties:
+        comment:
+          type:
+          - string
+          - "null"
+        ratedAt:
+          type: string
+          format: date-time
+        stars:
+          type: integer
+          format: int32
+      required:
+      - ratedAt
+      - stars
+    AdminDisputeSession:
+      type: object
+      properties:
+        commissionPaise:
+          type: integer
+          format: int64
+        endedAt:
+          type: string
+          format: date-time
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminHostKept"
+        paidPaise:
+          type: integer
+          format: int64
+        startedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        state:
+          type: string
+      required:
+      - commissionPaise
+      - endedAt
+      - hosts
+      - paidPaise
+      - state
+    AdminDisputeSummary:
+      type: object
+      properties:
+        commissionRefundPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        details:
+          type:
+          - string
+          - "null"
+        hostRefundPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        refundPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        refundTxn:
+          type:
+          - string
+          - "null"
+          format: uuid
+        renterId:
+          type: string
+          format: uuid
+        resolutionReason:
+          type:
+          - string
+          - "null"
+        resolvedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        resolvedBy:
+          type:
+          - string
+          - "null"
+        sessionId:
+          type: string
+          format: uuid
+        state:
+          type: string
+      required:
+      - createdAt
+      - id
+      - reason
+      - renterId
+      - sessionId
+      - state
     AdminEnrolment:
       type: object
       properties:
@@ -2759,6 +3168,18 @@ components:
       - model
       - uuid
       - vramMb
+    AdminHostKept:
+      type: object
+      properties:
+        hostId:
+          type: string
+          format: uuid
+        paise:
+          type: integer
+          format: int64
+      required:
+      - hostId
+      - paise
     AdminHostPage:
       type: object
       properties:
@@ -3081,6 +3502,20 @@ components:
             $ref: "#/components/schemas/AdminReconciliationRun"
       required:
       - runs
+    AdminRefund:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - amountPaise
+      - reason
     AdminReviewDecision:
       type: object
       properties:
@@ -3375,6 +3810,123 @@ components:
       - state
       - stateChangedAt
       - templateId
+    AdminSettlement:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        commissionPaise:
+          type: integer
+          format: int64
+        hostSharePaise:
+          type: integer
+          format: int64
+        minutes:
+          type: integer
+          format: int32
+        settledAt:
+          type: string
+          format: date-time
+        txnId:
+          type: string
+          format: uuid
+        windowEnd:
+          type:
+          - string
+          - "null"
+          format: date-time
+        windowNumber:
+          type: integer
+          format: int32
+      required:
+      - amountPaise
+      - commissionPaise
+      - hostSharePaise
+      - minutes
+      - settledAt
+      - txnId
+      - windowNumber
+    AdminUsage:
+      type: object
+      properties:
+        minutes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUsageMinute"
+        sessionId:
+          type: string
+          format: uuid
+        settlements:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSettlement"
+        waivers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminWaiver"
+      required:
+      - minutes
+      - sessionId
+      - settlements
+      - waivers
+    AdminUsageMinute:
+      type: object
+      properties:
+        agentAttempt:
+          type:
+          - integer
+          - "null"
+          format: int32
+        agentReported:
+          type: boolean
+        avgUtilPct:
+          type:
+          - integer
+          - "null"
+          format: int32
+        billed:
+          type: boolean
+        gpuSeconds:
+          type:
+          - integer
+          - "null"
+          format: int32
+        leaseAlive:
+          type: boolean
+        leaseAttempt:
+          type:
+          - integer
+          - "null"
+          format: int32
+        leaseChecked:
+          type: boolean
+        minuteAt:
+          type: string
+          format: date-time
+        minuteIndex:
+          type: integer
+          format: int32
+        refundTxn:
+          type:
+          - string
+          - "null"
+          format: uuid
+        settlementTxn:
+          type:
+          - string
+          - "null"
+          format: uuid
+        waived:
+          type: boolean
+      required:
+      - agentReported
+      - billed
+      - leaseAlive
+      - leaseChecked
+      - minuteAt
+      - minuteIndex
+      - waived
     AdminUser:
       type: object
       properties:
@@ -3427,6 +3979,35 @@ components:
             $ref: "#/components/schemas/AdminUser"
       required:
       - users
+    AdminWaiver:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        checkpointAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        hostId:
+          type: string
+          format: uuid
+        refundedMinutes:
+          type: integer
+          format: int32
+        refundedPaise:
+          type: integer
+          format: int64
+        waivedFrom:
+          type: string
+          format: date-time
+      required:
+      - attempt
+      - hostId
+      - refundedMinutes
+      - refundedPaise
+      - waivedFrom
     ApiKeyList:
       type: object
       properties:
@@ -3581,6 +4162,24 @@ components:
       required:
       - name
       - scope
+    CreateDisputeRequest:
+      type: object
+      properties:
+        details:
+          type:
+          - string
+          - "null"
+          maxLength: 2000
+          minLength: 0
+        reason:
+          type: string
+          minLength: 1
+        sessionId:
+          type: string
+          format: uuid
+      required:
+      - reason
+      - sessionId
     CreateHostRequest:
       type: object
       properties:
@@ -3702,6 +4301,59 @@ components:
       - runningLabel
       - serviceName
       - startedAt
+    DisputePage:
+      type: object
+      properties:
+        disputes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DisputeResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - disputes
+    DisputeResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        details:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        refundPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        resolutionReason:
+          type:
+          - string
+          - "null"
+        resolvedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        sessionId:
+          type: string
+          format: uuid
+        state:
+          type: string
+      required:
+      - createdAt
+      - id
+      - reason
+      - sessionId
+      - state
     Earnings:
       type: object
       properties:
@@ -3753,6 +4405,8 @@ components:
         minutes:
           type: integer
           format: int32
+        payoutHeld:
+          type: boolean
         serviceName:
           type:
           - string
@@ -3769,6 +4423,7 @@ components:
       - label
       - machineName
       - minutes
+      - payoutHeld
       - sessionId
     EarningsMachine:
       type: object
