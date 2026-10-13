@@ -202,6 +202,41 @@ class AdminMoneyTests {
     }
 
     @Test
+    void reverseGrantAndReconcileWalletsStillWorkThroughTheSameServices() throws Exception {
+        var renter = TestUsers.signUp(mvc);
+        var grant = grants.grant(
+                        renter.id(),
+                        Paise.of(700),
+                        "to be reversed",
+                        "command-" + UUID.randomUUID(),
+                        AuditTrail.Actor.operator("nikki"))
+                .grant();
+        var commands = new CreditCommands();
+        var out = new ByteArrayOutputStream();
+        commands.reverseGrant(grants)
+                .run(
+                        OperatorCommand.Arguments.parse(
+                                "reverse-grant", "--grant", grant.id().toString(), "--reason", "wrong account"),
+                        "nikki",
+                        new PrintStream(out, true, StandardCharsets.UTF_8));
+        assertThat(out.toString(StandardCharsets.UTF_8)).contains("reversed grant " + grant.id());
+        assertThat(audited("credit.reverse", grant.id().toString())).isOne();
+
+        var checked = new ByteArrayOutputStream();
+        new ReconciliationCommand()
+                .reconcileWallets(reconciliation)
+                .run(
+                        OperatorCommand.Arguments.parse("reconcile-wallets"),
+                        "nikki",
+                        new PrintStream(checked, true, StandardCharsets.UTF_8));
+        assertThat(checked.toString(StandardCharsets.UTF_8)).contains("0 mismatches");
+        var runId = jdbc.queryForObject(
+                "select id from billing.reconciliation_runs where trigger = 'nikki' order by finished_at desc limit 1",
+                UUID.class);
+        assertThat(audited("reconciliation.run", runId.toString())).isOne();
+    }
+
+    @Test
     void showsTheLatestReconciliationRunsWithWhatTheyFound() throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
         assertThat(reconciliation.run("tests").ran()).isTrue();
@@ -213,6 +248,14 @@ class AdminMoneyTests {
         assertThat(runs.get(0).get("ledgerBalanced").asBoolean()).isTrue();
         assertThat(runs.get(0).get("mismatchCount").asInt())
                 .isEqualTo(runs.get(0).get("mismatches").size());
+
+        // Run now from the console, as reconcile-wallets does: kept, and audited with the run it made.
+        var run = body(mvc.perform(admin.as(post("/admin/v1/reconciliation"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"checking after a manual grant\"}"))
+                .andExpect(status().isOk()));
+        assertThat(run.get("trigger").asString()).startsWith("admin renter-");
+        assertThat(audited("reconciliation.run", run.get("id").asString())).isOne();
         mvc.perform(admin.as(get("/admin/v1/ledger"))).andExpect(status().isBadRequest());
         mvc.perform(admin.as(get("/admin/v1/ledger").param("account", "nonsense")))
                 .andExpect(status().isBadRequest());

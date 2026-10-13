@@ -55,7 +55,9 @@
  *
  * <p>Every privileged action, in any module, is recorded through {@link
  * com.idleo.controlplane.identity.AuditTrail} in the action's own transaction, in the append-only {@code
- * identity.audit_log}, read at {@code GET /admin/v1/audit}.
+ * identity.audit_log}, read at {@code GET /admin/v1/audit}. {@code GET /admin/v1/dashboard} shows each module's
+ * {@link com.idleo.controlplane.identity.DashboardFigures}; {@code /admin/v1/users} finds, suspends and reinstates
+ * users, and {@code /admin/v1/invites} makes invite codes (shown once) and lists who used them.
  */
 @ApplicationModule
 package com.idleo.controlplane.identity;

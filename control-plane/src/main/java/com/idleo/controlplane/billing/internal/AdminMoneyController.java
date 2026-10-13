@@ -44,11 +44,13 @@ import org.springframework.web.bind.annotation.RestController;
 class AdminMoneyController {
 
     private final CreditGrants grants;
+    private final WalletReconciliation reconciliation;
     private final JdbcClient jdbc;
     private final AuditTrail audit;
 
-    AdminMoneyController(CreditGrants grants, JdbcClient jdbc, AuditTrail audit) {
+    AdminMoneyController(CreditGrants grants, WalletReconciliation reconciliation, JdbcClient jdbc, AuditTrail audit) {
         this.grants = grants;
+        this.reconciliation = reconciliation;
         this.jdbc = jdbc;
         this.audit = audit;
     }
@@ -198,12 +200,37 @@ class AdminMoneyController {
                 entries.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
     }
 
+    /**
+     * Runs the wallet check now, as {@code reconcile-wallets} does, and returns the run. 409 {@code action-refused}
+     * while another instance is running it.
+     */
+    @PostMapping("/reconciliation")
+    AdminReconciliationRun reconcile(
+            @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminReason request) {
+        var result = reconciliation.run(audit.admin(admin), request.reason());
+        if (!result.ran() || result.runId() == null) {
+            throw ApiProblem.of(
+                    Problem.ACTION_REFUSED, "Another instance is running the check; try again in a minute.");
+        }
+        return runs(1, result.runId()).getFirst();
+    }
+
     /** The latest complete reconciliation runs, newest first, each with what it found; {@code limit} 1 to 200. */
     @GetMapping("/reconciliation")
     AdminReconciliationRuns reconciliation(@RequestParam(required = false) @Nullable Integer limit) {
+        return new AdminReconciliationRuns(runs(AdminPages.limit(limit == null ? 10 : limit), null));
+    }
+
+    /** The newest runs, or the one with {@code id}. */
+    private List<AdminReconciliationRun> runs(int limit, @Nullable UUID id) {
         record Run(UUID id, String trigger, Instant finishedAt, long debits, long credits, int mismatches) {}
-        var runs = jdbc.sql("select * from billing.reconciliation_runs order by finished_at desc, id desc limit :limit")
-                .param("limit", AdminPages.limit(limit == null ? 10 : limit))
+        var runs = jdbc.sql("""
+                        select * from billing.reconciliation_runs
+                        where cast(:id as uuid) is null or id = cast(:id as uuid)
+                        order by finished_at desc, id desc limit :limit
+                        """)
+                .param("id", id)
+                .param("limit", limit)
                 .query((rs, n) -> new Run(
                         rs.getObject("id", UUID.class),
                         rs.getString("trigger"),
@@ -235,7 +262,7 @@ class AdminMoneyController {
                     run.mismatches(),
                     mismatches));
         }
-        return new AdminReconciliationRuns(List.copyOf(result));
+        return List.copyOf(result);
     }
 
     private static final String GRANTS = """

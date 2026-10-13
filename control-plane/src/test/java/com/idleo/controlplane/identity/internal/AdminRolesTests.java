@@ -29,6 +29,9 @@ class AdminRolesTests {
     @Autowired
     AdminRoles roles;
 
+    @Autowired
+    org.springframework.transaction.support.TransactionTemplate transactions;
+
     private String run(OperatorCommand command, String... args) {
         var out = new ByteArrayOutputStream();
         command.run(OperatorCommand.Arguments.parse(args), "nikki", new PrintStream(out, true, StandardCharsets.UTF_8));
@@ -88,5 +91,18 @@ class AdminRolesTests {
         assertThatThrownBy(() -> roles.grant(email(suspended.id()), "x", AuditTrail.Actor.operator("nikki")))
                 .isInstanceOf(AdminRoles.Refused.class)
                 .hasMessageContaining("suspended");
+    }
+
+    @Test
+    void aGrantAndItsAuditRowRollBackTogether() throws Exception {
+        var user = TestUsers.signUp(mvc);
+        transactions.executeWithoutResult(status -> {
+            roles.grant(email(user.id()), "rolled back", AuditTrail.Actor.operator("nikki"));
+            status.setRollbackOnly();
+        });
+        assertThat(audited("admin.grant", user.id())).isZero();
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from identity.admins where user_id = ?", Integer.class, user.id()))
+                .isZero();
     }
 }

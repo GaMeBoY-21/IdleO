@@ -1,14 +1,17 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.identity.AuditTrail;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -39,6 +42,7 @@ class WalletReconciliation {
     private final TransactionTemplate snapshot;
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
+    private final AuditTrail audit;
     private final Clock clock;
     private final Counter mismatches;
     private final AtomicLong lastSuccessEpochSeconds = new AtomicLong();
@@ -47,8 +51,10 @@ class WalletReconciliation {
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
+            AuditTrail audit,
             Clock clock,
             MeterRegistry registry) {
+        this.audit = audit;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
@@ -77,8 +83,13 @@ class WalletReconciliation {
 
     record Mismatch(Kind kind, UUID userId, long walletPaise, long expectedPaise) {}
 
-    /** {@code ran} is false when another instance held the lock. */
-    record Result(boolean ran, List<Mismatch> mismatches, long ledgerDebitsPaise, long ledgerCreditsPaise) {
+    /** {@code ran} is false when another instance held the lock; {@code runId} names the kept run once it's recorded. */
+    record Result(
+            boolean ran,
+            List<Mismatch> mismatches,
+            long ledgerDebitsPaise,
+            long ledgerCreditsPaise,
+            @Nullable UUID runId) {
 
         boolean ledgerBalanced() {
             return ledgerDebitsPaise == ledgerCreditsPaise;
@@ -91,17 +102,32 @@ class WalletReconciliation {
     }
 
     /**
+     * Runs the check now for an operator's command or an admin (ADR 0027), the one method both call: what it found is
+     * kept as every run's is, and the run is in the audit log, in the same transaction as its record.
+     */
+    Result run(AuditTrail.Actor actor, String reason) {
+        return run(actor.label(), new Asked(actor, reason));
+    }
+
+    /** Who asked for a run, and why, for its audit row. */
+    private record Asked(AuditTrail.Actor actor, String reason) {}
+
+    /**
      * Runs the check now and keeps what it found in {@code billing.reconciliation_runs}, for the admin console;
-     * {@code trigger} says who asked: {@code nightly}, or {@code operator <name>} for the command.
+     * {@code trigger} says who asked, {@code nightly} for the schedule.
      */
     Result run(String trigger) {
+        return run(trigger, null);
+    }
+
+    private Result run(String trigger, @Nullable Asked asked) {
         var result = Objects.requireNonNull(snapshot.execute(status -> {
             Boolean locked = jdbc.sql("select pg_try_advisory_xact_lock(:key)")
                     .param("key", LOCK_KEY)
                     .query(Boolean.class)
                     .single();
             if (!Boolean.TRUE.equals(locked)) {
-                return new Result(false, List.of(), 0, 0);
+                return new Result(false, List.of(), 0, 0, null);
             }
             var walletMismatches = jdbc.sql("""
                             with ledger as (
@@ -173,7 +199,7 @@ class WalletReconciliation {
             var mismatches = new java.util.ArrayList<Mismatch>(walletMismatches);
             mismatches.addAll(reservedMismatches);
             mismatches.addAll(holdMismatches);
-            return new Result(true, List.copyOf(mismatches), totals[0], totals[1]);
+            return new Result(true, List.copyOf(mismatches), totals[0], totals[1], null);
         }));
         if (!result.ran()) {
             log.info("Wallet reconciliation skipped: another instance is running it");
@@ -198,17 +224,20 @@ class WalletReconciliation {
                     result.ledgerCreditsPaise());
             problems++;
         }
-        record(trigger, result, problems);
+        result = record(trigger, result, problems, asked);
         mismatches.increment(problems);
         lastSuccessEpochSeconds.set(clock.instant().getEpochSecond());
         log.info("Wallet reconciliation finished: {} mismatches", problems);
         return result;
     }
 
-    /** The run and each mismatch, in their own transaction once the read-only snapshot has ended. */
-    private void record(String trigger, Result result, int problems) {
+    /**
+     * The run and each mismatch, in their own transaction once the read-only snapshot has ended, with its audit row
+     * when someone asked for it; the result names the run.
+     */
+    private Result record(String trigger, Result result, int problems, @Nullable Asked asked) {
+        var runId = ids.newId();
         transactions.executeWithoutResult(status -> {
-            var runId = ids.newId();
             jdbc.sql("""
                             insert into billing.reconciliation_runs
                                 (id, trigger, finished_at, ledger_debits_paise, ledger_credits_paise, mismatches)
@@ -236,6 +265,17 @@ class WalletReconciliation {
                         .param("expected", mismatch.expectedPaise())
                         .update();
             }
+            if (asked != null) {
+                audit.record(new AuditTrail.Entry(
+                        asked.actor(),
+                        "reconciliation.run",
+                        "reconciliation_run",
+                        runId.toString(),
+                        asked.reason(),
+                        null,
+                        Map.of("mismatches", problems, "ledgerBalanced", result.ledgerBalanced())));
+            }
         });
+        return new Result(true, result.mismatches(), result.ledgerDebitsPaise(), result.ledgerCreditsPaise(), runId);
     }
 }

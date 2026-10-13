@@ -1,6 +1,7 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.OperatorCommand;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.io.PrintStream;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,7 +34,7 @@ class ReconciliationCommand {
                 if (!args.options().isEmpty()) {
                     throw new Usage("reconcile-wallets takes no options");
                 }
-                var result = reconciliation.run("operator " + operator);
+                var result = reconciliation.run(AuditTrail.Actor.operator(operator), "reconcile-wallets");
                 if (!result.ran()) {
                     throw new Refused("another instance is running the check; try again in a minute");
                 }

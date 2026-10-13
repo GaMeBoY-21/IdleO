@@ -166,7 +166,7 @@ class AdminHostsTests {
     }
 
     @Test
-    void activateHostStillWorksThroughTheSameService() throws Exception {
+    void activateHostAndSuspendHostStillWorkThroughTheSameService() throws Exception {
         var host = TestHosts.connect(mvc, grpcPort);
         try {
             TestHosts.list(mvc, host.agent(), 22, 80);
@@ -179,6 +179,16 @@ class AdminHostsTests {
                             "nikki",
                             new PrintStream(out, true, StandardCharsets.UTF_8));
             assertThat(out.toString(StandardCharsets.UTF_8)).contains("pending -> active, by nikki");
+            var suspended = new ByteArrayOutputStream();
+            new HostCommands()
+                    .suspendHost(activation)
+                    .run(
+                            OperatorCommand.Arguments.parse(
+                                    "suspend-host", "--host", host.id().toString(), "--reason", "overheating"),
+                            "nikki",
+                            new PrintStream(suspended, true, StandardCharsets.UTF_8));
+            assertThat(suspended.toString(StandardCharsets.UTF_8)).contains("active -> suspended, by nikki");
+            assertThat(audited("host.suspend", host.id())).isOne();
             assertThat(jdbc.queryForObject(
                             "select actor_kind || ':' || actor_name from identity.audit_log"
                                     + " where action = 'host.activate' and target_id = ?",

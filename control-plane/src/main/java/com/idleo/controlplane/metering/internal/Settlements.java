@@ -95,20 +95,92 @@ class Settlements {
         if (claimed.isEmpty()) {
             return Paise.ZERO;
         }
+        var charged = post(session, attempts, claimed, parts, minutesByHost, windowEnd, now, true);
+        log.info(
+                "Settled session {} window {}: {} minutes, {} paise ({} to hosts, {} commission)",
+                session.sessionId(),
+                session.settlements() + 1,
+                claimed.size(),
+                charged.amount().value(),
+                charged.hostShare().value(),
+                charged.commission().value());
+        return charged.amount();
+    }
+
+    /**
+     * Charges one minute from the review queue that an admin decided was worked (ADR 0027), as a settlement of its
+     * own: the session's next window number, one ledger transaction, at the price of the attempt that ran it. Refused,
+     * charging nothing, past the session's spending cap or what the renter's credit can pay. The caller holds the
+     * session's row lock; the minute isn't marked billed, since one witness never saw it.
+     *
+     * @return the settlement's ledger transaction
+     */
+    @Transactional(propagation = Propagation.MANDATORY, noRollbackFor = NotChargeable.class)
+    UUID settleReviewed(Metered session, int minuteIndex, Instant minuteAt, int attempt, Instant now) {
+        var attempts = new HashMap<Integer, MeteredSessions.Attempt>();
+        for (var known : sessions.attempts(session.sessionId())) {
+            attempts.put(known.attempt(), known);
+        }
+        var ran = java.util.Optional.ofNullable(attempts.get(attempt))
+                .orElseThrow(() -> new NotChargeable(
+                        "attempt " + attempt + " of the session isn't known, so there's no price or host to charge"));
+        var price = Paise.of(ran.pricePaisePerMin());
+        var limit = limit(session);
+        if (price.isGreaterThan(limit)) {
+            throw new NotChargeable("the minute costs " + price.value() + " paise, but the session's spending cap and"
+                    + " the renter's credit leave only " + limit.value() + " paise");
+        }
+        post(
+                session,
+                attempts,
+                List.of(new Minute(minuteIndex, minuteAt, attempt)),
+                Map.of(ran.hostId(), price),
+                Map.of(ran.hostId(), 1),
+                null,
+                now,
+                false);
+        return txnId(session.sessionId(), session.settlements() + 1);
+    }
+
+    /** The reviewed minute can't be charged; nothing changed. */
+    static final class NotChargeable extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        NotChargeable(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Posts a settlement of {@code claimed}: marks them billed if {@code markBilled}, charges them as one ledger
+     * transaction, and records it and each host's part, as the session's next window.
+     */
+    private SessionCharges.Charged post(
+            Metered session,
+            Map<Integer, MeteredSessions.Attempt> attempts,
+            List<Minute> claimed,
+            Map<UUID, Paise> parts,
+            Map<UUID, Integer> minutesByHost,
+            @Nullable Instant windowEnd,
+            Instant now,
+            boolean markBilled) {
         int number = session.settlements() + 1;
         var txnId = txnId(session.sessionId(), number);
-        for (var minute : claimed) {
-            jdbc.sql("""
-                            update metering.usage_minutes set billed = true, settlement_txn = :txnId
-                            where session_id = :sessionId and minute_index = :index and minute_at = :minuteAt
-                              and not billed and not waived
-                            """)
-                    .param("txnId", txnId)
-                    .param("sessionId", session.sessionId())
-                    .param("index", minute.index())
-                    .param("minuteAt", Timestamp.from(minute.minuteAt()))
-                    .update();
+        if (markBilled) {
+            for (var minute : claimed) {
+                jdbc.sql("""
+                                update metering.usage_minutes set billed = true, settlement_txn = :txnId
+                                where session_id = :sessionId and minute_index = :index and minute_at = :minuteAt
+                                  and not billed and not waived
+                                """)
+                        .param("txnId", txnId)
+                        .param("sessionId", session.sessionId())
+                        .param("index", minute.index())
+                        .param("minuteAt", Timestamp.from(minute.minuteAt()))
+                        .update();
+            }
         }
+        var total = parts.values().stream().reduce(Paise.ZERO, Paise::plus);
         var chargedBefore = chargedNet(session.sessionId());
         var charged = charges.settle(new SessionCharges.Charge(
                 session.sessionId(),
@@ -151,15 +223,7 @@ class Settlements {
                 .param("number", number)
                 .param("sessionId", session.sessionId())
                 .update();
-        log.info(
-                "Settled session {} window {}: {} minutes, {} paise ({} to hosts, {} commission)",
-                session.sessionId(),
-                number,
-                claimed.size(),
-                charged.amount().value(),
-                charged.hostShare().value(),
-                charged.commission().value());
-        return charged.amount();
+        return charged;
     }
 
     /** The most more this session may be charged: its cap's remainder, and what its hold and balance can pay. */

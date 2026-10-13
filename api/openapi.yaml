@@ -171,6 +171,27 @@ paths:
         idToken: []
       tags:
       - adminMoney
+  /admin/v1/dashboard:
+    get:
+      operationId: adminDashboardDashboard
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDashboard
   /admin/v1/hosts:
     get:
       operationId: adminHostsSearch
@@ -495,6 +516,156 @@ paths:
         idToken: []
       tags:
       - adminMoney
+    post:
+      operationId: adminMoneyReconcile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReconciliationRun"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoney
+  /admin/v1/review-minutes:
+    get:
+      operationId: adminReviewList
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: session
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReviewPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminReview
+  /admin/v1/review-minutes/{sessionId}/{minuteIndex}/charge:
+    post:
+      operationId: adminReviewCharge
+      parameters:
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: minuteIndex
+        required: true
+        schema:
+          type: integer
+          format: int32
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReviewDecision"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminReview
+  /admin/v1/review-minutes/{sessionId}/{minuteIndex}/waive:
+    post:
+      operationId: adminReviewWaive
+      parameters:
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: minuteIndex
+        required: true
+        schema:
+          type: integer
+          format: int32
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReviewDecision"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminReview
   /admin/v1/second-factor:
     post:
       operationId: adminSessionEnrol
@@ -2294,6 +2465,38 @@ components:
       - paise
       - reason
       - userId
+    AdminDashboard:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        hostsOnline:
+          type: integer
+          format: int64
+        reconciliationMismatches:
+          type: integer
+          format: int64
+        reviewQueue:
+          type: integer
+          format: int64
+        sessionsRunning:
+          type: integer
+          format: int64
+        sessionsToday:
+          type: integer
+          format: int64
+        settlementBacklog:
+          type: integer
+          format: int64
+      required:
+      - at
+      - hostsOnline
+      - reconciliationMismatches
+      - reviewQueue
+      - sessionsRunning
+      - sessionsToday
+      - settlementBacklog
     AdminEnrolment:
       type: object
       properties:
@@ -2733,6 +2936,95 @@ components:
             $ref: "#/components/schemas/AdminReconciliationRun"
       required:
       - runs
+    AdminReviewDecision:
+      type: object
+      properties:
+        resolution:
+          type: string
+        settlementTxn:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - resolution
+    AdminReviewMinute:
+      type: object
+      properties:
+        attempt:
+          type:
+          - integer
+          - "null"
+          format: int32
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        minuteAt:
+          type: string
+          format: date-time
+        minuteIndex:
+          type: integer
+          format: int32
+        pricePaisePerMin:
+          type:
+          - integer
+          - "null"
+          format: int32
+        queuedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        renterId:
+          type: string
+          format: uuid
+        resolution:
+          type:
+          - string
+          - "null"
+        resolutionReason:
+          type:
+          - string
+          - "null"
+        resolvedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        resolvedBy:
+          type:
+          - string
+          - "null"
+        sessionId:
+          type: string
+          format: uuid
+        settlementTxn:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - minuteAt
+      - minuteIndex
+      - queuedAt
+      - reason
+      - renterId
+      - sessionId
+    AdminReviewPage:
+      type: object
+      properties:
+        minutes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminReviewMinute"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - minutes
     AdminSession:
       type: object
       properties:
