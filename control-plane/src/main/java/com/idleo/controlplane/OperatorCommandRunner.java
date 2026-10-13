@@ -44,7 +44,7 @@ class OperatorCommandRunner implements ApplicationRunner, ExitCodeGenerator {
     public void run(ApplicationArguments arguments) {
         var args = OperatorCommand.Arguments.parse(arguments.getSourceArgs());
         try {
-            if (args.commands().size() != 1) {
+            if (args.commands().isEmpty()) {
                 throw new OperatorCommand.Usage("give exactly one command");
             }
             var command = commands.stream()
@@ -52,6 +52,12 @@ class OperatorCommandRunner implements ApplicationRunner, ExitCodeGenerator {
                     .findFirst()
                     .orElseThrow(() -> new OperatorCommand.Usage(
                             "unknown command " + args.commands().getFirst()));
+            if (args.commands().size() != 1 + command.operands()) {
+                throw new OperatorCommand.Usage(
+                        command.operands() == 0
+                                ? "give exactly one command"
+                                : command.name() + " takes " + command.operands() + " value after its name");
+            }
             var operator = environment.getProperty("OPERATOR", "").strip();
             if (operator.isEmpty()) {
                 throw new OperatorCommand.Usage("set OPERATOR to who you are; it's recorded with every change");

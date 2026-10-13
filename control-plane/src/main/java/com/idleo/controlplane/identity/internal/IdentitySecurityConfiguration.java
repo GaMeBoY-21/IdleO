@@ -60,7 +60,7 @@ class IdentitySecurityConfiguration {
         return request -> isApiKey(request) ? apiKeys : tokens.resolve(request);
     }
 
-    private static boolean isApiKey(HttpServletRequest request) {
+    static boolean isApiKey(HttpServletRequest request) {
         var header = request.getHeader(HttpHeaders.AUTHORIZATION);
         return header != null
                 && header.regionMatches(true, 0, BEARER, 0, BEARER.length())

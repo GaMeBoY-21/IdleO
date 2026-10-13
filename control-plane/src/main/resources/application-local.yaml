@@ -23,6 +23,9 @@ identity:
   issuers:
     - issuer-uri: http://localhost:${LOCAL_SIGN_IN_PORT:8099}/idleo-local
       audience: idleo-local
+  # The admin console's TOTP key (ADR 0027), made beside the development CA by scripts/dev-ca.sh.
+  admin:
+    totp-key: file:../private/dev-ca/admin-totp.key
 
 # Object storage: MinIO from compose.yaml (ADR 0016). A fixed port, because the
 # grants agents get and renters' download links carry this endpoint.

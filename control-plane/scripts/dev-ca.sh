@@ -30,14 +30,24 @@ if [[ -z "$openssl_bin" ]]; then
   exit 1
 fi
 
+# The admin console's TOTP key (ADR 0027), beside the CA: kept across --force, since replacing it makes every
+# admin's enrolment unreadable.
+make_admin_totp_key() {
+  if [[ ! -s "$out/admin-totp.key" ]]; then
+    (umask 077 && mkdir -p "$out" && "$openssl_bin" rand -base64 32 > "$out/admin-totp.key")
+  fi
+}
+
 if [[ -e "$out/root.pem" && "${1:-}" != "--force" ]]; then
+  make_admin_totp_key
   echo "dev-ca: $out already exists; scripts/dev-ca.sh --force replaces it."
   exit 0
 fi
 
 umask 077
-rm -rf "$out"
 mkdir -p "$out"
+find "$out" -mindepth 1 ! -name admin-totp.key -delete
+make_admin_totp_key
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -71,4 +81,4 @@ printf 'basicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\n
 cat "$out/server.pem" "$out/intermediate.pem" > "$out/server-chain.pem"
 
 "$openssl_bin" verify -CAfile "$out/root.pem" -untrusted "$out/intermediate.pem" "$out/server.pem" >/dev/null
-echo "dev-ca: created $out/ (root, intermediate, localhost server certificate). Never commit it."
+echo "dev-ca: created $out/ (root, intermediate, localhost server certificate, the admin TOTP key). Never commit it."

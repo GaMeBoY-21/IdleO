@@ -84,14 +84,14 @@ class ApiContractTests {
     }
 
     @Test
-    void theContractDescribesOnlyV1WithItsHeadersAndProblemDetails() throws Exception {
+    void theContractDescribesOnlyTheApiWithItsHeadersAndProblemDetails() throws Exception {
         var contract = generated();
 
         assertThat(contract).startsWith("openapi: 3.1");
         assertThat(contract.lines().filter(line -> line.matches("^  /[^:]*:$")))
-                .as("only /v1 paths, never the actuator")
+                .as("only /v1 and the admin console's /admin/v1 paths, never the actuator")
                 .isNotEmpty()
-                .allMatch(line -> line.startsWith("  /v1/"));
+                .allMatch(line -> line.startsWith("  /v1/") || line.startsWith("  /admin/v1/"));
         assertThat(contract)
                 .contains("name: Idempotency-Key")
                 .contains("name: If-Match")

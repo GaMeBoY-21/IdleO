@@ -44,6 +44,18 @@
  *
  * <p>Every request also gets: 401 with {@code WWW-Authenticate: Bearer} for a missing or rejected
  * token; 403 for a suspended account; 403 for a first sign-in whose email isn't verified.
+ *
+ * <p>The admin console (ADR 0027) lives under {@code /admin/v1}, behind its own security chain: an ID token (never
+ * an API key) of a user with the {@code admin} role, which only the {@code grant-admin} and {@code revoke-admin}
+ * operator commands change, and an admin session from a TOTP code (RFC 6238) or a one-time recovery code, in the
+ * {@code Admin-Session} header. Anything less is the 404 of a path that doesn't exist. The role alone reaches only
+ * {@code GET}, {@code POST} and {@code DELETE /admin/v1/session} and enrolment ({@code POST /admin/v1/second-factor},
+ * then {@code /confirm}). The fifth wrong code in 15 minutes locks admin access until the role is revoked and granted
+ * again.
+ *
+ * <p>Every privileged action, in any module, is recorded through {@link
+ * com.idleo.controlplane.identity.AuditTrail} in the action's own transaction, in the append-only {@code
+ * identity.audit_log}, read at {@code GET /admin/v1/audit}.
  */
 @ApplicationModule
 package com.idleo.controlplane.identity;

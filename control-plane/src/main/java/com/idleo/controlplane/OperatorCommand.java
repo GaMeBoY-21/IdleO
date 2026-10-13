@@ -20,6 +20,14 @@ public interface OperatorCommand {
     String usage();
 
     /**
+     * How many values it takes after its name, before its options: {@code grant-admin <email>} takes one. Most take
+     * none.
+     */
+    default int operands() {
+        return 0;
+    }
+
+    /**
      * Runs the command. {@code operator} is who's running it, from the {@code OPERATOR} environment
      * variable.
      *
@@ -57,8 +65,8 @@ public interface OperatorCommand {
     }
 
     /**
-     * The command and its options, as {@code --name value} or {@code --name=value}. Spring's own
-     * arguments, whose names contain a dot ({@code --spring.profiles.active=…}), are left to Spring.
+     * The command, the values after it, and its options, as {@code --name value} or {@code --name=value}. Spring's
+     * own arguments, whose names contain a dot ({@code --spring.profiles.active=…}), are left to Spring.
      */
     record Arguments(List<String> commands, Map<String, List<String>> options) {
 
@@ -87,6 +95,14 @@ public interface OperatorCommand {
                 options.computeIfAbsent(name, key -> new ArrayList<>()).add(value);
             }
             return new Arguments(List.copyOf(commands), Map.copyOf(options));
+        }
+
+        /** The {@code index}-th value after the command's name, from 0. */
+        public String operand(int index) {
+            if (index + 1 >= commands.size() || commands.get(index + 1).isBlank()) {
+                throw new Usage("give the command's value after its name");
+            }
+            return commands.get(index + 1).strip();
         }
 
         public String text(String name) {

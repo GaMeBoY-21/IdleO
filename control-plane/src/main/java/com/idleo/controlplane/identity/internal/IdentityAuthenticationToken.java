@@ -31,39 +31,50 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
     private final boolean waiting;
     private final ArrayList<String> signInMethods;
     private final @Nullable KeyCredential key;
+    private final @Nullable UUID identityId;
 
     private IdentityAuthenticationToken(
             @Nullable CurrentUser user,
             @Nullable Denial denial,
             boolean waiting,
             List<String> signInMethods,
-            @Nullable KeyCredential key) {
+            @Nullable KeyCredential key,
+            @Nullable UUID identityId) {
         super(List.of());
         this.user = user;
         this.denial = denial;
         this.waiting = waiting;
         this.signInMethods = new ArrayList<>(signInMethods);
         this.key = key;
+        this.identityId = identityId;
         setAuthenticated(true);
     }
 
-    /** An active user, signed in with these methods ({@code google} or {@code email-link}). */
-    static IdentityAuthenticationToken allowed(CurrentUser user, List<String> signInMethods) {
-        return new IdentityAuthenticationToken(user, null, false, signInMethods, null);
+    /**
+     * An active user, signed in with these methods ({@code google} or {@code email-link}), through our sign-in
+     * identity {@code identityId} (the token's issuer and subject).
+     */
+    static IdentityAuthenticationToken allowed(CurrentUser user, List<String> signInMethods, UUID identityId) {
+        return new IdentityAuthenticationToken(user, null, false, signInMethods, null, identityId);
     }
 
     /** A user who hasn't entered an invite code yet: they may only reach their own account. */
-    static IdentityAuthenticationToken waiting(CurrentUser user, List<String> signInMethods) {
-        return new IdentityAuthenticationToken(user, null, true, signInMethods, null);
+    static IdentityAuthenticationToken waiting(CurrentUser user, List<String> signInMethods, UUID identityId) {
+        return new IdentityAuthenticationToken(user, null, true, signInMethods, null, identityId);
     }
 
     /** A user calling with an API key; {@code waiting} as for their tokens. */
     static IdentityAuthenticationToken withKey(CurrentUser user, boolean waiting, KeyCredential key) {
-        return new IdentityAuthenticationToken(user, null, waiting, List.of(), key);
+        return new IdentityAuthenticationToken(user, null, waiting, List.of(), key, null);
     }
 
     static IdentityAuthenticationToken denied(Problem problem, String reason) {
-        return new IdentityAuthenticationToken(null, new Denial(problem, reason), false, List.of(), null);
+        return new IdentityAuthenticationToken(null, new Denial(problem, reason), false, List.of(), null, null);
+    }
+
+    /** The sign-in identity (issuer and subject) of an ID token; empty for an API key or a denial. */
+    Optional<UUID> identityId() {
+        return Optional.ofNullable(identityId);
     }
 
     /** The API key this request was made with; empty for a browser's ID token. */

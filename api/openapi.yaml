@@ -9,6 +9,190 @@ servers:
 security:
 - idToken: []
 paths:
+  /admin/v1/audit:
+    get:
+      operationId: auditLogList
+      parameters:
+      - in: query
+        name: actor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: action
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: targetType
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: targetId
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - auditLog
+  /admin/v1/second-factor:
+    post:
+      operationId: adminSessionEnrol
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEnrolment"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - idToken: []
+      tags:
+      - adminSession
+  /admin/v1/second-factor/confirm:
+    post:
+      operationId: adminSessionConfirm
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCodeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEnrolmentConfirmed"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - idToken: []
+      tags:
+      - adminSession
+  /admin/v1/session:
+    delete:
+      operationId: adminSessionEnd
+      parameters:
+      - in: header
+        name: Admin-Session
+        required: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - idToken: []
+      tags:
+      - adminSession
+    get:
+      operationId: adminSessionStatus
+      parameters:
+      - description: "The admin session's token, if there is one"
+        in: header
+        name: Admin-Session
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionStatus"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - idToken: []
+      tags:
+      - adminSession
+    post:
+      operationId: adminSessionStart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSessionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - idToken: []
+      tags:
+      - adminSession
   /v1/api-keys:
     get:
       operationId: apiKeyList
@@ -1335,6 +1519,82 @@ components:
           minLength: 0
       required:
       - code
+    AdminCodeRequest:
+      type: object
+      properties:
+        totp:
+          type: string
+          maxLength: 16
+          minLength: 0
+      required:
+      - totp
+    AdminEnrolment:
+      type: object
+      properties:
+        otpauthUri:
+          type: string
+        secret:
+          type: string
+      required:
+      - otpauthUri
+      - secret
+    AdminEnrolmentConfirmed:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        recoveryCodes:
+          type: array
+          items:
+            type: string
+        token:
+          type: string
+      required:
+      - expiresAt
+      - recoveryCodes
+      - token
+    AdminSessionRequest:
+      type: object
+      properties:
+        recoveryCode:
+          type:
+          - string
+          - "null"
+          maxLength: 32
+          minLength: 0
+        totp:
+          type:
+          - string
+          - "null"
+          maxLength: 16
+          minLength: 0
+    AdminSessionResponse:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        token:
+          type: string
+      required:
+      - expiresAt
+      - token
+    AdminSessionStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+        enrolled:
+          type: boolean
+        expiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - active
+      - enrolled
     ApiKeyList:
       type: object
       properties:
@@ -1381,6 +1641,64 @@ components:
       - name
       - prefix
       - scope
+    AuditEntry:
+      type: object
+      properties:
+        action:
+          type: string
+        actorKind:
+          type: string
+        actorName:
+          type: string
+        actorUserId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        after:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
+        before:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        targetId:
+          type: string
+        targetType:
+          type: string
+      required:
+      - action
+      - actorKind
+      - actorName
+      - createdAt
+      - id
+      - reason
+      - targetId
+      - targetType
+    AuditPage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - entries
     Availability:
       type: object
       properties:
@@ -2344,6 +2662,10 @@ components:
           - /problems/host-removed
           - /problems/host-no-gpu
           - /problems/pause-too-long
+          - /problems/admin-code-invalid
+          - /problems/second-factor-exists
+          - /problems/second-factor-missing
+          - /problems/action-refused
           - /problems/internal-error
       required:
       - status
@@ -3142,6 +3464,12 @@ components:
       - balancePaise
       - reservedPaise
   securitySchemes:
+    adminSession:
+      description: "An admin session from POST /admin/v1/session (ADR 0027), sent\
+        \ beside the ID token of the admin who started it."
+      in: header
+      name: Admin-Session
+      type: apiKey
     idToken:
       bearerFormat: JWT
       description: An ID token from a trusted issuer (ADR 0009).

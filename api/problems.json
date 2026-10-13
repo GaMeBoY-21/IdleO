@@ -44,5 +44,9 @@
   { "slug": "host-removed", "status": 410, "title": "The host was removed" },
   { "slug": "host-no-gpu", "status": 409, "title": "The host hasn't reported a GPU" },
   { "slug": "pause-too-long", "status": 400, "title": "The pause is too long" },
+  { "slug": "admin-code-invalid", "status": 400, "title": "Code not accepted" },
+  { "slug": "second-factor-exists", "status": 409, "title": "Second factor already set up" },
+  { "slug": "second-factor-missing", "status": 409, "title": "Second factor not set up" },
+  { "slug": "action-refused", "status": 409, "title": "Action refused" },
   { "slug": "internal-error", "status": 500, "title": "Internal error" }
 ]

@@ -63,18 +63,22 @@ class SignInService {
         }
         var created = create(claims);
         if (created.isPresent()) {
+            var identity = created.get();
             return properties.inviteOnly()
-                    ? new SignInOutcome.Waiting(created.get())
-                    : new SignInOutcome.Active(created.get());
+                    ? new SignInOutcome.Waiting(identity.userId(), identity.identityId())
+                    : new SignInOutcome.Active(identity.userId(), identity.identityId());
         }
         // Another request created this identity first; use theirs.
         return outcome(find(claims).orElseThrow(() -> new IllegalStateException("identity vanished after conflict")));
     }
 
-    private Optional<UUID> create(SignInClaims claims) {
+    private record Created(UUID userId, UUID identityId) {}
+
+    private Optional<Created> create(SignInClaims claims) {
         return transactions.execute(status -> {
             var now = Instant.now(clock);
             var userId = ids.newId();
+            var identityId = ids.newId();
             var newStatus = properties.inviteOnly() ? UserStatus.WAITING : UserStatus.ACTIVE;
             users.save(User.newUser(userId, newStatus, claims.email(), claims.displayName(), now));
             int inserted = jdbc.sql("""
@@ -83,7 +87,7 @@ class SignInService {
                             values (:id, :userId, :issuer, :subject, :now, :now)
                             on conflict (issuer, subject) do nothing
                             """)
-                    .param("id", ids.newId())
+                    .param("id", identityId)
                     .param("userId", userId)
                     .param("issuer", claims.issuer())
                     .param("subject", claims.subject())
@@ -91,9 +95,9 @@ class SignInService {
                     .update();
             if (inserted == 0) {
                 status.setRollbackOnly();
-                return Optional.<UUID>empty();
+                return Optional.<Created>empty();
             }
-            return Optional.of(userId);
+            return Optional.of(new Created(userId, identityId));
         });
     }
 
@@ -132,8 +136,8 @@ class SignInService {
 
     private static SignInOutcome outcome(KnownIdentity identity) {
         return switch (identity.status()) {
-            case WAITING -> new SignInOutcome.Waiting(identity.userId());
-            case ACTIVE -> new SignInOutcome.Active(identity.userId());
+            case WAITING -> new SignInOutcome.Waiting(identity.userId(), identity.id());
+            case ACTIVE -> new SignInOutcome.Active(identity.userId(), identity.id());
             case SUSPENDED -> new SignInOutcome.Suspended(identity.userId());
         };
     }

@@ -34,9 +34,9 @@ class SignInAuthenticationConverter implements Converter<Jwt, AbstractAuthentica
         var methods = signInMethods(token);
         return switch (signIn.signIn(claims)) {
             case SignInOutcome.Active active ->
-                IdentityAuthenticationToken.allowed(new CurrentUser(active.userId()), methods);
+                IdentityAuthenticationToken.allowed(new CurrentUser(active.userId()), methods, active.identityId());
             case SignInOutcome.Waiting waiting ->
-                IdentityAuthenticationToken.waiting(new CurrentUser(waiting.userId()), methods);
+                IdentityAuthenticationToken.waiting(new CurrentUser(waiting.userId()), methods, waiting.identityId());
             case SignInOutcome.Suspended _ -> IdentityAuthenticationToken.denied(Problem.ACCOUNT_SUSPENDED, SUSPENDED);
             case SignInOutcome.EmailNotVerified _ ->
                 IdentityAuthenticationToken.denied(Problem.EMAIL_NOT_VERIFIED, EMAIL_NOT_VERIFIED);

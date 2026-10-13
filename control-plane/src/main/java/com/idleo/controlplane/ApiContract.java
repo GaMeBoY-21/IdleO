@@ -33,6 +33,7 @@ import org.springframework.http.HttpHeaders;
 class ApiContract {
 
     static final String BEARER = "idToken";
+    static final String ADMIN_SESSION = "adminSession";
     static final String PROBLEM = "ProblemDetail";
     static final String PROBLEM_JSON = "application/problem+json";
 
@@ -78,11 +79,26 @@ class ApiContract {
                                     .scheme("bearer")
                                     .bearerFormat("JWT")
                                     .description("An ID token from a trusted issuer (ADR 0009)."))
+                    .addSecuritySchemes(
+                            ADMIN_SESSION,
+                            new SecurityScheme()
+                                    .type(SecurityScheme.Type.APIKEY)
+                                    .in(SecurityScheme.In.HEADER)
+                                    .name("Admin-Session")
+                                    .description("An admin session from POST /admin/v1/session (ADR 0027), sent beside "
+                                            + "the ID token of the admin who started it."))
                     .addSchemas(PROBLEM, problemDetail());
             openApi.setSecurity(List.of(new SecurityRequirement().addList(BEARER)));
             if (openApi.getPaths() == null) {
                 return;
             }
+            // An admin call needs an admin session too, unless its controller says it needs only the ID token: the
+            // second factor's own calls, which start one.
+            openApi.getPaths()
+                    .forEach((name, path) -> path.readOperations().stream()
+                            .filter(operation -> name.startsWith("/admin/v1/") && operation.getSecurity() == null)
+                            .forEach(operation -> operation.setSecurity(List.of(
+                                    new SecurityRequirement().addList(BEARER).addList(ADMIN_SESSION)))));
             openApi.getPaths()
                     .values()
                     .forEach(path -> path.readOperations().forEach(operation -> {

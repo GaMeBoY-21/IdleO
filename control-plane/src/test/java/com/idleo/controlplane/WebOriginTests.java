@@ -44,4 +44,21 @@ class WebOriginTests {
                 .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
+
+    @Test
+    void theAdminConsoleMayCallFromTheWebOriginWithItsSessionHeader() throws Exception {
+        mvc.perform(options("/admin/v1/users")
+                        .header("Origin", WEB)
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "authorization, admin-session, idempotency-key"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", WEB))
+                .andExpect(header().string(
+                                "Access-Control-Allow-Headers",
+                                org.hamcrest.Matchers.containsStringIgnoringCase("admin-session")));
+        mvc.perform(options("/admin/v1/users")
+                        .header("Origin", "https://elsewhere.example.invalid")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
+    }
 }

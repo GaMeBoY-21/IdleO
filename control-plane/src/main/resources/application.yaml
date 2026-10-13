@@ -122,7 +122,7 @@ web:
 springdoc:
   api-docs:
     enabled: false
-  paths-to-match: /v1/**
+  paths-to-match: /v1/**, /admin/v1/**
   # Errors are one problem-details default response on every operation, added by ApiContract.
   override-with-generic-response: false
   writer-with-order-by-keys: true

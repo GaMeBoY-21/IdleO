@@ -65,6 +65,10 @@ class SecurityConfiguration {
         cors.setAllowCredentials(false);
         cors.setMaxAge(Duration.ofHours(1));
         source.registerCorsConfiguration("/v1/**", cors);
+        // The admin console (ADR 0027) is part of the same web app: the same origins, and its admin session's header.
+        var admin = new CorsConfiguration(cors);
+        admin.addAllowedHeader("Admin-Session");
+        source.registerCorsConfiguration("/admin/v1/**", admin);
         return source;
     }
 

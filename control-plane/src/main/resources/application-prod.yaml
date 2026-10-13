@@ -39,3 +39,8 @@ notifications:
   web-app-url: ${NOTIFICATIONS_WEB_APP_URL}
   email:
     from: ${NOTIFICATIONS_EMAIL_FROM}
+
+# The admin console's TOTP key (ADR 0027, docs/runbooks/admin.md): 32 bytes in base64, from the secret store.
+identity:
+  admin:
+    totp-key: ${IDENTITY_ADMIN_TOTP_KEY}

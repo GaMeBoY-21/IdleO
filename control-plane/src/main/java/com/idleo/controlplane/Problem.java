@@ -263,6 +263,31 @@ public enum Problem {
             "The pause is too long",
             "A pause with an end must end within 7 days from now. Pause until you resume it for longer."),
 
+    // The admin console (ADR 0027).
+    ADMIN_CODE_INVALID(
+            "admin-code-invalid",
+            HttpStatus.BAD_REQUEST,
+            "Code not accepted",
+            "The authenticator code or recovery code is wrong, or was already used. The fifth wrong code in 15 "
+                    + "minutes locks admin access until an operator grants it again."),
+    SECOND_FACTOR_EXISTS(
+            "second-factor-exists",
+            HttpStatus.CONFLICT,
+            "Second factor already set up",
+            "The admin's authenticator is already set up, and its secret is never shown again. Sign in with a code "
+                    + "from it, or a recovery code."),
+    SECOND_FACTOR_MISSING(
+            "second-factor-missing",
+            HttpStatus.CONFLICT,
+            "Second factor not set up",
+            "Set up the authenticator first: ask for a secret, then confirm it with a code from the app."),
+    ACTION_REFUSED(
+            "action-refused",
+            HttpStatus.CONFLICT,
+            "Action refused",
+            "An admin action was refused and nothing changed. The detail says why: a host without a valid "
+                    + "certificate, say, or a reversal the wallet's available credit can't cover."),
+
     // Server.
     INTERNAL_ERROR(
             "internal-error",
