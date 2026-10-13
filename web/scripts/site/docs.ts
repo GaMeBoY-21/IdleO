@@ -29,7 +29,19 @@ const marked = new Marked({
   },
 });
 
-export const toHtml = (markdown: string): string => marked.parse(markdown, { async: false });
+/**
+ * A table that's wider than the screen scrolls inside its own box, which a keyboard can reach and a screen reader names
+ * (the box is a group with a label), so a wide API table never widens the page.
+ */
+const scrolling = (html: string): string =>
+  html
+    .replaceAll(
+      "<table>",
+      '<div class="table-scroll" role="group" aria-label="Table, scrolls sideways" tabindex="0"><table>',
+    )
+    .replaceAll("</table>", "</table></div>");
+
+export const toHtml = (markdown: string): string => scrolling(marked.parse(markdown, { async: false }));
 
 interface Source {
   title: string;

@@ -7,7 +7,7 @@ path: /docs/faq/
 
 ## What do you provide?
 
-The GPU. You bring your own model, data and code. We don't supply models, images or transcription, and no service we offer does.
+The GPU. You bring your own model, data and code. We don't supply models, and no service we offer does.
 
 ## What does it cost?
 

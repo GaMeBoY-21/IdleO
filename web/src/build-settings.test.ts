@@ -16,6 +16,7 @@ const production = {
   IDLEO_DEPLOYMENT: "production",
   VITE_API_URL: "https://api.example.invalid",
   VITE_STORAGE_URL: "https://storage.example.invalid",
+  IDLEO_SITE_URL: "https://site.example.invalid",
   VITE_AUTH: "firebase",
   VITE_FIREBASE_API_KEY: "placeholder",
   VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
@@ -26,6 +27,17 @@ describe("the build settings", () => {
   it("let a local build use the mock sign-in, and production Firebase", () => {
     expect(buildSettingsProblems(local)).toEqual([]);
     expect(buildSettingsProblems(production)).toEqual([]);
+  });
+
+  it("need the public site's address outside a local build, and an https one", () => {
+    const { IDLEO_SITE_URL: _site, ...without } = production;
+    expect(buildSettingsProblems(without)).toEqual([
+      "a production build needs IDLEO_SITE_URL, the public site's address",
+    ]);
+    expect(buildSettingsProblems({ ...production, IDLEO_SITE_URL: "http://localhost:3000" })).toEqual([
+      "a production build needs an https site address that isn't on this machine",
+    ]);
+    expect(buildSettingsProblems(local)).toEqual([]);
   });
 
   it("refuse the mock sign-in adapter outside a local build", () => {

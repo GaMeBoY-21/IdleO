@@ -121,8 +121,11 @@
   .docs pre code {
     @apply bg-transparent p-0 text-small text-log-text;
   }
+  .docs .table-scroll {
+    @apply overflow-x-auto;
+  }
   .docs table {
-    @apply block w-full overflow-x-auto text-small;
+    @apply w-max min-w-full text-small;
   }
   .docs th {
     @apply bg-fill px-3 py-2 text-left font-semibold;

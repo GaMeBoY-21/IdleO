@@ -22,12 +22,10 @@ function fillRow(row: HTMLElement, data: ClassRow): void {
   part(row, "skeleton").hidden = true;
   show(part(row, "online"), data.online ? "Online now" : "None online now");
   show(part(row, "price"), formatRange(range));
-  show(
-    part(row, "kind"),
+  part(row, "kind").textContent =
     kind === "live"
       ? "Right now, across the hosts online"
-      : "Typical: too few hosts online to show today's range",
-  );
+      : "Typical: too few hosts online to show today's range";
   row.dataset.state = "loaded";
 }
 

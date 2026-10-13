@@ -45,8 +45,8 @@ export function Pricing({ context }: { context: SiteContext }) {
                 className="skeleton mt-1 block h-6 w-3/5 rounded-control"
                 aria-hidden="true"
               />
-              <p data-role="price" className="tabular text-option text-text" hidden></p>
-              <p data-role="kind" className="text-caption text-text-muted" hidden></p>
+              <p data-role="price" className="tabular h-6 text-option text-text" hidden></p>
+              <p data-role="kind" className="h-4.5 text-caption text-text-muted"></p>
             </li>
           ))}
         </ul>
@@ -91,10 +91,10 @@ export function Pricing({ context }: { context: SiteContext }) {
               <p className="text-small text-text-muted">About {example.minutes} minutes, typical</p>
               <span
                 data-role="skeleton"
-                className="skeleton mt-1 block h-4.5 w-2/5 rounded-control"
+                className="skeleton block h-6 w-2/5 rounded-control"
                 aria-hidden="true"
               />
-              <p data-role="cost" className="tabular text-body text-text" hidden></p>
+              <p data-role="cost" className="tabular h-6 text-body text-text" hidden></p>
             </li>
           ))}
         </ul>

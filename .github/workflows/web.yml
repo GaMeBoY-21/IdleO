@@ -47,6 +47,7 @@ jobs:
       - name: Build for production (Firebase, placeholder settings) and check the first-load budget
         env:
           IDLEO_DEPLOYMENT: production
+          IDLEO_SITE_URL: https://site.example.invalid
           VITE_API_URL: https://api.example.invalid
           VITE_STORAGE_URL: https://storage.example.invalid
           VITE_AUTH: firebase

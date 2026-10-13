@@ -7,11 +7,9 @@ import { fileURLToPath } from "node:url";
 import { brand } from "../src/brand/brand.ts";
 import { contentSecurityPolicy } from "../src/security/headers.ts";
 import type { PageDef, SiteContext } from "../src/site/context.ts";
-import { loadServices, workedExamples } from "./site/catalog.ts";
-import { buildDocs } from "./site/docs.ts";
+import { siteContext } from "./site/context.ts";
 
 const here = (path: string) => fileURLToPath(new URL(`../${path}`, import.meta.url));
-const root = (path: string) => fileURLToPath(new URL(`../../${path}`, import.meta.url));
 const dist = here(`${process.env.IDLEO_DIST ?? "dist"}/`);
 const siteDist = here(`${process.env.IDLEO_SITE_DIST ?? "dist-site"}/`);
 
@@ -95,20 +93,7 @@ ${loaded.map((one) => `    <script type="module" src="/${one.entry}"></script>`)
 `;
 }
 
-const catalog = root("templates/catalog.yaml");
-const development = root("templates/development.yaml");
-const services = loadServices(catalog, development);
-const context: SiteContext = {
-  apiUrl: env.VITE_API_URL ? new URL(env.VITE_API_URL).origin : null,
-  services,
-  examples: workedExamples(catalog, development),
-  docs: buildDocs({
-    docsDir: root("docs/site"),
-    cliMarkdown: readFileSync(root("docs/site/generated/cli.md"), "utf8"),
-    openapiPath: root("api/openapi.yaml"),
-    services,
-  }),
-};
+const context = siteContext(env.VITE_API_URL);
 
 const { pages, renderPage } = (await import(new URL("../dist-site-ssr/render.js", import.meta.url).href)) as {
   pages: (context: SiteContext) => PageDef[];

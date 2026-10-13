@@ -15,6 +15,8 @@ export interface BuildEnv {
   VITE_STORAGE_URL?: string | undefined;
   /** Where the add-a-machine screen sends owners for the install steps; the repository's runbook if left out. */
   VITE_HOST_RUNBOOK_URL?: string | undefined;
+  /** The public site's own address, for its sitemap and canonical links (ADR 0029); a local build may leave it out. */
+  IDLEO_SITE_URL?: string | undefined;
   VITE_OIDC_ISSUER?: string | undefined;
   VITE_OIDC_CLIENT_ID?: string | undefined;
   VITE_FIREBASE_API_KEY?: string | undefined;
@@ -56,6 +58,13 @@ export function buildSettingsProblems(env: BuildEnv): string[] {
     problems.push("VITE_STORAGE_URL is missing");
   } else if (deployment !== "local" && isLocalOrPlain(env.VITE_STORAGE_URL)) {
     problems.push(`a ${deployment} build needs https storage that isn't on this machine`);
+  }
+  if (deployment !== "local") {
+    if (!env.IDLEO_SITE_URL) {
+      problems.push(`a ${deployment} build needs IDLEO_SITE_URL, the public site's address`);
+    } else if (isLocalOrPlain(env.IDLEO_SITE_URL)) {
+      problems.push(`a ${deployment} build needs an https site address that isn't on this machine`);
+    }
   }
   if (auth === "oidc-mock" && (!env.VITE_OIDC_ISSUER || !env.VITE_OIDC_CLIENT_ID)) {
     problems.push("the oidc-mock adapter needs VITE_OIDC_ISSUER and VITE_OIDC_CLIENT_ID");
