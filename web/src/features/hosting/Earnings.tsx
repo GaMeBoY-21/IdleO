@@ -183,6 +183,9 @@ function EntryRow({ entry }: { entry: EarningsEntry }) {
         <p className="text-small text-text-muted first-letter:uppercase">
           {entry.machineName} · <RelativeTime value={entry.createdAt} />
         </p>
+        {entry.payoutHeld && (
+          <p className="text-small font-semibold text-warning">Held from payout while a report is open</p>
+        )}
       </div>
       <p className={cn("text-option font-semibold tabular", !givenBack && "text-running")}>
         <span className="sr-only">{givenBack ? "Taken back" : "Earned"} </span>

@@ -44,7 +44,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
    - Nothing pretends to have succeeded before the server agrees. No optimistic money updates, ever: a charge, a hold or a stop appears only once the API has returned it.
 5. **Calm, fast and quiet.**
    - No spinner where a skeleton fits. A spinner is allowed only inside a button that has been pressed, for at most the length of that request.
-   - No modal where a page works. The one dialog confirms stopping a session. What can wait (a service's advanced settings) is one row that opens in place, with its defaults set; deleting from My files asks once more in its own row.
+   - No modal where a page works. The dialogs are the one that confirms stopping a session and, since Oct 13 (ADR 0028), the sheet that takes a report of a problem: a choice of six reasons and what happened, which Nikki asked to be a short sheet, not a page. What can wait (a service's advanced settings) is one row that opens in place, with its defaults set; deleting from My files asks once more in its own row.
    - No jargon. Say "GPU memory", not "VRAM", unless it's next to a number ("24 GB GPU memory").
    - Error messages say what happened and what to do next, in that order: "Your sign-in link has expired. Send a new one."
 6. **Speed is a feature.** Navigation feels instant. Every interaction shows a response within 100 ms, even if that's only a pressed state. Data a screen has already seen is shown at once from the cache, then refreshed.

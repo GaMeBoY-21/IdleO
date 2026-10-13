@@ -1,5 +1,6 @@
 import type { components } from "../src/api/schema.gen";
 import { NOW } from "./fixtures";
+import { REFUND_SPLIT } from "./fixtures-trust";
 
 type Schemas = components["schemas"];
 export type Host = Schemas["HostResponse"];
@@ -188,9 +189,20 @@ const base = (machine: { id: string; name: string; price: number }): Host => ({
   createdAt: "2026-09-20T10:00:00Z",
 });
 
+/**
+ * What 23 renters rated Nikki's ROG (ADR 0028): the average is the mean of these, to one decimal place, as the control
+ * plane works it; a machine needs 5 ratings before one shows.
+ */
+export const ROG_STARS: number[] = [...Array<number>(16).fill(5), ...Array<number>(5).fill(4), 3, 2];
+export const ratingOf = (stars: number[]): NonNullable<Host["rating"]> => ({
+  averageStars: Math.round((stars.reduce((sum, star) => sum + star, 0) / stars.length) * 10) / 10,
+  count: stars.length,
+});
+
 /** Running a session and earning. */
 export const hostRunning: Host = {
   ...base(ROG),
+  rating: ratingOf(ROG_STARS),
   currentSession: {
     serviceName: runningRun.run.service[0],
     runningLabel: runningRun.run.service[1],
@@ -335,3 +347,50 @@ export const allHosts: Host[] = [
   hostWaiting,
 ];
 export const hostById = (hostId: string): Host | undefined => allHosts.find((host) => host.id === hostId);
+
+/**
+ * The same earnings after a renter's report was refunded out of this host's share, and with another session's earnings
+ * held from payout while a report about it is open (ADR 0028): the refund is a negative entry of its own, labelled
+ * "Refunded to renter", and only its host's part of the refund (the commission was spent first); every total is
+ * still the sum of the entries.
+ */
+export function withReportRefund(): OwnerEarnings {
+  const refunded = settled.find((s) => s.run.machine === DESKTOP && s.run.outcome === "completed")!;
+  const held = settled.find((s) => s.run.outcome === "stopped")!;
+  const last = refunded.entries.at(-1)!;
+  const refund: EarningsEntry = {
+    id: id(0xc900),
+    hostId: refunded.run.machine.id,
+    machineName: refunded.run.machine.name,
+    kind: "refunded_to_renter",
+    label: "Refunded to renter",
+    serviceName: refunded.run.service[0],
+    minutes: 0,
+    amountPaise: -REFUND_SPLIT.fromHost,
+    sessionId: refunded.sessionId,
+    payoutHeld: false,
+    createdAt: iso(Date.parse(last.createdAt) + 2 * HOUR),
+  };
+  const entries = [
+    refund,
+    ...earningsEntries.map((entry) =>
+      entry.sessionId === held.sessionId ? { ...entry, payoutHeld: true } : entry,
+    ),
+  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+  const inWeek = entries.filter((entry) => entry.createdAt >= WEEK_STARTS_AT);
+  return {
+    ...earnings,
+    totalPaise: net(entries),
+    weekPaise: net(inWeek),
+    minutesRentedThisWeek: inWeek.reduce((sum, e) => sum + (e.amountPaise > 0 ? e.minutes : -e.minutes), 0),
+    days: earnings.days.map((day) => ({
+      ...day,
+      earnedPaise: net(entries.filter((entry) => istDate(Date.parse(entry.createdAt)) === day.date)),
+    })),
+    machines: earnings.machines.map((machine) => ({
+      ...machine,
+      earnedPaise: net(entries.filter((entry) => entry.hostId === machine.hostId)),
+    })),
+    history: { entries: entries.slice(0, 20), nextCursor: entries.length > 20 ? "page-2" : null },
+  };
+}

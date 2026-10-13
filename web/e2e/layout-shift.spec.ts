@@ -1,8 +1,9 @@
 import { expect, test, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import * as hosting from "./fixtures-hosting";
+import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
-import { fakeApi, recordLayoutShifts, signIn } from "./support";
+import { fakeApi, recordLayoutShifts, signIn, type Answer } from "./support";
 
 /**
  * No screen moves while it loads (web/DESIGN.md "Motion": cumulative layout shift 0). Each screen is opened
@@ -42,6 +43,18 @@ const screens = [
   { name: "earnings", path: "/hosting/earnings/", ready: () => "Given back for lost time" },
   { name: "account", path: "/account/", ready: () => "New device sign-in" },
   { name: "API keys", path: "/account/keys/", ready: () => "Dashboard" },
+  { name: "reports", path: "/account/reports/", ready: () => "It ran at the speed of its GPU." },
+  {
+    // The rating and the report arriving as a rated session with a report: the block's height is the same as unrated.
+    name: "a completed session already rated and reported",
+    path: `/session/?id=${data.unreportedSession.id}`,
+    ready: () => "Report resolved, no refund",
+    routes: {
+      [`/v1/sessions/${data.unreportedSession.id}`]: { json: data.unreportedSession },
+      "/v1/sessions/[^/]+/rating": { json: trust.ratingGiven(data.unreportedSession) },
+      "/v1/disputes": { json: trust.disputesPage([trust.disputeClosed]) },
+    } as Record<string, Answer>,
+  },
   { name: "notifications", path: "/notifications/", ready: () => "Your credit is running low" },
   { name: "a CLI sign-in to approve", path: "/cli-login/?code=WDJB-MJHT", ready: () => "Approve" },
   {
@@ -83,6 +96,9 @@ for (const screen of screens) {
         json: { chunks: data.logChunks(data.running), nextCursor: null, complete: true },
       },
       "/v1/sessions/[^/]+/outputs": { json: data.outputs },
+      "/v1/sessions/[^/]+/rating": { json: trust.ratingOpen(data.completed) },
+      // A session's report arrives with its status in a row of the same height as "Report a problem".
+      "/v1/disputes": { json: trust.disputesPage() },
       [`/v1/sessions/${data.running.id}`]: { json: data.running },
       [`/v1/sessions/${data.finding.id}`]: { json: data.finding },
       "/v1/uploads/[^/]+": { json: data.sessionUpload },
@@ -92,10 +108,15 @@ for (const screen of screens) {
       "/v1/sessions/[^/]+": { json: data.completed },
       "/v1/wallet/transactions": { json: data.history(0) },
     };
-    await fakeApi(page, routes);
+    // The screen's own answers first: the first route that matches a path wins.
+    const answers: Record<string, Answer> = { ...("routes" in screen ? screen.routes : {}) };
+    for (const [path, answer] of Object.entries(routes)) {
+      answers[path] ??= answer;
+    }
+    await fakeApi(page, answers);
     await signIn(page, "asha");
     await page.unrouteAll({ behavior: "wait" });
-    await fakeApi(page, routes, { delayMs: 600 });
+    await fakeApi(page, answers, { delayMs: 600 });
     const shifts = await recordLayoutShifts(page);
     await page.goto(screen.path);
     await expect(page.getByText(screen.ready()).first()).toBeVisible({ timeout: 10_000 });

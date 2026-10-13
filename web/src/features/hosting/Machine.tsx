@@ -9,7 +9,7 @@ import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { HostFlow } from "@/components/shell/HostFlow";
 import { MachineChip } from "./MachineChip";
-import { GpuLine, PrivacyLine, RightNow } from "./MachineFigures";
+import { GpuLine, PrivacyLine, RatingLine, RightNow } from "./MachineFigures";
 import { MachineLink } from "./MachineLink";
 import { ManageMachine } from "./ManageMachine";
 import { PauseControl } from "./PauseControl";
@@ -89,6 +89,7 @@ export function Machine() {
           )}
         </p>
       </div>
+      <RatingLine host={machine} />
       <GpuLine host={machine} />
       <RightNow host={machine} />
       <PrivacyLine />
@@ -125,6 +126,7 @@ function MachineSkeleton() {
         <SkeletonLine size="title" width="w-2/3" />
         <SkeletonLine size="small" width="w-1/2" />
       </div>
+      <SkeletonLine size="small" width="w-1/3" />
       <div className="flex min-h-18 flex-col gap-1">
         <SkeletonLine size="section" width="w-1/2" />
         <SkeletonLine size="small" width="w-2/3" />

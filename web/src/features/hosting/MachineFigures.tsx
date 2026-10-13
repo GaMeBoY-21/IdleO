@@ -1,3 +1,4 @@
+import { Star } from "lucide-react";
 import { useTelemetry, type Host } from "@/api/hosting";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -42,6 +43,34 @@ export function GpuLine({ host }: { host: Host }) {
         <p className="text-small text-text-muted">No reading yet</p>
       )}
     </section>
+  );
+}
+
+/** Ratings show once this many renters have given one: a host's average never singles out one renter's rating. */
+export const RATINGS_SHOWN_FROM = 5;
+
+/**
+ * What renters rated this machine (ADR 0028): "4.6 from 23 sessions" once 5 or more have, from the last 90 days, else
+ * when they will. A line that's always there, so one arriving moves nothing. Never who rated it or what they wrote.
+ */
+export function RatingLine({ host }: { host: Host }) {
+  const rating = host.rating;
+  return (
+    <p className="flex min-h-5 items-center gap-1.5 text-small text-text-muted">
+      {rating ? (
+        <>
+          <Star aria-hidden="true" className="size-4 text-text" fill="currentColor" strokeWidth={1.75} />
+          <span className="tabular">
+            <span className="sr-only">Rated </span>
+            {rating.averageStars.toFixed(1)}
+            <span className="sr-only"> out of 5</span> from {rating.count}{" "}
+            {rating.count === 1 ? "session" : "sessions"}
+          </span>
+        </>
+      ) : (
+        `Ratings appear after ${RATINGS_SHOWN_FROM} sessions.`
+      )}
+    </p>
   );
 }
 

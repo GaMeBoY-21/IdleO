@@ -91,7 +91,7 @@ export function CreditHistory() {
 /** One movement of credit; one that came from a session is, as a whole, the link to it. */
 function HistoryRow({ entry }: { entry: HistoryEntry }) {
   const credit = entry.direction === "credit";
-  const isSession = entry.reference.type === "session" || entry.reference.type === "session_refund";
+  const isSession = ["session", "session_refund", "dispute_refund"].includes(entry.reference.type);
   const content = (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">

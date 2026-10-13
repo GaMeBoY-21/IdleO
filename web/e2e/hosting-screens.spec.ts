@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as hosting from "./fixtures-hosting";
+import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
 
@@ -126,6 +127,10 @@ test.describe("one machine", () => {
     await open(page, at(hosting.hostRunning));
     await expect(page.getByRole("heading", { level: 1, name: "Nikki's ROG Strix" })).toBeVisible();
     await expect(page.getByTestId("machine-chip")).toHaveText("Running a session");
+    // What 23 renters rated it, as a figure and never who (ADR 0028).
+    // A screen reader hears "Rated 4.6 out of 5 from 23 sessions"; the screen shows the star, 4.6 and the count.
+    await expect(page.getByText(/4\.6 out of 5 from 23 sessions/)).toBeVisible();
+    await expect(page.getByText(/Ratings appear after/)).toHaveCount(0);
     await expect(page.getByText("RTX 4080 Laptop · 12 GB")).toBeVisible();
     await expect(page.getByText(/^69°C of 85°C limit · 93% busy/)).toBeVisible();
     await expect(page.getByText("earned so far · you keep 80%")).toBeVisible();
@@ -149,6 +154,8 @@ test.describe("one machine", () => {
 
   test("paused: when it ends, and Resume", async ({ page }, info) => {
     await open(page, at(hosting.hostPaused));
+    // Too few ratings to show an average.
+    await expect(page.getByText("Ratings appear after 5 sessions.")).toBeVisible();
     await expect(
       page.getByText(/Paused until 6 pm\. A session that's running finishes first\./),
     ).toBeVisible();
@@ -379,6 +386,23 @@ test.describe("earnings", () => {
     await expect(page.getByRole("list", { name: "Each machine" })).toContainText("Old laptop (removed)");
     await expectAccessible(page);
     await capture(page, info, "earnings");
+  });
+
+  test("a refund to a renter is a line of its own, and a held session says so", async ({ page }, info) => {
+    await open(page, "/hosting/earnings/", { "/v1/earnings": { json: hosting.withReportRefund() } });
+    const refund = page.getByRole("listitem").filter({ hasText: "Refunded to renter" });
+    await expect(refund).toHaveCount(1);
+    // Only the host's part of the refund: the platform's commission was spent first.
+    await expect(refund).toContainText(
+      `Taken back −₹0.${String(trust.REFUND_SPLIT.fromHost).padStart(2, "0")}`,
+    );
+    await expect(refund).not.toContainText("Held from payout");
+    const held = page.getByRole("listitem").filter({ hasText: "Held from payout while a report is open" });
+    await expect(held.first()).toBeVisible();
+    // Never who reported it, or why.
+    await expect(page.locator("main")).not.toContainText(/Ravi|wrong output/i);
+    await expectAccessible(page);
+    await capture(page, info, "earnings-refund");
   });
 
   test("nothing earned yet, loading, and an error with a retry", async ({ page }, info) => {

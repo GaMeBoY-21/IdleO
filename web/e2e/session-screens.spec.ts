@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import * as data from "./fixtures";
+import * as trust from "./fixtures-trust";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
 
 /**
@@ -20,6 +21,8 @@ function api(session: Session, overrides: Record<string, Answer> = {}): Record<s
       json: { chunks: data.logChunks(session), nextCursor: "after-6", complete: session.settled },
     },
     "/v1/sessions/[^/]+/outputs": { json: data.outputs },
+    "/v1/sessions/[^/]+/rating": { json: trust.ratingOpen(session) },
+    "/v1/disputes": { json: trust.disputesPage([]) },
     "/v1/sessions/[^/]+": { json: session },
     "/v1/uploads/[^/]+": { json: data.sessionUpload },
     "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
@@ -212,8 +215,171 @@ test.describe("a session", () => {
     await expect(page.getByRole("link", { name: "Download outputs" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Run again" })).toHaveAttribute("href", /from=/);
     await expect(page.getByText("Charged", { exact: true })).toBeVisible();
+    // It ran 22 seconds: under a minute, so there's nothing to rate, though a problem can still be reported.
+    await expect(page.getByRole("heading", { name: "How did it go?" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Report a problem/ })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "session-completed");
+  });
+
+  test("done: rated with one tap, then a comment added", async ({ page }, info) => {
+    // The server answers each rating as it is now, and the screen shows only that.
+    let current = trust.ratingOpen(data.unreportedSession);
+    const given = (stars: number, comment: string | null): typeof current => ({
+      ...current,
+      stars,
+      comment,
+      ratedAt: data.NOW.toISOString(),
+      changedAt: data.NOW.toISOString(),
+      rateableUntil: new Date(data.NOW.getTime() + 7 * 24 * 60 * 60_000).toISOString(),
+    });
+    const posted: unknown[] = [];
+    await fakeApi(
+      page,
+      api(data.unreportedSession, {
+        "/v1/sessions/[^/]+/rating": (_call, request) => {
+          if (request.method() === "POST") {
+            const body = request.postDataJSON() as { stars: number; comment?: string };
+            posted.push(body);
+            current = given(body.stars, body.comment ?? null);
+          }
+          return { json: current };
+        },
+      }),
+    );
+    await signIn(page, "asha", open(data.unreportedSession));
+    await expect(page.getByRole("heading", { name: "How did it go?" })).toBeVisible();
+    await expect(page.getByText("Optional. It helps us look after hosts.")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "session-rating");
+
+    await page.getByRole("button", { name: "4 stars" }).click();
+    await expect(page.getByRole("heading", { name: "Thanks for rating" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "4 stars" })).toHaveAttribute("aria-pressed", "true");
+    expect(posted).toEqual([{ stars: 4 }]);
+    await expect(page.getByText(/You can change it until/)).toBeVisible();
+    const comment = page.getByLabel("Comment (optional)");
+    await expect(comment).toBeVisible();
+    await comment.fill("Started in seconds.");
+    await page.getByRole("button", { name: "Save comment" }).click();
+    await expect(page.getByRole("button", { name: "Save comment" })).toBeDisabled();
+    expect(posted.at(-1)).toEqual({ stars: 4, comment: "Started in seconds." });
+    await expectAccessible(page);
+    await capture(page, info, "session-rating-comment");
+
+    // Changing it is another tap.
+    await page.getByRole("button", { name: "2 stars" }).click();
+    await expect(page.getByRole("button", { name: "2 stars" })).toHaveAttribute("aria-pressed", "true");
+    expect(posted.at(-1)).toEqual({ stars: 2, comment: "Started in seconds." });
+  });
+
+  test("done: a rating already given, and one that can't change any more", async ({ page }, info) => {
+    await fakeApi(
+      page,
+      api(data.unreportedSession, {
+        "/v1/sessions/[^/]+/rating": { json: trust.ratingGiven(data.unreportedSession) },
+      }),
+    );
+    await signIn(page, "asha", open(data.unreportedSession));
+    await expect(page.getByRole("heading", { name: "Thanks for rating" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "You gave 4 out of 5 stars" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit your comment" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "session-rating-given");
+
+    await fakeApi(
+      page,
+      api(data.unreportedSession, {
+        "/v1/sessions/[^/]+/rating": { json: trust.ratingClosed(data.unreportedSession) },
+      }),
+    );
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "You rated this session" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "5 stars" })).toBeDisabled();
+    await expect(page.getByText(/It closed on/)).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "session-rating-closed");
+  });
+
+  test("done: a problem reported from a sheet, and where it stands", async ({ page }, info) => {
+    let sent: unknown = null;
+    let key: string | null = null;
+    await fakeApi(
+      page,
+      api(data.unreportedSession, {
+        "/v1/disputes": (_call, request) => {
+          if (request.method() === "POST") {
+            sent = request.postDataJSON();
+            key = request.headers()["idempotency-key"] ?? null;
+            return { json: trust.disputeOpen(data.unreportedSession), status: 201 };
+          }
+          return { json: trust.disputesPage(sent ? [trust.disputeOpen(data.unreportedSession)] : []) };
+        },
+      }),
+    );
+    await signIn(page, "asha", open(data.unreportedSession));
+    await page.getByRole("button", { name: /Report a problem/ }).click();
+    const sheet = page.getByRole("dialog", { name: "Report a problem" });
+    await expect(sheet).toContainText("We'll reply within 2 days.");
+    await expect(sheet.getByRole("button", { name: "Send report" })).toBeDisabled();
+    await sheet.getByRole("button", { name: /The output was wrong/ }).click();
+    await sheet.getByLabel("Tell us more (optional)").fill("The adapter file is empty.");
+    await expectAccessible(page);
+    await capture(page, info, "session-report-sheet");
+    await sheet.getByRole("button", { name: "Send report" }).click();
+    await expect(page.getByRole("dialog", { name: "Report sent" })).toContainText(
+      "We'll reply within 2 days.",
+    );
+    expect(sent).toEqual({
+      sessionId: data.unreportedSession.id,
+      reason: "wrong_output",
+      details: "The adapter file is empty.",
+    });
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Done" }).click();
+    const row = page.getByRole("link", { name: /Your report is open/ });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText("We'll reply within 2 days.");
+    await expect(row).toHaveAttribute("href", "/account/reports/");
+    await expectAccessible(page);
+    await capture(page, info, "session-report-open");
+  });
+
+  test("done: a report that was refunded", async ({ page }, info) => {
+    await fakeApi(
+      page,
+      api(data.reportedSession, {
+        "/v1/sessions/[^/]+/rating": { json: trust.ratingOpen(data.reportedSession) },
+        "/v1/disputes": { json: trust.disputesPage([trust.disputeRefunded]) },
+      }),
+    );
+    await signIn(page, "ravi", open(data.reportedSession));
+    const row = page.getByRole("link", { name: /Report resolved/ });
+    await expect(row).toContainText("Report resolved: ₹1.00 refunded");
+    await expect(row).toContainText("The adapter was empty because the job stopped early on our host.");
+    // The charge is net of the refund: 30 minutes at 10 paise, less 100 paise.
+    await expect(page.getByText("₹2.00").first()).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "session-report-refunded");
+  });
+
+  test("a report can be sent for a session that failed, with nothing to rate", async ({ page }, info) => {
+    await fakeApi(page, api(data.failed));
+    await signIn(page, "asha", open(data.failed));
+    await expect(page.getByRole("heading", { name: "It stopped with an error" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Report a problem/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "How did it go?" })).toHaveCount(0);
+    await expectAccessible(page);
+    await capture(page, info, "session-failed-report");
+  });
+
+  test("a session cancelled before it ran has nothing to rate or report", async ({ page }) => {
+    await fakeApi(page, api(data.cancelled));
+    await signIn(page, "asha", open(data.cancelled));
+    await expect(page.getByRole("heading", { name: "Cancelled" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Report a problem/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "How did it go?" })).toHaveCount(0);
   });
 
   test("failed, with why in plain words", async ({ page }, info) => {

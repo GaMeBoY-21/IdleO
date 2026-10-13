@@ -50,6 +50,19 @@ export function Account() {
                 strokeWidth={1.75}
               />
             </Link>
+            <Link href="/account/reports/" className={`${ROW} hover:bg-fill`}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-option font-semibold">Reports</p>
+                <p className="text-small text-text-muted">
+                  Problems you&apos;ve reported, and what we decided
+                </p>
+              </div>
+              <ChevronRight
+                aria-hidden="true"
+                className="size-5 shrink-0 text-text-muted"
+                strokeWidth={1.75}
+              />
+            </Link>
           </div>
         ) : me.isError ? (
           <ErrorState

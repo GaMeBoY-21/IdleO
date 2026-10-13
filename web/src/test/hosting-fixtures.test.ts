@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as data from "../../e2e/fixtures-hosting";
+import * as trust from "../../e2e/fixtures-trust";
 
 /** The hosting screens' invented data adds up (e2e/fixtures-hosting.ts), as a renter's does (fixtures.test.ts). */
 describe("the owner's earnings", () => {
@@ -55,5 +56,40 @@ describe("settling in windows", () => {
   it("splits 41 minutes into 15, 15 and 11, and rounds each window's share down", () => {
     expect(data.windows(41)).toEqual([15, 15, 11]);
     expect(data.earnedFor(41, 18)).toBe(216 + 216 + 158);
+  });
+});
+
+describe("a machine's rating", () => {
+  it("is the mean of its renters' stars to one decimal place, from at least 5 of them", () => {
+    expect(data.ratingOf(data.ROG_STARS)).toEqual({ averageStars: 4.6, count: 23 });
+    expect(data.hostRunning.rating).toEqual(data.ratingOf(data.ROG_STARS));
+    expect(data.hostPaused.rating).toBeUndefined();
+    expect(data.ROG_STARS.length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe("the earnings after a report's refund", () => {
+  const after = data.withReportRefund();
+  const entries = after.history.entries;
+
+  it("show the refund as a negative entry of its own, only the host's part of it, beside the session it came from", () => {
+    const refund = entries.find((entry) => entry.kind === "refunded_to_renter")!;
+    expect(refund.label).toBe("Refunded to renter");
+    expect(refund.amountPaise).toBe(-trust.REFUND_SPLIT.fromHost);
+    expect(data.earningsEntries.some((entry) => entry.sessionId === refund.sessionId)).toBe(true);
+  });
+
+  it("hold the earnings of one session from payout, and no other", () => {
+    const held = entries.filter((entry) => entry.payoutHeld);
+    expect(held.length).toBeGreaterThan(0);
+    expect(new Set(held.map((entry) => entry.sessionId)).size).toBe(1);
+  });
+
+  it("are still the sum of their entries, in all and for each machine, less the refund", () => {
+    expect(entries.length).toBeLessThanOrEqual(20);
+    const sum = entries.reduce((total, entry) => total + entry.amountPaise, 0);
+    expect(after.totalPaise).toBe(sum);
+    expect(after.totalPaise).toBe(data.earnings.totalPaise - trust.REFUND_SPLIT.fromHost);
+    expect(after.machines.reduce((total, machine) => total + machine.earnedPaise, 0)).toBe(sum);
   });
 });

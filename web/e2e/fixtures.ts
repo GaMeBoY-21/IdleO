@@ -432,6 +432,8 @@ interface Spec {
   maxSpend?: number;
   /** A session that lost its host: the second attempt, and the paise refunded for the lost minutes. */
   moved?: { refundPaise: number };
+  /** An admin refunded this many paise of it after the renter reported it (ADR 0028): a credit in their history. */
+  reportRefundPaise?: number;
   errorCode?: string;
   /** Why it ended, for one that ended without completing. */
   endReason?: string;
@@ -460,6 +462,7 @@ const id = (n: number) => `01a11300-0000-7000-8000-${String(n).padStart(12, "0")
 interface Built {
   session: Session;
   refundPaise: number;
+  reportRefundPaise: number;
   settlements: { at: string; paise: number }[];
 }
 
@@ -501,8 +504,9 @@ function build(spec: Spec): Built {
     settlements.push({ at: new Date(end).toISOString(), paise: Math.min(minutes * price, maxSpend) });
   }
   const refundPaise = spec.moved?.refundPaise ?? 0;
+  const reportRefundPaise = spec.reportRefundPaise ?? 0;
   const settledPaise = settlements.reduce((sum, s) => sum + s.paise, 0);
-  const charged = settledPaise - refundPaise;
+  const charged = settledPaise - refundPaise - reportRefundPaise;
   const accrued = live ? used - settledPaise : 0;
   // The hold: 30 minutes at the maximum price, never past the spending cap, renewed so it covers what's used.
   const reserved = live ? Math.max(Math.min(30 * maxPrice, maxSpend - settledPaise), accrued) : 0;
@@ -605,6 +609,7 @@ function build(spec: Spec): Built {
       events,
     },
     refundPaise,
+    reportRefundPaise,
     settlements,
   };
 }
@@ -647,7 +652,7 @@ export function account(specs: Spec[], { grant = GRANT, createdAt = "2026-09-01T
           },
         ];
   let n = 9_100;
-  for (const { session, settlements, refundPaise } of built) {
+  for (const { session, settlements, refundPaise, reportRefundPaise } of built) {
     for (const settlement of settlements) {
       entries.push({
         id: id(n++),
@@ -666,6 +671,16 @@ export function account(specs: Spec[], { grant = GRANT, createdAt = "2026-09-01T
         kind: "session_refund",
         reference: { type: "session_refund", id: session.id },
         createdAt: new Date(new Date(session.endedAt ?? NOW).getTime() + 30_000).toISOString(),
+      });
+    }
+    if (reportRefundPaise > 0) {
+      entries.push({
+        id: id(n++),
+        amountPaise: reportRefundPaise,
+        direction: "credit",
+        kind: "dispute_refund",
+        reference: { type: "dispute_refund", id: session.id },
+        createdAt: new Date(new Date(session.endedAt ?? NOW).getTime() + 3 * HOUR).toISOString(),
       });
     }
   }
@@ -795,8 +810,37 @@ export const low = account([
   },
 ]);
 
+/**
+ * Ravi's account, whose renter reported a completed session and was refunded part of it (ADR 0028): 30 minutes at
+ * 10 paise, and 100 paise of the 300 charged given back, as a credit of its own in his history.
+ */
+export const REPORT_REFUND = 100;
+export const refunded = account([
+  {
+    n: 41,
+    template: "qlora-finetune",
+    state: "COMPLETED",
+    bookedAgoMs: 3 * DAY,
+    ranMs: 30 * MINUTE,
+    price: 10,
+    gpu: GPU_4080,
+    model: { uploadId: MODEL_ID },
+    input: { uploadId: UPLOAD_ID },
+    reportRefundPaise: REPORT_REFUND,
+  },
+  {
+    n: 42,
+    template: "cuda-smoke-test",
+    state: "COMPLETED",
+    bookedAgoMs: 5 * HOUR,
+    ranMs: 4 * MINUTE,
+    price: 10,
+    gpu: GPU_4080,
+  },
+]);
+
 /** Every account, for the rules test. */
-export const accounts = { asha, fresh, none, low } as const;
+export const accounts = { asha, fresh, none, low, refunded } as const;
 
 /** One session from Asha's account, by state. */
 const find = (n: number) => asha.sessions.find((session) => session.id === id(n))!;
@@ -807,6 +851,9 @@ export const moved = find(4);
 export const stopped = find(6);
 export const cancelled = find(7);
 export const noHostFree = find(8);
+/** The session of Ravi's that was reported and part-refunded, and one that ran fine. */
+export const reportedSession = refunded.sessions.find((session) => session.id === id(41))!;
+export const unreportedSession = refunded.sessions.find((session) => session.id === id(42))!;
 export const lowCreditRunning = low.sessions.find((session) => session.state === "RUNNING")!;
 
 /** Sessions on their own, for screens that show one: the figures follow the same rules. */

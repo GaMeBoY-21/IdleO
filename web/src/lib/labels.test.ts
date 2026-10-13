@@ -50,6 +50,7 @@ describe("the renter's words", () => {
     expect(creditKind("free_credit")).toBe("Free credit");
     expect(creditKind("session_charge")).toBe("Session charge");
     expect(creditKind("session_refund")).toBe("Refund for lost host time");
+    expect(creditKind("dispute_refund")).toBe("Refund after your report");
   });
 
   it("have a sentence and a next step for every code a session can end with, in the control plane and the agent", () => {

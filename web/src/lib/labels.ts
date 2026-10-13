@@ -65,6 +65,7 @@ const KINDS: Record<string, string> = {
   free_credit_reversed: "Free credit withdrawn",
   session_charge: "Session charge",
   session_refund: "Refund for lost host time",
+  dispute_refund: "Refund after your report",
 };
 
 export const creditKind = (kind: string) => KINDS[kind] ?? readable(kind);

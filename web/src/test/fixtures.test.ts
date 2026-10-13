@@ -101,3 +101,15 @@ describe("the notifications", () => {
     expect(items.find((item) => item.kind === "low-credit")!.link).toBe(`/session/?id=${running.id}`);
   });
 });
+
+describe("a reported session's refund", () => {
+  const { reportedSession, REPORT_REFUND, refunded } = data;
+
+  it("is a credit of its own in the history, and the session's charge is net of it", () => {
+    const credit = refunded.history.find((entry) => entry.kind === "dispute_refund")!;
+    expect(credit).toMatchObject({ direction: "credit", amountPaise: REPORT_REFUND });
+    expect(credit.reference).toEqual({ type: "dispute_refund", id: reportedSession.id });
+    // 30 minutes at 10 paise, less the refund.
+    expect(reportedSession.chargedPaise).toBe(30 * 10 - REPORT_REFUND);
+  });
+});
