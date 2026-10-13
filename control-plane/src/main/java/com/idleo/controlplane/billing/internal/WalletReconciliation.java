@@ -1,5 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.IdGenerator;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -22,7 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * every renter, the cached balance must equal their {@code renter_wallet} credits minus debits, the cached
  * reservation must equal the sum of their active holds (ADR 0015), every hold's changes must add up to its
  * amount (ADR 0017), and the whole ledger must balance. One control-plane instance runs it at a time, under a PostgreSQL advisory
- * lock; the others skip. Mismatches are logged (user id and both values, nothing more) and counted in
+ * lock; the others skip. Each complete run is kept, with every mismatch, for the admin console (ADR 0027). Mismatches are logged (user id and both values, nothing more) and counted in
  * {@code billing.reconciliation.mismatches}; {@code billing.reconciliation.last_success} is when the
  * last complete run finished.
  */
@@ -36,13 +37,21 @@ class WalletReconciliation {
 
     private final JdbcClient jdbc;
     private final TransactionTemplate snapshot;
+    private final TransactionTemplate transactions;
+    private final IdGenerator ids;
     private final Clock clock;
     private final Counter mismatches;
     private final AtomicLong lastSuccessEpochSeconds = new AtomicLong();
 
     WalletReconciliation(
-            JdbcClient jdbc, PlatformTransactionManager transactionManager, Clock clock, MeterRegistry registry) {
+            JdbcClient jdbc,
+            PlatformTransactionManager transactionManager,
+            IdGenerator ids,
+            Clock clock,
+            MeterRegistry registry) {
         this.jdbc = jdbc;
+        this.transactions = new TransactionTemplate(transactionManager);
+        this.ids = ids;
         this.snapshot = new TransactionTemplate(transactionManager);
         // One consistent view of wallets and ledger, while postings carry on.
         this.snapshot.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
@@ -78,10 +87,14 @@ class WalletReconciliation {
 
     @Scheduled(cron = "${billing.reconciliation.cron}", zone = "${billing.reconciliation.zone}")
     void nightly() {
-        run();
+        run("nightly");
     }
 
-    Result run() {
+    /**
+     * Runs the check now and keeps what it found in {@code billing.reconciliation_runs}, for the admin console;
+     * {@code trigger} says who asked: {@code nightly}, or {@code operator <name>} for the command.
+     */
+    Result run(String trigger) {
         var result = Objects.requireNonNull(snapshot.execute(status -> {
             Boolean locked = jdbc.sql("select pg_try_advisory_xact_lock(:key)")
                     .param("key", LOCK_KEY)
@@ -185,9 +198,44 @@ class WalletReconciliation {
                     result.ledgerCreditsPaise());
             problems++;
         }
+        record(trigger, result, problems);
         mismatches.increment(problems);
         lastSuccessEpochSeconds.set(clock.instant().getEpochSecond());
         log.info("Wallet reconciliation finished: {} mismatches", problems);
         return result;
+    }
+
+    /** The run and each mismatch, in their own transaction once the read-only snapshot has ended. */
+    private void record(String trigger, Result result, int problems) {
+        transactions.executeWithoutResult(status -> {
+            var runId = ids.newId();
+            jdbc.sql("""
+                            insert into billing.reconciliation_runs
+                                (id, trigger, finished_at, ledger_debits_paise, ledger_credits_paise, mismatches)
+                            values (:id, :trigger, :now, :debits, :credits, :mismatches)
+                            """)
+                    .param("id", runId)
+                    .param("trigger", trigger)
+                    .param("now", java.sql.Timestamp.from(clock.instant()))
+                    .param("debits", result.ledgerDebitsPaise())
+                    .param("credits", result.ledgerCreditsPaise())
+                    .param("mismatches", problems)
+                    .update();
+            int position = 0;
+            for (var mismatch : result.mismatches()) {
+                jdbc.sql("""
+                                insert into billing.reconciliation_mismatches
+                                    (run_id, position, kind, user_id, wallet_paise, expected_paise)
+                                values (:runId, :position, :kind, :userId, :wallet, :expected)
+                                """)
+                        .param("runId", runId)
+                        .param("position", position++)
+                        .param("kind", mismatch.kind().name().toLowerCase(java.util.Locale.ROOT))
+                        .param("userId", mismatch.userId())
+                        .param("wallet", mismatch.walletPaise())
+                        .param("expected", mismatch.expectedPaise())
+                        .update();
+            }
+        });
     }
 }

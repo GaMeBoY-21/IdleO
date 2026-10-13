@@ -2,6 +2,7 @@ package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.OperatorCommand;
 import com.idleo.controlplane.Paise;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.io.PrintStream;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +40,7 @@ class CreditCommands {
                         Paise.of(args.number("paise")),
                         args.text("reason"),
                         args.text("key"),
-                        operator));
+                        AuditTrail.Actor.operator(operator)));
                 var grant = outcome.grant();
                 out.println((outcome.created() ? "granted " : "already granted ") + describe(grant.amount())
                         + " to user " + grant.userId());
@@ -65,7 +66,8 @@ class CreditCommands {
 
             @Override
             public void run(Arguments args, String operator, PrintStream out) {
-                var outcome = refusing(() -> grants.reverse(args.id("grant"), args.text("reason"), operator));
+                var outcome = refusing(() ->
+                        grants.reverse(args.id("grant"), args.text("reason"), AuditTrail.Actor.operator(operator)));
                 var reversal = outcome.reversal();
                 out.println((outcome.created() ? "reversed " : "already reversed ") + "grant " + reversal.grantId()
                         + " of " + describe(outcome.grant().amount()) + " to user "

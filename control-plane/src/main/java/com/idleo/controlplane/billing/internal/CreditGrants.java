@@ -5,6 +5,7 @@ import static com.idleo.controlplane.billing.internal.LedgerEntry.debit;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
+import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.UserDirectory;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
@@ -13,7 +14,9 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,9 +28,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Free credit (ADR 0014): a grant debits {@code promotions} and credits the renter's wallet; a
- * reversal posts the opposite. Each writes an append-only audit row in the same database transaction
- * as its ledger posting, and each is safe to re-run: a grant by its idempotency key, a reversal by the
- * grant it reverses.
+ * reversal posts the opposite. Each writes an append-only record and a row in the audit log (ADR 0027) in
+ * the same database transaction as its ledger posting, and each is safe to re-run: a grant by its
+ * idempotency key, a reversal by the grant it reverses. The operator commands and the admin console both
+ * call these methods.
  */
 @Service
 @EnableConfigurationProperties(CreditProperties.class)
@@ -43,6 +47,7 @@ class CreditGrants {
     private final IdGenerator ids;
     private final Clock clock;
     private final CreditProperties limits;
+    private final AuditTrail audit;
 
     CreditGrants(
             Ledger ledger,
@@ -51,7 +56,8 @@ class CreditGrants {
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
             Clock clock,
-            CreditProperties limits) {
+            CreditProperties limits,
+            AuditTrail audit) {
         this.ledger = ledger;
         this.users = users;
         this.jdbc = jdbc;
@@ -59,6 +65,7 @@ class CreditGrants {
         this.ids = ids;
         this.clock = clock;
         this.limits = limits;
+        this.audit = audit;
     }
 
     record Grant(
@@ -92,10 +99,9 @@ class CreditGrants {
      * Grants free credit. The same key again, for the same user and amount, changes nothing and returns
      * the original grant; for anything else it's refused.
      */
-    GrantOutcome grant(UUID userId, Paise amount, String reason, String idempotencyKey, String operator) {
+    GrantOutcome grant(UUID userId, Paise amount, String reason, String idempotencyKey, AuditTrail.Actor actor) {
         requireText(reason, "a reason");
         requireText(idempotencyKey, "an idempotency key");
-        requireText(operator, "the operator");
         if (!amount.isPositive()) {
             throw new Refused("the amount must be above zero");
         }
@@ -108,8 +114,8 @@ class CreditGrants {
         }
         return Objects.requireNonNull(transactions.execute(status -> {
             var txnId = derivedId(GRANT_REF, idempotencyKey);
-            var grant = new Grant(
-                    ids.newId(), userId, amount, reason.strip(), operator.strip(), idempotencyKey, txnId, now());
+            var grant =
+                    new Grant(ids.newId(), userId, amount, reason.strip(), actor.label(), idempotencyKey, txnId, now());
             int inserted = jdbc.sql("""
                             insert into billing.credit_grants
                                 (id, user_id, amount_paise, reason, granted_by, idempotency_key, txn_id, created_at)
@@ -145,6 +151,14 @@ class CreditGrants {
                     GRANT_REF,
                     grant.id(),
                     List.of(debit(Account.PROMOTIONS, null, amount), credit(Account.RENTER_WALLET, userId, amount))));
+            audit.record(new AuditTrail.Entry(
+                    actor,
+                    "credit.grant",
+                    "user",
+                    userId.toString(),
+                    grant.reason(),
+                    Map.of("balancePaise", wallet.balance().value()),
+                    moneyChange(grant.id(), txnId, amount, after)));
             return new GrantOutcome(grant, true, after);
         }));
     }
@@ -154,16 +168,15 @@ class CreditGrants {
      * again changes nothing. Refused if the wallet's available balance can't cover it: credit already
      * spent or reserved can't be taken back.
      */
-    ReversalOutcome reverse(UUID grantId, String reason, String operator) {
+    ReversalOutcome reverse(UUID grantId, String reason, AuditTrail.Actor actor) {
         requireText(reason, "a reason");
-        requireText(operator, "the operator");
         return Objects.requireNonNull(transactions.execute(status -> {
             var grant = findGrant(grantId).orElseThrow(() -> new Refused("there is no grant " + grantId));
             var reversal = new Reversal(
                     ids.newId(),
                     grantId,
                     reason.strip(),
-                    operator.strip(),
+                    actor.label(),
                     derivedId(REVERSAL_REF, grantId.toString()),
                     now());
             int inserted = jdbc.sql("""
@@ -199,8 +212,31 @@ class CreditGrants {
                     List.of(
                             debit(Account.RENTER_WALLET, grant.userId(), grant.amount()),
                             credit(Account.PROMOTIONS, null, grant.amount()))));
-            return new ReversalOutcome(reversal, grant, true, wallet.balance().minus(grant.amount()));
+            var after = wallet.balance().minus(grant.amount());
+            audit.record(new AuditTrail.Entry(
+                    actor,
+                    "credit.reverse",
+                    "credit_grant",
+                    grantId.toString(),
+                    reversal.reason(),
+                    Map.of(
+                            "balancePaise",
+                            wallet.balance().value(),
+                            "userId",
+                            grant.userId().toString()),
+                    moneyChange(reversal.id(), reversal.txnId(), grant.amount().negate(), after)));
+            return new ReversalOutcome(reversal, grant, true, after);
         }));
+    }
+
+    /** What a grant or reversal did, for the audit log: its record, ledger transaction, amount and the new balance. */
+    private static Map<String, Object> moneyChange(UUID recordId, UUID txnId, Paise amount, Paise balance) {
+        var change = new LinkedHashMap<String, Object>();
+        change.put("id", recordId.toString());
+        change.put("txnId", txnId.toString());
+        change.put("amountPaise", amount.value());
+        change.put("balancePaise", balance.value());
+        return change;
     }
 
     /** A transaction id derived from what caused it, so the same cause always posts the same txn_id. */

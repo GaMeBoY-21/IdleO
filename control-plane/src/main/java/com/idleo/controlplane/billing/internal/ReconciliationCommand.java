@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Profile;
 
 /**
  * The nightly wallet check, run now (ADR 0014, docs/runbooks/granting-credits.md): {@code reconcile-wallets}. It
- * changes nothing. Exits 0 when every wallet, reservation and hold matches the ledger and the ledger balances,
+ * moves no money and changes no wallet; it only keeps its result, as every run does. Exits 0 when every wallet, reservation and hold matches the ledger and the ledger balances,
  * 4 when anything doesn't, and 3 when another instance is running the check.
  */
 @Configuration(proxyBeanMethods = false)
@@ -33,7 +33,7 @@ class ReconciliationCommand {
                 if (!args.options().isEmpty()) {
                     throw new Usage("reconcile-wallets takes no options");
                 }
-                var result = reconciliation.run();
+                var result = reconciliation.run("operator " + operator);
                 if (!result.ran()) {
                     throw new Refused("another instance is running the check; try again in a minute");
                 }

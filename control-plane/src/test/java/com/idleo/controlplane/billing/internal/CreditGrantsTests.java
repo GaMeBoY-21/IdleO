@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.TestUsers;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -23,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @ControlPlaneTest
 class CreditGrantsTests {
 
-    private static final String OPERATOR = "test-operator";
+    private static final AuditTrail.Actor OPERATOR = AuditTrail.Actor.operator("test-operator");
 
     @Autowired
     CreditGrants grants;
@@ -65,7 +66,7 @@ class CreditGrantsTests {
         assertThat(jdbc.queryForMap(
                         "select reason, granted_by, amount_paise from billing.credit_grants where user_id = ?", user))
                 .containsEntry("reason", "Welcome credit")
-                .containsEntry("granted_by", OPERATOR)
+                .containsEntry("granted_by", OPERATOR.label())
                 .containsEntry("amount_paise", 50_000L);
         assertThat(jdbc.queryForList(
                         "select account from billing.ledger_entries where txn_id = ? order by direction desc",

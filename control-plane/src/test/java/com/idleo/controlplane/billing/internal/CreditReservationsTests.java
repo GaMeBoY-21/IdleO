@@ -7,6 +7,7 @@ import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.billing.CreditReservations;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,12 @@ class CreditReservationsTests {
 
     private UUID userWith(long paise) throws Exception {
         var user = TestUsers.signUp(mvc).id();
-        grants.grant(user, Paise.of(paise), "Reservation test", "test-" + UUID.randomUUID(), "test-operator");
+        grants.grant(
+                user,
+                Paise.of(paise),
+                "Reservation test",
+                "test-" + UUID.randomUUID(),
+                AuditTrail.Actor.operator("test-operator"));
         return user;
     }
 
@@ -128,11 +134,11 @@ class CreditReservationsTests {
     void theNightlyCheckCatchesAReservationOutOfStepWithItsHolds() throws Exception {
         var user = userWith(1_000);
         inTransaction(() -> reservations.reserve(user, UUID.randomUUID(), Paise.of(300)));
-        assertThat(reconciliation.run().mismatches()).isEmpty();
+        assertThat(reconciliation.run("tests").mismatches()).isEmpty();
 
         jdbc.update("update billing.wallets set reserved_paise = reserved_paise + 1 where user_id = ?", user);
         try {
-            assertThat(reconciliation.run().mismatches())
+            assertThat(reconciliation.run("tests").mismatches())
                     .containsExactly(
                             new WalletReconciliation.Mismatch(WalletReconciliation.Kind.RESERVED, user, 301, 300));
         } finally {

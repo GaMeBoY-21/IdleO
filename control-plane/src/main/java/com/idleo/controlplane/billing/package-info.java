@@ -9,7 +9,8 @@
  * every wallet against the ledger.
  *
  * <p>Free credit is granted and reversed by operator commands in the {@code ops} profile
- * (docs/runbooks/granting-credits.md), never by an endpoint.
+ * (docs/runbooks/granting-credits.md), or by an admin in the console (ADR 0027), through the same service, never by a
+ * renter's endpoint.
  *
  * <p>Metering settles a session's minutes through {@link com.idleo.controlplane.billing.SessionCharges}: one
  * balanced transaction debits the renter's wallet, credits each host's payable its share and the platform's
@@ -40,6 +41,11 @@
  *
  * <p>{@link com.idleo.controlplane.billing.HostEarnings} gives the sessions module what a host earned from each
  * session, from the same entries.
+ *
+ * <p>The admin console (ADR 0027): {@code POST /admin/v1/credit-grants} (Idempotency-Key, the grant's own key) and
+ * {@code POST /admin/v1/credit-grants/{id}/reverse}, each with a reason and audited; {@code GET
+ * /admin/v1/credit-grants?user=}; {@code GET /admin/v1/ledger} by transaction or by account and owner; and {@code GET
+ * /admin/v1/reconciliation}, the latest runs of the wallet check, each kept with its mismatches.
  */
 @ApplicationModule
 package com.idleo.controlplane.billing;

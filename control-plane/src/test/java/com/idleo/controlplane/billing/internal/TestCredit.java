@@ -1,6 +1,7 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.Paise;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.util.UUID;
 import org.springframework.context.ApplicationContext;
 
@@ -11,6 +12,11 @@ public final class TestCredit {
 
     public static void grant(ApplicationContext context, UUID userId, long paise) {
         context.getBean(CreditGrants.class)
-                .grant(userId, Paise.of(paise), "Test credit", "test-" + UUID.randomUUID(), "test-operator");
+                .grant(
+                        userId,
+                        Paise.of(paise),
+                        "Test credit",
+                        "test-" + UUID.randomUUID(),
+                        AuditTrail.Actor.operator("test-operator"));
     }
 }

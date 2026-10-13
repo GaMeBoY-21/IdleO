@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.TestUsers;
+import com.idleo.controlplane.identity.AuditTrail;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -37,7 +38,12 @@ class WalletReconciliationTests {
 
     private UUID grantedUser(long paise) throws Exception {
         var user = TestUsers.signUp(mvc).id();
-        grants.grant(user, Paise.of(paise), "Reconciliation test", "test-" + UUID.randomUUID(), "test-operator");
+        grants.grant(
+                user,
+                Paise.of(paise),
+                "Reconciliation test",
+                "test-" + UUID.randomUUID(),
+                AuditTrail.Actor.operator("test-operator"));
         return user;
     }
 
@@ -50,7 +56,7 @@ class WalletReconciliationTests {
         grantedUser(25_000);
         var before = mismatchCount();
 
-        var result = reconciliation.run();
+        var result = reconciliation.run("tests");
 
         assertThat(result.ran()).isTrue();
         assertThat(result.mismatches()).isEmpty();
@@ -67,7 +73,7 @@ class WalletReconciliationTests {
         var before = mismatchCount();
         jdbc.update("update billing.wallets set balance_paise = balance_paise + 1 where user_id = ?", user);
         try {
-            var result = reconciliation.run();
+            var result = reconciliation.run("tests");
 
             assertThat(result.mismatches())
                     .containsExactly(
@@ -77,7 +83,7 @@ class WalletReconciliationTests {
         } finally {
             jdbc.update("update billing.wallets set balance_paise = balance_paise - 1 where user_id = ?", user);
         }
-        assertThat(reconciliation.run().mismatches()).isEmpty();
+        assertThat(reconciliation.run("tests").mismatches()).isEmpty();
     }
 
     @Autowired
@@ -92,18 +98,18 @@ class WalletReconciliationTests {
         var session = UUID.randomUUID();
         new org.springframework.transaction.support.TransactionTemplate(transactionManager)
                 .executeWithoutResult(status -> reservations.reserve(user, session, Paise.of(600)));
-        assertThat(reconciliation.run().mismatches()).isEmpty();
+        assertThat(reconciliation.run("tests").mismatches()).isEmpty();
         // A bug changes the hold and the wallet together but records no change: only the history disagrees.
         jdbc.update("update billing.reservations set amount_paise = 700 where session_id = ?", session);
         jdbc.update("update billing.wallets set reserved_paise = reserved_paise + 100 where user_id = ?", user);
         try {
-            assertThat(reconciliation.run().mismatches())
+            assertThat(reconciliation.run("tests").mismatches())
                     .containsExactly(new WalletReconciliation.Mismatch(WalletReconciliation.Kind.HOLD, user, 600, 700));
         } finally {
             jdbc.update("update billing.reservations set amount_paise = 600 where session_id = ?", session);
             jdbc.update("update billing.wallets set reserved_paise = reserved_paise - 100 where user_id = ?", user);
         }
-        assertThat(reconciliation.run().mismatches()).isEmpty();
+        assertThat(reconciliation.run("tests").mismatches()).isEmpty();
     }
 
     @Test
@@ -113,7 +119,7 @@ class WalletReconciliationTests {
             statement.setLong(1, WalletReconciliation.LOCK_KEY);
             statement.execute();
             try {
-                assertThat(reconciliation.run().ran()).isFalse();
+                assertThat(reconciliation.run("tests").ran()).isFalse();
             } finally {
                 try (var unlock = connection.prepareStatement("select pg_advisory_unlock(?)")) {
                     unlock.setLong(1, WalletReconciliation.LOCK_KEY);
@@ -121,6 +127,6 @@ class WalletReconciliationTests {
                 }
             }
         }
-        assertThat(reconciliation.run().ran()).isTrue();
+        assertThat(reconciliation.run("tests").ran()).isTrue();
     }
 }

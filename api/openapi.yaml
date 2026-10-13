@@ -74,6 +74,103 @@ paths:
         idToken: []
       tags:
       - auditLog
+  /admin/v1/credit-grants:
+    get:
+      operationId: adminMoneyList
+      parameters:
+      - in: query
+        name: user
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCreditGrantList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoney
+    post:
+      operationId: adminMoneyGrant
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreditGrantRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCreditGrant"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoney
+  /admin/v1/credit-grants/{id}/reverse:
+    post:
+      operationId: adminMoneyReverse
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCreditGrant"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoney
   /admin/v1/hosts:
     get:
       operationId: adminHostsSearch
@@ -320,6 +417,84 @@ paths:
         idToken: []
       tags:
       - adminInvites
+  /admin/v1/ledger:
+    get:
+      operationId: adminMoneyLedger
+      parameters:
+      - in: query
+        name: txn
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: account
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: owner
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLedgerPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoney
+  /admin/v1/reconciliation:
+    get:
+      operationId: adminMoneyReconciliation
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReconciliationRuns"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoney
   /admin/v1/second-factor:
     post:
       operationId: adminSessionEnrol
@@ -439,6 +614,136 @@ paths:
       - idToken: []
       tags:
       - adminSession
+  /admin/v1/sessions:
+    get:
+      operationId: adminSessionsSearch
+      parameters:
+      - in: query
+        name: id
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: user
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: host
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessions
+  /admin/v1/sessions/{id}:
+    get:
+      operationId: adminSessionsGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessions
+  /admin/v1/sessions/{id}/stop:
+    post:
+      operationId: adminSessionsStop
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessions
   /admin/v1/users:
     get:
       operationId: adminUsersSearch
@@ -1913,6 +2218,82 @@ components:
           minLength: 0
       required:
       - totp
+    AdminCreditGrant:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        grantedBy:
+          type: string
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        reversalId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        reversedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        reversedBy:
+          type:
+          - string
+          - "null"
+        txnId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        walletBalancePaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+      required:
+      - amountPaise
+      - createdAt
+      - grantedBy
+      - id
+      - reason
+      - txnId
+      - userId
+    AdminCreditGrantList:
+      type: object
+      properties:
+        grants:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCreditGrant"
+      required:
+      - grants
+    AdminCreditGrantRequest:
+      type: object
+      properties:
+        paise:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        userId:
+          type: string
+          format: uuid
+      required:
+      - paise
+      - reason
+      - userId
     AdminEnrolment:
       type: object
       properties:
@@ -2229,6 +2610,57 @@ components:
           format: date-time
       required:
       - codes
+    AdminLedgerEntry:
+      type: object
+      properties:
+        account:
+          type: string
+        amountPaise:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        direction:
+          type: string
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        refId:
+          type: string
+          format: uuid
+        refType:
+          type: string
+        txnId:
+          type: string
+          format: uuid
+      required:
+      - account
+      - amountPaise
+      - createdAt
+      - direction
+      - id
+      - refId
+      - refType
+      - txnId
+    AdminLedgerPage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminLedgerEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - entries
     AdminReason:
       type: object
       properties:
@@ -2238,6 +2670,176 @@ components:
           minLength: 5
       required:
       - reason
+    AdminReconciliationMismatch:
+      type: object
+      properties:
+        expectedPaise:
+          type: integer
+          format: int64
+        kind:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        walletPaise:
+          type: integer
+          format: int64
+      required:
+      - expectedPaise
+      - kind
+      - userId
+      - walletPaise
+    AdminReconciliationRun:
+      type: object
+      properties:
+        finishedAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        ledgerBalanced:
+          type: boolean
+        ledgerCreditsPaise:
+          type: integer
+          format: int64
+        ledgerDebitsPaise:
+          type: integer
+          format: int64
+        mismatchCount:
+          type: integer
+          format: int32
+        mismatches:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminReconciliationMismatch"
+        trigger:
+          type: string
+      required:
+      - finishedAt
+      - id
+      - ledgerBalanced
+      - ledgerCreditsPaise
+      - ledgerDebitsPaise
+      - mismatchCount
+      - mismatches
+      - trigger
+    AdminReconciliationRuns:
+      type: object
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminReconciliationRun"
+      required:
+      - runs
+    AdminSession:
+      type: object
+      properties:
+        accruedPaise:
+          type: integer
+          format: int64
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSessionAttempt"
+        chargedPaise:
+          type: integer
+          format: int64
+        session:
+          $ref: "#/components/schemas/AdminSessionSummary"
+        settled:
+          type: boolean
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSessionEvent"
+      required:
+      - accruedPaise
+      - attempts
+      - chargedPaise
+      - session
+      - settled
+      - timeline
+    AdminSessionAttempt:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        gpuUuids:
+          type: array
+          items:
+            type: string
+        hostId:
+          type: string
+          format: uuid
+        latestLogSeq:
+          type: integer
+          format: int32
+        pricePaisePerMin:
+          type: integer
+          format: int32
+        runningAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        stopReason:
+          type:
+          - string
+          - "null"
+        stopRequestedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - attempt
+      - createdAt
+      - gpuUuids
+      - hostId
+      - latestLogSeq
+      - pricePaisePerMin
+    AdminSessionEvent:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        from:
+          type:
+          - string
+          - "null"
+        reason:
+          type: string
+        to:
+          type: string
+      required:
+      - at
+      - reason
+      - to
+    AdminSessionPage:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSessionSummary"
+      required:
+      - sessions
     AdminSessionRequest:
       type: object
       properties:
@@ -2279,6 +2881,63 @@ components:
       required:
       - active
       - enrolled
+    AdminSessionSummary:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        maxPricePaisePerMin:
+          type: integer
+          format: int32
+        maxSpendPaise:
+          type: integer
+          format: int64
+        pricePaisePerMin:
+          type:
+          - integer
+          - "null"
+          format: int32
+        renterId:
+          type: string
+          format: uuid
+        startedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        state:
+          type: string
+        stateChangedAt:
+          type: string
+          format: date-time
+        templateId:
+          type: string
+      required:
+      - attempt
+      - createdAt
+      - id
+      - maxPricePaisePerMin
+      - maxSpendPaise
+      - renterId
+      - state
+      - stateChangedAt
+      - templateId
     AdminUser:
       type: object
       properties:

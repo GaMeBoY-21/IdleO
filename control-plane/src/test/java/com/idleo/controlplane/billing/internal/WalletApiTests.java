@@ -9,6 +9,7 @@ import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.util.HashSet;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,12 @@ class WalletApiTests {
     }
 
     private CreditGrants.Grant grant(TestUser user, long paise) {
-        return grants.grant(user.id(), Paise.of(paise), "Welcome credit", "test-" + UUID.randomUUID(), "test-operator")
+        return grants.grant(
+                        user.id(),
+                        Paise.of(paise),
+                        "Welcome credit",
+                        "test-" + UUID.randomUUID(),
+                        AuditTrail.Actor.operator("test-operator"))
                 .grant();
     }
 
@@ -65,7 +71,7 @@ class WalletApiTests {
                         jsonPath("$.entries[0].reference.id").value(grant.id().toString()))
                 .andExpect(jsonPath("$.nextCursor").doesNotExist());
 
-        grants.reverse(grant.id(), "Granted to the wrong account", "test-operator");
+        grants.reverse(grant.id(), "Granted to the wrong account", AuditTrail.Actor.operator("test-operator"));
 
         var wallet = body(renter, "/v1/wallet");
         var transactions = body(renter, "/v1/wallet/transactions");
