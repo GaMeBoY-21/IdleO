@@ -74,4 +74,17 @@ class RequestLimitsTests {
         assertThat(limits.preHandle(request(DispatcherType.REQUEST), new MockHttpServletResponse(), ""))
                 .isTrue();
     }
+
+    @Test
+    void thePublicAvailabilityIsCountedPerAddressNotPerPerson() {
+        when(counters.increment(anyString())).thenReturn(61L);
+        var request = new MockHttpServletRequest("GET", "/v1/public/availability");
+        request.setRemoteAddr("10.2.2.2");
+
+        assertThatThrownBy(() -> limits.preHandle(request, new MockHttpServletResponse(), ""))
+                .isInstanceOfSatisfying(
+                        ApiProblem.class,
+                        problem -> assertThat(problem.problem()).isEqualTo(Problem.RATE_LIMITED));
+        verify(counters).increment(org.mockito.ArgumentMatchers.contains("requests:ip:10.2.2.2"));
+    }
 }

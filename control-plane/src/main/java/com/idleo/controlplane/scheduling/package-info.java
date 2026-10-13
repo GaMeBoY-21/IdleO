@@ -15,6 +15,8 @@
  * <ul>
  *   <li>{@code GET /v1/availability}: one row per GPU model and memory among online hosts, with how many are free and
  *       their prices; never a host's identity.
+ *   <li>{@code GET /v1/public/availability}, with no sign-in, for the public pages (ADR 0029): for each memory class,
+ *       whether a host is online and, from three, the live price range; cached for a minute; never a host or a count.
  *   <li>{@code POST /v1/session-quotes}, the same body as {@code POST /v1/sessions}: the hold, the available credit,
  *       and how many hosts fit now, after the sessions module's own check of the request, so a request that quotes
  *       cleanly books cleanly. It reserves nothing.

@@ -2152,6 +2152,24 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - inbox
+  /v1/public/availability:
+    get:
+      operationId: publicAvailabilityGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAvailabilityAnswer"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - publicAvailability
   /v1/session-quotes:
     post:
       operationId: quoteCreate
@@ -4689,6 +4707,18 @@ components:
             $ref: "#/components/schemas/HostSession"
       required:
       - sessions
+    HourlyPriceRange:
+      type: object
+      properties:
+        max:
+          type: integer
+          format: int32
+        min:
+          type: integer
+          format: int32
+      required:
+      - max
+      - min
     InboxItem:
       type: object
       properties:
@@ -5166,6 +5196,42 @@ components:
       - status
       - title
       - type
+    PublicAvailabilityAnswer:
+      type: object
+      properties:
+        asOf:
+          type: string
+          format: date-time
+        classes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicClassAvailability"
+        startingCreditPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+      required:
+      - asOf
+      - classes
+    PublicClassAvailability:
+      type: object
+      properties:
+        gpuMemoryGb:
+          type: integer
+          format: int32
+        livePricePaisePerHour:
+          oneOf:
+          - $ref: "#/components/schemas/HourlyPriceRange"
+          - type: "null"
+        online:
+          type: boolean
+        typicalPricePaisePerHour:
+          $ref: "#/components/schemas/HourlyPriceRange"
+      required:
+      - gpuMemoryGb
+      - online
+      - typicalPricePaisePerHour
     QuoteResponse:
       type: object
       properties:

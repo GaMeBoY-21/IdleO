@@ -38,15 +38,16 @@ class IdentitySecurityConfiguration {
     }
 
     /**
-     * The calls that need no sign-in: starting a CLI sign-in and polling it (ADR 0025). The poll's own token is its
-     * credential.
+     * The calls that need no sign-in: starting a CLI sign-in and polling it (ADR 0025), whose poll token is its own
+     * credential, and the public pages' availability (ADR 0029).
      */
     @Bean
     RequestMatcher signedOutCalls() {
         var paths = PathPatternRequestMatcher.withDefaults();
         return new OrRequestMatcher(
                 paths.matcher(HttpMethod.POST, "/v1/cli-logins"),
-                paths.matcher(HttpMethod.POST, "/v1/cli-logins/{id}/token"));
+                paths.matcher(HttpMethod.POST, "/v1/cli-logins/{id}/token"),
+                paths.matcher(HttpMethod.GET, "/v1/public/availability"));
     }
 
     /**

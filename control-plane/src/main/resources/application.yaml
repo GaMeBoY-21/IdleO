@@ -263,6 +263,10 @@ scheduling:
     16: { low-paise-per-min: 16, high-paise-per-min: 28 }
     24: { low-paise-per-min: 24, high-paise-per-min: 42 }
 
+# What the public pages say that only configuration knows (ADR 0029). The credit a new account starts with is left
+# unset until someone decides what a new account gets; the pricing page says nothing about it while it is.
+public-site: {}
+
 events:
   # Publications whose listener failed are retried this often, once this old.
   retry-every: 30s
