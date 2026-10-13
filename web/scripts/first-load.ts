@@ -54,6 +54,13 @@ for (const row of rows.sort((a, b) => b.kb - a.kb)) {
   console.log(`${row.kb.toFixed(1).padStart(6)} KB  ${row.file}`);
 }
 console.log(`${total.toFixed(1).padStart(6)} KB  first load of the signed-in home (budget ${BUDGET_KB} KB)`);
+// The admin console is its own chunk, loaded only on an /admin/ address (ADR 0027): nothing a renter loads first may
+// hold its code.
+const holdingAdmin = [...files].filter((file) => read(file).includes("/admin/v1/"));
+if (holdingAdmin.length > 0) {
+  console.error(`the admin console's code is in the first load: ${holdingAdmin.join(", ")}`);
+  process.exit(1);
+}
 if (total > BUDGET_KB) {
   console.error(`first-load JavaScript is ${total.toFixed(1)} KB, over the ${BUDGET_KB} KB budget`);
   process.exit(1);

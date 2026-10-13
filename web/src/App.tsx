@@ -58,9 +58,18 @@ const screens = {
   ),
 };
 
+/**
+ * The admin console (ADR 0027): one chunk of its own, loaded only on an /admin/ address, and never with the other
+ * screens after the first one, so a renter never downloads it.
+ */
+const admin = screen(() => import("@/features/admin/AdminConsole").then((m) => m.AdminConsole));
+const ADMIN_PATH = /^\/admin\//;
+
 /** Loads the code of the screen at `path`, if it has its own; resolves at once for the others. */
 export function preloadScreen(path: string): Promise<unknown> {
-  const own = (screens as Record<string, { load: () => Promise<unknown> } | undefined>)[path];
+  const own = ADMIN_PATH.test(path)
+    ? admin
+    : (screens as Record<string, { load: () => Promise<unknown> } | undefined>)[path];
   return own ? own.load().catch(() => undefined) : Promise.resolve();
 }
 
@@ -162,6 +171,14 @@ export function App() {
       <Route path="/cli-login/" component={CliLogin} />
       <Route path="/terms/" component={Terms} />
       <Route path="/privacy/" component={Privacy} />
+      {/* Signed in first, so the pre-rendered frame is this empty one, never the console's chunk. */}
+      <Route path={ADMIN_PATH}>
+        <RequireAuth fallback={<div className="min-h-dvh" />}>
+          <Suspense fallback={<div className="min-h-dvh" />}>
+            <admin.Screen />
+          </Suspense>
+        </RequireAuth>
+      </Route>
       <Route path={SIGNED_IN}>
         <SignedInArea />
       </Route>

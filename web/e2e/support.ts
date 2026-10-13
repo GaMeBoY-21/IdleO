@@ -1,5 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, type Request as PlaywrightRequest, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  type Page,
+  type Request as PlaywrightRequest,
+  type Route,
+  type TestInfo,
+} from "@playwright/test";
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -45,7 +51,7 @@ export async function fakeApi(
       ? {}
       : { "/v1/notifications": { json: { items: [], nextCursor: null, unread: 0 } } }),
   };
-  await page.route(`${API}/v1/**`, async (route) => {
+  const respond = async (route: Route) => {
     if (delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
@@ -53,7 +59,7 @@ export async function fakeApi(
     const origin = route.request().headers().origin ?? "http://localhost:3000";
     const cors = () => ({
       "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Headers": "authorization,content-type,idempotency-key,accept",
+      "Access-Control-Allow-Headers": "authorization,content-type,idempotency-key,accept,admin-session",
       "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE",
       "Access-Control-Expose-Headers": "ETag, Location",
     });
@@ -104,7 +110,10 @@ export async function fakeApi(
         headers: cors(),
       });
     }
-  });
+  };
+  // The app's API and the admin console's (ADR 0027), on the same origin.
+  await page.route(`${API}/v1/**`, respond);
+  await page.route(`${API}/admin/v1/**`, respond);
 }
 
 /**
@@ -222,7 +231,13 @@ export async function recordLayoutShifts(
 export async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
   // No screen is cramped or broken at either size (web/DESIGN.md): nothing scrolls sideways.
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  // Against the device's width as well as the window's: a phone widens its layout to fit what overflows, so the
+  // window alone would hide it.
+  const width = Math.min(
+    page.viewportSize()?.width ?? Infinity,
+    await page.evaluate(() => window.innerWidth),
+  );
+  const overflow = await page.evaluate((fits) => document.documentElement.scrollWidth - fits, width);
   expect(overflow, `${name} scrolls sideways by ${overflow} px`).toBeLessThanOrEqual(0);
   const gallery = process.env.GALLERY_DIR;
   if (gallery) {
