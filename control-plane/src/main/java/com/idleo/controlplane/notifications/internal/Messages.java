@@ -36,6 +36,16 @@ class Messages {
                 sessionLink(session.sessionId()));
     }
 
+    /** Stopped by an admin (ADR 0027): it didn't finish, and it cost only the minutes it ran. */
+    Message stoppedByUs(Outcome session, long chargedPaise) {
+        var why = endings.of("operator_stopped");
+        var charge = chargedPaise == 0 ? "You weren't charged." : "It cost " + Rupees.format(chargedPaise) + ".";
+        return new Message(
+                service(session) + " didn't finish",
+                why.sentence() + " " + charge + " " + why.next(),
+                sessionLink(session.sessionId()));
+    }
+
     /** Stopped by the credit running out or by the renter's spending cap; {@code reason} says which. */
     Message stopped(Outcome session, String reason, long chargedPaise) {
         var why = endings.of(reason);

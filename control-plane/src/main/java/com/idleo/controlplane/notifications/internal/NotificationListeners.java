@@ -26,6 +26,7 @@ class NotificationListeners {
     private static final Logger log = LoggerFactory.getLogger(NotificationListeners.class);
     private static final Set<String> CREDIT_STOPS = Set.of("credit_exhausted", "max_spend_reached");
     private static final String RENTER_STOPPED = "renter_stopped";
+    private static final String OPERATOR_STOPPED = "operator_stopped";
 
     private final SessionOutcomes sessions;
     private final SessionCosts costs;
@@ -57,7 +58,13 @@ class NotificationListeners {
                     return; // They did it themselves.
                 }
                 var stoppedFor = session.stoppedFor();
-                if (stoppedFor != null && CREDIT_STOPS.contains(stoppedFor)) {
+                if (OPERATOR_STOPPED.equals(stoppedFor)) {
+                    notifier.tell(
+                            session.renterId(),
+                            NotificationKind.SESSION_FAILED,
+                            key,
+                            messages.stoppedByUs(session, charged));
+                } else if (stoppedFor != null && CREDIT_STOPS.contains(stoppedFor)) {
                     notifier.tell(
                             session.renterId(),
                             NotificationKind.STOPPED_FOR_CREDIT,

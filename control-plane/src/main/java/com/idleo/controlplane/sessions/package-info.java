@@ -42,6 +42,11 @@
  *   <li>{@code GET /v1/sessions/{id}/outputs}: a COMPLETED session's output files, each with a pre-signed
  *       download link valid for 15 minutes (ADR 0016).
  * </ul>
+ *
+ * <p>The admin console (ADR 0027): {@code GET /admin/v1/sessions} (by id, renter, host, state and when booked) and
+ * {@code GET /admin/v1/sessions/{id}} (its timeline, attempts and charge, never its parameters or inputs), and
+ * {@code POST /admin/v1/sessions/{id}/stop} with a reason: a running session is stopped at once, without a checkpoint,
+ * for {@code operator_stopped}, through the same stop as a renter's, and settles like any stopped session. Audited.
  */
 @ApplicationModule
 package com.idleo.controlplane.sessions;

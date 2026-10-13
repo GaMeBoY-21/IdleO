@@ -48,6 +48,10 @@
       "sentence": "It reached your spending cap, so it saved a checkpoint and stopped.",
       "next": "Run it again with a higher budget if it needs longer."
     },
+    "operator_stopped": {
+      "sentence": "We stopped it, so you were charged only for the minutes it ran.",
+      "next": "If you don't know why, write to us and we'll explain."
+    },
     "renter_cancelled": {
       "sentence": "You cancelled it before it started.",
       "next": "Book it again when you're ready."

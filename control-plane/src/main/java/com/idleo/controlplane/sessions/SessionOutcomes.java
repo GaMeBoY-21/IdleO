@@ -17,7 +17,7 @@ public interface SessionOutcomes {
      * @param endCode why it ended without completing: its error code, or its last event's reason; null when it
      *     completed
      * @param stoppedFor the reason it was told to stop (what moved it to FINISHING): {@code renter_stopped}, {@code
-     *     credit_exhausted}, {@code max_spend_reached}; null when it wasn't stopped
+     *     credit_exhausted}, {@code max_spend_reached}, {@code operator_stopped}; null when it wasn't stopped
      * @param startedAt its minute 0; null when it never ran
      */
     record Outcome(
