@@ -24,15 +24,23 @@ const state = vi.hoisted(() => ({
   markRead: { mutate: vi.fn(), isPending: false, isError: false, error: null as Error | null },
   cachedMe: undefined as { unreadNotifications: number } | undefined,
   path: "/",
+  afterFirstScreen: true,
+  inboxAsked: 0,
 }));
 
 vi.mock("@/api/inbox", async (original) => ({
   ...(await original<typeof import("@/api/inbox")>()),
-  useInbox: () => state.inbox,
+  useInbox: () => {
+    state.inboxAsked++;
+    return state.inbox;
+  },
   useMarkRead: () => state.markRead,
 }));
 vi.mock("@/api/queries", () => ({ useCachedMe: () => ({ data: state.cachedMe }) }));
-vi.mock("@/lib/after-first-screen", () => ({ useAfterFirstScreen: () => true, useAfterPaint: () => true }));
+vi.mock("@/lib/after-first-screen", () => ({
+  useAfterFirstScreen: () => state.afterFirstScreen,
+  useAfterPaint: () => true,
+}));
 vi.mock("wouter", () => ({
   Link: ({
     href,
@@ -84,6 +92,8 @@ beforeEach(() => {
   state.markRead.mutate.mockReset();
   state.cachedMe = undefined;
   state.path = "/";
+  state.afterFirstScreen = true;
+  state.inboxAsked = 0;
 });
 
 describe("the bell", () => {
@@ -108,6 +118,22 @@ describe("the bell", () => {
     state.cachedMe = { unreadNotifications: 2 };
     render(<NotificationBell />);
     expect(screen.getByRole("link", { name: "Notifications, 2 unread" })).toBeInTheDocument();
+  });
+});
+
+describe("before the first screen has loaded", () => {
+  it("the bell is only a link and the banners nothing: no query is made for the first paint to wait behind", () => {
+    state.afterFirstScreen = false;
+    state.inbox.data = pages([item(1)], 3);
+    render(
+      <>
+        <NotificationBell />
+        <NotificationBanners />
+      </>,
+    );
+    expect(screen.getByRole("link", { name: "Notifications" })).toHaveAttribute("href", "/notifications/");
+    expect(state.inboxAsked).toBe(0);
+    expect(screen.queryByRole("region", { name: "New notifications" })).not.toBeInTheDocument();
   });
 });
 

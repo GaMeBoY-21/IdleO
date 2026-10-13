@@ -15,8 +15,13 @@ const MOST_SHOWN = 3;
  * dismissing only hides it, so it stays unread in the list.
  */
 export function NotificationBanners() {
+  // Nothing at all until the first screen has loaded: no query, no timer, nothing for its first paint to wait behind.
+  return useAfterFirstScreen() ? <Arrivals /> : null;
+}
+
+function Arrivals() {
   const [pathname] = useLocation();
-  const inbox = useInbox(useAfterFirstScreen());
+  const inbox = useInbox();
   const markRead = useMarkRead();
   const seen = useRef<Set<string> | null>(null);
   const [arrivals, setArrivals] = useState<InboxItem[]>([]);
