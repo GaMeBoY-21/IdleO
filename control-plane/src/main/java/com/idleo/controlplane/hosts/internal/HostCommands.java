@@ -1,6 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.OperatorCommand;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.io.PrintStream;
 import java.util.function.Supplier;
 import org.springframework.context.annotation.Bean;
@@ -23,13 +24,16 @@ class HostCommands {
     OperatorCommand activateHost(HostActivation activation) {
         return command(
                 "activate-host",
-                (args, operator) -> activation.activate(args.id("host"), args.text("reason"), operator));
+                (args, operator) ->
+                        activation.activate(args.id("host"), args.text("reason"), AuditTrail.Actor.operator(operator)));
     }
 
     @Bean
     OperatorCommand suspendHost(HostActivation activation) {
         return command(
-                "suspend-host", (args, operator) -> activation.suspend(args.id("host"), args.text("reason"), operator));
+                "suspend-host",
+                (args, operator) ->
+                        activation.suspend(args.id("host"), args.text("reason"), AuditTrail.Actor.operator(operator)));
     }
 
     private interface Action {

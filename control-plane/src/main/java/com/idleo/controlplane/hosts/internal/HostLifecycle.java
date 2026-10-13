@@ -5,6 +5,7 @@ import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostRemoved;
 import com.idleo.controlplane.hosts.HostWork;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -33,6 +34,7 @@ class HostLifecycle {
     private final ApplicationEventPublisher events;
     private final IdGenerator ids;
     private final Clock clock;
+    private final HostCertificateService certificates;
 
     HostLifecycle(
             JdbcClient jdbc,
@@ -40,13 +42,15 @@ class HostLifecycle {
             HostWork work,
             ApplicationEventPublisher events,
             IdGenerator ids,
-            Clock clock) {
+            Clock clock,
+            HostCertificateService certificates) {
         this.jdbc = jdbc;
         this.hosts = hosts;
         this.work = work;
         this.events = events;
         this.ids = ids;
         this.clock = clock;
+        this.certificates = certificates;
     }
 
     @Transactional
@@ -100,10 +104,7 @@ class HostLifecycle {
                             updated_at = :now, version = version + 1
                         where id = :hostId
                         """).param("now", now).param("hostId", hostId).update();
-        jdbc.sql("update hosts.host_certificates set revoked_at = :now where host_id = :hostId and revoked_at is null")
-                .param("now", now)
-                .param("hostId", hostId)
-                .update();
+        certificates.revoke(hostId, "removed by its owner", AuditTrail.Actor.owner(owner));
         jdbc.sql("delete from hosts.enrolment_codes where host_id = :hostId")
                 .param("hostId", hostId)
                 .update();

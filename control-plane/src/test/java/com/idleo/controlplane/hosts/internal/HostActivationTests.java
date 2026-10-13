@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.TestAgent;
 import com.idleo.controlplane.TestHosts;
+import com.idleo.controlplane.identity.AuditTrail;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.grpc.test.autoconfigure.LocalGrpcServerPort;
@@ -16,7 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @ControlPlaneTest
 class HostActivationTests {
 
-    private static final String OPERATOR = "test-operator";
+    private static final AuditTrail.Actor OPERATOR = AuditTrail.Actor.operator("test-operator");
 
     @Autowired
     HostActivation activation;

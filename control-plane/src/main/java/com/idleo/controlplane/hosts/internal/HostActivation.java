@@ -1,9 +1,11 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -12,9 +14,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Activating and suspending hosts by operator command (ADR 0015), until onboarding's benchmark and
- * canary job exist (technical design line 667). Every change is an append-only row in {@code
- * hosts.status_changes}; asking for the status a host already has changes nothing.
+ * Activating and suspending hosts, by operator command (ADR 0015) or from the admin console (ADR 0027), until
+ * onboarding's benchmark and canary job exist (technical design line 667). Both call these methods. Every change is
+ * an append-only row in {@code hosts.status_changes} and one in the audit log, in the same transaction; asking for
+ * the status a host already has changes nothing.
  */
 @Service
 class HostActivation {
@@ -23,12 +26,19 @@ class HostActivation {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final AuditTrail audit;
 
-    HostActivation(JdbcClient jdbc, PlatformTransactionManager transactionManager, IdGenerator ids, Clock clock) {
+    HostActivation(
+            JdbcClient jdbc,
+            PlatformTransactionManager transactionManager,
+            IdGenerator ids,
+            Clock clock,
+            AuditTrail audit) {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
         this.clock = clock;
+        this.audit = audit;
     }
 
     /** The outcome: {@code changed} is false when the host already had that status. */
@@ -47,16 +57,16 @@ class HostActivation {
      * Activates a host. Refused unless it has a valid, unrevoked certificate, a listing, and at least one
      * reported GPU that isn't gone.
      */
-    Change activate(UUID hostId, String reason, String operator) {
-        return change(hostId, HostStatus.ACTIVE, reason, operator);
+    Change activate(UUID hostId, String reason, AuditTrail.Actor actor) {
+        return change(hostId, HostStatus.ACTIVE, reason, actor);
     }
 
     /** Suspends a host: its agent is refused at its next connection (ADR 0011). */
-    Change suspend(UUID hostId, String reason, String operator) {
-        return change(hostId, HostStatus.SUSPENDED, reason, operator);
+    Change suspend(UUID hostId, String reason, AuditTrail.Actor actor) {
+        return change(hostId, HostStatus.SUSPENDED, reason, actor);
     }
 
-    private Change change(UUID hostId, HostStatus to, String reason, String operator) {
+    private Change change(UUID hostId, HostStatus to, String reason, AuditTrail.Actor actor) {
         if (reason == null || reason.isBlank()) {
             throw new Refused("a reason is required");
         }
@@ -90,9 +100,17 @@ class HostActivation {
                     .param("from", from)
                     .param("to", to.dbValue())
                     .param("reason", reason.strip())
-                    .param("by", operator)
+                    .param("by", actor.label())
                     .param("now", Timestamp.from(now))
                     .update();
+            audit.record(new AuditTrail.Entry(
+                    actor,
+                    to == HostStatus.ACTIVE ? "host.activate" : "host.suspend",
+                    "host",
+                    hostId.toString(),
+                    reason,
+                    Map.of("status", from),
+                    Map.of("status", to.dbValue())));
             return new Change(hostId, from, to.dbValue(), true);
         }));
     }

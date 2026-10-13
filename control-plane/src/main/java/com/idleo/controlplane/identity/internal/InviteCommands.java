@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.OperatorCommand;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.Optional;
@@ -22,7 +23,6 @@ import org.springframework.context.annotation.Profile;
 @Profile("ops")
 class InviteCommands {
 
-    static final int MAX_COUNT = 200;
     private static final Pattern EXPIRY = Pattern.compile("(\\d{1,4})([dh])");
 
     @Bean
@@ -41,12 +41,13 @@ class InviteCommands {
             @Override
             public void run(Arguments args, String operator, PrintStream out) {
                 long count = args.number("count");
-                if (count < 1 || count > MAX_COUNT) {
-                    throw new Usage("--count must be from 1 to " + MAX_COUNT);
+                if (count < 1 || count > InviteService.MAX_COUNT) {
+                    throw new Usage("--count must be from 1 to " + InviteService.MAX_COUNT);
                 }
                 var note = args.text("note").strip();
                 var expiry = expiry(args);
-                var codes = invites.create((int) count, note, expiry, operator);
+                var codes = invites.create((int) count, note, expiry, AuditTrail.Actor.operator(operator))
+                        .codes();
                 out.println("made " + codes.size() + " invite code" + (codes.size() == 1 ? "" : "s") + " for \"" + note
                         + "\""
                         + expiry.map(d -> ", each valid for " + describe(d)).orElse(", with no expiry"));

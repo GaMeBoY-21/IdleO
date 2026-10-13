@@ -3,15 +3,23 @@ package com.idleo.controlplane.hosts.internal;
 import com.idleo.controlplane.hosts.AlreadyRenewedException;
 import com.idleo.controlplane.hosts.EnrolledCertificate;
 import com.idleo.controlplane.hosts.HostCertificates;
+import com.idleo.controlplane.hosts.HostCertificatesRevoked;
 import com.idleo.controlplane.hosts.RenewalNotOpenException;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -29,12 +37,90 @@ class HostCertificateService implements HostCertificates {
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final AuditTrail audit;
+    private final ApplicationEventPublisher events;
 
-    HostCertificateService(CertificateIssuer issuer, JdbcClient jdbc, TransactionTemplate transactions, Clock clock) {
+    HostCertificateService(
+            CertificateIssuer issuer,
+            JdbcClient jdbc,
+            TransactionTemplate transactions,
+            Clock clock,
+            AuditTrail audit,
+            ApplicationEventPublisher events) {
         this.issuer = issuer;
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.clock = clock;
+        this.audit = audit;
+        this.events = events;
+    }
+
+    /** The certificates a revocation took away, by serial in hex; empty when the host had none left. */
+    record Revoked(UUID hostId, List<String> serials) {}
+
+    /** Refused; nothing changed. */
+    static final class Refused extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        Refused(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Revokes every certificate the host still has, from the admin console (ADR 0027): its agent stream closes, and
+     * it can't connect again until its owner enrols it with a new code. Audited; doing it again changes nothing.
+     */
+    Revoked revokeAll(UUID hostId, String reason, AuditTrail.Actor actor) {
+        if (reason == null || reason.isBlank()) {
+            throw new Refused("A reason is required.");
+        }
+        return Objects.requireNonNull(transactions.execute(status -> {
+            boolean exists = jdbc.sql("select exists (select 1 from hosts.hosts where id = :hostId)")
+                    .param("hostId", hostId)
+                    .query(Boolean.class)
+                    .single();
+            if (!exists) {
+                throw new Refused("There's no host " + hostId + ".");
+            }
+            var revoked = revoke(hostId, reason, actor);
+            if (!revoked.serials().isEmpty()) {
+                events.publishEvent(new HostCertificatesRevoked(hostId));
+            }
+            return revoked;
+        }));
+    }
+
+    /**
+     * The one place a host's certificates are revoked, in the caller's transaction, for an admin or for its owner
+     * removing it: every unrevoked one, with an audit row naming them.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    Revoked revoke(UUID hostId, String reason, AuditTrail.Actor actor) {
+        var serials = jdbc
+                .sql("""
+                        update hosts.host_certificates set revoked_at = :now
+                        where host_id = :hostId and revoked_at is null
+                        returning serial
+                        """)
+                .param("now", Timestamp.from(Instant.now(clock)))
+                .param("hostId", hostId)
+                .query((rs, n) -> rs.getBigDecimal("serial").toBigIntegerExact().toString(16))
+                .list()
+                .stream()
+                .sorted()
+                .toList();
+        if (!serials.isEmpty()) {
+            audit.record(new AuditTrail.Entry(
+                    actor,
+                    "certificate.revoke",
+                    "host",
+                    hostId.toString(),
+                    reason,
+                    Map.of("serials", serials),
+                    Map.of("revoked", serials.size())));
+        }
+        return new Revoked(hostId, serials);
     }
 
     private record CertificateRow(UUID hostId, Instant notBefore, Instant notAfter, boolean revoked, String status) {}
@@ -89,7 +175,7 @@ class HostCertificateService implements HostCertificates {
             if (newerExists) {
                 throw new AlreadyRenewedException();
             }
-            return issuer.issueAndRecord(hostId, publicKey, now);
+            return issuer.issueAndRecord(hostId, publicKey, now, CertificateIssuer.Occasion.RENEWAL);
         });
     }
 

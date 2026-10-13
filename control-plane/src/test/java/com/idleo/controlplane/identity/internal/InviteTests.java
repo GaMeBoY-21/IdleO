@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestUsers;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.time.Duration;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -55,7 +56,9 @@ class InviteTests {
     }
 
     private String code() {
-        return invites.create(1, "test", Optional.empty(), "tester").getFirst();
+        return invites.create(1, "test", Optional.empty(), AuditTrail.Actor.operator("tester"))
+                .codes()
+                .getFirst();
     }
 
     private MockHttpServletRequestBuilder activate(String bearer, String code) {
@@ -158,7 +161,8 @@ class InviteTests {
     void wrongUsedAndExpiredCodesAreAnsweredAlike() throws Exception {
         var used = code();
         mvc.perform(activate(TestUsers.signUp(mvc).bearer(), used)).andExpect(status().isOk());
-        var expiring = invites.create(1, "short", Optional.of(Duration.ofHours(1)), "tester")
+        var expiring = invites.create(1, "short", Optional.of(Duration.ofHours(1)), AuditTrail.Actor.operator("tester"))
+                .codes()
                 .getFirst();
         clock.advance(Duration.ofHours(2));
 
@@ -216,7 +220,8 @@ class InviteTests {
 
     @Test
     void generatedCodesLookLikeTheExample() {
-        assertThat(invites.create(20, "shape", Optional.empty(), "tester"))
+        assertThat(invites.create(20, "shape", Optional.empty(), AuditTrail.Actor.operator("tester"))
+                        .codes())
                 .allMatch(code -> code.matches("IDLE-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}"))
                 .doesNotHaveDuplicates();
     }

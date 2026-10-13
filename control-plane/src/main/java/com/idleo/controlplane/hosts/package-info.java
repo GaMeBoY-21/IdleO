@@ -55,6 +55,13 @@
  * {@link com.idleo.controlplane.hosts.HostWork} (sessions: is the host busy, and what it's running),
  * {@link com.idleo.controlplane.hosts.HostTelemetry} (agent gateway). {@link com.idleo.controlplane.hosts.HostRemoved}
  * is published when an owner removes a host.
+ *
+ * <p>The admin console (ADR 0027): {@code GET /admin/v1/hosts} and {@code /admin/v1/hosts/{id}} (its GPUs,
+ * certificates, status history and telemetry), and {@code POST /admin/v1/hosts/{id}/activate}, {@code /suspend} and
+ * {@code /revoke-certificates}, each with a reason. Activating and suspending call the same service as the {@code
+ * activate-host} and {@code suspend-host} commands; revoking publishes {@link
+ * com.idleo.controlplane.hosts.HostCertificatesRevoked}, which closes the agent's stream. Every activation,
+ * suspension, certificate issued and certificate revoked is in the audit log.
  */
 @ApplicationModule
 package com.idleo.controlplane.hosts;

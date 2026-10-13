@@ -18,7 +18,8 @@ public interface HostAgentReports {
 
     /**
      * Records that the host's agent was seen now. Writes at most once a minute per host. Returns false when the
-     * owner has removed the host, so a stream held by another instance closes within a minute (ADR 0023).
+     * owner has removed the host (ADR 0023) or an admin has revoked its certificates (ADR 0027), so a stream held by
+     * another instance closes within a minute.
      */
     boolean recordSeen(UUID hostId);
 

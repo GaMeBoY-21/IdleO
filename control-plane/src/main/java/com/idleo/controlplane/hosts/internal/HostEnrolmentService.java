@@ -44,7 +44,7 @@ class HostEnrolmentService implements HostEnrolment {
         return transactions.execute(status -> {
             var now = Instant.now(clock);
             var hostId = useCode(codeHash, now).orElseThrow(InvalidEnrolmentCodeException::new);
-            return issuer.issueAndRecord(hostId, publicKey, now);
+            return issuer.issueAndRecord(hostId, publicKey, now, CertificateIssuer.Occasion.ENROLMENT);
         });
     }
 

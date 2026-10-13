@@ -46,6 +46,12 @@ class AdminAccessTests {
     @Autowired
     AdminRoles roles;
 
+    @Autowired
+    org.springframework.transaction.support.TransactionTemplate transactions;
+
+    @Autowired
+    com.idleo.controlplane.IdGenerator ids;
+
     private final JsonMapper json = JsonMapper.builder().build();
 
     @AfterEach
@@ -298,7 +304,7 @@ class AdminAccessTests {
     }
 
     @Test
-    void anAdminSessionLastsThirtyMinutesFromItsLastUseAndNeverPastEightHours() throws Exception {
+    void anAdminSessionLastsThirtyMinutesFromItsLastUse() throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
         clock.advance(Duration.ofMinutes(29));
         mvc.perform(admin.as(get("/admin/v1/audit"))).andExpect(status().isOk());
@@ -309,21 +315,29 @@ class AdminAccessTests {
         mvc.perform(admin.as(get("/admin/v1/session")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
+    }
 
-        // Used every 25 minutes, a session still ends 8 hours after it began.
-        var steady = TestAdmins.signInAgain(mvc, admin, clock);
+    @Test
+    void usedEveryTwentyFiveMinutesASessionStillEndsEightHoursAfterItBegan() throws Exception {
+        var admin = TestAdmins.signIn(mvc, jdbc, clock);
+        var identity = jdbc.queryForObject(
+                "select identity_id from identity.admin_sessions where user_id = ?", UUID.class, admin.id());
+        // Its own clock, so eight hours pass for this session alone.
+        var own = new MutableClock();
+        var sessions = new AdminSessions(
+                org.springframework.jdbc.core.simple.JdbcClient.create(jdbc),
+                ids,
+                own,
+                new AdminProperties("unused", Duration.ofMinutes(30), Duration.ofHours(8), "IdleO"));
+        var issued = transactions.execute(status -> sessions.start(admin.id(), identity));
         for (int i = 0; i < 19; i++) {
-            clock.advance(Duration.ofMinutes(25));
-            mvc.perform(get("/admin/v1/audit")
-                            .header("Authorization", admin.bearer())
-                            .header("Admin-Session", steady))
-                    .andExpect(status().isOk());
+            own.advance(Duration.ofMinutes(25));
+            assertThat(sessions.use(admin.id(), identity, issued.token())).isPresent();
         }
-        clock.advance(Duration.ofMinutes(25));
-        mvc.perform(get("/admin/v1/audit")
-                        .header("Authorization", admin.bearer())
-                        .header("Admin-Session", steady))
-                .andExpect(status().isNotFound());
+        assertThat(sessions.use(admin.id(), identity, issued.token()).orElseThrow())
+                .isEqualTo(issued.expiresAt().minus(Duration.ofMinutes(30)).plus(Duration.ofHours(8)));
+        own.advance(Duration.ofMinutes(25));
+        assertThat(sessions.use(admin.id(), identity, issued.token())).isEmpty();
     }
 
     @Test

@@ -81,9 +81,10 @@ class HostAgentReportService implements HostAgentReports {
                 .param("cutoff", Timestamp.from(now.minus(SEEN_WRITE_INTERVAL)))
                 .param("hostId", hostId)
                 .update();
-        return !jdbc.sql("select exists (select 1 from hosts.hosts where id = :hostId and status = 'removed')")
-                .param("hostId", hostId)
-                .query(Boolean.class)
-                .single();
+        return !jdbc.sql("""
+                        select exists (select 1 from hosts.hosts where id = :hostId and status = 'removed')
+                            or not exists (select 1 from hosts.host_certificates
+                                           where host_id = :hostId and revoked_at is null)
+                        """).param("hostId", hostId).query(Boolean.class).single();
     }
 }

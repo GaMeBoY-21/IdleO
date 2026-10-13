@@ -1,15 +1,18 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -43,42 +46,68 @@ class InviteService {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final AuditTrail audit;
     private final SecureRandom random = new SecureRandom();
 
-    InviteService(JdbcClient jdbc, TransactionTemplate transactions, IdGenerator ids, Clock clock) {
+    InviteService(JdbcClient jdbc, TransactionTemplate transactions, IdGenerator ids, Clock clock, AuditTrail audit) {
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.ids = ids;
         this.clock = clock;
+        this.audit = audit;
     }
 
-    /** Makes {@code count} codes in one transaction and returns them, the only time they exist in the clear. */
-    List<String> create(int count, String note, Optional<Duration> expiresAfter, String createdBy) {
+    /** The most codes one request makes. */
+    static final int MAX_COUNT = 200;
+
+    /**
+     * Makes {@code count} codes in one transaction and returns them, the only time they exist in the clear. The note
+     * says who they're for, and is the audit row's reason; the row lists the codes' ids, never the codes.
+     */
+    Created create(int count, String note, Optional<Duration> expiresAfter, AuditTrail.Actor actor) {
+        if (count < 1 || count > MAX_COUNT) {
+            throw new IllegalArgumentException("make from 1 to " + MAX_COUNT + " codes at a time");
+        }
+        if (note == null || note.isBlank()) {
+            throw new IllegalArgumentException("invite codes need a note saying who they're for");
+        }
         return transactions.execute(status -> {
             var now = Instant.now(clock);
-            var expiresAt = expiresAfter.map(now::plus).map(Timestamp::from).orElse(null);
+            var expiresAt = expiresAfter.map(now::plus).orElse(null);
             var codes = new ArrayList<String>();
+            var codeIds = new ArrayList<UUID>();
             while (codes.size() < count) {
                 var code = InviteCodes.generate(random);
+                var id = ids.newId();
                 int inserted = jdbc.sql("""
                                 insert into identity.invite_codes (id, code_hash, note, created_by, created_at, expires_at)
                                 values (:id, :hash, :note, :createdBy, :now, :expiresAt)
                                 on conflict (code_hash) do nothing
                                 """)
-                        .param("id", ids.newId())
+                        .param("id", id)
                         .param("hash", InviteCodes.hash(code))
-                        .param("note", note)
-                        .param("createdBy", createdBy)
+                        .param("note", note.strip())
+                        .param("createdBy", actor.label())
                         .param("now", Timestamp.from(now))
-                        .param("expiresAt", expiresAt)
+                        .param("expiresAt", expiresAt == null ? null : Timestamp.from(expiresAt))
                         .update();
                 if (inserted == 1) {
                     codes.add(code);
+                    codeIds.add(id);
                 }
             }
-            return List.copyOf(codes);
+            var after = new LinkedHashMap<String, Object>();
+            after.put("count", count);
+            after.put("expiresAt", expiresAt == null ? null : expiresAt.toString());
+            after.put("ids", codeIds.stream().map(UUID::toString).toList());
+            audit.record(new AuditTrail.Entry(
+                    actor, "invite.create", "invite_code", codeIds.getFirst().toString(), note, null, after));
+            return new Created(List.copyOf(codes), expiresAt);
         });
     }
+
+    /** New codes, in the clear only here, and when they lapse (never, when null). */
+    record Created(List<String> codes, @Nullable Instant expiresAt) {}
 
     /** Tries {@code code} for this user. The try is kept whatever the result. */
     Result activate(UUID userId, String code) {

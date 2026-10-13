@@ -2,11 +2,13 @@ package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.hosts.EnrolledCertificate;
 import com.idleo.controlplane.hosts.InvalidCertificateRequestException;
+import com.idleo.controlplane.identity.AuditTrail;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -18,8 +20,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * The one place host certificates are issued, for enrolment and renewal alike: the CSR rules, the
- * signature by our intermediate, and the row in hosts.host_certificates. Callers run it inside their
- * own transaction, so the certificate is recorded together with whatever authorised it.
+ * signature by our intermediate, the row in hosts.host_certificates, and its row in the audit log (ADR 0027).
+ * Callers run it inside their own transaction, so the certificate is recorded together with whatever
+ * authorised it.
  */
 @Component
 class CertificateIssuer {
@@ -30,10 +33,26 @@ class CertificateIssuer {
 
     private final CertificateAuthority authority;
     private final JdbcClient jdbc;
+    private final AuditTrail audit;
 
-    CertificateIssuer(CertificateAuthority authority, JdbcClient jdbc) {
+    CertificateIssuer(CertificateAuthority authority, JdbcClient jdbc, AuditTrail audit) {
         this.authority = authority;
         this.jdbc = jdbc;
+        this.audit = audit;
+    }
+
+    /** Why a certificate was issued: the actor and reason its audit row names. */
+    enum Occasion {
+        ENROLMENT("agent enrolment", "the agent enrolled with the host's one-time code"),
+        RENEWAL("certificate renewal", "the agent renewed in its certificate's last 10 days");
+
+        private final String actor;
+        private final String reason;
+
+        Occasion(String actor, String reason) {
+            this.actor = actor;
+            this.reason = reason;
+        }
     }
 
     /**
@@ -64,7 +83,7 @@ class CertificateIssuer {
     }
 
     /** Signs a 30-day certificate for the host and records it. Call inside a transaction. */
-    EnrolledCertificate issueAndRecord(UUID hostId, SubjectPublicKeyInfo publicKey, Instant now) {
+    EnrolledCertificate issueAndRecord(UUID hostId, SubjectPublicKeyInfo publicKey, Instant now, Occasion occasion) {
         var issued = authority.issueHostCertificate(hostId, publicKey, now);
         var certificate = issued.certificate();
         jdbc.sql("""
@@ -79,6 +98,16 @@ class CertificateIssuer {
                 .param("notAfter", Timestamp.from(certificate.getNotAfter().toInstant()))
                 .param("now", Timestamp.from(now))
                 .update();
+        audit.record(new AuditTrail.Entry(
+                AuditTrail.Actor.system(occasion.actor),
+                "certificate.issue",
+                "host",
+                hostId.toString(),
+                occasion.reason,
+                null,
+                Map.of(
+                        "serial", certificate.getSerialNumber().toString(16),
+                        "notAfter", certificate.getNotAfter().toInstant().toString())));
         try {
             return new EnrolledCertificate(
                     List.of(certificate.getEncoded(), authority.intermediate().getEncoded()),

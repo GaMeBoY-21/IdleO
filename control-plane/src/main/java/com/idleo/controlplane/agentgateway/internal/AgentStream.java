@@ -404,7 +404,9 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             lastSeenRecordedAt = now;
         }
         if (!services.reports().recordSeen(hostId)) {
-            close(Status.PERMISSION_DENIED.withDescription("The host was removed."), "host_removed");
+            close(
+                    Status.PERMISSION_DENIED.withDescription("The host was removed, or its certificates revoked."),
+                    "host_removed");
         }
     }
 
