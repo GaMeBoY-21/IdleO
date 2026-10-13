@@ -32,3 +32,45 @@ export function recoveryDigits(typed: string): string {
 }
 
 export const isRecoveryCode = (typed: string) => /^[A-HJ-NP-Z2-9]{10}$/.test(recoveryDigits(typed));
+
+/** A refund's amount: rupees and paise as typed, above zero and at most what the session cost; null when it may be sent. */
+export function refundProblem(paise: number | null, mostPaise: number): string | null {
+  if (paise === null || paise <= 0) {
+    return "Give an amount above ₹0, in rupees and paise, like 5 or 12.50.";
+  }
+  if (paise > mostPaise) {
+    return "A refund can't be more than the session cost, less anything given back before.";
+  }
+  return null;
+}
+
+/** The minute fields a report's evidence needs, as the usage endpoint gives them. */
+export interface WitnessedMinute {
+  agentReported: boolean;
+  leaseAlive: boolean;
+  agentAttempt?: number | null;
+  leaseAttempt?: number | null;
+  billed: boolean;
+  waived: boolean;
+}
+
+/** Both witnesses saw it, from the same attempt: the only minute that's ever charged without a person (ADR 0017). */
+export const bothWitnesses = (minute: WitnessedMinute) =>
+  minute.agentReported && minute.leaseAlive && minute.agentAttempt === minute.leaseAttempt;
+
+/**
+ * How a session's minutes stand: how many each witness saw, how many both did and were charged, and which minutes
+ * aren't that plain case (one witness only, waived, or not charged), which are the ones worth reading beside a report.
+ */
+export function witnessSummary<M extends WitnessedMinute>(minutes: M[]) {
+  const both = minutes.filter(bothWitnesses);
+  return {
+    total: minutes.length,
+    agent: minutes.filter((minute) => minute.agentReported).length,
+    lease: minutes.filter((minute) => minute.leaseAlive).length,
+    both: both.length,
+    charged: minutes.filter((minute) => minute.billed).length,
+    waived: minutes.filter((minute) => minute.waived).length,
+    unusual: minutes.filter((minute) => !(bothWitnesses(minute) && minute.billed && !minute.waived)),
+  };
+}

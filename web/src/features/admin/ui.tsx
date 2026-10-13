@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
+import { formatDateTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 
 /**
@@ -350,5 +351,29 @@ export function SmallSelect({
         ))}
       </select>
     </div>
+  );
+}
+
+/** A session's changes of state, oldest first, each with when and why, from the append-only timeline. */
+export function Timeline({
+  events,
+}: {
+  events: { at: string; from?: string | null; to: string; reason: string }[];
+}) {
+  return (
+    <ol className="flex flex-col gap-2 text-small">
+      {events.map((event, index) => (
+        <li key={`${event.at}-${index}`} className="flex flex-wrap gap-x-3">
+          <time dateTime={event.at} className="tabular text-text-muted">
+            {formatDateTime(event.at)}
+          </time>
+          <span className="font-medium">
+            {event.from ? `${event.from} → ` : ""}
+            {event.to}
+          </span>
+          <span className="text-text-muted">{event.reason}</span>
+        </li>
+      ))}
+    </ol>
   );
 }

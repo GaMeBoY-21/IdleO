@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { isRecoveryCode, isTotp, reasonProblem, recoveryDigits, totpDigits } from "./rules";
+import {
+  isRecoveryCode,
+  isTotp,
+  reasonProblem,
+  recoveryDigits,
+  refundProblem,
+  totpDigits,
+  witnessSummary,
+  type WitnessedMinute,
+} from "./rules";
 
 describe("the reason rule", () => {
   it("wants at least 5 characters once the spaces around it are gone", () => {
@@ -39,5 +48,46 @@ describe("the code field", () => {
     expect(isRecoveryCode("K7Q2M-9XD4")).toBe(false);
     // The alphabet has no 0, O, 1 or I, so they're never in a code.
     expect(isRecoveryCode("K7Q2M-9XD4O")).toBe(false);
+  });
+});
+
+describe("a refund's amount", () => {
+  it("is above zero and at most what the session cost", () => {
+    expect(refundProblem(null, 300)).toMatch(/above ₹0/);
+    expect(refundProblem(0, 300)).toMatch(/above ₹0/);
+    expect(refundProblem(1, 300)).toBeNull();
+    expect(refundProblem(300, 300)).toBeNull();
+    expect(refundProblem(301, 300)).toMatch(/more than the session cost/);
+  });
+});
+
+describe("a session's minutes beside a report", () => {
+  const minute = (overrides: Partial<WitnessedMinute> = {}): WitnessedMinute => ({
+    agentReported: true,
+    leaseAlive: true,
+    agentAttempt: 1,
+    leaseAttempt: 1,
+    billed: true,
+    waived: false,
+    ...overrides,
+  });
+
+  it("counts what each witness saw, and what both did", () => {
+    const summary = witnessSummary([
+      minute(),
+      minute(),
+      minute({ leaseAlive: false, leaseAttempt: null, billed: false }),
+      minute({ agentReported: false, agentAttempt: null, billed: false }),
+      minute({ agentAttempt: 1, leaseAttempt: 2, billed: false }),
+    ]);
+    expect(summary).toMatchObject({ total: 5, agent: 4, lease: 4, both: 2, charged: 2, waived: 0 });
+  });
+
+  it("lists only the minutes that weren't charged in the plain way: one witness, from different attempts, or waived", () => {
+    const plain = minute();
+    const oneWitness = minute({ leaseAlive: false, billed: false });
+    const waived = minute({ waived: true });
+    expect(witnessSummary([plain, oneWitness, waived]).unusual).toEqual([oneWitness, waived]);
+    expect(witnessSummary([plain]).unusual).toEqual([]);
   });
 });

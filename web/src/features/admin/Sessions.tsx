@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
-import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import {
@@ -25,6 +24,7 @@ import {
   SmallField,
   SmallSelect,
   Table,
+  Timeline,
 } from "./ui";
 
 /** Sessions (ADR 0027): find them; one opens with its timeline and attempts, and can be stopped while it runs. */
@@ -254,20 +254,7 @@ function SessionRecord({ id }: { id: string }) {
                 }}
               />
               <Section title="Timeline">
-                <ol className="flex flex-col gap-2 text-small">
-                  {found.timeline.map((event, index) => (
-                    <li key={`${event.at}-${index}`} className="flex flex-wrap gap-x-3">
-                      <time dateTime={event.at} className="tabular text-text-muted">
-                        {formatDateTime(event.at)}
-                      </time>
-                      <span className="font-medium">
-                        {event.from ? `${event.from} → ` : ""}
-                        {event.to}
-                      </span>
-                      <span className="text-text-muted">{event.reason}</span>
-                    </li>
-                  ))}
-                </ol>
+                <Timeline events={found.timeline} />
               </Section>
               <Section title="Attempts">
                 {found.attempts.length === 0 ? (

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as admin from "./fixtures-admin";
+import * as trust from "./fixtures-trust";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
 
 /**
@@ -24,6 +25,23 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/sessions": { json: admin.sessions },
   [`/admin/v1/sessions/${admin.SESSION_ID}`]: { json: admin.session },
   "/admin/v1/review-minutes": { json: admin.reviewMinutes },
+  "/admin/v1/disputes": { json: trust.adminDisputes() },
+  [`/admin/v1/disputes/${trust.disputeOpen(data.failed).id}`]: {
+    json: trust.adminDispute(trust.disputeOpen(data.failed), data.me().id, data.failed),
+  },
+  [`/admin/v1/disputes/${trust.disputeRefunded.id}`]: {
+    json: trust.adminDispute(trust.disputeRefunded, trust.RAVI, data.reportedSession),
+  },
+  [`/admin/v1/sessions/${data.failed.id}`]: { json: trust.adminSessionOf(data.failed, data.me().id) },
+  [`/admin/v1/sessions/${data.failed.id}/usage`]: {
+    json: trust.adminUsage(data.failed, { agentOnlyExtra: true }),
+  },
+  [`/admin/v1/sessions/${data.reportedSession.id}`]: {
+    json: trust.adminSessionOf(data.reportedSession, trust.RAVI),
+  },
+  [`/admin/v1/sessions/${data.reportedSession.id}/usage`]: {
+    json: trust.adminUsage(data.reportedSession, { refundedPaise: data.REPORT_REFUND }),
+  },
   "/admin/v1/reconciliation": { json: admin.reconciliation },
   "/admin/v1/ledger": { json: admin.ledger },
   "/admin/v1/invites": { json: admin.invites },
@@ -117,7 +135,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(8);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(9);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -255,6 +273,110 @@ test.describe("the console", () => {
     await expect(page.getByText("Nothing to review")).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "admin-review-empty");
+  });
+
+  test("works the disputes queue: open reports first, then resolved ones", async ({ page }, info) => {
+    await open(page, "/admin/disputes/");
+    const table = page.getByRole("table", { name: "Reports" });
+    const rows = table.getByRole("row");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(1)).toContainText("Open");
+    await expect(rows.nth(1)).toContainText("It failed");
+    await expect(rows.nth(2)).toContainText("Refunded");
+    await expect(rows.nth(2)).toContainText("₹1.00");
+    await expect(rows.nth(3)).toContainText("No refund");
+    await expectAccessible(page);
+    await capture(page, info, "admin-disputes");
+  });
+
+  test("says when there are no reports to answer", async ({ page }, info) => {
+    await open(page, "/admin/disputes/", {
+      "/admin/v1/disputes": { json: { disputes: [], nextCursor: null } },
+    });
+    await expect(page.getByText("No reports to answer")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-disputes-empty");
+  });
+
+  test("opens an open report with the session's evidence, and refunds part of it", async ({ page }, info) => {
+    const report = trust.disputeOpen(data.failed);
+    let body: { amountPaise: number; reason: string } | null = null;
+    await open(page, `/admin/disputes/?id=${report.id}`, {
+      [`/admin/v1/disputes/${report.id}/refund`]: (_call, request) => {
+        body = request.postDataJSON() as { amountPaise: number; reason: string };
+        return {
+          json: trust.adminDispute(
+            { ...report, state: "refunded", refundPaise: 50 },
+            data.me().id,
+            data.failed,
+          ),
+        };
+      },
+    });
+    await expect(page.getByRole("heading", { level: 1, name: "Report" })).toBeVisible();
+    await expect(page.getByText("It stopped after 20 minutes with no error in the log.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Timeline" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Minutes and charges" })).toBeVisible();
+    // Both witnesses saw every charged minute; one more only the agent reported, so it wasn't charged.
+    await expect(
+      page.getByRole("table", { name: "Minutes that weren't charged in the usual way" }),
+    ).toContainText("not covered");
+    await expect(page.getByRole("table", { name: "Settlements" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-dispute");
+
+    await page.getByRole("button", { name: "Refund", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "Refund this report?" });
+    await expect(sheet).toContainText("It comes out of the platform's commission first");
+    await expect(sheet).toContainText("₹0.20 kept on this session");
+    // More than it cost is refused before anything is sent.
+    await sheet.getByLabel("Amount in ₹").fill("99");
+    await sheet.getByLabel("Reason").fill("The job failed on our host.");
+    await sheet.getByRole("button", { name: "Refund", exact: true }).click();
+    await expect(sheet).toContainText("can't be more than the session cost");
+    expect(body).toBeNull();
+    await expectAccessible(page);
+    await capture(page, info, "admin-dispute-refund");
+    await sheet.getByLabel("Amount in ₹").fill("0.50");
+    await sheet.getByRole("button", { name: "Refund", exact: true }).click();
+    await expect(sheet).toBeHidden();
+    expect(body).toEqual({ amountPaise: 50, reason: "The job failed on our host." });
+  });
+
+  test("closes a report without a refund, with a reason the renter reads", async ({ page }) => {
+    const report = trust.disputeOpen(data.failed);
+    let body: { reason: string } | null = null;
+    await open(page, `/admin/disputes/?id=${report.id}`, {
+      [`/admin/v1/disputes/${report.id}/no-refund`]: (_call, request) => {
+        body = request.postDataJSON() as { reason: string };
+        return { json: trust.adminDispute({ ...report, state: "not_refunded" }, data.me().id, data.failed) };
+      },
+    });
+    await page.getByRole("button", { name: "No refund" }).click();
+    const sheet = page.getByRole("dialog", { name: "Close this report without a refund?" });
+    await expect(sheet).toContainText("The renter reads your reason");
+    await sheet.getByLabel("Reason").fill("It ran out of memory: the model was too big.");
+    await sheet.getByRole("button", { name: "Close without a refund" }).click();
+    await expect(sheet).toBeHidden();
+    expect(body).toEqual({ reason: "It ran out of memory: the model was too big." });
+  });
+
+  test("shows a refunded report: who decided, and where the money came from", async ({ page }, info) => {
+    await open(page, `/admin/disputes/?id=${trust.disputeRefunded.id}`);
+    await expect(page.getByRole("heading", { level: 2, name: "How it was decided" })).toBeVisible();
+    await expect(page.getByText("From the commission")).toBeVisible();
+    await expect(page.getByText("The adapter file was empty and I paid for the whole run.")).toBeVisible();
+    // No more actions on a resolved report.
+    await expect(page.getByRole("button", { name: "Refund", exact: true })).toHaveCount(0);
+    await expectAccessible(page);
+    await capture(page, info, "admin-dispute-resolved");
+  });
+
+  test("while a report loads, and when it can't", async ({ page }, info) => {
+    await open(page, "/admin/disputes/", { "/admin/v1/disputes": "hold" });
+    await expect(page.getByRole("status", { name: "Loading the disputes" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-disputes-loading");
   });
 
   test("shows the reconciliation runs and a wallet in the ledger", async ({ page }, info) => {
