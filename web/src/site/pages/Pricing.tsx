@@ -51,14 +51,16 @@ export function Pricing({ context }: { context: SiteContext }) {
           ))}
         </ul>
         <div
-          className="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 text-caption text-text-muted"
+          className="mt-2 flex min-h-14 items-start justify-between gap-x-3 text-caption text-text-muted"
           aria-live="polite"
         >
-          <p data-role="status">Looking up today's prices…</p>
+          <p data-role="status" className="flex-1">
+            Looking up today's prices…
+          </p>
           <button
             type="button"
             data-role="retry"
-            className="min-h-touch px-2 text-small font-semibold text-text underline underline-offset-4"
+            className="min-h-touch shrink-0 px-2 text-small font-semibold text-text underline underline-offset-4"
             hidden
           >
             Try again

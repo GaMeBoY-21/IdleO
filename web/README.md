@@ -12,6 +12,7 @@ The renter and host web app: sign-in, Home, booking a GPU, a session live, all s
 | `/session/?id=…` | One session, following its state like a ride: finding its GPU, GPU found, running (timer, cost against the cap, the GPU's use and temperature, checkpoint, logs), then done with its outputs, or why it ended |
 | `/sessions/` | All sessions, active or ended (`?show=ended`), a page at a time |
 | `/credit/` | Credit and its history |
+| `/about/`, `/pricing/`, `/gpus/`, `/earn/`, `/docs/…`, `/terms/`, `/privacy/`, `/contact/` | The public site (ADR 0029): static pages for a signed-out visitor, built apart from the app and loading none of its code; see "The public site" below |
 | `/welcome/`, `/sign-in/` | A new account's first screen; sign-in |
 | `/admin/…` | The admin console (ADR 0027, docs/runbooks/admin.md): its own lazily loaded chunk, which renters never download. Setting up the authenticator and the code check, then Dashboard, Users, Hosts, Sessions, Review queue, Money, Invites and the Audit log (`/admin/users/?id=…` and the like open one record). Every action asks why in one sheet. Anyone who isn't an admin sees "We can't find that page" |
 
@@ -57,7 +58,8 @@ A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBA
 | `pnpm typecheck` | `tsc` in strict mode, after regenerating the API types from `../api/openapi.yaml` and the theme from the tokens |
 | `pnpm lint` | ESLint (jsx-a11y strict, the design-token rule, sign-in SDKs only in `src/auth/`) and Prettier |
 | `pnpm test` | Vitest: units and components |
-| `pnpm size` | The first-load JavaScript budget, on `dist/` (or `IDLEO_DIST`) |
+| `pnpm build:site` | The public pages alone: their style sheet and scripts (`vite.site.config.ts`), the module that draws them, then `scripts/build-site.ts` writes them, `sitemap.xml` and `robots.txt` into `dist/` (`pnpm build` runs it last) |
+| `pnpm size` | The first-load JavaScript budget, on `dist/` (or `IDLEO_DIST`), then the public pages' first-load budget |
 | `pnpm e2e` | Playwright: every screen and state, and the journeys; needs the stack and `pnpm serve` |
 | `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book, the session screen, the Hosting tab and one machine, the 10 MiB log test, then `lhci assert` |
 | `pnpm gallery` | The review gallery (below) |
@@ -163,3 +165,13 @@ It's under the gitignored `private/`, and the data in it is invented.
 | `src/lib/money.ts` | `formatPaise`, the only way money is shown |
 | `e2e/` | Playwright: screens (`*screens.spec.ts`), layout shift, Firebase sign-in, the journeys, Lighthouse, the 10 MiB log, the gallery recordings; `fixtures.ts` is the one builder of invented data, and its figures add up (`src/test/fixtures.test.ts`) |
 | `scripts/` | The theme generator, post-build (CSP, screens, pre-render), the server, the size check, the font subset, the wordmark, the gallery |
+
+## The public site
+
+Pages for a signed-out visitor (ADR 0029): the landing page (`/about/`), pricing, what each GPU runs, the host pitch with an earnings calculator, the docs, and placeholders for terms, privacy and contact. They are static HTML written at build time from `src/site/`, which is built apart from the app, so nothing of the app can load on them.
+
+- **Live figures** come from `GET /v1/public/availability`, asked after the page has painted by `src/site/islands/pricing.ts` and `earn.ts`. Every row they fill is already on the page at its final size, so nothing moves.
+- **The docs** are `../docs/site/*.md` plus three pages made from the code: services from `../templates/catalog.yaml`, the command line from `../docs/site/generated/cli.md` (the CLI keeps it current), and the API from `../api/openapi.yaml`.
+- **Settings:** a staging or production build needs `IDLEO_SITE_URL`, the site's https address, for the sitemap and canonical links; a local build may leave it out.
+- **Budgets for public pages** (Lighthouse's mobile profile, the median of 3): LCP 1.5 s, TBT 100 ms, CLS 0, accessibility 100, SEO 100, and a first load of 80 KB (`pnpm size`). `lighthouserc.json` holds them beside the app's; `e2e/public-lighthouse.spec.ts` measures them.
+- **Tests:** `src/site/*.test.ts(x)` (the calculator, the pricing figures, the pages), `scripts/site/*.test.ts` (the docs generators, the bundle) and `e2e/public-screens.spec.ts` (axe, the pricing states, no layout shift, no app code).

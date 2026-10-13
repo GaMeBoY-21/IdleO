@@ -5,9 +5,9 @@ name: web
 on:
   push:
     branches: [main]
-    paths: ["web/**", "api/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml"]
   pull_request:
-    paths: ["web/**", "api/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml"]
   workflow_dispatch:
     inputs:
       update_screenshots:

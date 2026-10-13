@@ -30,7 +30,7 @@ describe("the build settings", () => {
   });
 
   it("need the public site's address outside a local build, and an https one", () => {
-    const { IDLEO_SITE_URL: _site, ...without } = production;
+    const without = { ...production, IDLEO_SITE_URL: undefined };
     expect(buildSettingsProblems(without)).toEqual([
       "a production build needs IDLEO_SITE_URL, the public site's address",
     ]);

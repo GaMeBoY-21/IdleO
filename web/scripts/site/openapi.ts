@@ -185,7 +185,7 @@ function operationSection(item: ApiOperation & { operation: Operation }): string
 
 function schemaSection(spec: Spec, name: string): string {
   const schema = spec.components.schemas[name]!;
-  const lines = [`<h4 id="schema-${name}"><code>${name}</code></h4>`, ""];
+  const lines = [`<h3 id="schema-${name}"><code>${name}</code></h3>`, ""];
   if (schema.description) {
     lines.push(cell(schema.description), "");
   }

@@ -3,9 +3,9 @@ name: cli
 on:
   push:
     branches: [main]
-    paths: ["cli/**", "api/**", ".github/workflows/cli.yml"]
+    paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml"]
   pull_request:
-    paths: ["cli/**", "api/**", ".github/workflows/cli.yml"]
+    paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml"]
 
 permissions:
   contents: read

@@ -1184,8 +1184,18 @@ for page, m in json.load(open("web/.lighthouseci/summary.json")).items():
 PY
 )
   summary+=("lighthouse budgets (mobile, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS")
+  # The public pages (ADR 0029), signed out, on their own stricter budgets.
+  while IFS= read -r line; do summary+=("lighthouse public $line"); done < <(python3 - <<'PY'
+import json
+for page, m in json.load(open("web/.lighthouseci/public-summary.json")).items():
+    print("%s: LCP %d ms (median of %s), TBT %d ms, CLS %s, accessibility %d" % (page, m["lcpMs"], ", ".join(map(str, m["lcpRunsMs"])), m["tbtMs"], m["cls"], m["accessibility"]))
+PY
+)
+  summary+=("lighthouse public pages (mobile, the median of 3 runs: LCP <= 1500 ms, TBT <= 100 ms, CLS 0, accessibility 100, SEO 100): PASS")
   first_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/first-load.ts | tail -1)" || fail "the first-load JavaScript budget failed"
   summary+=("${first_load# }: PASS")
+  site_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/site-size.ts | tail -1)" || fail "the public pages' first-load budget failed"
+  summary+=("${site_load# }: PASS")
 fi
 
 if ! $web_only; then

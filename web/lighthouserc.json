@@ -1,14 +1,78 @@
 {
   "ci": {
-    "upload": { "target": "filesystem", "outputDir": ".lighthouseci/report" },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci/report"
+    },
     "assert": {
-      "aggregationMethod": "median",
-      "assertions": {
-        "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
-        "total-blocking-time": ["error", { "maxNumericValue": 150 }],
-        "cumulative-layout-shift": ["error", { "maxNumericValue": 0 }],
-        "categories:accessibility": ["error", { "minScore": 1 }]
-      }
+      "assertMatrix": [
+        {
+          "matchingUrlPattern": "^https?://[^/]+/(about|pricing|gpus|earn|docs|terms|privacy|contact)/",
+          "assertions": {
+            "largest-contentful-paint": [
+              "error",
+              {
+                "maxNumericValue": 1500
+              }
+            ],
+            "total-blocking-time": [
+              "error",
+              {
+                "maxNumericValue": 100
+              }
+            ],
+            "cumulative-layout-shift": [
+              "error",
+              {
+                "maxNumericValue": 0
+              }
+            ],
+            "categories:accessibility": [
+              "error",
+              {
+                "minScore": 1
+              }
+            ],
+            "categories:seo": [
+              "error",
+              {
+                "minScore": 1
+              }
+            ]
+          },
+          "aggregationMethod": "median"
+        },
+        {
+          "matchingUrlPattern": "^https?://[^/]+/(?!(about|pricing|gpus|earn|docs|terms|privacy|contact)/)",
+          "assertions": {
+            "largest-contentful-paint": [
+              "error",
+              {
+                "maxNumericValue": 2000
+              }
+            ],
+            "total-blocking-time": [
+              "error",
+              {
+                "maxNumericValue": 150
+              }
+            ],
+            "cumulative-layout-shift": [
+              "error",
+              {
+                "maxNumericValue": 0
+              }
+            ],
+            "categories:accessibility": [
+              "error",
+              {
+                "minScore": 1
+              }
+            ]
+          },
+          "aggregationMethod": "median"
+        }
+      ]
     }
   }
 }
