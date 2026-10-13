@@ -513,9 +513,9 @@ token="$(curl -sf -X POST "$sign_in/token" \
 # 3a. Invite codes (docs/runbooks/invites.md): one for each account the run makes, and two spare for the web
 #     journey that signs in as a new person and enters one.
 log "making invite codes for the run's accounts"
-ops create-invites --count 9 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 9))
-((${#invite_codes[@]} == 9)) || fail "create-invites didn't print 9 codes; see private/e2e/ops.log"
+ops create-invites --count 10 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 10))
+((${#invite_codes[@]} == 10)) || fail "create-invites didn't print 10 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -1505,16 +1505,19 @@ while IFS= read -r line; do summary+=("$line"); done <"$out/summary-cli.txt"
 # The admin console in a browser (web/e2e/admin-journey.spec.ts, ADR 0027), last, so what it changes touches no other
 # scenario. The script makes a new person an admin with grant-admin, enrols one more host and leaves it pending, and
 # books a long run for the web journey's renter; the journey enrols a second factor and reaches the dashboard,
-# activates the pending host, grants credit and finds it in the audit log, and force-stops the run. Each action's one
-# audit row is then read from the database, and the stopped run is followed to its settlement.
+# activates the pending host, grants credit and finds it in the audit log, and force-stops the run once it has run
+# past a minute. Then (ADR 0028) the run's renter rates it and reports a problem, the admin refunds part of the report
+# (the platform's commission first, then the host's share), and the renter's credit and the host owner's earnings show
+# it. Each action's one audit row is then read from the database, the stopped run is followed to its settlement, and
+# the refund's ledger entries are read.
 scenario_admin_web() {
   local admin_user="$user-admin" admin_token admin_id pending_json pending code n session report="$out/admin-journey.json"
-  local rows charged
+  local rows charged running_since dispute
   admin_token="$(curl -sf -X POST "$sign_in/token" \
     -d grant_type=client_credentials -d "client_id=$admin_user" -d client_secret=unused -d scope=openid |
     json_field access_token)"
   [[ -n "$admin_token" ]] || fail "no token for the admin journey's person"
-  # The spare code (index 7) belongs to the account journey; the admin takes the last one.
+  # The spare code (index 7) belongs to the account journey; the admin takes the next one.
   invite_next=8
   activate_user "$admin_token"
   admin_id="$(token="$admin_token" api_get /v1/me | json_get .id)"
@@ -1545,24 +1548,28 @@ scenario_admin_web() {
   session="$(token="$web_token" user="$web_user" book admin-stop long-run 10000)"
   [[ -n "$session" ]] || fail "booking the run the admin stops failed"
   token="$web_token" await_state "$session" RUNNING 90
+  running_since="$(now_ms)"
 
   E2E_ADMIN_USER="$admin_user" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
-    E2E_ADMIN_REPORT="$report" SKIP_VISUAL=1 \
+    E2E_HOST_OWNER="$user" E2E_RUNNING_SINCE="$running_since" E2E_ADMIN_REPORT="$report" SKIP_VISUAL=1 \
     web_test --project=admin-journey --reporter=line >>"$out/admin-journey.log" 2>&1 ||
     fail "the admin journeys failed; see private/e2e/admin-journey.log"
-  note "admin journeys: $(grep -Eo '[0-9]+ passed' "$out/admin-journey.log" | tail -1) (a second factor enrolled from its QR code's secret and the dashboard reached, a pending host activated, ₹1.25 granted and found in the audit log, a running session force-stopped): PASS"
+  note "admin journeys: $(grep -Eo '[0-9]+ passed' "$out/admin-journey.log" | tail -1) (a second factor enrolled from its QR code's secret and the dashboard reached, a pending host activated, ₹1.25 granted and found in the audit log, a running session force-stopped, rated and reported by its renter, and the report refunded): PASS"
 
   # Each action wrote exactly one audit row, by the admin, with the reason typed in the sheet.
+  dispute="$(sql "select id from trust.disputes where session_id = '$session'")"
+  [[ -n "$dispute" ]] || fail "the renter's report of $session isn't in trust.disputes"
   rows="$(sql "select string_agg(action || '=' || n, ' ' order by action) from (
       select action, count(*) as n from identity.audit_log
       where actor_user_id = '$admin_id'
         and ((action = 'admin.second_factor_confirm' and target_id = '$admin_id')
+          or (action = 'dispute.refund' and target_id = '$dispute' and reason = 'end-to-end refund')
           or (action = 'host.activate' and target_id = '$pending' and reason = 'passed the end-to-end checks')
           or (action = 'credit.grant' and target_id = '$web_user_id' and reason = 'end-to-end admin grant'
               and (after->>'amountPaise')::bigint = 125)
           or (action = 'session.force_stop' and target_id = '$session' and reason = 'end-to-end force stop'))
       group by action) counted")"
-  [[ "$rows" == "admin.second_factor_confirm=1 credit.grant=1 host.activate=1 session.force_stop=1" ]] ||
+  [[ "$rows" == "admin.second_factor_confirm=1 credit.grant=1 dispute.refund=1 host.activate=1 session.force_stop=1" ]] ||
     fail "the admin journey's audit rows aren't one per action: $rows"
   [[ "$(sql "select count(*) from identity.audit_log where action = 'admin.grant' and target_id = '$admin_id' and actor_name = 'e2e-script'")" == 1 ]] ||
     fail "grant-admin wrote no audit row"
@@ -1573,9 +1580,52 @@ scenario_admin_web() {
   charged="$(token="$web_token" api_get "/v1/sessions/$session" | json_get .chargedPaise)"
   [[ "$(token="$web_token" api_get "/v1/sessions/$session" | json_get .state)" == COMPLETED ]] ||
     fail "the force-stopped session $session didn't complete"
-  [[ "$charged" == "$(sql "select coalesce(sum(amount_paise), 0) from metering.settlements where session_id = '$session'")" ]] ||
-    fail "the force-stopped session's charge $charged isn't its settlements'"
-  note "admin force stop: session $session stopped for operator_stopped, completed and settled at $charged paise, its settlements' sum: PASS"
+  # Its charge is net of what the renter's report got back (ADR 0028), so with that it is its settlements' sum.
+  [[ "$((charged + $(json_get .refund.refund <"$report")))" == "$(sql "select coalesce(sum(amount_paise), 0) from metering.settlements where session_id = '$session'")" ]] ||
+    fail "the force-stopped session's charge $charged and its refund aren't its settlements' sum"
+  note "admin force stop: session $session stopped for operator_stopped, completed and settled, its settlements' sum equal to the $charged paise charged and the $(json_get .refund.refund <"$report") refunded after its report: PASS"
+
+  # The refund (ADR 0028): the report's own record, its one ledger transaction, and every number the pages showed.
+  local paid refund commission refund_txn host_owner_id owner_token renter_token owner_earnings owner_ledger
+  # The run's first tokens last an hour, and this is its end: new ones for the two people checked here.
+  owner_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$user" -d client_secret=unused -d scope=openid | json_field access_token)"
+  renter_token="$(curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$web_user" -d client_secret=unused -d scope=openid | json_field access_token)"
+  [[ -n "$owner_token" && -n "$renter_token" ]] || fail "no new tokens for the refund checks"
+  paid="$(json_get .refund.paid <"$report")"
+  commission="$(json_get .refund.fromCommission <"$report")"
+  refund="$(json_get .refund.refund <"$report")"
+  [[ "$(sql "select state || ':' || refund_paise || ':' || commission_refund_paise || ':' || host_refund_paise
+             from trust.disputes where id = '$dispute'")" == "refunded:$refund:$commission:1" ]] ||
+    fail "the report's refund isn't $refund paise, $commission from the commission and 1 from the host"
+  refund_txn="$(sql "select refund_txn from trust.disputes where id = '$dispute'")"
+  [[ "$(sql "select string_agg(account || ':' || direction || ':' || amount_paise, ',' order by account)
+             from billing.ledger_entries where txn_id = '$refund_txn'")" == "host_payable:debit:1,platform_revenue:debit:$commission,renter_wallet:credit:$refund" ]] ||
+    fail "the refund's ledger entries aren't one balanced transaction of $refund paise"
+  [[ "$(token="$renter_token" api_get "/v1/sessions/$session" | json_get .chargedPaise)" == "$((paid - refund))" ]] ||
+    fail "the refunded session's charge isn't $((paid - refund)) paise, net of the refund"
+  [[ "$(sql "select count(*) from trust.ratings where session_id = '$session' and stars = 3 and comment = 'end-to-end rating comment'")" == 1 ]] ||
+    fail "the renter's rating isn't kept"
+  [[ "$(sql "select count(*) from billing.payout_holds where dispute_id = '$dispute' and released_at is not null")" == 1 ]] ||
+    fail "the report's payout hold wasn't placed and ended"
+  # The host's owner reads the refund as a line of their earnings, which still equal the ledger's host_payable entries.
+  host_owner_id="$(token="$owner_token" api_get /v1/me | json_get .id)"
+  owner_earnings="$(token="$owner_token" api_get /v1/earnings)" ||
+    fail "GET /v1/earnings failed for the host's owner: $(curl -s -w ' HTTP %{http_code}' "$api/v1/earnings" -H "Authorization: Bearer $owner_token" | cut -c1-300)"
+  # Read before the pipe below: a command inside it would take the pipe's input.
+  owner_ledger="$(sql "select coalesce(sum(case e.direction when 'credit' then e.amount_paise else -e.amount_paise end), 0)
+                       from billing.ledger_entries e join hosts.hosts h on h.id = e.owner_id
+                       where e.account = 'host_payable' and h.owner_user_id = '$host_owner_id'")"
+  printf '%s' "$owner_earnings" | python3 -c 'import json, sys
+earnings = json.load(sys.stdin)
+lines = [e for e in earnings["history"]["entries"] if e["kind"] == "refunded_to_renter"]
+assert lines and lines[0]["amountPaise"] == -1 and lines[0]["label"] == "Refunded to renter" and not lines[0]["payoutHeld"], lines
+assert earnings["totalPaise"] == int(sys.argv[1]), (earnings["totalPaise"], sys.argv[1])
+assert sys.argv[2] not in json.dumps(earnings) and sys.argv[3] not in json.dumps(earnings), earnings' \
+    "$owner_ledger" "$web_user" "$web_user_id" ||
+    fail "the host owner's earnings don't show the refund, or don't equal the ledger"
+  note "ratings and reports: session $session rated 3 stars with a comment and reported by its renter; the admin refunded $refund paise of $paid: $commission from the platform's commission, 1 from the host (one balanced transaction, charge now $((paid - refund))); the renter's credit and history, and the host owner's earnings (\"Refunded to renter\", -1 paise, equal to the ledger), show it: PASS"
 
   kill -TERM "$(cat "$out/agent-$n.pid")" 2>/dev/null
   wait "$(cat "$out/agent-$n.pid")" 2>/dev/null || true
