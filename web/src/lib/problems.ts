@@ -67,6 +67,10 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "host-removed": "This machine was removed. Add it again to rent it out.",
   "host-no-gpu": "This machine hasn't reported its GPU yet. Wait for it to connect, then try again.",
   "pause-too-long": "A pause can last 7 days at most. Choose a shorter one, or pause until you resume.",
+  "session-not-rateable": "Only a session that ran for at least a minute can be rated.",
+  "rating-closed": "It's too late to rate this session or change its rating: each closes after 7 days.",
+  "report-window-closed": "Problems can be reported within 7 days of a session ending.",
+  "report-already-open": "You've already reported this session. We'll reply within 2 days.",
   "admin-code-invalid":
     "That code isn't right, or was already used. Five wrong codes in 15 minutes lock admin access.",
   "second-factor-exists": "Your authenticator is already set up. Sign in with a code from it.",

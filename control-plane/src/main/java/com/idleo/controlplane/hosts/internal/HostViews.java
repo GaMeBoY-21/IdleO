@@ -4,6 +4,7 @@ import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.hosts.HostPresence;
+import com.idleo.controlplane.hosts.HostRatings;
 import com.idleo.controlplane.hosts.HostWork;
 import java.time.Clock;
 import java.time.Instant;
@@ -26,7 +27,8 @@ class HostViews {
      * it ends or they resume; {@code pausedUntil} is empty for a pause with no end. {@code agentVersion} is what
      * the agent last reported; {@code updateRequired} says it's older than the oldest release we support, and {@code
      * onlineSince} when its current stream opened, empty while it's offline. {@code currentSession} is what it's
-     * running now and what it has earned from that so far, never for whom; empty when it's idle.
+     * running now and what it has earned from that so far, never for whom; empty when it's idle. {@code rating} is
+     * its renters' average over the last 90 days, empty until 5 of them have rated it (ADR 0028).
      */
     record HostResponse(
             UUID id,
@@ -42,19 +44,28 @@ class HostViews {
             HostWork.@Nullable CurrentSession currentSession,
             List<GpuResponse> gpus,
             HostListings.@Nullable Listing listing,
+            HostRatings.@Nullable Rating rating,
             Instant createdAt) {}
 
     private final HostService hosts;
     private final HostListingService listings;
     private final HostPresence presence;
     private final HostWork work;
+    private final HostRatings ratings;
     private final Clock clock;
 
-    HostViews(HostService hosts, HostListingService listings, HostPresence presence, HostWork work, Clock clock) {
+    HostViews(
+            HostService hosts,
+            HostListingService listings,
+            HostPresence presence,
+            HostWork work,
+            HostRatings ratings,
+            Clock clock) {
         this.hosts = hosts;
         this.listings = listings;
         this.presence = presence;
         this.work = work;
+        this.ratings = ratings;
         this.clock = clock;
     }
 
@@ -77,6 +88,7 @@ class HostViews {
         var connections = ids.isEmpty() ? Map.<UUID, HostPresence.Connection>of() : presence.connections(ids);
         var gpus = hosts.gpus(ids);
         var current = work.current(ids);
+        var rated = ids.isEmpty() ? Map.<UUID, HostRatings.Rating>of() : ratings.of(ids);
         var now = Instant.now(clock);
         return list.stream()
                 .map(host -> {
@@ -98,6 +110,7 @@ class HostViews {
                                     .map(gpu -> new GpuResponse(gpu.model(), gpu.vramMb(), gpu.gone()))
                                     .toList(),
                             listings.listing(host.id()).orElse(null),
+                            rated.get(host.id()),
                             host.createdAt());
                 })
                 .toList();

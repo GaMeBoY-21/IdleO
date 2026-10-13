@@ -53,7 +53,8 @@
  * <p>The listing's {@code keepFreeGb} (10 to 500, default 20) is the disk the owner keeps for themselves: a session
  * is offered only when the host's free disk less this still covers its files. Ports other modules implement:
  * {@link com.idleo.controlplane.hosts.HostWork} (sessions: is the host busy, and what it's running),
- * {@link com.idleo.controlplane.hosts.HostTelemetry} (agent gateway). {@link com.idleo.controlplane.hosts.HostRemoved}
+ * {@link com.idleo.controlplane.hosts.HostTelemetry} (agent gateway), {@link
+ * com.idleo.controlplane.hosts.HostRatings} (trust: the host's average rating, shown from 5 ratings, ADR 0028). {@link com.idleo.controlplane.hosts.HostRemoved}
  * is published when an owner removes a host.
  *
  * <p>The admin console (ADR 0027): {@code GET /admin/v1/hosts} and {@code /admin/v1/hosts/{id}} (its GPUs,

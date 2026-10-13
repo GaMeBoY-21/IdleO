@@ -189,7 +189,7 @@ class NotificationDeliveryTests {
     void aSessionThatFailedBeforeItRanSaysNothingWasCharged() {
         var id = session("FAILED", "start_timeout", null, false);
 
-        listeners.on(new SessionNeverRan(id));
+        listeners.on(new SessionNeverRan(id, renter.id(), "FAILED", Instant.now()));
 
         assertThat(inbox(renter.id()).getFirst().get("body"))
                 .isEqualTo("The host didn't start it in time. You weren't charged. Run it again; you won't be"
@@ -258,7 +258,7 @@ class NotificationDeliveryTests {
     void noGpuFreeIsOnlyInTheApp() {
         var id = session("NO_HOST_FREE", "no_candidate", null, false);
 
-        listeners.on(new SessionNeverRan(id));
+        listeners.on(new SessionNeverRan(id, renter.id(), "NO_HOST_FREE", Instant.now()));
 
         var message = inbox(renter.id()).getFirst();
         assertThat(message).containsEntry("kind", "no-host-free").containsEntry("title", "No GPU was free");
@@ -363,7 +363,7 @@ class NotificationDeliveryTests {
     @Test
     void aSessionThatIsGoneIsLoggedNotRetriedForever() {
         listeners.on(new SessionSettled(UUID.randomUUID()));
-        listeners.on(new SessionNeverRan(UUID.randomUUID()));
+        listeners.on(new SessionNeverRan(UUID.randomUUID(), UUID.randomUUID(), "FAILED", Instant.now()));
         listeners.on(new SessionLowOnCredit(UUID.randomUUID()));
         listeners.on(new AttemptLost(UUID.randomUUID(), 1));
 

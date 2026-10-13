@@ -263,6 +263,28 @@ public enum Problem {
             "The pause is too long",
             "A pause with an end must end within 7 days from now. Pause until you resume it for longer."),
 
+    // Ratings and reports (ADR 0028).
+    SESSION_NOT_RATEABLE(
+            "session-not-rateable",
+            HttpStatus.CONFLICT,
+            "This session can't be rated",
+            "Only a session that ran for at least a minute can be rated."),
+    RATING_CLOSED(
+            "rating-closed",
+            HttpStatus.CONFLICT,
+            "Too late to rate this session",
+            "A session can be rated within 7 days of ending, and its rating changed within 7 days of being given."),
+    REPORT_WINDOW_CLOSED(
+            "report-window-closed",
+            HttpStatus.CONFLICT,
+            "Too late to report this session",
+            "A problem with a session can be reported within 7 days of it ending."),
+    REPORT_ALREADY_OPEN(
+            "report-already-open",
+            HttpStatus.CONFLICT,
+            "This session already has an open report",
+            "A session has one open report at a time. We'll reply to it; once it's resolved, another can be sent."),
+
     // The admin console (ADR 0027).
     ADMIN_CODE_INVALID(
             "admin-code-invalid",

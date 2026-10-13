@@ -51,6 +51,10 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/host-removed` | 410 | The host was removed | This host was removed and never comes back; add the machine again to rent it out. |
 | `/problems/host-no-gpu` | 409 | The host hasn't reported a GPU | A price can only be suggested once the host's agent has connected and reported its GPU. |
 | `/problems/pause-too-long` | 400 | The pause is too long | A pause with an end must end within 7 days from now. Pause until you resume it for longer. |
+| `/problems/session-not-rateable` | 409 | This session can't be rated | Only a session that ran for at least a minute can be rated. |
+| `/problems/rating-closed` | 409 | Too late to rate this session | A session can be rated within 7 days of ending, and its rating changed within 7 days of being given. |
+| `/problems/report-window-closed` | 409 | Too late to report this session | A problem with a session can be reported within 7 days of it ending. |
+| `/problems/report-already-open` | 409 | This session already has an open report | A session has one open report at a time. We'll reply to it; once it's resolved, another can be sent. |
 | `/problems/admin-code-invalid` | 400 | Code not accepted | The authenticator code or recovery code is wrong, or was already used. The fifth wrong code in 15 minutes locks admin access until an operator grants it again. |
 | `/problems/second-factor-exists` | 409 | Second factor already set up | The admin's authenticator is already set up, and its secret is never shown again. Sign in with a code from it, or a recovery code. |
 | `/problems/second-factor-missing` | 409 | Second factor not set up | Set up the authenticator first: ask for a secret, then confirm it with a code from the app. |

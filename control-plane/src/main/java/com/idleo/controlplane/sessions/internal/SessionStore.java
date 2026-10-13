@@ -192,21 +192,31 @@ class SessionStore {
             String reason,
             @Nullable Integer expectedVersion,
             HostChange hostChange) {
-        var current = jdbc.sql(
-                        "select state, version, attempt, started_at from sessions.sessions where id = :id for update")
+        record Current(
+                SessionState state,
+                int version,
+                int attempt,
+                UUID renterId,
+                @Nullable Instant startedAt) {}
+        var current = jdbc.sql("""
+                        select state, version, attempt, renter_id, started_at from sessions.sessions
+                        where id = :id for update
+                        """)
                 .param("id", sessionId)
-                .query((rs, n) -> new Object[] {
-                    SessionState.valueOf(rs.getString("state")),
-                    rs.getInt("version"),
-                    rs.getInt("attempt"),
-                    rs.getTimestamp("started_at") != null
-                })
+                .query((rs, n) -> new Current(
+                        SessionState.valueOf(rs.getString("state")),
+                        rs.getInt("version"),
+                        rs.getInt("attempt"),
+                        rs.getObject("renter_id", UUID.class),
+                        rs.getTimestamp("started_at") == null
+                                ? null
+                                : rs.getTimestamp("started_at").toInstant()))
                 .optional();
         if (current.isEmpty()) {
             return Outcome.MISSING;
         }
-        var from = (SessionState) current.get()[0];
-        int version = (Integer) current.get()[1];
+        var from = current.get().state();
+        int version = current.get().version();
         var to = SessionTransitions.next(from, event);
         if (to.isEmpty()) {
             log.warn("Refused session transition: {} on {} from {} ({})", event, sessionId, from, reason);
@@ -241,14 +251,27 @@ class SessionStore {
         hints.changed(sessionId);
         // Metering follows the attempts and closes a session's usage once it ends (ADR 0017).
         if (to.get() == SessionState.HOST_LOST) {
-            events.publishEvent(new AttemptLost(sessionId, (Integer) current.get()[2]));
+            events.publishEvent(new AttemptLost(sessionId, current.get().attempt()));
         }
-        if (to.get().isFinal && (Boolean) current.get()[3]) {
-            events.publishEvent(new SessionEnded(sessionId));
+        var renterId = current.get().renterId();
+        var startedAt = current.get().startedAt();
+        if (to.get().isFinal && startedAt != null) {
+            events.publishEvent(new SessionEnded(
+                    sessionId, renterId, lastHostThatRan(sessionId), to.get().name(), startedAt, now));
         } else if (to.get() == SessionState.NO_HOST_FREE || to.get() == SessionState.FAILED) {
-            events.publishEvent(new SessionNeverRan(sessionId));
+            events.publishEvent(
+                    new SessionNeverRan(sessionId, renterId, to.get().name(), now));
         }
         return Outcome.APPLIED;
+    }
+
+    /** The host of the session's last attempt that ran: a started session always has one. */
+    private UUID lastHostThatRan(UUID sessionId) {
+        return jdbc.sql("""
+                        select host_id from sessions.attempts
+                        where session_id = :id and running_at is not null
+                        order by attempt desc limit 1
+                        """).param("id", sessionId).query(UUID.class).single();
     }
 
     /** The attempt stopped running now, on the control plane's clock; the first time counts. */

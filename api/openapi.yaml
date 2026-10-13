@@ -488,6 +488,51 @@ paths:
         idToken: []
       tags:
       - adminMoney
+  /admin/v1/ratings:
+    get:
+      operationId: adminRatingsList
+      parameters:
+      - in: query
+        name: host
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: session
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRatingPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRatings
   /admin/v1/reconciliation:
     get:
       operationId: adminMoneyReconciliation
@@ -2088,6 +2133,61 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - session
+  /v1/sessions/{id}/rating:
+    get:
+      operationId: ratingGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionRating"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - rating
+    post:
+      operationId: ratingRate
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RatingRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionRating"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - rating
   /v1/sessions/{id}/stop:
     post:
       operationId: sessionStop
@@ -2864,6 +2964,51 @@ components:
           - "null"
       required:
       - entries
+    AdminRating:
+      type: object
+      properties:
+        changedAt:
+          type: string
+          format: date-time
+        comment:
+          type:
+          - string
+          - "null"
+        hostId:
+          type: string
+          format: uuid
+        ratedAt:
+          type: string
+          format: date-time
+        renterId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        stars:
+          type: integer
+          format: int32
+      required:
+      - changedAt
+      - hostId
+      - ratedAt
+      - renterId
+      - sessionId
+      - stars
+    AdminRatingPage:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        ratings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRating"
+      required:
+      - ratings
     AdminReason:
       type: object
       properties:
@@ -3821,6 +3966,10 @@ components:
           - string
           - "null"
           format: date-time
+        rating:
+          oneOf:
+          - $ref: "#/components/schemas/Rating"
+          - type: "null"
         status:
           type: string
         updateRequired:
@@ -4349,6 +4498,10 @@ components:
           - /problems/host-removed
           - /problems/host-no-gpu
           - /problems/pause-too-long
+          - /problems/session-not-rateable
+          - /problems/rating-closed
+          - /problems/report-window-closed
+          - /problems/report-already-open
           - /problems/admin-code-invalid
           - /problems/second-factor-exists
           - /problems/second-factor-missing
@@ -4389,6 +4542,33 @@ components:
       - holdPaise
       - hostsFitNow
       - vramNeededMb
+    Rating:
+      type: object
+      properties:
+        averageStars:
+          type: number
+        count:
+          type: integer
+          format: int32
+      required:
+      - averageStars
+      - count
+    RatingRequest:
+      type: object
+      properties:
+        comment:
+          type:
+          - string
+          - "null"
+          maxLength: 500
+          minLength: 0
+        stars:
+          type: integer
+          format: int32
+          maximum: 5
+          minimum: 1
+      required:
+      - stars
     ReadRequest:
       type: object
       properties:
@@ -4570,6 +4750,41 @@ components:
       required:
       - attempt
       - latestSeq
+    SessionRating:
+      type: object
+      properties:
+        changedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        comment:
+          type:
+          - string
+          - "null"
+        rateable:
+          type: boolean
+        rateableUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
+        ratedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        sessionId:
+          type: string
+          format: uuid
+        stars:
+          type:
+          - integer
+          - "null"
+          format: int32
+      required:
+      - rateable
+      - sessionId
     SessionResponse:
       type: object
       properties:
