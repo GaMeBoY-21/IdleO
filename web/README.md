@@ -1,6 +1,6 @@
 # web
 
-The renter and host web app: sign-in, Home, booking a GPU, a session live, all sessions and credit; the host side is the next round. The admin console comes in Phase 2.
+The renter and host web app: sign-in, Home, booking a GPU, a session live, all sessions and credit, the host side, and the admin console at `/admin/` (ADR 0027).
 
 ## The screens
 
@@ -13,6 +13,7 @@ The renter and host web app: sign-in, Home, booking a GPU, a session live, all s
 | `/sessions/` | All sessions, active or ended (`?show=ended`), a page at a time |
 | `/credit/` | Credit and its history |
 | `/welcome/`, `/sign-in/` | A new account's first screen; sign-in |
+| `/admin/…` | The admin console (ADR 0027, docs/runbooks/admin.md): its own lazily loaded chunk, which renters never download. Setting up the authenticator and the code check, then Dashboard, Users, Hosts, Sessions, Review queue, Money, Invites and the Audit log (`/admin/users/?id=…` and the like open one record). Every action asks why in one sheet. Anyone who isn't an admin sees "We can't find that page" |
 
 How they're built, in short:
 - **A service's booking screen is generated** from its template in the catalog (`src/features/book/steps.ts`, `params.ts`), never written per service.
@@ -74,6 +75,8 @@ CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.
 6. The event stream drops (through a proxy the test cuts): the stale notice appears, polling keeps the figures moving, and the stream comes back.
 7. On a phone, a running `long-run` session is stopped, shows its charge, and Run again works.
 
+The admin journeys are `e2e/admin-journey.spec.ts` (the `admin-journey` project), run by `scripts/e2e/agent-online.sh` last: it makes a new person an admin with `grant-admin`, leaves one more host enrolled but not activated, and books a long run. In one page, because the admin session lives only in its memory, the journey sets up a second factor from the secret on the page and reaches the dashboard, activates the pending host, grants ₹1.25 and finds it in the audit log, and force-stops the run; the script then checks each action's one audit row in the database and the run's settlement.
+
 The owner's journeys are `e2e/hosting-journey.spec.ts` (the `hosting-journey` project), run by `scripts/e2e/agent-online.sh` once every other scenario is over, so the machine they add changes nothing for them. They enrol a real agent with a fake RTX 4060 Laptop from the code on the page (`E2E_AGENT`, `E2E_AGENT_CA`, `E2E_GRPC_PORT`), and call `scripts/e2e/activate-host.sh` for the step an operator does by hand:
 1. Add a machine from its name to connected, set its price, and have it activated.
 2. Pause it and resume it; one host fewer fits a quote while it's paused.
@@ -93,7 +96,7 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 | Interaction to next paint | at most 200 ms | `e2e/lighthouse.spec.ts` (web-vitals, CPU slowed 4×: Home's menu and moving between screens, typing in the booking form, the session screen while its log streams) |
 | Layout shift | 0 | `lighthouserc.json`, and every screen in `e2e/layout-shift.spec.ts` |
 | Total blocking time | at most 150 ms | `lighthouserc.json` |
-| First-load JavaScript, signed-in home | at most 150 KB gzipped | `scripts/first-load.ts`, on the production build, sign-in adapter included |
+| First-load JavaScript, signed-in home | at most 150 KB gzipped, and none of the admin console's code | `scripts/first-load.ts`, on the production build, sign-in adapter included |
 | Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/*screens.spec.ts` |
 | A 10 MiB log | at most 2,000 lines in the page, every interaction within the app's 200 ms on a CPU slowed 4× | `e2e/performance.spec.ts` |
 
@@ -156,7 +159,7 @@ It's under the gitignored `private/`, and the data in it is invented.
 | `src/auth/` | Sign-in: the adapters, and the one place the Firebase SDK is imported |
 | `src/api/` | The typed client, the 401 retry, the queries and their cache rules, the home's kept figures, the event stream (`stream.ts`, `session-follower.ts`, `useLiveSession.ts`) and logs |
 | `src/components/` | The shell (bars, menu) and the UI components |
-| `src/features/` | The screens: `home`, `book` (the screen generator, the upload manager, the quote), `files` (My files), `session` (live: figures, logs, checkpoints), `sessions`, `credit`, `sign-in` |
+| `src/features/` | The screens: `home`, `book` (the screen generator, the upload manager, the quote), `files` (My files), `session` (live: figures, logs, checkpoints), `sessions`, `credit`, `sign-in`, and `admin` (the console, its client with the admin session held in memory, the action sheet) |
 | `src/lib/money.ts` | `formatPaise`, the only way money is shown |
 | `e2e/` | Playwright: screens (`*screens.spec.ts`), layout shift, Firebase sign-in, the journeys, Lighthouse, the 10 MiB log, the gallery recordings; `fixtures.ts` is the one builder of invented data, and its figures add up (`src/test/fixtures.test.ts`) |
 | `scripts/` | The theme generator, post-build (CSP, screens, pre-render), the server, the size check, the font subset, the wordmark, the gallery |

@@ -1,5 +1,7 @@
 # Granting and reversing free credits (by Nikki)
 
+The admin console (docs/runbooks/admin.md, Users and Money) grants, reverses and runs the wallet check through the same services, from a browser.
+
 Free credit is the only money that enters the platform until payments exist (ADR 0014). It's granted by an operator command, not a web page:
 - every grant and reversal is a balanced ledger transaction;
 - every grant and reversal is an append-only audit row, saying who did it and why;

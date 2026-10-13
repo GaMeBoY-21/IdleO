@@ -1,5 +1,7 @@
 # Invite codes
 
+The admin console (docs/runbooks/admin.md, Invites) makes codes through the same service and lists who used each.
+
 While access is by invitation (ADR 0024), a new account is **waiting** after its first sign-in. A waiting account can read and rename itself and enter an invite code; every other call answers 403 `invite-required`. A code activates the account, once. Accounts that signed in before invites existed are active.
 
 Access stays by invitation until the paid pilot. `identity.invite-only` (the environment variable `IDENTITY_INVITE_ONLY`) is `true` unless something sets it to `false`: the test profile does, and so does `scripts/e2e/agent-online.sh` (`E2E_INVITE_ONLY=true` turns it on for a run).
