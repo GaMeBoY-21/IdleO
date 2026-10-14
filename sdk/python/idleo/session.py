@@ -118,7 +118,7 @@ class Session:
         deadline = None if timeout is None else time.monotonic() + timeout
         status.update(self._words())
         if not self.settled:
-            for _event in self._follow(1.0 if deadline is not None else None):
+            for _event in self._follow(None if timeout is None else min(1.0, max(timeout, 0.01))):
                 status.update(self._words())
                 if self.settled:
                     break
@@ -240,6 +240,11 @@ class Session:
                 with contextlib.suppress(Exception):
                     response.close()
 
+    def _pause(self, stop: threading.Event) -> None:
+        """A moment before asking again; nothing if the caller has already gone."""
+        if not stop.is_set():
+            self._transport.sleep(TICK)
+
     def _stream(self, stop: threading.Event, live: dict[str, httpx.Response]) -> Iterator[Event]:
         failures = 0
         while not stop.is_set():
@@ -256,7 +261,7 @@ class Session:
                 failures += 1
                 if failures >= GIVE_UP_AFTER:
                     raise
-                stop.wait(TICK)
+                self._pause(stop)
                 continue
             except IdleoError as error:
                 if error.slug != "too-many-streams":
@@ -264,7 +269,7 @@ class Session:
                 failures += 1
                 if failures >= GIVE_UP_AFTER:
                     raise
-                stop.wait(TICK)
+                self._pause(stop)
                 continue
             failures = 0
             live["response"] = response
@@ -294,7 +299,7 @@ class Session:
                 yield SessionEvent(self.data)
                 if self.settled:
                     return
-            stop.wait(TICK)
+            self._pause(stop)
 
 
 class _LogReader:

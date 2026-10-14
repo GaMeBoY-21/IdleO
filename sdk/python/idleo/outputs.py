@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import builtins
 from collections.abc import Callable
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
@@ -25,9 +25,8 @@ PART_SUFFIX = ".idleo-part"
 
 def destination(directory: Path, relative: str) -> Path:
     """Where an output goes under `directory`: its path, which must stay inside it."""
-    parts = PurePosixPath(relative).parts
-    safe = bool(relative) and "\\" not in relative and all(part not in ("", ".", "..", "/") for part in parts)
-    if not safe or PurePosixPath(relative).is_absolute():
+    parts = relative.split("/")
+    if not relative or "\\" in relative or any(part in ("", ".", "..") for part in parts):
         raise IdleoError(f"The output {relative!r} has a path that would leave the download folder.")
     return directory.joinpath(*parts)
 
