@@ -121,14 +121,13 @@ class HostLossTests {
                 .build();
     }
 
-    /** Time passes for this session only: its lease ends at {@code expiresAt}. */
     /**
      * Moves the session's lease end to {@code expiresAt}, and keeps it there: a host that has just disconnected may
      * still have one renewal on its way, which would write a fresh end over this one. It holds once a whole second
      * passes with no renewal.
      */
     private void leaseEndsAt(UUID sessionId, Instant expiresAt) throws InterruptedException {
-        var deadline = System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
+        var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         var quietSince = System.nanoTime();
         while (System.nanoTime() < deadline) {
             int moved = jdbc.update(
@@ -138,8 +137,7 @@ class HostLossTests {
                     Timestamp.from(expiresAt));
             if (moved > 0) {
                 quietSince = System.nanoTime();
-            } else if (System.nanoTime() - quietSince
-                    > java.time.Duration.ofSeconds(1).toNanos()) {
+            } else if (System.nanoTime() - quietSince > Duration.ofSeconds(1).toNanos()) {
                 return;
             }
             Thread.sleep(50);
