@@ -190,13 +190,13 @@ const base = (machine: { id: string; name: string; price: number }): Host => ({
 });
 
 /**
- * What 23 renters rated Nikki's ROG (ADR 0028): the average is the mean of these, to one decimal place, as the control
- * plane works it; a machine needs 5 ratings before one shows.
+ * What 23 renters rated Nikki's ROG (ADR 0028): the average is the mean of these, to one decimal place, and the count
+ * rounded down to a multiple of 5, as the control plane works them; a machine needs 5 ratings before one shows.
  */
 export const ROG_STARS: number[] = [...Array<number>(16).fill(5), ...Array<number>(5).fill(4), 3, 2];
 export const ratingOf = (stars: number[]): NonNullable<Host["rating"]> => ({
   averageStars: Math.round((stars.reduce((sum, star) => sum + star, 0) / stars.length) * 10) / 10,
-  count: stars.length,
+  countAtLeast: Math.floor(stars.length / 5) * 5,
 });
 
 /** Running a session and earning. */

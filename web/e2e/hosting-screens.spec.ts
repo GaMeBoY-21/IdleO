@@ -128,8 +128,8 @@ test.describe("one machine", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Nikki's ROG Strix" })).toBeVisible();
     await expect(page.getByTestId("machine-chip")).toHaveText("Running a session");
     // What 23 renters rated it, as a figure and never who (ADR 0028).
-    // A screen reader hears "Rated 4.6 out of 5 from 23 sessions"; the screen shows the star, 4.6 and the count.
-    await expect(page.getByText(/4\.6 out of 5 from 23 sessions/)).toBeVisible();
+    // A screen reader hears "Rated 4.6 out of 5 from 20+ ratings"; the screen shows the star, 4.6 and the count.
+    await expect(page.getByText(/4\.6 out of 5 from 20\+ ratings/)).toBeVisible();
     await expect(page.getByText(/Ratings appear after/)).toHaveCount(0);
     await expect(page.getByText("RTX 4080 Laptop · 12 GB")).toBeVisible();
     await expect(page.getByText(/^69°C of 85°C limit · 93% busy/)).toBeVisible();

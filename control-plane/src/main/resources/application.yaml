@@ -158,6 +158,12 @@ billing:
     cron: "0 30 2 * * *"
     zone: Asia/Kolkata
 
+# A host's shown rating is worked out once a day, never on each rating (ADR 0028).
+trust:
+  ratings:
+    refresh-cron: "0 15 3 * * *"
+    zone: Asia/Kolkata
+
 sessions:
   # The renter's session limits (technical design "Limits", ADR 0025): new sessions an hour (fewer for an account
   # less than a day old) and sessions that haven't ended, counted in PostgreSQL as each is booked.

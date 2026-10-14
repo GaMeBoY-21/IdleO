@@ -50,6 +50,9 @@ class RatingTests {
     MutableClock clock;
 
     @Autowired
+    Ratings ratings;
+
+    @Autowired
     ApplicationEventPublisher events;
 
     @Autowired
@@ -228,19 +231,23 @@ class RatingTests {
                             "{\"stars\":" + given + ",\"comment\":\"secret words from " + rater.id() + "\"}")
                     .andExpect(status().isOk());
         }
+        ratings.refreshHostRatings();
         hostView(owner, hostId).andExpect(jsonPath("$.rating").doesNotExist());
 
+        // The fifth rating changes nothing the host sees until the daily refresh.
         var fifth = TestUsers.signUp(mvc);
         rate(fifth, endedSession(fifth.id(), hostId, Duration.ofMinutes(5), Duration.ofMinutes(1)), "{\"stars\":4}")
                 .andExpect(status().isOk());
+        hostView(owner, hostId).andExpect(jsonPath("$.rating").doesNotExist());
+        ratings.refreshHostRatings();
         var body = hostView(owner, hostId)
                 .andExpect(jsonPath("$.rating.averageStars").value(4.6))
-                .andExpect(jsonPath("$.rating.count").value(5))
+                .andExpect(jsonPath("$.rating.countAtLeast").value(5))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
         var list = mvc.perform(get("/v1/hosts").header("Authorization", owner.bearer()))
-                .andExpect(jsonPath("$.hosts[0].rating.count").value(5))
+                .andExpect(jsonPath("$.hosts[0].rating.countAtLeast").value(5))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -249,6 +256,47 @@ class RatingTests {
                     .doesNotContain(
                             "secret words", renter.id().toString(), fifth.id().toString());
         }
+    }
+
+    @Test
+    void aNewRatingChangesWhatTheHostSeesOnlyAtTheDailyRefreshAndTheCountIsRoundedDownToFives() throws Exception {
+        var owner = TestUsers.signUp(mvc);
+        var hostId = UUID.fromString(JSON.readTree(mvc.perform(post("/v1/hosts")
+                                .header("Authorization", owner.bearer())
+                                .header("Idempotency-Key", UUID.randomUUID().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Daily laptop\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString())
+                .get("id")
+                .asString());
+        for (int given : new int[] {5, 5, 5, 5, 5, 4}) {
+            var rater = TestUsers.signUp(mvc);
+            rate(
+                            rater,
+                            endedSession(rater.id(), hostId, Duration.ofMinutes(5), Duration.ofMinutes(1)),
+                            "{\"stars\":" + given + "}")
+                    .andExpect(status().isOk());
+        }
+        ratings.refreshHostRatings();
+        hostView(owner, hostId)
+                .andExpect(jsonPath("$.rating.averageStars").value(4.8))
+                .andExpect(jsonPath("$.rating.countAtLeast").value(5));
+
+        // One more renter gives 1 star. Until the daily refresh the host sees exactly what it saw, so the 1 can't be
+        // read from the change; after it, the average moves and the count still says "5+".
+        var seventh = TestUsers.signUp(mvc);
+        rate(seventh, endedSession(seventh.id(), hostId, Duration.ofMinutes(5), Duration.ofMinutes(1)), "{\"stars\":1}")
+                .andExpect(status().isOk());
+        hostView(owner, hostId)
+                .andExpect(jsonPath("$.rating.averageStars").value(4.8))
+                .andExpect(jsonPath("$.rating.countAtLeast").value(5));
+        ratings.refreshHostRatings();
+        hostView(owner, hostId)
+                .andExpect(jsonPath("$.rating.averageStars").value(4.3))
+                .andExpect(jsonPath("$.rating.countAtLeast").value(5));
     }
 
     private ResultActions hostView(TestUsers.TestUser owner, UUID hostId) throws Exception {

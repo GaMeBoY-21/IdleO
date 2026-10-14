@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,7 +27,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>a session has one rating, for the host that ran its last attempt, given within 7 days of the session ending
  *       and changed in place within 7 days of being given;
  *   <li>a host's average is over the ratings of its sessions that ended in the last 90 days, and shown only once there
- *       are 5 of them, so no one rating can be picked out. A host never sees who rated it or what they wrote.
+ *       are 5 of them. It is worked out once a day ({@code trust.ratings.refresh-cron}), never on each rating, and
+ *       its count is shown rounded down to a multiple of 5, so a host can't learn one renter's stars from how the
+ *       figures move after a session. A host never sees who rated it or what they wrote.
  * </ul>
  */
 @Service
@@ -153,21 +156,43 @@ class Ratings implements HostRatings {
             return rated;
         }
         jdbc.sql("""
-                        select r.host_id, round(avg(r.stars), 1) as average, count(*) as count
-                        from trust.ratings r join trust.ended_sessions s on s.session_id = r.session_id
-                        where r.host_id in (:hostIds) and s.ended_at >= :since
-                        group by r.host_id
-                        having count(*) >= :shownFrom
-                        """)
-                .param("hostIds", hostIds)
-                .param("since", Timestamp.from(Instant.now(clock).minus(AVERAGE_OVER)))
-                .param("shownFrom", SHOWN_FROM)
-                .query(rs -> {
-                    rated.put(
-                            rs.getObject("host_id", UUID.class),
-                            new HostRatings.Rating(rs.getBigDecimal("average"), rs.getInt("count")));
-                });
+                        select host_id, average_stars, count_at_least from trust.host_ratings
+                        where host_id in (:hostIds)
+                        """).param("hostIds", hostIds).query(rs -> {
+            rated.put(
+                    rs.getObject("host_id", UUID.class),
+                    new HostRatings.Rating(rs.getBigDecimal("average_stars"), rs.getInt("count_at_least")));
+        });
         return rated;
+    }
+
+    /** The daily refresh of what hosts see (ADR 0028). */
+    @Scheduled(cron = "${trust.ratings.refresh-cron}", zone = "${trust.ratings.zone}")
+    void daily() {
+        refreshHostRatings();
+    }
+
+    /**
+     * Works out every host's shown rating afresh, in one transaction: the mean of its last 90 days' ratings to one
+     * decimal, and their count rounded down to a multiple of 5, for each host with at least 5.
+     */
+    void refreshHostRatings() {
+        var now = Timestamp.from(Instant.now(clock));
+        transactions.executeWithoutResult(status -> {
+            jdbc.sql("delete from trust.host_ratings").update();
+            jdbc.sql("""
+                            insert into trust.host_ratings (host_id, average_stars, count_at_least, refreshed_at)
+                            select r.host_id, round(avg(r.stars), 1), (count(*) / 5) * 5, :now
+                            from trust.ratings r join trust.ended_sessions s on s.session_id = r.session_id
+                            where s.ended_at >= :since
+                            group by r.host_id
+                            having count(*) >= :shownFrom
+                            """)
+                    .param("now", now)
+                    .param("since", Timestamp.from(Instant.now(clock).minus(AVERAGE_OVER)))
+                    .param("shownFrom", SHOWN_FROM)
+                    .update();
+        });
     }
 
     private Standing standing(EndedSessions.EndedSession session, @Nullable GivenRating rating) {

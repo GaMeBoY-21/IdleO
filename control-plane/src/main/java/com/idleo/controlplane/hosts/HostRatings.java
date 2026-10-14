@@ -14,13 +14,14 @@ public interface HostRatings {
 
     /**
      * @param averageStars the mean of the stars, to one decimal place
-     * @param count how many ratings it's the mean of
+     * @param countAtLeast how many ratings it's the mean of, rounded down to a multiple of 5 ("20+ ratings")
      */
-    record Rating(BigDecimal averageStars, int count) {}
+    record Rating(BigDecimal averageStars, int countAtLeast) {}
 
     /**
-     * The ratings of these hosts' sessions that ended in the last 90 days; a host with fewer than 5 such ratings isn't
-     * in the map, so no one rating can be picked out.
+     * The ratings of these hosts' sessions that ended in the last 90 days, as worked out at the last daily refresh; a
+     * host with fewer than 5 such ratings isn't in the map. Between refreshes nothing changes, so no one rating can be
+     * picked out by watching the figures move after a session.
      */
     Map<UUID, Rating> of(Collection<UUID> hostIds);
 }

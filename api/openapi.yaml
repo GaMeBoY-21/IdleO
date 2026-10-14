@@ -5268,12 +5268,12 @@ components:
       properties:
         averageStars:
           type: number
-        count:
+        countAtLeast:
           type: integer
           format: int32
       required:
       - averageStars
-      - count
+      - countAtLeast
     RatingRequest:
       type: object
       properties:

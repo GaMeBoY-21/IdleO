@@ -50,8 +50,10 @@ export function GpuLine({ host }: { host: Host }) {
 export const RATINGS_SHOWN_FROM = 5;
 
 /**
- * What renters rated this machine (ADR 0028): "4.6 from 23 sessions" once 5 or more have, from the last 90 days, else
- * when they will. A line that's always there, so one arriving moves nothing. Never who rated it or what they wrote.
+ * What renters rated this machine (ADR 0028): "4.6 from 20+ ratings" once 5 or more have, from the last 90 days, else
+ * when they will. The control plane works it out once a day and rounds the count down to a multiple of 5, so a change
+ * after one session never shows one renter's stars. A line that's always there, so one arriving moves nothing. Never
+ * who rated it or what they wrote.
  */
 export function RatingLine({ host }: { host: Host }) {
   const rating = host.rating;
@@ -63,8 +65,7 @@ export function RatingLine({ host }: { host: Host }) {
           <span className="tabular">
             <span className="sr-only">Rated </span>
             {rating.averageStars.toFixed(1)}
-            <span className="sr-only"> out of 5</span> from {rating.count}{" "}
-            {rating.count === 1 ? "session" : "sessions"}
+            <span className="sr-only"> out of 5</span> from {rating.countAtLeast}+ ratings
           </span>
         </>
       ) : (

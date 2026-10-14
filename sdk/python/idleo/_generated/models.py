@@ -540,7 +540,7 @@ class Rating(BaseModel):
         populate_by_name=True,
     )
     average_stars: Annotated[float, Field(alias="averageStars")]
-    count: int
+    count_at_least: Annotated[int, Field(alias="countAtLeast")]
 
 
 class RatingRequest(BaseModel):

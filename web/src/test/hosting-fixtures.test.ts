@@ -61,7 +61,7 @@ describe("settling in windows", () => {
 
 describe("a machine's rating", () => {
   it("is the mean of its renters' stars to one decimal place, from at least 5 of them", () => {
-    expect(data.ratingOf(data.ROG_STARS)).toEqual({ averageStars: 4.6, count: 23 });
+    expect(data.ratingOf(data.ROG_STARS)).toEqual({ averageStars: 4.6, countAtLeast: 20 });
     expect(data.hostRunning.rating).toEqual(data.ratingOf(data.ROG_STARS));
     expect(data.hostPaused.rating).toBeUndefined();
     expect(data.ROG_STARS.length).toBeGreaterThanOrEqual(5);
