@@ -16,6 +16,8 @@ export default defineConfig(
       "dist-site",
       "dist-site-ssr",
       "dist-firebase",
+      "dist-local",
+      "dist-site-local",
       "node_modules",
       "src/api/schema.gen.ts",
       "test-results",
