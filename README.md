@@ -18,7 +18,7 @@ It checks Docker, Java 25, Node 24.21.0 and Rust are in place and the ports are 
 - sign in as `nikki@example.com` (₹500, owns both laptops), `nikki-low@example.com` (₹1) or `nikki-broke@example.com` (₹0), with no invite step;
 - every service's log in `logs/`.
 
-The first run installs and builds what's missing; later runs start in under a minute. Ctrl-C stops everything, containers too (their data is kept). From another terminal: `./start.sh --stop` and `./start.sh --status`. `./start.sh --fresh` wipes the local data first (it asks), `./start.sh --real-sign-in` adds Google sign-in from `control-plane/.env` and `web/.env.local` (docs/runbooks/identity-provider-setup.md), and `--no-browser` doesn't open one.
+The first run installs and builds what's missing; later runs start in under a minute. Ctrl-C stops everything, containers too (their data is kept). From another terminal: `./start.sh --stop` and `./start.sh --status`. `./start.sh --fresh` wipes the local data first (it asks), `./start.sh --real-sign-in` adds Google sign-in from `control-plane/.env` and `web/.env.local` (docs/runbooks/identity-provider-setup.md), and `--no-browser` doesn't open one. Every check CI runs, on this machine: `scripts/check-all.sh` (docs/runbooks/local-stack.md).
 
 ## Layout
 

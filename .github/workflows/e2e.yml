@@ -15,6 +15,11 @@ on:
         type: boolean
         default: false
 
+# A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

@@ -15,6 +15,10 @@
 
 `scripts/e2e/start-check.sh` runs it without a screen, books one simulated session, stops it and checks nothing is left; CI runs it after the end-to-end test.
 
+## Every check, locally
+
+`scripts/check-all.sh` runs every workflow's checks on this machine, the same steps CI runs (`scripts/checks/<suite>.sh` and the end-to-end script): agent, cli, control-plane, proto, sdk, web, web-browser (every screen, axe, the journeys, Lighthouse and the performance spec) and e2e (with `start-check.sh`). `scripts/check-all.sh web e2e` runs just those. Each suite logs to `logs/check-all/`, and the summary says which passed and how long each took. Run it before every push; while CI minutes are short, it is the gate.
+
 ## What it does
 
 From the repository root, it:

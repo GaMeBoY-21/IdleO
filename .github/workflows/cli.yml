@@ -3,11 +3,18 @@ name: cli
 on:
   push:
     branches: [main]
-    paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml"]
+    paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml", "scripts/checks/cli.sh"]
   pull_request:
-    paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml"]
-  # Run by hand too, to check any commit against this workflow.
+    paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml", "scripts/checks/cli.sh"]
+  # Run by hand too, to check any commit against this workflow; by hand and weekly, on macOS and Windows as well.
   workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+# A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -17,7 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Linux on every push, as the cheapest runner; macOS (billed ten times over) and Windows (twice) only on the
+        # weekly schedule and when run by hand.
+        os: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-latest", "macos-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -32,12 +41,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: cli
-      - name: Format
-        run: cargo fmt --all --check
-      - name: Lint
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Test
-        run: cargo test --workspace --locked
+      # The same checks as scripts/check-all.sh runs on a laptop.
+      - name: Format, lint and test
+        shell: bash
+        working-directory: .
+        run: scripts/checks/cli.sh build
       - name: Nothing generated is tracked
         shell: bash
         run: test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }

@@ -5,15 +5,20 @@ name: web
 on:
   push:
     branches: [main]
-    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml", "scripts/checks/web.sh"]
   pull_request:
-    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml", "scripts/checks/web.sh"]
   workflow_dispatch:
     inputs:
       update_screenshots:
         description: Accept every screenshot as the new baseline (web/README.md "Screenshots")
         type: boolean
         default: false
+
+# A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -37,37 +42,11 @@ jobs:
           node-version-file: web/.node-version
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - name: Audit the dependencies
-        run: pnpm audit --audit-level high
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - name: Unit and component tests
-        run: pnpm test
-      - name: Build for production (Firebase, placeholder settings) and check the first-load budget
-        env:
-          IDLEO_DEPLOYMENT: production
-          IDLEO_SITE_URL: https://site.example.invalid
-          VITE_API_URL: https://api.example.invalid
-          VITE_STORAGE_URL: https://storage.example.invalid
-          VITE_AUTH: firebase
-          VITE_FIREBASE_API_KEY: placeholder-not-a-key
-          VITE_FIREBASE_AUTH_DOMAIN: placeholder.firebaseapp.com
-          VITE_FIREBASE_PROJECT_ID: placeholder
-        run: pnpm build && pnpm size
-      - name: A production build refuses the local sign-in adapter
-        env:
-          IDLEO_DEPLOYMENT: production
-          VITE_API_URL: https://api.example.invalid
-          VITE_STORAGE_URL: https://storage.example.invalid
-          VITE_AUTH: oidc-mock
-          VITE_OIDC_ISSUER: https://idp.example.invalid
-          VITE_OIDC_CLIENT_ID: idleo
-        run: |
-          if pnpm exec vite build --outDir /tmp/refused >/tmp/refused.log 2>&1; then
-            echo "a production build accepted the oidc-mock adapter"; exit 1
-          fi
-          grep -q "can't use the oidc-mock sign-in adapter" /tmp/refused.log
+      # The same checks as scripts/check-all.sh: the audit, types, lint, unit tests, a production build with the
+      # first-load budget, and a production build refusing the local sign-in adapter.
+      - name: Checks without a browser
+        working-directory: .
+        run: scripts/checks/web.sh
 
   browser:
     runs-on: ubuntu-latest

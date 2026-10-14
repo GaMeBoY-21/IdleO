@@ -3,11 +3,16 @@ name: proto
 on:
   push:
     branches: [main]
-    paths: ["proto/**", ".github/workflows/proto.yml"]
+    paths: ["proto/**", ".github/workflows/proto.yml", "scripts/checks/proto.sh"]
   pull_request:
-    paths: ["proto/**", ".github/workflows/proto.yml"]
+    paths: ["proto/**", ".github/workflows/proto.yml", "scripts/checks/proto.sh"]
   # Run by hand too, to check any commit against this workflow.
   workflow_dispatch:
+
+# A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -21,16 +26,14 @@ jobs:
           # Full history, so the breaking check can read the base branch
           # from the local .git (the repository is private).
           fetch-depth: 0
+      # Only installs buf; the checks are the same as scripts/check-all.sh runs (scripts/checks/proto.sh).
       - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
         with:
           version: 1.73.0
-          input: proto
-          lint: true
-          format: true
-          # Pull requests only: compare against the base branch.
-          breaking: ${{ github.event_name == 'pull_request' }}
-          breaking_against: ${{ github.event_name == 'pull_request' && format('.git#commit={0},subdir=proto', github.event.pull_request.base.sha) || '' }}
-          # No Buf Schema Registry: never push or archive.
-          push: false
-          archive: false
-          pr_comment: false
+          setup_only: true
+      - name: Lint, format and build
+        run: scripts/checks/proto.sh
+      - name: No breaking change against the base branch
+        if: github.event_name == 'pull_request'
+        working-directory: proto
+        run: buf breaking --against '../.git#commit=${{ github.event.pull_request.base.sha }},subdir=proto'
