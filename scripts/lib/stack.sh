@@ -18,15 +18,8 @@ logs_dir="${out#"$root"/}"
 # Agents' configs, keys and pids; beside the logs unless the caller keeps them apart.
 state="${state:-$out}"
 
-# Rust may be installed by rustup without being on PATH (Homebrew's rustup on a Mac).
-for dir in "$HOME/.cargo/bin" /opt/homebrew/opt/rustup/bin; do
-  [[ -d "$dir" ]] && PATH="$PATH:$dir"
-done
-# The web app pins Node 24 (web/.node-version); a Mac may keep it beside a newer Node.
-for dir in /opt/homebrew/opt/node@24/bin "$HOME/.local/node24-bin"; do
-  [[ -d "$dir" ]] && PATH="$dir:$PATH"
-done
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+# shellcheck source=scripts/lib/toolchains.sh
+. "$root/scripts/lib/toolchains.sh"
 
 now_ms() { perl -MTime::HiRes=time -e 'printf "%d\n", time * 1000'; }
 seconds_since() { perl -e 'printf "%.2f", ($ARGV[1] - $ARGV[0]) / 1000' "$1" "$(now_ms)"; }

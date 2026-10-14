@@ -137,7 +137,7 @@ Host agent, run from agent/ (Rust; rustup installs the toolchain pinned in rust-
 Everything at once, from the repository root (docs/runbooks/local-stack.md):
 - ./start.sh: the whole system for local development (compose's containers, the control plane, two laptops' fake GPUs, the web dev server at :3000, the public site at :3002), seeded idempotently (nikki@example.com ₹500 and owner of both laptops, nikki-low ₹1, nikki-broke ₹0, no invite step); logs in logs/, keys and pids in private/local/; Ctrl-C or --stop stops it all; --status, --fresh (asks), --real-sign-in, --no-browser. scripts/e2e/start-check.sh checks it headless (CI runs it after the e2e)
 - scripts/check-all.sh [suite…]: every workflow's checks on this machine (agent, cli, control-plane, proto, sdk, web, web-browser, e2e), with a summary; the gate before every push, and while CI minutes are short. Each suite's steps are scripts/checks/<suite>.sh, which the workflows call too; change a check there, once
-- The steps start.sh and the e2e script share are scripts/lib/stack.sh (and scripts/lib/real-sign-in.sh, also used by run-local.sh): add a shared step there, never a copy in one script
+- The steps start.sh and the e2e script share are scripts/lib/stack.sh (and scripts/lib/real-sign-in.sh, also used by run-local.sh; scripts/lib/toolchains.sh, which finds the pinned Java, Node, pnpm and Rust, also used by check-all.sh): add a shared step there, never a copy in one script
 - CI is costly: every workflow cancels a superseded run (concurrency); agent and cli run macOS and Windows only weekly and by hand; push once at the end of a round, after check-all.sh is green
 
 End to end, run from the repository root (needs Docker, Java 25 and Rust; docs/runbooks/local-stack.md):

@@ -18,11 +18,8 @@ all=(agent cli control-plane proto sdk web web-browser e2e)
 suites=("$@")
 ((${#suites[@]} > 0)) || suites=("${all[@]}")
 
-# The pinned toolchains (CLAUDE.md, docs/runbooks/local-stack.md), found where a Mac keeps them.
-for dir in /opt/homebrew/opt/openjdk@25/bin "$HOME/.cargo/bin" /opt/homebrew/opt/rustup/bin /opt/homebrew/opt/node@24/bin; do
-  [[ -d "$dir" ]] && PATH="$dir:$PATH"
-done
-[[ -d /opt/homebrew/opt/openjdk@25 ]] && export JAVA_HOME=/opt/homebrew/opt/openjdk@25
+# shellcheck source=scripts/lib/toolchains.sh
+. "$root/scripts/lib/toolchains.sh"
 
 logs="$root/logs/check-all"
 mkdir -p "$logs"

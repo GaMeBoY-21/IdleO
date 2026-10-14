@@ -122,9 +122,6 @@ if [[ -f "$state/control-plane.pid" ]] && kill -0 "$(cat "$state/control-plane.p
 fi
 command -v docker >/dev/null || fail "Docker isn't installed (or not on PATH). Install Docker Desktop (Linux: Docker Engine), then run ./start.sh again."
 docker info >/dev/null 2>&1 || fail "Docker isn't running. Start Docker Desktop (or the Docker service), then run ./start.sh again."
-for dir in /opt/homebrew/opt/openjdk@25/bin /usr/lib/jvm/temurin-25-jdk-*/bin; do
-  [[ -d "$dir" ]] && PATH="$dir:$PATH" && export JAVA_HOME="${dir%/bin}"
-done
 java_major="$(java -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -1)"
 [[ "$java_major" == 25 ]] ||
   fail "Java 25 is needed, found ${java_major:-none}. Install it (macOS: brew install openjdk@25; Linux: Temurin 25) and put it on PATH."
@@ -132,7 +129,7 @@ node_want="$(cat "$root/web/.node-version")"
 node_have="$(node --version 2>/dev/null | tr -d v)"
 [[ "$node_have" == "$node_want" ]] ||
   fail "Node $node_want is needed (web/.node-version), found ${node_have:-none}. Install it (macOS: brew install node@24) and put it on PATH."
-command -v corepack >/dev/null || fail "corepack isn't installed; it comes with Node $node_want. Reinstall Node."
+command -v pnpm >/dev/null || fail "pnpm isn't available; it comes with Node $node_want through corepack. Reinstall Node, or run: corepack enable pnpm"
 command -v rustup >/dev/null ||
   fail "rustup isn't installed. Install it from https://rustup.rs (macOS: brew install rustup), then run ./start.sh again."
 rust_want="$(sed -n 's/^channel = "\(.*\)"/\1/p' "$root/agent/rust-toolchain.toml")"

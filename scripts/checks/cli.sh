@@ -11,5 +11,5 @@ if [[ "$part" == build || "$part" == all ]]; then
   cargo test --workspace --locked
 fi
 if [[ "$part" == deny || "$part" == all ]]; then
-  cargo deny check --all-features
+  cargo deny --all-features check
 fi
