@@ -65,6 +65,11 @@ const screens = [
 ];
 
 test("sign-in loads without moving, its form arriving in the space kept for it", async ({ page }) => {
+  // The email form's chunk held back, so its placeholder paints first and the form replaces it, as on a slow phone.
+  await page.route(/\/assets\/EmailForm-[^/]+\.js$/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
+  });
   const shifts = await recordLayoutShifts(page);
   await page.goto("/sign-in/");
   await expect(page.getByLabel("Email", { exact: true })).toBeVisible();

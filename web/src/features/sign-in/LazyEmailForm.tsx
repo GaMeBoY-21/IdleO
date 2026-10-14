@@ -33,8 +33,8 @@ function EmailFormSkeleton() {
         <div className="h-14 rounded-control bg-fill" />
         <div className="min-h-4.5" />
       </div>
-      {/* The button's height as drawn: Button's `large` asks for 56 px, but min-h-touch (44) beats it below 768 px. */}
-      <div className="h-touch rounded-control bg-fill md:h-15" />
+      {/* The large button's height as drawn (Button's min-h-14 md:min-h-15): 56 px on a phone, 60 on a laptop. */}
+      <div className="h-14 rounded-control bg-fill md:h-15" />
     </div>
   );
 }
