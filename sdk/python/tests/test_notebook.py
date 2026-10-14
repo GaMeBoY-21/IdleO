@@ -1,4 +1,4 @@
-"""Progress in Jupyter, found without importing it: only when IPython is already loaded and its shell is a notebook's."""
+"""Progress in Jupyter, found without importing it: only when IPython is loaded and its shell is a notebook's."""
 
 from __future__ import annotations
 
