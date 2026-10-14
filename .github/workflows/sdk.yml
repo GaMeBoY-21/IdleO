@@ -8,6 +8,8 @@ on:
     paths: ["sdk/python/**", "api/**", "cli/src/error.rs", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml"]
   pull_request:
     paths: ["sdk/python/**", "api/**", "cli/src/error.rs", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml"]
+  # Run by hand too, to check any commit against this workflow.
+  workflow_dispatch:
 
 permissions:
   contents: read

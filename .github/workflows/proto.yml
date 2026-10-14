@@ -6,6 +6,8 @@ on:
     paths: ["proto/**", ".github/workflows/proto.yml"]
   pull_request:
     paths: ["proto/**", ".github/workflows/proto.yml"]
+  # Run by hand too, to check any commit against this workflow.
+  workflow_dispatch:
 
 permissions:
   contents: read
