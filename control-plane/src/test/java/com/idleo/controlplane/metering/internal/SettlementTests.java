@@ -249,7 +249,21 @@ class SettlementTests {
         CompletableFuture.allOf(CompletableFuture.runAsync(settler), CompletableFuture.runAsync(settler))
                 .get();
 
-        // 40 minutes in: windows 1 and 2 have ended; 10 minutes, all in window 1, settled once.
+        // 40 minutes in: windows 1 and 2 have ended; 10 minutes, all in window 1, settled once. The scheduled tick
+        // meters sessions too, and takes the row with skip locked like these two: if it held the row, both skipped
+        // and the tick settles it a moment later. Whoever settles, it's once, and never twice.
+        var deadline = System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
+        long settled;
+        do {
+            settled = jdbcTemplate.queryForObject(
+                    "select coalesce(sum(amount_paise), 0) from metering.settlements where session_id = ?",
+                    Long.class,
+                    fixture.sessionId());
+            if (settled == 0) {
+                Thread.sleep(50);
+            }
+        } while (settled == 0 && System.nanoTime() < deadline);
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> jobs.meter(fixture.sessionId()));
         assertThat(jdbcTemplate.queryForObject(
                         "select coalesce(sum(amount_paise), 0) from metering.settlements where session_id = ?",
                         Long.class,
