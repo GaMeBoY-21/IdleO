@@ -32,7 +32,7 @@ class RequestLimitsTests {
 
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-12T10:00:20Z"), ZoneOffset.UTC);
-    private final RequestLimits limits = new RequestLimits(redis, new RequestLimitsProperties(60, 10), clock);
+    private final RequestLimits limits = new RequestLimits(redis, new RequestLimitsProperties(60, 10, 120), clock);
 
     RequestLimitsTests() {
         when(redis.opsForValue()).thenReturn(counters);
