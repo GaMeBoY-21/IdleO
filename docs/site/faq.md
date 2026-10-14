@@ -31,7 +31,7 @@ You, and the job that runs them. The host never sees who you are, your inputs or
 
 ## Is it safe to run my code on a stranger's laptop?
 
-Your job runs in a sandbox: a plain user, a read-only system, no host folders mounted, no special privileges, and no way out to the host's home network. The host's own files are out of reach.
+Hosting opens after our safety tests on real Windows laptops, so for now no renter's job runs on someone's home machine. When it opens, your job will run in a sandbox: a plain user, a read-only system, no host folders mounted, no special privileges, and no way out to the host's home network. The host's own files will be out of reach.
 
 ## How big can my uploads be?
 
@@ -43,7 +43,7 @@ Yes. The command line signs in through the website once, then runs, follows and 
 
 ## Why do I need an invite code?
 
-IdleO is in its pilot, so access is by invite. Ask the person who invited you; a code works once.
+{{product}} is in its pilot, so access is by invite. Ask the person who invited you; a code works once.
 
 ## Something went wrong. Can I get my money back?
 

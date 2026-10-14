@@ -6,6 +6,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Marked, type Tokens } from "marked";
 import { parse } from "yaml";
+import { brand } from "../../src/brand/brand.ts";
 import type { DocPage, ServiceInfo } from "../../src/site/context.ts";
 import { apiReference, loadSpec } from "./openapi.ts";
 
@@ -45,6 +46,11 @@ const scrolling = (html: string): string =>
 
 export const toHtml = (markdown: string): string => scrolling(marked.parse(markdown, { async: false }));
 
+/** The product's name, which hand-written pages write as `{{product}}`: one constant, `brand.name`, renames them all. */
+export const PRODUCT_PLACEHOLDER = "{{product}}";
+export const withProductName = (markdown: string): string =>
+  markdown.replaceAll(PRODUCT_PLACEHOLDER, brand.name);
+
 interface Source {
   title: string;
   description: string;
@@ -68,7 +74,7 @@ function readSources(directory: string): Source[] {
           throw new Error(`docs/site/${file}'s front matter is missing ${key}`);
         }
       }
-      return { ...(meta as Omit<Source, "markdown">), markdown: match[2]! };
+      return { ...(meta as Omit<Source, "markdown">), markdown: withProductName(match[2]!) };
     });
 }
 

@@ -75,6 +75,21 @@ describe("the public pages", () => {
     );
   });
 
+  it("name no model we might seem to supply on the GPUs page, only sizes and your own models", () => {
+    const gpus = text(all.find(({ page }) => page.path === "/gpus/")!.html);
+    expect(gpus).not.toMatch(/stable diffusion|whisper|llama|mistral|\bvision\b|\bspeech\b/i);
+    expect(gpus).toContain("your own models");
+  });
+
+  it("promise the host's protections as what hosting will have, after our safety tests", () => {
+    const earn = text(all.find(({ page }) => page.path === "/earn/")!.html);
+    expect(earn).toContain("Hosting opens after our safety tests");
+    expect(earn).not.toMatch(/\bwork runs in a sandbox\b|Safe by design/);
+    const landing = text(all.find(({ page }) => page.path === "/about/")!.html);
+    expect(landing).toContain("What you can run");
+    expect(landing).not.toContain("What you can run today");
+  });
+
   it("say typical wherever the GPUs page says what a card manages", () => {
     const gpus = text(all.find(({ page }) => page.path === "/gpus/")!.html);
     expect(gpus.match(/typical/gi)?.length).toBeGreaterThanOrEqual(16);

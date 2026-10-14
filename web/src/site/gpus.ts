@@ -24,7 +24,7 @@ export const GPU_CLASSES: GpuClassInfo[] = [
     qlora: "Models of 1 to 3 billion parameters",
     batch: "1 to 2 examples at a time, with short sequences",
     inference: "7B models at 4-bit",
-    also: "Classic machine learning, small vision models, Stable Diffusion XL with memory savings, Whisper",
+    also: "Classic machine learning, and training your own models of up to about 100 million parameters",
   },
   {
     gb: 12,
@@ -32,7 +32,7 @@ export const GPU_CLASSES: GpuClassInfo[] = [
     qlora: "Models up to about 8 billion parameters",
     batch: "2 to 4 examples at a time, with sequences of 1,000 to 2,000 tokens",
     inference: "7 to 8B models comfortably, 13 to 14B at 4-bit",
-    also: "Everything in 8 GB, with room for larger images and longer contexts",
+    also: "Everything in 8 GB, with room for larger batches and longer contexts",
   },
   {
     gb: 16,
@@ -40,7 +40,7 @@ export const GPU_CLASSES: GpuClassInfo[] = [
     qlora: "Models of 7 to 8 billion parameters with longer sequences, and some 13B",
     batch: "4 to 8 examples at a time",
     inference: "14B models at 4-bit with a longer context",
-    also: "Larger batches for vision and speech training",
+    also: "Larger batches for your own models, and training ones of a few hundred million parameters",
   },
   {
     gb: 24,
@@ -48,6 +48,6 @@ export const GPU_CLASSES: GpuClassInfo[] = [
     qlora: "Models up to about 13 billion parameters",
     batch: "8 or more examples at a time, with sequences of 2,000 tokens and more",
     inference: "30B-class models at 4-bit",
-    also: "Training models from scratch of a few hundred million parameters",
+    also: "Training your own models from scratch, of up to about a billion parameters",
   },
 ];

@@ -81,7 +81,7 @@ export function Landing({ context }: { context: SiteContext }) {
 
       <section className={`${column} pb-10 md:pb-14`} aria-labelledby="services">
         <h2 id="services" className={sectionTitle}>
-          What you can run today
+          What you can run
         </h2>
         <ul className="mt-4 grid gap-3 md:grid-cols-2">
           {context.services.map((service) => (

@@ -1,6 +1,6 @@
 ---
 title: Host guide
-description: What hosting asks of you, how it stays safe, and how you add a machine, set a price and pause.
+description: What hosting asks of you, how it will keep you safe, and how you add a machine, set a price and pause.
 order: 6
 path: /docs/hosting/
 ---
@@ -14,12 +14,14 @@ A **host** is a person with an NVIDIA RTX gaming laptop or desktop who rents out
 - Plugged in, with an internet connection that stays on
 - Free disk: you choose how much to keep for yourself (10 to 500 GB, 20 by default); a renter's files are only put on a machine with room for them beyond that
 
-## How it stays safe
+## How hosting will keep you safe
 
-- **Nothing at your home is exposed.** The program on your machine calls out to us; nothing connects in to it.
-- **A locked box.** A renter's job runs in a sandbox as a plain user, with a read-only system, none of your folders mounted, no special privileges, and no access to your home network.
-- **A short lease.** Work runs only while your machine and our servers are in touch: the lease is renewed every 30 seconds and lasts 2 minutes. If contact is lost, the work stops.
-- **Privacy both ways.** Renters never see who you are, and you never see who rented your machine, their files or their settings. You see that a session ran, how long, and what it earned.
+Hosting opens after our safety tests on real Windows laptops. These are the protections it will have:
+
+- **Nothing at your home exposed.** The program on your machine will call out to us; nothing will connect in to it.
+- **A locked box.** A renter's job will run in a sandbox as a plain user, with a read-only system, none of your folders mounted, no special privileges, and no access to your home network.
+- **A short lease.** Work will run only while your machine and our servers are in touch: the lease is renewed every 30 seconds and lasts 2 minutes. If contact is lost, the work stops.
+- **Privacy both ways.** Renters will never see who you are, and you'll never see who rented your machine, their files or their settings. You'll see that a session ran, how long, and what it earned.
 
 ## Add a machine
 

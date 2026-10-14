@@ -4,22 +4,23 @@ import { GPU_CLASSES } from "../gpus";
 import { DOCS, START_HOSTING } from "../paths";
 import { band, column, heading, largeButton, link, muted, primaryButton, sectionTitle } from "../ui";
 
+/** What hosting will have when it opens (ADR 0029): the sandbox is still being finished and tested on real laptops. */
 const SAFETY = [
   {
     title: "A locked box",
-    text: "Renters' work runs in a sandbox: no access to your files, your folders or your home network, and no way out to your other devices.",
+    text: "Renters' work will run in a sandbox: no access to your files, your folders or your home network, and no way out to your other devices.",
   },
   {
     title: "Your files stay yours",
-    text: "A renter's job gets its own scratch space and nothing else: none of your folders are mounted into it, and it runs as a plain user, never as an administrator.",
+    text: "A renter's job will get its own scratch space and nothing else: none of your folders mounted into it, and it will run as a plain user, never as an administrator.",
   },
   {
     title: "Take it back any time",
-    text: "Pause when you want your machine, for a few hours or until you resume. Remove it whenever you like.",
+    text: "You'll pause when you want your machine, for a few hours or until you resume, and remove it whenever you like.",
   },
   {
     title: "A 2-minute stop",
-    text: "Work runs on a short lease that is renewed every 30 seconds. If your machine and our servers lose touch, it stops within two minutes.",
+    text: "Work will run on a short lease, renewed every 30 seconds. If your machine and our servers lose touch, it will stop within two minutes.",
   },
 ] as const;
 
@@ -56,8 +57,12 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
 
       <section className={`${column} pb-10 md:pb-14`} aria-labelledby="safety">
         <h2 id="safety" className={sectionTitle}>
-          Safe by design
+          How hosting will keep you safe
         </h2>
+        <p className={`${muted} mt-2 max-w-prose`}>
+          Hosting opens after our safety tests on real Windows laptops. These are the protections it will
+          have.
+        </p>
         <ul className="mt-4 grid gap-3 md:grid-cols-2">
           {SAFETY.map((item) => (
             <li key={item.title} className="rounded-panel bg-fill p-5">

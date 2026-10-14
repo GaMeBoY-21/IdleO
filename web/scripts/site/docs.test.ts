@@ -1,5 +1,7 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { brand } from "../../src/brand/brand";
+import { PRODUCT_PLACEHOLDER } from "./docs";
 import { describe, expect, it } from "vitest";
 import { publicOperations, loadSpec } from "./openapi";
 import { repository, siteContext } from "./context";
@@ -91,6 +93,22 @@ describe("the docs generators", () => {
     expect(html).toContain("What you bring");
     expect(html).not.toContain("Diagnostics");
     expect(html).toContain("none of these services supplies a model");
+  });
+
+  it("name the product only through brand.name, and promise no host protection as built", () => {
+    for (const file of readdirSync(repository("docs/site")).filter(
+      (name) => name.endsWith(".md") && name !== "README.md",
+    )) {
+      expect(readFileSync(repository(`docs/site/${file}`), "utf8"), file).not.toContain(brand.name);
+    }
+    expect(page("/docs/").html).toContain(`${brand.name} rents you a gaming GPU by the minute`);
+    expect(page("/docs/").html).not.toContain(PRODUCT_PLACEHOLDER);
+    for (const path of ["/docs/hosting/", "/docs/faq/"]) {
+      const html = page(path).html;
+      expect(html, path).toContain("Hosting opens after our safety tests");
+      // Only ever in the future tense: "will run in a sandbox", never "runs in a sandbox".
+      expect(html, path).not.toMatch(/(?<!will )\bruns? in a sandbox/);
+    }
   });
 
   it("give every heading an address to link to", () => {
