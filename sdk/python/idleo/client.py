@@ -32,7 +32,7 @@ from idleo._keys import stored_key
 from idleo._notebook import Status
 from idleo._problem import IdleoError, NetworkError, ServerError, UsageError
 from idleo._resume import PendingKeys, ResumeStore
-from idleo._upload import Uploader
+from idleo._upload import Uploaded, Uploader
 from idleo.session import Session
 
 #: How many times a booking is tried when the answer doesn't come, always with the same key.
@@ -74,13 +74,19 @@ class Uploads:
         took."""
         root = Path(path).expanduser()
         name = label or root.name or "files"
+        return uuid.UUID(self._upload(root, name, progress, keep_record=False).id)
+
+    def _upload(self, root: Path, name: str, progress: bool | None, *, keep_record: bool) -> Uploaded:
         status = Status(progress)
 
         def show(label: str, sent: int, total: int) -> None:
             status.update(f"{label}: {sent * 100 // total if total else 100}%  {sent:,} of {total:,} bytes")
 
-        uploader = Uploader(self._transport, self._resume, on_progress=show)
-        return uuid.UUID(uploader.upload(root, name))
+        return Uploader(self._transport, self._resume, on_progress=show).upload(root, name, keep_record=keep_record)
+
+    def forget(self, uploaded: Uploaded) -> None:
+        """Lets go of a kept upload record, once the booking that used it has been answered."""
+        self._resume.forget(uploaded.fingerprint)
 
 
 class Sessions:
@@ -113,12 +119,16 @@ class Sessions:
         default only in a notebook.
         """
 
+        kept: builtins.list[Uploaded] = []
+
         def upload(name: str, path: Path) -> uuid.UUID:
-            return self._uploads.upload(path, label=name, progress=progress)
+            done = self._uploads._upload(path.expanduser(), name, progress, keep_record=True)
+            kept.append(done)
+            return uuid.UUID(done.id)
 
         found = self._templates.get(template)
-        request = self._request(found, inputs, params, presets, gpu_memory_gb, max_spend, max_runtime, upload)
-        return self._book(request)
+        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, max_spend, max_runtime, upload)
+        return self._book(request, asked, kept)
 
     def create(
         self,
@@ -138,8 +148,8 @@ class Sessions:
             raise UsageError(f"{name} is a path on this computer; use sessions.run() to upload it, or uploads.upload()")
 
         found = self._templates.get(template)
-        request = self._request(found, inputs, params, presets, gpu_memory_gb, max_spend, max_runtime, refuse)
-        return self._book(request)
+        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, max_spend, max_runtime, refuse)
+        return self._book(request, asked, [])
 
     def get(self, session_id: str | uuid.UUID) -> Session:
         """One of your sessions by its id."""
@@ -175,17 +185,22 @@ class Sessions:
         max_spend: int | None,
         max_runtime: int | timedelta | None,
         upload: Callable[[str, Path], uuid.UUID],
-    ) -> CreateSessionRequest:
+    ) -> tuple[CreateSessionRequest, str]:
         """Everything is checked against the template first; only then is anything uploaded, in the order the
-        template names its inputs."""
+        template names its inputs. Returns the request and what was asked for (`_run_args.asked_for`)."""
         given = args.map_inputs(inputs, template)
+        typed = args.map_params(params, template)
+        answers = args.map_presets(presets, template)
+        spend = args.spend(max_spend, template)
+        runtime = args.runtime_seconds(max_runtime)
+        vram = args.vram_mb(gpu_memory_gb, template)
         request = CreateSessionRequest(
             template_id=template.id,
-            params=args.map_params(params, template),
-            presets=args.map_presets(presets, template),
-            max_spend_paise=args.spend(max_spend, template),
-            max_runtime_seconds=args.runtime_seconds(max_runtime),
-            vram_needed_mb=args.vram_mb(gpu_memory_gb, template),
+            params=typed,
+            presets=answers,
+            max_spend_paise=spend,
+            max_runtime_seconds=runtime,
+            vram_needed_mb=vram,
         )
         booked: dict[str, Any] = {}
         for name in (input_.name for input_ in template.inputs):
@@ -197,13 +212,18 @@ class Sessions:
             elif isinstance(value, args.Upload):
                 booked[name] = {"uploadId": str(upload(name, value.path))}
         request.inputs = booked
-        return request
+        return request, args.asked_for(template.id, given, typed, answers, spend, runtime, vram)
 
-    def _book(self, request: CreateSessionRequest) -> Session:
-        """`POST /v1/sessions`, keeping its Idempotency-Key until the API answers, and trying again with the same key
-        when no answer comes."""
-        text = request.model_dump_json(by_alias=True, exclude_none=True)
-        key = self._pending.key_for(text)
+    def _book(self, request: CreateSessionRequest, asked: str, kept: builtins.list[Uploaded]) -> Session:
+        """`POST /v1/sessions`, keeping its Idempotency-Key, from what was `asked` for, until the API answers, and
+        trying again with the same key when no answer comes. Once answered, the kept upload records go too."""
+        key = self._pending.key_for(asked)
+
+        def answered() -> None:
+            self._pending.answered(asked)
+            for done in kept:
+                self._uploads.forget(done)
+
         tries = 0
         while True:
             tries += 1
@@ -218,10 +238,10 @@ class Sessions:
                 self._transport.sleep(tries * 2)
             except IdleoError:
                 # The API's answer is final: the key has done its job.
-                self._pending.answered(text)
+                answered()
                 raise
             else:
-                self._pending.answered(text)
+                answered()
                 return Session(self._transport, data)
 
 

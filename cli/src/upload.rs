@@ -6,6 +6,8 @@
 //! - each part is a slice of its file, never the whole file in memory, PUT three at a time;
 //! - each `ETag` is remembered in a file as it arrives (`src/resume.rs`): running the same command again opens the same
 //!   upload with the same Idempotency-Key and sends only the parts storage hasn't taken;
+//! - the record outlives the upload: it is kept until the booking that uses it has been answered (`run` forgets it
+//!   then), so a re-run after a lost answer opens the same, ready upload and books with the same upload id;
 //! - every file is then completed (`POST /v1/uploads/{id}/complete`), a hundred to a call;
 //! - a failed part is retried three times with backoff; an expired link (403) gets a fresh one.
 
@@ -36,11 +38,19 @@ const CONCURRENCY: usize = 3;
 const PER_REQUEST: usize = 100;
 const RETRIES: u32 = 3;
 
-/// Uploads what's at `root`, or carries on with it; the upload's id once it's ready.
+/// An upload that is ready, and the fingerprint its record is kept under until the booking that uses it is answered.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Uploaded {
+    pub id: Uuid,
+    pub fingerprint: String,
+}
+
+/// Uploads what's at `root`, or carries on with it; the upload once it's ready. Its record stays in `resume` until
+/// the caller forgets it.
 ///
 /// # Errors
 /// If the files can't be read, the API refuses, or a part fails for good.
-pub async fn upload(ctx: &Context, resume: &ResumeStore, root: &std::path::Path, label: &str) -> Result<Uuid> {
+pub async fn upload(ctx: &Context, resume: &ResumeStore, root: &std::path::Path, label: &str) -> Result<Uploaded> {
     let (name, files) = files::collect(root)?;
     let fp = fingerprint(&name, &files);
     let total: u64 = files.iter().map(|file| file.size).sum();
@@ -66,9 +76,8 @@ pub async fn upload(ctx: &Context, resume: &ResumeStore, root: &std::path::Path,
     let id = opened.upload.id;
     record.upload_id = Some(id);
     if opened.upload.status == UploadResponseStatus::Ready {
-        resume.forget(&fp);
         ctx.note(format!("{label}: already uploaded"));
-        return Ok(id);
+        return Ok(Uploaded { id, fingerprint: fp });
     }
     let part_size = u64::try_from(opened.upload.part_size_bytes)
         .map_err(|_| CliError::failed("the API sent a part size this version can't use"))?;
@@ -119,9 +128,8 @@ pub async fn upload(ctx: &Context, resume: &ResumeStore, root: &std::path::Path,
 
     let record = state.lock().unwrap_or_else(PoisonError::into_inner).clone();
     complete(&ctx.client, id, &left, &record).await?;
-    resume.forget(&fp);
     ctx.note(format!("{label}: uploaded {}", format_bytes(total)));
-    Ok(id)
+    Ok(Uploaded { id, fingerprint: fp })
 }
 
 /// The upload these files went to before, if one is remembered and still wanted, opened again with its key; else a

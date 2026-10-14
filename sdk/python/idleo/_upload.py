@@ -7,6 +7,8 @@ steps as the command line's (cli/src/upload.rs) and the web app's.
 - each ETag is remembered in a file as it arrives (`_resume.py`): running the same call again opens the same upload
   with the same Idempotency-Key and sends only the parts storage hasn't taken;
 - every file is then completed (`POST /v1/uploads/{id}/complete`), a hundred to a call;
+- for a booking, the record outlives the upload until the booking has been answered, so a re-run after a lost answer
+  opens the same, ready upload and books with the same upload id;
 - a failed part is retried three times with backoff; an expired link (403) gets a fresh one.
 """
 
@@ -16,6 +18,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
@@ -45,6 +48,14 @@ RETRIES = 3
 #: Called now and then with (label, bytes sent, bytes in all); `label` is the input's name.
 OnProgress = Callable[[str, int, int], None]
 OnNote = Callable[[str], None]
+
+
+@dataclass(frozen=True)
+class Uploaded:
+    """An upload that is ready, and the fingerprint its record is kept under."""
+
+    id: str
+    fingerprint: str
 
 
 class _Links:
@@ -107,8 +118,10 @@ class Uploader:
         self._on_progress = on_progress
         self._note = on_note or (lambda _text: None)
 
-    def upload(self, root: Path, label: str) -> str:
-        """Uploads what's at `root`, or carries on with it; the upload's id once it's ready."""
+    def upload(self, root: Path, label: str, *, keep_record: bool = False) -> Uploaded:
+        """Uploads what's at `root`, or carries on with it; the upload once it's ready. With `keep_record`, its record
+        stays until the caller forgets it (a booking does, once answered); otherwise it goes once the upload is
+        ready."""
         name, files = collect(root)
         fp = fingerprint(name, files)
         total = sum(file.size for file in files)
@@ -118,9 +131,10 @@ class Uploader:
         upload_id = str(opened.upload.id)
         record.upload_id = upload_id
         if opened.upload.status == Status.ready:
-            self._resume.forget(fp)
+            if not keep_record:
+                self._resume.forget(fp)
             self._note(f"{label}: already uploaded")
-            return upload_id
+            return Uploaded(upload_id, fp)
         part_size = opened.upload.part_size_bytes
         by_path = {file.path: file for file in files}
 
@@ -160,9 +174,10 @@ class Uploader:
                         other.cancel()
                     raise future.exception()  # type: ignore[misc]
         self._complete(upload_id, left, record)
-        self._resume.forget(fp)
+        if not keep_record:
+            self._resume.forget(fp)
         self._note(f"{label}: uploaded {total:,} bytes")
-        return upload_id
+        return Uploaded(upload_id, fp)
 
     def _open(self, fp: str, specs: CreateUploadRequest) -> tuple[UploadDetail, Unfinished]:
         """The upload these files went to before, if one is remembered and still wanted, opened again with its key;

@@ -1,7 +1,7 @@
 //! `run`: uploads the inputs, books, follows the session until it ends, and prints what it cost and what it gave
 //! (docs/plan/product-surface.md section 4.2). Ctrl-C during it detaches; it never stops the session.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::num::{NonZeroU32, NonZeroU64};
 use std::time::Duration;
 
@@ -14,6 +14,7 @@ use crate::cli::RunArgs;
 use crate::commands::reads::find;
 use crate::context::Context;
 use crate::error::{CliError, Exit, Result};
+use crate::files::{self, fingerprint};
 use crate::follow::{Outcome, Show, follow};
 use crate::gpu_class::parse_gpu_memory;
 use crate::money::{format_paise, parse_rupees};
@@ -23,7 +24,7 @@ use crate::run_args::{InputValue, map_inputs, map_params, map_presets, parse_dur
 use crate::sessions::{exit_for, ran_for, state_words, why_ended};
 use crate::table::table;
 use crate::time::duration;
-use crate::upload::upload;
+use crate::upload::{Uploaded, upload};
 
 /// How many times a booking is tried when the answer doesn't come, always with the same key.
 const BOOKING_TRIES: u32 = 3;
@@ -48,17 +49,22 @@ pub async fn run(ctx: &Context, stores: &Stores, args: &RunArgs) -> Result<()> {
     let params = map_params(&args.param, &template.params)?;
     let presets = map_presets(&args.preset, &template.questions)?;
     let shape = Shape::of(args, template)?;
+    // The booking's Idempotency-Key comes from what was asked for, never from the upload ids, which a re-run could
+    // change: the same command after a lost answer finds the same key, so it never books twice.
+    let asked = asked_for(&template.id, &inputs, &params, &presets, &shape)?;
 
     // Uploads first: each folder or file once, in the order the template names its inputs.
     let mut given: HashMap<String, SessionInput> = HashMap::new();
+    let mut uploaded = Vec::new();
     for input in &template.inputs {
         match inputs.get(&input.name) {
             Some(InputValue::Url(url)) => {
                 given.insert(input.name.clone(), SessionInput { upload_id: None, url: Some(url.clone()) });
             }
             Some(InputValue::Path(path)) => {
-                let id = upload(ctx, &stores.resume, path, &input.name).await?;
-                given.insert(input.name.clone(), SessionInput { upload_id: Some(id), url: None });
+                let done = upload(ctx, &stores.resume, path, &input.name).await?;
+                given.insert(input.name.clone(), SessionInput { upload_id: Some(done.id), url: None });
+                uploaded.push(done);
             }
             None => {}
         }
@@ -78,7 +84,7 @@ pub async fn run(ctx: &Context, stores: &Stores, args: &RunArgs) -> Result<()> {
         max_runtime_seconds: shape.max_runtime,
         vram_needed_mb: shape.vram_mb,
     };
-    let session = book(ctx, stores, &request).await?;
+    let session = book(ctx, stores, &request, &asked, &uploaded).await?;
     ctx.say(format!(
         "Booked {}. It can cost at most {}.",
         session.id,
@@ -96,7 +102,7 @@ pub async fn run(ctx: &Context, stores: &Stores, args: &RunArgs) -> Result<()> {
 }
 
 /// The numbers a booking carries, worked out from the flags and the template.
-struct Shape {
+pub struct Shape {
     max_spend: NonZeroU64,
     max_price: Option<NonZeroU32>,
     max_runtime: Option<NonZeroU32>,
@@ -145,17 +151,66 @@ impl Shape {
     }
 }
 
-/// `POST /v1/sessions`, keeping its Idempotency-Key until the API answers, and trying again with the same key when
-/// no answer comes.
-async fn book(ctx: &Context, stores: &Stores, request: &CreateSessionRequest) -> Result<SessionResponse> {
-    let text = serde_json::to_string(request).map_err(|e| CliError::failed(e.to_string()))?;
-    let key = stores.pending.key_for(&text);
+/// What the renter asked for, as text: the template, each input (a file or folder by its place on this computer and
+/// its files' paths, sizes and modification times, a link by its URL), the parameters, the answers and the limits.
+/// The same command over the same files gives the same text, whatever upload ids a run gets.
+///
+/// # Errors
+/// If an input's files can't be read.
+pub fn asked_for(
+    template: &str,
+    inputs: &BTreeMap<String, InputValue>,
+    params: &BTreeMap<String, ParamValue>,
+    presets: &BTreeMap<String, String>,
+    shape: &Shape,
+) -> Result<String> {
+    let mut given = BTreeMap::new();
+    for (name, value) in inputs {
+        let described = match value {
+            InputValue::Url(url) => serde_json::json!({ "url": url }),
+            InputValue::Path(path) => {
+                let (root, files) = files::collect(path)?;
+                let place = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
+                serde_json::json!({ "path": place.display().to_string(), "files": fingerprint(&root, &files) })
+            }
+        };
+        given.insert(name.clone(), described);
+    }
+    let text = serde_json::json!({
+        "template": template,
+        "inputs": given,
+        "params": params,
+        "presets": presets,
+        "maxSpendPaise": shape.max_spend,
+        "maxPricePaisePerMin": shape.max_price,
+        "maxRuntimeSeconds": shape.max_runtime,
+        "vramNeededMb": shape.vram_mb,
+    });
+    Ok(text.to_string())
+}
+
+/// `POST /v1/sessions`, keeping its Idempotency-Key, from what was `asked` for, until the API answers, and trying
+/// again with the same key when no answer comes. Once the API has answered, the uploads' records are let go too.
+async fn book(
+    ctx: &Context,
+    stores: &Stores,
+    request: &CreateSessionRequest,
+    asked: &str,
+    uploaded: &[Uploaded],
+) -> Result<SessionResponse> {
+    let key = stores.pending.key_for(asked);
+    let answered = || {
+        stores.pending.answered(asked);
+        for done in uploaded {
+            stores.resume.forget(&done.fingerprint);
+        }
+    };
     let mut tries = 0;
     loop {
         tries += 1;
         match ctx.client.post::<_, SessionResponse>("/v1/sessions", request, Some(&key)).await {
             Ok(session) => {
-                stores.pending.answered(&text);
+                answered();
                 return Ok(session);
             }
             Err(error) if error.exit == Exit::Network || error.problem.as_deref() == Some("server-error") => {
@@ -171,7 +226,7 @@ async fn book(ctx: &Context, stores: &Stores, request: &CreateSessionRequest) ->
             }
             Err(error) => {
                 // The API's answer is final: the key has done its job.
-                stores.pending.answered(&text);
+                answered();
                 return Err(error);
             }
         }
@@ -218,4 +273,55 @@ fn summary(session: &SessionResponse, outputs: Option<&Outputs>) -> String {
         }
     }
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn shape(max_spend: u64) -> Shape {
+        Shape { max_spend: NonZeroU64::new(max_spend).unwrap(), max_price: None, max_runtime: None, vram_mb: None }
+    }
+
+    fn model(dir: &std::path::Path) -> std::path::PathBuf {
+        let model = dir.join("my-model");
+        std::fs::create_dir_all(&model).unwrap();
+        std::fs::write(model.join("config.json"), "{}").unwrap();
+        std::fs::write(model.join("weights.bin"), vec![0_u8; 64]).unwrap();
+        model
+    }
+
+    fn asked(inputs: &BTreeMap<String, InputValue>, epochs: i64, spend: u64) -> String {
+        let params = BTreeMap::from([("epochs".to_owned(), ParamValue::Integer(epochs))]);
+        let presets = BTreeMap::from([("thoroughness".to_owned(), "standard".to_owned())]);
+        asked_for("fine-tune-simulated", inputs, &params, &presets, &shape(spend)).unwrap()
+    }
+
+    #[test]
+    fn the_same_command_over_the_same_files_asks_for_the_same_thing() {
+        let dir = tempfile::tempdir().unwrap();
+        let inputs = BTreeMap::from([
+            ("model".to_owned(), InputValue::Path(model(dir.path()))),
+            ("data".to_owned(), InputValue::Url("https://example.com/train.jsonl".to_owned())),
+        ]);
+        // A second run has new upload ids, but the same request: the key can't depend on them, and it doesn't.
+        assert_eq!(asked(&inputs, 2, 20_000), asked(&inputs, 2, 20_000));
+        let keys = crate::pending::PendingKeys::new(dir.path());
+        assert_eq!(keys.key_for(&asked(&inputs, 2, 20_000)), keys.key_for(&asked(&inputs, 2, 20_000)));
+    }
+
+    #[test]
+    fn anything_else_asked_for_is_another_booking() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = model(dir.path());
+        let inputs = BTreeMap::from([("model".to_owned(), InputValue::Path(folder.clone()))]);
+        let first = asked(&inputs, 2, 20_000);
+        assert_ne!(asked(&inputs, 3, 20_000), first, "another parameter");
+        assert_ne!(asked(&inputs, 2, 30_000), first, "another budget");
+        let linked = BTreeMap::from([("model".to_owned(), InputValue::Url("https://example.com/m".to_owned()))]);
+        assert_ne!(asked(&linked, 2, 20_000), first, "a link instead of the folder");
+        // An edited file is another file: its size changes the fingerprint, and so the booking.
+        std::fs::write(folder.join("weights.bin"), vec![1_u8; 65]).unwrap();
+        assert_ne!(asked(&inputs, 2, 20_000), first, "an edited file");
+    }
 }

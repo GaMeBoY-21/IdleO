@@ -368,7 +368,7 @@ summary=()
 cleanup() {
   local status=$?
   set +e
-  for pid_file in "$out"/web-*.pid; do
+  for pid_file in "$out"/web-*.pid "$out"/proxy-*.pid; do
     [[ -f "$pid_file" ]] && kill -TERM "$(cat "$pid_file")" 2>/dev/null
   done
   for pid_file in "$out"/agent-*.pid; do
@@ -1445,6 +1445,30 @@ header = json.loads(data[8 : 8 + struct.unpack("<Q", data[:8])[0]])
 tensors = [name for name in header if name != "__metadata__"]
 assert len(tensors) == 8, tensors
 PY
+
+  # A booking whose answer is lost books once: a proxy hands every try of POST /v1/sessions to the API and throws its
+  # answer away, so the CLI gives up not knowing; the same command run again, over the same model folder, finds the
+  # same Idempotency-Key (made from what was asked for) and the same, ready upload, and gets back the one session.
+  local proxy_port=$((http_port + 17)) dropped="$work/dropped" before after lost_session
+  before="$(token="$cli_token" api_get "/v1/sessions?limit=100" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["sessions"]))')"
+  python3 "$root/scripts/e2e/drop-answer-proxy.py" "$proxy_port" "$api" 3 "$dropped" >"$out/proxy-drop.log" 2>&1 &
+  echo $! >"$out/proxy-drop.pid"
+  for _ in $(seq 1 50); do curl -s -o /dev/null "http://127.0.0.1:$proxy_port/v1/templates" && break; sleep 0.1; done
+  local lost_exit=0
+  IDLEO_API_URL="http://127.0.0.1:$proxy_port" "$idleo" run fine-tune-simulated --input "model=$work/my-model" \
+    --input "data=$work/train.jsonl" --detach >"$work/lost.out" 2>"$work/lost.err" || lost_exit=$?
+  [[ "$lost_exit" == 7 ]] || fail "idleo run with its answers lost exited $lost_exit, not 7: $(tail -3 "$work/lost.err")"
+  [[ "$(cat "$dropped")" == 3 ]] || fail "the proxy dropped $(cat "$dropped" 2>/dev/null) answers, not 3"
+  grep -q "won't book twice" "$work/lost.err" || fail "idleo run didn't say running it again won't book twice"
+  "$idleo" run fine-tune-simulated --input "model=$work/my-model" --input "data=$work/train.jsonl" \
+    --detach >"$work/rerun.out" 2>"$work/rerun.err" || fail "the re-run after a lost answer failed: $(tail -3 "$work/rerun.err")"
+  grep -q "already uploaded" "$work/rerun.err" || fail "the re-run uploaded the model again: $(head -5 "$work/rerun.err")"
+  lost_session="$(head -1 "$work/rerun.out")"
+  after="$(token="$cli_token" api_get "/v1/sessions?limit=100" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["sessions"]))')"
+  [[ "$after" == $((before + 1)) ]] || fail "a lost answer and a re-run booked $((after - before)) sessions, not 1"
+  kill -TERM "$(cat "$out/proxy-drop.pid")" 2>/dev/null; rm -f "$out/proxy-drop.pid"
+  "$idleo" stop "$lost_session" >/dev/null 2>&1 || "$idleo" cancel "$lost_session" >/dev/null 2>&1 || true
+  note "cli lost answer: three tries of a booking reached the API and their answers were thrown away (exit 7, \"won't book twice\"); the same command again reused the ready upload and the same key, and got back session $lost_session: 1 session booked, not 2: PASS"
 
   # An upload cut off part-way carries on: kill the CLI once storage has taken a few parts of a 1.5 GB file, run
   # the same command again, and it picks up where it stopped instead of sending it all again.

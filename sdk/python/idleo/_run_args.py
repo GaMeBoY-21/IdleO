@@ -5,6 +5,7 @@ line's are cli/src/run_args.rs)."""
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+from idleo._files import collect, fingerprint
 from idleo._generated.models import Kind, Kind1, TemplateInput, TemplateResponse, Type1
 from idleo._problem import UsageError
 
@@ -159,3 +161,39 @@ def runtime_seconds(max_runtime: int | timedelta | None) -> int | None:
     if isinstance(seconds, bool) or not isinstance(seconds, int) or seconds < 1:
         raise UsageError("max_runtime is seconds (or a timedelta) of at least 1")
     return seconds
+
+
+def asked_for(
+    template: str,
+    given: Mapping[str, Given],
+    params: Mapping[str, str | int | float | bool],
+    presets: Mapping[str, str],
+    spend_paise: int,
+    runtime: int | None,
+    vram: int | None,
+) -> str:
+    """What the renter asked for, as text: the template, each input (a file or folder by its place on this computer
+    and its files' paths, sizes and modification times, a link by its URL, an upload by its id), the parameters, the
+    answers and the limits. The booking's Idempotency-Key comes from this, never from upload ids a re-run could change,
+    so the same call after a lost answer finds the same key and never books twice (the command line does the same)."""
+    inputs: dict[str, dict[str, str]] = {}
+    for name, value in given.items():
+        if isinstance(value, Link):
+            inputs[name] = {"url": value.url}
+        elif isinstance(value, Existing):
+            inputs[name] = {"uploadId": str(value.upload_id)}
+        else:
+            root, files = collect(value.path)
+            inputs[name] = {"path": str(value.path.resolve()), "files": fingerprint(root, files)}
+    return json.dumps(
+        {
+            "template": template,
+            "inputs": inputs,
+            "params": dict(params),
+            "presets": dict(presets),
+            "maxSpendPaise": spend_paise,
+            "maxRuntimeSeconds": runtime,
+            "vramNeededMb": vram,
+        },
+        sort_keys=True,
+    )

@@ -214,3 +214,51 @@ def test_a_read_that_fails_in_the_network_is_tried_again_twice(fake, tmp_path):
     fake.route("GET", "/v1/wallet", lambda r: httpx.Response(502, text="x"))
     with pytest.raises(errors.ServerError):
         fake.client(tmp_path).credit()
+
+
+def test_a_lost_answer_then_a_rerun_books_once_with_the_same_upload_and_key(fake, tmp_path):
+    from test_upload import Storage
+
+    storage = Storage(fake, {"a.txt": 3})
+    # Once the upload is ready, opening it again with its key answers with it as it stands: ready.
+    opened = {"n": 0}
+
+    def reopen(request):
+        opened["n"] += 1
+        storage.opens.append(request.headers.get("Idempotency-Key"))
+        return httpx.Response(
+            200 if opened["n"] > 1 else 201, json=storage.detail("ready" if storage.completed else "pending")
+        )
+
+    fake.route("POST", "/v1/uploads", reopen)
+    keys, sent = [], {"lost": True}
+
+    def booking(request):
+        keys.append(request.headers["Idempotency-Key"])
+        if sent["lost"]:
+            raise httpx.ReadError("the answer never came")
+        return httpx.Response(200, json=session())
+
+    books(fake, booking)
+    folder = tmp_path / "model"
+    folder.mkdir()
+    (folder / "a.txt").write_bytes(b"abc")
+    inputs = {"model": folder, "data": "https://x.example/d"}
+
+    with pytest.raises(errors.NetworkError, match="won't book twice"):
+        fake.client(tmp_path).sessions.run("fine-tune-simulated", inputs=inputs)
+    puts = len(storage.puts)
+    first = body(fake.calls("POST", "/v1/sessions")[0])
+    # The upload's record and the booking's key are both still there, for the next run.
+    assert list((tmp_path / "config" / "uploads").glob("*.json"))
+    assert len(list((tmp_path / "config" / "pending").glob("*.key"))) == 1
+
+    sent["lost"] = False
+    s = fake.client(tmp_path).sessions.run("fine-tune-simulated", inputs=inputs)
+    assert s.id == SESSION_ID
+    assert len(set(keys)) == 1, "every try, in both runs, carried the same key"
+    assert len(storage.puts) == puts, "the second run sent nothing to storage"
+    assert storage.opens[0] == storage.opens[-1], "the upload was opened again with its own key"
+    assert body(fake.calls("POST", "/v1/sessions")[-1]) == first, "the same upload id, the same request"
+    assert list((tmp_path / "config" / "uploads").glob("*.json")) == []
+    assert list((tmp_path / "config" / "pending").glob("*.key")) == []
