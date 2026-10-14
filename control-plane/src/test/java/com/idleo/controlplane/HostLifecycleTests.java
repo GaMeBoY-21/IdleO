@@ -229,6 +229,32 @@ class HostLifecycleTests {
     }
 
     @Test
+    void aListingWithoutKeepFreeKeepsTheStoredValue() throws Exception {
+        var host = host();
+        mvc.perform(put("/v1/hosts/" + host.id() + "/listing")
+                        .header("Authorization", host.agent().bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"batchPricePaisePerMin": 2, "gpuTempCapC": 85, "maxConcurrentSessions": 1,
+                                 "keepFreeGb": 50}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keepFreeGb").value(50));
+
+        // A new price, with nothing said about the disk: the 50 GB the owner keeps stays 50.
+        mvc.perform(put("/v1/hosts/" + host.id() + "/listing")
+                        .header("Authorization", host.agent().bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"batchPricePaisePerMin": 3, "gpuTempCapC": 85, "maxConcurrentSessions": 1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.batchPricePaisePerMin").value(3))
+                .andExpect(jsonPath("$.keepFreeGb").value(50));
+        assertThat(hostView(host).get("listing").get("keepFreeGb").asInt()).isEqualTo(50);
+    }
+
+    @Test
     void anOwnerRenamesAHostAndNobodyElseCan() throws Exception {
         var host = host();
         var other = TestUsers.signUp(mvc);

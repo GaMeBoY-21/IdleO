@@ -53,7 +53,7 @@ class HostController {
 
     /**
      * A host's listing (ADR 0015). One session at a time for now: one job per GPU host keeps isolation and
-     * billing simple.
+     * billing simple. {@code keepFreeGb} left out keeps what the host has (20 GB for a new host, ADR 0023).
      */
     record ListingRequest(
             @NotNull @Min(1) Integer batchPricePaisePerMin,
@@ -73,13 +73,10 @@ class HostController {
         return listings.put(
                         user.id(),
                         id,
-                        new HostListings.Listing(
-                                request.batchPricePaisePerMin(),
-                                request.gpuTempCapC(),
-                                request.maxConcurrentSessions(),
-                                request.keepFreeGb() == null
-                                        ? HostListings.Listing.DEFAULT_KEEP_FREE_GB
-                                        : request.keepFreeGb()))
+                        request.batchPricePaisePerMin(),
+                        request.gpuTempCapC(),
+                        request.maxConcurrentSessions(),
+                        request.keepFreeGb())
                 .orElseThrow(HostViews::notFound);
     }
 

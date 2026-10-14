@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,18 +40,29 @@ class HostListingService implements HostListings {
                 .optional();
     }
 
-    /** Sets the owner's listing, replacing any earlier one; empty if the host isn't theirs or was removed. */
+    /**
+     * Sets the owner's listing, replacing any earlier one, and returns it as stored; empty if the host isn't theirs or
+     * was removed. A {@code keepFreeGb} left out keeps the host's stored value: a request that doesn't mention the
+     * owner's disk never changes it.
+     */
     @Transactional
-    Optional<Listing> put(UUID ownerUserId, UUID hostId, Listing listing) {
+    Optional<Listing> put(
+            UUID ownerUserId,
+            UUID hostId,
+            int price,
+            int gpuTempCapC,
+            int maxConcurrent,
+            @Nullable Integer keepFreeGb) {
         var now = Timestamp.from(Instant.now(clock));
         int updated = jdbc.sql("""
                         update hosts.hosts
-                        set gpu_temp_cap_c = :cap, max_concurrent_sessions = :max, keep_free_gb = :keepFree, updated_at = :now
+                        set gpu_temp_cap_c = :cap, max_concurrent_sessions = :max,
+                            keep_free_gb = coalesce(:keepFree, keep_free_gb), updated_at = :now
                         where id = :hostId and owner_user_id = :owner and status <> 'removed'
                         """)
-                .param("cap", listing.gpuTempCapC())
-                .param("max", listing.maxConcurrentSessions())
-                .param("keepFree", listing.keepFreeGb())
+                .param("cap", gpuTempCapC)
+                .param("max", maxConcurrent)
+                .param("keepFree", keepFreeGb, java.sql.Types.INTEGER)
                 .param("now", now)
                 .param("hostId", hostId)
                 .param("owner", ownerUserId)
@@ -65,9 +77,9 @@ class HostListingService implements HostListings {
                         do update set price_paise_per_min = excluded.price_paise_per_min, updated_at = excluded.updated_at
                         """)
                 .param("hostId", hostId)
-                .param("price", listing.batchPricePaisePerMin())
+                .param("price", price)
                 .param("now", now)
                 .update();
-        return Optional.of(listing);
+        return listing(hostId);
     }
 }
