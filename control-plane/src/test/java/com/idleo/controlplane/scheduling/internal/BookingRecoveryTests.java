@@ -74,11 +74,18 @@ class BookingRecoveryTests {
         // No host is online: once retried, matching ends it without a host.
         assertThat(state).isEqualTo("NO_HOST_FREE");
         verify(matcher, atLeast(2)).match(id);
-        assertThat(jdbc.queryForObject("""
-                        select count(*) from modulith.event_publication
-                        where serialized_event like ? and completion_date is null
-                        """, Integer.class, "%" + id + "%"))
-                .as("the publication completed after the retry")
-                .isZero();
+        // Ending it publishes events of its own (SessionNeverRan), whose listeners finish a moment later: every
+        // publication naming the session completes, within the same deadline.
+        int incomplete;
+        do {
+            incomplete = jdbc.queryForObject("""
+                    select count(*) from modulith.event_publication
+                    where serialized_event like ? and completion_date is null
+                    """, Integer.class, "%" + id + "%");
+            if (incomplete > 0) {
+                Thread.sleep(100);
+            }
+        } while (incomplete > 0 && System.nanoTime() < deadline);
+        assertThat(incomplete).as("the publication completed after the retry").isZero();
     }
 }
