@@ -53,10 +53,10 @@ if (adapter.length === 0) {
 }
 
 const { render } = (await import(new URL("../dist-ssr/prerender.js", import.meta.url).href)) as {
-  render: (path: string) => string;
+  render: (path: string) => Promise<string>;
 };
-const withFrame = (page: string, path: string) =>
-  page.replace('<div id="root"></div>', `<div id="root">${render(path)}</div>`);
+const withFrame = async (page: string, path: string) =>
+  page.replace('<div id="root"></div>', `<div id="root">${await render(path)}</div>`);
 
 for (const [path, module] of Object.entries(SCREENS)) {
   const own = [
@@ -69,9 +69,9 @@ for (const [path, module] of Object.entries(SCREENS)) {
   const links = own.map((file) => `    <link rel="modulepreload" crossorigin href="/${file}">`).join("\n");
   mkdirSync(`${dist}${path}`, { recursive: true });
   const page = links ? html.replace("</head>", `${links}\n  </head>`) : html;
-  writeFileSync(`${dist}${path}index.html`, withFrame(page, path));
+  writeFileSync(`${dist}${path}index.html`, await withFrame(page, path));
 }
-writeFileSync(`${dist}404.html`, withFrame(html, "/not-a-screen/"));
+writeFileSync(`${dist}404.html`, await withFrame(html, "/not-a-screen/"));
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
 console.log(
   `postbuild: ${Object.keys(SCREENS).length} screens, ${hashes.length} inline script hash(es), CSP: ${csp}`,
