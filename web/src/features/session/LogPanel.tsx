@@ -39,6 +39,8 @@ export function LogPanel({
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const shiftBy = useRef(0);
+  /** Blocks already drawn, by key, so an append rebuilds only the block still growing (see `blocks`). */
+  const [drawn] = useState(() => new Map<string, LogBlock>());
 
   const last = end ?? lineTotal(log);
   const start = Math.max(0, last - LOG_CAP);
@@ -146,7 +148,7 @@ export function LogPanel({
               </button>
             </div>
           )}
-          {blocks(shown, start).map((block) => (
+          {blocks(shown, start, drawn).map((block) => (
             <Block key={block.key} block={block} />
           ))}
         </div>
@@ -166,7 +168,7 @@ export function LogPanel({
 }
 
 /** Lines drawn together: up to 100 in one element, or an attempt's mark on its own. */
-type LogBlock =
+export type LogBlock =
   | { key: string; kind: "lines"; text: string; count: number }
   | { key: string; kind: "attempt"; attempt: number };
 
@@ -176,14 +178,29 @@ const BLOCK = 100;
  * The shown lines as blocks of up to 100, cut at the same absolute line numbers whatever the window, so a block
  * keeps its key as the window moves and only the blocks at its ends change. A page of 2,000 lines is about 20
  * elements, not 2,000.
+ *
+ * A log only grows, so a block that has been closed (by the next block, or an attempt's mark) never changes: the same
+ * key and count mean the same lines. Such a block is taken from `drawn` as it was, the same object, so its 100 lines
+ * aren't joined again and `Block` (memoised) isn't drawn again. Only the last block, which may still be growing, is
+ * rebuilt on an append. `drawn` keeps just this window's closed blocks.
  */
-function blocks(lines: LogLine[], start: number): LogBlock[] {
+export function blocks(lines: LogLine[], start: number, drawn: Map<string, LogBlock>): LogBlock[] {
   const out: LogBlock[] = [];
+  const closedBlocks: LogBlock[] = [];
   let text: string[] = [];
   let first = start;
-  const flush = (at: number) => {
+  const flush = (at: number, closed: boolean) => {
     if (text.length > 0) {
-      out.push({ key: `l${first}`, kind: "lines", text: text.join("\n"), count: text.length });
+      const key = `l${first}`;
+      const before = drawn.get(key);
+      const block: LogBlock =
+        closed && before?.kind === "lines" && before.count === text.length
+          ? before
+          : { key, kind: "lines", text: text.join("\n"), count: text.length };
+      out.push(block);
+      if (closed) {
+        closedBlocks.push(block);
+      }
       text = [];
     }
     first = at;
@@ -191,16 +208,24 @@ function blocks(lines: LogLine[], start: number): LogBlock[] {
   lines.forEach((line, i) => {
     const at = start + i;
     if (line.kind === "attempt") {
-      flush(at + 1);
-      out.push({ key: `a${at}`, kind: "attempt", attempt: line.attempt });
+      flush(at + 1, true);
+      const key = `a${at}`;
+      const mark = drawn.get(key) ?? { key, kind: "attempt" as const, attempt: line.attempt };
+      out.push(mark);
+      closedBlocks.push(mark);
       return;
     }
     if (at % BLOCK === 0) {
-      flush(at);
+      flush(at, true);
     }
     text.push(line.text);
   });
-  flush(start + lines.length);
+  flush(start + lines.length, false);
+  // Only closed blocks are kept: the last one may still grow, even at the same count (its last line, half written).
+  drawn.clear();
+  for (const block of closedBlocks) {
+    drawn.set(block.key, block);
+  }
   return out;
 }
 

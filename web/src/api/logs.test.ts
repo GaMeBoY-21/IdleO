@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { appendChunks, EMPTY_LOG, readNewLogs, visibleLines, type LogState } from "./logs";
+import { appendChunks, EMPTY_LOG, linesBetween, readNewLogs, visibleLines, type LogState } from "./logs";
 import { keys } from "./queries";
 
 const get = vi.hoisted(() => vi.fn());
@@ -81,5 +81,41 @@ describe("a session's log", () => {
     await Promise.all([first, second]);
     expect(get).toHaveBeenCalledTimes(2);
     expect(client.getQueryData<LogState>(keys.logs("s"))!.seq).toBe(2);
+  });
+
+  it("adds a big page in slices and writes the cache once a frame at most, never once a chunk", async () => {
+    const client = new QueryClient();
+    const writes = vi.spyOn(client, "setQueryData");
+    const thousand = (n: number) =>
+      Array.from({ length: 1_000 }, (_, i) => `step ${n * 1_000 + i}`).join("\n") + "\n";
+    get
+      .mockResolvedValueOnce({
+        data: {
+          chunks: Array.from({ length: 100 }, (_, n) => chunk(1, n + 1, thousand(n))),
+          nextCursor: "c100",
+          complete: false,
+        },
+      })
+      .mockResolvedValueOnce({ data: { chunks: [], nextCursor: "c100", complete: false } });
+    await readNewLogs(client, "big");
+    const state = client.getQueryData<LogState>(keys.logs("big"))!;
+    expect(state.count).toBe(100_000);
+    expect(state.cursor).toBe("c100");
+    expect(visibleLines(state).at(-1)).toEqual({ kind: "line", text: "step 99999" });
+    expect(writes.mock.calls.length).toBeLessThan(10);
+  });
+
+  it("finds any window of lines across the segments they arrived in", () => {
+    let state = EMPTY_LOG;
+    for (let n = 0; n < 5; n++) {
+      state = appendChunks(state, [chunk(1, n + 1, `a${n}\nb${n}\n`)]);
+    }
+    expect(state.segments).toHaveLength(5);
+    expect(linesBetween(state, 3, 7).map((line) => (line.kind === "line" ? line.text : ""))).toEqual([
+      "b1",
+      "a2",
+      "b2",
+      "a3",
+    ]);
   });
 });
