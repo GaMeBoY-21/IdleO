@@ -2,6 +2,19 @@
 
 `scripts/e2e/agent-online.sh` runs the whole platform on one machine and checks the agent coming online end to end. It's also CI's compatibility test (`.github/workflows/e2e.yml`, ADR 0013): every change to the control plane, the agent or the protocol is proven against the other side.
 
+## Run everything
+
+`./start.sh` at the repository root starts the whole system for development and keeps it running until Ctrl-C; the README's "Run everything" says what it starts, where, and as whom. It shares its steps with the end-to-end script below (`scripts/lib/stack.sh`: the toolchains, the port check, the control plane, the sign-in server and its tokens, operator commands, hosts and agents), so the two start the platform the same way. Its own choices:
+
+- **Its own compose project, `idleo-local`,** whose data is kept from one start to the next; `./start.sh --fresh` wipes it (and the agents' enrolments), after asking. The end-to-end script uses `idleo-e2e` and throws its data away; the two use the same ports, so run one at a time.
+- **Seeds, idempotently:** the three `nikki` accounts, created by signing in once, given their credit with `grant-credits` only when their wallet is empty; the two laptops registered, enrolled (their keys in `private/local/agent-N/`), priced at 12 and 18 paise a minute and activated with `activate-host`, each only once. Operator commands take about 20 s each, so the first run is slow and later ones skip them.
+- **Settings:** invites off (`IDENTITY_INVITE_ONLY=false`), the development catalog (`templates/development.yaml`, whose simulated services the fake GPUs' development runner plays), production's limits and lease.
+- **The web app** runs as `pnpm dev` with the local sign-in adapter, whatever `web/.env.local` says (the environment wins over `.env` files); with `--real-sign-in`, `web/.env.local`'s Firebase settings are used, and the control plane trusts your project as a second issuer beside the local one, so the seeds still work.
+- **The public site** is built into `web/dist-local/` when its sources changed since the last build, and served at http://localhost:3002.
+- **Logs** in `logs/` (control-plane, web, site, agent-1, agent-2, ops, compose); pids in `private/local/`. `./start.sh --stop` stops what another start started; `--status` shows it.
+
+`scripts/e2e/start-check.sh` runs it without a screen, books one simulated session, stops it and checks nothing is left; CI runs it after the end-to-end test.
+
 ## What it does
 
 From the repository root, it:

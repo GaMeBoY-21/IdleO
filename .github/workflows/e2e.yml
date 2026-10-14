@@ -5,9 +5,9 @@ name: e2e
 on:
   push:
     branches: [main]
-    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "api/**", "scripts/e2e/**", ".github/workflows/e2e.yml"]
+    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "api/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/**", "start.sh"]
   pull_request:
-    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "api/**", "scripts/e2e/**", ".github/workflows/e2e.yml"]
+    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "api/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/**", "start.sh"]
   workflow_dispatch:
     inputs:
       upload_logs:
@@ -61,12 +61,16 @@ jobs:
         run: pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
       - name: The agent comes online, runs, loses and resumes sessions, and goes offline
         run: scripts/e2e/agent-online.sh
+      - name: ./start.sh starts everything headless, runs a session, and --stop leaves nothing running
+        run: scripts/e2e/start-check.sh
       # Logs only: the agent's keys, its config and every token stay out of the artifact.
       - name: Upload the logs
         if: failure() || inputs.upload_logs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: e2e-logs
-          path: private/e2e/*.log
+          path: |
+            private/e2e/*.log
+            logs/*.log
           if-no-files-found: warn
           retention-days: 7

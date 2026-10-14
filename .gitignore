@@ -57,3 +57,6 @@ venv/
 phase0/qlora-test/work/
 .ruff_cache/
 .mypy_cache/
+
+# ./start.sh and scripts/check-all.sh write their logs here
+/logs/

@@ -4,6 +4,22 @@ A peer-to-peer GPU marketplace for India. Hosts with RTX gaming laptops and desk
 
 **Current phase:** Phase 0 (feasibility), then Phase 1 (compute core).
 
+## Run everything
+
+One command starts the whole system on your machine, for local development only (it never touches production settings or real money):
+
+```sh
+./start.sh
+```
+
+It checks Docker, Java 25, Node 24.21.0 and Rust are in place and the ports are free, then starts PostgreSQL, Valkey, object storage, the local sign-in server and Mailpit (`control-plane/compose.yaml`), the control plane, two laptops' fake GPUs (RTX 4060 Laptop, 8 GB; RTX 4080 Laptop, 12 GB), the web app's dev server and the public site. When everything answers, it prints where each is and opens the web app:
+
+- web app http://localhost:3000, public site http://localhost:3002/about/, email http://localhost:8025, admin console http://localhost:3000/admin/;
+- sign in as `nikki@example.com` (₹500, owns both laptops), `nikki-low@example.com` (₹1) or `nikki-broke@example.com` (₹0), with no invite step;
+- every service's log in `logs/`.
+
+The first run installs and builds what's missing; later runs start in under a minute. Ctrl-C stops everything, containers too (their data is kept). From another terminal: `./start.sh --stop` and `./start.sh --status`. `./start.sh --fresh` wipes the local data first (it asks), `./start.sh --real-sign-in` adds Google sign-in from `control-plane/.env` and `web/.env.local` (docs/runbooks/identity-provider-setup.md), and `--no-browser` doesn't open one.
+
 ## Layout
 
 ```text
