@@ -111,6 +111,18 @@ class PriceBandTests {
     }
 
     @Test
+    void fromFiveHostsTheOneHighestAndLowestPriceAreLeftOutSoOneOutlierSetsNoEdge() {
+        // Three or four hosts: every price counts.
+        assertThat(PriceBands.of(List.of(10, 12, 500), 12_282, PROPERTIES)).isEqualTo(new PriceBands.Band(10, 500, 3));
+        assertThat(PriceBands.of(List.of(1, 12, 14, 16), 12_282, PROPERTIES)).isEqualTo(new PriceBands.Band(1, 16, 4));
+        // Five to nine: one outlier at either end moves nothing.
+        assertThat(PriceBands.of(List.of(1, 12, 14, 16, 500), 12_282, PROPERTIES))
+                .isEqualTo(new PriceBands.Band(12, 16, 3));
+        assertThat(PriceBands.of(List.of(500, 10, 11, 12, 13, 14, 15, 16, 2), 12_282, PROPERTIES))
+                .isEqualTo(new PriceBands.Band(10, 16, 7));
+    }
+
+    @Test
     void theTopAndBottomTenthOfThePricesAreIgnored() {
         // Twenty prices from 10 to 29, one wild one each end: two are dropped from each side.
         var prices = new ArrayList<>(IntStream.rangeClosed(10, 29).boxed().toList());

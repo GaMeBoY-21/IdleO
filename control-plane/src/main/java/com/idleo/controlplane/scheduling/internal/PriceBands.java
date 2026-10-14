@@ -6,12 +6,15 @@ import java.util.List;
 
 /**
  * The price range suggested to a host (ADR 0023): the listed prices of the other active hosts with its GPU model,
- * without the top and bottom 10%, so one odd price doesn't move it. With fewer than {@link #MIN_SAMPLE} such hosts,
- * the default for its GPU memory class.
+ * without the top and bottom 10%, and from 5 hosts never fewer than the single highest and lowest, so one odd price
+ * can't set an edge. With fewer than {@link #MIN_SAMPLE} such hosts, the default for its GPU memory class.
  */
 final class PriceBands {
 
     static final int MIN_SAMPLE = 3;
+
+    /** From this many hosts, at least the one highest and one lowest price are left out. */
+    static final int TRIM_FROM = 5;
 
     /** @param sampleSize the hosts the range comes from; 0 when it's the class default */
     record Band(int lowPaisePerMin, int highPaisePerMin, int sampleSize) {}
@@ -24,7 +27,7 @@ final class PriceBands {
             return new Band(fallback.lowPaisePerMin(), fallback.highPaisePerMin(), 0);
         }
         var prices = peerPrices.stream().mapToInt(Integer::intValue).sorted().toArray();
-        int trim = prices.length / 10;
+        int trim = prices.length >= TRIM_FROM ? Math.max(1, prices.length / 10) : 0;
         var kept = Arrays.copyOfRange(prices, trim, prices.length - trim);
         return new Band(kept[0], kept[kept.length - 1], kept.length);
     }
