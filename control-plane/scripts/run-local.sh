@@ -38,21 +38,11 @@ for var in SPRING_PROFILES_ACTIVE SPRING_PROFILES_INCLUDE; do
 done
 
 if ((real_sign_in)); then
-  issuer="${IDENTITY_ISSUERS_0_ISSUERURI:-}"
-  audience="${IDENTITY_ISSUERS_0_AUDIENCE:-}"
-  if [[ -z "$issuer" || -z "$audience" ]]; then
-    echo "run-local: --real-sign-in needs IDENTITY_ISSUERS_0_ISSUERURI and IDENTITY_ISSUERS_0_AUDIENCE in control-plane/.env. Check those two lines (identity-provider-setup.md, section 7)." >&2
-    exit 1
-  fi
-  if [[ "$audience" == "demo-project" || "$audience" == "idleo-local" || "$issuer" != https://securetoken.google.com/* ]]; then
-    echo "run-local: IDENTITY_ISSUERS_0_ISSUERURI must be https://securetoken.google.com/<your-project-id> and IDENTITY_ISSUERS_0_AUDIENCE your project id, not the example or the development sign-in server. Check those two lines in control-plane/.env." >&2
-    exit 1
-  fi
-  if [[ "$issuer" != "https://securetoken.google.com/$audience" ]]; then
-    echo "run-local: the issuer ($issuer) and the audience ($audience) must end in the same project id. Check those two lines in control-plane/.env." >&2
-    exit 1
-  fi
-  echo "run-local: real sign-in: trusting project $audience" >&2
+  root="$(cd .. && pwd)"
+  # shellcheck source=scripts/lib/real-sign-in.sh
+  . "$root/scripts/lib/real-sign-in.sh"
+  stack_real_sign_in 0 2> >(sed 's/^/run-local: /' >&2) || exit 1
+  echo "run-local: real sign-in: trusting project $real_sign_in_project" >&2
 else
   # The development sign-in server, even if .env holds a real project's settings.
   unset IDENTITY_ISSUERS_0_ISSUERURI IDENTITY_ISSUERS_0_AUDIENCE

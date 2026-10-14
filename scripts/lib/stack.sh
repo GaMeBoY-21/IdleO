@@ -1,0 +1,160 @@
+# The local stack's shared steps, sourced by scripts/e2e/agent-online.sh and ./start.sh, so the two start the
+# system the same way and can't drift apart: the toolchains on PATH, the port check, the control plane on the local
+# profile (which starts compose.yaml), its readiness, the development sign-in server and its tokens, operator
+# commands, hosts registered and enrolled, and fake-GPU agents built, configured and run.
+#
+# The caller sets, before sourcing: root (the repository), out (a gitignored folder for logs, and keys and pids unless
+# state names another),
+# http_port, grpc_port, sign_in_port, storage_port, mail_smtp_port, mail_web_port, web_port, compose_project. It
+# defines log and fail (each script prints its own prefix), and may set operator_name, the name operator commands
+# record in the audit log. After sourcing, api, sign_in and agent are set.
+# shellcheck shell=bash
+
+api="http://localhost:$http_port"
+sign_in="http://localhost:$sign_in_port/idleo-local"
+agent="$root/agent/target/release/idleo-agent"
+# Where logs are, as messages name it: relative to the repository.
+logs_dir="${out#"$root"/}"
+# Agents' configs, keys and pids; beside the logs unless the caller keeps them apart.
+state="${state:-$out}"
+
+# Rust may be installed by rustup without being on PATH (Homebrew's rustup on a Mac).
+for dir in "$HOME/.cargo/bin" /opt/homebrew/opt/rustup/bin; do
+  [[ -d "$dir" ]] && PATH="$PATH:$dir"
+done
+# The web app pins Node 24 (web/.node-version); a Mac may keep it beside a newer Node.
+for dir in /opt/homebrew/opt/node@24/bin "$HOME/.local/node24-bin"; do
+  [[ -d "$dir" ]] && PATH="$dir:$PATH"
+done
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
+now_ms() { perl -MTime::HiRes=time -e 'printf "%d\n", time * 1000'; }
+seconds_since() { perl -e 'printf "%.2f", ($ARGV[1] - $ARGV[0]) / 1000' "$1" "$(now_ms)"; }
+# The string value of a JSON field that appears once, whatever the spacing or line breaks.
+json_field() { tr -d '\n' | sed -n "s/^[^{]*{.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"; }
+port_in_use() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+# A value from JSON on stdin, by a path like .wallet.reservedPaise.
+json_get() { python3 -c 'import json, sys
+value = json.load(sys.stdin)
+for key in sys.argv[1].strip(".").split("."):
+    value = value[int(key)] if isinstance(value, list) else value[key]
+print(value)' "$1"; }
+
+# An operator command (docs/runbooks/granting-credits.md, hosts.md) against the running stack.
+ops() {
+  (
+    cd "$root/control-plane"
+    LOCAL_SIGN_IN_PORT="$sign_in_port" COMPOSE_PROJECT_NAME="$compose_project" OPERATOR="${operator_name:-local-stack}" \
+      ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="$*"
+  ) >>"$out/ops.log" 2>&1
+}
+
+# Starts the control plane on the local profile, which starts compose.yaml, in its own process group (so teardown
+# reaches Maven's forked JVM too), logging to $out/control-plane.log; sets control_plane_pid. .env is never read:
+# the stack doesn't depend on a developer's local overrides. A caller's stack_control_plane_settings, when defined,
+# runs just before the start and exports what that caller wants beside the common settings.
+stack_start_control_plane() {
+  set -m
+  (
+    cd "$root/control-plane"
+    unset IDENTITY_ISSUERS_0_ISSUERURI IDENTITY_ISSUERS_0_AUDIENCE SPRING_PROFILES_ACTIVE SPRING_PROFILES_INCLUDE
+    export SERVER_PORT="$http_port" SPRING_GRPC_SERVER_PORT="$grpc_port" LOCAL_SIGN_IN_PORT="$sign_in_port"
+    export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
+    # Email goes to Mailpit from compose.yaml (ADR 0026), and its links to this stack's web app.
+    export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
+    export NOTIFICATIONS_WEB_APP_URL="http://localhost:$web_port"
+    # The web app's origin, which may call the API from a browser (ADR 0018).
+    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
+    if declare -F stack_control_plane_settings >/dev/null; then
+      stack_control_plane_settings
+    fi
+    exec ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local
+  ) >"$out/control-plane.log" 2>&1 &
+  control_plane_pid=$!
+  set +m
+}
+
+# Waits until the control plane is ready, for at most $1 seconds.
+stack_await_control_plane() {
+  local deadline=$((SECONDS + $1))
+  until curl -sf "$api/actuator/health/readiness" 2>/dev/null | grep -q '"status":"UP"'; do
+    kill -0 "$control_plane_pid" 2>/dev/null || fail "the control plane exited during startup; see $logs_dir/control-plane.log"
+    ((SECONDS < deadline)) || fail "the control plane wasn't ready within $1 s"
+    sleep 1
+  done
+}
+
+# Compose only waits for the sign-in server's port, so wait for its discovery document too.
+stack_await_sign_in() {
+  local deadline=$((SECONDS + 60))
+  until curl -sf "$sign_in/.well-known/openid-configuration" >/dev/null 2>&1; do
+    ((SECONDS < deadline)) || fail "the development sign-in server didn't answer within 60 s"
+    sleep 0.5
+  done
+}
+
+# A token from the development sign-in server for the user $1 (their address is $1@example.com).
+stack_token() {
+  curl -sf -X POST "$sign_in/token" \
+    -d grant_type=client_credentials -d "client_id=$1" -d client_secret=unused -d scope=openid |
+    json_field access_token
+}
+
+# Registers a host named $2 for the owner whose token is $1, once for the Idempotency-Key $3; prints its id.
+stack_register_host() {
+  local host_json id
+  host_json="$(curl -sf -X POST "$api/v1/hosts" -H "Authorization: Bearer $1" \
+    -H 'Content-Type: application/json' -H "Idempotency-Key: \"$3\"" -d "{\"name\":\"$2\"}")" ||
+    fail "POST /v1/hosts failed"
+  id="$(printf '%s' "$host_json" | json_field id)"
+  [[ -n "$id" ]] || fail "POST /v1/hosts returned no id"
+  printf '%s' "$id"
+}
+
+# A one-time enrolment code for the host $2 of the owner whose token is $1. Never print or log it.
+stack_enrolment_code() {
+  local code
+  code="$(curl -sf -X POST "$api/v1/hosts/$2/enrolment-code" -H "Authorization: Bearer $1" | json_field code)"
+  [[ -n "$code" ]] || fail "no enrolment code"
+  printf '%s' "$code"
+}
+
+# Builds the agent from inside agent/, so rustup uses the toolchain pinned in agent/rust-toolchain.toml; it looks in
+# the current directory, not at --manifest-path.
+stack_build_agent() {
+  (cd "$root/agent" && cargo build --release --locked --quiet) >"$out/agent-build.log" 2>&1 ||
+    fail "cargo build failed; see $logs_dir/agent-build.log"
+}
+
+# Writes agent $1's config, with its own data folder, trusting the development CA.
+stack_agent_config() {
+  cat >"$state/agent-$1.toml" <<TOML
+ca_root = "$root/private/dev-ca/root.pem"
+data_dir = "$state/agent-$1"
+log_format = "text"
+
+[control_plane]
+host = "localhost"
+port = $grpc_port
+TOML
+}
+
+# Enrols agent $1 with the one-time code $2.
+stack_enrol_agent() {
+  "$agent" --config "$state/agent-$1.toml" enrol --code "$2" >>"$out/agent-$1.log" 2>&1 ||
+    fail "enrolment failed; see $logs_dir/agent-$1.log"
+}
+
+# Runs agent $1 with a fake GPU and the development runner, in the background; its pid goes to $state/agent-$1.pid.
+# The rest of the arguments are the agent's --fake-gpu options (model, memory, free disk).
+stack_run_agent() {
+  local n="$1"
+  shift
+  IDLEO_LOG=info "$agent" --config "$state/agent-$n.toml" run --fake-gpu "$@" --dev-runner >>"$out/agent-$n.log" 2>&1 &
+  echo $! >"$state/agent-$n.pid"
+}
+agent_running() { [[ -f "$state/agent-$1.pid" ]] && kill -0 "$(cat "$state/agent-$1.pid")" 2>/dev/null; }
+
+# Real sign-in, shared with control-plane/scripts/run-local.sh.
+# shellcheck source=scripts/lib/real-sign-in.sh
+. "$root/scripts/lib/real-sign-in.sh"

@@ -70,38 +70,19 @@ startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
 # A short lease, so losing the host shows within seconds (production: 2 minutes, renewed every 30 s).
 lease_ttl="${E2E_LEASE_TTL:-10s}"
 out="$root/private/e2e"
-api="http://localhost:$http_port"
-sign_in="http://localhost:$sign_in_port/idleo-local"
 compose_project=idleo-e2e
-
-# Rust may be installed by rustup without being on PATH (Homebrew's rustup on a Mac).
-for dir in "$HOME/.cargo/bin" /opt/homebrew/opt/rustup/bin; do
-  [[ -d "$dir" ]] && PATH="$PATH:$dir"
-done
-# The web app pins Node 24 (web/.node-version); a Mac may keep it beside a newer Node.
-for dir in /opt/homebrew/opt/node@24/bin "$HOME/.local/node24-bin"; do
-  [[ -d "$dir" ]] && PATH="$dir:$PATH"
-done
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+operator_name=e2e-script
+log() { printf 'e2e: %s\n' "$*"; }
+fail() { printf 'e2e: FAIL: %s\n' "$*" >&2; exit 1; }
+# The steps start.sh shares: toolchains, ports, the control plane, sign-in, operator commands, hosts and agents.
+# shellcheck source=scripts/lib/stack.sh
+. "$root/scripts/lib/stack.sh"
 
 if ! git check-ignore -q "$out/probe"; then
   echo "e2e: refusing to write keys and tokens: private/e2e/ is not gitignored." >&2
   exit 1
 fi
 
-now_ms() { perl -MTime::HiRes=time -e 'printf "%d\n", time * 1000'; }
-seconds_since() { perl -e 'printf "%.2f", ($ARGV[1] - $ARGV[0]) / 1000' "$1" "$(now_ms)"; }
-log() { printf 'e2e: %s\n' "$*"; }
-fail() { printf 'e2e: FAIL: %s\n' "$*" >&2; exit 1; }
-# The string value of a JSON field that appears once, whatever the spacing or line breaks.
-json_field() { tr -d '\n' | sed -n "s/^[^{]*{.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"; }
-port_in_use() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
-# A value from JSON on stdin, by a path like .wallet.reservedPaise.
-json_get() { python3 -c 'import json, sys
-value = json.load(sys.stdin)
-for key in sys.argv[1].strip(".").split("."):
-    value = value[int(key)] if isinstance(value, list) else value[key]
-print(value)' "$1"; }
 api_get() { curl -sf "$api$1" -H "Authorization: Bearer $token"; }
 api_patch() { curl -sf -X PATCH "$api$1" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "${@:2}"; }
 # Sets a host's listing: $1 the host, $2 its price in paise a minute. It keeps the least disk free (10 GB), so a
@@ -113,14 +94,6 @@ list_host() {
 }
 json_str() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
 api_post() { curl -sf -X POST "$api$1" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "${@:2}"; }
-# An operator command (docs/runbooks/granting-credits.md, hosts.md) against the running stack.
-ops() {
-  (
-    cd control-plane
-    LOCAL_SIGN_IN_PORT="$sign_in_port" COMPOSE_PROJECT_NAME="$compose_project" OPERATOR=e2e-script \
-      ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="$*"
-  ) >>"$out/ops.log" 2>&1
-}
 # Access is by invitation (ADR 0024): the run's accounts are activated with codes an operator made, as a person
 # would enter one. An account that's already active is left alone, so this also works with E2E_INVITE_ONLY=false.
 invite_codes=()
@@ -258,10 +231,8 @@ run_agent() {
     gpu=(--fake-gpu-model "RTX 4090" --fake-gpu-vram-mb 24564 --fake-free-disk-mb 11240)
   fi
   # ${gpu[@]+…}: an empty array is "unbound" to macOS's bash 3.2 under set -u.
-  IDLEO_LOG=info "$agent" --config "$out/agent-$1.toml" run --fake-gpu ${gpu[@]+"${gpu[@]}"} --dev-runner >>"$out/agent-$1.log" 2>&1 &
-  echo $! >"$out/agent-$1.pid"
+  stack_run_agent "$1" ${gpu[@]+"${gpu[@]}"}
 }
-agent_running() { [[ -f "$out/agent-$1.pid" ]] && kill -0 "$(cat "$out/agent-$1.pid")" 2>/dev/null; }
 # Waits until metering has closed a session: settled, reviewed, and its hold released.
 await_closed() {
   local deadline=$((SECONDS + $2))
@@ -448,21 +419,10 @@ docker info >/dev/null 2>&1 || fail "Docker isn't running"
 # 1. The development CA, with the localhost server certificate for the gRPC port.
 control-plane/scripts/dev-ca.sh
 
-# 2. The control plane on the local profile, which starts compose.yaml. Its own process group, so
-#    teardown reaches Maven's forked JVM too. .env is deliberately not read: the run must not
-#    depend on a developer's local overrides.
+# 2. The control plane on the local profile, which starts compose.yaml (scripts/lib/stack.sh).
 log "starting the control plane (logs: private/e2e/control-plane.log)"
-set -m
-(
-  cd control-plane
-  unset IDENTITY_ISSUERS_0_ISSUERURI IDENTITY_ISSUERS_0_AUDIENCE SPRING_PROFILES_ACTIVE SPRING_PROFILES_INCLUDE
-  export SERVER_PORT="$http_port" SPRING_GRPC_SERVER_PORT="$grpc_port" LOCAL_SIGN_IN_PORT="$sign_in_port"
-  export LOCAL_STORAGE_PORT="$storage_port" COMPOSE_PROJECT_NAME="$compose_project"
-  # Email goes to Mailpit from compose.yaml (ADR 0026), and its links to this run's web app.
-  export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
-  export NOTIFICATIONS_WEB_APP_URL="http://localhost:$web_port"
-  # The web app's origin, which may call the API from a browser (ADR 0018).
-  export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
+# What this run sets beside the stack's common settings (scripts/lib/stack.sh).
+stack_control_plane_settings() {
   # The renter limits (ADR 0025) are lifted for the run: its few accounts are a test harness, not renters. They
   # poll every half second, several scenarios to an account at once (far past 60 requests a minute), and book far
   # more than 2 sessions in their first hour. The control plane's own tests hold every limit (RenterLimitsTests).
@@ -483,31 +443,18 @@ set -m
   # 20 s after it ends, not 5 minutes, when it's still waiting on a minute only one witness saw.
   export SESSIONS_STORAGE_GRANT_TTL=60s SESSIONS_STORAGE_REFRESH_CHECK_EVERY=1s
   export METERING_TICK_EVERY=1s METERING_REVIEW_AFTER=20s
-  exec ./mvnw -B -q spring-boot:run -Dspring-boot.run.profiles=local
-) >"$out/control-plane.log" 2>&1 &
-control_plane_pid=$!
-set +m
+}
+stack_start_control_plane
 
 started_at="$(now_ms)"
-deadline=$((SECONDS + startup_timeout))
-until curl -sf "$api/actuator/health/readiness" 2>/dev/null | grep -q '"status":"UP"'; do
-  kill -0 "$control_plane_pid" 2>/dev/null || fail "the control plane exited during startup; see private/e2e/control-plane.log"
-  ((SECONDS < deadline)) || fail "the control plane wasn't ready within ${startup_timeout} s"
-  sleep 1
-done
+stack_await_control_plane "$startup_timeout"
 summary+=("control plane ready: $(seconds_since "$started_at") s")
 
 # 3. A token from the development sign-in server, for an invented user. Compose only waits for its
 #    port, so wait for its discovery document too.
-deadline=$((SECONDS + 60))
-until curl -sf "$sign_in/.well-known/openid-configuration" >/dev/null 2>&1; do
-  ((SECONDS < deadline)) || fail "the development sign-in server didn't answer within 60 s"
-  sleep 0.5
-done
+stack_await_sign_in
 user="e2e-$(perl -e 'printf "%08x", int(rand(2**32))')"
-token="$(curl -sf -X POST "$sign_in/token" \
-  -d grant_type=client_credentials -d "client_id=$user" -d client_secret=unused -d scope=openid |
-  json_field access_token)"
+token="$(stack_token "$user")"
 [[ -n "$token" ]] || fail "no token from the development sign-in server"
 
 # 3a. Invite codes (docs/runbooks/invites.md): one for each account the run makes, and two spare for the web
@@ -541,13 +488,8 @@ host_name() {
 host_ids=()
 codes=()
 for i in $(seq 1 "$agents"); do
-  host_json="$(curl -sf -X POST "$api/v1/hosts" -H "Authorization: Bearer $token" \
-    -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-host-$i\"" -d "{\"name\":\"$(host_name "$i")\"}")" ||
-    fail "POST /v1/hosts failed"
-  id="$(printf '%s' "$host_json" | json_field id)"
-  [[ -n "$id" ]] || fail "POST /v1/hosts returned no id"
-  code="$(curl -sf -X POST "$api/v1/hosts/$id/enrolment-code" -H "Authorization: Bearer $token" | json_field code)"
-  [[ -n "$code" ]] || fail "no enrolment code"
+  id="$(stack_register_host "$token" "$(host_name "$i")" "$user-host-$i")"
+  code="$(stack_enrolment_code "$token" "$id")"
   host_ids+=("$id")
   codes+=("$code")
 done
@@ -559,11 +501,7 @@ fi
 
 # 5. Build and enrol the agents.
 log "building the agent"
-# From inside agent/, so rustup uses the toolchain pinned in agent/rust-toolchain.toml; it looks in
-# the current directory, not at --manifest-path.
-(cd agent && cargo build --release --locked --quiet) >"$out/agent-build.log" 2>&1 ||
-  fail "cargo build failed; see private/e2e/agent-build.log"
-agent="$root/agent/target/release/idleo-agent"
+stack_build_agent
 if ! $keep_running && ! $web_only; then
   # The renter CLI the CLI scenario drives (cli/rust-toolchain.toml pins the same toolchain).
   log "building the CLI"
@@ -577,17 +515,8 @@ if ! $keep_running && ! $web_only; then
 fi
 for i in $(seq 1 "$agents"); do
   rm -rf "$out/agent-$i"
-  cat >"$out/agent-$i.toml" <<TOML
-ca_root = "$root/private/dev-ca/root.pem"
-data_dir = "$out/agent-$i"
-log_format = "text"
-
-[control_plane]
-host = "localhost"
-port = $grpc_port
-TOML
-  "$agent" --config "$out/agent-$i.toml" enrol --code "${codes[$((i - 1))]}" >>"$out/agent-$i.log" 2>&1 ||
-    fail "enrolment failed; see private/e2e/agent-$i.log"
+  stack_agent_config "$i"
+  stack_enrol_agent "$i" "${codes[$((i - 1))]}"
 done
 unset codes code
 summary+=("agents enrolled: $agents")
@@ -667,9 +596,7 @@ summary+=("fake GPU listed on the host ($model, $vram MB): PASS")
 #    that run's charge, and B for the other three. Each host lists at 2 paise a minute and is activated.
 if $keep_running; then
   # The account to sign in as, with ₹500 of credit, and the two laptops listed at their prices.
-  account_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$account" -d client_secret=unused -d scope=openid |
-    json_field access_token)"
+  account_token="$(stack_token "$account")"
   [[ -n "$account_token" ]] || fail "no token for $account"
   activate_user "$account_token"
   account_id="$(token="$account_token" api_get /v1/me | json_get .id)"
@@ -704,9 +631,7 @@ if $keep_running; then
 fi
 
 user_id="$(api_get /v1/me | json_get .id)"
-token_b="$(curl -sf -X POST "$sign_in/token" \
-  -d grant_type=client_credentials -d "client_id=$user-b" -d client_secret=unused -d scope=openid |
-  json_field access_token)"
+token_b="$(stack_token "$user-b")"
 [[ -n "$token_b" ]] || fail "no token for the second renter"
 activate_user "$token_b"
 user_b_id="$(token="$token_b" api_get /v1/me | json_get .id)"
@@ -714,45 +639,33 @@ setup_started="$(now_ms)"
 # The web journey's renter (ADR 0018): created by a first request with the same invented identity the
 # browser signs in with, and given credit before the browser sees it.
 web_user="$user-web"
-web_token="$(curl -sf -X POST "$sign_in/token" \
-  -d grant_type=client_credentials -d "client_id=$web_user" -d client_secret=unused -d scope=openid |
-  json_field access_token)"
+web_token="$(stack_token "$web_user")"
 [[ -n "$web_token" ]] || fail "no token for the web journey's renter"
 activate_user "$web_token"
 # The web journey that has no credit signs in as its own invented person, who is never given any.
-web_broke_token="$(curl -sf -X POST "$sign_in/token" \
-  -d grant_type=client_credentials -d "client_id=$web_user-broke" -d client_secret=unused -d scope=openid |
-  json_field access_token)"
+web_broke_token="$(stack_token "$web_user-broke")"
 [[ -n "$web_broke_token" ]] || fail "no token for the web journey's renter without credit"
 activate_user "$web_broke_token"
 web_user_id="$(token="$web_token" api_get /v1/me | json_get .id)"
 renters=("$web_user_id")
 if $web_only; then
   # Lighthouse measures the session screen on a session its renter books (web/e2e/lighthouse.spec.ts).
-  lighthouse_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$user-lighthouse" -d client_secret=unused -d scope=openid |
-    json_field access_token)"
+  lighthouse_token="$(stack_token "$user-lighthouse")"
   [[ -n "$lighthouse_token" ]] || fail "no token for Lighthouse's renter"
   activate_user "$lighthouse_token"
   renters+=("$(token="$lighthouse_token" api_get /v1/me | json_get .id)")
 fi
 if ! $web_only; then
   # The booking contract's renter (ADR 0019), and one who never gets credit.
-  booking_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$user-booking" -d client_secret=unused -d scope=openid |
-    json_field access_token)"
-  broke_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$user-broke" -d client_secret=unused -d scope=openid |
-    json_field access_token)"
+  booking_token="$(stack_token "$user-booking")"
+  broke_token="$(stack_token "$user-broke")"
   [[ -n "$booking_token" && -n "$broke_token" ]] || fail "no tokens for the booking contract's renters"
   activate_user "$booking_token"
   activate_user "$broke_token"
   booking_user_id="$(token="$booking_token" api_get /v1/me | json_get .id)"
   token="$broke_token" api_get /v1/me >/dev/null
   # The renter CLI's account: its sign-in is approved below with this account's browser token.
-  cli_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$user-cli" -d client_secret=unused -d scope=openid |
-    json_field access_token)"
+  cli_token="$(stack_token "$user-cli")"
   [[ -n "$cli_token" ]] || fail "no token for the CLI's renter"
   activate_user "$cli_token"
   cli_user_id="$(token="$cli_token" api_get /v1/me | json_get .id)"
@@ -1582,9 +1495,7 @@ while IFS= read -r line; do summary+=("$line"); done <"$out/summary-cli.txt"
 scenario_admin_web() {
   local admin_user="$user-admin" admin_token admin_id pending_json pending code n session report="$out/admin-journey.json"
   local rows charged running_since dispute
-  admin_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$admin_user" -d client_secret=unused -d scope=openid |
-    json_field access_token)"
+  admin_token="$(stack_token "$admin_user")"
   [[ -n "$admin_token" ]] || fail "no token for the admin journey's person"
   # The spare code (index 7) belongs to the account journey; the admin takes the next one.
   invite_next=8
@@ -1657,10 +1568,8 @@ scenario_admin_web() {
   # The refund (ADR 0028): the report's own record, its one ledger transaction, and every number the pages showed.
   local paid refund commission refund_txn host_owner_id owner_token renter_token owner_earnings owner_ledger
   # The run's first tokens last an hour, and this is its end: new ones for the two people checked here.
-  owner_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$user" -d client_secret=unused -d scope=openid | json_field access_token)"
-  renter_token="$(curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$web_user" -d client_secret=unused -d scope=openid | json_field access_token)"
+  owner_token="$(stack_token "$user")"
+  renter_token="$(stack_token "$web_user")"
   [[ -n "$owner_token" && -n "$renter_token" ]] || fail "no new tokens for the refund checks"
   paid="$(json_get .refund.paid <"$report")"
   commission="$(json_get .refund.fromCommission <"$report")"
