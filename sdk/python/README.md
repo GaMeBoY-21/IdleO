@@ -36,7 +36,7 @@ s = client.sessions.run(
     "fine-tune-simulated",
     inputs={"model": "./my-model", "data": "./train.jsonl"},
     presets={"thoroughness": "standard"},
-    max_spend=200_00,  # paise: ₹200
+    max_spend_paise=200_00,  # paise: ₹200
 )
 for line in s.logs(follow=True):
     print(line)

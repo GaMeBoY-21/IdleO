@@ -45,7 +45,7 @@ s = client.sessions.run(
     "fine-tune-simulated",
     inputs={{"model": "./my-model", "data": "./train.jsonl"}},
     presets={{"thoroughness": "standard"}},
-    max_spend=200_00,
+    max_spend_paise=200_00,
 )
 for line in s.logs(follow=True):
     print(line)
@@ -57,7 +57,7 @@ You bring the model and the data; we provide the GPU. Each input is a folder or 
 with its paths kept), an https link the job fetches itself, or the id of an upload you made before. The names of a \
 service's inputs, presets and parameters are in the services page, or `client.templates.list()`.
 
-Money is whole paise everywhere: `max_spend=200_00` is ₹200. `idleo.rupees(paise)` writes an amount for people.
+Money is whole paise everywhere: `max_spend_paise=200_00` is ₹200. `idleo.rupees(paise)` writes an amount for people.
 
 In a Jupyter notebook, `wait()`, `logs(follow=True)` and uploads show their progress as a line that updates in place; \
 anywhere else they are silent unless you pass `progress=True`.

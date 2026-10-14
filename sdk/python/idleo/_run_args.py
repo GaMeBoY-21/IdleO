@@ -143,13 +143,13 @@ def vram_mb(gpu_memory_gb: int | None, template: TemplateResponse) -> int | None
     return max(gpu_memory_gb * 1_000, template.min_vram_mb)
 
 
-def spend(max_spend: int | None, template: TemplateResponse) -> int:
+def spend(max_spend_paise: int | None, template: TemplateResponse) -> int:
     """The most the session may cost, in paise: the argument, else the template's usual budget."""
-    amount = max_spend if max_spend is not None else template.default_budget_paise
+    amount = max_spend_paise if max_spend_paise is not None else template.default_budget_paise
     if amount is None:
-        raise UsageError(f"{template.id} has no usual budget; give one with max_spend=PAISE")
+        raise UsageError(f"{template.id} has no usual budget; give one with max_spend_paise=PAISE")
     if isinstance(amount, bool) or not isinstance(amount, int) or amount < 1:
-        raise UsageError("max_spend is paise, a whole number of at least 1 (200_00 is ₹200)")
+        raise UsageError("max_spend_paise is a whole number of paise, at least 1 (200_00 is ₹200)")
     return amount
 
 

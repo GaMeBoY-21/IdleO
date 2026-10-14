@@ -115,3 +115,22 @@ def test_a_client_with_no_key_says_how_to_sign_in(tmp_path):
     with pytest.raises(errors.NotSignedIn, match="idleo login"):
         client.me()
     assert os.environ.get("IDLEO_API_KEY") is None
+
+
+@pytest.mark.parametrize(
+    ("value", "off"),
+    [
+        ("1", True),
+        ("true", True),
+        (" TRUE ", True),
+        ("0", False),
+        ("false", False),
+        ("", False),
+        ("yes", False),
+        (None, False),
+    ],
+)
+def test_no_keychain_turns_it_off_only_for_one_or_true_as_the_command_line_does(value, off):
+    from idleo._keys import keychain_off
+
+    assert keychain_off(value) is off

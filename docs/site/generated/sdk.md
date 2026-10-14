@@ -16,7 +16,7 @@ s = client.sessions.run(
     "fine-tune-simulated",
     inputs={"model": "./my-model", "data": "./train.jsonl"},
     presets={"thoroughness": "standard"},
-    max_spend=200_00,
+    max_spend_paise=200_00,
 )
 for line in s.logs(follow=True):
     print(line)
@@ -26,7 +26,7 @@ s.outputs.download("./out")
 
 You bring the model and the data; we provide the GPU. Each input is a folder or file on your computer (uploaded first, with its paths kept), an https link the job fetches itself, or the id of an upload you made before. The names of a service's inputs, presets and parameters are in the services page, or `client.templates.list()`.
 
-Money is whole paise everywhere: `max_spend=200_00` is ₹200. `idleo.rupees(paise)` writes an amount for people.
+Money is whole paise everywhere: `max_spend_paise=200_00` is ₹200. `idleo.rupees(paise)` writes an amount for people.
 
 In a Jupyter notebook, `wait()`, `logs(follow=True)` and uploads show their progress as a line that updates in place; anywhere else they are silent unless you pass `progress=True`.
 
@@ -81,20 +81,20 @@ took.
 
 Booking, finding and following sessions.
 
-### `client.sessions.run(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend: int | None = None, max_runtime: int | timedelta | None = None, progress: bool | None = None) -> Session`
+### `client.sessions.run(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend_paise: int | None = None, max_runtime: int | timedelta | None = None, progress: bool | None = None, max_spend: int | None = None) -> Session`
 
 Uploads the inputs and books the session; it doesn't wait for it (use `wait()` and `logs()`).
 
 `inputs` maps each of the template's input names to a folder or file on this computer (uploaded first, paths
 kept, carried on if a first try was cut off), an https:// link the job fetches itself, or the id of an upload
-you made before. `max_spend` is paise, the most the session may cost (`200_00` is ₹200); the template's usual
-budget if left out. `max_runtime` is seconds or a timedelta. `progress` shows the upload as it goes: by
-default only in a notebook.
+you made before. `max_spend_paise` is the most the session may cost, in paise (`200_00` is ₹200); the
+template's usual budget if left out. `max_runtime` is seconds or a timedelta. `progress` shows the upload as it
+goes: by default only in a notebook. `max_spend` is the old name of `max_spend_paise`, kept for one release.
 
-### `client.sessions.create(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend: int | None = None, max_runtime: int | timedelta | None = None) -> Session`
+### `client.sessions.create(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend_paise: int | None = None, max_runtime: int | timedelta | None = None, max_spend: int | None = None) -> Session`
 
 Books a session without uploading anything: each input is an https:// link or the id of an upload made
-with `client.uploads.upload()`. It doesn't follow the session either.
+with `client.uploads.upload()`. It doesn't follow the session either. The arguments are `run()`'s.
 
 ### `client.sessions.get(session_id: str | uuid.UUID) -> Session`
 

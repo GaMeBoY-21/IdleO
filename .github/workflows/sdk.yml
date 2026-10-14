@@ -5,9 +5,9 @@ name: sdk
 on:
   push:
     branches: [main]
-    paths: ["sdk/python/**", "api/**", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml"]
+    paths: ["sdk/python/**", "api/**", "cli/src/error.rs", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml"]
   pull_request:
-    paths: ["sdk/python/**", "api/**", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml"]
+    paths: ["sdk/python/**", "api/**", "cli/src/error.rs", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml"]
 
 permissions:
   contents: read

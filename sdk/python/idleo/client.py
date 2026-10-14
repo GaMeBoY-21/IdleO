@@ -6,6 +6,7 @@ import builtins
 import itertools
 import time
 import uuid
+import warnings
 from collections.abc import Callable, Iterator, Mapping
 from datetime import timedelta
 from pathlib import Path
@@ -106,18 +107,20 @@ class Sessions:
         params: Mapping[str, Any] | None = None,
         presets: Mapping[str, str] | None = None,
         gpu_memory_gb: int | None = None,
-        max_spend: int | None = None,
+        max_spend_paise: int | None = None,
         max_runtime: int | timedelta | None = None,
         progress: bool | None = None,
+        max_spend: int | None = None,
     ) -> Session:
         """Uploads the inputs and books the session; it doesn't wait for it (use `wait()` and `logs()`).
 
         `inputs` maps each of the template's input names to a folder or file on this computer (uploaded first, paths
         kept, carried on if a first try was cut off), an https:// link the job fetches itself, or the id of an upload
-        you made before. `max_spend` is paise, the most the session may cost (`200_00` is ₹200); the template's usual
-        budget if left out. `max_runtime` is seconds or a timedelta. `progress` shows the upload as it goes: by
-        default only in a notebook.
+        you made before. `max_spend_paise` is the most the session may cost, in paise (`200_00` is ₹200); the
+        template's usual budget if left out. `max_runtime` is seconds or a timedelta. `progress` shows the upload as it
+        goes: by default only in a notebook. `max_spend` is the old name of `max_spend_paise`, kept for one release.
         """
+        budget = _budget(max_spend_paise, max_spend)
 
         kept: builtins.list[Uploaded] = []
 
@@ -127,7 +130,7 @@ class Sessions:
             return uuid.UUID(done.id)
 
         found = self._templates.get(template)
-        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, max_spend, max_runtime, upload)
+        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, budget, max_runtime, upload)
         return self._book(request, asked, kept)
 
     def create(
@@ -138,17 +141,19 @@ class Sessions:
         params: Mapping[str, Any] | None = None,
         presets: Mapping[str, str] | None = None,
         gpu_memory_gb: int | None = None,
-        max_spend: int | None = None,
+        max_spend_paise: int | None = None,
         max_runtime: int | timedelta | None = None,
+        max_spend: int | None = None,
     ) -> Session:
         """Books a session without uploading anything: each input is an https:// link or the id of an upload made
-        with `client.uploads.upload()`. It doesn't follow the session either."""
+        with `client.uploads.upload()`. It doesn't follow the session either. The arguments are `run()`'s."""
+        budget = _budget(max_spend_paise, max_spend)
 
         def refuse(name: str, path: Path) -> uuid.UUID:
             raise UsageError(f"{name} is a path on this computer; use sessions.run() to upload it, or uploads.upload()")
 
         found = self._templates.get(template)
-        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, max_spend, max_runtime, refuse)
+        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, budget, max_runtime, refuse)
         return self._book(request, asked, [])
 
     def get(self, session_id: str | uuid.UUID) -> Session:
@@ -182,7 +187,7 @@ class Sessions:
         params: Mapping[str, Any] | None,
         presets: Mapping[str, str] | None,
         gpu_memory_gb: int | None,
-        max_spend: int | None,
+        max_spend_paise: int | None,
         max_runtime: int | timedelta | None,
         upload: Callable[[str, Path], uuid.UUID],
     ) -> tuple[CreateSessionRequest, str]:
@@ -191,7 +196,7 @@ class Sessions:
         given = args.map_inputs(inputs, template)
         typed = args.map_params(params, template)
         answers = args.map_presets(presets, template)
-        spend = args.spend(max_spend, template)
+        spend = args.spend(max_spend_paise, template)
         runtime = args.runtime_seconds(max_runtime)
         vram = args.vram_mb(gpu_memory_gb, template)
         request = CreateSessionRequest(
@@ -243,6 +248,20 @@ class Sessions:
             else:
                 answered()
                 return Session(self._transport, data)
+
+
+def _budget(max_spend_paise: int | None, max_spend: int | None) -> int | None:
+    """The budget, from its name or from its old one, which still works for one release with a warning."""
+    if max_spend is None:
+        return max_spend_paise
+    warnings.warn(
+        "max_spend is now max_spend_paise (the same paise); the old name goes in the next release",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    if max_spend_paise is not None and max_spend_paise != max_spend:
+        raise UsageError("give max_spend_paise only; max_spend is its old name")
+    return max_spend
 
 
 class Client:

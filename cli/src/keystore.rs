@@ -38,7 +38,7 @@ const FILE: &str = "credentials.json";
 
 impl Keystore {
     /// The store for one API address. `env_key` is `IDLEO_API_KEY`; `use_keychain` is false when
-    /// `IDLEO_NO_KEYCHAIN` is set (tests, CI and machines with no keychain).
+    /// `IDLEO_NO_KEYCHAIN` is `1` or `true` (tests, CI and machines with no keychain).
     #[must_use]
     pub fn new(api: &str, dir: &Path, env_key: Option<String>, use_keychain: bool) -> Self {
         Self {

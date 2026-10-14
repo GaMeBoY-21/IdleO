@@ -26,7 +26,7 @@ def test_run_books_with_named_inputs_presets_and_the_budget(fake, tmp_path):
         params={"epochs": 2},
         presets={"thoroughness": "quick"},
         gpu_memory_gb=12,
-        max_spend=200_00,
+        max_spend_paise=200_00,
         max_runtime=3600,
     )
     assert s.id == SESSION_ID
@@ -154,8 +154,8 @@ def test_another_request_gets_another_key(fake, tmp_path):
     books(fake, lambda r: (keys.append(r.headers["Idempotency-Key"]), httpx.Response(201, json=session()))[1])
     client = fake.client(tmp_path)
     inputs = {"model": "https://x.example/m", "data": "https://x.example/d"}
-    client.sessions.run("fine-tune-simulated", inputs=inputs, max_spend=100)
-    client.sessions.run("fine-tune-simulated", inputs=inputs, max_spend=200)
+    client.sessions.run("fine-tune-simulated", inputs=inputs, max_spend_paise=100)
+    client.sessions.run("fine-tune-simulated", inputs=inputs, max_spend_paise=200)
     assert keys[0] != keys[1]
 
 
@@ -262,3 +262,13 @@ def test_a_lost_answer_then_a_rerun_books_once_with_the_same_upload_and_key(fake
     assert body(fake.calls("POST", "/v1/sessions")[-1]) == first, "the same upload id, the same request"
     assert list((tmp_path / "config" / "uploads").glob("*.json")) == []
     assert list((tmp_path / "config" / "pending").glob("*.key")) == []
+
+
+def test_the_old_budget_name_still_works_for_a_release_with_a_warning(fake, tmp_path):
+    books(fake)
+    inputs = {"model": "https://x.example/m", "data": "https://x.example/d"}
+    with pytest.warns(DeprecationWarning, match="max_spend_paise"):
+        fake.client(tmp_path).sessions.run("fine-tune-simulated", inputs=inputs, max_spend=300)
+    assert body(fake.calls("POST", "/v1/sessions")[-1])["maxSpendPaise"] == 300
+    with pytest.raises(errors.UsageError, match="max_spend_paise only"), pytest.warns(DeprecationWarning):
+        fake.client(tmp_path).sessions.run("fine-tune-simulated", inputs=inputs, max_spend=300, max_spend_paise=400)

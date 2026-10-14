@@ -43,7 +43,7 @@ pub async fn execute(cli: Cli) -> Result<()> {
     let env = |name: &str| std::env::var(name).ok();
     let api = config::api_url(cli.api.as_deref(), env("IDLEO_API_URL").as_deref())?;
     let dir = config::config_dir(env("IDLEO_CONFIG_DIR").as_deref())?;
-    let no_keychain = env("IDLEO_NO_KEYCHAIN").is_some_and(|value| !value.is_empty() && value != "0");
+    let no_keychain = keychain_off(env("IDLEO_NO_KEYCHAIN").as_deref());
     let keys = keystore::Keystore::new(api.as_str(), &dir, env("IDLEO_API_KEY"), !no_keychain);
     let key = keys.load().map(|(stored, _)| stored.key);
     let ctx = Context { client: client::Client::new(api, key)?, keys, json: cli.json };
@@ -67,5 +67,27 @@ pub async fn execute(cli: Cli) -> Result<()> {
         Command::Outputs(args) => commands::outputs::outputs(&ctx, &args).await,
         Command::Keys(args) => commands::keys::keys(&ctx, args.command.as_ref()).await,
         Command::Docs(_) => unreachable!("answered before the API is looked up"),
+    }
+}
+
+/// `IDLEO_NO_KEYCHAIN` turns the keychain off only when it is `1` or `true` (any case); the SDK reads it the same way.
+#[must_use]
+pub fn keychain_off(value: Option<&str>) -> bool {
+    value.is_some_and(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_keychain_is_off_only_for_one_or_true() {
+        for on in ["1", "true", " TRUE ", "True"] {
+            assert!(keychain_off(Some(on)), "{on:?}");
+        }
+        for off in ["0", "false", "", "yes", "no"] {
+            assert!(!keychain_off(Some(off)), "{off:?}");
+        }
+        assert!(!keychain_off(None));
     }
 }

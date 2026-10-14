@@ -48,7 +48,7 @@ def main(work: Path, email: str) -> None:
         "fine-tune-simulated",
         inputs={"model": work / "my-model", "data": work / "train.jsonl"},
         presets={"thoroughness": "standard"},
-        max_spend=200_00,
+        max_spend_paise=200_00,
     )
     booked = time.monotonic() - started
     to_running = None

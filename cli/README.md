@@ -36,7 +36,7 @@ Signed in as asha@example.com. The key "CLI on asha-laptop" is kept in your keyc
 It opens the link in your browser (`--no-browser` only prints it), you sign in to the web app if you aren't, and you approve the same code the terminal shows. The terminal, which has been waiting, is handed a new API key, once. It works over SSH, since only the link needs a browser.
 
 - **Where the key is kept:** your operating system's keychain, else a file in the config folder only you can read (`~/.config/idleo/credentials.json` on Linux, `~/Library/Application Support/idleo/` on macOS, `%APPDATA%\idleo\` on Windows; `IDLEO_CONFIG_DIR` moves it). A key is kept for one API address, so the local stack's never goes anywhere else.
-- **`IDLEO_API_KEY`** in the environment wins over a stored key, for CI. `IDLEO_NO_KEYCHAIN=1` skips the keychain, for machines that have none.
+- **`IDLEO_API_KEY`** in the environment wins over a stored key, for CI. `IDLEO_NO_KEYCHAIN=1` (or `true`; nothing else) skips the keychain, for machines that have none.
 - **`idleo logout`** revokes this computer's key on the server, then deletes it here.
 - **`idleo whoami`** shows who the key belongs to.
 
