@@ -33,7 +33,9 @@ They are shown only now; only their hashes are kept. Each works once.
   IDLE-4PRW-HT6E
 ```
 
-**Copy them now.** Only a hash of each is stored, so a lost code can't be looked up: make another.
+**Copy them now.** Only a keyed hash of each is stored (HMAC-SHA-256 under `IDENTITY_INVITE_CODE_KEY`, docs/runbooks/deployment.md), so a lost code can't be looked up, and a copy of the database alone can't be used to work codes out: make another.
+
+When the key changes, and once when codes moved from plain hashes to keyed ones (V35, Oct 14), every unused code stops working. Make new codes for anyone who was given one and hasn't used it yet.
 
 ## Hand one out
 

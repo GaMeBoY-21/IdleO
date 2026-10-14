@@ -35,7 +35,7 @@ Both are in the audit log (`admin.grant`, `admin.revoke`), with your `OPERATOR` 
 2. **Set up your authenticator:** scan the QR code with an authenticator app (Google Authenticator, 1Password, Authy…), or type the secret shown under it.
    - The secret is shown only on this page. Leaving and coming back makes a new one, and the old one stops working.
 3. Type the 6-digit code the app shows, and **Confirm**.
-4. **Save your recovery codes:** ten codes like `K7Q2M-9XD4P`, shown once. Keep them somewhere safe that isn't your phone. Each works once instead of a code.
+4. **Save your recovery codes:** ten codes like `K7Q2M-9XD4P`, shown once. Keep them somewhere safe that isn't your phone. Each works once instead of a code. They're stored only as a keyed hash (`IDENTITY_INVITE_CODE_KEY`); if that key changes, or after the move to keyed hashes on Oct 14 (V35), the old ones stop working, and revoking and granting the role again gives you new ones.
 5. **I've saved them** opens the console.
 
 ## Every visit after: the code check
