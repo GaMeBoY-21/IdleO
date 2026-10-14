@@ -49,10 +49,12 @@ class Session:
 
     @property
     def id(self) -> str:
+        """The session's id."""
         return str(self.data.id)
 
     @property
     def state(self) -> str:
+        """Where it is: REQUESTED, RUNNING, COMPLETED, FAILED, CANCELLED, NO_HOST_FREE and the states between."""
         return self.data.state
 
     @property
@@ -62,6 +64,7 @@ class Session:
 
     @property
     def charged_paise(self) -> int:
+        """What has been charged, in paise; final once `settled`."""
         return self.data.charged_paise
 
     @property
@@ -71,32 +74,38 @@ class Session:
 
     @property
     def max_spend_paise(self) -> int:
+        """The most it may cost, in paise: the spending cap it was booked with."""
         return self.data.max_spend_paise
 
     @property
     def error_code(self) -> str | None:
+        """Why it ended badly, when it did (a code the API names); None otherwise."""
         return self.data.error_code
 
     @property
     def gpu(self) -> SessionGpu | None:
+        """The GPU it runs on (model and memory), once one is assigned."""
         return self.data.gpu
 
     @property
     def started_at(self) -> datetime | None:
+        """When it began running (UTC), if it has."""
         return self.data.started_at
 
     @property
     def ended_at(self) -> datetime | None:
+        """When it stopped running (UTC), if it has."""
         return self.data.ended_at
 
     @property
     def outputs(self) -> Outputs:
+        """What a completed session made: `outputs.list()` and `outputs.download(folder)`."""
         return Outputs(self, self._transport)
 
     # Reading
 
     def refresh(self) -> Session:
-        """Asks the API for the session as it is now."""
+        """Asks the API for the session as it is now, and returns it."""
         self.data = self._transport.get(f"/v1/sessions/{self.id}", SessionResponse)
         return self
 

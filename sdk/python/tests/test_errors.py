@@ -95,3 +95,23 @@ def test_the_sdks_own_failures_have_their_codes():
     assert errors.NotSignedIn().exit_code == 5
     assert errors.NetworkError().exit_code == 7
     assert errors.UsageError().exit_code == 2
+
+
+def test_the_exit_table_is_the_command_lines():
+    """cli/src/error.rs is the one table; this reads it, so the two can't drift."""
+    import re
+
+    source = (Path(__file__).parents[3] / "cli" / "src" / "error.rs").read_text()
+    enum = re.search(r"pub enum Exit \{(.*?)\n\}", source, re.S).group(1)
+    names = [m.group(1) for m in re.finditer(r"^\s{4}([A-Z]\w*)", enum, re.M)]
+    code = {name: number for number, name in enumerate(names)}
+    assert code["Success"] == 0 and code["Network"] == 7
+    arms = re.search(r"match slug \{(.*?)_ => Self::Failed", source, re.S).group(1)
+    expected = {}
+    for arm in re.finditer(r"((?:\"[a-z-]+\"\s*\|?\s*)+)=> Self::(\w+)", arms):
+        for slug in re.findall(r"\"([a-z-]+)\"", arm.group(1)):
+            expected[slug] = code[arm.group(2)]
+    assert len(expected) == 9
+    from idleo._problem import _EXIT_BY_SLUG
+
+    assert expected == _EXIT_BY_SLUG

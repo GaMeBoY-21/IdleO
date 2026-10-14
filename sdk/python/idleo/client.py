@@ -48,6 +48,7 @@ class Templates:
         self._transport = transport
 
     def list(self) -> builtins.list[TemplateResponse]:
+        """Every template you can book, with its inputs, parameters and questions."""
         return self._transport.get("/v1/templates", TemplateList).templates
 
     def get(self, template_id: str) -> TemplateResponse:
@@ -141,6 +142,7 @@ class Sessions:
         return self._book(request)
 
     def get(self, session_id: str | uuid.UUID) -> Session:
+        """One of your sessions by its id."""
         return Session(self._transport, self._transport.get(f"/v1/sessions/{session_id}", SessionResponse))
 
     def iter(self, *, active: bool | None = None) -> Iterator[Session]:
@@ -261,6 +263,7 @@ class Client:
         return self._transport.get("/v1/availability", Availability)
 
     def close(self) -> None:
+        """Closes the connections; a `with Client() as client:` block does it for you."""
         self._transport.close()
 
     def __enter__(self) -> Client:
