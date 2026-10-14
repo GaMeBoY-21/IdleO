@@ -14,6 +14,7 @@ describe("the docs generators", () => {
       "/docs/",
       "/docs/services/",
       "/docs/cli/",
+      "/docs/sdk/",
       "/docs/api/",
       "/docs/hosting/",
       "/docs/faq/",
@@ -65,6 +66,21 @@ describe("the docs generators", () => {
     expect(html).not.toContain("<code>idleo docs</code>");
     expect(html).toContain("<code>idleo run</code>");
     expect(html).toContain("Exit codes");
+  });
+
+  it("put the Python SDK's calls and its exceptions in its reference", () => {
+    const html = page("/docs/sdk/").html;
+    for (const call of [
+      "client.sessions.run(",
+      "session.wait(",
+      "session.logs(",
+      "session.outputs.download(",
+    ]) {
+      expect(html, call).toContain(call);
+    }
+    expect(html).toContain("<code>InsufficientCredit</code>");
+    expect(html).toContain("we provide the GPU");
+    expect(html.toLowerCase()).not.toContain("we supply");
   });
 
   it("make the services page from the catalog: what each takes, and none supplying a model", () => {

@@ -17,6 +17,7 @@ const PAGES = [
   "/docs/",
   "/docs/services/",
   "/docs/cli/",
+  "/docs/sdk/",
   "/docs/api/",
   "/docs/hosting/",
   "/docs/faq/",

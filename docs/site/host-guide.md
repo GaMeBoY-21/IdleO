@@ -1,7 +1,7 @@
 ---
 title: Host guide
 description: What hosting asks of you, how it stays safe, and how you add a machine, set a price and pause.
-order: 5
+order: 6
 path: /docs/hosting/
 ---
 

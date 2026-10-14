@@ -1,7 +1,7 @@
-// The docs' pages (ADR 0029): the Markdown written by hand in docs/site/, and three pages generated from the code when
+// The docs' pages (ADR 0029): the Markdown written by hand in docs/site/, and four pages generated from the code when
 // the site is built, so they can't drift from it: the services from templates/catalog.yaml, the command line from the
-// CLI's own definition (docs/site/generated/cli.md, which the CLI's tests keep current) and the API from
-// api/openapi.yaml.
+// CLI's own definition (docs/site/generated/cli.md, which the CLI's tests keep current), the Python SDK from its
+// docstrings (docs/site/generated/sdk.md, which the SDK's tests keep current) and the API from api/openapi.yaml.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Marked, type Tokens } from "marked";
@@ -31,7 +31,8 @@ const marked = new Marked({
 
 /**
  * A table that's wider than the screen scrolls inside its own box, which a keyboard can reach and a screen reader names
- * (the box is a group with a label), so a wide API table never widens the page.
+ * (the box is a group with a label), so a wide API table never widens the page. A code block that's wider scrolls inside
+ * itself, and a keyboard can reach it too.
  */
 const scrolling = (html: string): string =>
   html
@@ -39,7 +40,8 @@ const scrolling = (html: string): string =>
       "<table>",
       '<div class="table-scroll" role="group" aria-label="Table, scrolls sideways" tabindex="0"><table>',
     )
-    .replaceAll("</table>", "</table></div>");
+    .replaceAll("</table>", "</table></div>")
+    .replaceAll("<pre>", '<pre tabindex="0">');
 
 export const toHtml = (markdown: string): string => scrolling(marked.parse(markdown, { async: false }));
 
@@ -135,6 +137,8 @@ export interface DocsInput {
   docsDir: string;
   /** The CLI's reference, as the CLI wrote it. */
   cliMarkdown: string;
+  /** The Python SDK's reference, as its own script wrote it. */
+  sdkMarkdown: string;
   /** api/openapi.yaml */
   openapiPath: string;
   services: ServiceInfo[];
@@ -159,9 +163,17 @@ export function buildDocs(input: DocsInput): DocPage[] {
       markdown: input.cliMarkdown,
     },
     {
+      title: "Python SDK",
+      description:
+        "Run, follow and download sessions from a Python script or a notebook, made from the SDK's own code.",
+      order: 4,
+      path: "/docs/sdk/",
+      markdown: input.sdkMarkdown,
+    },
+    {
       title: "API reference",
       description: "Every operation and schema of the renter and host API, made from the API contract.",
-      order: 4,
+      order: 5,
       path: "/docs/api/",
       markdown: apiReference(loadSpec(input.openapiPath)),
     },

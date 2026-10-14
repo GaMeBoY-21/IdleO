@@ -1,7 +1,7 @@
 ---
 title: FAQ
 description: Short answers about what we provide, what it costs, what happens when things go wrong, and who can see what.
-order: 6
+order: 7
 path: /docs/faq/
 ---
 
@@ -39,7 +39,7 @@ A folder of up to 1,000 files, or one file, up to 40 GiB. A link may point at an
 
 ## Can I use it without the website?
 
-Yes. The command line signs in through the website once, then runs, follows and downloads from your terminal. The API is the same one the website uses, called with an API key from your Account page. See the [Command line](/docs/cli/) and [API](/docs/api/) references.
+Yes. The command line signs in through the website once, then runs, follows and downloads from your terminal. The API is the same one the website uses, called with an API key from your Account page. See the [Command line](/docs/cli/), [Python SDK](/docs/sdk/) and [API](/docs/api/) references.
 
 ## Why do I need an invite code?
 

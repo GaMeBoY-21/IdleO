@@ -31,7 +31,7 @@ If something went wrong, you can report a problem with a session within 7 days o
 
 ## From a terminal or a script
 
-The command line, `idleo`, signs in through the web app and then runs, follows and downloads from your terminal; see the [Command line](/docs/cli/) reference. It isn't a packaged download yet; for now it is built from the project's repository. Scripts can call the [API](/docs/api/) with an API key made on your Account page.
+The command line, `idleo`, signs in through the web app and then runs, follows and downloads from your terminal; see the [Command line](/docs/cli/) reference. It isn't a packaged download yet; for now it is built from the project's repository. From Python, or a notebook, the [Python SDK](/docs/sdk/) does the same. Other scripts can call the [API](/docs/api/) with an API key made on your Account page.
 
 ## Where next
 

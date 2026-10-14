@@ -20,6 +20,7 @@ export function siteContext(apiUrl: string | undefined): SiteContext {
     docs: buildDocs({
       docsDir: repository("docs/site"),
       cliMarkdown: readFileSync(repository("docs/site/generated/cli.md"), "utf8"),
+      sdkMarkdown: readFileSync(repository("docs/site/generated/sdk.md"), "utf8"),
       openapiPath: repository("api/openapi.yaml"),
       services,
     }),
