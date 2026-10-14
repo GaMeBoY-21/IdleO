@@ -202,7 +202,8 @@ def logs(fake, pages: list[dict]):
     return served
 
 
-def test_logs_come_a_line_at_a_time_even_when_chunks_cut_lines(fake, tmp_path):
+def test_logs_come_a_line_at_a_time_even_when_chunks_cut_lines(fake, tmp_path, monkeypatch):
+    monkeypatch.setattr("idleo.session.LOG_PAGE", 2)  # pages of two chunks, so the reader goes on to the next
     s = get(fake, tmp_path, state="COMPLETED", settled=True)
     logs(
         fake,
@@ -218,7 +219,8 @@ def test_logs_come_a_line_at_a_time_even_when_chunks_cut_lines(fake, tmp_path):
     assert list(s.logs()) == ["loading the model", "epoch 1", "epoch 2", "done"]
 
 
-def test_a_log_is_never_read_twice(fake, tmp_path):
+def test_a_log_is_never_read_twice(fake, tmp_path, monkeypatch):
+    monkeypatch.setattr("idleo.session.LOG_PAGE", 1)
     s = get(fake, tmp_path, state="COMPLETED", settled=True)
     served = logs(
         fake,
@@ -248,6 +250,32 @@ def test_following_a_running_session_prints_lines_as_they_come_and_ends_with_the
     )
     assert list(s.logs(follow=True)) == ["start", "saving the adapter"]
     assert s.settled
+
+
+def test_a_page_that_isnt_full_ends_a_read_so_no_empty_page_is_asked_for(fake, tmp_path):
+    s = get(fake, tmp_path, state="RUNNING")
+    served = logs(fake, [{"chunks": [log_chunk(0, "a\n")], "complete": False, "nextCursor": "1"}])
+    assert list(s.logs()) == ["a"]
+    assert served == [None], "one read: a page short of the limit means there's nothing more yet"
+
+
+def test_following_goes_on_through_a_log_read_refused_for_the_limit(fake, tmp_path):
+    s = get(fake, tmp_path, state="RUNNING")
+    reads = {"n": 0}
+
+    def handler(request):
+        reads["n"] += 1
+        if reads["n"] == 1:
+            return problem("rate-limited", 429, "too many log reads", **{})
+        return httpx.Response(200, json={"chunks": [log_chunk(0, "done\n")], "complete": True})
+
+    fake.route("GET", f"/v1/sessions/{ID}/logs", handler)
+    fake.route(
+        "GET",
+        f"/v1/sessions/{ID}/events",
+        lambda r: sse(frame("logs", {"attempt": 1, "latestSeq": 0}), frame("session", session("COMPLETED", True))),
+    )
+    assert list(s.logs(follow=True)) == ["done"]
 
 
 def test_a_log_that_never_completes_after_the_session_settles_is_an_error(fake, tmp_path):

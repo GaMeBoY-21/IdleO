@@ -12,6 +12,7 @@ import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
 import com.idleo.controlplane.billing.internal.TestCredit;
+import java.net.URI;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -37,6 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
 @TestPropertySource(
         properties = {
             "limits.requests-per-minute=5",
+            "limits.log-reads-per-minute=8",
             "limits.cli-logins-per-hour=2",
             "sessions.limits.new-per-hour=3",
             "sessions.limits.new-per-hour-first-day=2",
@@ -144,25 +146,28 @@ class RenterLimitsTests {
     }
 
     @Test
-    void readingOnInALogCountsOnce() throws Exception {
-        var renter = TestUsers.signUpLasting(mvc, Duration.ofHours(1));
+    void everyLogReadCountsAgainstLogReadsOwnLimit() throws Exception {
+        var renter = TestUsers.signUpLasting(mvc, Duration.ofHours(1)); // its first request, of the 5 for the rest
         var session = UUID.randomUUID();
-        // The reads that follow a log, with a cursor, are free; whatever they answer, they're never a 429.
-        for (int i = 0; i < 12; i++) {
-            var status = mvc.perform(get("/v1/sessions/" + session + "/logs")
-                            .param("cursor", "1-" + i)
-                            .header("Authorization", renter.bearer()))
+        // With a cursor or without, and however the path is spelt, each read counts: 8 a minute, then a 429.
+        for (int i = 0; i < 8; i++) {
+            var request = i % 2 == 0
+                    ? get("/v1/sessions/" + session + "/logs").param("cursor", "1-" + i)
+                    : get(URI.create("/v1/sessions/" + session + "/l%6Fgs"));
+            var status = mvc.perform(request.header("Authorization", renter.bearer()))
                     .andReturn()
                     .getResponse()
                     .getStatus();
-            assertThat(status).isNotEqualTo(429);
+            assertThat(status).as("read %d", i + 1).isNotEqualTo(429);
         }
-        // The read that opens it counts, like any other request.
-        for (int i = 0; i < 4; i++) {
-            mvc.perform(get("/v1/sessions/" + session + "/logs").header("Authorization", renter.bearer()));
-        }
-        mvc.perform(get("/v1/sessions/" + session + "/logs").header("Authorization", renter.bearer()))
-                .andExpect(status().isTooManyRequests());
+        mvc.perform(get("/v1/sessions/" + session + "/logs")
+                        .param("cursor", "1-9")
+                        .header("Authorization", renter.bearer()))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.type").value("/problems/rate-limited"))
+                .andExpect(header().exists("Retry-After"));
+        // Following a log never used up the renter's other requests.
+        mvc.perform(get("/v1/me").header("Authorization", renter.bearer())).andExpect(status().isOk());
     }
 
     @Test
@@ -198,6 +203,20 @@ class RenterLimitsTests {
                 .andReturn()
                 .getResponse();
         assertThat(Integer.parseInt(refused.getHeader("Retry-After"))).isBetween(1, 3600);
+    }
+
+    @Test
+    void aCliSignInSpeltAnotherWayStillCountsAgainstTheHourlyLimit() throws Exception {
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(from(post(URI.create(i == 0 ? "/v1/cli-logins" : "/v1/cli-l%6Fgins")))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"deviceName\":\"box\"}"))
+                    .andExpect(status().isCreated());
+        }
+        mvc.perform(from(post(URI.create("/v1/cli%2Dlogins")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"deviceName\":\"box\"}"))
+                .andExpect(status().isTooManyRequests());
     }
 
     @Test

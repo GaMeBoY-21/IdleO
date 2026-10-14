@@ -9,13 +9,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.HandlerMapping;
 
 /**
  * The renter's request limit (technical design "Limits", ADR 0025): {@code limits.requests-per-minute} for each
@@ -23,8 +23,12 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * sign-in. Starting a CLI sign-in is limited further, {@code limits.cli-logins-per-hour} per address. Over a limit,
  * 429 {@code rate-limited} with {@code Retry-After}, the seconds left in the window.
  *
- * <p>A session's event stream is one request however long it stays open, and its logs count once: the read that
- * opens them, without a cursor; the reads that follow, with one, are free.
+ * <p>A session's event stream is one request however long it stays open. Every read of a session's logs counts, with
+ * a cursor or without, against a limit of its own, {@code limits.log-reads-per-minute} (120), so following a live log
+ * never uses up the person's other requests, and nothing is free.
+ *
+ * <p>Which call a request is comes from the route it reached ({@link HandlerMapping#BEST_MATCHING_PATTERN_ATTRIBUTE}),
+ * never from the spelling of its path, so a percent-encoded path is counted like the plain one.
  *
  * <p>Valkey holds only what may expire, and is never required (CLAUDE.md): when it can't be reached the request
  * goes ahead, and a warning is logged.
@@ -32,7 +36,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 class RequestLimits implements HandlerInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(RequestLimits.class);
-    private static final Pattern LOGS = Pattern.compile("/v1/sessions/[^/]+/logs");
+    private static final String LOGS = "/v1/sessions/{id}/logs";
+    private static final String CLI_LOGINS = "/v1/cli-logins";
     private static final Duration MINUTE = Duration.ofMinutes(1);
     private static final Duration HOUR = Duration.ofHours(1);
 
@@ -52,14 +57,17 @@ class RequestLimits implements HandlerInterceptor {
         if (request.getDispatcherType() != DispatcherType.REQUEST) {
             return true;
         }
-        var path = request.getRequestURI();
-        if (LOGS.matcher(path).matches() && request.getParameter("cursor") != null) {
-            return true;
-        }
+        var route = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE) instanceof String pattern
+                ? pattern
+                : "";
         var now = Instant.now(clock);
         var who = who(request);
-        check("requests:" + who, MINUTE, limits.requestsPerMinute(), now);
-        if (request.getMethod().equals("POST") && path.equals("/v1/cli-logins")) {
+        if (route.equals(LOGS)) {
+            check("log-reads:" + who, MINUTE, limits.logReadsPerMinute(), now);
+        } else {
+            check("requests:" + who, MINUTE, limits.requestsPerMinute(), now);
+        }
+        if (request.getMethod().equals("POST") && route.equals(CLI_LOGINS)) {
             check("cli-logins:ip:" + request.getRemoteAddr(), HOUR, limits.cliLoginsPerHour(), now);
         }
         return true;

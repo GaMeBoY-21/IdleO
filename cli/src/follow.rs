@@ -121,7 +121,11 @@ async fn read_logs(ctx: &Context, logs: &mut LogReader<'_>, show: Show) -> Resul
         // A failed read isn't the end of the session; the next tick tries again.
         match logs.read(ctx).await {
             Ok(_) => {}
-            Err(error) if error.exit == Exit::Network || error.problem.as_deref() == Some("server-error") => {}
+            // A read refused for the log reads' limit is tried again on a later tick, like a network blip.
+            Err(error)
+                if error.exit == Exit::Network
+                    || error.exit == Exit::RateLimited
+                    || error.problem.as_deref() == Some("server-error") => {}
             Err(error) => return Err(error),
         }
     }

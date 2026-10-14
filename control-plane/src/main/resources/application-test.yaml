@@ -46,6 +46,7 @@ agentgateway:
 # users make many requests and sessions in seconds.
 limits:
   requests-per-minute: 100000
+  log-reads-per-minute: 100000
   cli-logins-per-hour: 100000
 
 sessions:

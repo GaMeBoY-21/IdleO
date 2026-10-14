@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 
 from idleo._events import Event, SessionEvent, SseParser
-from idleo._generated.errors import NoGpuFree
+from idleo._generated.errors import NoGpuFree, RateLimited
 from idleo._generated.models import SessionGpu, SessionLogPage, SessionResponse, StopRequest
 from idleo._http import Transport
 from idleo._notebook import Status
@@ -180,7 +180,11 @@ class Session:
         status = Status(progress)
         status.update(self._words())
         for _event in self._follow(TICK):
-            yield from reader.read()
+            try:
+                lines = reader.read()
+            except RateLimited:
+                continue  # Over the log reads' limit for now: a later tick reads on from the same cursor.
+            yield from lines
             status.update(self._words())
             if self.settled:
                 break
@@ -313,8 +317,8 @@ class Session:
 
 class _LogReader:
     """A session's logs: read in pages from `GET /v1/sessions/{id}/logs`, each page after the cursor the last one gave,
-    so a log is never read twice and a reader that starts late sees the whole of it. Reads with a cursor don't count
-    against the request limit; the first read does (ADR 0025)."""
+    so a log is never read twice and a reader that starts late sees the whole of it. Every read counts against the log
+    reads' own limit (120 a minute, ADR 0025), so a page that isn't full ends the read: there's nothing more yet."""
 
     def __init__(self, transport: Transport, session_id: str) -> None:
         self._transport = transport
@@ -337,7 +341,7 @@ class _LogReader:
             self.complete = page.complete
             if page.next_cursor:
                 self._cursor = page.next_cursor
-            if not page.chunks:
+            if len(page.chunks) < LOG_PAGE:
                 break
         return lines
 

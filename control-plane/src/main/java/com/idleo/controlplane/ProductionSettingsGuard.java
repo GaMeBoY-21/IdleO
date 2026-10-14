@@ -58,6 +58,7 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
      */
     static final Map<String, Integer> PRODUCTION_LIMITS = Map.of(
             "limits.requests-per-minute", 60,
+            "limits.log-reads-per-minute", 120,
             "limits.cli-logins-per-hour", 10,
             "sessions.limits.new-per-hour", 10,
             "sessions.limits.new-per-hour-first-day", 2,

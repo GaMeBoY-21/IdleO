@@ -1,6 +1,6 @@
 //! A session's logs: read in pages from `GET /v1/sessions/{id}/logs`, each page after the cursor the last one gave,
-//! so a log is never read twice and a reader that starts late sees the whole of it. Reads with a cursor don't count
-//! against the request limit; the first read does (ADR 0025).
+//! so a log is never read twice and a reader that starts late sees the whole of it. Every read counts against the log
+//! reads' own limit (120 a minute, ADR 0025), so a page that isn't full ends the read: there's nothing more yet.
 
 use crate::api::SessionLogPage;
 use crate::client::Client;
@@ -38,7 +38,7 @@ impl<'a> LogReader<'a> {
                 ctx.log(&chunk.text);
             }
             self.complete = page.complete;
-            let more = !page.chunks.is_empty();
+            let more = page.chunks.len() >= PAGE as usize;
             if page.next_cursor.is_some() {
                 self.cursor = page.next_cursor;
             }
