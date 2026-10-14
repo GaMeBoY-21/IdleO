@@ -283,7 +283,12 @@ public enum Problem {
             "report-already-open",
             HttpStatus.CONFLICT,
             "This session already has an open report",
-            "A session has one open report at a time. We'll reply to it; once it's resolved, another can be sent."),
+            "A session has one report, and this one is open: we'll reply to it."),
+    REPORT_ALREADY_MADE(
+            "report-already-made",
+            HttpStatus.CONFLICT,
+            "This session has already been reported",
+            "A session can be reported once. Its report was resolved, and what we decided is in Account, Reports."),
 
     // The admin console (ADR 0027).
     ADMIN_CODE_INVALID(

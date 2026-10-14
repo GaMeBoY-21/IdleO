@@ -32,7 +32,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <ul>
  *   <li>a renter reports their own ended session, within 7 days of it ending, with one of six reasons; a session has
- *       at most one open report, and while it's open the session's host earnings are held from payout;
+ *       one report, ever, so a resolution can't be followed by another report and another payout hold; while it's
+ *       open the session's host earnings are held from payout;
  *   <li>an admin resolves a report once: with a refund of up to what the renter paid for the session, net of
  *       everything given back before, or without one; either way with a reason the renter reads;
  *   <li>a refund is one balanced ledger transaction through billing, from the platform's commission first and then
@@ -83,6 +84,9 @@ class Disputes {
         record WindowClosed(Instant closedAt) implements Opened {}
 
         record AlreadyOpen(UUID disputeId) implements Opened {}
+
+        /** The session's one report was already made, and resolved. */
+        record AlreadyMade(UUID disputeId) implements Opened {}
     }
 
     /** What happened when an admin resolved a report. */
@@ -152,12 +156,15 @@ class Disputes {
         if (!now.isBefore(closesAt)) {
             return new Opened.WindowClosed(closesAt);
         }
-        var open = jdbc.sql("select id from trust.disputes where session_id = :sessionId and state = 'open'")
+        var earlier = jdbc.sql("select id, state from trust.disputes where session_id = :sessionId")
                 .param("sessionId", sessionId)
-                .query(UUID.class)
+                .query((rs, n) -> Map.entry(rs.getObject("id", UUID.class), rs.getString("state")))
                 .optional();
-        if (open.isPresent()) {
-            return new Opened.AlreadyOpen(open.get());
+        if (earlier.isPresent()) {
+            var made = earlier.get();
+            return made.getValue().equals(OPEN)
+                    ? new Opened.AlreadyOpen(made.getKey())
+                    : new Opened.AlreadyMade(made.getKey());
         }
         var id = ids.newId();
         jdbc.sql("""

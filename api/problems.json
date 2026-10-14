@@ -48,6 +48,7 @@
   { "slug": "rating-closed", "status": 409, "title": "Too late to rate this session" },
   { "slug": "report-window-closed", "status": 409, "title": "Too late to report this session" },
   { "slug": "report-already-open", "status": 409, "title": "This session already has an open report" },
+  { "slug": "report-already-made", "status": 409, "title": "This session has already been reported" },
   { "slug": "admin-code-invalid", "status": 400, "title": "Code not accepted" },
   { "slug": "second-factor-exists", "status": 409, "title": "Second factor already set up" },
   { "slug": "second-factor-missing", "status": 409, "title": "Second factor not set up" },

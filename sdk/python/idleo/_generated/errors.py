@@ -398,6 +398,14 @@ class ReportAlreadyOpen(IdleoError):
     title = "This session already has an open report"
 
 
+class ReportAlreadyMade(IdleoError):
+    """This session has already been reported (HTTP 409)."""
+
+    slug = "report-already-made"
+    status = 409
+    title = "This session has already been reported"
+
+
 class AdminCodeInvalid(IdleoError):
     """Code not accepted (HTTP 400)."""
 
@@ -488,6 +496,7 @@ __all__ = [
     "RatingClosed",
     "ReportWindowClosed",
     "ReportAlreadyOpen",
+    "ReportAlreadyMade",
     "AdminCodeInvalid",
     "SecondFactorExists",
     "SecondFactorMissing",
@@ -545,6 +554,7 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "rating-closed": RatingClosed,
     "report-window-closed": ReportWindowClosed,
     "report-already-open": ReportAlreadyOpen,
+    "report-already-made": ReportAlreadyMade,
     "admin-code-invalid": AdminCodeInvalid,
     "second-factor-exists": SecondFactorExists,
     "second-factor-missing": SecondFactorMissing,

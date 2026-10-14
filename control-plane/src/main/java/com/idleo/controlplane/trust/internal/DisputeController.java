@@ -84,7 +84,8 @@ class DisputeController {
 
     /**
      * Reports a problem with an ended session, within 7 days of it ending: 409 {@code report-window-closed} after
-     * that, and {@code report-already-open} while the session has a report we haven't resolved.
+     * that, {@code report-already-open} while the session has a report we haven't resolved, and {@code
+     * report-already-made} once it has: a session is reported once.
      */
     @PostMapping
     @ApiResponse(
@@ -118,6 +119,11 @@ class DisputeController {
                 case Disputes.Opened.AlreadyOpen open ->
                     throw ApiProblem.of(
                             Problem.REPORT_ALREADY_OPEN, "Report " + open.disputeId() + " is open for this session.");
+                case Disputes.Opened.AlreadyMade made ->
+                    throw ApiProblem.of(
+                            Problem.REPORT_ALREADY_MADE,
+                            "This session was reported already, in report " + made.disputeId() + ", and a session "
+                                    + "is reported once.");
             };
         });
     }

@@ -71,6 +71,7 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "rating-closed": "It's too late to rate this session or change its rating: each closes after 7 days.",
   "report-window-closed": "Problems can be reported within 7 days of a session ending.",
   "report-already-open": "You've already reported this session. We'll reply within 2 days.",
+  "report-already-made": "You've already reported this session, and we've replied. See Account, Reports.",
   "admin-code-invalid":
     "That code isn't right, or was already used. Five wrong codes in 15 minutes lock admin access.",
   "second-factor-exists": "Your authenticator is already set up. Sign in with a code from it.",

@@ -197,7 +197,7 @@ class DisputeTests {
     }
 
     @Test
-    void aRenterReportsTheirEndedSessionOnceAtATimeAndReadsItsState() throws Exception {
+    void aRenterReportsTheirEndedSessionOnceEverAndReadsItsState() throws Exception {
         var sessionId = chargedSession();
         var key = UUID.randomUUID().toString();
         var request = "{\"sessionId\":\"" + sessionId + "\",\"reason\":\"failed\",\"details\":\"  It stopped. \"}";
@@ -224,7 +224,7 @@ class DisputeTests {
                 .andExpect(jsonPath("$.disputes.length()").value(1))
                 .andExpect(jsonPath("$.disputes[0].state").value("open"));
 
-        // Resolved without a refund, with words the renter reads; then another report is allowed.
+        // Resolved without a refund, with words the renter reads; and that was the session's one report.
         noRefund(UUID.fromString(id), "The job's own code failed; the GPU was fine.")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dispute.state").value("not_refunded"));
@@ -234,13 +234,21 @@ class DisputeTests {
                 .andExpect(jsonPath("$.resolutionReason").value("The job's own code failed; the GPU was fine."))
                 .andExpect(jsonPath("$.refundPaise").doesNotExist())
                 .andExpect(jsonPath("$.resolvedBy").doesNotExist());
-        var second = reported(sessionId, "charged_wrong", "Charged for 30 minutes.");
-        refund(second, 50, "We charged a minute too many.").andExpect(status().isOk());
-        mvc.perform(get("/v1/disputes").header("Authorization", renter.bearer()))
-                .andExpect(jsonPath("$.disputes[0].id").value(second.toString()))
-                .andExpect(jsonPath("$.disputes[0].state").value("refunded"))
-                .andExpect(jsonPath("$.disputes[0].refundPaise").value(50))
-                .andExpect(jsonPath("$.disputes[1].state").value("not_refunded"));
+        // Another report after the resolution is refused, so it can never place another payout hold.
+        report(renter, UUID.randomUUID().toString(), request.replace("failed", "charged_wrong"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("/problems/report-already-made"));
+        mvc.perform(get("/v1/disputes?session=" + sessionId).header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.disputes.length()").value(1));
+        assertThat(jdbcTemplate.queryForObject(
+                        "select count(*) from billing.payout_holds where session_id = ? and released_at is null",
+                        Integer.class,
+                        sessionId))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                        "select count(*) from billing.payout_holds where session_id = ?", Integer.class, sessionId))
+                .as("the one report's hold, released")
+                .isOne();
     }
 
     @Test
@@ -357,11 +365,10 @@ class DisputeTests {
         assertThat(audited("dispute.refund", id)).isOne();
         assertThat(audited("dispute.no_refund", id)).isZero();
 
-        // Nothing is left to refund on a later report.
-        var later = reported(sessionId, "other", "And another thing.");
-        refund(later, 1, "Try one more paisa.").andExpect(status().isConflict());
-        noRefund(later, "Already refunded in full.").andExpect(status().isOk());
-        assertThat(audited("dispute.no_refund", later)).isOne();
+        // A session is reported once: there is no later report to try another refund on.
+        report(renter, UUID.randomUUID().toString(), "{\"sessionId\":\"" + sessionId + "\",\"reason\":\"other\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("/problems/report-already-made"));
         reconcilesToZero();
     }
 

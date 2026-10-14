@@ -265,6 +265,7 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `RatingClosed` | `rating-closed` | 409 | 1 |
 | `ReportWindowClosed` | `report-window-closed` | 409 | 1 |
 | `ReportAlreadyOpen` | `report-already-open` | 409 | 1 |
+| `ReportAlreadyMade` | `report-already-made` | 409 | 1 |
 | `AdminCodeInvalid` | `admin-code-invalid` | 400 | 1 |
 | `SecondFactorExists` | `second-factor-exists` | 409 | 1 |
 | `SecondFactorMissing` | `second-factor-missing` | 409 | 1 |

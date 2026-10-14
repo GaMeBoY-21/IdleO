@@ -485,6 +485,7 @@ class Type(Enum):
     field_problems_rating_closed = "/problems/rating-closed"
     field_problems_report_window_closed = "/problems/report-window-closed"
     field_problems_report_already_open = "/problems/report-already-open"
+    field_problems_report_already_made = "/problems/report-already-made"
     field_problems_admin_code_invalid = "/problems/admin-code-invalid"
     field_problems_second_factor_exists = "/problems/second-factor-exists"
     field_problems_second_factor_missing = "/problems/second-factor-missing"

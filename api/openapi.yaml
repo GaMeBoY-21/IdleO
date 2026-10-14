@@ -5187,6 +5187,7 @@ components:
           - /problems/rating-closed
           - /problems/report-window-closed
           - /problems/report-already-open
+          - /problems/report-already-made
           - /problems/admin-code-invalid
           - /problems/second-factor-exists
           - /problems/second-factor-missing
