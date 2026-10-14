@@ -71,3 +71,10 @@ Constraints:
 - The upload logic now exists twice (Rust and Python), as the web app's does in TypeScript. They agree on the wire (the API) and on the files they leave (fingerprints and records); a test in each language holds its side.
 - A new problem type needs nothing by hand: regenerate, and the class exists. A new exit meaning needs the one table in `idleo/_problem.py` and the command line's, which a test compares.
 - **Open question:** publishing to PyPI and the package's licence (the deployment round; the repository has none yet); an async client; the keychain entry names on Linux and Windows.
+
+## Addendum (2026-10-14)
+
+- **Money arguments say their unit:** `max_spend` is now `max_spend_paise`. The old name still works for one release, with a `DeprecationWarning`, and giving both with different values is a `UsageError`.
+- **`IDLEO_NO_KEYCHAIN` means the same in the SDK and the CLI:** only `1` or `true` (any case) turns the keychain off; `0`, `false` or anything else leaves it on. Before, the CLI took anything but `0` and the SDK anything at all.
+- **A booking's key comes from what was asked for** (ADR 0025's addendum), and an upload's record is kept until the booking is answered, in the SDK as in the CLI.
+- `sdk.yml` also runs when `cli/src/error.rs` changes, since a test reads the exit table from it.

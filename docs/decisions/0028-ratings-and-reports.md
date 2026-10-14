@@ -73,3 +73,8 @@ While a report is open, the session's host earnings are marked `payoutHeld` (a r
 - **Open question:** what the payout hold means for money already paid out, once payouts exist.
 - **Open question:** whether ratings should count lost-host sessions differently.
 - **Watch:** the share of sessions with a report; refunds as a share of revenue, and how much came from hosts' shares; open reports older than 2 days; `billing.reconciliation.mismatches`, which must stay 0.
+
+## Addendum (2026-10-14): a daily rating, and one report per session
+
+- **A host's shown rating is worked out once a day** (`trust.ratings.refresh-cron`, 03:15 India time), into `trust.host_ratings`, never on each rating. With the average and the count changing right after one session, a host could have worked out that renter's stars. The count is shown rounded down to a multiple of 5 ("4.6 from 20+ ratings"; the API's field is `countAtLeast`), and a host still appears only from 5 ratings.
+- **A session is reported once, ever.** Allowing a new report after each resolution let a renter place a new payout hold every time. The database enforces it (a unique index on the session); a second report while the first is open is still `report-already-open`, and one after it was resolved is the new `report-already-made`. The web app already offered no second report once one existed.

@@ -72,3 +72,7 @@ A session the renter stopped says nothing: they did it themselves. "Agent update
 - A crash between the claim and the hand-over loses one email. Watch for messages with a claim and no send time (`email_claimed_at` set, `email_sent_at` null) beyond a minute: that is a refused or lost email to look at.
 - Polling adds about two requests a minute for each open tab, well inside the 60 a minute renter limit (ADR 0025).
 - Open question: which email provider, and the domain it sends from (docs/runbooks/email.md lists what the domain will need).
+
+## Addendum (2026-10-14)
+
+Opening a message marks just that one read (`POST /v1/notifications/read` with `{ "id" }`); "Mark all read" still marks everything up to the newest (`{ "upTo" }`). Exactly one of the two; both or neither is `validation-failed`.

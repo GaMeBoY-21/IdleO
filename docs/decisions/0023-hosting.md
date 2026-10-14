@@ -80,3 +80,8 @@ Constraints that shaped every choice:
 - The suggested price defaults (8 to 14, 12 to 20, 16 to 28 and 24 to 42 paise a minute for the 8, 12, 16 and 24 GB classes) are starting guesses. Watch them against real listings once there are some.
 - Open question: whether an owner may remove a machine that's paused with a session finishing (today it's refused until that session ends).
 - Open question: availability windows, allowed workloads, the host score, the installer and tray app, host emails and benchmarks are not built (P2 and later); the add-machine screen's install step links to the runbook until there's an installer, and its checks step is "pending" until an operator activates the host.
+
+## Addendum (2026-10-14)
+
+- **The price band from 3 to 9 peers:** 10% of fewer than 10 prices is none, so one odd price could set an edge. From 5 peers at least the single highest and lowest are left out (`PriceBands.TRIM_FROM`); with 3 or 4 every price counts; from 10, the top and bottom 10% as before.
+- **A listing without `keepFreeGb` keeps the stored value,** rather than resetting it to 20: a price change never touches the disk an owner keeps.

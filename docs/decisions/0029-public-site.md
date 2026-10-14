@@ -77,3 +77,9 @@ Constraints:
 - Two things must be kept honest by people: the hand-written Markdown, and the GPUs page's "typical" lines.
 - **Open question:** where the landing page lives at `/`, and whether the app moves; the contact address; the starting credit; the lawyer's Terms and Privacy; analytics, which Nikki decides (a privacy-friendly choice, not yet taken).
 - A rename of the product needs `brand.name`, and a search of docs/site/ for the name in the hand-written pages.
+
+## Addendum (2026-10-14)
+
+- **Hosting's protections are promises, not facts, until the hardware round:** Earn, the host guide and the FAQ say hosting opens after our safety tests on real Windows laptops, and describe the sandbox and the rest as what hosting will have. A test refuses the present tense ("runs in a sandbox") on those pages.
+- **The GPUs page names sizes, not models:** no image, speech or named model, only parameter counts and "your own models", so nothing reads as if we supply them. "What you can run today" is "What you can run".
+- **The hand-written docs name the product only as `{{product}}`,** which the build fills from `brand.name`; a test refuses the name in plain text there.
