@@ -3,7 +3,9 @@ package com.idleo.controlplane;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.io.ClassPathResource;
 
 /** The prod profile refuses development settings at startup (ADR 0013). */
 class ProductionSettingsGuardTests {
@@ -150,5 +152,58 @@ class ProductionSettingsGuardTests {
                         .hasFailed()
                         .getFailure()
                         .hasMessageContaining("identity.invite-code-key is missing"));
+    }
+
+    @Test
+    void prodRefusesTheTestsCommittedKeys() throws Exception {
+        var committed = new YamlPropertySourceLoader()
+                .load("test", new ClassPathResource("application-test.yaml"))
+                .getFirst();
+        for (var key : ProductionSettingsGuard.SECRET_KEYS) {
+            var value = committed.getProperty(key);
+            assertThat(value).as(key).isNotNull();
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, key + "=" + value)
+                    .run(context -> assertThat(context)
+                            .hasFailed()
+                            .getFailure()
+                            .hasMessageContaining(key + " is the tests' committed value"));
+        }
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.admin.totp-key=" + PRODUCTION_KEY)
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void prodRefusesToLetAnyoneInWithoutAnInviteCode() {
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.invite-only=false")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("identity.invite-only is false"));
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.invite-only=true")
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void prodRefusesTheRenterLimitsLiftedButMayTightenThem() {
+        ProductionSettingsGuard.PRODUCTION_LIMITS.forEach((name, ceiling) -> {
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, name + "=" + (ceiling + 1))
+                    .run(context -> assertThat(context)
+                            .hasFailed()
+                            .getFailure()
+                            .hasMessageContaining(name + " is " + (ceiling + 1) + ", above production's " + ceiling));
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, name + "=" + ceiling)
+                    .run(context -> assertThat(context).hasNotFailed());
+        });
+    }
+
+    @Test
+    void theGuardsLimitsAreTheOnesApplicationYamlShips() throws Exception {
+        var shipped = new YamlPropertySourceLoader()
+                .load("shipped", new ClassPathResource("application.yaml"))
+                .getFirst();
+        ProductionSettingsGuard.PRODUCTION_LIMITS.forEach(
+                (name, ceiling) -> assertThat(Integer.parseInt(String.valueOf(shipped.getProperty(name))))
+                        .as(name)
+                        .isEqualTo(ceiling));
     }
 }

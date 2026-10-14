@@ -1,14 +1,21 @@
 package com.idleo.controlplane;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
+import java.util.TreeMap;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,7 +36,12 @@ import org.springframework.stereotype.Component;
  *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026);
  *   <li>{@code springdoc.api-docs.enabled}: the API contract is generated in tests and committed, never served
  *       (ADR 0018);
- *   <li>no {@code identity.invite-code-key}, the HMAC key for invite and recovery codes (ADR 0024).
+ *   <li>no {@code identity.invite-code-key}, the HMAC key for invite and recovery codes (ADR 0024), or either it or
+ *       {@code identity.admin.totp-key} set to the tests' committed value (application-test.yaml, which ships in the
+ *       jar and is read from there, so the values are never copied);
+ *   <li>{@code identity.invite-only} false, which lets anyone in without a code (ADR 0024);
+ *   <li>a renter limit above production's ({@link #PRODUCTION_LIMITS}, ADR 0025), as the end-to-end harness and the
+ *       tests lift them.
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -39,6 +51,20 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
 
     private static final List<String> LOCAL_HOSTS = List.of("localhost", "127.0.0.1", "[::1]", "::1");
     static final String BUNDLED_CATALOG = "classpath:templates/catalog.yaml";
+
+    /**
+     * Production's renter limits, as application.yaml sets them (a test keeps the two equal). The prod profile may
+     * tighten one; lifting one is the harness's setting, never production's.
+     */
+    static final Map<String, Integer> PRODUCTION_LIMITS = Map.of(
+            "limits.requests-per-minute", 60,
+            "limits.cli-logins-per-hour", 10,
+            "sessions.limits.new-per-hour", 10,
+            "sessions.limits.new-per-hour-first-day", 2,
+            "sessions.limits.at-once", 3);
+
+    /** The keys whose committed test values production must never use. */
+    static final List<String> SECRET_KEYS = List.of("identity.admin.totp-key", "identity.invite-code-key");
 
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
@@ -110,7 +136,45 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         if (binder.bind("identity.invite-code-key", String.class).orElse("").isBlank()) {
             problems.add("identity.invite-code-key is missing");
         }
+        var committed = committedTestValues();
+        for (var key : SECRET_KEYS) {
+            var value = binder.bind(key, String.class).orElse("").strip();
+            if (!value.isEmpty() && value.equals(committed.getProperty(key))) {
+                problems.add(key + " is the tests' committed value");
+            }
+        }
+        if (!binder.bind("identity.invite-only", Boolean.class).orElse(true)) {
+            problems.add("identity.invite-only is false");
+        }
+        new TreeMap<>(PRODUCTION_LIMITS).forEach((name, ceiling) -> {
+            var value = binder.bind(name, Integer.class);
+            if (value.isBound() && value.get() > ceiling) {
+                problems.add(name + " is " + value.get() + ", above production's " + ceiling);
+            }
+        });
         return problems;
+    }
+
+    /** The values application-test.yaml commits, read from the classpath; empty if it isn't there. */
+    private static Properties committedTestValues() {
+        var values = new Properties();
+        var resource = new ClassPathResource("application-test.yaml");
+        if (!resource.exists()) {
+            return values;
+        }
+        try {
+            for (var source : new YamlPropertySourceLoader().load("committed-test-values", resource)) {
+                for (var key : SECRET_KEYS) {
+                    var value = source.getProperty(key);
+                    if (value != null) {
+                        values.setProperty(key, value.toString().strip());
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("application-test.yaml can't be read", e);
+        }
+        return values;
     }
 
     private static boolean isDevelopmentOrigin(String origin) {
