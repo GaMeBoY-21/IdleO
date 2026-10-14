@@ -6,6 +6,10 @@ cd "$(dirname "$0")/../../proto"
 buf lint
 test -z "$(buf format -d)" || { buf format -d; echo "proto: buf format would change files (buf format -w)"; exit 1; }
 buf build
-if git rev-parse --verify -q main >/dev/null && [[ "$(git rev-parse HEAD)" != "$(git rev-parse main)" ]]; then
-  buf breaking --against '../.git#branch=main,subdir=proto'
+# Against what's published (origin/main) when this checkout has one, else the local main: on main before a push,
+# that's what the push would change.
+base=main
+git rev-parse --verify -q origin/main >/dev/null && base=origin/main
+if git rev-parse --verify -q "$base" >/dev/null && [[ "$(git rev-parse HEAD)" != "$(git rev-parse "$base")" ]]; then
+  buf breaking --against "../.git#ref=$base,subdir=proto"
 fi
