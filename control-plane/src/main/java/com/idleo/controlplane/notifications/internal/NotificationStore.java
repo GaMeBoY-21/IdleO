@@ -98,6 +98,18 @@ class NotificationStore {
     }
 
     /** Marks this person's messages up to and including {@code upTo} read; ones already read keep their time. */
+    /** Marks just this one of the person's messages read. */
+    void markOneRead(UUID userId, UUID id) {
+        jdbc.sql("""
+                        update notifications.notifications set read_at = :now
+                        where user_id = :user and in_app and read_at is null and id = :id
+                        """)
+                .param("now", Timestamp.from(Instant.now(clock)))
+                .param("user", userId)
+                .param("id", id)
+                .update();
+    }
+
     void markRead(UUID userId, UUID upTo) {
         jdbc.sql("""
                         update notifications.notifications set read_at = :now

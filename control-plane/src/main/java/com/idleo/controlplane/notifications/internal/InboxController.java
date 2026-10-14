@@ -3,7 +3,6 @@ package com.idleo.controlplane.notifications.internal;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
@@ -44,8 +43,11 @@ class InboxController {
      */
     record InboxPage(List<InboxItem> items, @Nullable String nextCursor, int unread) {}
 
-    /** Marks every message up to and including this one read. */
-    record ReadRequest(@NotNull UUID upTo) {}
+    /**
+     * Which messages to mark read, one of two: {@code id}, just that message (opening it); or {@code upTo}, every one
+     * up to and including it (the newest, for "Mark all read").
+     */
+    record ReadRequest(@Nullable UUID id, @Nullable UUID upTo) {}
 
     record Unread(int unread) {}
 
@@ -67,12 +69,22 @@ class InboxController {
     }
 
     /**
-     * Marks messages read: every one of the person's up to and including {@code upTo}, which is the newest
-     * for "mark all read". Messages already read keep the time they were read.
+     * Marks messages read: the one {@code id} names, which is what opening a message does, or every one of the
+     * person's up to and including {@code upTo}, the newest for "mark all read". Exactly one of the two. Messages
+     * already read keep the time they were read.
      */
     @PostMapping("/read")
     Unread read(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody ReadRequest request) {
-        store.markRead(user.id(), request.upTo());
+        var id = request.id();
+        var upTo = request.upTo();
+        if ((id == null) == (upTo == null)) {
+            throw ApiProblem.invalid("id", "give id, for one message, or upTo, for every one up to it; not both.");
+        }
+        if (id != null) {
+            store.markOneRead(user.id(), id);
+        } else {
+            store.markRead(user.id(), upTo);
+        }
         return new Unread(store.unread(user.id()));
     }
 

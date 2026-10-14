@@ -50,7 +50,7 @@ export function Notifications() {
             variant="secondary"
             disabled={unread === 0 || items.length === 0}
             busy={markRead.isPending}
-            onClick={() => items[0] && markRead.mutate(items[0].id)}
+            onClick={() => items[0] && markRead.mutate({ upTo: items[0].id })}
           >
             Mark all read
           </Button>
@@ -70,7 +70,11 @@ export function Notifications() {
             ) : (
               <ul className="flex flex-col divide-y divide-divider">
                 {items.map((item) => (
-                  <Row key={item.id} item={item} onOpen={() => !item.read && markRead.mutate(item.id)} />
+                  <Row
+                    key={item.id}
+                    item={item}
+                    onOpen={() => !item.read && markRead.mutate({ id: item.id })}
+                  />
                 ))}
               </ul>
             )}

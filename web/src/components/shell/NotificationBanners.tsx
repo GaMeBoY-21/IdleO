@@ -69,7 +69,11 @@ function Arrivals() {
             </Button>
           }
         >
-          <Link href={item.link} className="font-semibold underline" onClick={() => markRead.mutate(item.id)}>
+          <Link
+            href={item.link}
+            className="font-semibold underline"
+            onClick={() => markRead.mutate({ id: item.id })}
+          >
             {item.title}
           </Link>
           <span className="block text-text-muted">{item.body}</span>

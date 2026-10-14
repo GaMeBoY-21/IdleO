@@ -136,6 +136,43 @@ class InboxApiTests {
     }
 
     @Test
+    void openingOneMarksJustThatOneRead() throws Exception {
+        tell(person, "old");
+        tell(person, "middle");
+        tell(person, "new");
+        var items = list(person, "").get("items");
+
+        var middle = items.get(1).get("id").asString();
+        mvc.perform(post("/v1/notifications/read")
+                        .header("Authorization", person.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":\"" + middle + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unread").value(2));
+
+        var after = list(person, "").get("items");
+        assertThat(after.get(0).get("read").asBoolean()).as("new").isFalse();
+        assertThat(after.get(1).get("read").asBoolean()).as("middle").isTrue();
+        assertThat(after.get(2).get("read").asBoolean())
+                .as("old, older than the one opened")
+                .isFalse();
+    }
+
+    @Test
+    void aReadRequestNamesOneMessageOrTheNewestNeverBothOrNeither() throws Exception {
+        tell(person, "one");
+        var id = list(person, "").get("items").get(0).get("id").asString();
+        for (var body : new String[] {"{}", "{\"id\":\"" + id + "\",\"upTo\":\"" + id + "\"}"}) {
+            mvc.perform(post("/v1/notifications/read")
+                            .header("Authorization", person.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("/problems/validation-failed"));
+        }
+    }
+
+    @Test
     void markAllReadWithTheNewestIdAndAgainChangesNothing() throws Exception {
         tell(person, "one");
         tell(person, "two");

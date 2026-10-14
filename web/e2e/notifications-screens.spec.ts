@@ -181,7 +181,7 @@ test.describe("the list", () => {
     await signIn(page, "asha", "/notifications/");
     await page.getByRole("link", { name: /Fine-tune a model finished/ }).click();
     await expect(page).toHaveURL(new RegExp(`/session/\\?id=${data.completed.id}`));
-    await expect.poll(() => read).toEqual({ upTo: data.inbox().items[1]!.id });
+    await expect.poll(() => read).toEqual({ id: data.inbox().items[1]!.id });
   });
 });
 
@@ -231,7 +231,7 @@ test.describe("what arrives while the app is open", () => {
 
     await banners.getByRole("link", { name: "Fine-tune a model finished" }).click();
     await expect(page).toHaveURL(new RegExp(`/session/\\?id=${data.stopped.id}`));
-    await expect.poll(() => read).toEqual({ upTo: data.newMessage().id });
+    await expect.poll(() => read).toEqual({ id: data.newMessage().id });
   });
 
   test("dismissing a banner only hides it", async ({ page }) => {

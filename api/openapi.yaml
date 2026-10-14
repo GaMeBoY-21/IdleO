@@ -5294,11 +5294,16 @@ components:
     ReadRequest:
       type: object
       properties:
-        upTo:
-          type: string
+        id:
+          type:
+          - string
+          - "null"
           format: uuid
-      required:
-      - upTo
+        upTo:
+          type:
+          - string
+          - "null"
+          format: uuid
     Reading:
       type: object
       properties:

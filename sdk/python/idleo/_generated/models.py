@@ -556,7 +556,8 @@ class ReadRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    up_to: Annotated[UUID, Field(alias="upTo")]
+    id: UUID | None = None
+    up_to: Annotated[UUID | None, Field(alias="upTo")] = None
 
 
 class Reading(BaseModel):

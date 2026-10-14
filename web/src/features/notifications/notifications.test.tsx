@@ -157,14 +157,14 @@ describe("the list", () => {
     await userEvent.click(within(rows[1]!).getByRole("link"));
     expect(state.markRead.mutate).not.toHaveBeenCalled();
     await userEvent.click(within(rows[0]!).getByRole("link"));
-    expect(state.markRead.mutate).toHaveBeenCalledWith(item(2).id);
+    expect(state.markRead.mutate).toHaveBeenCalledWith({ id: item(2).id });
   });
 
   it("marks everything read with the newest one's id, and is off when nothing is unread", async () => {
     state.inbox.data = pages([item(3), item(2), item(1)], 3);
     const { rerender } = render(<Notifications />);
     await userEvent.click(screen.getByRole("button", { name: "Mark all read" }));
-    expect(state.markRead.mutate).toHaveBeenCalledWith(item(3).id);
+    expect(state.markRead.mutate).toHaveBeenCalledWith({ upTo: item(3).id });
 
     state.inbox.data = pages([item(3, { read: true })], 0);
     rerender(<Notifications />);
@@ -209,12 +209,18 @@ describe("the list", () => {
 });
 
 describe("what marking read changes", () => {
-  it("reads every message up to the one named, and keeps the server's count", () => {
+  it("reads every message up to the one named for mark all read, and keeps the server's count", () => {
     const before = pages([item(3), item(2), item(1)], 3);
-    const after = withRead(before, item(2).id, 1);
+    const after = withRead(before, { upTo: item(2).id }, 1);
     expect(after.pages[0]!.items.map((one) => one.read)).toEqual([false, true, true]);
     expect(after.pages[0]!.unread).toBe(1);
     expect(before.pages[0]!.items.every((one) => !one.read)).toBe(true);
+  });
+
+  it("reads just the one opened, never the older ones", () => {
+    const after = withRead(pages([item(3), item(2), item(1)], 3), { id: item(2).id }, 2);
+    expect(after.pages[0]!.items.map((one) => one.read)).toEqual([false, true, false]);
+    expect(after.pages[0]!.unread).toBe(2);
   });
 });
 
@@ -242,7 +248,7 @@ describe("banners for what arrives while the app is open", () => {
     expect(state.markRead.mutate).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("link", { name: "Title 2" }));
-    expect(state.markRead.mutate).toHaveBeenCalledWith(item(2).id);
+    expect(state.markRead.mutate).toHaveBeenCalledWith({ id: item(2).id });
   });
 
   it("drops a banner once its message has been read elsewhere", () => {

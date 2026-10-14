@@ -45,17 +45,23 @@ export const unreadOf = (inbox: InfiniteData<InboxPage> | undefined): number | u
   inbox?.pages[0]?.unread;
 
 /**
- * Marks every message up to and including `upTo` read (the newest one's id for "Mark all read"). The cache moves
- * only once the server has answered, with its own count of what is still unread.
+ * What to mark read: `{ id }`, just the message opened, or `{ upTo }`, every message up to and including it (the
+ * newest one's id, for "Mark all read").
+ */
+export type ReadChoice = { id: string } | { upTo: string };
+
+/**
+ * Marks messages read, as `ReadChoice` says. The cache moves only once the server has answered, with its own count of
+ * what is still unread.
  */
 export function useMarkRead() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (upTo: string) => data(api.POST("/v1/notifications/read", { body: { upTo } })),
-    onSuccess: ({ unread }, upTo) => {
+    mutationFn: (choice: ReadChoice) => data(api.POST("/v1/notifications/read", { body: choice })),
+    onSuccess: ({ unread }, choice) => {
       client.setQueryData<InfiniteData<InboxPage>>(
         inboxKeys.list,
-        (inbox) => inbox && withRead(inbox, upTo, unread),
+        (inbox) => inbox && withRead(inbox, choice, unread),
       );
       client.setQueryData<components["schemas"]["MeResponse"]>(
         keys.me,
@@ -66,20 +72,21 @@ export function useMarkRead() {
 }
 
 /**
- * The list after the server said everything up to `upTo` is read, and `unread` are left. UUIDv7 ids are in time
- * order, and as lower-case text they sort the same way.
+ * The list after the server said the message `choice` names is read (or everything up to it), and `unread` are left.
+ * UUIDv7 ids are in time order, and as lower-case text they sort the same way.
  */
 export function withRead(
   inbox: InfiniteData<InboxPage>,
-  upTo: string,
+  choice: ReadChoice,
   unread: number,
 ): InfiniteData<InboxPage> {
+  const isRead = (item: InboxItem) => ("id" in choice ? item.id === choice.id : item.id <= choice.upTo);
   return {
     ...inbox,
     pages: inbox.pages.map((page) => ({
       ...page,
       unread,
-      items: page.items.map((item) => (item.id <= upTo ? { ...item, read: true } : item)),
+      items: page.items.map((item) => (isRead(item) ? { ...item, read: true } : item)),
     })),
   };
 }
