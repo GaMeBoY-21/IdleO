@@ -242,13 +242,16 @@ for i in 1 2; do
   host_id="$(printf '%s' "$hosts_json" | python3 -c 'import json, sys
 hosts = [h for h in json.load(sys.stdin)["hosts"] if h["name"] == sys.argv[1] and h["status"] != "removed"]
 print(hosts[0]["id"] if hosts else "")' "$model")"
-  # Enrolled once: the agent keeps its certificate and key in its data folder (host.crt, host.key).
-  if [[ -z "$host_id" || ! -f "$state/agent-$i/host.crt" ]]; then
+  # Enrolled once: the agent keeps its certificate and key in its data folder (host.crt, host.key), and
+  # agent-N.host says which host they belong to, so a database wiped under it (another checkout's --fresh) means a
+  # new enrolment, never a certificate the control plane no longer knows.
+  if [[ -z "$host_id" || ! -f "$state/agent-$i/host.crt" || "$(cat "$state/agent-$i.host" 2>/dev/null)" != "$host_id" ]]; then
     log "adding the $model (enrolled once)"
     [[ -n "$host_id" ]] || host_id="$(stack_register_host "$owner_token" "$model" "local-host-$i")"
-    rm -rf "$state/agent-$i"
+    rm -rf "$state/agent-$i" "$state/agent-$i.host"
     stack_agent_config "$i"
     stack_enrol_agent "$i" "$(stack_enrolment_code "$owner_token" "$host_id")"
+    printf '%s\n' "$host_id" >"$state/agent-$i.host"
   fi
   curl -sf -X PUT "$api/v1/hosts/$host_id/listing" -H "Authorization: Bearer $owner_token" -H 'Content-Type: application/json' \
     -d "{\"batchPricePaisePerMin\": $price, \"gpuTempCapC\": 85, \"maxConcurrentSessions\": 1, \"keepFreeGb\": 10}" >/dev/null ||
