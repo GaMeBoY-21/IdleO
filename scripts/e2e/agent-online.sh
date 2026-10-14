@@ -1454,8 +1454,10 @@ PY
   python3 "$root/scripts/e2e/drop-answer-proxy.py" "$proxy_port" "$api" 3 "$dropped" >"$out/proxy-drop.log" 2>&1 &
   echo $! >"$out/proxy-drop.pid"
   for _ in $(seq 1 50); do curl -s -o /dev/null "http://127.0.0.1:$proxy_port/v1/templates" && break; sleep 0.1; done
-  local lost_exit=0
-  IDLEO_API_URL="http://127.0.0.1:$proxy_port" "$idleo" run fine-tune-simulated --input "model=$work/my-model" \
+  local lost_exit=0 stored_key
+  # A key is kept per API address, and the proxy is another address: hand it the key this computer stored.
+  stored_key="$(python3 -c 'import json, sys; print(list(json.load(open(sys.argv[1])).values())[0]["key"])' "$config/credentials.json")"
+  IDLEO_API_KEY="$stored_key" IDLEO_API_URL="http://127.0.0.1:$proxy_port" "$idleo" run fine-tune-simulated --input "model=$work/my-model" \
     --input "data=$work/train.jsonl" --detach >"$work/lost.out" 2>"$work/lost.err" || lost_exit=$?
   [[ "$lost_exit" == 7 ]] || fail "idleo run with its answers lost exited $lost_exit, not 7: $(tail -3 "$work/lost.err")"
   [[ "$(cat "$dropped")" == 3 ]] || fail "the proxy dropped $(cat "$dropped" 2>/dev/null) answers, not 3"
@@ -1463,11 +1465,17 @@ PY
   "$idleo" run fine-tune-simulated --input "model=$work/my-model" --input "data=$work/train.jsonl" \
     --detach >"$work/rerun.out" 2>"$work/rerun.err" || fail "the re-run after a lost answer failed: $(tail -3 "$work/rerun.err")"
   grep -q "already uploaded" "$work/rerun.err" || fail "the re-run uploaded the model again: $(head -5 "$work/rerun.err")"
-  lost_session="$(head -1 "$work/rerun.out")"
+  lost_session="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$work/rerun.out" | head -1)"
+  [[ -n "$lost_session" ]] || fail "the re-run after a lost answer printed no session id: $(cat "$work/rerun.out")"
   after="$(token="$cli_token" api_get "/v1/sessions?limit=100" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["sessions"]))')"
   [[ "$after" == $((before + 1)) ]] || fail "a lost answer and a re-run booked $((after - before)) sessions, not 1"
   kill -TERM "$(cat "$out/proxy-drop.pid")" 2>/dev/null; rm -f "$out/proxy-drop.pid"
   "$idleo" stop "$lost_session" >/dev/null 2>&1 || "$idleo" cancel "$lost_session" >/dev/null 2>&1 || true
+  # Its host is free again once it has settled, before anything else here books one.
+  for _ in $(seq 1 120); do
+    [[ "$(token="$cli_token" api_get "/v1/sessions/$lost_session" | json_get .settled)" == True ]] && break
+    sleep 0.5
+  done
   note "cli lost answer: three tries of a booking reached the API and their answers were thrown away (exit 7, \"won't book twice\"); the same command again reused the ready upload and the same key, and got back session $lost_session: 1 session booked, not 2: PASS"
 
   # An upload cut off part-way carries on: kill the CLI once storage has taken a few parts of a 1.5 GB file, run
@@ -1501,8 +1509,12 @@ PY
     >"$work/resumed.out" 2>"$work/resumed.err" || fail "idleo run didn't carry on after being cut off: $(tail -3 "$work/resumed.err")"
   grep -q "carrying on from where it stopped" "$work/resumed.err" || fail "the second run started the upload over: $(head -5 "$work/resumed.err")"
   local resumed_session
-  resumed_session="$(head -1 "$work/resumed.out")"
+  resumed_session="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$work/resumed.out" | head -1)"
   "$idleo" stop "$resumed_session" >/dev/null || "$idleo" cancel "$resumed_session" >/dev/null || true
+  for _ in $(seq 1 120); do
+    [[ "$(token="$cli_token" api_get "/v1/sessions/$resumed_session" | json_get .settled)" == True ]] && break
+    sleep 0.5
+  done
   rm -rf "$work/big-model"
 
   # The Python SDK (ADR 0030), signed in with the key the CLI just stored in the same config folder: the gate example
