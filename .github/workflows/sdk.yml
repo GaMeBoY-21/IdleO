@@ -1,0 +1,44 @@
+name: sdk
+
+# The Python SDK (ADR 0030): lint, types, unit tests on the oldest and newest supported Pythons, and the check that its
+# generated layer still matches api/openapi.yaml and api/problems.json. The run against a real stack is in e2e.yml.
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/python/**", "api/**", ".github/workflows/sdk.yml"]
+  pull_request:
+    paths: ["sdk/python/**", "api/**", ".github/workflows/sdk.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # uv fetches the Python itself, so the runner's own is never used.
+      - name: Install uv
+        run: python3 -m pip install uv==0.12.10
+      - name: Install the locked dependencies
+        run: uv sync --locked --python ${{ matrix.python }}
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check .
+      - name: Types
+        run: uv run mypy idleo
+      - name: Test
+        run: uv run pytest
+      - name: The generated layer matches the API's contract
+        run: uv run python scripts/generate.py --check
+      - name: Nothing generated is tracked
+        run: test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }

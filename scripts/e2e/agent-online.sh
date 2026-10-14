@@ -569,6 +569,11 @@ if ! $keep_running && ! $web_only; then
   log "building the CLI"
   (cd cli && cargo build --release --locked --quiet) >"$out/cli-build.log" 2>&1 ||
     fail "cargo build of the CLI failed; see private/e2e/cli-build.log"
+  # The Python SDK the SDK scenario runs (ADR 0030); uv fetches the pinned Python itself.
+  log "installing the Python SDK"
+  command -v uv >/dev/null || fail "uv isn't installed; the Python SDK scenario needs it (https://docs.astral.sh/uv/)"
+  (cd sdk/python && uv sync --locked --quiet) >"$out/sdk-build.log" 2>&1 ||
+    fail "uv sync of the Python SDK failed; see private/e2e/sdk-build.log"
 fi
 for i in $(seq 1 "$agents"); do
   rm -rf "$out/agent-$i"
@@ -1475,6 +1480,24 @@ PY
   resumed_session="$(head -1 "$work/resumed.out")"
   "$idleo" stop "$resumed_session" >/dev/null || "$idleo" cancel "$resumed_session" >/dev/null || true
   rm -rf "$work/big-model"
+
+  # The Python SDK (ADR 0030), signed in with the key the CLI just stored in the same config folder: the gate example
+  # as a plain script, then the same account's other views of what it made.
+  local sdk_out sdk_session sdk_charged
+  sdk_out="$(cd "$root/sdk/python" && uv run --quiet python "$root/scripts/e2e/sdk-gate.py" "$work" "$user-cli@example.com" 2>"$work/sdk.err")" ||
+    fail "the Python SDK's gate failed: $(tail -8 "$work/sdk.err")"
+  sdk_session="$(printf '%s' "$sdk_out" | json_get .session)"
+  [[ "$(printf '%s' "$sdk_out" | json_get .state)" == COMPLETED ]] || fail "the SDK's session didn't complete: $sdk_out"
+  token="$cli_token" api_get "/v1/sessions/$sdk_session" >"$work/sdk-session.json"
+  [[ "$(json_get .state <"$work/sdk-session.json")" == COMPLETED ]] || fail "the API says the SDK's session isn't completed"
+  sdk_charged="$(json_get .chargedPaise <"$work/sdk-session.json")"
+  [[ "$sdk_charged" == "$(printf '%s' "$sdk_out" | json_get .chargedPaise)" ]] || fail "the SDK's charge differs from the API's"
+  ((sdk_charged > 0)) || fail "the SDK's session wasn't charged"
+  [[ "$(printf '%s' "$sdk_out" | json_get .adapterBytes)" == "$(printf '%s' "$sdk_out" | json_get .listedBytes)" ]] ||
+    fail "the SDK's downloaded adapter isn't the size the outputs list says"
+  grep -q "saving the adapter" "$work/sdk.err" || fail "the SDK didn't follow the logs live"
+  "$idleo" status "$sdk_session" | grep -q "completed" || fail "the CLI doesn't see the SDK's session as completed"
+  note "python sdk: Client() signed in with the CLI's stored key; fine-tune-simulated run with a model folder, examples and the thoroughness preset, uploaded, booked, $(printf '%s' "$sdk_out" | json_get .toRunningSeconds) s from run() to running, logs followed live, waited to the end; charged ${sdk_charged} paise (the API's, equal); adapter $(printf '%s' "$sdk_out" | json_get .adapterBytes) bytes downloaded, equal to the outputs list's; problems raised as exceptions (not-found, unauthenticated, a usage error): PASS"
 
   # keys: this computer's key is listed; a second is made by device approval and revoked; the first signs out.
   "$idleo" keys | grep -q "CLI on e2e-laptop" || fail "idleo keys doesn't list this computer's key"
