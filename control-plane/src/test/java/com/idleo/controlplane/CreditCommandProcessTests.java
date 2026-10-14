@@ -50,6 +50,8 @@ class CreditCommandProcessTests {
                 "--spring.datasource.password=" + POSTGRES.getPassword(),
                 "--identity.issuers[0].issuer-uri=https://issuer.example.invalid",
                 "--identity.issuers[0].audience=example",
+                // A key of this test's own, as an operator's environment gives one (IDENTITY_INVITE_CODE_KEY).
+                "--identity.invite-code-key=cHJvY2Vzcy10ZXN0LWludml0ZS1jb2RlLWhtYWMtayE=",
                 // Storage isn't used by these commands; it only has to be configured.
                 "--sessions.storage.provider=minio",
                 "--sessions.storage.endpoint=http://127.0.0.1:9",
