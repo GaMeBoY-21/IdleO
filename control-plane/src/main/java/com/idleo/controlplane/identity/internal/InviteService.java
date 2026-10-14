@@ -47,9 +47,17 @@ class InviteService {
     private final IdGenerator ids;
     private final Clock clock;
     private final AuditTrail audit;
+    private final CodeHashes hashes;
     private final SecureRandom random = new SecureRandom();
 
-    InviteService(JdbcClient jdbc, TransactionTemplate transactions, IdGenerator ids, Clock clock, AuditTrail audit) {
+    InviteService(
+            JdbcClient jdbc,
+            TransactionTemplate transactions,
+            IdGenerator ids,
+            Clock clock,
+            AuditTrail audit,
+            CodeHashes hashes) {
+        this.hashes = hashes;
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.ids = ids;
@@ -85,7 +93,7 @@ class InviteService {
                                 on conflict (code_hash) do nothing
                                 """)
                         .param("id", id)
-                        .param("hash", InviteCodes.hash(code))
+                        .param("hash", hashes.hash(CodeHashes.Kind.INVITE, code))
                         .param("note", note.strip())
                         .param("createdBy", actor.label())
                         .param("now", Timestamp.from(now))
@@ -143,7 +151,7 @@ class InviteService {
                             """)
                     .param("user", userId)
                     .param("now", Timestamp.from(now))
-                    .param("hash", InviteCodes.hash(code))
+                    .param("hash", hashes.hash(CodeHashes.Kind.INVITE, code))
                     .update();
             if (claimed == 0) {
                 return Result.INVALID;

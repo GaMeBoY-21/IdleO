@@ -40,7 +40,9 @@ notifications:
   email:
     from: ${NOTIFICATIONS_EMAIL_FROM}
 
-# The admin console's TOTP key (ADR 0027, docs/runbooks/admin.md): 32 bytes in base64, from the secret store.
+# The admin console's TOTP key (ADR 0027, docs/runbooks/admin.md) and the HMAC key for invite and recovery codes
+# (ADR 0024): 32 bytes in base64 each, from the secret store. Without either, the application doesn't start.
 identity:
+  invite-code-key: ${IDENTITY_INVITE_CODE_KEY}
   admin:
     totp-key: ${IDENTITY_ADMIN_TOTP_KEY}

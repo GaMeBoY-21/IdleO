@@ -24,10 +24,12 @@ notifications:
   email:
     provider: recording
 
-# Tests that aren't about invites sign people in without an invite code (ADR 0024). The admin console's TOTP key is
-# a fixed one for tests only (ADR 0027); production's comes from the environment.
+# Tests that aren't about invites sign people in without an invite code (ADR 0024). The admin console's TOTP key and
+# the codes' HMAC key are fixed ones for tests only (ADR 0027, ADR 0024); production's come from the environment, and
+# ProductionSettingsGuard refuses these two.
 identity:
   invite-only: false
+  invite-code-key: dGVzdHMtb25seS1pbnZpdGUtY29kZS1obWFjLWtleSE=
   admin:
     totp-key: dGVzdHMtb25seS1hZG1pbi10b3RwLWtleS0zMmJ5dGU=
 

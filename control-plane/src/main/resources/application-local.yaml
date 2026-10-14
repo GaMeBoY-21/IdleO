@@ -23,7 +23,9 @@ identity:
   issuers:
     - issuer-uri: http://localhost:${LOCAL_SIGN_IN_PORT:8099}/idleo-local
       audience: idleo-local
-  # The admin console's TOTP key (ADR 0027), made beside the development CA by scripts/dev-ca.sh.
+  # The codes' HMAC key (ADR 0024) and the admin console's TOTP key (ADR 0027), made beside the development CA by
+  # scripts/dev-ca.sh.
+  invite-code-key: file:../private/dev-ca/invite-code.key
   admin:
     totp-key: file:../private/dev-ca/admin-totp.key
 

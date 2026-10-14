@@ -49,6 +49,7 @@ class AdminSecondFactor {
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final TotpSecrets secrets;
+    private final CodeHashes hashes;
     private final AdminSessions sessions;
     private final AuditTrail audit;
     private final IdGenerator ids;
@@ -64,7 +65,9 @@ class AdminSecondFactor {
             AuditTrail audit,
             IdGenerator ids,
             Clock clock,
-            AdminProperties properties) {
+            AdminProperties properties,
+            CodeHashes hashes) {
+        this.hashes = hashes;
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.secrets = secrets;
@@ -213,7 +216,7 @@ class AdminSecondFactor {
                         """)
                         .param("now", Timestamp.from(now()))
                         .param("userId", userId)
-                        .param("hash", InviteCodes.hash(code))
+                        .param("hash", hashes.hash(CodeHashes.Kind.RECOVERY, code))
                         .update()
                 == 1;
     }
@@ -233,7 +236,7 @@ class AdminSecondFactor {
                             """)
                     .param("id", ids.newId())
                     .param("userId", userId)
-                    .param("hash", InviteCodes.hash(code))
+                    .param("hash", hashes.hash(CodeHashes.Kind.RECOVERY, code))
                     .param("now", Timestamp.from(now))
                     .update();
             if (inserted == 1) {

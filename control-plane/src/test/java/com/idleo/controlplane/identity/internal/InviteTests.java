@@ -42,6 +42,9 @@ class InviteTests {
     MutableClock clock;
 
     @Autowired
+    CodeHashes hashes;
+
+    @Autowired
     @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
     org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping routes;
 
@@ -145,6 +148,27 @@ class InviteTests {
     }
 
     @Test
+    void aCodeIsStoredKeyedSoAPlainHashFromBeforeNeverWorks() throws Exception {
+        var code = code();
+        var plain = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(InviteCodes.normalise(code).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from identity.invite_codes where code_hash = ?", Integer.class, plain))
+                .isZero();
+
+        // A code stored the old way, with its plain hash, is a code nobody can spend.
+        var old = "IDLE-OLDP-LAIN";
+        jdbc.update(
+                "insert into identity.invite_codes (id, code_hash, note, created_by, created_at) values"
+                        + " (gen_random_uuid(), ?, 'before keyed hashes', 'tester', now())",
+                (Object) java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(InviteCodes.normalise(old).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        mvc.perform(activate(bearer, old))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/invite-invalid"));
+    }
+
+    @Test
     void anAcceptedCodeActivatesTheUserAndIsUsedUp() throws Exception {
         var code = code();
 
@@ -154,7 +178,8 @@ class InviteTests {
 
         mvc.perform(get("/v1/sessions").header("Authorization", bearer)).andExpect(status().isOk());
         var used = jdbc.queryForMap(
-                "select used_by, used_at from identity.invite_codes where code_hash = ?", InviteCodes.hash(code));
+                "select used_by, used_at from identity.invite_codes where code_hash = ?",
+                hashes.hash(CodeHashes.Kind.INVITE, code));
         assertThat(used.get("used_by")).isNotNull();
         assertThat(used.get("used_at")).isNotNull();
 
@@ -185,7 +210,7 @@ class InviteTests {
         assertThat(jdbc.queryForObject(
                         "select used_by is null from identity.invite_codes where code_hash = ?",
                         Boolean.class,
-                        InviteCodes.hash(spare)))
+                        hashes.hash(CodeHashes.Kind.INVITE, spare)))
                 .isTrue();
     }
 
@@ -222,7 +247,7 @@ class InviteTests {
         assertThat(jdbc.queryForObject(
                         "select used_by is null from identity.invite_codes where code_hash = ?",
                         Boolean.class,
-                        InviteCodes.hash(good)))
+                        hashes.hash(CodeHashes.Kind.INVITE, good)))
                 .isTrue();
 
         // Another user is not affected, and after the hour this one may try again.
@@ -239,7 +264,7 @@ class InviteTests {
         var stored = jdbc.queryForObject(
                 "select code_hash from identity.invite_codes where code_hash = ?",
                 byte[].class,
-                InviteCodes.hash(code));
+                hashes.hash(CodeHashes.Kind.INVITE, code));
         assertThat(stored).hasSize(32);
         var columns = jdbc.queryForList(
                 "select column_name from information_schema.columns where table_schema = 'identity' and table_name = 'invite_codes'",

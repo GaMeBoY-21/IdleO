@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 class ProductionSettingsGuardTests {
 
     private static final String GOOGLE = "https://securetoken.google.com/demo-project";
+    /** A key production might have: random, and in no file of this repository but this test. */
+    private static final String PRODUCTION_KEY = "q0Rz4mL8YkV2wN6cT1pH9sJ3uE5bA7dG0fK2xC4vB8M=";
 
     private final ApplicationContextRunner runner =
             new ApplicationContextRunner().withUserConfiguration(ProductionSettingsGuard.class);
@@ -20,7 +22,8 @@ class ProductionSettingsGuardTests {
                         "identity.web-app-url=https://app.example.invalid",
                         "notifications.web-app-url=https://app.example.invalid",
                         "notifications.email.from=IdleO <notifications@example.invalid>",
-                        "spring.mail.host=smtp.example.invalid")
+                        "spring.mail.host=smtp.example.invalid",
+                        "identity.invite-code-key=" + PRODUCTION_KEY)
                 .withPropertyValues(properties);
     }
 
@@ -138,5 +141,14 @@ class ProductionSettingsGuardTests {
             prod(setting[0], "identity.issuers[0].issuer-uri=" + GOOGLE)
                     .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
         }
+    }
+
+    @Test
+    void prodRefusesToStartWithoutTheCodesHmacKey() {
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.invite-code-key=")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("identity.invite-code-key is missing"));
     }
 }

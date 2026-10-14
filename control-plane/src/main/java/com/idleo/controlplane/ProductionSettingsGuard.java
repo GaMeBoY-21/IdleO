@@ -28,7 +28,8 @@ import org.springframework.stereotype.Component;
  *       {@code notifications.email.from} on this machine; a mail server ({@code spring.mail.host}) on this machine,
  *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026);
  *   <li>{@code springdoc.api-docs.enabled}: the API contract is generated in tests and committed, never served
- *       (ADR 0018).
+ *       (ADR 0018);
+ *   <li>no {@code identity.invite-code-key}, the HMAC key for invite and recovery codes (ADR 0024).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -105,6 +106,9 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
                 binder.bind("notifications.email.provider", String.class).orElse("smtp");
         if (!"smtp".equalsIgnoreCase(emailProvider)) {
             problems.add("notifications.email.provider is " + emailProvider + ", not smtp");
+        }
+        if (binder.bind("identity.invite-code-key", String.class).orElse("").isBlank()) {
+            problems.add("identity.invite-code-key is missing");
         }
         return problems;
     }

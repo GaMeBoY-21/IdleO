@@ -1,15 +1,12 @@
 package com.idleo.controlplane.identity.internal;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Locale;
 
 /**
  * The shape of an invite code, like {@code IDLE-7K2Q-9XMD}: the prefix, then 8 characters from an alphabet
- * without 0, O, 1 and I. The database holds only {@link #hash}, of the code as {@link #normalise} writes it,
- * so a person may type it in any case, with or without the dashes.
+ * without 0, O, 1 and I. The database holds only its keyed hash ({@link CodeHashes}), of the code as {@link
+ * #normalise} writes it, so a person may type it in any case, with or without the dashes.
  */
 final class InviteCodes {
 
@@ -37,14 +34,5 @@ final class InviteCodes {
             }
         }
         return normalised.toString();
-    }
-
-    /** What the database keeps of a code: SHA-256 of its normalised form. */
-    static byte[] hash(String code) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(normalise(code).getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

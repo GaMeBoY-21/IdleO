@@ -1,15 +1,10 @@
 package com.idleo.controlplane.identity.internal;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.UUID;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -23,7 +18,6 @@ import javax.crypto.spec.SecretKeySpec;
  */
 final class TotpSecrets {
 
-    private static final int KEY_BYTES = 32;
     private static final int NONCE_BYTES = 12;
     private static final int TAG_BITS = 128;
 
@@ -31,7 +25,7 @@ final class TotpSecrets {
     private final SecureRandom random;
 
     TotpSecrets(String configured, SecureRandom random) {
-        this.key = new SecretKeySpec(keyBytes(configured), "AES");
+        this.key = new SecretKeySpec(ConfiguredKeys.read(configured, "identity.admin.totp-key"), "AES");
         this.random = random;
     }
 
@@ -63,29 +57,5 @@ final class TotpSecrets {
             throw new IllegalStateException(
                     "a TOTP secret couldn't be sealed or opened with identity.admin.totp-key", e);
         }
-    }
-
-    /** The key: base64 of 32 bytes, or a {@code file:} location holding that. */
-    private static byte[] keyBytes(String configured) {
-        var text = configured.strip();
-        if (text.startsWith("file:")) {
-            try {
-                text = Files.readString(Path.of(text.substring("file:".length())))
-                        .strip();
-            } catch (IOException e) {
-                throw new UncheckedIOException("identity.admin.totp-key names a file that can't be read", e);
-            }
-        }
-        byte[] bytes;
-        try {
-            bytes = Base64.getDecoder().decode(text);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("identity.admin.totp-key must be 32 bytes in base64", e);
-        }
-        if (bytes.length != KEY_BYTES) {
-            throw new IllegalStateException(
-                    "identity.admin.totp-key must be 32 bytes in base64; it is " + bytes.length + " bytes");
-        }
-        return bytes;
     }
 }

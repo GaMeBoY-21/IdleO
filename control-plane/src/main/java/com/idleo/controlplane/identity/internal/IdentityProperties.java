@@ -23,6 +23,11 @@ import org.springframework.validation.annotation.Validated;
  * <p>{@code identity.web-app-url} ({@code IDENTITY_WEB_APP_URL}): the web app, where a CLI sign-in is approved
  * ({@code /cli-login/}); the prod profile refuses one that is plain HTTP or on this machine. {@code
  * identity.cli-login}: how long a CLI sign-in lasts and how often the CLI may poll (ADR 0025, RFC 8628).
+ *
+ * <p>{@code identity.invite-code-key} ({@code IDENTITY_INVITE_CODE_KEY}): the HMAC key for invite and recovery
+ * codes ({@link CodeHashes}), 32 bytes in base64 or a {@code file:} location holding that. The prod profile reads it
+ * from the environment and doesn't start without it; locally it's {@code private/dev-ca/invite-code.key}, made by
+ * {@code scripts/dev-ca.sh}. Changing it makes every unused code worthless.
  */
 @ConfigurationProperties("identity")
 @Validated
@@ -30,6 +35,7 @@ record IdentityProperties(
         @NotEmpty List<@Valid Issuer> issuers,
         @DefaultValue("true") boolean inviteOnly,
         @NotNull URI webAppUrl,
+        @NotBlank String inviteCodeKey,
         @DefaultValue CliLogin cliLogin) {
 
     record Issuer(@NotBlank String issuerUri, @NotBlank String audience) {}
