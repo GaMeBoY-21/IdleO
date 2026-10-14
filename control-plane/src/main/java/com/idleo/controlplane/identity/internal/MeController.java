@@ -85,6 +85,7 @@ class MeController {
         }
     }
 
+    @OpenToWaitingUsers
     @GetMapping
     @ApiResponse(
             responseCode = "200",
@@ -102,6 +103,7 @@ class MeController {
                 .body(MeResponse.of(user, authentication, unread.countFor(user.id())));
     }
 
+    @OpenToWaitingUsers
     @PatchMapping
     @ApiResponse(
             responseCode = "200",
@@ -139,6 +141,7 @@ class MeController {
      * expired code is 400 {@code invite-invalid}, and the answer never says which. An account that's already
      * active is answered 200 without using the code.
      */
+    @OpenToWaitingUsers
     @PostMapping("/activate")
     @ApiResponse(
             responseCode = "200",

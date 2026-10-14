@@ -41,6 +41,10 @@ class InviteTests {
     @Autowired
     MutableClock clock;
 
+    @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping routes;
+
     private final JsonMapper json = JsonMapper.builder().build();
     private String bearer;
 
@@ -108,6 +112,34 @@ class InviteTests {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.type").value("/problems/invite-required"));
         mvc.perform(get("/v1/me/notifications").header("Authorization", bearer))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("/problems/invite-required"));
+    }
+
+    @Test
+    void aWaitingUsersFewCallsAreDecidedByRouteAndFailClosed() throws Exception {
+        var open = new java.util.TreeSet<String>();
+        routes.getHandlerMethods().forEach((info, handler) -> {
+            if (handler.hasMethodAnnotation(OpenToWaitingUsers.class)) {
+                info.getMethodsCondition()
+                        .getMethods()
+                        .forEach(method -> info.getPathPatternsCondition()
+                                .getPatternValues()
+                                .forEach(pattern -> open.add(method.name() + " " + pattern)));
+            }
+        });
+        assertThat(open).containsExactlyInAnyOrder("GET /v1/me", "PATCH /v1/me", "POST /v1/me/activate");
+
+        // A spelling that routes to their own account is their own account; one that routes elsewhere is not.
+        mvc.perform(get(java.net.URI.create("/v1/m%65")).header("Authorization", bearer))
+                .andExpect(status().isOk());
+        for (var path : new String[] {"/v1/w%61llet", "/v1/me/notific%61tions", "/v1/%6De/notifications"}) {
+            mvc.perform(get(java.net.URI.create(path)).header("Authorization", bearer))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.type").value("/problems/invite-required"));
+        }
+        // A request that reaches no handler at all is outside the few calls too.
+        mvc.perform(get("/v1/no-such-call").header("Authorization", bearer))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.type").value("/problems/invite-required"));
     }

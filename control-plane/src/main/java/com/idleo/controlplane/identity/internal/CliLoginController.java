@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -92,6 +93,7 @@ class CliLoginController {
     }
 
     /** The approval page's lookup: the login a code names, while it can be approved. */
+    @BrowserSignInOnly
     @GetMapping
     PendingCliLogin find(@RequestParam String code) {
         return logins.findPending(code)
@@ -100,6 +102,7 @@ class CliLoginController {
                         Problem.NOT_FOUND, "There's no CLI sign-in waiting with that code. Start a new one."));
     }
 
+    @BrowserSignInOnly
     @PostMapping("/{id}/approve")
     PendingCliLogin approve(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         return switch (logins.approve(id, user.id())) {

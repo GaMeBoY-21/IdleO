@@ -2,6 +2,7 @@ package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.hosts.HostListings;
+import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -62,6 +63,7 @@ class HostController {
             @Min(HostListings.Listing.MIN_KEEP_FREE_GB) @Max(HostListings.Listing.MAX_KEEP_FREE_GB) @Nullable
             Integer keepFreeGb) {}
 
+    @BrowserSignInOnly
     @PutMapping("/{id}/listing")
     HostListings.Listing putListing(
             @AuthenticationPrincipal CurrentUser user,
@@ -87,6 +89,7 @@ class HostController {
 
     record EnrolmentCodeResponse(String code, Instant expiresAt) {}
 
+    @BrowserSignInOnly
     @PostMapping
     @ApiResponse(
             responseCode = "201",
@@ -114,6 +117,7 @@ class HostController {
     }
 
     /** The code is shown once and never stored, so the response must not be cached either. */
+    @BrowserSignInOnly
     @PostMapping("/{id}/enrolment-code")
     @ApiResponse(
             responseCode = "201",

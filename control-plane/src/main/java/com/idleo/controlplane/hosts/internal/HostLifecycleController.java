@@ -1,5 +1,6 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -65,6 +66,7 @@ class HostLifecycleController {
     }
 
     /** Refused with 409 {@code host-busy} while the host runs a session. */
+    @BrowserSignInOnly
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void remove(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {

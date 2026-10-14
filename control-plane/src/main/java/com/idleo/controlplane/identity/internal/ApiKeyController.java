@@ -3,6 +3,7 @@ package com.idleo.controlplane.identity.internal;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -110,6 +111,7 @@ class ApiKeyController {
                 keys.list(user.id()).stream().map(ApiKeyResponse::of).toList());
     }
 
+    @BrowserSignInOnly
     @PostMapping
     @ApiResponse(
             responseCode = "201",
@@ -132,6 +134,7 @@ class ApiKeyController {
         });
     }
 
+    @ReadKeyMayRevokeItself("id")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void revoke(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {

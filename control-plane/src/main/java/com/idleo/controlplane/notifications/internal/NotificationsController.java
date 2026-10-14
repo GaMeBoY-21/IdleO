@@ -2,6 +2,7 @@ package com.idleo.controlplane.notifications.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -60,6 +61,7 @@ class NotificationsController {
      * Replaces every choice. A kind left out is on again. A locked kind with a switch off is 422
      * {@code notification-locked}; an unknown or repeated kind is 400 {@code validation-failed}.
      */
+    @BrowserSignInOnly
     @PutMapping
     NotificationChoices put(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody ReplaceRequest request) {
         var choices = new EnumMap<NotificationKind, NotificationPreferences.Choice>(NotificationKind.class);
