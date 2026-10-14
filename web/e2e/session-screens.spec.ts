@@ -261,9 +261,13 @@ test.describe("a session", () => {
     const comment = page.getByLabel("Comment (optional)");
     await expect(comment).toBeVisible();
     await comment.fill("Started in seconds.");
-    await page.getByRole("button", { name: "Save comment" }).click();
-    await expect(page.getByRole("button", { name: "Save comment" })).toBeDisabled();
-    expect(posted.at(-1)).toEqual({ stars: 4, comment: "Started in seconds." });
+    const save = page.getByRole("button", { name: "Save comment" });
+    await save.click();
+    // The button is disabled while the save is on its way too, so being disabled doesn't mean the server has it: wait
+    // for the request itself, then for the answer (not busy, and disabled because the comment matches the server's).
+    await expect.poll(() => posted.at(-1)).toEqual({ stars: 4, comment: "Started in seconds." });
+    await expect(save).not.toHaveAttribute("aria-busy", "true");
+    await expect(save).toBeDisabled();
     await expectAccessible(page);
     await capture(page, info, "session-rating-comment");
 
