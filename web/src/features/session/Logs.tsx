@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { lineTotal, linesBetween, readNewLogs, type LogState } from "@/api/logs";
 import { keys } from "@/api/queries";
 import { useAfterPaint } from "@/lib/after-first-screen";
+import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
 import { logButton, LogPanel } from "./LogPanel";
 
 /**
- * A session's log (ADR 0019), read as it's written, in the dark log panel (web/DESIGN.md "Colour": dark in both
- * themes). On a laptop it fills the right panel under the route; on a phone it's a "Logs" row showing the newest
+ * A session's log (ADR 0019), read as it's written, in the log tile, a white tile with a monospace body (web/DESIGN.md
+ * "The session screen"). On a laptop it fills the column beside the tiles; on a phone it's a "Logs" row showing the newest
  * line, which opens the panel under it.
  */
 export function Logs({ id, settled, laptop }: { id: string; settled: boolean; laptop: boolean }) {
@@ -36,7 +37,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
     }
   }, [read, settled, painted]);
 
-  const title = <h2 className="text-body font-semibold text-text">Logs</h2>;
+  const title = <h2 className="text-section">Logs</h2>;
   const total = log.data ? lineTotal(log.data) : 0;
   const body = log.data ? (
     total === 0 ? (
@@ -58,21 +59,19 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
   ) : (
     <div role="status" aria-label="Loading the logs" className="flex flex-col gap-3">
       {["w-2/3", "w-1/2", "w-3/4"].map((width) => (
-        <span key={width} aria-hidden="true" className={cn("h-3 rounded-full bg-divider", width)} />
+        <span key={width} aria-hidden="true" className={cn("skeleton h-3 rounded-full", width)} />
       ))}
     </div>
   );
   const panel = (
-    <section
+    <Tile
+      as="section"
       aria-label="Logs"
-      className={cn(
-        "flex flex-col gap-4 rounded-tile bg-fill text-text",
-        laptop ? "min-h-0 flex-1 px-7 py-6" : "p-4",
-      )}
+      className={cn("flex flex-col gap-4", laptop ? "min-h-0 flex-1 px-6 py-5" : "p-4")}
     >
       {laptop && total === 0 && title}
       {body}
-    </section>
+    </Tile>
   );
   if (laptop) {
     return panel;
@@ -87,7 +86,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
         aria-expanded={open}
         aria-controls="logs-panel"
         onClick={() => setOpen(!open)}
-        className="flex min-h-14 items-center gap-3 border-b border-divider py-3.5 text-left text-body"
+        className="flex min-h-14 items-center gap-3 rounded-tile bg-fill px-4.5 py-3.5 text-left text-body"
       >
         <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">
@@ -104,7 +103,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
           strokeWidth={2}
         />
       </button>
-      <div id="logs-panel" hidden={!open} className="pt-3">
+      <div id="logs-panel" hidden={!open} className="pt-2.5">
         {panel}
       </div>
     </div>

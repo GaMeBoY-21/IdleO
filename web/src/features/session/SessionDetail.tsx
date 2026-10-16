@@ -3,11 +3,11 @@ import { useSearch } from "wouter";
 import { useTemplates, useUploadInfo } from "@/api/queries";
 import { useLiveSession } from "@/api/useLiveSession";
 import { FlowHeader } from "@/components/shell/AppShell";
-import { SkeletonLine } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice } from "@/components/ui/States";
+import { Tile } from "@/components/ui/Tile";
 import { sessionTitle } from "@/features/flow/headline";
 import { ProgressRoute } from "@/features/flow/ProgressRoute";
-import { TwoPanels } from "@/features/flow/TwoPanels";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { aboutRuntime } from "@/lib/catalog";
 import { useLaptop } from "@/lib/media";
@@ -15,7 +15,6 @@ import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { Ended } from "./Ended";
 import { Finding } from "./Finding";
-import { LogsLater } from "./LogsLater";
 import { Running } from "./Running";
 import { sessionInput } from "@/lib/inputs";
 
@@ -41,14 +40,14 @@ export function SessionDetail() {
   const uploadId = (session.data && sessionInput(session.data)?.uploadId) ?? null;
   const upload = useUploadInfo(uploadId, painted);
 
-  const frame = (left: ReactNode, right: ReactNode = null) =>
+  const frame = (content: ReactNode) =>
     laptop ? (
-      <TwoPanels bare left={left} right={right} rightLabel="Progress and logs" />
+      <div className="mx-auto flex w-full max-w-content flex-col gap-3.5 px-6 pt-2 pb-10">{content}</div>
     ) : (
       <div className="flex flex-1 flex-col">
         <FlowHeader back="/sessions/" title="Session" />
-        <div className="flex w-full flex-1 flex-col gap-5 px-4 pt-1 md:mx-auto md:max-w-card md:px-6 md:pt-8">
-          {left}
+        <div className="flex w-full flex-1 flex-col gap-2.5 px-3.5 pt-1 md:mx-auto md:max-w-card md:px-6 md:pt-8">
+          {content}
         </div>
       </div>
     );
@@ -95,6 +94,17 @@ export function SessionDetail() {
     )
   );
 
+  // The route of what has happened and what comes next, in a tile of its own: a laptop's, beside the log.
+  const progress = (
+    <Tile className="px-7 py-6">
+      <ProgressRoute
+        across
+        session={current}
+        typicalRuntimeSeconds={template?.typicalRuntimeSeconds}
+        uploadBytes={upload.data?.upload.sizeBytes}
+      />
+    </Tile>
+  );
   const view = FINDING.has(current.state) ? (
     <Finding session={current} data={{ filename: upload.data?.upload.name ?? null }} laptop={laptop} />
   ) : STARTED.has(current.state) ? (
@@ -105,11 +115,12 @@ export function SessionDetail() {
       about={aboutRuntime(template?.typicalRuntimeSeconds)}
       status={status}
       laptop={laptop}
+      progress={progress}
     />
   ) : (
-    <Ended session={current} templateName={templateName} laptop={laptop} />
+    <Ended session={current} templateName={templateName} laptop={laptop} progress={progress} />
   );
-  const left = (
+  return frame(
     <>
       {session.isRefetchError ? (
         <StaleNotice updatedAt={session.dataUpdatedAt} />
@@ -117,32 +128,15 @@ export function SessionDetail() {
         stream === "down" && <StaleNotice updatedAt={session.dataUpdatedAt} stream />
       )}
       {view}
-    </>
+    </>,
   );
-  const right = (
-    <>
-      <div className="rounded-tile bg-ground px-9 py-8">
-        <ProgressRoute
-          across
-          session={current}
-          typicalRuntimeSeconds={template?.typicalRuntimeSeconds}
-          uploadBytes={upload.data?.upload.sizeBytes}
-        />
-      </div>
-      {current.startedAt && <LogsLater id={current.id} settled={current.settled} laptop />}
-    </>
-  );
-  return frame(left, right);
 }
 
-/** The pill, the title and the timer as they'll load, so nothing above the figures moves. */
+/** The dark tile as it'll load, so nothing above the figures moves. */
 function DetailSkeleton({ laptop }: { laptop: boolean }) {
   return (
-    <div className="flex flex-col gap-3" role="status" aria-label="Loading this session">
-      <SkeletonLine size="small" width="w-1/4" />
-      <SkeletonLine size={laptop ? "question" : "title"} width="w-3/4" />
-      <SkeletonLine size="small" width="w-1/3" />
-      <SkeletonLine size="timer" width="w-1/2" />
+    <div role="status" aria-label="Loading this session">
+      <Skeleton tile className={laptop ? "h-panel max-w-card" : "h-session-tile w-full"} />
     </div>
   );
 }

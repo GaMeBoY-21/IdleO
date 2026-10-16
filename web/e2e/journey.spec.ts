@@ -51,16 +51,17 @@ test("a booked session shows live on the home screen, through to its charge", as
     await expect(page.getByText("₹500.00")).toBeVisible();
     await page.getByRole("button", { name: "Go to your home" }).click();
   }
-  const credit = page.getByRole("link", { name: /^Available credit/ });
+  const credit = page.getByRole("main").getByRole("link", { name: /^Credit/ });
   await expect(credit).toHaveText(/₹500\.00/);
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Book again" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^Book again/ })).toHaveCount(0);
   await expectAccessible(page);
 
   const session = await book(request, "cuda-smoke-test", "web-journey");
   await page.reload();
   const bar = page.locator(`a[href="/session/?id=${session.id}"]`);
-  await expect(bar).toContainText(/^Running a test job · \d+:\d\d/, { timeout: 90_000 });
+  await expect(bar).toContainText(/Running a test job/, { timeout: 90_000 });
+  await expect(bar).toContainText(/Running for \d+:\d\d/);
   await expect(bar).toContainText("so far");
   await expectAccessible(page);
 
@@ -71,8 +72,10 @@ test("a booked session shows live on the home screen, through to its charge", as
     .toBe(true);
   const charged = (await getSession(request, session.id)).chargedPaise;
   expect(charged).toBeGreaterThan(0);
-  const again = page.getByRole("region", { name: "Book again" });
-  await expect(again.getByText(formatPaise(charged), { exact: false })).toBeVisible({ timeout: 30_000 });
+  // What it ran is the lavender tile now: the last setup, ready to book again (its charge is on the session).
+  await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Running a test job", {
+    timeout: 30_000,
+  });
   await page.reload();
   await expect(credit).toHaveText(new RegExp(formatPaise(50_000 - charged).replace(".", "\\.")), {
     timeout: 30_000,

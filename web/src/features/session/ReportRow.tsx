@@ -12,7 +12,7 @@ const loadSheet = () => import("./ReportSheet");
 const ReportSheet = lazy(() => loadSheet().then((module) => ({ default: module.ReportSheet })));
 
 const ROW =
-  "flex min-h-18 w-full items-center gap-3.5 rounded-control bg-fill px-4 py-3.5 text-left hover:bg-fill-selected";
+  "tile-motion flex min-h-18 w-full items-center gap-3.5 rounded-tile bg-fill px-4.5 py-3.5 text-left";
 
 /**
  * "Report a problem" on an ended session, and where the latest report stands (ADR 0028): one row that's always two

@@ -4,6 +4,7 @@ import { ApiError } from "@/api/errors";
 import { isRecentEnd, useRate, useRating, type SessionRating } from "@/api/trust";
 import { Button } from "@/components/ui/Button";
 import { SkeletonLine } from "@/components/ui/Skeleton";
+import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { useNow } from "@/lib/clock";
 import { problemMessage } from "@/lib/problems";
@@ -52,8 +53,8 @@ export function Rating({
     );
 
   return (
-    <section aria-labelledby="rating-title" className="flex flex-col gap-1">
-      <h2 id="rating-title" className="text-option font-semibold">
+    <Tile as="section" aria-labelledby="rating-title" className="flex flex-col gap-1">
+      <h2 id="rating-title" className="text-section">
         {hasRating
           ? closed
             ? "You rated this session"
@@ -95,7 +96,7 @@ export function Rating({
           onSave={() => rate.mutate({ stars, comment: draft.trim() })}
         />
       )}
-    </section>
+    </Tile>
   );
 }
 
@@ -123,7 +124,7 @@ function StarRow({
             aria-label={`${star} ${star === 1 ? "star" : "stars"}`}
             aria-pressed={value === star}
             onClick={() => onPick(star)}
-            className="flex size-touch items-center justify-center rounded-control hover:bg-fill disabled:cursor-default disabled:hover:bg-transparent"
+            className="flex size-touch items-center justify-center rounded-control hover:bg-ground disabled:cursor-default disabled:hover:bg-transparent"
           >
             <Star
               aria-hidden="true"
@@ -224,7 +225,7 @@ function CommentBox({
         rows={3}
         maxLength={COMMENT_MAX}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-control bg-fill px-4 py-3 text-body text-text"
+        className="rounded-control bg-ground px-4 py-3 text-body text-text"
         aria-describedby="rating-comment-help"
       />
       <p id="rating-comment-help" className="text-caption text-text-muted">

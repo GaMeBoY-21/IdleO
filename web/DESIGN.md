@@ -117,6 +117,7 @@ A light grey page with white tiles on it, a dark tile for what matters most righ
 | `danger` | `#C0262D` | `#FF6B6B` | Failed, errors, destructive actions |
 | `danger-soft` | `#FDECEC` | `#331414` | Error banner background |
 | `danger-fg` | `#FFFFFF` | `#16161A` | Text on `danger` |
+| `danger-on-dark` | `#FF8A8A` | `#FF8A8A` | An error line on the dark tile |
 | `bone` | `#E3E3E9` | `#26262D` | A placeholder (skeleton), on the page or on a tile |
 | `bone-shine` | `#F4F4F7` | `#30303A` | The skeleton's shimmer |
 | `brand` | `#4B3FD1` | `#8F86FF` | The wordmark's ring, and nothing else |
@@ -155,6 +156,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
 | `danger` on `fill` | 5.90 | 6.25 | 4.5 |
 | `danger` on `ground` | 5.15 | 6.95 | 4.5 |
 | `danger-fg` on `danger` | 5.90 | 6.50 | 4.5 |
+| `danger-on-dark` on `dark` | 7.95 | 6.62 | 4.5 |
 | `control` on `ground` | 3.90 | 5.65 | 3 |
 | `control` on `fill` | 4.48 | 5.08 | 3 |
 | `focus` on `ground` | 6.24 | 8.04 | 3 |

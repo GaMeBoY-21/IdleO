@@ -1,10 +1,11 @@
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { Check, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * One choice among a few (web/DESIGN.md "Shapes"): an icon tile, a title and a line under it. The selected one has a
- * 2 px border in the text colour on a light fill, and its tile turns black (white in the dark theme).
+ * One choice among a few (web/DESIGN.md "Shapes and space"): an icon square, a title and a line under it. It is a
+ * white tile on the page and a tile pressed into the page's colour inside another tile; the one that is selected is
+ * lime, with a check.
  */
 export function Option({
   icon: Icon,
@@ -26,8 +27,10 @@ export function Option({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "flex w-full items-center gap-4 rounded-control border-2 px-4 py-3.5 text-left",
-        selected ? "border-text bg-fill-selected" : "border-transparent hover:bg-fill",
+        "flex w-full items-center gap-4 rounded-tile px-4.5 py-3.5 text-left tiled:rounded-control transition-colors",
+        selected
+          ? "bg-lime text-on-colour"
+          : "bg-fill hover:bg-fill-selected tiled:bg-ground tiled:hover:bg-divider",
         className,
       )}
       {...props}
@@ -35,14 +38,16 @@ export function Option({
       {Icon && <IconTile icon={Icon} strong={selected ?? false} />}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-option font-semibold break-words">{title}</span>
-        {detail && <span className="text-small text-text-muted">{detail}</span>}
+        {detail && (
+          <span className={cn("text-small", selected ? "text-lime-fg" : "text-text-muted")}>{detail}</span>
+        )}
       </span>
-      {trailing}
+      {selected ? <Check aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={2.5} /> : trailing}
     </button>
   );
 }
 
-/** A square for an icon: grey, or black when it stands for the choice that's made. */
+/** A square for an icon: the page's colour (a tile's, inside one), or dark when it stands for the choice that's made. */
 export function IconTile({
   icon: Icon,
   strong = false,
@@ -58,41 +63,10 @@ export function IconTile({
       className={cn(
         "flex shrink-0 items-center justify-center rounded-icon",
         size === "lg" ? "size-12" : "size-touch",
-        strong ? "bg-primary text-primary-fg" : "bg-fill text-text",
+        strong ? "bg-primary text-primary-fg" : "bg-ground text-text tiled:bg-fill",
       )}
     >
       <Icon className={size === "lg" ? "size-7" : "size-5"} strokeWidth={1.75} />
     </span>
-  );
-}
-
-/** A grey row that opens something: Settings, Logs. */
-export function RowButton({
-  icon: Icon,
-  title,
-  detail,
-  className,
-  ...props
-}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title"> & {
-  icon: LucideIcon;
-  title: ReactNode;
-  detail?: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "flex w-full items-center gap-3.5 rounded-control bg-fill px-4 py-3.5 text-left hover:bg-fill-selected",
-        className,
-      )}
-      {...props}
-    >
-      <Icon aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-body font-semibold">{title}</span>
-        {detail && <span className="text-small text-text-muted tabular">{detail}</span>}
-      </span>
-      <ChevronRight aria-hidden="true" className="size-5 shrink-0" strokeWidth={2} />
-    </button>
   );
 }

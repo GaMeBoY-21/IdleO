@@ -216,7 +216,6 @@ export function ServiceForm({
                 input={step.input}
                 upload={uploads[step.input.name] ?? null}
                 missing={missing.includes(step.input.name) && needed.includes(step.input.name)}
-                laptop={laptop}
                 onChoose={(chosen) => choose(step.input.name, chosen)}
                 onPick={(picked) => pick(step.input.name, picked)}
                 onRemove={() => void remove(step.input.name)}
@@ -224,14 +223,14 @@ export function ServiceForm({
               />
             );
           case "preset":
-            return <StepPreset key={step.name} {...step} quote={quotable ? quote : null} laptop={laptop} />;
+            return <StepPreset key={step.name} {...step} quote={quotable ? quote : null} />;
           case "param":
-            return <StepParam key={step.param.name} {...step} laptop={laptop} />;
+            return <StepParam key={step.param.name} {...step} />;
           case "gpu":
-            return <StepGpu key="gpu" {...step} laptop={laptop} />;
+            return <StepGpu key="gpu" {...step} />;
         }
       })}
-      <Budget chips={template.budgetChips} laptop={laptop} />
+      <Budget chips={template.budgetChips} />
       <Advanced
         template={template}
         neededMb={neededMb(template, modelBytes(template, values, uploads))}

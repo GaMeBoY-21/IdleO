@@ -51,7 +51,7 @@ export function RequestButton({
   } else if (quote === null || (quote.kind === "error" && settingsRefused(quote.error))) {
     line = "Answer the questions to see what's held while it runs.";
   } else if (quote.kind === "loading") {
-    line = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" />;
+    line = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" onDark />;
   } else if (quote.kind === "none-free") {
     line = "No GPU is free right now. We look again every 15 seconds.";
   } else if (quote.kind === "error") {
@@ -75,7 +75,7 @@ export function RequestButton({
   return (
     <div className="flex flex-col gap-3">
       {error !== null && !settingsRefused(error) && <Banner tone="danger">{problemMessage(error)}</Banner>}
-      <Button block large disabled={waiting} busy={busy} onClick={onRequest}>
+      <Button variant="live" block large disabled={waiting} busy={busy} onClick={onRequest}>
         {uploadingPercent !== null ? (
           <span className="tabular">Waiting for your upload… {uploadingPercent}%</span>
         ) : (
@@ -87,7 +87,7 @@ export function RequestButton({
         className={cn(
           "text-center tabular",
           laptop ? "min-h-5 text-small" : "min-h-4.5 text-caption",
-          short || tooBig ? "text-danger" : "text-text-muted",
+          short || tooBig ? "text-danger-on-dark" : "text-dark-muted",
         )}
       >
         {line}

@@ -29,5 +29,5 @@ export function ModelLine({
     const gpu = withSizeArticle(classGigabytes(neededMb(template, model.size)));
     line = `Your ${modelGigabytes(model.size)} model needs ${gpu} GPU.`;
   }
-  return line === null ? null : <p className="text-caption text-text-muted tabular">{line}</p>;
+  return line === null ? null : <p className="text-caption text-dark-muted tabular">{line}</p>;
 }

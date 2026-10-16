@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { sessionTitle } from "@/features/flow/headline";
 import { progressStops } from "@/features/flow/progress";
 import { data, session } from "@/test/fixtures";
-import { GpuCard } from "./Figures";
-import { LastCheckpoint } from "./Outputs";
+import { GpuTile } from "./Figures";
+import { CheckpointTile } from "./Outputs";
 
 const catalog = data.templates;
 const now = data.NOW.getTime();
@@ -53,24 +53,24 @@ describe("a session's route", () => {
 
 describe("the live session", () => {
   it("shows the GPU's use and temperature, and says when they aren't known", () => {
-    const { rerender } = render(<GpuCard gpu={data.running.gpu!} laptop={false} />);
+    const { rerender } = render(<GpuTile gpu={data.running.gpu!} />);
     expect(screen.getByText("RTX 4080 Laptop · 12 GB")).toBeInTheDocument();
     expect(screen.getByText("97% busy · 71°C")).toBeInTheDocument();
-    rerender(<GpuCard gpu={{ ...data.running.gpu!, utilPct: null, tempC: null }} laptop={false} />);
+    rerender(<GpuTile gpu={{ ...data.running.gpu!, utilPct: null, tempC: null }} />);
     expect(screen.getByText("Reading its use…")).toBeInTheDocument();
   });
 
   it("names its newest checkpoint, or says there's none yet", () => {
-    const { rerender } = render(<LastCheckpoint session={data.running} />);
+    const { rerender } = render(<CheckpointTile session={data.running} />);
     expect(screen.getByText(/^Last checkpoint saved/)).toBeInTheDocument();
-    rerender(<LastCheckpoint session={session({ checkpoints: [] })} />);
+    rerender(<CheckpointTile session={session({ checkpoints: [] })} />);
     expect(screen.getByText("No checkpoint saved yet")).toBeInTheDocument();
   });
 
   it("says a checkpoint newer than the clock's last tick was saved just now", () => {
     const fresh = { attempt: 1, seq: 5, completedAt: new Date(Date.now() + 20_000).toISOString() };
     const { container } = render(
-      <LastCheckpoint session={session({ checkpoints: [...data.running.checkpoints, fresh] })} />,
+      <CheckpointTile session={session({ checkpoints: [...data.running.checkpoints, fresh] })} />,
     );
     expect(container).toHaveTextContent("Last checkpoint saved just now");
   });

@@ -169,7 +169,16 @@ export function RadioGroup({
 }
 
 /** How far something has got, as a thin bar; the figure beside it says the same in words. */
-export function ProgressBar({ percent, label }: { percent: number; label: string }) {
+export function ProgressBar({
+  percent,
+  label,
+  onDark = false,
+}: {
+  percent: number;
+  label: string;
+  /** On the dark tile: a faint track and a lime bar. */
+  onDark?: boolean;
+}) {
   return (
     <div
       role="progressbar"
@@ -177,9 +186,12 @@ export function ProgressBar({ percent, label }: { percent: number; label: string
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-divider"
+      className={cn("h-1.5 w-full overflow-hidden rounded-full", onDark ? "bg-dark-fg/15" : "bg-divider")}
     >
-      <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+      <div
+        className={cn("h-full rounded-full", onDark ? "bg-live" : "bg-primary")}
+        style={{ width: `${percent}%` }}
+      />
     </div>
   );
 }

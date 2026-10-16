@@ -14,7 +14,7 @@ const themeChoices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = 
 ];
 
 const item =
-  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-fill";
+  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-ground";
 
 /** Who's signed in, My files, the theme switch, and signing out. */
 export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
@@ -35,7 +35,8 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
         <DropdownMenu.Content
           align="end"
           sideOffset={4}
-          className="appear z-20 w-menu rounded-control bg-ground p-2 shadow-float"
+          data-tile=""
+          className="appear z-20 w-menu rounded-tile bg-fill p-2 shadow-float"
         >
           {email && (
             <DropdownMenu.Label className="truncate px-3 py-2 text-caption text-text-muted">

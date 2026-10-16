@@ -1,5 +1,6 @@
 import { useFormContext, useWatch } from "react-hook-form";
 import { Field } from "@/components/ui/Field";
+import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { formatPaise, parseRupees, rupeeInput } from "@/lib/money";
 import type { BookValues } from "./form";
@@ -14,7 +15,7 @@ const amount = (paise: number) =>
  * chips, "Stop at ₹100", and "Other amount" for one of the renter's own. A template without chips asks for the
  * amount.
  */
-export function Budget({ chips, laptop }: { chips: number[]; laptop: boolean }) {
+export function Budget({ chips }: { chips: number[] }) {
   const form = useFormContext<BookValues>();
   const [budget, other] = useWatch({ control: form.control, name: ["budget", "otherBudget"] });
   const error = form.formState.errors.budget?.message;
@@ -31,13 +32,13 @@ export function Budget({ chips, laptop }: { chips: number[]; laptop: boolean }) 
   };
   const chip = (selected: boolean) =>
     cn(
-      "flex min-h-touch items-center rounded-full border-2 px-4 text-small font-semibold",
-      selected ? "border-text bg-ground" : "border-transparent bg-fill hover:bg-fill-selected",
+      "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors",
+      selected ? "bg-primary text-primary-fg" : "bg-ground hover:bg-divider",
     );
 
   return (
-    <section aria-labelledby="budget" className="flex flex-col gap-3">
-      <StepTitle id="budget" number={null} laptop={laptop}>
+    <Tile as="section" aria-labelledby="budget" className="flex flex-col gap-3">
+      <StepTitle id="budget" number={null}>
         Budget
       </StepTitle>
       {chips.length > 0 && (
@@ -78,6 +79,6 @@ export function Budget({ chips, laptop }: { chips: number[]; laptop: boolean }) 
           {error ?? "It saves its progress and stops if it ever costs this much."}
         </p>
       )}
-    </section>
+    </Tile>
   );
 }

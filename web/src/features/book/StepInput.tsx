@@ -1,6 +1,7 @@
 import { useFormContext, useWatch } from "react-hook-form";
 import { Field } from "@/components/ui/Field";
 import { RadioGroup } from "@/components/ui/Inputs";
+import { Tile } from "@/components/ui/Tile";
 import type { BookValues, InputHow } from "./form";
 import { FilePicker } from "./FilePicker";
 import type { Chosen } from "./chosen-files";
@@ -25,7 +26,6 @@ export function StepInput({
   input,
   upload,
   missing,
-  laptop,
   onChoose,
   onPick,
   onRemove,
@@ -35,7 +35,6 @@ export function StepInput({
   input: TemplateInput;
   upload: InputUpload | null;
   missing: boolean;
-  laptop: boolean;
   onChoose: (chosen: Chosen) => void;
   onPick: (ready: InputUpload) => void;
   onRemove: () => void;
@@ -49,8 +48,8 @@ export function StepInput({
   const id = `input-${input.name}`;
 
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
-      <StepTitle id={id} number={number} laptop={laptop} optional={!input.required} help={input.help}>
+    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-3">
+      <StepTitle id={id} number={number} optional={!input.required} help={input.help}>
         {input.label}
       </StepTitle>
       {offered.length > 1 && (
@@ -99,6 +98,6 @@ export function StepInput({
           {refused}
         </p>
       )}
-    </section>
+    </Tile>
   );
 }

@@ -33,15 +33,26 @@ export function SkeletonLine({
   size,
   md,
   width,
+  onDark = false,
 }: {
   size: keyof typeof lines;
   md?: keyof typeof lines;
   width: string;
+  /** On the dark tile, where the bone colour would shine. */
+  onDark?: boolean;
 }) {
   const [line, bar] = lines[size];
   return (
     <div aria-hidden="true" className={cn("flex items-center", line, md && mdLines[md][0])}>
-      <div className={cn("skeleton rounded-control", bar, md && mdLines[md][1], width)} />
+      <div
+        className={cn(
+          onDark ? "skeleton-dark" : "skeleton",
+          "rounded-control",
+          bar,
+          md && mdLines[md][1],
+          width,
+        )}
+      />
     </div>
   );
 }

@@ -68,7 +68,7 @@ describe("a service's screen, from its template", () => {
       <Form initial={defaultValues(fineTune)}>
         {(values) => {
           read = values;
-          return <StepPreset {...step} quote={price} laptop />;
+          return <StepPreset {...step} quote={price} />;
         }}
       </Form>,
     );
@@ -87,7 +87,7 @@ describe("a service's screen, from its template", () => {
       <Form initial={defaultValues(fineTune)}>
         {(values) => {
           read = values;
-          return <Budget chips={fineTune.budgetChips} laptop />;
+          return <Budget chips={fineTune.budgetChips} />;
         }}
       </Form>,
     );

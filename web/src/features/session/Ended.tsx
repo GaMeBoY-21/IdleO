@@ -1,9 +1,11 @@
+import type { ReactNode } from "react";
 import { Link } from "wouter";
 import type { Session } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
 import { buttonClasses } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { StateChip } from "@/components/ui/StateChip";
+import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
 import { ending } from "@/lib/labels";
 import { bookFrom } from "@/lib/sessions";
@@ -26,19 +28,23 @@ const HEADLINES: Record<string, string> = {
 };
 
 /**
- * A session that has ended. Completed: "Done", the final charge and how long it ran, its outputs with "Download
- * outputs" as the one primary action, and "Run again". Failed, cancelled or never matched: why in plain words, the
- * charge (often nothing), and "Try again", which opens Book filled from it. The charge is "so far" until the API
- * says it's settled.
+ * A session that has ended. Completed: "Done", the final charge in the dark tile and how long it ran, its outputs in the
+ * lime tile with "Download outputs" as the one primary action, the rating, "Report a problem" and "Run again". Failed,
+ * cancelled or never matched: why in plain words, the charge (often nothing), and "Try again", which opens Book filled
+ * from it. The charge is "so far" until the API says it's settled. On a laptop the session's progress and logs are
+ * beside it.
  */
 export function Ended({
   session,
   templateName,
   laptop,
+  progress,
 }: {
   session: Session;
   templateName: string;
   laptop: boolean;
+  /** The route of the session's progress, in a tile of its own; shown on a laptop. */
+  progress: ReactNode;
 }) {
   const done = session.state === "COMPLETED";
   const last = session.events.at(-1)?.reason;
@@ -62,7 +68,7 @@ export function Ended({
   const canReport = startedAt != null || session.state !== "CANCELLED";
 
   const foot = (
-    <ActionFoot laptop={laptop} note={null} atEnd={!laptop}>
+    <ActionFoot laptop={laptop} note={null}>
       {done ? (
         <>
           <DownloadOutputs id={session.id} />
@@ -78,18 +84,18 @@ export function Ended({
     </ActionFoot>
   );
 
-  return (
-    <>
-      <div className="flex flex-col gap-3">
+  const charge = (
+    <Tile tone="dark" className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
         {!done && (
           <span className="self-start">
             <StateChip state={session.state} />
           </span>
         )}
-        <h1 className={laptop ? "text-question" : "text-title"}>
+        <h1 className={laptop ? "text-title" : "text-section"}>
           {done ? "Done" : (HEADLINES[session.state] ?? "Ended")}
         </h1>
-        <p className="text-small text-text-muted">
+        <p className="text-small text-dark-muted">
           {templateName}
           {ran && ` · ${ran}`}
           {session.endedAt && (
@@ -100,30 +106,58 @@ export function Ended({
           )}
         </p>
       </div>
-      {why &&
-        (done ? (
-          <Banner tone="info">
-            {why.sentence} {why.next}
-          </Banner>
-        ) : (
-          <div className="flex max-w-prose flex-col gap-1">
-            <p className="text-option font-semibold">{why.sentence}</p>
-            <p className="text-body text-text-muted">{why.next}</p>
-          </div>
-        ))}
-      <Charge session={session} />
-      {(canRate || canReport) && (
-        <div className="flex flex-col gap-5">
-          {canRate && <Rating sessionId={session.id} endedAt={endedAt} enabled={painted} />}
-          {canReport && <ReportRow sessionId={session.id} enabled={painted} />}
+      {why && !done && (
+        <div className="flex max-w-prose flex-col gap-1">
+          <p className="text-option font-semibold">{why.sentence}</p>
+          <p className="text-body text-dark-muted">{why.next}</p>
         </div>
       )}
-      {/* A laptop's actions come before the outputs, so the list arriving moves nothing; a phone's stay in its bar. */}
-      {laptop && foot}
-      {!laptop && session.startedAt && <LogsLater id={session.id} settled={session.settled} laptop={false} />}
-      {done && <Outputs id={session.id} />}
-      {!laptop && foot}
+      <Charge session={session} />
+    </Tile>
+  );
+  const banner = why && done && (
+    <Banner tone="info">
+      {why.sentence} {why.next}
+    </Banner>
+  );
+  const feedback = (canRate || canReport) && (
+    <>
+      {canRate && <Rating sessionId={session.id} endedAt={endedAt} enabled={painted} />}
+      {canReport && <ReportRow sessionId={session.id} enabled={painted} />}
     </>
+  );
+
+  if (!laptop) {
+    return (
+      <>
+        {banner}
+        {charge}
+        {feedback}
+        {session.startedAt && <LogsLater id={session.id} settled={session.settled} laptop={false} />}
+        {done && <Outputs id={session.id} />}
+        {foot}
+      </>
+    );
+  }
+  // The outputs come last in their column, so the list arriving moves nothing under it.
+  return (
+    <div className="grid grid-cols-12 items-stretch gap-3.5">
+      <div className="col-span-6 flex flex-col gap-3.5">
+        {banner}
+        {charge}
+        {feedback}
+        {foot}
+        {done && <Outputs id={session.id} />}
+      </div>
+      <div className="col-span-6 flex flex-col gap-3.5">
+        {progress}
+        {session.startedAt && (
+          <div className="flex min-h-panel flex-1">
+            <LogsLater id={session.id} settled={session.settled} laptop />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -132,18 +166,18 @@ function Charge({ session }: { session: Session }) {
   if (!session.settled) {
     return (
       <p className="flex flex-col gap-1">
-        <Money paise={session.chargedPaise + session.accruedPaise} className="text-title" />
-        <span className="text-small text-text-muted">so far · working out the final charge</span>
+        <Money paise={session.chargedPaise + session.accruedPaise} className="text-timer" />
+        <span className="text-small text-dark-muted">so far · working out the final charge</span>
       </p>
     );
   }
   if (session.chargedPaise === 0) {
-    return <p className="text-option font-semibold">Nothing was charged</p>;
+    return <p className="text-section">Nothing was charged</p>;
   }
   return (
     <p className="flex flex-col gap-1">
-      <Money paise={session.chargedPaise} className="text-title" />
-      <span className="text-small text-text-muted">Charged</span>
+      <Money paise={session.chargedPaise} className="text-timer" />
+      <span className="text-small text-dark-muted">Charged</span>
     </p>
   );
 }

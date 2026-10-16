@@ -1,7 +1,6 @@
 import { Cpu } from "lucide-react";
 import type { ReactNode } from "react";
 import { ApiError } from "@/api/errors";
-import { IconTile } from "@/components/ui/Option";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { formatEstimate, formatPaiseRange } from "@/lib/money";
@@ -54,12 +53,12 @@ export function GpuCard({
         ? "Check your answers to see the price"
         : "We couldn't get a price. Trying again…";
   } else if (quote.kind === "loading") {
-    detail = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" />;
+    detail = <SkeletonLine size={laptop ? "small" : "caption"} width="w-3/4" onDark />;
     // The estimate's line and the price's under it, as they'll load.
     price = (
       <>
-        <SkeletonLine size={laptop ? "option" : "body"} width="w-16" />
-        <SkeletonLine size={laptop ? "small" : "caption"} width="w-24" />
+        <SkeletonLine size={laptop ? "option" : "body"} width="w-16" onDark />
+        <SkeletonLine size={laptop ? "small" : "caption"} width="w-24" onDark />
       </>
     );
   } else {
@@ -78,7 +77,7 @@ export function GpuCard({
           <span className={laptop ? "text-option font-semibold" : "text-body font-semibold"}>
             {estimate ?? perHour}
           </span>
-          <span className="text-text-muted">{estimate === null ? "an hour" : `${perHour}/h`}</span>
+          <span className="text-dark-muted">{estimate === null ? "an hour" : `${perHour}/h`}</span>
         </>
       );
     }
@@ -88,16 +87,20 @@ export function GpuCard({
   return (
     <div
       data-testid="gpu-card"
-      className={cn(
-        "flex items-center gap-4 rounded-control border-2",
-        laptop ? "p-3.5" : "p-3",
-        free ? "border-text" : "border-transparent bg-fill",
-      )}
+      className={cn("flex items-center gap-4 rounded-control bg-dark-fg/10", laptop ? "p-3.5" : "p-3")}
     >
-      <IconTile icon={Cpu} strong={free} size="lg" />
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-12 shrink-0 items-center justify-center rounded-icon",
+          free ? "bg-live text-on-colour" : "bg-dark-fg/10 text-dark-fg",
+        )}
+      >
+        <Cpu className="size-7" strokeWidth={1.75} />
+      </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className={cn("font-semibold", laptop ? "text-option" : "text-body")}>{title}</p>
-        <div className={cn("text-text-muted tabular", laptop ? "text-small" : "text-caption")}>{detail}</div>
+        <div className={cn("text-dark-muted tabular", laptop ? "text-small" : "text-caption")}>{detail}</div>
       </div>
       {price && (
         <div

@@ -4,6 +4,7 @@ import { api, data } from "@/api/client";
 import { keys, writeSession, type Session } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
+import { Tile } from "@/components/ui/Tile";
 import { afterFirstScreen } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
@@ -90,35 +91,34 @@ export function CancelAction({ session, laptop }: { session: Session; laptop: bo
 
 /**
  * The foot of a session's screen. On a phone it's the action bar (web/DESIGN.md "The phone action bar"): stuck to
- * the bottom of the screen, with a divider above it, in space of its own in the page, so it covers nothing; on a
- * laptop, the end of the left panel.
+ * the bottom of the screen on the page's colour, in space of its own in the page, so it covers nothing; on a laptop,
+ * a white tile in the column.
  */
 export function ActionFoot({
   laptop,
   note,
   children,
-  atEnd = true,
 }: {
   laptop: boolean;
   note: ReactNode;
   children: ReactNode;
-  /** On a laptop, at the foot of the panel; false keeps it in the flow, under what's above it. */
-  atEnd?: boolean;
 }) {
-  return (
-    <div
-      data-action-bar={laptop ? undefined : ""}
-      className={cn(
-        "flex flex-col",
-        laptop
-          ? cn("gap-3", atEnd && "mt-auto pt-2")
-          : "sticky bottom-0 z-10 -mx-4 mt-auto gap-2 border-t border-divider bg-ground px-4 pt-3 pb-5 md:-mx-6 md:px-6",
-      )}
-    >
+  const inside = (
+    <>
       {children}
       {note && (
         <p className={cn("text-center text-text-muted", laptop ? "text-small" : "text-caption")}>{note}</p>
       )}
+    </>
+  );
+  return laptop ? (
+    <Tile className="flex flex-col gap-3">{inside}</Tile>
+  ) : (
+    <div
+      data-action-bar=""
+      className="sticky bottom-0 z-10 -mx-3.5 mt-auto flex flex-col gap-2 bg-ground px-3.5 pt-3 pb-3.5 md:-mx-6 md:px-6"
+    >
+      {inside}
     </div>
   );
 }

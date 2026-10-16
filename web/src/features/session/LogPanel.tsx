@@ -11,12 +11,12 @@ const STEP = 1_000;
 /** Every row is one line of the caption size, so moving the window keeps the reader's place exactly. */
 const ROW_PX = 18;
 
-/** A button on the dark log panel: outlined, with a focus ring that shows on the dark ground. */
+/** A button on the log tile: pressed in with the page's colour. */
 export const logButton =
-  "min-h-touch rounded-full border border-divider bg-transparent px-3.5 text-small font-medium text-text hover:bg-divider focus-visible:outline-focus";
+  "min-h-touch rounded-full bg-ground px-3.5 text-small font-medium text-text hover:bg-divider focus-visible:outline-focus";
 
 /**
- * A session's log lines in the dark panel (docs/design/redesign/live-laptop.html): the newest 2,000 at most, in the
+ * A session's log lines in the log tile (web/DESIGN.md "The session screen"): the newest 2,000 at most, in the
  * system's monospace font. It follows the end while the reader is at the bottom, offers "Jump to latest" once they've
  * scrolled up and "Show earlier" at the top, and marks where each new attempt begins. Copy and Download sit in its
  * header, after `title`.
@@ -138,7 +138,7 @@ export function LogPanel({
               setAtBottom(bottom);
             }
           }}
-          className="absolute inset-0 overflow-auto font-mono text-caption focus-visible:outline-focus"
+          className="absolute inset-0 overflow-auto rounded-control bg-ground p-3 font-mono text-caption focus-visible:outline-focus"
           data-testid="log-panel"
         >
           {start > 0 && (
@@ -153,11 +153,7 @@ export function LogPanel({
           ))}
         </div>
         {!following && (
-          <Button
-            variant="secondary"
-            className={cn("absolute right-3 bottom-3 shadow-float")}
-            onClick={latest}
-          >
+          <Button variant="primary" className={cn("absolute right-3 bottom-3 shadow-float")} onClick={latest}>
             <ArrowDown aria-hidden="true" className="size-4" strokeWidth={1.75} />
             Jump to latest
           </Button>
@@ -233,7 +229,7 @@ const Block = memo(function Block({ block }: { block: LogBlock }) {
   if (block.kind === "attempt") {
     return (
       <div className="flex h-4.5 items-center gap-2 border-t border-divider font-sans text-text-muted">
-        <span className="-mt-px bg-fill pr-2 text-caption">
+        <span className="-mt-px bg-ground pr-2 text-caption">
           Attempt {block.attempt}: moved to another host
         </span>
       </div>

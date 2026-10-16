@@ -86,16 +86,20 @@ test.describe("home", () => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
     await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /^Fine-tuning · / })).toContainText("₹3.08 so far");
-    await expect(page.getByRole("list", { name: "Services" }).getByRole("link")).toHaveCount(2);
-    await expect(page.getByRole("region", { name: "Book again" }).getByRole("link")).toHaveCount(3);
-    if (info.project.name.includes("laptop")) {
-      await expect(
-        page.getByRole("region", { name: "Your session" }).getByRole("link", { name: "Open the session" }),
-      ).toBeVisible();
-    } else {
-      await expect(page.getByRole("link", { name: "All sessions" })).toBeVisible();
-    }
+    // The live session is the dark tile: what it's doing and on which GPU, the time, and what it has cost.
+    const running = page.getByRole("link", { name: /^Running now/ });
+    await expect(running).toContainText("Fine-tuning on RTX 4080 Laptop");
+    await expect(running).toContainText("₹3.08 so far");
+    // The first service is the lime tile, the other a wide one; the last setup is lavender, credit is white.
+    await expect(page.getByRole("link", { name: /^Fine-tune a model/ })).toHaveAttribute(
+      "href",
+      "/book/?service=fine-tune",
+    );
+    await expect(page.getByRole("link", { name: /^Run your code/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Checking the GPU");
+    await expect(page.getByRole("main").getByRole("link", { name: /^Credit/ })).toContainText("₹462.12");
+    await expect(page.getByRole("link", { name: /^For gamers/ })).toHaveAttribute("href", "/hosting/");
+    await expect(page.getByRole("link", { name: "All sessions" }).first()).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "home");
   });
@@ -114,8 +118,10 @@ test.describe("home", () => {
       signedIn({ "/v1/wallet": { json: data.fresh.wallet }, "/v1/sessions": { json: { sessions: [] } } }),
     );
     await signIn(page, "asha");
-    await expect(page.getByRole("list", { name: "Services" }).getByRole("link")).toHaveCount(2);
-    await expect(page.getByRole("region", { name: "Book again" })).toHaveCount(0);
+    // With nothing running, the question is the first tile and the services are inside it.
+    const question = page.getByRole("region", { name: "What do you want to run?" });
+    await expect(question.getByRole("link")).toHaveCount(2);
+    await expect(page.getByRole("link", { name: /^Book again/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "All sessions" })).toHaveCount(0);
     await expectAccessible(page);
     await capture(page, info, "home-empty");

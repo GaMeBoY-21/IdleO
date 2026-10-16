@@ -42,6 +42,7 @@ export const themes = {
     danger: "#C0262D",
     "danger-soft": "#FDECEC",
     "danger-fg": "#FFFFFF",
+    "danger-on-dark": "#FF8A8A",
     bone: "#E3E3E9",
     "bone-shine": "#F4F4F7",
     ...ring.light,
@@ -75,6 +76,7 @@ export const themes = {
     danger: "#FF6B6B",
     "danger-soft": "#331414",
     "danger-fg": "#16161A",
+    "danger-on-dark": "#FF8A8A",
     bone: "#26262D",
     "bone-shine": "#30303A",
     ...ring.dark,
@@ -112,6 +114,7 @@ export const contrastPairs: ReadonlyArray<{ fg: ColourToken; bg: ColourToken; mi
   { fg: "danger", bg: "fill", min: 4.5 },
   { fg: "danger", bg: "ground", min: 4.5 },
   { fg: "danger-fg", bg: "danger", min: 4.5 },
+  { fg: "danger-on-dark", bg: "dark", min: 4.5 },
   { fg: "control", bg: "ground", min: 3 },
   { fg: "control", bg: "fill", min: 3 },
   { fg: "focus", bg: "ground", min: 3 },
@@ -182,6 +185,8 @@ export const spacing = {
   touch: 44,
   /** A row of the phone's tile grid (a small tile is one row, a tall one two). */
   "tile-row": 88,
+  /** The session screen's dark tile on a phone, as its placeholder draws it. */
+  "session-tile": 336,
   /** A row of the laptop's tile grid. */
   "tile-row-lg": 112,
   /** The log panel's least height on the session screen: about 21 lines. */

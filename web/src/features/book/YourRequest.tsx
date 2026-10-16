@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Template } from "@/api/queries";
+import { Tile } from "@/components/ui/Tile";
 import { aboutRuntime } from "@/lib/catalog";
 import type { BookValues, Uploads } from "./form";
 import { chosenOption, stepsOf } from "./steps";
@@ -50,8 +51,9 @@ export function summaryRows(template: Template, values: BookValues, uploads: Upl
 }
 
 /**
- * "Your request": on a laptop, the white card in the right panel (summary, GPU, button, hold line); on a phone, a
- * sheet held at the foot of the screen with the GPU, the button and the hold line, the answers being just above.
+ * "Your request", the dark tile: on a laptop, in the right column (summary, GPU, button, hold line); on a phone, held at
+ * the foot of the screen, 14 px from its edges, with the GPU, the button and the hold line, the answers being just
+ * above.
  */
 export function YourRequest({
   template,
@@ -70,28 +72,29 @@ export function YourRequest({
 }) {
   if (!laptop) {
     return (
-      <section
+      <Tile
+        tone="dark"
         aria-label="Your request"
-        className="sticky bottom-0 z-10 -mx-4 mt-auto flex flex-col gap-3 rounded-t-sheet bg-ground px-4 pt-4 pb-safe shadow-sheet md:-mx-6 md:px-6"
+        className="sticky bottom-3.5 z-10 mt-auto flex flex-col gap-3 shadow-sheet"
       >
         {gpu}
         {button}
-      </section>
+      </Tile>
     );
   }
   return (
-    <>
-      <h2 className="text-title">Your request</h2>
+    <Tile tone="dark" as="div" className="flex flex-col gap-5 p-6">
+      <h2 className="text-section">Your request</h2>
       <dl className="flex flex-col gap-2 text-body">
         {summaryRows(template, values, uploads).map(([label, value]) => (
           <div key={label} className="flex items-baseline justify-between gap-4">
-            <dt className="shrink-0 text-text-muted">{label}</dt>
+            <dt className="shrink-0 text-dark-muted">{label}</dt>
             <dd className="min-w-0 text-right font-semibold break-words">{value}</dd>
           </div>
         ))}
       </dl>
       {gpu}
       {button}
-    </>
+    </Tile>
   );
 }

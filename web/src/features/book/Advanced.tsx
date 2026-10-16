@@ -3,6 +3,7 @@ import { useFormContext, useFormState } from "react-hook-form";
 import type { Template } from "@/api/queries";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Inputs";
+import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { PRICE_STEP } from "@/lib/money";
 import { hoursAndMinutes, type BookValues } from "./form";
@@ -49,17 +50,17 @@ export function Advanced({
   const more = GPU_CLASSES_GB.map(classMb).filter((mb) => mb > neededMb);
 
   return (
-    <section className="flex flex-col gap-5">
+    <Tile as="section" className="flex flex-col gap-5">
       <button
         type="button"
         aria-expanded={open}
         aria-controls="advanced"
         onClick={onToggle}
-        className="flex w-full items-center gap-3.5 rounded-control border border-divider px-4 py-3.5 text-left hover:bg-fill"
+        className="flex w-full items-center gap-3.5 rounded-control text-left"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-body font-semibold">Advanced</span>
-          <span className="text-caption text-text-muted">{advancedSummary(template)}</span>
+          <span className="text-section">Advanced</span>
+          <span className="text-small text-text-muted">{advancedSummary(template)}</span>
         </span>
         <ChevronDown
           aria-hidden="true"
@@ -124,6 +125,6 @@ export function Advanced({
           </>
         )}
       </div>
-    </section>
+    </Tile>
   );
 }

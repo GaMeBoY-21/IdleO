@@ -115,6 +115,19 @@
   animation: idleo-shimmer 1.4s linear infinite;
 }
 
+/* The same, on the dark tile. */
+@utility skeleton-dark {
+  background: color-mix(in srgb, var(--dark-fg) 14%, transparent);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--dark-fg) 10%, transparent),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: idleo-shimmer 1.4s linear infinite;
+}
+
 @keyframes idleo-shimmer {
   from {
     background-position: 100% 0;

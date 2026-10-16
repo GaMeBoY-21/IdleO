@@ -1,5 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { RadioGroup } from "@/components/ui/Inputs";
+import { Tile } from "@/components/ui/Tile";
 import type { BookValues } from "./form";
 import { paramFields } from "./params";
 import { ParamField, type TemplateParam } from "./ParamFields";
@@ -11,22 +12,19 @@ export function StepParam({
   param,
   label,
   help,
-  laptop,
 }: {
   number: number;
   param: TemplateParam;
   label: string;
   help: string | null;
-  laptop: boolean;
 }) {
   const [field] = paramFields([param]);
   const id = `param-${param.name}`;
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
+    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-3">
       <StepTitle
         id={id}
         number={number}
-        laptop={laptop}
         // One with a default takes it when left alone, so it isn't "optional"; one without is.
         optional={!param.required && param.defaultValue == null}
         help={help}
@@ -34,7 +32,7 @@ export function StepParam({
         {label}
       </StepTitle>
       <ParamField field={field!} asked />
-    </section>
+    </Tile>
   );
 }
 
@@ -44,18 +42,16 @@ export function StepGpu({
   label,
   help,
   choicesGb,
-  laptop,
 }: {
   number: number;
   label: string;
   help: string | null;
   choicesGb: number[];
-  laptop: boolean;
 }) {
   const form = useFormContext<BookValues>();
   return (
-    <section aria-labelledby="gpu-memory" className="flex flex-col gap-3">
-      <StepTitle id="gpu-memory" number={number} laptop={laptop} help={help}>
+    <Tile as="section" aria-labelledby="gpu-memory" className="flex flex-col gap-3">
+      <StepTitle id="gpu-memory" number={number} help={help}>
         {label}
       </StepTitle>
       <RadioGroup
@@ -65,6 +61,6 @@ export function StepGpu({
         options={choicesGb.map((gb) => ({ value: String(gb), label: `${gb} GB` }))}
         inputProps={() => form.register("gpuGb")}
       />
-    </section>
+    </Tile>
   );
 }

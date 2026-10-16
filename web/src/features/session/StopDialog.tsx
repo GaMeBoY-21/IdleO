@@ -23,7 +23,10 @@ export function StopDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="appear fixed inset-0 z-30 bg-primary opacity-40" />
-        <Dialog.Content className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-tile bg-ground p-6 shadow-float md:top-1/3 md:bottom-auto">
+        <Dialog.Content
+          data-tile=""
+          className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-tile bg-fill p-6 shadow-float md:top-1/3 md:bottom-auto"
+        >
           <Dialog.Title className="text-section">Stop this session?</Dialog.Title>
           <Dialog.Description className="text-small text-text-muted">
             It saves a checkpoint, then stops. Nothing more is charged once it has stopped, and its outputs so

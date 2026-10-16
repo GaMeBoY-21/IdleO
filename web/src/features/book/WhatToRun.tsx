@@ -15,8 +15,7 @@ const facts = (template: Template) =>
     .join(" · ");
 
 /**
- * What to run (docs/design/redesign/book-laptop.html): the services, the chosen one with a 2 px border and a black
- * tile. Each says what it does and, when it has one way to run it, how long that usually takes.
+ * What to run: the services as tiles, the chosen one lime with a check. Each says what it does and, when it has one way to run it, how long that usually takes.
  */
 export function ServiceChoice({
   services,
@@ -49,7 +48,7 @@ export function ServiceChoice({
   );
 }
 
-/** Inside a service with more than one template, which one: a short list, the chosen one bordered. */
+/** Inside a service with more than one template, which one: a short list, the chosen one lime. */
 export function TemplateChoice({
   templates,
   selected,
@@ -73,12 +72,14 @@ export function TemplateChoice({
             aria-pressed={chosen}
             onClick={() => onPick(template.id)}
             className={cn(
-              "flex flex-col gap-0.5 rounded-control border-2 px-4 py-3 text-left",
-              chosen ? "border-text bg-fill-selected" : "border-transparent bg-fill hover:bg-fill-selected",
+              "flex flex-col gap-0.5 rounded-tile px-4.5 py-3 text-left transition-colors",
+              chosen ? "bg-lime text-on-colour" : "bg-fill hover:bg-fill-selected",
             )}
           >
             <span className="text-body font-semibold break-words">{template.name}</span>
-            <span className="text-small text-text-muted">{facts(template)}</span>
+            <span className={cn("text-small", chosen ? "text-lime-fg" : "text-text-muted")}>
+              {facts(template)}
+            </span>
           </button>
         );
       })}

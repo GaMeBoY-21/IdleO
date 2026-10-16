@@ -1,5 +1,7 @@
+import { Check } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { SkeletonLine } from "@/components/ui/Skeleton";
+import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { formatEstimate } from "@/lib/money";
 import type { BookValues } from "./form";
@@ -28,7 +30,6 @@ export function StepPreset({
   help,
   options,
   quote,
-  laptop,
 }: {
   number: number;
   name: string;
@@ -36,7 +37,6 @@ export function StepPreset({
   help: string | null;
   options: PresetOption[];
   quote: QuoteState | null;
-  laptop: boolean;
 }) {
   const form = useFormContext<BookValues>();
   const chosen = useWatch({ control: form.control, name: `presets.${name}` });
@@ -53,8 +53,8 @@ export function StepPreset({
   };
 
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
-      <StepTitle id={id} number={number} laptop={laptop}>
+    <Tile as="section" aria-labelledby={id} className="flex flex-col gap-3">
+      <StepTitle id={id} number={number}>
         {label}
       </StepTitle>
       <div role="group" aria-labelledby={id} className="grid grid-cols-3 gap-2 tabular">
@@ -68,20 +68,26 @@ export function StepPreset({
               aria-pressed={selected}
               onClick={() => choose(option)}
               className={cn(
-                "flex min-w-0 flex-col items-start gap-1 rounded-control border-2 p-3.5 text-left",
-                selected
-                  ? "border-text bg-fill-selected"
-                  : "border-transparent bg-fill hover:bg-fill-selected",
+                "relative flex min-w-0 flex-col items-start gap-1 rounded-control p-3.5 text-left transition-colors",
+                selected ? "bg-lime text-on-colour" : "bg-ground hover:bg-divider",
               )}
             >
+              {selected && (
+                <Check aria-hidden="true" className="absolute top-3 right-3 size-4" strokeWidth={3} />
+              )}
               <span className="text-body font-semibold break-words">{option.label}</span>
-              <span className="text-caption text-text-muted">
+              <span className={cn("text-caption", selected ? "text-lime-fg" : "text-text-muted")}>
                 {option.minutes == null ? "Varies" : `About ${option.minutes} min`}
               </span>
               {quote?.kind === "loading" ? (
                 <SkeletonLine size="small" width="w-12" />
               ) : (
-                <span className={cn("text-small font-semibold", cost === null && "text-text-muted")}>
+                <span
+                  className={cn(
+                    "text-small font-semibold",
+                    cost === null && (selected ? "text-lime-fg" : "text-text-muted"),
+                  )}
+                >
                   {cost ?? (quote?.kind === "none-free" ? "No GPU free" : "No price yet")}
                 </span>
               )}
@@ -95,6 +101,6 @@ export function StepPreset({
       >
         {error ?? help ?? "Typical times, and what they cost on the GPUs free now."}
       </p>
-    </section>
+    </Tile>
   );
 }
