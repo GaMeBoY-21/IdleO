@@ -2,7 +2,7 @@
 
 The standard every screen is checked against, now and later. Numbers, not adjectives: if a screen breaks a rule here, the screen is wrong, or this file changes first, with Nikki's say.
 
-The look was chosen on Oct 8, 2026: **a ride app's style**. Black and white, big bold type, one question per screen, the things you can run on Home, and requesting a GPU the way you request a ride. The reference screens are in `docs/design/redesign/`.
+The look was chosen on Oct 16, 2026: **Bento** (ADR 0031). A home made of tiles of different sizes, each one a thing you can do or check. It's calm and light, with soft colour tiles, very rounded corners and heavy, friendly type. It replaced the ride-app look of Oct 8 (ADR 0021's look; its behaviour, requesting a GPU like a ride, stays). The reference is `docs/design/bento/home-phone.html`, the approved Home on a phone.
 
 The tokens below live in code in one place, `web/src/design/tokens.ts` (the brand's one colour in `web/src/brand/brand.ts`, so the brand stays one change), and Tailwind's theme is built from them. Nothing outside that file names a colour, a size or a duration; a lint rule refuses raw colours and arbitrary values.
 
@@ -22,7 +22,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 | Screen | Designed first for | Must also be complete on |
 | --- | --- | --- |
 | Sign-in, welcome | Phone | Laptop |
-| Home (what to run, credit, Book again) | Phone | Laptop |
+| Home (what's running, credit, what to run) | Phone | Laptop |
 | Book | Laptop | Phone |
 | Session: finding, found, live, done | Phone | Laptop |
 | All sessions | Phone | Laptop |
@@ -32,7 +32,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 
 ## Principles
 
-1. **One question per screen, one obvious next step.** A screen asks one thing in big type ("What do you want to run?") and has at most one primary button (black, white in the dark theme): its next step. A screen that only shows information may have none. Two primary buttons on one screen is a bug.
+1. **One question per screen, one obvious next step.** A screen asks one thing in big type ("What do you want to run?") and has at most one primary button (the dark tile's colour, `primary`): its next step. A screen that only shows information may have none. Two primary buttons on one screen is a bug. A lime button inside the dark "Your request" tile is that screen's one primary.
 2. **Requesting is like a ride.** The renter says what to run and gives their data, then presses "Request a GPU". We match the best free GPU that fits, right now; they never choose a GPU or type a price. They see the price range and an estimate before they request, and pay the matched GPU's price by the minute.
 3. **Money is always exact and always visible where it matters:** credit, the price before requesting, the cost so far while a session runs, and the final charge.
    - Rupees are formatted from integer paise with Indian digit grouping (₹1,23,456.78), never through floating point.
@@ -51,25 +51,27 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 
 ## Typography
 
-- **One family: Inter** (Rasmus Andersson, SIL Open Font License 1.1), version 4.1, self-hosted. No request ever goes to a font service.
-  - **Why Inter:** it was drawn for user interfaces at small sizes on screens. It has true tabular figures (`tnum`), and it includes the rupee sign (₹, U+20B9), which many UI families lack.
-  - **One file:** a subset of Inter's variable font, cut by `web/scripts/subset-font.sh`, holds Basic Latin, Latin-1, the punctuation we use, the arrows, the minus sign, `≈` (U+2248) and ₹. The weight axis is kept from 400 to 700 and the optical size is pinned at text size, which makes it 25.5 KB as WOFF2.
-  - **It never swaps.** It's preloaded with `font-display: optional`. If it hasn't arrived by the first paint (a slow first visit), that page keeps the fallback, Arial scaled to Inter's metrics, because a swap would move text sideways. Every later page has it from the cache.
+- **One family: Plus Jakarta Sans** (Tokotype, SIL Open Font License 1.1), self-hosted. No request ever goes to a font service.
+  - **Why Plus Jakarta Sans:** the reference's own face. It is friendly and heavy at 800, has true tabular figures (`tnum`), and includes the rupee sign (₹, U+20B9).
+  - **One file:** a subset of the variable font, cut by `web/scripts/subset-font.sh` from a pinned commit of the upstream repository, holds Basic Latin, Latin-1, the punctuation we use, the arrows, the minus sign, `≈` (U+2248) and ₹. The weight axis is kept from 400 to 800, which makes it 17.8 KB as WOFF2 (the Inter file it replaced was 25.5 KB).
+  - **It never swaps.** It's preloaded with `font-display: optional`. If it hasn't arrived by the first paint (a slow first visit), that page keeps the fallback, Arial scaled to Plus Jakarta Sans's metrics, because a swap would move text sideways. Every later page has it from the cache.
 - **Logs are the one exception:** a session's log panel uses the system's monospace fonts (`font-mono`), so nothing is downloaded for it. Nothing else is set in monospace.
-- **Numbers** (money, durations, counts, times) use Inter's tabular figures: the `tabular` class sets `font-variant-numeric: tabular-nums`.
-- **Weights:** 400 for reading, 500 for secondary labels, 600 for titles of rows and options and for buttons, 700 for headings and big figures.
-- **The scale.** Sizes of 28 and up are weight 700 with -0.03em letter-spacing, built into their tokens.
+- **Numbers** (money, durations, counts, times) use tabular figures: the `tabular` class sets `font-variant-numeric: tabular-nums`.
+- **Weights:** 400 for reading, 500 for secondary labels, 600 for titles of rows and options and for buttons, 700 for small emphasis, 800 for headings and big figures.
+- **The scale.** Sizes of 20 and up are weight 800 with tight letter-spacing built into their tokens: −0.02em up to 26 px, −0.03em at 28 and 40, −0.04em at 54 and 72.
 
 | Token | Size / line height | Used for |
 | --- | --- | --- |
-| `text-caption` | 13 / 18 px | Captions, timestamps, the line under a field |
+| `text-caption` | 13 / 18 px | A tile's label, captions, timestamps, the line under a field |
 | `text-small` | 14 / 20 px | Secondary text, chips, buttons, navigation |
 | `text-body` | 16 / 24 px | Reading text, form inputs (16 px stops iOS zooming on focus) |
 | `text-option` | 17 / 24 px | The title of an option or a row; large buttons |
-| `text-section` | 20 / 26 px | Section titles ("Your data", "Your GPU") |
+| `text-section` | 20 / 26 px | A tile's title ("Fine-tune", "Your data") |
+| `text-figure` | 24 / 28 px | A figure on a small tile (the credit) |
+| `text-headline` | 26 / 28 px | A tile's headline ("Your GPU sits idle. Let it earn.") |
 | `text-title` | 28 / 34 px | Page titles on a phone; big figures beside the timer |
 | `text-question` | 40 / 44 px | The laptop's page question ("What do you want to run?") |
-| `text-timer` | 56 / 56 px | The running timer on a phone |
+| `text-timer` | 54 / 54 px | The running timer on a phone, and the big credit |
 | `text-timer-xl` | 72 / 72 px | The running timer on a laptop |
 
 - **Line length:** reading text is at most 68 characters wide (`max-w-prose`, set to 68ch). Tables and lists may be wider.
@@ -77,36 +79,46 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 
 ## Colour
 
-Black and white, with one green for running, the warning and danger colours, and the brand's indigo only in the wordmark's ring and the focus ring.
+A light grey page with white tiles on it, a dark tile for what matters most right now, and three soft colour tiles. Danger and warning keep their meaning.
 
 - **The theme** follows the system preference (`prefers-color-scheme`) until the person chooses Light or Dark from the user menu. Their choice is remembered on this device only.
-- **Surfaces are grey fills, not bordered boxes.** The ground is white (near-black in the dark theme); a fill is a step darker (a step lighter in dark). The primary button is black with white text (white with black text in dark).
-- **Colour is never the only signal.** A state pill has a word in it; an error has an icon and a sentence.
+- **Surfaces are tiles, not bordered boxes.** The page is `ground`; a tile is `fill`, white (a step lighter than the page in dark, too). A field inside a tile is filled with `ground`, so it looks pressed in.
+- **The dark tile** (`dark`, with `dark-fg` and `dark-muted`) is the one thing to look at: what's running, the charge, the request. Lime (`live`) is its accent: the running dot, the cost, the button inside it.
+- **The colour tiles** keep their colours and their dark text in both themes, so they stay readable: **lime** is the main action (Fine-tune, outputs, the selected option); **lavender** is history (Book again); **apricot** is hosting and earning. Each has its own text colour (`lime-fg`, `lavender-fg`, `apricot-fg`) for its small lines, and `on-colour` for titles and figures.
+- **Colour is never the only signal.** A state pill has a word in it; an error has an icon and a sentence; the selected option has a check.
 
 | Token | Light | Dark | Used for |
 | --- | --- | --- | --- |
-| `ground` | `#FFFFFF` | `#0B0B0B` | The page behind everything; panels inside a grey area |
-| `fill` | `#F3F3F3` | `#1A1A1A` | Fields, tiles, grey rows, chips, the laptop's right panel |
-| `fill-selected` | `#F6F6F6` | `#222222` | The selected option's background |
-| `divider` | `#EBEBEB` | `#2A2A2A` | 1 px lines between list rows and under the top bar; bar tracks |
-| `control` | `#767676` | `#8A8A8A` | Outlines of switches and radio buttons (must meet 3:1) |
-| `text` | `#000000` | `#FFFFFF` | Primary text; the 2 px border of the selected option |
-| `text-muted` | `#5E5E5E` | `#A6A6A6` | Secondary text; still meets 4.5:1 |
-| `primary` | `#000000` | `#FFFFFF` | Primary buttons, the current navigation pill, the running bar on Home |
-| `primary-hover` | `#2B2B2B` | `#E0E0E0` | Primary buttons when hovered or pressed |
-| `primary-fg` | `#FFFFFF` | `#000000` | Text on `primary` |
-| `inverse-muted` | `#BDBDBD` | `#4A4A4A` | Secondary text on `primary` |
-| `inverse-running` | `#4CC38A` | `#0B6B37` | The running dot on `primary`: Home's running bar |
+| `ground` | `#EFEFF2` | `#0E0E11` | The page behind the tiles; a field inside a tile |
+| `fill` | `#FFFFFF` | `#1A1A1F` | A tile, a chip, the tab bar |
+| `fill-selected` | `#F6F6F9` | `#222228` | A tile or row when hovered or pressed |
+| `divider` | `#E4E4EA` | `#2A2A31` | 1 px lines between rows inside a tile; bar tracks |
+| `control` | `#767683` | `#8A8A96` | Outlines of switches and radio buttons (must meet 3:1) |
+| `text` | `#16161A` | `#F2F2F5` | Primary text |
+| `text-muted` | `#5C5C66` | `#A3A3AE` | Secondary text; still meets 4.5:1 on the page and on a tile |
+| `primary` | `#16161A` | `#F2F2F5` | Primary buttons |
+| `primary-hover` | `#2E2E36` | `#DADAE0` | Primary buttons when hovered or pressed |
+| `primary-fg` | `#FFFFFF` | `#16161A` | Text on `primary` |
+| `dark` | `#16161A` | `#26262D` | The dark tile |
+| `dark-fg` | `#FFFFFF` | `#FFFFFF` | Text on the dark tile |
+| `dark-muted` | `#B8B8C4` | `#B8B8C4` | Secondary text on the dark tile |
+| `live` | `#C9F27B` | `#C9F27B` | The accent on the dark tile: the running dot, the cost, the button |
+| `lime` | `#C9F27B` | `#C9F27B` | The main action's tile; the selected option |
+| `lime-fg` | `#2E3A12` | `#2E3A12` | Small text on a lime tile |
+| `lavender` | `#D8D3FF` | `#D8D3FF` | History: Book again |
+| `lavender-fg` | `#3B347A` | `#3B347A` | Small text on a lavender tile |
+| `apricot` | `#FFB86B` | `#FFB86B` | Hosting and earning |
+| `apricot-fg` | `#5A3410` | `#5A3410` | Small text on an apricot tile |
+| `on-colour` | `#16161A` | `#16161A` | Titles and figures on a colour tile or on `live` |
 | `running` | `#0B6B37` | `#4CC38A` | Running, done steps, a saved checkpoint |
 | `running-soft` | `#E3F4EA` | `#10291D` | The running pill's background |
 | `warning` | `#8A5300` | `#F0B44C` | Low credit, stale data |
 | `warning-soft` | `#FFF3DD` | `#2E220B` | Warning banner background |
 | `danger` | `#C0262D` | `#FF6B6B` | Failed, errors, destructive actions |
 | `danger-soft` | `#FDECEC` | `#331414` | Error banner background |
-| `danger-fg` | `#FFFFFF` | `#000000` | Text on `danger` |
-| `log-ground` | `#111111` | `#161616` | The log panel, dark in both themes |
-| `log-text` | `#D6D6D6` | `#D6D6D6` | Log lines |
-| `log-muted` | `#A8A8A8` | `#A8A8A8` | Secondary text on the log panel |
+| `danger-fg` | `#FFFFFF` | `#16161A` | Text on `danger` |
+| `bone` | `#E3E3E9` | `#26262D` | A placeholder (skeleton), on the page or on a tile |
+| `bone-shine` | `#F4F4F7` | `#30303A` | The skeleton's shimmer |
 | `brand` | `#4B3FD1` | `#8F86FF` | The wordmark's ring, and nothing else |
 | `focus` | `#4B3FD1` | `#A39CFF` | The 2 px focus ring, offset 2 px |
 
@@ -116,55 +128,74 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
 
 | Foreground on background | Light | Dark | Minimum |
 | --- | --- | --- | --- |
-| `text` on `ground` | 21.00 | 19.68 | 4.5 |
-| `text` on `fill` | 18.93 | 17.40 | 4.5 |
-| `text` on `fill-selected` | 19.43 | 15.91 | 4.5 |
-| `text-muted` on `ground` | 6.48 | 8.09 | 4.5 |
-| `text-muted` on `fill` | 5.84 | 7.15 | 4.5 |
-| `text-muted` on `fill-selected` | 6.00 | 6.54 | 4.5 |
-| `primary-fg` on `primary` | 21.00 | 21.00 | 4.5 |
-| `primary-fg` on `primary-hover` | 14.16 | 15.91 | 4.5 |
-| `inverse-muted` on `primary` | 11.18 | 8.86 | 4.5 |
-| `inverse-running` on `primary` | 9.48 | 6.62 | 3 |
+| `text` on `ground` | 15.72 | 17.25 | 4.5 |
+| `text` on `fill` | 18.04 | 15.51 | 4.5 |
+| `text` on `fill-selected` | 16.73 | 14.16 | 4.5 |
+| `text-muted` on `ground` | 5.76 | 7.72 | 4.5 |
+| `text-muted` on `fill` | 6.61 | 6.94 | 4.5 |
+| `text-muted` on `fill-selected` | 6.13 | 6.33 | 4.5 |
+| `primary-fg` on `primary` | 18.04 | 16.15 | 4.5 |
+| `primary-fg` on `primary-hover` | 13.46 | 12.96 | 4.5 |
+| `dark-fg` on `dark` | 18.04 | 15.03 | 4.5 |
+| `dark-muted` on `dark` | 9.19 | 7.65 | 4.5 |
+| `live` on `dark` | 14.15 | 11.79 | 4.5 |
+| `on-colour` on `lime` | 14.15 | 14.15 | 4.5 |
+| `lime-fg` on `lime` | 9.52 | 9.52 | 4.5 |
+| `on-colour` on `lavender` | 12.62 | 12.62 | 4.5 |
+| `lavender-fg` on `lavender` | 7.50 | 7.50 | 4.5 |
+| `on-colour` on `apricot` | 10.59 | 10.59 | 4.5 |
+| `apricot-fg` on `apricot` | 6.37 | 6.37 | 4.5 |
 | `running` on `running-soft` | 5.80 | 6.99 | 4.5 |
-| `running` on `ground` | 6.62 | 8.89 | 4.5 |
+| `running` on `fill` | 6.62 | 7.83 | 4.5 |
+| `running` on `ground` | 5.77 | 8.70 | 4.5 |
 | `warning` on `warning-soft` | 5.76 | 8.40 | 4.5 |
-| `warning` on `ground` | 6.33 | 10.63 | 4.5 |
+| `warning` on `fill` | 6.33 | 9.36 | 4.5 |
+| `warning` on `ground` | 5.52 | 10.41 | 4.5 |
 | `danger` on `danger-soft` | 5.17 | 6.05 | 4.5 |
-| `danger` on `ground` | 5.90 | 7.09 | 4.5 |
-| `danger-fg` on `danger` | 5.90 | 7.57 | 4.5 |
-| `log-text` on `log-ground` | 12.99 | 12.45 | 4.5 |
-| `log-muted` on `log-ground` | 7.94 | 7.61 | 4.5 |
-| `control` on `ground` | 4.54 | 5.70 | 3 |
-| `control` on `fill` | 4.09 | 5.04 | 3 |
-| `focus` on `ground` | 7.17 | 8.21 | 3 |
-| `focus` on `fill` | 6.46 | 7.26 | 3 |
-| `brand` on `ground` | 7.17 | 6.58 | 3 |
+| `danger` on `fill` | 5.90 | 6.25 | 4.5 |
+| `danger` on `ground` | 5.15 | 6.95 | 4.5 |
+| `danger-fg` on `danger` | 5.90 | 6.50 | 4.5 |
+| `control` on `ground` | 3.90 | 5.65 | 3 |
+| `control` on `fill` | 4.48 | 5.08 | 3 |
+| `focus` on `ground` | 6.24 | 8.04 | 3 |
+| `focus` on `fill` | 7.17 | 7.23 | 3 |
+| `brand` on `ground` | 6.24 | 6.44 | 3 |
 
 ## Shapes and space
 
-- **No bordered cards.** Surfaces are grey fills and white space. 1 px dividers appear only between list rows and under the laptop's top bar.
-- **The selected option** has a 2 px border in the text colour (black, white in dark) on `fill-selected`, and its icon tile turns black.
-- **Corners:** 14 px for controls, fields, options and rows (`rounded-control`); 12 px for icon tiles; fully round for pills, chips, avatars and navigation; 24 px for panels; 20 px for the top of a bottom sheet.
-- **Spacing is a 4 px scale:** 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 48, 56, 60, 64, 72, 96 px, plus 2 px between a title and its line under it, 6 px for thin bars, and 14 px inside options and rows. The half steps 18, 26 and 34 px exist only as the type scale's line heights, for skeleton lines.
-  - Between sections: 28 to 32 px; between a section's title and its content: 12 px; between options: 8 px.
-- **Heights:** controls at least 44 px (`touch`); fields 56 px; the large button at the foot of a flow 56 px on a phone and 60 px on a laptop.
-- **Named sizes:** the finding ring 88 px on a 168 px grey disc (`finding-ring`, `finding`), with two soft halos of the fill; the log panel at least 384 px (`panel`); Book's price beside its GPU card 112 px on a laptop (`price`), so it never moves as it arrives.
-- **Shadows** only for things that float: menus and popovers (`shadow-float`) and a bottom sheet over the page (`shadow-sheet`).
+- **Tiles, no borders.** A tile is `fill` (or a colour, or `dark`) with 26 px corners and 18 px of padding. Separation comes from the page's colour between tiles. A 1 px `divider` appears only between rows inside a tile. A very soft shadow appears only where a tile floats: the phone's tab bar, menus and a bottom sheet.
+- **Corners:** 26 px for tiles and the top of a bottom sheet (`rounded-tile`); 22 px for the floating tab bar (`rounded-bar`); 16 px for inputs and for rows or options inside a tile (`rounded-control`); 14 px for icon squares; fully round (999 px) for buttons, chips, pills, avatars and navigation.
+- **The selected option** is a lime tile with a check (`on-colour` text); the ones not selected are white tiles.
+- **The tile grid:** two columns on a phone with rows of 88 px (`auto-rows-tile`), so a small tile is one row and a tall one two; four columns on a laptop, with the same tiles. The gap is 10 px on a phone and 14 px on a laptop.
+- **Page padding:** 14 px on a phone, 24 px or more on a laptop.
+- **Spacing is a 4 px scale:** 0, 4, 8, 10, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 56, 60, 64, 72, 88, 96 px, plus 2 px between a title and its line under it, 6 px for thin bars, and 14 px for the page's gutter and a tile's inner gaps. The half steps 18, 26 and 34 px exist as tile padding and as the type scale's line heights, for skeleton lines. 88 px is a row of the tile grid.
+  - Between sections: 24 to 32 px; between a tile's title and its content: 12 px; between options: 8 to 10 px.
+- **Heights:** controls at least 44 px (`touch`); fields 56 px; buttons 56 px (`large`: the one at the foot of a flow, 60 px on a laptop).
+- **Named sizes:** the finding ring 88 px on a 168 px grey disc (`finding-ring`, `finding`); the log panel at least 384 px (`panel`); Book's price beside its GPU card 112 px on a laptop (`price`), so it never moves as it arrives.
+- **Shadows** only for things that float: menus and popovers (`shadow-float`), a bottom sheet over the page (`shadow-sheet`) and the tab bar (`shadow-bar`).
 - **Touch targets are at least 44 × 44 px**, even where the visible control is smaller (the hit area is padded).
 - **The layout:**
 
 | Width | Layout | Margin |
 | --- | --- | --- |
-| Up to 767 px (phone) | One column; Book, the session and Finding are full-screen flows with a back button | 16 px |
-| 768 px and up (tablet, small laptop) | One column, wider | 24 px |
-| 1280 px and up (laptop) | Two panels: the question and its choices on the left, at most 480 px, with a 1 px divider; a grey panel on the right with a white card of at most 600 px | 32 px |
+| Up to 767 px (phone) | One column of tiles on a two-column grid; Book and the session are full-screen flows with a back button | 14 px |
+| 768 px and up (tablet, small laptop) | The same, wider | 24 px |
+| 1280 px and up (laptop) | A four-column tile grid at most 1120 px wide; Book is its questions beside the "Your request" tile; a live session is its tiles in a grid beside the log | 24 px |
 
 - **Navigation:**
-  - **Laptop:** a 64 px top bar with the wordmark (a link to Home), pill navigation (Book · Sessions · Credit, the current one a black pill), and on the right a grey credit pill and a black round account button.
-  - **Phone:** a top bar with the wordmark, the credit pill and the account button, and bottom tabs: Home · Book · Hosting · Credit. Book and the session screen are flows: on a phone they replace both bars with a back button, the way a ride app's booking does.
-  - On a phone, All sessions is a row on Home, under Book again, since it has no tab.
-  - Hosting is the third tab on a phone (Home · Book · Hosting · Credit) and a pill on a laptop (Book · Sessions · Hosting · Credit). A machine, its price and limits, its sessions and adding one are flows on a phone, with their own back button; the Hosting tab and its earnings keep the bars.
+  - **Phone:** a header (the wordmark at left, the bell and the avatar at right, 64 px tall) and the **floating tab bar**: a white bar 64 px tall, 14 px from the edges and from the bottom, 22 px corners, with a very soft shadow: Home, Book, Hosting, Credit; the current one in the ink colour at weight 600, the others muted. Book and the session screen are flows: on a phone they replace both bars with a back button.
+  - **Laptop:** a 64 px top bar with the wordmark (a link to Home), the same four destinations as white pill tabs on the page colour (the current one `primary`), and at the right the bell and the avatar. The credit is a tile on Home and the Credit tab, not a pill in the bar.
+  - On a phone, All sessions is a row under Book again on Home, since it has no tab.
+  - A machine, its price and limits, its sessions and adding one are flows on a phone, with their own back button; the Hosting tab and its earnings keep the bars.
+
+## Buttons
+
+- **Primary:** `primary` (the dark tile's colour, and light in the dark theme), `primary-fg` text, 56 px tall, fully round. At most one on a screen.
+- **Secondary:** a white tile (`fill`) with ink text, the same height and shape.
+- **Inside the dark tile:** the lime (`live`) button with `on-colour` text.
+- Smaller ones (44 px, `touch`) are for rows and sheets. Every button is at least 44 px tall.
+- **Chips** are 44 px pills; the chosen one is `primary`.
+- A pressed button that's waiting shows a small spinner inside it.
 
 ## Motion
 
@@ -173,11 +204,12 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
   - entering: `cubic-bezier(0.2, 0, 0, 1)`;
   - leaving: `cubic-bezier(0.4, 0, 1, 1)`, at two-thirds of the entering duration.
 - **What moves:** opacity and small translations (at most 8 px) of things appearing or leaving; colour on hover and press; the skeleton's shimmer.
+- **Tiles that are links lift 2 px on hover (a laptop) and press in to 98% on tap (a phone), at 120 ms** (`tile-motion`). Nothing else moves.
 - **The two continuous motions,** both 2 seconds and both off under reduced motion:
-  - **the running pulse:** while a session is `RUNNING`, the dot in its state pill pulses its opacity;
+  - **the running pulse:** while a session is `RUNNING`, the dot beside its state pulses its opacity;
   - **the finding ring:** while we find a GPU, the large ring breathes (a little smaller and fainter, then back).
 - **What never moves:** money figures (they change in place, never count up), page layout, and anything the person is reading or about to tap.
-- **`prefers-reduced-motion: reduce` removes all non-essential motion:** no translations, no shimmer, no pulse. Changes are instant; only focus and state colours remain.
+- **`prefers-reduced-motion: reduce` removes all non-essential motion:** no translations, no lift or press, no shimmer, no pulse. Changes are instant; only focus and state colours remain.
 - **No layout shift, ever** (cumulative layout shift 0 on every screen):
   - skeletons have the same size as the content that replaces them;
   - images and icons have fixed dimensions;
@@ -190,7 +222,7 @@ Every view that shows data designs four states before it's built:
 
 | State | What it shows |
 | --- | --- |
-| **Loading** | A skeleton with the shape of the content: same rows, same heights, no text. No spinner. |
+| **Loading** | A skeleton with the shape of the content: same tiles, same heights, no text. No spinner. |
 | **Empty** | Why it's empty and what to do: "No sessions yet. Book a GPU to run your first one." With the one next step as the primary action. |
 | **Error** | What happened, in a sentence, plus a Retry button: "We couldn't load your sessions. Check your connection and try again." Never a raw status code. |
 | **Partial or stale** | The data it has, plus one line at the top: "Couldn't refresh. Showing figures from 12:04. Retrying…" Stale money is never presented as current, and nothing says "Live" while it's stale. |
@@ -203,45 +235,70 @@ Every view that shows data designs four states before it's built:
 
 ## The phone action bar
 
-On a phone, a screen whose next step is used while watching something (Stop session while it runs, Cancel request while finding, Download outputs or Try again once it ends) puts that action at the foot of the screen, in a bar with a 1 px divider above it. The bar is stuck to the bottom of the screen but takes its own place at the end of the page, so it covers nothing and nothing moves when it appears. It holds that one action, a second outlined one at most ("Run again"), and a line under it ("Saves a checkpoint first. Nothing more is charged."). On a laptop the same actions end the left panel.
+On a phone, a screen whose next step is used while watching something (Stop session while it runs, Cancel request while finding, Download outputs or Try again once it ends) puts that action at the foot of the screen, in a bar on the page's colour above the tab bar's place. The bar is stuck to the bottom of the screen but takes its own place at the end of the page, so it covers nothing and nothing moves when it appears. It holds that one action, a second one at most ("Run again"), and a line under it ("Saves a checkpoint first. Nothing more is charged."). On a laptop the same actions sit in the grid.
+
+## Home
+
+Exactly the reference (`docs/design/bento/home-phone.html`), as tiles on the two-column grid:
+
+| Tile | Size | Colour | What it holds |
+| --- | --- | --- | --- |
+| Running now | 2 × 2 | dark | "Running now", what it's doing and on which GPU, the elapsed time at 54 px and the cost in lime; opens the session. One for each live session. |
+| Fine-tune | 1 × 2 | lime | The service's icon, its name and "Your model, your data"; opens Book at it. |
+| Credit | 1 × 1 | white | "Credit" and the available amount; opens Credit. |
+| Book again | 1 × 1 | lavender | "Book again" and the last setup ("Fine-tune · 41 min"); opens Book filled in from it. Not there for a new renter. |
+| Run your code | 2 × 1 | white | The service's name, "Your folder, our GPU", its icon; opens Book at it. |
+| Earn with your GPU | 2 × 2 | apricot | "For gamers", "Your GPU sits idle. Let it earn.", "Rent out your gaming laptop →"; opens Hosting. |
+
+With nothing running, the first tile is "What do you want to run?" with the two services. On a laptop the same tiles sit on four columns; the services come from the catalog, never typed here, so a third service is a third tile.
 
 ## Book
 
-Book is the services first ("What do you want to run?"), then each service's own screen (docs/design/redesign/book-finetune-laptop.html), made from its template in the catalog, never written by hand (ADR 0022):
+Book is the services first ("What do you want to run?"), then each service's own screen, made from its template in the catalog, never written by hand (ADR 0022). Its questions are stacked tiles:
 - **Top:** "← All services", the service's name in big type, and a line on what you bring and what you get.
-- **Numbered questions:** each input ("1. Your model"), with Upload (a folder or a file, starting as soon as it's chosen and carrying on where it stopped if the same files are chosen again), From My files and, where the template allows, Link; then each plain question: a preset as option cards with their typical time and "≈ ₹" at today's prices, labelled as typical; a basic setting; or the GPU memory the job needs.
-- **Budget:** the template's chips ("Stop at ₹100") and "Other amount".
+- **One white tile for each question:** each input ("1. Your model"), with Upload (a folder or a file, starting as soon as it's chosen and carrying on where it stopped if the same files are chosen again), From My files and, where the template allows, Link; then each plain question: a preset as **selectable tiles**, the selected one lime with a check, with their typical time and "≈ ₹" at today's prices, labelled as typical; a basic setting; or the GPU memory the job needs.
+- **Budget:** the template's chips ("Stop at ₹100"), as pills, and "Other amount".
 - **Advanced:** one row, closed, naming what's inside, with every default set; it opens by itself when something in it needs fixing.
-- **Your request:** on a laptop, a white card beside the questions (each answer, what you get, the GPU card with how many fit now and the price, "Request a GPU", what's held); on a phone, the GPU card, the button and the hold line in a sheet at the foot, taking its own place at the end of the page.
+- **Your request:** the **dark tile**: each answer, what you get, the GPU card with how many fit now and the price, the hold, and "Request a GPU" as a lime button inside it. On a laptop it sits beside the questions; on a phone it is the last tile, and the button is held at the foot like the action bar.
 - **The GPU card** names the memory the job needs, from the model's size when the template says so ("Your 14.2 GB model needs a 12 GB GPU"). A model too big for any GPU here says how much it needs and that the biggest have 24 GB, and the button stays off; it never says "No GPU free", since waiting won't help.
 
 My files is a list of the renter's uploads (name, size, files, when last used), reached from the account menu and from each input's From My files; Delete asks once more in its row.
 
 ## The session screen
 
-The session screen follows the state, like a ride (docs/design/redesign/matching-phone.html, live-phone.html, live-laptop.html):
+The session screen follows the state, as tiles:
 
 | State | What it shows | Its action |
 | --- | --- | --- |
-| Finding (`REQUESTED`, `MATCHED`) | The ring, breathing; "Finding your GPU", "Usually under a minute"; what's done ("train.jsonl uploaded"); "Nothing is charged until it runs" | Cancel request (outlined) |
+| Finding (`REQUESTED`, `MATCHED`) | One big dark tile with the ring, breathing; "Finding your GPU", "Usually under a minute"; what's done ("train.jsonl uploaded"); "Nothing is charged until it runs"; and a small white tile for what was asked for | Cancel request |
 | Found (`PROVISIONING`) | "GPU found", the GPU and its memory, "Starting…" | Cancel request |
-| Running (and moving host, saving) | The green Running pill; "Fine-tuning on an RTX 4080 Laptop"; the big timer and "of about 45 min"; the cost so far against the cap, with a bar; the GPU's use and temperature; the last checkpoint; on a phone a Logs row, on a laptop the route across and the dark log panel | Stop session (outlined), asking first |
-| Done (`COMPLETED`) | "Done", how long it ran, the final charge (or "so far" until it's settled), the outputs as rows | Download outputs, then Run again |
+| Running (and moving host, saving) | The dark tile holds the time and cost (54 px), the state and "of about 45 min"; then tiles for the GPU (use and temperature), the checkpoints, the log (a white tile with a monospace body), and Stop. On a laptop they sit in a grid beside the log | Stop session, asking first |
+| Done (`COMPLETED`) | The charge (dark tile), the outputs (lime, with Download), the rating, "Report a problem" and Run again | Download outputs, then Run again |
 | Ended otherwise | Why, in plain words, and what to do; the charge, often "Nothing was charged" | Try again, filled from it |
 
-Raising the cap and sharing a live link are in the references but not built yet.
+All sessions is a list of white tiles, newest first, with a lime dot on the live one.
+
+Raising the cap and sharing a live link are not built yet.
+
+## Credit
+
+The balance as a big dark tile (Available, with On hold and Total beside it), and the history as white tiles grouped by day.
 
 ## Hosting
 
-The owner's screens (docs/design/hosting/, ADR 0023), for someone who wants to know "is my machine earning, and is it safe?" from their phone:
-- **The Hosting tab:** what they earned this week, big, with the total beside "payouts start with the paid pilot"; the last 7 days as bars, today in black and a day with nothing a thin line; their machines, each with its state in words; "Add a machine". With none, what hosting is and that one step.
-- **A machine's states,** one at a time, in this order: running a session (a black row, its dot pulsing, "earning ₹2.73 so far"), paused (until when), update needed, offline, checking (not yet activated), suspended, idle. A paused machine finishes a session it's running, and says so.
-- **One machine:** its state, name and GPU; its temperature and use against the limit its owner set; "Right now", the session running and what it has earned so far; the privacy line ("Renters never see who you are, and their work never touches your files."); rows to its price and limits, the sessions it ran, and renaming or removing it; and at the foot, "Pause hosting" (a choice of how long, opened in place) or "Resume".
+The owner's screens (ADR 0023), for someone who wants to know "is my machine earning, and is it safe?" from their phone. They follow the same pattern: one dark summary tile, then white tiles.
+- **The Hosting tab:** "Earned this week" as the dark tile, big, with the total beside "payouts start with the paid pilot" and the last 7 days as bars in lime (today in full, a day with nothing a thin line); their machines, each an apricot or white tile with its state in words; "Add a machine". With none, what hosting is and that one step.
+- **A machine's states,** one at a time, in this order: running a session (the dark tile, its dot pulsing, "earning ₹2.73 so far"), paused (until when), update needed, offline, checking (not yet activated), suspended, idle. A paused machine finishes a session it's running, and says so.
+- **One machine:** a dark tile with its state, name and GPU; then tiles for its temperature and use against the limit its owner set; "Right now", the session running and what it has earned so far; the privacy line ("Renters never see who you are, and their work never touches your files."); rows to its price and limits, the sessions it ran, and renaming or removing it; and at the foot, "Pause hosting" (a choice of how long, opened in place) or "Resume".
 - **Money is the server's:** "earned so far" is read again every 5 seconds while a session runs and changes in place; it's never counted up on the client (principle 4). The elapsed time ticks.
-- **Price and limits:** the price an hour with − and + in ₹0.60 steps, what the owner keeps of it and the 20% fee, worked out from whole paise; the range others charge (or the usual range for a GPU like theirs); the temperature to pause above (60 to 95 °C); the disk to keep free (10 to 500 GB); and a fixed line that it's one session at a time.
+- **Price and limits:** the price an hour with − and + in ₹0.60 steps inside a white tile, what the owner keeps of it and the 20% fee, worked out from whole paise; the range others charge (or the usual range for a GPU like theirs); the temperature to pause above (60 to 95 °C); the disk to keep free (10 to 500 GB); and a fixed line that it's one session at a time.
 - **Removing** asks first in a sheet that names the machine, never a browser dialog; the one other dialog the app has.
 - **Add a machine** is four numbered steps: name it; install, with the code, its countdown, Copy code, New code, and "Waiting for your machine" that moves on by itself when the agent connects; quick checks, pending until an operator activates it; set your price. The code lives only in the page's memory.
 - **Words:** here, and only here, a host's owner calls their own host a **machine**. Renters never see "host" or "machine"; owners never see who rented one.
+
+## Account, sign-in and the rest
+
+Sign-in, the invite step, Account, API keys, the notifications list and the CLI approval are white tiles on the page colour, with one primary action each. The admin console (ADR 0027) stays dense: it takes the font, the colours and the radii, and is not reorganised into tiles.
 
 ## Voice
 
@@ -267,13 +324,13 @@ The parts of credit have fixed labels too: **Available** (what you can spend now
 The product name isn't decided. **IdleO** is the working name.
 
 - The name, the wordmark, the ring's colour and the favicon live in one place, `web/src/brand/`, so the final brand is one small change.
-- **The wordmark** is original: "Idle" drawn as outlines, followed by a ring for the "O" in the brand's indigo, with a small gap at the top, like a power button at rest. The favicon is the ring alone. The large, breathing ring of "Finding your GPU" is the same ring.
+- **In the app's header the wordmark is the name in lowercase** ("idleo"), set at 22 px, weight 800, −0.03em, as in the reference; it comes from `brand.name`. **The ring** (a ring in the brand's indigo with a small gap at the top, like a power button at rest) is the favicon and the large, breathing ring of "Finding your GPU".
 - No stock logos or icons stand in for the brand.
 
 ## Icons
 
-One set only: **Lucide**, imported one icon at a time. 20 to 22 px in controls and rows, 16 px inline with text, 1.75 px stroke (2 px for chevrons), coloured with the text they sit beside. A service names its icon by a key from a fixed list (`layers`, `code`, `table`, `cube`, `notebook`, `plug`, `gamepad`, `flask`, `pulse`); `src/lib/service-icons.ts` maps each to its Lucide icon. An icon-only button always has a visible tooltip or an accessible label.
+One set only: **Lucide**, imported one icon at a time. 20 to 22 px in controls and rows, 16 px inline with text, 30 px on a service's tile, 1.6 to 1.75 px stroke (2 px for chevrons), coloured with the text they sit beside. A service names its icon by a key from a fixed list (`layers`, `code`, `table`, `cube`, `notebook`, `plug`, `gamepad`, `flask`, `pulse`); `src/lib/service-icons.ts` maps each to its Lucide icon. An icon-only button always has a visible tooltip or an accessible label.
 
 ## The public pages
 
-The signed-out pages (ADR 0029) follow everything above: the same tokens, type, grey fills and black primary button, one primary action on a page, and sentence case. They differ in two ways: they are static HTML with no app code, and their budgets are stricter (on Lighthouse's mobile profile, the median of three runs: LCP 1.5 s, TBT 100 ms, CLS 0, accessibility 100, SEO 100; 80 KB for a first load). A live figure has its place on the page at its final size, so loading, loaded, empty, error and stale never move anything. A number is live (from the API) or marked "typical"; nothing is invented.
+The signed-out pages (ADR 0029) follow everything above: the same tokens, type, tiles and primary button, one primary action on a page, and sentence case, except the docs, which are a calm reading layout without tiles. They differ in two ways: they are static HTML with no app code, and their budgets are stricter (on Lighthouse's mobile profile, the median of three runs: LCP 1.5 s, TBT 100 ms, CLS 0, accessibility 100, SEO 100; 80 KB for a first load). A live figure has its place on the page at its final size, so loading, loaded, empty, error and stale never move anything. A number is live (from the API) or marked "typical"; nothing is invented.

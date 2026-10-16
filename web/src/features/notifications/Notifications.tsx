@@ -43,7 +43,7 @@ export function Notifications() {
       </p>
       <section aria-labelledby="notifications-title" className="flex flex-col gap-1">
         <div className="flex min-h-touch items-center justify-between gap-3">
-          <h2 id="notifications-title" className="text-section font-bold">
+          <h2 id="notifications-title" className="text-section">
             {unread > 0 ? `${unread} unread` : "All read"}
           </h2>
           <Button

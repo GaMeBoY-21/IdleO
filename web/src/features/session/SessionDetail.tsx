@@ -121,7 +121,7 @@ export function SessionDetail() {
   );
   const right = (
     <>
-      <div className="rounded-panel bg-ground px-9 py-8">
+      <div className="rounded-tile bg-ground px-9 py-8">
         <ProgressRoute
           across
           session={current}

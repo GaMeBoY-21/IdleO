@@ -2,8 +2,9 @@ import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "rea
 import { cn } from "@/lib/cn";
 
 /**
- * A labelled input: a grey field, no outline (web/DESIGN.md "Shapes"), with room for its error, so a message
- * appearing moves nothing (web/DESIGN.md "Motion"). An error rings the field in red.
+ * A labelled input: a field with no outline (web/DESIGN.md "Shapes"), pressed into its tile with the page's colour,
+ * with room for its error, so a message appearing moves nothing (web/DESIGN.md "Motion"). An error rings the field
+ * in red.
  */
 export const Field = forwardRef<
   HTMLInputElement,
@@ -28,7 +29,7 @@ export const Field = forwardRef<
         aria-invalid={error ? true : undefined}
         aria-describedby={messageId}
         className={cn(
-          "min-h-14 rounded-control bg-fill px-4 text-body text-text",
+          "min-h-14 rounded-control bg-fill px-4 text-body text-text tiled:bg-ground",
           "placeholder:text-text-muted",
           error && "ring-2 ring-danger",
         )}

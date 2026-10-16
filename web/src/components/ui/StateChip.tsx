@@ -3,10 +3,10 @@ import { sessionState, type Tone } from "@/lib/labels";
 
 const tones: Record<Tone, string> = {
   live: "bg-running-soft text-running",
-  success: "bg-fill text-text",
+  success: "bg-ground text-text",
   danger: "bg-danger-soft text-danger",
   warning: "bg-warning-soft text-warning",
-  neutral: "bg-fill text-text-muted",
+  neutral: "bg-ground text-text-muted",
 };
 
 /**

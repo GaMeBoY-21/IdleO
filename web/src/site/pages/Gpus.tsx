@@ -21,7 +21,7 @@ export function Gpus() {
       <section className={`${column} pb-14 md:pb-20`}>
         <ul className="grid gap-3 md:grid-cols-2">
           {GPU_CLASSES.map((gpu) => (
-            <li key={gpu.gb} className="rounded-panel bg-fill p-5" aria-labelledby={`gpu-${gpu.gb}`}>
+            <li key={gpu.gb} className="rounded-tile bg-fill p-5" aria-labelledby={`gpu-${gpu.gb}`}>
               <h2 id={`gpu-${gpu.gb}`} className={sectionTitle}>
                 {gpu.gb} GB GPU memory
               </h2>

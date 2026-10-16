@@ -131,7 +131,7 @@ function MachineSkeleton() {
         <SkeletonLine size="section" width="w-1/2" />
         <SkeletonLine size="small" width="w-2/3" />
       </div>
-      <Skeleton className="h-32 w-full rounded-panel" />
+      <Skeleton className="h-32 w-full rounded-tile" />
       <Skeleton className="h-18 w-full" />
       <Skeleton className="h-18 w-full" />
       <Skeleton className="h-18 w-full" />

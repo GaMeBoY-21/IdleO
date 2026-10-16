@@ -66,7 +66,7 @@ export function Ended({
       {done ? (
         <>
           <DownloadOutputs id={session.id} />
-          <Link href={bookFrom(session)} className={buttonClasses("outline", true, true)}>
+          <Link href={bookFrom(session)} className={buttonClasses("secondary", true, true)}>
             Run again
           </Link>
         </>

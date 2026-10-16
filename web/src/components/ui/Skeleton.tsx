@@ -4,8 +4,13 @@ import { cn } from "@/lib/cn";
  * A placeholder with the shape of what's loading (web/DESIGN.md "States"). Hidden from screen readers; the region
  * around it announces itself.
  */
-export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cn("skeleton rounded-control", className)} />;
+export function Skeleton({ className, tile = false }: { className?: string; tile?: boolean }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("skeleton", tile ? "rounded-tile" : "rounded-control", className)}
+    />
+  );
 }
 
 /** Each text size's line height, and a bar a little shorter than it, so a line of skeleton is exactly as tall. */

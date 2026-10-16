@@ -28,7 +28,7 @@ function fontLoaded(): Promise<unknown> {
   }
   // `document.fonts.ready` can resolve before any text has asked for the preloaded font; loading it by name waits.
   return Promise.race([
-    document.fonts.load("1em Inter").catch(() => undefined),
+    document.fonts.load("1em Plus Jakarta Sans").catch(() => undefined),
     new Promise((resolve) => setTimeout(resolve, 1_000)),
   ]);
 }

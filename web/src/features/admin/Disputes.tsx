@@ -152,7 +152,7 @@ function DisputeRecord({ id }: { id: string }) {
                 <Button variant="primary" onClick={() => setAction("refund")}>
                   Refund
                 </Button>
-                <Button variant="outline" onClick={() => setAction("none")}>
+                <Button variant="secondary" onClick={() => setAction("none")}>
                   No refund
                 </Button>
               </div>

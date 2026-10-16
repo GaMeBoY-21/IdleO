@@ -6,7 +6,7 @@ import { SIGN_IN } from "../paths";
 import { band, column, heading, largeButton, muted, primaryButton, sectionTitle } from "../ui";
 
 /** A row's place on the page, 96 px high whatever it holds, so what arrives never moves anything. */
-const ROW = "flex h-24 flex-col justify-center rounded-panel bg-fill px-5";
+const ROW = "flex h-24 flex-col justify-center rounded-tile bg-fill px-5";
 
 /**
  * The pricing page (ADR 0029). Its figures come from GET /v1/public/availability after the page has painted
@@ -133,7 +133,7 @@ export function Pricing({ context }: { context: SiteContext }) {
               `Of what you pay for a session, the host who ran it keeps ${100 - COMMISSION_PERCENT}% and we keep ${COMMISSION_PERCENT}%. It's inside the price you see, not added on top.`,
             ],
           ].map(([title, text]) => (
-            <div key={title} className="rounded-panel bg-fill p-5">
+            <div key={title} className="rounded-tile bg-fill p-5">
               <dt className="text-option font-semibold">{title}</dt>
               <dd className="mt-1 text-body text-text-muted">{text}</dd>
             </div>

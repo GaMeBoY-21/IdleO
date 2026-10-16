@@ -1,10 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { aboutRuntime, bookHref, offeredServices, serviceOf } from "@/lib/catalog";
 import { data, session } from "@/test/fixtures";
-import { BookAgain } from "./BookAgain";
-import { RunningBar } from "./RunningBar";
-import { ServiceTiles } from "./ServiceTiles";
+import { BookAgainTile, latestSetup } from "./BookAgain";
+import { RunningTile } from "./RunningTile";
+import { MainServiceTile, QuestionTile, WideServiceTile } from "./ServiceTiles";
 
 const catalog = data.templates;
 const templateName = (id: string) => catalog.templates.find((template) => template.id === id)?.name ?? id;
@@ -40,42 +40,58 @@ describe("the catalog", () => {
 });
 
 describe("Home", () => {
-  it("shows a running session as a bar: what it's doing, for how long, its GPU and its cost so far", () => {
-    render(<RunningBar session={session({ chargedPaise: 300, accruedPaise: 42 })} catalog={catalog} />);
-    const bar = screen.getByRole("link");
-    expect(bar).toHaveAttribute("href", `/session/?id=${data.running.id}`);
-    expect(bar).toHaveTextContent(/^Fine-tuning · \d+:\d\d/);
-    expect(bar).toHaveTextContent("RTX 4080 Laptop · ₹3.42 so far");
+  it("shows a running session as the dark tile: what it's doing, its GPU, the time and its cost so far", () => {
+    render(<RunningTile session={session({ chargedPaise: 300, accruedPaise: 42 })} catalog={catalog} />);
+    const tile = screen.getByRole("link");
+    expect(tile).toHaveAttribute("href", `/session/?id=${data.running.id}`);
+    expect(tile).toHaveTextContent("Running now");
+    expect(tile).toHaveTextContent("Fine-tuning on RTX 4080 Laptop");
+    expect(tile).toHaveTextContent(/Running for \d+:\d\d/);
+    expect(tile).toHaveTextContent("₹3.42 so far");
   });
 
   it("says a session that's still finding its GPU costs nothing yet", () => {
-    render(<RunningBar session={data.finding} catalog={catalog} />);
+    render(<RunningTile session={data.finding} catalog={catalog} />);
     expect(screen.getByRole("link")).toHaveTextContent("Finding your GPU");
     expect(screen.getByRole("link")).toHaveTextContent("Nothing is charged until it runs");
   });
 
-  it("shows each service as a tile that opens Book at it", () => {
-    render(<ServiceTiles services={offeredServices(catalog)} laptop={false} />);
-    const tiles = within(screen.getByRole("list", { name: "Services" })).getAllByRole("link");
+  it("shows the first service as the tall lime tile and any other as a wide one, each opening Book at it", () => {
+    const [first, second] = offeredServices(catalog);
+    render(
+      <>
+        <MainServiceTile service={first!} />
+        <WideServiceTile service={second!} />
+      </>,
+    );
+    const tiles = screen.getAllByRole("link");
     expect(tiles.map((tile) => tile.getAttribute("href"))).toEqual([
       "/book/?service=fine-tune",
       "/book/?service=run-code",
     ]);
-    expect(tiles[0]).toHaveTextContent("Fine-tune a modela model on your data");
+    expect(tiles[0]).toHaveTextContent("Fine-tune a modelA model on your data");
   });
 
-  it("offers the last three distinct setups that ended, each with what it cost", () => {
-    render(<BookAgain sessions={data.asha.sessions} templateName={templateName} />);
-    const rows = within(screen.getByRole("region", { name: "Book again" })).getAllByRole("link");
-    expect(rows).toHaveLength(3);
-    expect(rows[0]).toHaveTextContent("Echo an input");
-    expect(rows[0]).toHaveTextContent("₹0.12");
-    expect(rows[0]?.getAttribute("href")).toMatch(/^\/book\/\?template=echo-input&from=/);
-    expect(screen.queryByText("₹3.08")).not.toBeInTheDocument();
+  it("puts the services inside the question when nothing is running, the first as the main button", () => {
+    render(<QuestionTile services={offeredServices(catalog)} />);
+    expect(screen.getByRole("heading", { name: "What do you want to run?" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/book/?service=fine-tune",
+      "/book/?service=run-code",
+    ]);
+  });
+
+  it("offers the last setup that ended, with how long it ran", () => {
+    const setup = latestSetup(data.asha.sessions);
+    expect(setup).toBeDefined();
+    render(<BookAgainTile session={setup!} name={templateName(setup!.templateId)} />);
+    const tile = screen.getByRole("link");
+    expect(tile).toHaveTextContent("Book again");
+    expect(tile).toHaveTextContent("Echo an input · 22 s");
+    expect(tile.getAttribute("href")).toMatch(/^\/book\/\?template=echo-input&from=/);
   });
 
   it("offers nothing to book again to a new renter", () => {
-    const { container } = render(<BookAgain sessions={[]} templateName={templateName} />);
-    expect(container).toBeEmptyDOMElement();
+    expect(latestSetup([])).toBeUndefined();
   });
 });

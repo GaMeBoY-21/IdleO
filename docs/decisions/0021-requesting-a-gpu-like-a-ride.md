@@ -1,6 +1,6 @@
 # 0021. Requesting a GPU like a ride: the look, no GPU or price to choose, the server-set ceiling, and services in the catalog
 
-- **Status:** Accepted
+- **Status:** Accepted. Its look is superseded by ADR 0031 (Bento, Oct 16); its behaviour stays.
 - **Date:** 2026-10-08
 
 Sources:

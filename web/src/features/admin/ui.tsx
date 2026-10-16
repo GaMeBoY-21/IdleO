@@ -37,7 +37,7 @@ export function Section({
   return (
     <section aria-labelledby={id} className="flex flex-col gap-3">
       <div className="flex min-h-touch items-center justify-between gap-3">
-        <h2 id={id} className="text-section font-bold">
+        <h2 id={id} className="text-section">
           {title}
         </h2>
         {action}

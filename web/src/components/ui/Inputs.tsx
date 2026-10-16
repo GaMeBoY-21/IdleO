@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
  * its label and a line kept for its help or error, so a message appearing moves nothing. Native controls carry their
  * own keyboard and screen-reader behaviour, and add no code to the bundle.
  */
-const control = "min-h-14 rounded-control bg-fill px-4 text-body text-text";
+const control = "min-h-14 rounded-control bg-fill px-4 text-body text-text tiled:bg-ground";
 
 function Message({ id, error, hint }: { id: string; error?: string | undefined; hint?: ReactNode }) {
   return (
@@ -102,7 +102,7 @@ export const Switch = forwardRef<
             type="checkbox"
             role="switch"
             aria-describedby={`${id}-message`}
-            className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-fill transition-colors duration-120 checked:border-primary checked:bg-primary"
+            className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-fill tiled:bg-ground transition-colors duration-120 checked:border-primary checked:bg-primary"
             {...props}
           />
           <span
@@ -151,7 +151,7 @@ export function RadioGroup({
         {options.map((option) => (
           <label
             key={option.value}
-            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full border-2 border-transparent bg-fill px-3.5 text-small font-semibold has-checked:border-text has-checked:bg-fill-selected"
+            className="flex min-h-touch cursor-pointer items-center gap-2 rounded-full bg-fill px-3.5 text-small font-semibold tiled:bg-ground has-checked:bg-primary has-checked:text-primary-fg"
           >
             <input
               type="radio"

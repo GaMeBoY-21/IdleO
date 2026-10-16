@@ -70,7 +70,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </h2>
         <ol className="mt-4 grid gap-3 md:grid-cols-3">
           {STEPS.map((step, index) => (
-            <li key={step.title} className="rounded-panel bg-fill p-5">
+            <li key={step.title} className="rounded-tile bg-fill p-5">
               <p className="text-small font-semibold text-text-muted">Step {index + 1}</p>
               <h3 className="mt-1 text-option font-semibold">{step.title}</h3>
               <p className="mt-2 text-body text-text-muted">{step.text}</p>
@@ -85,7 +85,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </h2>
         <ul className="mt-4 grid gap-3 md:grid-cols-2">
           {context.services.map((service) => (
-            <li key={service.id} className="rounded-panel bg-fill p-5">
+            <li key={service.id} className="rounded-tile bg-fill p-5">
               <h3 className="text-option font-semibold">{service.name}</h3>
               <p className="mt-1 text-body text-text-muted">{service.tagline}</p>
               {service.youGet && <p className="mt-3 text-small text-text-muted">You get: {service.youGet}</p>}
@@ -106,7 +106,7 @@ export function Landing({ context }: { context: SiteContext }) {
         </h2>
         <ul className="mt-4 grid gap-3 md:grid-cols-3">
           {PROMISES.map((promise) => (
-            <li key={promise.title} className="rounded-panel bg-fill p-5">
+            <li key={promise.title} className="rounded-tile bg-fill p-5">
               <h3 className="text-option font-semibold">{promise.title}</h3>
               <p className="mt-2 text-body text-text-muted">{promise.text}</p>
             </li>
@@ -115,11 +115,11 @@ export function Landing({ context }: { context: SiteContext }) {
       </section>
 
       <section className={`${column} pb-14 md:pb-20`} aria-labelledby="hosts">
-        <div className="rounded-panel bg-primary p-6 text-primary-fg">
+        <div className="rounded-tile bg-primary p-6 text-primary-fg">
           <h2 id="hosts" className="text-section font-semibold">
             Have an RTX laptop or desktop?
           </h2>
-          <p className="mt-2 text-body text-inverse-muted">
+          <p className="mt-2 text-body text-dark-muted">
             Rent out the hours you aren't using it and keep {100 - COMMISSION_PERCENT}% of what renters pay.{" "}
             <a href={EARN} className="text-primary-fg underline underline-offset-4">
               Earn with your GPU

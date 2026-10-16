@@ -1,7 +1,7 @@
 import { useEarnings, useHosts, type EarningsEntry, type OwnerEarnings } from "@/api/hosting";
 import { Page } from "@/components/shell/AppShell";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";

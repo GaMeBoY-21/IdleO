@@ -5,7 +5,7 @@ import { useApiKeys, useRevokeKey, type ApiKey } from "@/api/keys";
 import { Page } from "@/components/shell/AppShell";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";

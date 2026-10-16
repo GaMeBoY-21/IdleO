@@ -2,32 +2,35 @@
 @import "./design/tokens.gen.css";
 
 /* web/DESIGN.md: one family, tabular figures for numbers, the reading measure, motion that respects
-   prefers-reduced-motion, and a focus ring on every focusable thing. Black and white: the ground is white (near
-   black in the dark theme), surfaces are grey fills, and the brand's indigo is only in the wordmark's ring and the
-   focus ring. */
+   prefers-reduced-motion, and a focus ring on every focusable thing. The Bento look (ADR 0031): the page is a light
+   grey (near black in the dark theme), tiles are white on it, and a few soft colour tiles carry the actions. The
+   brand's indigo is only in the wordmark's ring and the focus ring. */
 
 /* One self-hosted file (web/DESIGN.md "Typography"), preloaded from index.html. `optional`: if it isn't there
-   by the first paint (a slow first visit), the page keeps Arial, scaled to Inter's metrics, rather than swapping
-   fonts under the reader, which would move text; every later page has it from the cache. */
+   by the first paint (a slow first visit), the page keeps Arial, scaled to Plus Jakarta Sans's metrics, rather than
+   swapping fonts under the reader, which would move text; every later page has it from the cache. */
 @font-face {
-  font-family: "Inter";
-  src: url("/fonts/inter-4.1-subset.woff2") format("woff2");
-  font-weight: 400 700;
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-subset.woff2") format("woff2");
+  font-weight: 400 800;
   font-style: normal;
   font-display: optional;
 }
 
 @font-face {
-  font-family: "Inter Fallback";
+  font-family: "Plus Jakarta Sans Fallback";
   src: local("Arial");
-  size-adjust: 107.12%;
-  ascent-override: 90.44%;
-  descent-override: 22.52%;
+  size-adjust: 106.05%;
+  ascent-override: 97.88%;
+  descent-override: 20.93%;
   line-gap-override: 0%;
 }
 
+/* Inside a tile (components/ui/Tile.tsx marks it with data-tile), a filled thing is pressed in with the page's colour. */
+@custom-variant tiled (&:where([data-tile] *));
+
 @theme {
-  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -51,27 +54,63 @@
   }
 }
 
-/* The bottom tab bar is 72 px plus the phone's home-indicator inset; content clears it with room to spare. */
+/* The floating tab bar is 64 px, 14 px above the phone's home-indicator inset; content clears it with room to
+   spare. */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* The floating tab bar is 14 px above the bottom edge, and the phone's home-indicator inset. */
+@utility bottom-tab {
+  bottom: calc(var(--spacing-3\.5) + env(safe-area-inset-bottom));
+}
+
 /* The phone's action bar sits on the tab bar (web/DESIGN.md "The phone action bar"). */
 @utility bottom-clear-tabs {
-  bottom: calc(var(--spacing-18) + env(safe-area-inset-bottom));
+  bottom: calc(var(--spacing-18) + var(--spacing-6) + env(safe-area-inset-bottom));
 }
 
 @utility pb-clear-nav {
-  padding-bottom: calc(var(--spacing-18) + var(--spacing-6) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--spacing-18) + var(--spacing-8) + env(safe-area-inset-bottom));
 }
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
 
+/* The phone's tile grid: rows of 88 px (web/DESIGN.md "Tiles"). */
+@utility auto-rows-tile {
+  grid-auto-rows: var(--spacing-tile-row);
+}
+
+@utility auto-rows-tile-lg {
+  grid-auto-rows: var(--spacing-tile-row-lg);
+}
+
+/* A tile that is a link or a button lifts a little on hover (a laptop) and presses in on tap (a phone), in 120 ms.
+   Nothing else moves, and nothing under reduced motion. */
+@utility tile-motion {
+  transition: transform var(--default-transition-duration) var(--ease-enter);
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-2px);
+    }
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:hover,
+    &:active {
+      transform: none;
+    }
+  }
+}
+
+/* A placeholder is bone-coloured: it shows on the page and on a tile alike. */
 @utility skeleton {
-  background: var(--fill);
-  background-image: linear-gradient(90deg, transparent, var(--ground), transparent);
+  background: var(--bone);
+  background-image: linear-gradient(90deg, transparent, var(--bone-shine), transparent);
   background-size: 200% 100%;
   animation: idleo-shimmer 1.4s linear infinite;
 }

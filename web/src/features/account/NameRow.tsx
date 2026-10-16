@@ -51,7 +51,7 @@ export function NameRow({ name }: { name: string }) {
           </p>
         </div>
         <Button
-          variant="pill"
+          variant="secondary"
           aria-label="Edit your name"
           onClick={() => {
             setDraft(name);

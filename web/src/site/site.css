@@ -7,24 +7,24 @@
 
 /* The same font file as the app (web/DESIGN.md "Typography"), preloaded from each page; never swapped in late. */
 @font-face {
-  font-family: "Inter";
-  src: url("/fonts/inter-4.1-subset.woff2") format("woff2");
-  font-weight: 400 700;
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-subset.woff2") format("woff2");
+  font-weight: 400 800;
   font-style: normal;
   font-display: optional;
 }
 
 @font-face {
-  font-family: "Inter Fallback";
+  font-family: "Plus Jakarta Sans Fallback";
   src: local("Arial");
-  size-adjust: 107.12%;
-  ascent-override: 90.44%;
-  descent-override: 22.52%;
+  size-adjust: 106.05%;
+  ascent-override: 97.88%;
+  descent-override: 20.93%;
   line-gap-override: 0%;
 }
 
 @theme {
-  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -116,10 +116,10 @@
     @apply rounded-full bg-fill px-1.5 font-mono text-small;
   }
   .docs pre {
-    @apply overflow-x-auto rounded-control bg-log-ground p-4 text-log-text;
+    @apply overflow-x-auto rounded-control bg-dark p-4 text-dark-fg;
   }
   .docs pre code {
-    @apply bg-transparent p-0 text-small text-log-text;
+    @apply bg-transparent p-0 text-small text-dark-fg;
   }
   .docs .table-scroll {
     @apply overflow-x-auto;

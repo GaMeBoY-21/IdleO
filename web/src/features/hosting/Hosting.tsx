@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useEarnings, useHosts } from "@/api/hosting";
 import { Page } from "@/components/shell/AppShell";
 import { buttonClasses } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
@@ -113,7 +113,7 @@ export function Hosting() {
 
 function AddLink() {
   return (
-    <Link href="/hosting/add/" className={buttonClasses("outline", true, true)}>
+    <Link href="/hosting/add/" className={buttonClasses("secondary", true, true)}>
       <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
       Add a machine
     </Link>

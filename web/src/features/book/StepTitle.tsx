@@ -22,7 +22,7 @@ export function StepTitle({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <h2 id={id} className={cn(laptop ? "text-section font-bold" : "text-option font-semibold")}>
+      <h2 id={id} className={cn(laptop ? "text-section" : "text-option font-semibold")}>
         {number !== null && <span className="tabular">{number}. </span>}
         {children}
         {optional && <span className="font-medium text-text-muted"> (optional)</span>}

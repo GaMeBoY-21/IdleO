@@ -37,7 +37,7 @@ export function Step({
           {state === "done" ? <Check className="size-4.5" strokeWidth={2.5} /> : number}
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className={cn("text-section font-bold", state === "later" && "text-text-muted")}>
+          <h2 className={cn("text-section", state === "later" && "text-text-muted")}>
             <span className="sr-only">Step {number}: </span>
             {title}
           </h2>

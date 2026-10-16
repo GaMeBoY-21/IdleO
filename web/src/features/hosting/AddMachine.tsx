@@ -87,7 +87,7 @@ export function AddMachine() {
           <div
             role="status"
             aria-label="Loading this machine"
-            className="skeleton h-40 w-full rounded-panel"
+            className="skeleton h-40 w-full rounded-tile"
           />
         )}
       </HostFlow>
@@ -190,7 +190,7 @@ export function AddMachine() {
           </Link>
         </div>
       )}
-      <ul className="flex flex-col gap-2 rounded-panel bg-fill p-4 text-small text-text-muted md:p-6">
+      <ul className="flex flex-col gap-2 rounded-tile bg-fill p-4 text-small text-text-muted md:p-6">
         <li>Renter work runs in a locked box. It can&apos;t see your files or your home network.</li>
         <li>Take your machine back any time from the tray icon. A session stops safely within 2 minutes.</li>
         <li>Keep it plugged in. If your laptop has a battery charge limit, turn it on.</li>

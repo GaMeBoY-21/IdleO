@@ -2,7 +2,7 @@ import { Check, Download } from "lucide-react";
 import type { MouseEvent } from "react";
 import { useOutputs, type Session } from "@/api/queries";
 import { buttonClasses } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/Tile";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";

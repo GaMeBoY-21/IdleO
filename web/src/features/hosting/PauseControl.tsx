@@ -52,7 +52,7 @@ export function PauseControl({ host }: { host: Host }) {
             <Button
               large
               block
-              variant="outline"
+              variant="secondary"
               busy={pause.isPending}
               onClick={() =>
                 pause.mutate(picked.until, {
@@ -77,7 +77,7 @@ export function PauseControl({ host }: { host: Host }) {
         </>
       ) : (
         <>
-          <Button large block variant="outline" onClick={() => setChoosing(true)}>
+          <Button large block variant="secondary" onClick={() => setChoosing(true)}>
             Pause hosting
           </Button>
           <p className="text-center text-small text-text-muted">

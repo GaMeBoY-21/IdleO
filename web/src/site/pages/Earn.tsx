@@ -65,7 +65,7 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
         </p>
         <ul className="mt-4 grid gap-3 md:grid-cols-2">
           {SAFETY.map((item) => (
-            <li key={item.title} className="rounded-panel bg-fill p-5">
+            <li key={item.title} className="rounded-tile bg-fill p-5">
               <h3 className="text-option font-semibold">{item.title}</h3>
               <p className="mt-2 text-body text-text-muted">{item.text}</p>
             </li>
@@ -158,7 +158,7 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
               </select>
             </label>
           </div>
-          <div className="rounded-panel bg-fill p-5" role="group" aria-label="Estimated earnings">
+          <div className="rounded-tile bg-fill p-5" role="group" aria-label="Estimated earnings">
             <div aria-live="polite" className="grid gap-4" data-role="result">
               <div>
                 <p className="text-small text-text-muted">You keep, a day</p>

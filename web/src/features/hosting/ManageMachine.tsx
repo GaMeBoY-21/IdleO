@@ -87,7 +87,7 @@ export function ManageMachine({ host }: { host: Host }) {
             </Button>
           </form>
           <div className="flex flex-col gap-2 border-t border-divider pt-4">
-            <Button variant="outline" block onClick={() => setAsking(true)}>
+            <Button variant="secondary" block onClick={() => setAsking(true)}>
               Remove this machine
             </Button>
           </div>

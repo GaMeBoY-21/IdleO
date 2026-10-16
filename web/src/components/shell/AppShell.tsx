@@ -1,19 +1,24 @@
 import { ChevronLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
-import { Wordmark } from "@/brand/Wordmark";
+import { brand } from "@/brand/brand";
 import { cn } from "@/lib/cn";
-import { CreditChip } from "./CreditChip";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
-import { isCurrent, isFlow, laptopDestinations, phoneTabs } from "./nav";
+import { destinations, isCurrent, isFlow } from "./nav";
 import { UserMenuButton } from "./UserMenuButton";
 
+/** The name as the header's wordmark: lowercase, heavy and tight, as in the reference (docs/design/bento/). */
+function Name() {
+  return <span className="text-figure">{brand.name.toLowerCase()}</span>;
+}
+
 /**
- * The frame around every signed-in screen (web/DESIGN.md "Navigation"). From 768 px: one 64 px top bar with the
- * wordmark, pill navigation, the credit pill and the account button. Below that: a top bar with the wordmark, credit
- * and account, and bottom tabs; Book and the session screen are flows there, full screen with their own back
- * button. The frame never changes between pages, so switching pages swaps only the content.
+ * The frame around every signed-in screen (web/DESIGN.md "Navigation"). On a phone: a header with the wordmark, the
+ * bell and the account button, and a floating white tab bar (Home, Book, Hosting, Credit); Book and the session
+ * screen are flows there, full screen with their own back button. From 768 px: one top bar with the wordmark, the
+ * same four as white pill tabs on the page colour, the bell and the account button. The frame never changes between
+ * pages, so switching pages swaps only the content.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [pathname] = useLocation();
@@ -22,37 +27,33 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col">
       <a
         href="#main"
-        className="sr-only z-30 rounded-control bg-ground px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        className="sr-only z-30 rounded-full bg-fill px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
-      <header
-        className={cn(
-          "sticky top-0 z-10 bg-ground md:border-b md:border-divider",
-          flow ? "hidden md:block" : "block",
-        )}
-      >
-        <div className="flex h-15 items-center gap-8 px-4 md:h-16 md:px-8">
-          <Link href="/" className="flex min-h-touch items-center" aria-label="IdleO home">
-            <Wordmark className="h-6 w-auto" />
+      <header className={cn("sticky top-0 z-10 bg-ground", flow ? "hidden md:block" : "block")}>
+        <div className="mx-auto flex h-16 max-w-content items-center gap-8 px-4.5 md:px-6">
+          <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
+            <Name />
           </Link>
           <nav aria-label="Main" className="hidden flex-1 items-center gap-2 md:flex">
-            {laptopDestinations.map(({ href, label }) => (
+            {destinations.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
                 aria-current={isCurrent(pathname, href) ? "page" : undefined}
                 className={cn(
-                  "flex min-h-touch items-center rounded-full px-3.5 text-small font-semibold",
-                  isCurrent(pathname, href) ? "bg-primary text-primary-fg" : "text-text hover:bg-fill",
+                  "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors",
+                  isCurrent(pathname, href)
+                    ? "bg-primary text-primary-fg"
+                    : "bg-fill text-text hover:bg-fill-selected",
                 )}
               >
                 {label}
               </Link>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2 md:ml-0">
-            <CreditChip />
+          <div className="ml-auto flex items-center gap-1 md:ml-0">
             <NotificationBell />
             <UserMenuButton />
           </div>
@@ -65,24 +66,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav
         aria-label="Main"
         className={cn(
-          "fixed inset-x-0 bottom-0 z-10 border-t border-divider bg-ground pb-safe md:hidden",
+          "fixed inset-x-3.5 bottom-tab z-10 h-16 rounded-bar bg-fill shadow-bar md:hidden",
           flow && "hidden",
         )}
       >
-        <ul className="grid grid-cols-4">
-          {phoneTabs.map(({ href, label, icon: Icon }) => {
+        <ul className="grid h-full grid-cols-4">
+          {destinations.map(({ href, label }) => {
             const current = isCurrent(pathname, href);
             return (
-              <li key={href}>
+              <li key={href} className="flex">
                 <Link
                   href={href}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "flex min-h-18 flex-col items-center justify-center gap-1 text-caption",
-                    current ? "font-semibold text-text" : "font-medium text-text-muted",
+                    "flex flex-1 items-center justify-center rounded-bar text-caption font-semibold",
+                    current ? "text-text" : "text-text-muted",
                   )}
                 >
-                  <Icon aria-hidden="true" className="size-5.5" strokeWidth={current ? 2 : 1.75} />
                   {label}
                 </Link>
               </li>
@@ -98,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 export function ShellSkeleton({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col" aria-busy="true">
-      <div className="h-15 bg-ground md:h-16 md:border-b md:border-divider" />
+      <div className="h-16 bg-ground" />
       <div className="flex w-full flex-1 flex-col">{children}</div>
     </div>
   );
@@ -110,7 +110,7 @@ export function ShellSkeleton({ children }: { children?: ReactNode }) {
  */
 export function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mx-auto flex w-full max-w-card flex-col gap-7 px-4 pt-2 pb-8 md:px-6 md:pt-10">
+    <div className="mx-auto flex w-full max-w-card flex-col gap-6 px-3.5 pt-2 pb-8 md:px-6 md:pt-6">
       <h1 className="text-title xl:text-question">{title}</h1>
       {children}
     </div>
@@ -120,11 +120,11 @@ export function Page({ title, children }: { title: string; children: ReactNode }
 /** A flow's back button on a phone (Book, the session screen), where the bars give way to the flow. */
 export function FlowHeader({ back, title }: { back: string; title?: string }) {
   return (
-    <div className="flex h-15 items-center gap-2 px-2 md:hidden">
+    <div className="flex h-16 items-center gap-3 px-3.5 md:hidden">
       <Link
         href={back}
         aria-label="Back"
-        className="flex size-touch items-center justify-center rounded-full"
+        className="flex size-touch items-center justify-center rounded-full bg-fill"
       >
         <ChevronLeft aria-hidden="true" className="size-5.5" strokeWidth={2} />
       </Link>

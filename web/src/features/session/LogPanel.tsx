@@ -13,7 +13,7 @@ const ROW_PX = 18;
 
 /** A button on the dark log panel: outlined, with a focus ring that shows on the dark ground. */
 export const logButton =
-  "min-h-touch rounded-full border border-log-muted bg-transparent px-3.5 text-small font-medium text-log-text hover:bg-log-muted/20 focus-visible:outline-log-text";
+  "min-h-touch rounded-full border border-divider bg-transparent px-3.5 text-small font-medium text-text hover:bg-divider focus-visible:outline-focus";
 
 /**
  * A session's log lines in the dark panel (docs/design/redesign/live-laptop.html): the newest 2,000 at most, in the
@@ -100,7 +100,7 @@ export function LogPanel({
     <>
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">{title}</div>
-        <p className="text-caption text-log-muted" aria-live="polite">
+        <p className="text-caption text-text-muted" aria-live="polite">
           {copied
             ? `Copied ${shown.length.toLocaleString("en-IN")} lines`
             : following && live
@@ -138,7 +138,7 @@ export function LogPanel({
               setAtBottom(bottom);
             }
           }}
-          className="absolute inset-0 overflow-auto font-mono text-caption focus-visible:outline-log-text"
+          className="absolute inset-0 overflow-auto font-mono text-caption focus-visible:outline-focus"
           data-testid="log-panel"
         >
           {start > 0 && (
@@ -232,8 +232,8 @@ export function blocks(lines: LogLine[], start: number, drawn: Map<string, LogBl
 const Block = memo(function Block({ block }: { block: LogBlock }) {
   if (block.kind === "attempt") {
     return (
-      <div className="flex h-4.5 items-center gap-2 border-t border-log-muted font-sans text-log-muted">
-        <span className="-mt-px bg-log-ground pr-2 text-caption">
+      <div className="flex h-4.5 items-center gap-2 border-t border-divider font-sans text-text-muted">
+        <span className="-mt-px bg-fill pr-2 text-caption">
           Attempt {block.attempt}: moved to another host
         </span>
       </div>
@@ -244,7 +244,7 @@ const Block = memo(function Block({ block }: { block: LogBlock }) {
   // whenever the window moved or the panel scrolled to the end held a tap back 195 ms on a CPU slowed 40 times.
   return (
     <div
-      className="min-h-4.5 whitespace-pre text-log-text"
+      className="min-h-4.5 whitespace-pre text-text"
       style={{ contentVisibility: "auto", containIntrinsicSize: `auto ${block.count * ROW_PX}px` }}
       data-lines={block.count}
     >

@@ -36,7 +36,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
     }
   }, [read, settled, painted]);
 
-  const title = <h2 className="text-body font-semibold text-log-text">Logs</h2>;
+  const title = <h2 className="text-body font-semibold text-text">Logs</h2>;
   const total = log.data ? lineTotal(log.data) : 0;
   const body = log.data ? (
     total === 0 ? (
@@ -50,7 +50,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
     )
   ) : failed ? (
     <div className="flex flex-col items-start gap-3">
-      <p className="text-small text-log-text">{problemMessage(failed)}</p>
+      <p className="text-small text-text">{problemMessage(failed)}</p>
       <button type="button" className={logButton} onClick={() => void read()}>
         Try again
       </button>
@@ -58,7 +58,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
   ) : (
     <div role="status" aria-label="Loading the logs" className="flex flex-col gap-3">
       {["w-2/3", "w-1/2", "w-3/4"].map((width) => (
-        <span key={width} aria-hidden="true" className={cn("h-3 rounded-full bg-log-muted/20", width)} />
+        <span key={width} aria-hidden="true" className={cn("h-3 rounded-full bg-divider", width)} />
       ))}
     </div>
   );
@@ -66,7 +66,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
     <section
       aria-label="Logs"
       className={cn(
-        "flex flex-col gap-4 rounded-panel bg-log-ground text-log-text",
+        "flex flex-col gap-4 rounded-tile bg-fill text-text",
         laptop ? "min-h-0 flex-1 px-7 py-6" : "p-4",
       )}
     >
@@ -112,5 +112,5 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
 }
 
 function Quiet({ children }: { children: string }) {
-  return <p className="text-small text-log-muted">{children}</p>;
+  return <p className="text-small text-text-muted">{children}</p>;
 }

@@ -14,9 +14,9 @@ export function LogsLater({ id, settled, laptop }: { id: string; settled: boolea
   const placeholder = laptop ? (
     <section
       aria-label="Logs"
-      className="flex min-h-0 flex-1 flex-col gap-4 rounded-panel bg-log-ground px-7 py-6 text-log-text"
+      className="flex min-h-0 flex-1 flex-col gap-4 rounded-tile bg-fill px-7 py-6 text-text"
     >
-      <h2 className="text-body font-semibold text-log-text">Logs</h2>
+      <h2 className="text-body font-semibold text-text">Logs</h2>
     </section>
   ) : (
     <div className="flex min-h-14 items-center gap-3 border-b border-divider py-3.5 text-body">

@@ -80,7 +80,7 @@ function document(page: PageDef, body: string): string {
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F7F9" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F0F14" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="preload" href="/fonts/inter-4.1-subset.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plus-jakarta-sans-subset.woff2" as="font" type="font/woff2" crossorigin />
     <script>${themeBoot}</script>
     <link rel="stylesheet" href="/${stylesheet}" />
 ${preloads.map((file) => `    <link rel="modulepreload" href="/${file}" />`).join("\n")}

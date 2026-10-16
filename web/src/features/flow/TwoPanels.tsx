@@ -48,8 +48,8 @@ export function TwoPanels({
               <div
                 className={
                   wide
-                    ? "sticky top-24 flex h-fit w-full max-w-request flex-col gap-5 rounded-panel bg-ground p-7"
-                    : "sticky top-24 flex h-fit w-full max-w-card flex-col gap-8 rounded-panel bg-ground p-10"
+                    ? "sticky top-24 flex h-fit w-full max-w-request flex-col gap-5 rounded-tile bg-ground p-7"
+                    : "sticky top-24 flex h-fit w-full max-w-card flex-col gap-8 rounded-tile bg-ground p-10"
                 }
               >
                 {right}

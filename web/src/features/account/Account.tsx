@@ -3,7 +3,7 @@ import { useMe } from "@/api/queries";
 import { signOut } from "@/auth";
 import { Page } from "@/components/shell/AppShell";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/Tile";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { useAfterPaint } from "@/lib/after-first-screen";

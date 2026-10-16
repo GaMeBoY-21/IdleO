@@ -2,27 +2,27 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Buttons (web/DESIGN.md principle 1): one primary per screen, black (white in the dark theme), then the rest.
+ * Buttons (web/DESIGN.md "Buttons"): fully round, and one primary per screen: the dark tile's colour (light in the
+ * dark theme).
  * - `primary`: the screen's one next step;
- * - `outline`: a weighty second choice, like "Stop session" or "Cancel request" (a 2 px border);
- * - `secondary`: a grey fill, for everyday actions;
- * - `pill`: a grey pill, for small options beside something;
+ * - `secondary`: a white tile, for everyday actions and a weighty second choice like "Stop session"; inside a tile
+ *   it is pressed in with the page's colour;
+ * - `live`: lime, the one button that sits inside the dark tile ("Request a GPU");
  * - `quiet`: a bold text action, like "Change";
  * - `danger`: confirming something destructive, in the one dialog.
  * `large` is the 56 px button at the foot of a flow (60 px on a laptop). Every button is at least 44 px tall. A link
  * that looks like a button uses buttonClasses(). A pressed button that's waiting shows a small spinner inside it.
  */
-export type ButtonVariant = "primary" | "outline" | "secondary" | "pill" | "quiet" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "live" | "quiet" | "danger";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "rounded-control bg-primary text-primary-fg hover:bg-primary-hover",
-  outline: "rounded-control border-2 border-text bg-ground text-text hover:bg-fill",
-  secondary: "rounded-control bg-fill text-text hover:bg-fill-selected",
-  pill: "rounded-full bg-fill text-text hover:bg-fill-selected",
-  quiet: "rounded-control text-text underline-offset-4 hover:underline",
+  primary: "rounded-full bg-primary text-primary-fg hover:bg-primary-hover",
+  secondary: "rounded-full bg-fill text-text hover:bg-fill-selected tiled:bg-ground tiled:hover:bg-divider",
+  live: "rounded-full bg-live text-on-colour hover:brightness-95",
+  quiet: "rounded-full text-text underline-offset-4 hover:underline",
   // Hovering adds a ring outside the button rather than fading it, so its text keeps its contrast.
   danger:
-    "rounded-control bg-danger text-danger-fg hover:ring-2 hover:ring-danger hover:ring-offset-2 hover:ring-offset-ground",
+    "rounded-full bg-danger text-danger-fg hover:ring-2 hover:ring-danger hover:ring-offset-2 hover:ring-offset-fill",
 };
 
 export function buttonClasses(variant: ButtonVariant = "primary", block = false, large = false) {

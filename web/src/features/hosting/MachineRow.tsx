@@ -26,7 +26,7 @@ export function MachineRow({ host }: { host: Host }) {
         className={cn(
           "size-3 shrink-0 rounded-full",
           running
-            ? "bg-inverse-running ring-4 ring-inverse-running/25 motion-safe:animate-pulse"
+            ? "bg-live ring-4 ring-live/25 motion-safe:animate-pulse"
             : state.active
               ? "bg-running"
               : "bg-control",
@@ -34,7 +34,7 @@ export function MachineRow({ host }: { host: Host }) {
       />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-body font-semibold break-words">{host.name}</span>
-        <span className={cn("text-caption tabular", running ? "text-inverse-muted" : "text-text-muted")}>
+        <span className={cn("text-caption tabular", running ? "text-dark-muted" : "text-text-muted")}>
           {state.detail}
         </span>
       </span>

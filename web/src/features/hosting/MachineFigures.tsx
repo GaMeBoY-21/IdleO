@@ -19,7 +19,7 @@ export function GpuLine({ host }: { host: Host }) {
   const peak = Math.max(0, ...hour.flatMap((point) => point.gpus.map((r) => r.tempC)));
   return (
     <section aria-label="Your GPU" className="flex min-h-18 flex-col gap-1">
-      <p className="text-section font-bold">
+      <p className="text-section">
         {gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "No GPU reported yet"}
       </p>
       {!host.online ? (
@@ -82,7 +82,7 @@ export function RatingLine({ host }: { host: Host }) {
 export function RightNow({ host }: { host: Host }) {
   const session = host.currentSession;
   return (
-    <section aria-labelledby="right-now" className="flex flex-col gap-2 rounded-panel bg-fill p-4 md:p-6">
+    <section aria-labelledby="right-now" className="flex flex-col gap-2 rounded-tile bg-fill p-4 md:p-6">
       <h2 id="right-now" className="text-small font-semibold text-text-muted">
         Right now
       </h2>

@@ -30,7 +30,7 @@ export function WeekBars({ days }: { days: Day[] }) {
               aria-hidden="true"
               className={cn(
                 "w-full rounded-control",
-                day.earnedPaise > 0 ? (today ? "bg-primary" : "bg-inverse-muted") : "bg-divider",
+                day.earnedPaise > 0 ? (today ? "bg-primary" : "bg-dark-muted") : "bg-divider",
               )}
               style={{ height: percent === 0 ? undefined : `${percent}%`, minHeight: "0.25rem" }}
             />

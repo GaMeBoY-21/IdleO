@@ -63,7 +63,7 @@ export function CreateKey() {
 
   if (made) {
     return (
-      <section aria-label="Your new key" className="flex flex-col gap-3 rounded-panel bg-fill p-5">
+      <section aria-label="Your new key" className="flex flex-col gap-3 rounded-tile bg-fill p-5">
         <p className="text-option font-semibold">Made &ldquo;{made.name}&rdquo;</p>
         <Banner tone="warning">Copy it now. You won&apos;t see it again.</Banner>
         <p
@@ -97,7 +97,7 @@ export function CreateKey() {
     <form
       noValidate
       aria-label="Create a key"
-      className="flex flex-col gap-2 rounded-panel bg-fill p-5"
+      className="flex flex-col gap-2 rounded-tile bg-fill p-5"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();

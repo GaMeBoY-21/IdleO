@@ -50,7 +50,7 @@ export function StopAction({ session, laptop }: { session: Session; laptop: bool
           : "Saves a checkpoint first. Nothing more is charged."
       }
     >
-      <Button variant="outline" large block onClick={() => setAsking(true)}>
+      <Button variant="secondary" large block onClick={() => setAsking(true)}>
         Stop session
       </Button>
       {asking && (
@@ -81,7 +81,7 @@ export function CancelAction({ session, laptop }: { session: Session; laptop: bo
   return (
     <ActionFoot laptop={laptop} note={null}>
       {cancel.isError && failed(cancel.error)}
-      <Button variant="outline" large block busy={cancel.isPending} onClick={() => cancel.mutate()}>
+      <Button variant="secondary" large block busy={cancel.isPending} onClick={() => cancel.mutate()}>
         Cancel request
       </Button>
     </ActionFoot>

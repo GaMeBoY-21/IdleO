@@ -7,23 +7,34 @@
 import { ring } from "../brand/brand.ts";
 
 /**
- * Black and white (Oct 8): grey fills and white space, not bordered boxes. The brand's indigo is only in the
- * wordmark's ring and the focus ring.
+ * The Bento look (Oct 16, ADR 0031): a light page, white tiles on it, and a few soft colour tiles. `ground` is the
+ * page, and also what a field inside a tile is filled with, so it looks pressed in; `fill` is a tile. The dark tile
+ * and the colour tiles keep their own text colours in both themes. The brand's indigo is only in the wordmark's ring
+ * and the focus ring.
  */
 export const themes = {
   light: {
-    ground: "#FFFFFF",
-    fill: "#F3F3F3",
-    "fill-selected": "#F6F6F6",
-    divider: "#EBEBEB",
-    control: "#767676",
-    text: "#000000",
-    "text-muted": "#5E5E5E",
-    primary: "#000000",
-    "primary-hover": "#2B2B2B",
+    ground: "#EFEFF2",
+    fill: "#FFFFFF",
+    "fill-selected": "#F6F6F9",
+    divider: "#E4E4EA",
+    control: "#767683",
+    text: "#16161A",
+    "text-muted": "#5C5C66",
+    primary: "#16161A",
+    "primary-hover": "#2E2E36",
     "primary-fg": "#FFFFFF",
-    "inverse-muted": "#BDBDBD",
-    "inverse-running": "#4CC38A",
+    dark: "#16161A",
+    "dark-fg": "#FFFFFF",
+    "dark-muted": "#B8B8C4",
+    live: "#C9F27B",
+    lime: "#C9F27B",
+    "lime-fg": "#2E3A12",
+    lavender: "#D8D3FF",
+    "lavender-fg": "#3B347A",
+    apricot: "#FFB86B",
+    "apricot-fg": "#5A3410",
+    "on-colour": "#16161A",
     running: "#0B6B37",
     "running-soft": "#E3F4EA",
     warning: "#8A5300",
@@ -31,34 +42,41 @@ export const themes = {
     danger: "#C0262D",
     "danger-soft": "#FDECEC",
     "danger-fg": "#FFFFFF",
-    "log-ground": "#111111",
-    "log-text": "#D6D6D6",
-    "log-muted": "#A8A8A8",
+    bone: "#E3E3E9",
+    "bone-shine": "#F4F4F7",
     ...ring.light,
   },
   dark: {
-    ground: "#0B0B0B",
-    fill: "#1A1A1A",
-    "fill-selected": "#222222",
-    divider: "#2A2A2A",
-    control: "#8A8A8A",
-    text: "#FFFFFF",
-    "text-muted": "#A6A6A6",
-    primary: "#FFFFFF",
-    "primary-hover": "#E0E0E0",
-    "primary-fg": "#000000",
-    "inverse-muted": "#4A4A4A",
-    "inverse-running": "#0B6B37",
+    ground: "#0E0E11",
+    fill: "#1A1A1F",
+    "fill-selected": "#222228",
+    divider: "#2A2A31",
+    control: "#8A8A96",
+    text: "#F2F2F5",
+    "text-muted": "#A3A3AE",
+    primary: "#F2F2F5",
+    "primary-hover": "#DADAE0",
+    "primary-fg": "#16161A",
+    dark: "#26262D",
+    "dark-fg": "#FFFFFF",
+    "dark-muted": "#B8B8C4",
+    live: "#C9F27B",
+    lime: "#C9F27B",
+    "lime-fg": "#2E3A12",
+    lavender: "#D8D3FF",
+    "lavender-fg": "#3B347A",
+    apricot: "#FFB86B",
+    "apricot-fg": "#5A3410",
+    "on-colour": "#16161A",
     running: "#4CC38A",
     "running-soft": "#10291D",
     warning: "#F0B44C",
     "warning-soft": "#2E220B",
     danger: "#FF6B6B",
     "danger-soft": "#331414",
-    "danger-fg": "#000000",
-    "log-ground": "#161616",
-    "log-text": "#D6D6D6",
-    "log-muted": "#A8A8A8",
+    "danger-fg": "#16161A",
+    bone: "#26262D",
+    "bone-shine": "#30303A",
     ...ring.dark,
   },
 } as const;
@@ -75,17 +93,25 @@ export const contrastPairs: ReadonlyArray<{ fg: ColourToken; bg: ColourToken; mi
   { fg: "text-muted", bg: "fill-selected", min: 4.5 },
   { fg: "primary-fg", bg: "primary", min: 4.5 },
   { fg: "primary-fg", bg: "primary-hover", min: 4.5 },
-  { fg: "inverse-muted", bg: "primary", min: 4.5 },
-  { fg: "inverse-running", bg: "primary", min: 3 },
+  { fg: "dark-fg", bg: "dark", min: 4.5 },
+  { fg: "dark-muted", bg: "dark", min: 4.5 },
+  { fg: "live", bg: "dark", min: 4.5 },
+  { fg: "on-colour", bg: "lime", min: 4.5 },
+  { fg: "lime-fg", bg: "lime", min: 4.5 },
+  { fg: "on-colour", bg: "lavender", min: 4.5 },
+  { fg: "lavender-fg", bg: "lavender", min: 4.5 },
+  { fg: "on-colour", bg: "apricot", min: 4.5 },
+  { fg: "apricot-fg", bg: "apricot", min: 4.5 },
   { fg: "running", bg: "running-soft", min: 4.5 },
+  { fg: "running", bg: "fill", min: 4.5 },
   { fg: "running", bg: "ground", min: 4.5 },
   { fg: "warning", bg: "warning-soft", min: 4.5 },
+  { fg: "warning", bg: "fill", min: 4.5 },
   { fg: "warning", bg: "ground", min: 4.5 },
   { fg: "danger", bg: "danger-soft", min: 4.5 },
+  { fg: "danger", bg: "fill", min: 4.5 },
   { fg: "danger", bg: "ground", min: 4.5 },
   { fg: "danger-fg", bg: "danger", min: 4.5 },
-  { fg: "log-text", bg: "log-ground", min: 4.5 },
-  { fg: "log-muted", bg: "log-ground", min: 4.5 },
   { fg: "control", bg: "ground", min: 3 },
   { fg: "control", bg: "fill", min: 3 },
   { fg: "focus", bg: "ground", min: 3 },
@@ -93,23 +119,32 @@ export const contrastPairs: ReadonlyArray<{ fg: ColourToken; bg: ColourToken; mi
   { fg: "brand", bg: "ground", min: 3 },
 ];
 
-/** The type scale: [size, line height] in px. Sizes of 28 and up are bold and tightly spaced (tightFrom). */
+/**
+ * The type scale: [size, line height] in px. From `headingFrom` up, type is weight 800 and tightly spaced
+ * (`headingStyle`): the tile titles, the figures and the page's question.
+ */
 export const typeScale = {
   caption: [13, 18],
   small: [14, 20],
   body: [16, 24],
   option: [17, 24],
   section: [20, 26],
+  figure: [24, 28],
+  headline: [26, 28],
   title: [28, 34],
   question: [40, 44],
-  timer: [56, 56],
+  timer: [54, 54],
   "timer-xl": [72, 72],
 } as const;
 
-/** From this size up, type is weight 700 at -0.03em. */
-export const tightFrom = 28;
+/** From this size up, type is weight 800 with tight letter-spacing. */
+export const headingFrom = 20;
 
-export const fontWeights = { regular: 400, medium: 500, semibold: 600, bold: 700 } as const;
+export function headingStyle(size: number): { weight: 800; letterSpacing: string } {
+  return { weight: 800, letterSpacing: size >= 54 ? "-0.04em" : size >= 28 ? "-0.03em" : "-0.02em" };
+}
+
+export const fontWeights = { regular: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800 } as const;
 
 /**
  * The 4 px scale, by Tailwind step, with 2 px between a title and its line and 14 px for option padding; the
@@ -122,6 +157,7 @@ export const spacing = {
   "1": 4,
   "1.5": 6,
   "2": 8,
+  "2.5": 10,
   "3": 12,
   "3.5": 14,
   "4": 16,
@@ -131,6 +167,7 @@ export const spacing = {
   "6": 24,
   "6.5": 26,
   "7": 28,
+  "7.5": 30,
   "8": 32,
   "8.5": 34,
   "9": 36,
@@ -143,6 +180,10 @@ export const spacing = {
   "18": 72,
   "24": 96,
   touch: 44,
+  /** A row of the phone's tile grid (a small tile is one row, a tall one two). */
+  "tile-row": 88,
+  /** A row of the laptop's tile grid. */
+  "tile-row-lg": 112,
   /** The log panel's least height on the session screen: about 21 lines. */
   panel: 384,
   /** "Finding your GPU": the ring, and the grey disc around it. */
@@ -150,8 +191,11 @@ export const spacing = {
   finding: 168,
 } as const;
 
-/** 14 px for controls and options, 24 px for panels, 20 px for the top of a bottom sheet, round for pills. */
-export const radii = { control: 14, icon: 12, sheet: 20, panel: 24, full: 9999 } as const;
+/**
+ * Tiles are 26 px, inputs and rows inside a tile 16, the floating tab bar 22; buttons, chips and the avatar are
+ * round. A bottom sheet's top is a tile's corner.
+ */
+export const radii = { control: 16, icon: 14, sheet: 26, tile: 26, bar: 22, full: 9999 } as const;
 
 /** Widths: the breakpoints of the layout grid, the reading measure, and the laptop's panels. */
 export const layout = {
@@ -183,14 +227,18 @@ export const motion = {
   easing: { enter: "cubic-bezier(0.2, 0, 0, 1)", leave: "cubic-bezier(0.4, 0, 1, 1)" },
 } as const;
 
-/** Shadows only for what floats: menus, and a bottom sheet over the page. */
+/** Shadows only for what floats: menus, a bottom sheet over the page, and the phone's tab bar. */
 export const shadows = {
   float: {
-    light: "0 8px 24px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.08)",
+    light: "0 8px 24px rgb(22 22 26 / 0.12), 0 2px 6px rgb(22 22 26 / 0.08)",
     dark: "0 8px 24px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.5)",
   },
   sheet: {
-    light: "0 -8px 24px rgb(0 0 0 / 0.08)",
+    light: "0 -8px 24px rgb(22 22 26 / 0.08)",
     dark: "0 -8px 24px rgb(0 0 0 / 0.6)",
+  },
+  bar: {
+    light: "0 4px 20px rgb(22 22 26 / 0.08)",
+    dark: "0 4px 20px rgb(0 0 0 / 0.5)",
   },
 } as const;

@@ -1,145 +1,132 @@
-import { ChevronRight, Search } from "lucide-react";
 import { Link } from "wouter";
 import { isChanging, isLive, useSessions, useTemplates, useWallet } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
-import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
-import { TwoPanels } from "@/features/flow/TwoPanels";
-import { sessionTitle } from "@/features/flow/headline";
-import { YourSession } from "@/features/flow/YourSession";
-import { offeredServices } from "@/lib/catalog";
-import { useLaptop } from "@/lib/media";
+import { Tile } from "@/components/ui/Tile";
+import { offeredServices, serviceOf } from "@/lib/catalog";
 import { useTitle } from "@/lib/title";
-import { BookAgain } from "./BookAgain";
-import { RunningBar } from "./RunningBar";
-import { RunningPanel } from "./RunningPanel";
-import { ServiceTiles, ServiceTilesSkeleton } from "./ServiceTiles";
+import { BookAgainTile, latestSetup } from "./BookAgain";
+import { CreditTile } from "./CreditTile";
+import { EarnTile } from "./EarnTile";
+import { RunningTile } from "./RunningTile";
+import { MainServiceTile, QuestionTile, WideServiceTile } from "./ServiceTiles";
 
 const QUESTION = "What do you want to run?";
 const NO_CATALOG = { services: [], templates: [] };
 
+/** The tile grid (web/DESIGN.md "Shapes and space"): two columns of 88 px rows on a phone, four of 112 px from 768 px. */
+const GRID = "grid grid-cols-2 auto-rows-tile gap-2.5 md:grid-cols-4 md:auto-rows-tile-lg md:gap-3.5";
+const FRAME =
+  "mx-auto flex w-full max-w-content flex-col gap-2.5 px-3.5 pt-1 pb-4 md:gap-3.5 md:px-6 md:pt-2";
+
 /**
- * The renter's home (docs/design/redesign/home-phone.html, designed for the phone first): a black bar for each
- * session that's live, the question, the services as tiles, and Book again. On a laptop the same, as Book's left
- * panel, with the live session's progress, or what a session is, on the right. The order is chosen in code, not by
- * CSS, so what a screen reader reads and the tab order follow what's on screen.
+ * The renter's home (docs/design/bento/home-phone.html): tiles on a grid, each a thing to check or to start. A dark
+ * tile for each session that's live, the services (the first lime and tall), credit, what to book again, and hosting;
+ * with nothing running, the first tile is the question, with the services inside it. The order is chosen in code, not
+ * by CSS, so what a screen reader reads and the tab order follow what's on screen.
  */
 export function Home() {
   useTitle(null);
   const sessions = useSessions();
   const templates = useTemplates();
-  const laptop = useLaptop();
-  // The header's credit moves while a session can still change it.
-  useWallet(sessions.data?.sessions.some(isChanging) ?? false);
+  // The credit tile moves while a session can still change it.
+  const wallet = useWallet(sessions.data?.sessions.some(isChanging) ?? false);
   const since = staleSince(sessions, templates);
 
   // Until the sessions and the catalog are known, Home is one skeleton: a live session arriving would push
-  // everything under its bar down.
+  // everything under it down.
   const known = (query: { data?: unknown; isError: boolean }) => query.data !== undefined || query.isError;
   if (!known(sessions) || !known(templates)) {
-    return <HomeSkeleton laptop={laptop} />;
+    return <HomeSkeleton />;
   }
 
   const catalog = templates.data ?? NO_CATALOG;
   const list = sessions.data?.sessions ?? [];
   const live = list.filter(isLive);
-  const templateName = (id: string) => catalog.templates.find((template) => template.id === id)?.name ?? id;
+  const services = offeredServices(catalog);
+  const again = latestSetup(list);
+  const againName = again
+    ? (serviceOf(catalog, again.templateId)?.runningLabel ??
+      catalog.templates.find((template) => template.id === again.templateId)?.name ??
+      again.templateId)
+    : "";
 
-  const left = (
-    <>
+  return (
+    <div className={FRAME}>
       {since !== null && <StaleNotice updatedAt={since} />}
       {live.some((session) => session.lowCredit) && (
         <Banner tone="warning">
           Your credit is running low. A running session stops, after a last checkpoint, when it runs out.
         </Banner>
       )}
-      {live.map((session) => (
-        <RunningBar key={session.id} session={session} catalog={catalog} />
-      ))}
-      <div className="flex flex-col gap-4">
-        <h1 className={laptop ? "text-question" : "text-title"}>{QUESTION}</h1>
-        {!laptop && (
+      {live.length > 0 && <h1 className="sr-only">{QUESTION}</h1>}
+      <div className={GRID}>
+        {live.map((session) => (
+          <RunningTile key={session.id} session={session} catalog={catalog} />
+        ))}
+        {!templates.data ? (
+          <Tile className="col-span-2 row-span-2">
+            <ErrorState
+              error={templates.error}
+              what="what you can run"
+              onRetry={() => void templates.refetch()}
+              retrying={templates.isFetching}
+            />
+          </Tile>
+        ) : live.length === 0 ? (
+          <QuestionTile services={services} />
+        ) : (
+          services[0] && <MainServiceTile service={services[0]} />
+        )}
+        <CreditTile wallet={wallet} wide={again === undefined} />
+        {again && <BookAgainTile session={again} name={againName} />}
+        {live.length > 0 &&
+          services.slice(1).map((service) => <WideServiceTile key={service.id} service={service} />)}
+        <EarnTile />
+        {!sessions.data && (
+          <Tile className="col-span-2 row-span-2">
+            <ErrorState
+              error={sessions.error}
+              what="your sessions"
+              onRetry={() => void sessions.refetch()}
+              retrying={sessions.isFetching}
+            />
+          </Tile>
+        )}
+        {sessions.data && list.length > 0 && (
           <Link
-            href="/book/"
-            className="flex min-h-14 items-center gap-3 rounded-control bg-fill px-4 hover:bg-fill-selected"
+            href="/sessions/"
+            className="tile-motion col-span-2 hidden items-center justify-between rounded-tile bg-fill p-4.5 text-section md:flex"
           >
-            <Search aria-hidden="true" className="size-5.5" strokeWidth={2} />
-            <span className="text-option font-semibold">Pick a template</span>
+            All sessions
+            <span aria-hidden="true">→</span>
           </Link>
         )}
       </div>
-      {templates.data ? (
-        <ServiceTiles services={offeredServices(catalog)} laptop={laptop} />
-      ) : (
-        <ErrorState
-          error={templates.error}
-          what="what you can run"
-          onRetry={() => void templates.refetch()}
-          retrying={templates.isFetching}
-        />
+      {/* A phone has no Sessions tab: the list is one row away from Home. */}
+      {sessions.data && list.length > 0 && (
+        <Link
+          href="/sessions/"
+          className="flex min-h-touch items-center justify-center rounded-full text-small font-semibold text-text-muted hover:text-text md:hidden"
+        >
+          All sessions
+        </Link>
       )}
-      {sessions.data ? (
-        <>
-          <BookAgain sessions={list} templateName={templateName} />
-          {/* A phone has no Sessions tab: the list is one row away from Home. */}
-          {!laptop && list.length > 0 && (
-            <Link
-              href="/sessions/"
-              className="flex min-h-14 items-center gap-3 border-y border-divider py-3.5 text-body font-semibold hover:bg-fill"
-            >
-              <span className="flex-1">All sessions</span>
-              <ChevronRight aria-hidden="true" className="size-5" strokeWidth={2} />
-            </Link>
-          )}
-        </>
-      ) : (
-        <ErrorState
-          error={sessions.error}
-          what="your sessions"
-          onRetry={() => void sessions.refetch()}
-          retrying={sessions.isFetching}
-        />
-      )}
-    </>
-  );
-
-  if (!laptop) {
-    return <div className="flex flex-col gap-4.5 px-4 pt-1 pb-4 md:px-6 md:pt-6">{left}</div>;
-  }
-  const current = live[0];
-  return (
-    <TwoPanels
-      left={left}
-      rightLabel="Your session"
-      right={
-        current ? (
-          <RunningPanel
-            session={current}
-            title={sessionTitle(current, catalog)}
-            typicalRuntimeSeconds={
-              catalog.templates.find((template) => template.id === current.templateId)?.typicalRuntimeSeconds
-            }
-          />
-        ) : (
-          <YourSession data={{ detail: "A file you upload, or a link", done: false }} runtime={null} />
-        )
-      }
-    />
+    </div>
   );
 }
 
-/** Home's shape before anything is known: no words, so nothing real moves when the content replaces it. */
-function HomeSkeleton({ laptop }: { laptop: boolean }) {
-  const left = (
-    <div role="status" aria-label="Loading" className="flex flex-col gap-4.5">
-      <SkeletonLine size={laptop ? "question" : "title"} width="w-3/4" />
-      {!laptop && <Skeleton className="h-14 w-full" />}
-      <ServiceTilesSkeleton laptop={laptop} />
+/** Home's shape before anything is known: the tiles of a home with nothing running, with no words in them. */
+function HomeSkeleton() {
+  return (
+    <div className={FRAME}>
+      <div role="status" aria-label="Loading" className={GRID}>
+        <Skeleton tile className="col-span-2 row-span-2" />
+        <Skeleton tile />
+        <Skeleton tile />
+        <Skeleton tile className="col-span-2 row-span-2" />
+      </div>
     </div>
-  );
-  return laptop ? (
-    <TwoPanels left={left} right={null} rightLabel="Your session" />
-  ) : (
-    <div className="flex flex-col px-4 pt-1 pb-4 md:px-6 md:pt-6">{left}</div>
   );
 }
