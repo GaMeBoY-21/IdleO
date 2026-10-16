@@ -10,6 +10,8 @@ import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export const API = process.env.API_URL ?? "http://localhost:8080";
+/** Storage's origin: the stack's (LOCAL_STORAGE_PORT, when it is moved off its usual port) or the usual one. */
+export const STORAGE = `http://localhost:${process.env.LOCAL_STORAGE_PORT ?? "9100"}`;
 
 /** Signs in through the web app's own sign-in screen, as an invented @example.com user (the local adapter). */
 export async function signIn(page: Page, user: string, path = "/"): Promise<void> {
@@ -121,7 +123,7 @@ export async function fakeApi(
  * part so progress can be seen, and `hold` keeps them waiting.
  */
 export async function fakeStorage(page: Page, { delayMs = 0, hold = false } = {}): Promise<void> {
-  await page.route("http://localhost:9100/**", async (route) => {
+  await page.route(`${STORAGE}/**`, async (route) => {
     const cors = {
       "Access-Control-Allow-Origin": route.request().headers().origin ?? "http://localhost:3000",
       "Access-Control-Allow-Methods": "PUT",

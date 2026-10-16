@@ -115,13 +115,13 @@ export function Landing({ context }: { context: SiteContext }) {
       </section>
 
       <section className={`${column} pb-14 md:pb-20`} aria-labelledby="hosts">
-        <div className="rounded-tile bg-primary p-6 text-primary-fg">
+        <div className="rounded-tile bg-dark p-6 text-dark-fg">
           <h2 id="hosts" className="text-section font-semibold">
             Have an RTX laptop or desktop?
           </h2>
           <p className="mt-2 text-body text-dark-muted">
             Rent out the hours you aren't using it and keep {100 - COMMISSION_PERCENT}% of what renters pay.{" "}
-            <a href={EARN} className="text-primary-fg underline underline-offset-4">
+            <a href={EARN} className="text-dark-fg underline underline-offset-4">
               Earn with your GPU
             </a>
           </p>

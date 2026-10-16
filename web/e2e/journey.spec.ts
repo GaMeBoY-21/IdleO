@@ -60,8 +60,8 @@ test("a booked session shows live on the home screen, through to its charge", as
   const session = await book(request, "cuda-smoke-test", "web-journey");
   await page.reload();
   const bar = page.locator(`a[href="/session/?id=${session.id}"]`);
-  await expect(bar).toContainText(/Running a test job/, { timeout: 90_000 });
-  await expect(bar).toContainText(/Running for \d+:\d\d/);
+  await expect(bar).toContainText(/Running for \d+:\d\d/, { timeout: 90_000 });
+  await expect(bar).toContainText("Running a test job");
   await expect(bar).toContainText("so far");
   await expectAccessible(page);
 

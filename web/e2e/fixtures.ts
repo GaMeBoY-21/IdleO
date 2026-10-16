@@ -1089,7 +1089,7 @@ export function partLinks(partNumbers: number[]) {
   return {
     parts: partNumbers.map((number) => ({
       number,
-      url: `http://localhost:9100/idleo-local/uploads/${UPLOAD_ID}/part-${number}`,
+      url: `http://localhost:${process.env.LOCAL_STORAGE_PORT ?? "9100"}/idleo-local/uploads/${UPLOAD_ID}/part-${number}`,
     })),
     urlsExpireAt: new Date(NOW.getTime() + HOUR).toISOString(),
   };
