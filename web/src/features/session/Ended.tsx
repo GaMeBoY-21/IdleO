@@ -92,9 +92,7 @@ export function Ended({
             <StateChip state={session.state} />
           </span>
         )}
-        <h1 className={laptop ? "text-title" : "text-section"}>
-          {done ? "Done" : (HEADLINES[session.state] ?? "Ended")}
-        </h1>
+        <h1 className="text-title">{done ? "Done" : (HEADLINES[session.state] ?? "Ended")}</h1>
         <p className="text-small text-dark-muted">
           {templateName}
           {ran && ` · ${ran}`}

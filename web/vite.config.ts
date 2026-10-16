@@ -26,9 +26,12 @@ function shellChunk(id: string): string | undefined {
   }
   if (
     /\/src\/(components|lib|api|auth\/(index|store|types)|config|design|brand)\b/.test(id) ||
-    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon|icons\/(check|plus)\.)/.test(
+    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon|icons\/(check|plus|cpu|chevron-right)\.)/.test(
       id,
     ) ||
+    // The route a session's progress is drawn on, shared by Book's right panel and the session screen: another file,
+    // and with it another round trip on a slow connection, if left apart (ADR 0031).
+    /\/src\/features\/flow\/Route\./.test(id) ||
     // The words for every problem and the mutation code: shared by Book and the session screen, which would
     // otherwise each wait on another small file (ADR 0021).
     /query-core\/build\/modern\/mutationObserver|react-query\/build\/modern\/useMutation/.test(id) ||

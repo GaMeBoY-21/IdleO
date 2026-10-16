@@ -1,12 +1,11 @@
 import { Cpu } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Session } from "@/api/queries";
-import { ProgressBar } from "@/components/ui/Inputs";
+import { ProgressBar } from "@/components/ui/Progress";
 import { Money } from "@/components/ui/Money";
 import { StateChip } from "@/components/ui/StateChip";
 import { Tile, TileLabel } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
-import { cn } from "@/lib/cn";
 import { gigabytes, gpuName } from "@/lib/gpu";
 import { costSoFar } from "@/lib/sessions";
 
@@ -40,7 +39,7 @@ export function RunningTile({
         <span className="self-start">
           <StateChip state={session.state} />
         </span>
-        <h1 className={cn("break-words", laptop ? "text-title" : "text-section")}>{title}</h1>
+        <h1 className="text-title break-words">{title}</h1>
         <p className="text-small text-dark-muted">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />

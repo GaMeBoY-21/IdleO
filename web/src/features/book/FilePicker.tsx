@@ -2,7 +2,7 @@ import { FileText, FileUp, Folder, FolderUp } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import type { components } from "@/api/schema.gen";
 import { Button } from "@/components/ui/Button";
-import { ProgressBar } from "@/components/ui/Inputs";
+import { ProgressBar } from "@/components/ui/Progress";
 import { formatBytes } from "@/lib/bytes";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
