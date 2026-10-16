@@ -18,12 +18,12 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("the Hosting tab's machines", () => {
-  it("shows a running machine as a black row that opens it, with what it has earned so far", () => {
+  it("shows a running machine as a dark tile that opens it, with what it has earned so far", () => {
     render(<MachineRow host={data.hostRunning} />);
     const row = screen.getByRole("link");
     expect(row).toHaveAttribute("href", `/hosting/machine/?id=${data.ROG.id}`);
     expect(row).toHaveTextContent(`${data.ROG.name}Running a session · earning ₹`);
-    expect(row.className).toContain("bg-primary");
+    expect(row.className).toContain("bg-dark");
   });
 
   it("shows a paused machine in grey, until when", () => {

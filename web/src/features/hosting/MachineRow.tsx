@@ -17,8 +17,8 @@ export function MachineRow({ host }: { host: Host }) {
     <Link
       href={`/hosting/machine/?id=${host.id}`}
       className={cn(
-        "flex min-h-18 items-center gap-3.5 rounded-control px-4 py-3.5",
-        running ? "bg-primary text-primary-fg hover:bg-primary-hover" : "bg-fill hover:bg-fill-selected",
+        "flex min-h-18 items-center gap-3.5 rounded-tile px-4.5 py-3.5",
+        running ? "bg-dark text-dark-fg" : "bg-fill hover:bg-fill-selected",
       )}
     >
       <span
