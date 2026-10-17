@@ -1,6 +1,7 @@
 import { Minus, Plus } from "lucide-react";
 import { useId, useState } from "react";
-import { usePriceBand, useSaveListing, type Host } from "@/api/hosting";
+import type { UseQueryResult } from "@tanstack/react-query";
+import { usePriceBand, useSaveListing, type Host, type Listing, type PriceBand } from "@/api/hosting";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -28,26 +29,12 @@ const DEFAULT_KEEP_FREE = 20;
 const STEP_LABEL = "₹0.60 an hour";
 
 /**
- * A machine's price and limits (docs/design/hosting/price-phone.html), shared by its own screen and the last step of
- * adding one: the price in ₹0.60 steps, what the owner keeps of it, the range others charge, the temperature it
- * stops at, the disk kept free, and that it takes one session at a time. Prices are rupees an hour on screen and paise
- * a minute in the API (1 paisa a minute is exactly ₹0.60 an hour), always whole numbers of paise.
+ * The state of a price and limits form: what the person has changed, over what the machine already has, or the middle
+ * of the suggested band, or ₹7.20 an hour when there is no band. Shared by a machine's own screen, the last step of adding
+ * one, and the approval page of a link (ADR 0032), whose machine isn't a host yet.
  */
-export function PriceForm({
-  host,
-  saveLabel = "Save",
-  onSaved,
-}: {
-  host: Host;
-  saveLabel?: string;
-  onSaved: () => void;
-}) {
-  const band = usePriceBand(host.id);
-  const save = useSaveListing(host.id);
-  const listing = host.listing;
+export function useListingDraft(listing: Listing | null | undefined, band: UseQueryResult<PriceBand>) {
   const [edits, setEdits] = useState<{ price?: number; temp?: number; keepFree?: string }>({});
-  const gpu = host.gpus.find((candidate) => !candidate.gone);
-
   const bandMiddle = band.data
     ? Math.round((band.data.lowPaisePerMin + band.data.highPaisePerMin) / 2)
     : band.isError
@@ -61,35 +48,44 @@ export function PriceForm({
     keepFree === null || keepFree < KEEP_FREE_MIN || keepFree > KEEP_FREE_MAX
       ? `Choose from ${KEEP_FREE_MIN} to ${KEEP_FREE_MAX} GB.`
       : undefined;
-  const tempId = useId();
-
-  const change = (next: typeof edits) => {
-    setEdits({ ...edits, ...next });
-    save.reset();
+  return {
+    price,
+    temp,
+    keepFreeText,
+    keepFree,
+    keepFreeError,
+    change: (next: typeof edits) => setEdits((current) => ({ ...current, ...next })),
+    /** Whether it can be saved: a price is known and the disk to keep free is in range. */
+    valid: price !== null && keepFree !== null && keepFreeError === undefined,
   };
+}
 
-  // While the suggested price is looked up the form is drawn whole, its figures as skeleton lines of their own height, so
-  // nothing moves when they arrive.
+export type ListingDraft = ReturnType<typeof useListingDraft>;
+
+/** The price, the temperature limit and the disk to keep free, as three tiles. */
+export function ListingFields({
+  draft,
+  band,
+  gpuModel,
+  onChange,
+}: {
+  draft: ListingDraft;
+  band: UseQueryResult<PriceBand>;
+  /** The machine's GPU, for "Other RTX 4080 Laptops charge…"; absent until it has reported one. */
+  gpuModel: string | undefined;
+  /** Called after a field changes (a form clears its last error). */
+  onChange?: () => void;
+}) {
+  const { price, temp, keepFreeText, keepFreeError } = draft;
+  const tempId = useId();
+  const gpu = gpuModel === undefined ? undefined : { model: gpuModel };
+  const change = (next: Parameters<typeof draft.change>[0]) => {
+    draft.change(next);
+    onChange?.();
+  };
   const { keep, fee } = price === null ? { keep: 0, fee: 0 } : youKeep(price);
-
   return (
-    <form
-      className="flex flex-col gap-3.5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (price !== null && keepFree !== null && !keepFreeError) {
-          save.mutate(
-            {
-              batchPricePaisePerMin: price,
-              gpuTempCapC: temp,
-              maxConcurrentSessions: 1,
-              keepFreeGb: keepFree,
-            },
-            { onSuccess: onSaved },
-          );
-        }
-      }}
-    >
+    <>
       <Tile as="section" aria-labelledby="price-title" className="flex flex-col gap-4">
         <h2 id="price-title" className="text-small font-semibold text-text-muted">
           Your price per hour
@@ -227,15 +223,54 @@ export function PriceForm({
         />
         <p className="text-small text-text-muted">One session at a time, so your laptop stays usable.</p>
       </Tile>
+    </>
+  );
+}
 
+/**
+ * A machine's price and limits (docs/design/hosting/price-phone.html), shared by its own screen and the last step of
+ * adding one: the price in ₹0.60 steps, what the owner keeps of it, the range others charge, the temperature it
+ * stops at, the disk kept free, and that it takes one session at a time. Prices are rupees an hour on screen and paise
+ * a minute in the API (1 paisa a minute is exactly ₹0.60 an hour), always whole numbers of paise.
+ */
+export function PriceForm({
+  host,
+  saveLabel = "Save",
+  onSaved,
+}: {
+  host: Host;
+  saveLabel?: string;
+  onSaved: () => void;
+}) {
+  const band = usePriceBand(host.id);
+  const save = useSaveListing(host.id);
+  const draft = useListingDraft(host.listing, band);
+  const gpu = host.gpus.find((candidate) => !candidate.gone);
+  const { price, temp, keepFree } = draft;
+
+  // While the suggested price is looked up the form is drawn whole, its figures as skeleton lines of their own height, so
+  // nothing moves when they arrive.
+  return (
+    <form
+      className="flex flex-col gap-3.5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (draft.valid && price !== null && keepFree !== null) {
+          save.mutate(
+            {
+              batchPricePaisePerMin: price,
+              gpuTempCapC: temp,
+              maxConcurrentSessions: 1,
+              keepFreeGb: keepFree,
+            },
+            { onSuccess: onSaved },
+          );
+        }
+      }}
+    >
+      <ListingFields draft={draft} band={band} gpuModel={gpu?.model} onChange={() => save.reset()} />
       {save.isError && <Banner tone="danger">{problemMessage(save.error)}</Banner>}
-      <Button
-        type="submit"
-        large
-        block
-        busy={save.isPending}
-        disabled={price === null || keepFreeError !== undefined}
-      >
+      <Button type="submit" large block busy={save.isPending} disabled={price === null || !draft.valid}>
         {saveLabel}
       </Button>
     </form>

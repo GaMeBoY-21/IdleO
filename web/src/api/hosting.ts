@@ -17,7 +17,7 @@ export type PriceBand = components["schemas"]["PriceBand"];
 export type HostSession = components["schemas"]["HostSession"];
 export type OwnerEarnings = components["schemas"]["OwnerEarnings"];
 export type EarningsEntry = components["schemas"]["EarningsEntry"];
-export type EnrolmentCode = components["schemas"]["EnrolmentCodeResponse"];
+export type HostLink = components["schemas"]["LinkResponse"];
 
 /**
  * The owner's side of the cache (ADR 0023): their machines, what each is doing, what they have earned. The same rules
@@ -26,8 +26,6 @@ export type EnrolmentCode = components["schemas"]["EnrolmentCodeResponse"];
  * far changes as the server says; the elapsed time is the app's clock.
  */
 export const HOSTS_POLL_MS = 5_000;
-/** How often the add-a-machine screen asks whether the agent has connected. */
-export const CONNECT_POLL_MS = 3_000;
 export const HOST_SESSIONS_PAGE = 20;
 export const EARNINGS_PAGE = 20;
 
@@ -38,6 +36,8 @@ export const hostKeys = {
   priceBand: (id: string) => ["host", id, "price-band"] as const,
   sessions: (id: string) => ["host", id, "sessions"] as const,
   earnings: ["earnings"] as const,
+  link: (id: string) => ["host-link", id] as const,
+  gpuBand: (model: string, vramMb: number) => ["price-band", model, vramMb] as const,
 };
 
 const running = (host: Host) => host.currentSession != null;
@@ -218,30 +218,56 @@ export function useSaveListing(id: string) {
 }
 
 /**
- * Add a machine: `POST /v1/hosts` with an Idempotency-Key (CLAUDE.md), so pressing again or retrying after a network
- * failure never makes a second one. The caller keeps the key for as long as the name is the same.
+ * The link a laptop asked for (ADR 0032), as the approval page reads it. It is asked for again while it's pending, so
+ * the page notices when it runs out; never cached for long, since a link lasts ten minutes.
  */
-export function useAddMachine() {
+export function useHostLink(id: string) {
+  return useQuery({
+    queryKey: hostKeys.link(id),
+    queryFn: () => data(api.GET("/v1/host-links/{id}", { params: { path: { id } } })),
+    staleTime: 0,
+    // A link that isn't there (a wrong address) is a 404, shown as such, never retried.
+    retry: (failures, error) =>
+      !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failures < 2,
+  });
+}
+
+/** Approve the link: the name and the listing the laptop starts with, in one request. The host is made pending. */
+export function useApproveHostLink(id: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, idempotencyKey }: { name: string; idempotencyKey: string }) =>
-      data(
-        api.POST("/v1/hosts", {
-          params: { header: { "Idempotency-Key": idempotencyKey } },
-          body: { name },
-        }),
-      ),
+    mutationFn: (body: components["schemas"]["ApproveLinkRequest"]) =>
+      data(api.POST("/v1/host-links/{id}/approve", { params: { path: { id } }, body })),
     retry: noRetryOn4xx,
-    onSuccess: (host) => {
-      client.setQueryData(hostKeys.host(host.id), host);
+    onSuccess: (link) => {
+      client.setQueryData(hostKeys.link(id), link);
       void client.invalidateQueries({ queryKey: hostKeys.hosts });
     },
   });
 }
 
-/** A new one-time code for a machine: shown once, never stored, valid for an hour. */
-export function useEnrolmentCode() {
+/** "This isn't my laptop". */
+export function useDenyHostLink(id: string) {
+  const client = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => data(api.POST("/v1/hosts/{id}/enrolment-code", { params: { path: { id } } })),
+    mutationFn: () => data(api.POST("/v1/host-links/{id}/deny", { params: { path: { id } } })),
+    retry: noRetryOn4xx,
+    onSuccess: (link) => client.setQueryData(hostKeys.link(id), link),
+  });
+}
+
+/** The suggested price range for a GPU that isn't a machine yet: what the approval page prefills its price from. */
+export function useGpuPriceBand(gpu: { model: string; vramMb: number } | undefined) {
+  return useQuery({
+    queryKey: hostKeys.gpuBand(gpu?.model ?? "", gpu?.vramMb ?? 0),
+    enabled: gpu !== undefined,
+    queryFn: () =>
+      data(
+        api.GET("/v1/price-band", {
+          params: { query: { gpuModel: gpu!.model, vramMb: gpu!.vramMb } },
+        }),
+      ),
+    retry: (failures, error) =>
+      !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failures < 2,
   });
 }

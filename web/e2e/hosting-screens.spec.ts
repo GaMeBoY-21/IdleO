@@ -438,88 +438,124 @@ test.describe("earnings", () => {
 });
 
 test.describe("adding a machine", () => {
-  test("step 1, naming it", async ({ page }, info) => {
+  test("is a download and an approval, never a code", async ({ page }, info) => {
     await open(page, "/hosting/add/");
-    await expect(page.getByRole("heading", { level: 1, name: "Add this machine" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+    await expect(page.getByRole("heading", { level: 1, name: "Earn with this laptop" })).toBeVisible();
+    await expect(page.getByRole("listitem")).toHaveText([
+      /Download the IdleO app for Windows/,
+      /Open it: it sets everything up/,
+      /Approve the link in your browser/,
+    ]);
+    // The installer doesn't exist yet, so there's no download to offer.
+    await expect(page.getByRole("button", { name: "Windows app: coming soon" })).toBeDisabled();
+    await expect(page.getByRole("link", { name: /Download/ })).toHaveCount(0);
+    await expect(page.getByText("Windows 10 or 11 · NVIDIA RTX graphics · 40 GB free")).toBeVisible();
+    await expect(page.getByText("idleo-agent link")).toBeVisible();
+    await expect(page.getByText(/enrolment code|one-time code|countdown/i)).toHaveCount(0);
     await expectAccessible(page);
-    await capture(page, info, "add-name");
+    await capture(page, info, "add-download");
+  });
+});
+
+test.describe("linking a laptop", () => {
+  const at = `/link/${hosting.LINK_ID}/`;
+
+  test("asks which laptop, with the price already there", async ({ page }, info) => {
+    await open(page, at);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Link this laptop to your account?" }),
+    ).toBeVisible();
+    await expect(page.getByText("ASUS ROG Strix", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("RTX 4080 Laptop · 12 GB")).toBeVisible();
+    await expect(page.getByText(/Expires in 09:/)).toBeVisible();
+    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("ASUS ROG Strix");
+    // 16 paise a minute is ₹9.60 an hour; the owner keeps 80% of it.
+    await expect(page.getByText(/You'll earn/)).toContainText("₹7.68 an hour (renters pay ₹9.60)");
+    await expectAccessible(page);
+    await capture(page, info, "link-pending");
   });
 
-  test("step 2, the code with its countdown, and the machine connecting by itself", async ({
+  test("one click approves with the name and the price, and says new laptops are checked", async ({
     page,
   }, info) => {
-    let reads = 0;
-    let created: unknown = null;
-    await open(page, "/hosting/add/", {
-      "/v1/hosts": (_call, request) => {
-        if (request.method() === "POST") {
-          created = request.postDataJSON();
-          return { json: hosting.hostWaiting, status: 201 };
-        }
-        return { json: hosting.noHosts };
-      },
-      "/v1/hosts/[^/]+/enrolment-code": { json: hosting.enrolmentCode, status: 201 },
-      "/v1/hosts/[^/]+": () => {
-        reads++;
-        return {
-          json:
-            reads > 2
-              ? { ...hosting.hostWaiting, online: true, gpus: hosting.hostIdle.gpus }
-              : hosting.hostWaiting,
-        };
+    let body: unknown = null;
+    await open(page, at, {
+      "/v1/host-links/[^/]+/approve": (_call, request) => {
+        body = request.postDataJSON();
+        return { json: hosting.hostLinkApproved };
       },
     });
-    await page.getByLabel("What do you call this machine?").fill("My new machine");
-    await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByText("K7Q2M-9XMD4-H8TQ3-R5W2N")).toBeVisible();
-    expect(created).toEqual({ name: "My new machine" });
-    await expect(page.getByText(/^Works once · expires in 58:/)).toBeVisible();
-    await expect(page.getByText("Waiting for your machine")).toBeVisible();
-    await expect(
-      page.getByText("The Windows app is coming; for now run the agent from the runbook.", { exact: false }),
-    ).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "add-install");
-    // The agent connects: the page moves on by itself.
-    await expect(page.getByText("Connected · RTX 4080 Laptop · 12 GB")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("Pending. We check your machine once you've set a price")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Save and finish" })).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "add-connected");
-  });
-
-  test("step 4, saving the price finishes", async ({ page }, info) => {
-    await open(page, `/hosting/add/?id=${hosting.hostNew.id}`, {
-      "/v1/hosts/[^/]+/listing": (_call, request) => ({ json: request.postDataJSON() }),
+    await page.getByRole("button", { name: "Approve and start earning" }).click();
+    await expect(page.getByRole("heading", { name: "Linked" })).toBeVisible();
+    expect(body).toEqual({
+      name: "ASUS ROG Strix",
+      batchPricePaisePerMin: 16,
+      gpuTempCapC: 85,
+      keepFreeGb: 20,
     });
-    await expect(page.getByRole("button", { name: "Save and finish" })).toBeVisible();
-    await page.getByRole("button", { name: "Save and finish" }).click();
-    await expect(
-      page.getByText("You're set. Your machine starts earning once it passes our checks."),
-    ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open your machine" })).toBeVisible();
+    await expect(page.getByText(/We check every new laptop before it goes live/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open your laptop" })).toHaveAttribute(
+      "href",
+      `/hosting/machine/?id=${hosting.hostNew.id}`,
+    );
     await expectAccessible(page);
-    await capture(page, info, "add-done");
+    await capture(page, info, "link-approved");
   });
 
-  test("a reload keeps the machine, and asks for a new code", async ({ page }, info) => {
-    await open(page, `/hosting/add/?id=${hosting.hostWaiting.id}`);
-    await expect(page.getByText("Get a code to continue.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "New code" })).toBeVisible();
-    await expectAccessible(page);
-    await capture(page, info, "add-reload");
-  });
-
-  test("a name that can't be used is said in words", async ({ page }) => {
-    await open(page, "/hosting/add/", {
-      "/v1/hosts": (_call, request) =>
-        request.method() === "POST"
-          ? { status: 400, problem: "validation-failed" }
-          : { json: hosting.noHosts },
+  test("the price can be changed first, in the form a machine has", async ({ page }, info) => {
+    let body: { batchPricePaisePerMin?: number } = {};
+    await open(page, at, {
+      "/v1/host-links/[^/]+/approve": (_call, request) => {
+        body = request.postDataJSON() as typeof body;
+        return { json: hosting.hostLinkApproved };
+      },
     });
-    await page.getByLabel("What do you call this machine?").fill("x");
-    await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByRole("alert")).toContainText("Some details need fixing.");
+    await page.getByRole("button", { name: "Change" }).click();
+    await page.getByRole("button", { name: "Raise the price by ₹0.60 an hour" }).click();
+    await expect(page.getByText(/You'll earn/)).toContainText("₹8.16 an hour (renters pay ₹10.20)");
+    await expectAccessible(page);
+    await capture(page, info, "link-change");
+    await page.getByRole("button", { name: "Approve and start earning" }).click();
+    await expect(page.getByRole("heading", { name: "Linked" })).toBeVisible();
+    expect(body.batchPricePaisePerMin).toBe(17);
+  });
+
+  test("'This isn't my laptop' denies it", async ({ page }, info) => {
+    await open(page, at, {
+      "/v1/host-links/[^/]+/deny": { json: { ...hosting.hostLink, state: "denied" } },
+    });
+    await page.getByRole("button", { name: "This isn't my laptop" }).click();
+    await expect(page.getByText("Nothing was linked")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "link-denied");
+  });
+
+  test("an expired link says so and where to start again", async ({ page }, info) => {
+    await open(page, at, { "/v1/host-links/[^/]+": { json: { ...hosting.hostLink, state: "expired" } } });
+    await expect(page.getByText("This link has expired")).toBeVisible();
+    await expect(page.getByText(/Start again from the app on your laptop/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve and start earning" })).toHaveCount(0);
+    await expectAccessible(page);
+    await capture(page, info, "link-expired");
+  });
+
+  test("a link that isn't there is said plainly", async ({ page }, info) => {
+    await open(page, at, { "/v1/host-links/[^/]+": { status: 404, problem: "not-found" } });
+    await expect(page.getByText("We can't find that link")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "link-missing");
+  });
+
+  test("while it loads, then an error with a retry", async ({ page }, info) => {
+    await open(page, at, { "/v1/host-links/[^/]+": "hold" });
+    await expect(page.getByRole("status", { name: "Loading this link" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "link-loading");
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await fakeApi(page, api({ "/v1/host-links/[^/]+": { status: 503 } }));
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible({ timeout: 15_000 });
+    await expectAccessible(page);
+    await capture(page, info, "link-error");
   });
 });

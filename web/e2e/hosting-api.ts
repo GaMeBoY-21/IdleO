@@ -9,11 +9,12 @@ const machine = (request: Request) => hosting.hostById(idOf(request));
 export function hostingApi(): Record<string, Answer> {
   return {
     "/v1/hosts": { json: hosting.hosts },
+    "/v1/host-links/[^/]+": { json: hosting.hostLink },
+    "/v1/price-band": { json: hosting.priceBandDefault },
     "/v1/earnings": { json: hosting.earnings },
     "/v1/hosts/[^/]+/telemetry": (_call, request) => ({ json: hosting.telemetryOf(machine(request)!) }),
     "/v1/hosts/[^/]+/price-band": { json: hosting.priceBand },
     "/v1/hosts/[^/]+/sessions": (_call, request) => ({ json: hosting.hostSessionsPage(idOf(request)) }),
-    "/v1/hosts/[^/]+/enrolment-code": { json: hosting.enrolmentCode, status: 201 },
     "/v1/hosts/[^/]+": (_call, request) => {
       const found = machine(request);
       return found ? { json: found } : { status: 404 };

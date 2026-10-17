@@ -18,6 +18,7 @@ export const SIGNED_IN_SCREENS = [
   "/hosting/sessions/",
   "/hosting/earnings/",
   "/hosting/add/",
+  "/link/",
   "/welcome/",
   "/invite/",
   "/account/",
@@ -48,6 +49,8 @@ export const SCREENS: Record<string, string | null> = {
   "/hosting/sessions/": "src/features/hosting/HostSessions.tsx",
   "/hosting/earnings/": "src/features/hosting/Earnings.tsx",
   "/hosting/add/": "src/features/hosting/AddMachine.tsx",
+  // A link has its id in the address, /link/<id>/; the host answers every such address with this page (scripts/serve.ts).
+  "/link/": "src/features/hosting/LinkApproval.tsx",
   // The form loads just after the screen paints, not before (src/features/sign-in/LazyEmailForm.tsx).
   "/sign-in/": null,
   "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",

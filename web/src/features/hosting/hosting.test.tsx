@@ -1,7 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as data from "../../../e2e/fixtures-hosting";
-import { EnrolmentCodeCard } from "./EnrolmentCode";
 import { MachineChip } from "./MachineChip";
 import { RightNow } from "./MachineFigures";
 import { MachineRow } from "./MachineRow";
@@ -72,34 +71,5 @@ describe("Right now", () => {
     render(<RightNow host={data.hostIdle} />);
     expect(screen.getByText(/Nothing is running/)).toBeInTheDocument();
     expect(screen.queryByText(/₹/)).not.toBeInTheDocument();
-  });
-});
-
-describe("the enrolment code", () => {
-  it("shows the code, and its countdown to the second", () => {
-    const code = {
-      ...data.enrolmentCode,
-      expiresAt: new Date(Date.now() + 58 * 60_000 + 12_000).toISOString(),
-    };
-    render(<EnrolmentCodeCard code={code} issuing={false} onNewCode={() => undefined} />);
-    expect(screen.getByText("K7Q2M-9XMD4-H8TQ3-R5W2N")).toBeInTheDocument();
-    expect(screen.getByText(/^Works once · expires in \d\d:\d\d$/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Install the host app" })).toHaveAttribute("href");
-    expect(
-      screen.getByText(/The Windows app is coming; for now run the agent from the runbook/),
-    ).toBeInTheDocument();
-  });
-
-  it("says when it has expired, and leaves Copy code off", () => {
-    const expired = { code: "K7Q2M-9XMD4-H8TQ3-R5W2N", expiresAt: "2020-01-01T00:00:00Z" };
-    render(<EnrolmentCodeCard code={expired} issuing={false} onNewCode={() => undefined} />);
-    expect(screen.getByText("This code has expired. Get a new one.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Copy code/ })).toBeDisabled();
-    expect(screen.queryByText("K7Q2M-9XMD4-H8TQ3-R5W2N")).not.toBeInTheDocument();
-  });
-
-  it("asks for a code when it has none, as after a reload", () => {
-    render(<EnrolmentCodeCard code={null} issuing={false} onNewCode={() => undefined} />);
-    expect(screen.getByText("Get a code to continue.")).toBeInTheDocument();
   });
 });

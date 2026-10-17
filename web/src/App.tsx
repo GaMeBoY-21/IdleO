@@ -48,6 +48,7 @@ const screens = {
   "/hosting/sessions/": screen(() => import("@/features/hosting/HostSessions").then((m) => m.HostSessions)),
   "/hosting/earnings/": screen(() => import("@/features/hosting/Earnings").then((m) => m.Earnings)),
   "/hosting/add/": screen(() => import("@/features/hosting/AddMachine").then((m) => m.AddMachine)),
+  "/link/": screen(() => import("@/features/hosting/LinkApproval").then((m) => m.LinkApprovalScreen)),
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
   "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
@@ -67,6 +68,8 @@ const ADMIN_PATH = /^\/admin\//;
 
 /** Loads the code of the screen at `path`, if it has its own; resolves at once for the others. */
 export function preloadScreen(path: string): Promise<unknown> {
+  // A link is at /link/<id>/: its screen is the one for /link/.
+  path = path.replace(/^\/link\/[^/]+\/$/, "/link/");
   const own = ADMIN_PATH.test(path)
     ? admin
     : (screens as Record<string, { load: () => Promise<unknown> } | undefined>)[path];
@@ -84,6 +87,7 @@ const Price = screens["/hosting/price/"].Screen;
 const HostSessions = screens["/hosting/sessions/"].Screen;
 const Earnings = screens["/hosting/earnings/"].Screen;
 const AddMachine = screens["/hosting/add/"].Screen;
+const LinkApproval = screens["/link/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
 const Account = screens["/account/"].Screen;
@@ -93,7 +97,7 @@ const Notifications = screens["/notifications/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/)?|notifications\/|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -131,6 +135,7 @@ function SignedInArea() {
             <Route path="/hosting/sessions/" component={HostSessions} />
             <Route path="/hosting/earnings/" component={Earnings} />
             <Route path="/hosting/add/" component={AddMachine} />
+            <Route path="/link/:id/" component={LinkApproval} />
           </Switch>
         </Suspense>
       </AppShell>

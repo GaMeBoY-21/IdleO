@@ -8,6 +8,7 @@ export type HostSession = Schemas["HostSession"];
 export type EarningsEntry = Schemas["EarningsEntry"];
 export type OwnerEarnings = Schemas["OwnerEarnings"];
 export type Telemetry = Schemas["Telemetry"];
+export type HostLink = Schemas["LinkResponse"];
 
 /**
  * The invented data for the hosting screens (ADR 0023), built the way e2e/fixtures.ts builds a renter's: nothing here is
@@ -236,30 +237,12 @@ export const hostNew: Host = {
   listing: null,
   onlineSince: ago(MINUTE),
 };
-/** Named, and its agent hasn't connected yet. */
-export const hostWaiting: Host = {
-  ...base(ROG),
-  id: id(0xb008),
-  name: "My new machine",
-  status: "pending",
-  online: false,
-  onlineSince: null,
-  lastSeenAt: null,
-  gpus: [],
-  listing: null,
-};
-
 export const hosts = { hosts: [hostRunning, hostPaused] };
 export const noHosts = { hosts: [] };
 
 /** Other hosts with the same GPU charge ₹9.00 to ₹12.00 an hour: 15 to 20 paise a minute (docs/design/hosting/price-phone.html). */
 export const priceBand = { lowPaisePerMin: 15, highPaisePerMin: 20, sampleSize: 4 };
 export const priceBandDefault = { lowPaisePerMin: 12, highPaisePerMin: 20, sampleSize: 0 };
-
-export const enrolmentCode = {
-  code: "K7Q2M-9XMD4-H8TQ3-R5W2N",
-  expiresAt: iso(NOW.getTime() + 58 * MINUTE + 12_000),
-};
 
 /** What a machine ran, as GET /v1/hosts/{id}/sessions serves it, newest first. */
 export function hostSessionsPage(machineId: string): { sessions: HostSession[]; nextCursor: null } {
@@ -337,15 +320,7 @@ export const noEarnings: OwnerEarnings = {
 };
 
 /** Every machine above, by id, for a fake API that answers any of them. */
-export const allHosts: Host[] = [
-  hostRunning,
-  hostPaused,
-  hostIdle,
-  hostOffline,
-  hostUpdate,
-  hostNew,
-  hostWaiting,
-];
+export const allHosts: Host[] = [hostRunning, hostPaused, hostIdle, hostOffline, hostUpdate, hostNew];
 export const hostById = (hostId: string): Host | undefined => allHosts.find((host) => host.id === hostId);
 
 /**
@@ -394,3 +369,22 @@ export function withReportRefund(): OwnerEarnings {
     history: { entries: entries.slice(0, 20), nextCursor: entries.length > 20 ? "page-2" : null },
   };
 }
+
+/**
+ * A laptop asking to be linked (ADR 0032): what its agent said of itself, 9 minutes 41 seconds before the link runs out.
+ * The suggested price for its GPU is `priceBandDefault`: 12 to 20 paise a minute, so the page prefills 16.
+ */
+export const LINK_ID = "01a14b00-0000-7000-8000-00000000f001";
+export const hostLink: HostLink = {
+  id: LINK_ID,
+  machineName: "ASUS ROG Strix",
+  os: "windows",
+  agentVersion: "0.1.0",
+  gpus: [{ model: "NVIDIA GeForce RTX 4080 Laptop GPU", vramMb: 12282 }],
+  state: "pending",
+  expiresAt: iso(NOW.getTime() + 9 * MINUTE + 41_000),
+  hostId: null,
+  awaitsActivation: true,
+};
+/** The same link once its owner approved it: the machine it made is `hostNew`, pending. */
+export const hostLinkApproved: HostLink = { ...hostLink, state: "approved", hostId: hostNew.id };

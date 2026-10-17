@@ -12,6 +12,9 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 const dist = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}/`, import.meta.url));
 const port = Number(process.env.PORT ?? 3000);
 const headers = JSON.parse(readFileSync(join(dist, "headers.json"), "utf8")) as Record<string, string>;
+const rewrites = existsSync(join(dist, "rewrites.json"))
+  ? (JSON.parse(readFileSync(join(dist, "rewrites.json"), "utf8")) as Record<string, string>)
+  : {};
 const redirects = existsSync(join(dist, "redirects.json"))
   ? (JSON.parse(readFileSync(join(dist, "redirects.json"), "utf8")) as Record<string, string>)
   : {};
@@ -67,9 +70,11 @@ createServer((request, response) => {
     response.end();
     return;
   }
-  let file = files.get(path.endsWith("/") ? `${path}index.html` : path);
+  // An address under a screen's folder that the screen answers itself (a link's id): that screen's page, with a 200.
+  const rewritten = Object.entries(rewrites).find(([prefix]) => path.startsWith(prefix) && path !== prefix);
+  let file = files.get(rewritten ? rewritten[1] : path.endsWith("/") ? `${path}index.html` : path);
   let status = 200;
-  if (!file || path === "/headers.json" || path === "/redirects.json") {
+  if (!file || path === "/headers.json" || path === "/redirects.json" || path === "/rewrites.json") {
     file = files.get("/404.html")!;
     status = 404;
   }

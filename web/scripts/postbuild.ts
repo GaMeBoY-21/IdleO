@@ -72,6 +72,9 @@ for (const [path, module] of Object.entries(SCREENS)) {
   writeFileSync(`${dist}${path}index.html`, await withFrame(page, path));
 }
 writeFileSync(`${dist}404.html`, await withFrame(html, "/not-a-screen/"));
+// Addresses with something after a screen's folder (a link's id, /link/<id>/) are answered with that screen's page, by
+// a rewrite where the host has the rule (scripts/serve.ts reads this file; docs/runbooks/deployment.md names the rule).
+writeFileSync(`${dist}rewrites.json`, `${JSON.stringify({ "/link/": "/link/index.html" }, null, 2)}\n`);
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
 console.log(
   `postbuild: ${Object.keys(SCREENS).length} screens, ${hashes.length} inline script hash(es), CSP: ${csp}`,

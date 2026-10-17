@@ -58,11 +58,8 @@ const screens = [
   },
   { name: "notifications", path: "/notifications/", ready: () => "Your credit is running low" },
   { name: "a CLI sign-in to approve", path: "/cli-login/?code=WDJB-MJHT", ready: () => "Approve" },
-  {
-    name: "adding a machine",
-    path: `/hosting/add/?id=${hosting.hostNew.id}`,
-    ready: () => "Save and finish",
-  },
+  { name: "adding a machine", path: "/hosting/add/", ready: () => "Windows app: coming soon" },
+  { name: "linking a laptop", path: `/link/${hosting.LINK_ID}/`, ready: () => "Approve and start earning" },
 ];
 
 test("sign-in loads without moving, its form arriving in the space kept for it", async ({ page }) => {
