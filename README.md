@@ -12,9 +12,9 @@ One command starts the whole system on your machine, for local development only 
 ./start.sh
 ```
 
-It checks Docker, Java 25, Node 24.21.0 and Rust are in place and the ports are free, then starts PostgreSQL, Valkey, object storage, the local sign-in server and Mailpit (`control-plane/compose.yaml`), the control plane, two laptops' fake GPUs (RTX 4060 Laptop, 8 GB; RTX 4080 Laptop, 12 GB), the web app's dev server and the public site. When everything answers, it prints where each is and opens the web app:
+It checks Docker, Java 25, Node 24.21.0 and Rust are in place and the ports are free, then starts PostgreSQL, Valkey, object storage, the local sign-in server and Mailpit (`control-plane/compose.yaml`), the control plane, two laptops' fake GPUs (RTX 4060 Laptop, 8 GB; RTX 4080 Laptop, 12 GB), the web app's dev server and the website. When everything answers, it prints where each is and opens the website, whose "Get started" leads into the app:
 
-- web app http://localhost:3000, public site http://localhost:3002/about/, email http://localhost:8025, admin console http://localhost:3000/admin/;
+- website http://localhost:3002/, web app http://localhost:3000, email http://localhost:8025, admin console http://localhost:3000/admin/;
 - sign in as `nikki@example.com` (₹500, owns both laptops), `nikki-low@example.com` (₹1) or `nikki-broke@example.com` (₹0), with no invite step;
 - every service's log in `logs/`.
 

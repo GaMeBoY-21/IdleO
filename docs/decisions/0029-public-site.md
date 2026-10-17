@@ -31,7 +31,7 @@ Constraints:
 
 ### The landing page's address
 
-`/` is the signed-in Home. The landing page is at `/about/` (the constant `LANDING` in `src/site/paths.ts`), and every public page links to it. When the deployment round decides the site and the app's addresses (the natural arrangement is the site at the domain's root and the app on its own address), this constant is the one thing that moves. **Open question:** whether `/` should show the landing page to a signed-out visitor; it needs that decision, not a guess.
+`/` is the signed-in Home. *(Superseded by the addendum below: the website has its own address and the landing page is its `/`.)*
 
 ### Public availability
 
@@ -83,3 +83,17 @@ Constraints:
 - **Hosting's protections are promises, not facts, until the hardware round:** Earn, the host guide and the FAQ say hosting opens after our safety tests on real Windows laptops, and describe the sandbox and the rest as what hosting will have. A test refuses the present tense ("runs in a sandbox") on those pages.
 - **The GPUs page names sizes, not models:** no image, speech or named model, only parameter counts and "your own models", so nothing reads as if we supply them. "What you can run today" is "What you can run".
 - **The hand-written docs name the product only as `{{product}}`,** which the build fills from `brand.name`; a test refuses the name in plain text there.
+
+## Addendum (Oct 17): the website first, the app at its own address
+
+People arrive at the **website**, at the root address, and "Log in" and "Get started" take them to the **app**, which lives at an address of its own, as Shopify's website and store admin do. This settles the open question above.
+
+- **Addresses.** In production `https://idleo.in/` is the website and `https://app.idleo.in/` the app. Locally `./start.sh` serves the website at http://localhost:3002/ and the app at http://localhost:3000/, and opens the website first. The names are build settings, never written in code: `IDLEO_SITE_URL` and the new `IDLEO_APP_URL`. A staging or production build needs both (https, not on the machine), and both builds refuse to start without them (`siteSettingsProblems` in `src/build-settings.ts`, checked by the app's `vite.config.ts` and by `scripts/build-site.ts`); a local build has the local stack's addresses.
+- **Two builds, two outputs.** `pnpm build` makes the app into `dist/` and `pnpm build:site` the website into `dist-website/` (its intermediate files in `dist-site/`). Neither holds the other's pages: the website has the landing page (`/`), pricing, GPUs, earn, the docs, terms, privacy, contact and its own 404; the app has sign-in and everything after it. Only `/` is a path of both, each on its own address (`scripts/site/split.test.ts`). `scripts/serve.ts` serves either folder on its own port (`IDLEO_DIST`, `PORT`; `pnpm serve:site` for the website), the website's with its own `headers.json`, whose Content Security Policy allows only the theme script's hash and the API for the live prices.
+- **The landing page moves to `/`.** `LANDING` in `src/site/paths.ts` is `/`; the sitemap, `robots.txt` and the header's wordmark point at it. `/about/` answers 301 to `/` (the website's `redirects.json`, which `scripts/serve.ts` honours, and a page with a refresh and a canonical link where a host can't send one), so old links keep working.
+- **One place builds the links into the app.** `entryLinks(appUrl)` in `src/site/paths.ts` gives "Log in" (`<app>/sign-in/`), "Get started" (`<app>/sign-in/?start=1`, which the sign-in screen answers with "Create your account") and "Start hosting" (`<app>/hosting/`, through sign-in if needed). The website's header shows "Log in" as a plain link and "Get started" as the dark button; the docs write a link into the app as `{{app}}`, replaced at build time. No page spells an app path.
+- **The app's side.** A signed-out visitor to any app address is sent to sign-in and brought back to the page they wanted (unchanged). The app's sign-in has a small "← idleo" back to the website, and its Terms and Privacy links lead to the website (`siteLink` in `src/lib/site-links.ts`, from `IDLEO_SITE_URL` written into the bundle). The app's `/` is still the signed-in Home.
+- **Signed-in people on the website** still see the website. The header's "Log in" does not become "Open app": that needs the app's sign-in state, which means a request on page load, and the website's speed comes first.
+- **CORS and sign-in.** The API's allowed origins (`web.allowed-origins`) must include the website's address, which the pricing page needs for the live prices, and the identity provider's authorised domains must include the app's address. Both are in docs/runbooks/deployment.md.
+- **Why.** Speed (the website is static HTML with no app code, and now no app files beside it), search (the root address is the product's front door, in a sitemap of only public pages), and a clean "Log in", the way a visitor expects it.
+- **Budgets unchanged,** measured on the website's `/` (LCP 1.5 s, TBT 100 ms, CLS 0, accessibility 100, SEO 100, first load 80 KB).

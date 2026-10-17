@@ -34,3 +34,14 @@ The per-address limits (calls without a sign-in, CLI sign-ins started an hour, A
 - set `server.forward-headers-strategy: native` (or `framework`) so the control plane reads the client's address from the forwarded header;
 - trust that header **only from the load balancer's own addresses** (Tomcat's `RemoteIpValve` `internal-proxies`, or the platform's equivalent), so a client can't write its own `X-Forwarded-For` to dodge or burn someone else's limit;
 - check it: two clients behind the load balancer get separate counters, and a request carrying a made-up `X-Forwarded-For` from outside is counted under its real address.
+
+## Before launch: the website and the app have two addresses (ADR 0029)
+
+The website is at the root address (`https://idleo.in/`) and the app at its own (`https://app.idleo.in/`). They are two builds with two outputs, deployed as two sites:
+
+- **Build the app and the website with both settings,** `IDLEO_SITE_URL=https://idleo.in` and `IDLEO_APP_URL=https://app.idleo.in`: `pnpm build` makes `web/dist/` (the app) and `pnpm build:site` makes `web/dist-website/` (the website). A deployed build without either, or with one that is plain HTTP or on the machine, is refused (`scripts/checks/web.sh` checks both builds refuse it).
+- **Serve each folder from its own host,** with that folder's `headers.json` as response headers. The website's `redirects.json` is `/about/` to `/`: send it as a permanent redirect; the page written at `/about/` sends the browser on where a host can't.
+- **CORS:** the API's allowed origins (`web.allowed-origins`, `WEB_ALLOWED_ORIGINS`) must be exactly `https://app.idleo.in` **and** `https://idleo.in`. The app calls the API with a bearer token, and the website's pricing and earn pages ask for the live prices (`GET /v1/public/availability`); a missing origin makes the live figures fall back to "typical". Production refuses `*`, plain HTTP and localhost (`ProductionSettingsGuard`).
+- **The identity provider's authorised domains** need `app.idleo.in` (Firebase Authentication, Authorized domains, and the sign-in link's domain), since sign-in happens in the app; the website never signs anyone in. Add the app's address to the redirect addresses of every sign-in method.
+- **Check it:** from `https://idleo.in/`, "Get started" lands on `https://app.idleo.in/sign-in/?start=1`, sign-in returns to the app's Home, and the browser console shows no CORS error on the website's pricing page.
+

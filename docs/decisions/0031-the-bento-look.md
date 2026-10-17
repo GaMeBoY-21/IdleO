@@ -45,3 +45,17 @@ The choice is about how things look and how screens are laid out. How a GPU is r
 - The old look's reference screens in docs/design/redesign/ and docs/design/hosting/ are history; docs/design/bento/ is the reference.
 - Screenshot tests stay off for this round; Nikki judges by looks on the local stack.
 - Open question: whether the colour tiles should change with a service (a third service, a fourth colour) or stay lime for the main action; the reference has one main action.
+
+## Addendum (Oct 17): the laptop layout
+
+The Bento look on a laptop was first the phone's tiles in a centred column. It is now laid out for the screen (the four approved designs in `docs/design/bento/laptop/`, web/DESIGN.md "Laptop layout"):
+
+- **Full width, a 12-column grid.** No maximum width: 32 px of side padding (40 px from 1680 px) and a 16 px gap (20 px from 1680 px); 6 columns on a tablet (768 to 1199 px); the laptop layout starts at 1200 px, the 2xl step at 1680 px.
+- **One header on every screen from 768 px:** a 76 px bar of three zones (the wordmark; one white pill bar of five tabs, Home, Book, Sessions, Hosting, Credit; the credit chip, the bell and the avatar). The avatar is a link to Account (a lime ring when it is the current page), and what the account menu held (My files, the theme, Sign out) is in Account's rail on a laptop. The menu stays on a phone.
+- **Rails.** The live session, Hosting's pages and Credit have a 400 px left column of summary tiles with the rest beside it; Account's is 320 px. Home, the live session and Hosting fill the screen without scrolling at 1440 × 900.
+- **Tiles hold their space:** no more than about 35% empty at 1440 × 900, which is how the screens were judged; a tile whose figure doesn't exist yet (no free GPUs, a log with fewer than two loss values) is not drawn rather than drawn empty.
+- **Home** gets two tiles that ask the API after the first paint and hold their height: what is free now, and the latest sessions. **The live session** reads its steps and its loss from the log (`src/lib/log-signals.ts`) and shows nothing it can't read. Dropping a folder anywhere on Home opens the matching service with it as its first upload.
+- **Book again and Run again** offer only services that are offered (the test jobs are `hidden` in the development catalog), and a long file name may wrap after a "/".
+- **The website and the app** have their own addresses: ADR 0029's addendum.
+- **The budgets don't move** (LCP 2.0 s for the app, 1.5 s for public pages, CLS 0, 150 KB of first-load JavaScript); the new tiles and charts are loaded after the first paint, and the screens' own chunks stay out of the first load.
+
