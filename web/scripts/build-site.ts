@@ -1,23 +1,33 @@
-// After the app's build (ADR 0029): writes the public pages into dist/. They are plain HTML drawn at build time by
-// src/site/render.tsx (built apart from the app, vite.site.config.ts), linking the style sheet and, on the two pages
-// with something live, one small script. Nothing of the app is on them. Also writes sitemap.xml and robots.txt.
+// The website's own output (ADR 0029): writes the public pages into dist-website/, apart from the app's dist/. They are
+// plain HTML drawn at build time by src/site/render.tsx (built apart from the app, vite.site.config.ts), linking the
+// style sheet and, on the two pages with something live, one small script. Nothing of the app is on them. Also writes
+// the 404 page, sitemap.xml, robots.txt, the headers a host should send, and the redirect from the old landing page.
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { siteSettingsProblems } from "../src/build-settings.ts";
 import { brand } from "../src/brand/brand.ts";
-import { contentSecurityPolicy } from "../src/security/headers.ts";
+import { themeBootScript } from "../src/design/theme.ts";
+import { contentSecurityPolicy, securityHeaders } from "../src/security/headers.ts";
 import type { PageDef, SiteContext } from "../src/site/context.ts";
+import { OLD_LANDING, LANDING, type EntryLinks } from "../src/site/paths.ts";
 import { siteContext } from "./site/context.ts";
 
 const here = (path: string) => fileURLToPath(new URL(`../${path}`, import.meta.url));
-const dist = here(`${process.env.IDLEO_DIST ?? "dist"}/`);
+const dist = here(`${process.env.IDLEO_WEBSITE_DIST ?? "dist-website"}/`);
 const siteDist = here(`${process.env.IDLEO_SITE_DIST ?? "dist-site"}/`);
 
 type Chunk = { file: string; css?: string[]; imports?: string[]; isEntry?: boolean };
 const manifest = JSON.parse(readFileSync(`${siteDist}.vite/manifest.json`, "utf8")) as Record<string, Chunk>;
 
 const env = process.env;
-const siteUrl = (env.IDLEO_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+// A deployed build needs both addresses; a local one has the local stack's (start.sh): the website at :3002, the app at :3000.
+const problems = siteSettingsProblems(env);
+if (problems.length > 0) {
+  throw new Error(`Refusing to build the website: ${problems.join("; ")}`);
+}
+const siteUrl = (env.IDLEO_SITE_URL ?? "http://localhost:3002").replace(/\/$/, "");
+const appUrl = (env.IDLEO_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const stylesheet = manifest["src/site/site.css"]?.file;
 if (!stylesheet) {
   throw new Error("no style sheet for the public pages in the site build's manifest");
@@ -45,15 +55,13 @@ function script(source: string): { entry: string; preload: string[] } {
 const ISLANDS = { pricing: "src/site/islands/pricing.ts", earn: "src/site/islands/earn.ts" } as const;
 
 const sha = (body: string) => `sha256-${createHash("sha256").update(body, "utf8").digest("base64")}`;
-// The one inline script is the theme's (src/design/theme.ts), which the app's pages carry too. Taken from the app's own
-// page, byte for byte, so its hash is the one the headers (dist/headers.json) already allow.
-const themeBoot = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/.exec(
-  readFileSync(`${dist}index.html`, "utf8"),
-)?.[1];
-if (!themeBoot) {
-  throw new Error("no inline theme script in the app's index.html; build the app first");
-}
-const csp = contentSecurityPolicy(env, [sha(themeBoot)]);
+// The one inline script is the theme's (src/design/theme.ts), which the app's pages carry too, so a chosen theme never
+// flashes the other first. The pages allow its hash and nothing else; they talk to the API only for the live prices.
+const themeBoot = themeBootScript;
+const csp = contentSecurityPolicy(
+  { ...env, VITE_AUTH: undefined, VITE_STORAGE_URL: undefined, VITE_OIDC_ISSUER: undefined },
+  [sha(themeBoot)],
+);
 const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
 function document(page: PageDef, body: string): string {
@@ -93,19 +101,43 @@ ${loaded.map((one) => `    <script type="module" src="/${one.entry}"></script>`)
 `;
 }
 
-const context = siteContext(env.VITE_API_URL);
+const context = siteContext(env.VITE_API_URL, appUrl);
 
-const { pages, renderPage } = (await import(new URL("../dist-site-ssr/render.js", import.meta.url).href)) as {
+const { pages, renderPage, notFoundPage } = (await import(
+  new URL("../dist-site-ssr/render.js", import.meta.url).href
+)) as {
   pages: (context: SiteContext) => PageDef[];
-  renderPage: (page: PageDef) => string;
+  renderPage: (page: PageDef, links: EntryLinks) => string;
+  notFoundPage: () => PageDef;
 };
 
+rmSync(dist, { recursive: true, force: true });
+mkdirSync(dist, { recursive: true });
 cpSync(`${siteDist}site-assets`, `${dist}site-assets`, { recursive: true });
+// The font and the icon are the app's own files, shared by both builds.
+cpSync(here("public"), dist, { recursive: true });
 const all = pages(context);
 for (const page of all) {
   mkdirSync(`${dist}${page.path}`, { recursive: true });
-  writeFileSync(`${dist}${page.path}index.html`, document(page, renderPage(page)));
+  writeFileSync(`${dist}${page.path}index.html`, document(page, renderPage(page, context.links)));
 }
+// A path the website doesn't have (served with a 404).
+writeFileSync(
+  `${dist}404.html`,
+  document(notFoundPage(), renderPage(notFoundPage(), context.links)).replace(
+    "</title>",
+    '</title>\n    <meta name="robots" content="noindex" />',
+  ),
+);
+// The old landing page: a permanent redirect where the host can send one (redirects.json, which scripts/serve.ts honours),
+// and a page that sends the browser on where it can't, so an old link keeps working.
+mkdirSync(`${dist}${OLD_LANDING}`, { recursive: true });
+writeFileSync(
+  `${dist}${OLD_LANDING}index.html`,
+  `<!doctype html>\n<html lang="en-IN">\n  <head>\n    <meta charset="utf-8" />\n    <meta http-equiv="refresh" content="0; url=${LANDING}" />\n    <meta name="robots" content="noindex" />\n    <title>Moved</title>\n    <link rel="canonical" href="${siteUrl}${LANDING}" />\n  </head>\n  <body>\n    <p><a href="${LANDING}">This page has moved.</a></p>\n  </body>\n</html>\n`,
+);
+writeFileSync(`${dist}redirects.json`, `${JSON.stringify({ [OLD_LANDING]: LANDING }, null, 2)}\n`);
+writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
 
 writeFileSync(
   `${dist}sitemap.xml`,

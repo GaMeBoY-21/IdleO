@@ -59,7 +59,7 @@ trap - EXIT
 leftovers=""
 [[ -z "$(docker ps -q --filter label=com.docker.compose.project=idleo-local)" ]] || leftovers+=" containers"
 pgrep -f "private/local/agent-[0-9].toml" >/dev/null && leftovers+=" agents"
-pgrep -f "dist-local" >/dev/null && leftovers+=" public-site"
+pgrep -f "dist-website-local" >/dev/null && leftovers+=" website"
 for port in 8080 9443 3000 3002; do
   (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && leftovers+=" port-$port"
 done

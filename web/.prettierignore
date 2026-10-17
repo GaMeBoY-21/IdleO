@@ -2,6 +2,12 @@ node_modules
 dist
 dist-ssr
 dist-firebase
+dist-site
+dist-site-ssr
+dist-website
+dist-local
+dist-site-local
+dist-website-local
 pnpm-lock.yaml
 src/api/schema.gen.ts
 src/design/tokens.gen.css

@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildSettingsProblems } from "./build-settings";
+import { buildSettingsProblems, siteSettingsProblems } from "./build-settings";
 
 const local = {
   IDLEO_DEPLOYMENT: "local",
@@ -17,6 +17,7 @@ const production = {
   VITE_API_URL: "https://api.example.invalid",
   VITE_STORAGE_URL: "https://storage.example.invalid",
   IDLEO_SITE_URL: "https://site.example.invalid",
+  IDLEO_APP_URL: "https://app.example.invalid",
   VITE_AUTH: "firebase",
   VITE_FIREBASE_API_KEY: "placeholder",
   VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
@@ -38,6 +39,17 @@ describe("the build settings", () => {
       "a production build needs an https site address that isn't on this machine",
     ]);
     expect(buildSettingsProblems(local)).toEqual([]);
+  });
+
+  it("need the app's address outside a local build, and an https one", () => {
+    expect(buildSettingsProblems({ ...production, IDLEO_APP_URL: undefined })).toEqual([
+      "a production build needs IDLEO_APP_URL, the app's address",
+    ]);
+    expect(buildSettingsProblems({ ...production, IDLEO_APP_URL: "http://localhost:3000" })).toEqual([
+      "a production build needs an https app address that isn't on this machine",
+    ]);
+    expect(siteSettingsProblems({ IDLEO_DEPLOYMENT: "production" })).toHaveLength(2);
+    expect(siteSettingsProblems({})).toEqual([]);
   });
 
   it("refuse the mock sign-in adapter outside a local build", () => {

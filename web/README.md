@@ -12,7 +12,8 @@ The renter and host web app: sign-in, Home, booking a GPU, a session live, all s
 | `/session/?id=…` | One session, following its state like a ride: finding its GPU, GPU found, running (timer, cost against the cap, the GPU's use and temperature, checkpoint, logs), then done with its outputs, or why it ended |
 | `/sessions/` | All sessions, active or ended (`?show=ended`), a page at a time |
 | `/credit/` | Credit and its history |
-| `/about/`, `/pricing/`, `/gpus/`, `/earn/`, `/docs/…`, `/terms/`, `/privacy/`, `/contact/` | The public site (ADR 0029): static pages for a signed-out visitor, built apart from the app and loading none of its code; see "The public site" below |
+| `/sessions/` and the Hosting, Account and Credit tabs | On a laptop, from 1200 px, full width on a 12-column grid with the one header (web/DESIGN.md "Laptop layout") |
+| The website: `/`, `/pricing/`, `/gpus/`, `/earn/`, `/docs/…`, `/terms/`, `/privacy/`, `/contact/` | Not the app: the website (ADR 0029) is its own build at its own address, loading none of the app's code; see "The public site" below |
 | `/welcome/`, `/sign-in/` | A new account's first screen; sign-in |
 | `/admin/…` | The admin console (ADR 0027, docs/runbooks/admin.md): its own lazily loaded chunk, which renters never download. Setting up the authenticator and the code check, then Dashboard, Users, Hosts, Sessions, Review queue, Money, Invites and the Audit log (`/admin/users/?id=…` and the like open one record). Every action asks why in one sheet. Anyone who isn't an admin sees "We can't find that page" |
 
@@ -168,10 +169,10 @@ It's under the gitignored `private/`, and the data in it is invented.
 
 ## The public site
 
-Pages for a signed-out visitor (ADR 0029): the landing page (`/about/`), pricing, what each GPU runs, the host pitch with an earnings calculator, the docs, and placeholders for terms, privacy and contact. They are static HTML written at build time from `src/site/`, which is built apart from the app, so nothing of the app can load on them.
+The website (ADR 0029), at its own address (`IDLEO_SITE_URL`; the app has `IDLEO_APP_URL`): the landing page (`/`; `/about/` redirects to it), pricing, what each GPU runs, the host pitch with an earnings calculator, the docs, and placeholders for terms, privacy and contact. They are static HTML written at build time from `src/site/` into `dist-website/` by `pnpm build:site`, apart from the app's `dist/`, so nothing of the app can load on them and none of their pages are in the app. `pnpm serve:site` serves them on :3002; the app is `pnpm serve` on :3000.
 
 - **Live figures** come from `GET /v1/public/availability`, asked after the page has painted by `src/site/islands/pricing.ts` and `earn.ts`. Every row they fill is already on the page at its final size, so nothing moves.
 - **The docs** are `../docs/site/*.md` plus three pages made from the code: services from `../templates/catalog.yaml`, the command line from `../docs/site/generated/cli.md` (the CLI keeps it current), and the API from `../api/openapi.yaml`.
-- **Settings:** a staging or production build needs `IDLEO_SITE_URL`, the site's https address, for the sitemap and canonical links; a local build may leave it out.
+- **Settings:** a staging or production build, of the app or the website, needs `IDLEO_SITE_URL` (the website's https address, for the sitemap and canonical links) and `IDLEO_APP_URL` (the app's, where "Log in", "Get started" and "Start hosting" lead, built by `entryLinks` in `src/site/paths.ts`); a local build has :3002 and :3000. A deployed build without either is refused.
 - **Budgets for public pages** (Lighthouse's mobile profile, the median of 3): LCP 1.5 s, TBT 100 ms, CLS 0, accessibility 100, SEO 100, and a first load of 80 KB (`pnpm size`). `lighthouserc.json` holds them beside the app's; `e2e/public-lighthouse.spec.ts` measures them.
 - **Tests:** `src/site/*.test.ts(x)` (the calculator, the pricing figures, the pages), `scripts/site/*.test.ts` (the docs generators, the bundle) and `e2e/public-screens.spec.ts` (axe, the pricing states, no layout shift, no app code).

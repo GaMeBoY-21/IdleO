@@ -1,13 +1,14 @@
 import { brand } from "@/brand/brand";
 import { COMMISSION_PERCENT } from "@/lib/hosting";
 import type { SiteContext } from "../context";
-import { EARN, PRICING, SIGN_IN } from "../paths";
+import { EARN, PRICING } from "../paths";
 import {
   column,
   grid,
   largeButton,
   link,
   liveButton,
+  primaryButton,
   secondaryButton,
   sectionTitle,
   tile,
@@ -56,8 +57,8 @@ export function Landing({ context }: { context: SiteContext }) {
   return (
     <>
       <section className={`${column} pt-3.5 pb-2.5 md:pt-6 md:pb-3.5`} aria-labelledby="what">
-        <div className={`${grid} md:grid-cols-4`}>
-          <div className={`${tileDark} md:col-span-3 md:row-span-2`}>
+        <div className={`${grid} md:grid-cols-4 xl:grid-cols-12`}>
+          <div className={`${tileDark} md:col-span-3 md:row-span-2 xl:col-span-8`}>
             <h1 id="what" className="max-w-prose text-title md:text-question">
               Rent a gaming GPU by the minute, in India.
             </h1>
@@ -66,7 +67,7 @@ export function Landing({ context }: { context: SiteContext }) {
               in rupees for the minutes it ran. We provide the GPU. You bring your own model, data and code.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href={SIGN_IN} className={`${liveButton} ${largeButton}`}>
+              <a href={context.links.getStarted} className={`${liveButton} ${largeButton}`}>
                 Get started
               </a>
               <a href={PRICING} className={`${secondaryButton} ${largeButton}`}>
@@ -76,14 +77,14 @@ export function Landing({ context }: { context: SiteContext }) {
           </div>
           <h2 className="sr-only">What you can run</h2>
           {main && (
-            <div className={`${tileLime} md:row-span-1`}>
+            <div className={`${tileLime} md:row-span-1 xl:col-span-4`}>
               <h3 className="text-section">{main.name}</h3>
               <p className="mt-1 text-body text-lime-fg">{main.tagline}</p>
               {main.youGet && <p className="mt-3 text-small text-lime-fg">You get: {main.youGet}</p>}
             </div>
           )}
           {others.map((service) => (
-            <div key={service.id} className={tile}>
+            <div key={service.id} className={`${tile} xl:col-span-4`}>
               <h3 className="text-section">{service.name}</h3>
               <p className="mt-1 text-body text-text-muted">{service.tagline}</p>
               {service.youGet && <p className="mt-3 text-small text-text-muted">You get: {service.youGet}</p>}
@@ -130,17 +131,19 @@ export function Landing({ context }: { context: SiteContext }) {
       </section>
 
       <section className={`${column} pt-6 pb-14 md:pt-8 md:pb-20`} aria-labelledby="hosts">
-        <div className={tileApricot}>
-          <h2 id="hosts" className="text-headline">
-            Have an RTX laptop or desktop?
-          </h2>
-          <p className="mt-2 max-w-prose text-body text-apricot-fg">
-            Rent out the hours you aren&apos;t using it and keep {100 - COMMISSION_PERCENT}% of what renters
-            pay.{" "}
-            <a href={EARN} className="text-on-colour underline underline-offset-4">
-              Earn with your GPU
-            </a>
-          </p>
+        <div className={`${tileApricot} md:flex md:items-center md:justify-between md:gap-8`}>
+          <div>
+            <h2 id="hosts" className="text-headline">
+              Have an RTX laptop or desktop?
+            </h2>
+            <p className="mt-2 max-w-prose text-body text-apricot-fg">
+              Rent out the hours you aren&apos;t using it and keep {100 - COMMISSION_PERCENT}% of what renters
+              pay.
+            </p>
+          </div>
+          <a href={EARN} className={`${primaryButton} ${largeButton} mt-4 shrink-0 md:mt-0`}>
+            Earn with your GPU
+          </a>
         </div>
         <p className="mt-6 text-small text-text-muted">
           {brand.name} is invite-only while it&apos;s in its pilot.

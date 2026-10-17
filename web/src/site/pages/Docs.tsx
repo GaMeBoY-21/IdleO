@@ -1,5 +1,5 @@
 import type { DocPage } from "../context";
-import { column, heading, link } from "../ui";
+import { column, heading, link, readable } from "../ui";
 
 /**
  * A docs page (ADR 0029): the docs' own navigation, then the page's body, written in Markdown (docs/site/) or generated
@@ -7,7 +7,7 @@ import { column, heading, link } from "../ui";
  */
 export function Docs({ page, pages }: { page: DocPage; pages: DocPage[] }) {
   return (
-    <div className={`${column} py-8 md:py-12 xl:flex xl:gap-12`}>
+    <div className={`${column} ${readable} py-8 md:py-12 xl:flex xl:gap-12`}>
       <nav aria-label="Docs" className="mb-8 xl:mb-0 xl:w-menu xl:shrink-0">
         <p className="mb-2 text-small font-semibold text-text-muted">Docs</p>
         <ul className="flex flex-wrap gap-2 xl:flex-col xl:gap-1">

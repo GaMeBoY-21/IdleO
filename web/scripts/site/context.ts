@@ -3,18 +3,20 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { SiteContext } from "../../src/site/context.ts";
+import { entryLinks } from "../../src/site/paths.ts";
 import { loadServices, workedExamples } from "./catalog.ts";
 import { buildDocs } from "./docs.ts";
 
 export const repository = (path: string): string =>
   fileURLToPath(new URL(`../../../${path}`, import.meta.url));
 
-export function siteContext(apiUrl: string | undefined): SiteContext {
+export function siteContext(apiUrl: string | undefined, appUrl: string): SiteContext {
   const catalog = repository("templates/catalog.yaml");
   const development = repository("templates/development.yaml");
   const services = loadServices(catalog, development);
   return {
     apiUrl: apiUrl ? new URL(apiUrl).origin : null,
+    links: entryLinks(appUrl),
     services,
     examples: workedExamples(catalog, development),
     docs: buildDocs({
@@ -23,6 +25,7 @@ export function siteContext(apiUrl: string | undefined): SiteContext {
       sdkMarkdown: readFileSync(repository("docs/site/generated/sdk.md"), "utf8"),
       openapiPath: repository("api/openapi.yaml"),
       services,
+      appUrl,
     }),
   };
 }

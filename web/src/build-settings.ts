@@ -17,6 +17,8 @@ export interface BuildEnv {
   VITE_HOST_RUNBOOK_URL?: string | undefined;
   /** The public site's own address, for its sitemap and canonical links (ADR 0029); a local build may leave it out. */
   IDLEO_SITE_URL?: string | undefined;
+  /** The app's own address, where the website's "Log in" and "Get started" lead (ADR 0029); a local build may leave it out. */
+  IDLEO_APP_URL?: string | undefined;
   VITE_OIDC_ISSUER?: string | undefined;
   VITE_OIDC_CLIENT_ID?: string | undefined;
   VITE_FIREBASE_API_KEY?: string | undefined;
@@ -33,6 +35,30 @@ function isLocalOrPlain(url: string): boolean {
   } catch {
     return true;
   }
+}
+
+/**
+ * The two addresses a deployed build needs (ADR 0029): the website's, `IDLEO_SITE_URL`, and the app's, `IDLEO_APP_URL`,
+ * both https and not on this machine. A local build may leave both out. The app's build and the website's both check
+ * them, since each links to the other.
+ */
+export function siteSettingsProblems(env: BuildEnv): string[] {
+  const problems: string[] = [];
+  const deployment = env.IDLEO_DEPLOYMENT ?? "local";
+  if (deployment === "local") {
+    return problems;
+  }
+  if (!env.IDLEO_SITE_URL) {
+    problems.push(`a ${deployment} build needs IDLEO_SITE_URL, the public site's address`);
+  } else if (isLocalOrPlain(env.IDLEO_SITE_URL)) {
+    problems.push(`a ${deployment} build needs an https site address that isn't on this machine`);
+  }
+  if (!env.IDLEO_APP_URL) {
+    problems.push(`a ${deployment} build needs IDLEO_APP_URL, the app's address`);
+  } else if (isLocalOrPlain(env.IDLEO_APP_URL)) {
+    problems.push(`a ${deployment} build needs an https app address that isn't on this machine`);
+  }
+  return problems;
 }
 
 /** Every problem with these settings; empty when the build may go ahead. */
@@ -59,13 +85,7 @@ export function buildSettingsProblems(env: BuildEnv): string[] {
   } else if (deployment !== "local" && isLocalOrPlain(env.VITE_STORAGE_URL)) {
     problems.push(`a ${deployment} build needs https storage that isn't on this machine`);
   }
-  if (deployment !== "local") {
-    if (!env.IDLEO_SITE_URL) {
-      problems.push(`a ${deployment} build needs IDLEO_SITE_URL, the public site's address`);
-    } else if (isLocalOrPlain(env.IDLEO_SITE_URL)) {
-      problems.push(`a ${deployment} build needs an https site address that isn't on this machine`);
-    }
-  }
+  problems.push(...siteSettingsProblems(env));
   if (auth === "oidc-mock" && (!env.VITE_OIDC_ISSUER || !env.VITE_OIDC_CLIENT_ID)) {
     problems.push("the oidc-mock adapter needs VITE_OIDC_ISSUER and VITE_OIDC_CLIENT_ID");
   }

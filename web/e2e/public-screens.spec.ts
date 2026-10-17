@@ -10,7 +10,7 @@ import { capture, expectAccessible, fakeApi, recordLayoutShifts, watchConsole } 
  * and dark. The API answers from fixtures.
  */
 const PAGES = [
-  "/about/",
+  "/",
   "/pricing/",
   "/gpus/",
   "/earn/",
@@ -25,6 +25,11 @@ const PAGES = [
   "/privacy/",
   "/contact/",
 ];
+
+/** The website and the app have their own addresses (ADR 0029): every page here is on the website unless it says. */
+const SITE = process.env.SITE_URL ?? "http://localhost:3002";
+const APP = process.env.WEB_URL ?? "http://localhost:3000";
+test.use({ baseURL: SITE });
 
 let finish: () => void;
 test.beforeEach(async ({ page }) => {
@@ -57,7 +62,7 @@ test.describe("what loads", () => {
   test("a page with nothing live loads no script of the app, and calls no API", async ({ page }) => {
     const requests: string[] = [];
     page.on("request", (request) => requests.push(new URL(request.url()).pathname));
-    await page.goto("/about/");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
     expect(requests.filter((path) => path.endsWith(".js"))).toEqual([]);
     expect(requests.filter((path) => path.startsWith("/assets/"))).toEqual([]);
@@ -218,29 +223,57 @@ async function homeIsServed(page: Page) {
 }
 
 test.describe("the way into the app", () => {
-  test("landing, Get started, sign in, and the signed-in Home", async ({ page }) => {
+  test("the website's front door, Get started, the app's sign-in on its own address, and the signed-in Home", async ({
+    page,
+  }) => {
     await homeIsServed(page);
-    await page.goto("/about/");
+    await page.goto("/");
     await page.getByRole("link", { name: "Get started" }).first().click();
-    await expect(page).toHaveURL(/\/sign-in\/$/);
+    await expect(page).toHaveURL(`${APP}/sign-in/?start=1`);
+    // A new person is told so, and can go back to the website.
+    await expect(page.getByRole("heading", { level: 1, name: "Create your account" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to the idleo website" })).toHaveAttribute(
+      "href",
+      `${SITE}/`,
+    );
     await page.getByLabel("Email", { exact: true }).fill("asha@example.com");
     await page.getByRole("button", { name: "Email me a sign-in link" }).click();
-    await page.waitForURL((url) => url.pathname === "/");
+    await page.waitForURL((url) => url.origin === APP && url.pathname === "/");
     await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
   });
 
-  test("Start hosting goes to sign-in and then to Hosting", async ({ page }) => {
+  test("Log in goes to the app's sign-in, as a returning person", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Log in" }).click();
+    await expect(page).toHaveURL(`${APP}/sign-in/`);
+    await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  });
+
+  test("Start hosting goes to the app, through sign-in, and back to Hosting", async ({ page }) => {
     await homeIsServed(page);
     await page.goto("/earn/");
     await page.getByRole("link", { name: "Start hosting" }).first().click();
-    await expect(page).toHaveURL(/\/sign-in\/\?next=%2Fhosting%2F$/);
+    await expect(page).toHaveURL(`${APP}/sign-in/?next=%2Fhosting%2F`);
   });
 
-  test("sign-in links to the terms and privacy pages", async ({ page }) => {
-    await page.goto("/sign-in/");
+  test("the app's sign-in links to the website's terms and privacy pages", async ({ page }) => {
+    await page.goto(`${APP}/sign-in/`);
     await page.getByRole("link", { name: "terms" }).click();
-    await expect(page).toHaveURL(/\/terms\/$/);
+    await expect(page).toHaveURL(`${SITE}/terms/`);
     await expect(page.getByRole("heading", { level: 1, name: "Terms" })).toBeVisible();
     await expect(page.getByText("Being drafted.")).toBeVisible();
+  });
+
+  test("the old landing page redirects to the front door, and neither build serves the other's pages", async ({
+    request,
+  }) => {
+    const moved = await request.get("/about/", { maxRedirects: 0 });
+    expect(moved.status()).toBe(301);
+    expect(moved.headers().location).toBe("/");
+    const landing = await request.get("/about/");
+    expect(landing.url()).toBe(`${SITE}/`);
+    expect((await request.get("/sign-in/")).status()).toBe(404);
+    expect((await request.get(`${APP}/pricing/`)).status()).toBe(404);
+    expect((await request.get(`${APP}/about/`)).status()).toBe(404);
   });
 });

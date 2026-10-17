@@ -51,7 +51,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss(), themeBoot()],
     resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
     // The adapter not chosen is dead code, so it's left out of the bundle entirely.
-    define: { "import.meta.env.VITE_AUTH": JSON.stringify(env.VITE_AUTH) },
+    define: {
+      "import.meta.env.VITE_AUTH": JSON.stringify(env.VITE_AUTH),
+      // Where the app's links to the website (Terms, Privacy, "← idleo") lead.
+      "import.meta.env.IDLEO_SITE_URL": JSON.stringify(env.IDLEO_SITE_URL ?? ""),
+    },
     build: {
       // IDLEO_DIST: a second build side by side, as the end-to-end test makes for the Firebase screens.
       outDir: process.env.IDLEO_DIST ?? "dist",

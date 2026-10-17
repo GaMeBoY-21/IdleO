@@ -50,6 +50,8 @@ export const toHtml = (markdown: string): string => scrolling(marked.parse(markd
 export const PRODUCT_PLACEHOLDER = "{{product}}";
 export const withProductName = (markdown: string): string =>
   markdown.replaceAll(PRODUCT_PLACEHOLDER, brand.name);
+/** The app's address, which hand-written pages write as `{{app}}` for a link into it (the app has its own address). */
+export const APP_PLACEHOLDER = "{{app}}";
 
 interface Source {
   title: string;
@@ -59,7 +61,7 @@ interface Source {
   markdown: string;
 }
 
-function readSources(directory: string): Source[] {
+function readSources(directory: string, appUrl: string): Source[] {
   return readdirSync(directory)
     .filter((file) => file.endsWith(".md") && file !== "README.md")
     .map((file) => {
@@ -74,7 +76,10 @@ function readSources(directory: string): Source[] {
           throw new Error(`docs/site/${file}'s front matter is missing ${key}`);
         }
       }
-      return { ...(meta as Omit<Source, "markdown">), markdown: withProductName(match[2]!) };
+      return {
+        ...(meta as Omit<Source, "markdown">),
+        markdown: withProductName(match[2]!).replaceAll(APP_PLACEHOLDER, appUrl.replace(/\/+$/, "")),
+      };
     });
 }
 
@@ -148,11 +153,13 @@ export interface DocsInput {
   /** api/openapi.yaml */
   openapiPath: string;
   services: ServiceInfo[];
+  /** The app's address (`IDLEO_APP_URL`), for the links into it. */
+  appUrl: string;
 }
 
 /** Every docs page, in the order they're listed. */
 export function buildDocs(input: DocsInput): DocPage[] {
-  const hand = readSources(input.docsDir);
+  const hand = readSources(input.docsDir, input.appUrl);
   const generated: Source[] = [
     {
       title: "Services",

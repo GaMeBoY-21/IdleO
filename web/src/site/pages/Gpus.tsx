@@ -1,4 +1,4 @@
-import { SIGN_IN } from "../paths";
+import type { EntryLinks } from "../paths";
 import { GPU_CLASSES } from "../gpus";
 import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
@@ -6,7 +6,7 @@ import { band, column, heading, largeButton, muted, primaryButton, sectionTitle,
  * What each GPU memory class can run (ADR 0029). Static: nothing here is measured on our hosts, so every line is marked
  * typical, and no price is quoted (those are on the pricing page, from the live range).
  */
-export function Gpus() {
+export function Gpus({ links }: { links: EntryLinks }) {
   return (
     <>
       <section className={`${column} ${band}`}>
@@ -50,7 +50,7 @@ export function Gpus() {
           card reports.
         </p>
         <div className="mt-8">
-          <a href={SIGN_IN} className={`${primaryButton} ${largeButton}`}>
+          <a href={links.getStarted} className={`${primaryButton} ${largeButton}`}>
             Get started
           </a>
         </div>

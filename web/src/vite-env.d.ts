@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_API_KEY?: string;
   readonly VITE_FIREBASE_AUTH_DOMAIN?: string;
   readonly VITE_FIREBASE_PROJECT_ID?: string;
+  /** The public website's address, written in by vite.config.ts from IDLEO_SITE_URL (ADR 0029). */
+  readonly IDLEO_SITE_URL?: string;
 }
 
 interface ImportMeta {

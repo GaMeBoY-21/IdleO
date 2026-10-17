@@ -15,6 +15,8 @@ export const config = {
   hostRunbookUrl:
     import.meta.env.VITE_HOST_RUNBOOK_URL ??
     "https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/hosts.md",
+  /** The public website's address (ADR 0029): the app has its own, and links to the website's pages by this. */
+  siteUrl: (import.meta.env.IDLEO_SITE_URL || "http://localhost:3002").replace(/\/+$/, ""),
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "",
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "",

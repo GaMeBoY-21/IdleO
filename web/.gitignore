@@ -17,3 +17,5 @@ visual-baseline/
 # ./start.sh builds the public site here, apart from a release build.
 dist-local/
 dist-site-local/
+dist-website/
+dist-website-local/

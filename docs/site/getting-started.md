@@ -9,7 +9,7 @@ path: /docs/
 
 ## 1. Sign in
 
-[Sign in](/sign-in/) with your email: we send a link, no password. While {{product}} is in its pilot it is invite-only, so the first time you sign in it asks for an invite code from the person who invited you. A code works once.
+[Sign in]({{app}}/sign-in/) with your email: we send a link, no password. While {{product}} is in its pilot it is invite-only, so the first time you sign in it asks for an invite code from the person who invited you. A code works once.
 
 ## 2. Pick a service
 

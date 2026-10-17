@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import { siteContext } from "../../scripts/site/context";
 import { pages, renderPage } from "./render";
 
-const context = siteContext("https://api.example.invalid");
-const all = pages(context).map((page) => ({ page, html: renderPage(page) }));
+const APP = "https://app.example.invalid";
+const context = siteContext("https://api.example.invalid", APP);
+const all = pages(context).map((page) => ({ page, html: renderPage(page, context.links) }));
 const text = (html: string) =>
   html
     .replace(/<[^>]+>/g, " ")
@@ -17,7 +18,7 @@ describe("the public pages", () => {
     const paths = all.map(({ page }) => page.path);
     expect(new Set(paths).size).toBe(paths.length);
     for (const path of [
-      "/about/",
+      "/",
       "/pricing/",
       "/gpus/",
       "/earn/",
@@ -31,6 +32,12 @@ describe("the public pages", () => {
     expect(paths.filter((path) => path.startsWith("/docs/"))).toHaveLength(context.docs.length);
   });
 
+  it("start hosting in the app's Hosting tab, and the landing page is the website's own front door", () => {
+    expect(all.find(({ page }) => page.path === "/earn/")!.html).toContain(`href="${APP}/hosting/"`);
+    expect(all.find(({ page }) => page.path === "/")!.html).toContain('aria-label="IdleO home"');
+    expect(all.some(({ page }) => page.path === "/about/")).toBe(false);
+  });
+
   it("each has one heading, the header with the five ways on and the footer", () => {
     for (const { page, html } of all) {
       expect(html.match(/<h1[ >]/g), page.path).toHaveLength(1);
@@ -39,7 +46,7 @@ describe("the public pages", () => {
         "GPUs",
         "Earn",
         "Docs",
-        "Sign in",
+        "Log in",
         "Get started",
         "Terms",
         "Privacy",
@@ -47,7 +54,12 @@ describe("the public pages", () => {
       ]) {
         expect(text(html), `${page.path} has ${label}`).toContain(label);
       }
-      expect(html).toContain('href="/sign-in/"');
+      // Every way into the app leads to the app's own address, never to a path on the website.
+      expect(html).toContain(`href="${APP}/sign-in/"`);
+      expect(html).toContain(`href="${APP}/sign-in/?start=1"`.replace("&", "&amp;"));
+      expect(html.match(/href="\/(sign-in|hosting|book|credit|account)\/[^"]*"/g) ?? [], page.path).toEqual(
+        [],
+      );
     }
   });
 
@@ -70,7 +82,7 @@ describe("the public pages", () => {
     for (const { page, html } of all) {
       expect(text(html), page.path).not.toMatch(banned);
     }
-    expect(text(all.find(({ page }) => page.path === "/about/")!.html)).toContain(
+    expect(text(all.find(({ page }) => page.path === "/")!.html)).toContain(
       "You bring your own model, data and code",
     );
   });
@@ -85,7 +97,7 @@ describe("the public pages", () => {
     const earn = text(all.find(({ page }) => page.path === "/earn/")!.html);
     expect(earn).toContain("Hosting opens after our safety tests");
     expect(earn).not.toMatch(/\bwork runs in a sandbox\b|Safe by design/);
-    const landing = text(all.find(({ page }) => page.path === "/about/")!.html);
+    const landing = text(all.find(({ page }) => page.path === "/")!.html);
     expect(landing).toContain("What you can run");
     expect(landing).not.toContain("What you can run today");
   });

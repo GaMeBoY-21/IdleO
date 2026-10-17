@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
-import { CONTACT, DOCS, EARN, GPUS, LANDING, PRICING, PRIVACY, SIGN_IN, TERMS } from "./paths";
-import { column, link, primaryButton, secondaryButton } from "./ui";
+import { CONTACT, DOCS, EARN, GPUS, LANDING, PRICING, PRIVACY, TERMS, type EntryLinks } from "./paths";
+import { column, link, primaryButton } from "./ui";
 
 const NAV = [
   { href: PRICING, label: "Pricing" },
@@ -12,11 +12,11 @@ const NAV = [
 ] as const;
 
 /**
- * The frame every public page shares (ADR 0029): the header with the pages as white pills, Sign in and the dark "Get started"
- * button, and the footer. Plain markup, no script. On a phone the pages sit on a row of their own under the wordmark
+ * The frame every public page shares (ADR 0029): the header with the pages as white pills, "Log in" as a plain link and
+ * the dark "Get started" button, both into the app at its own address, and the footer. Plain markup, no script. On a phone the pages sit on a row of their own under the wordmark
  * and the two buttons, so nothing is hidden behind a menu that would need script.
  */
-export function Shell({ path, children }: { path: string; children: ReactNode }) {
+export function Shell({ path, links, children }: { path: string; links: EntryLinks; children: ReactNode }) {
   const current = (href: string) =>
     path === href || (href !== LANDING && path.startsWith(href)) ? "page" : undefined;
   return (
@@ -47,10 +47,10 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <a href={SIGN_IN} className={secondaryButton}>
-              Sign in
+            <a href={links.logIn} className={`${link} flex min-h-touch items-center px-3 font-semibold`}>
+              Log in
             </a>
-            <a href={SIGN_IN} className={primaryButton}>
+            <a href={links.getStarted} className={primaryButton}>
               Get started
             </a>
           </div>

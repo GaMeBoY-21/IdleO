@@ -10,6 +10,7 @@ import { LazyEmailForm } from "./LazyEmailForm";
 import { GoogleMark } from "./GoogleMark";
 import { signInMessage } from "./messages";
 import { SignInFrame } from "./SignInFrame";
+import { siteLink } from "@/lib/site-links";
 import { useTitle } from "@/lib/title";
 
 /**
@@ -22,6 +23,8 @@ export function SignIn() {
   const client = useQueryClient();
   const search = new URLSearchParams(useSearch());
   const next = search.get("next");
+  // "Get started" on the website arrives with start=1: a new person, so the screen says so.
+  const start = search.get("start") === "1";
   useTitle("Sign in");
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -47,7 +50,7 @@ export function SignIn() {
 
   if (sentTo) {
     return (
-      <SignInFrame title="Check your email" collage>
+      <SignInFrame title="Check your email" collage back>
         <div className="flex flex-col gap-4">
           <MailCheck aria-hidden="true" className="size-8 text-running" strokeWidth={1.75} />
           <p className="text-body">
@@ -66,7 +69,7 @@ export function SignIn() {
   }
 
   return (
-    <SignInFrame title="Sign in" collage>
+    <SignInFrame title={start ? "Create your account" : "Sign in"} collage back>
       <p className="mb-8 text-body text-text-muted">Rent a GPU by the minute, paid in rupees.</p>
       <div className="flex flex-col gap-6">
         {search.get("expired") && (
@@ -104,11 +107,11 @@ export function SignIn() {
         />
         <p className="text-caption text-text-muted">
           By continuing you agree to the{" "}
-          <a href="/terms/" className="underline">
+          <a href={siteLink("/terms/")} className="underline">
             terms
           </a>{" "}
           and have read the{" "}
-          <a href="/privacy/" className="underline">
+          <a href={siteLink("/privacy/")} className="underline">
             privacy notice
           </a>
           .

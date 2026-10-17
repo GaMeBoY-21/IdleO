@@ -7,7 +7,7 @@
     "assert": {
       "assertMatrix": [
         {
-          "matchingUrlPattern": "^https?://[^/]+/(about|pricing|gpus|earn|docs|terms|privacy|contact)/",
+          "matchingUrlPattern": "^https?://[^/]+/((pricing|gpus|earn|docs|terms|privacy|contact)/|\\?site$)",
           "assertions": {
             "largest-contentful-paint": [
               "error",
@@ -43,7 +43,7 @@
           "aggregationMethod": "median"
         },
         {
-          "matchingUrlPattern": "^https?://[^/]+/(?!(about|pricing|gpus|earn|docs|terms|privacy|contact)/)",
+          "matchingUrlPattern": "^https?://[^/]+/(?!((pricing|gpus|earn|docs|terms|privacy|contact)/|\\?site$))",
           "assertions": {
             "largest-contentful-paint": [
               "error",

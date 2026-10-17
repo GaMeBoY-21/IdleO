@@ -56,8 +56,9 @@ stack_start_control_plane() {
     # Email goes to Mailpit from compose.yaml (ADR 0026), and its links to this stack's web app.
     export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
     export NOTIFICATIONS_WEB_APP_URL="http://localhost:$web_port"
-    # The web app's origin, which may call the API from a browser (ADR 0018).
-    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port"
+    # The web app's origin, which may call the API from a browser (ADR 0018), and the website's when the script has one
+    # (its pricing page asks for live prices, ADR 0029).
+    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port${site_port:+,http://localhost:$site_port}"
     if declare -F stack_control_plane_settings >/dev/null; then
       stack_control_plane_settings
     fi

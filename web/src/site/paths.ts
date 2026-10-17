@@ -1,9 +1,9 @@
 /**
- * The public pages' addresses (ADR 0029), in one place. The landing page isn't at "/", because "/" is the signed-in
- * Home (src/screens.ts); where the landing page sits once the site and the app have their own addresses is a decision
- * for the deployment round, and it is this constant that changes.
+ * The public pages' addresses (ADR 0029), in one place. The website has its own address, and the landing page is its
+ * `/`; the app has another (`IDLEO_APP_URL`). A page of the website is a path on the website; everything that goes into
+ * the app is built here from the app's address, so no page spells one out.
  */
-export const LANDING = "/about/";
+export const LANDING = "/";
 export const PRICING = "/pricing/";
 export const GPUS = "/gpus/";
 export const EARN = "/earn/";
@@ -11,7 +11,29 @@ export const DOCS = "/docs/";
 export const TERMS = "/terms/";
 export const PRIVACY = "/privacy/";
 export const CONTACT = "/contact/";
+/** Where the landing page used to be, before the website had its own address: it answers with a redirect to `/`. */
+export const OLD_LANDING = "/about/";
 
-/** The app's own addresses, for the buttons that leave the public site. */
-export const SIGN_IN = "/sign-in/";
-export const START_HOSTING = "/hosting/";
+/** The paths the app has for the buttons that leave the website. */
+const APP_SIGN_IN = "/sign-in/";
+const APP_HOSTING = "/hosting/";
+
+/** The addresses the website's buttons lead to, in the app. */
+export interface EntryLinks {
+  /** "Log in": the app's sign-in. */
+  logIn: string;
+  /** "Get started": the same, which says "Create your account" because of `start=1`. */
+  getStarted: string;
+  /** "Start hosting": the app's Hosting tab, through sign-in if the person isn't. */
+  startHosting: string;
+}
+
+/** The app's links from its address (`IDLEO_APP_URL`), with or without a trailing slash. */
+export function entryLinks(appUrl: string): EntryLinks {
+  const base = appUrl.replace(/\/+$/, "");
+  return {
+    logIn: `${base}${APP_SIGN_IN}`,
+    getStarted: `${base}${APP_SIGN_IN}?start=1`,
+    startHosting: `${base}${APP_HOSTING}`,
+  };
+}

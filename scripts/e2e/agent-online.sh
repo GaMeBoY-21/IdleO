@@ -66,6 +66,7 @@ mail_smtp_port="${LOCAL_MAIL_SMTP_PORT:-1025}"
 mail_web_port="${LOCAL_MAIL_WEB_PORT:-8025}"
 web_port="${E2E_WEB_PORT:-3000}"
 firebase_web_port="${E2E_FIREBASE_WEB_PORT:-3001}"
+site_port="${E2E_SITE_PORT:-3002}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
 # A short lease, so losing the host shows within seconds (production: 2 minutes, renewed every 30 s).
 lease_ttl="${E2E_LEASE_TTL:-10s}"
@@ -409,9 +410,9 @@ on_signal() {
 }
 trap on_signal INT TERM
 
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port" "$site_port"; do
   if port_in_use "$port"; then
-    fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, LOCAL_MAIL_SMTP_PORT, LOCAL_MAIL_WEB_PORT, E2E_WEB_PORT or E2E_FIREBASE_WEB_PORT"
+    fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, LOCAL_MAIL_SMTP_PORT, LOCAL_MAIL_WEB_PORT, E2E_WEB_PORT, E2E_FIREBASE_WEB_PORT or E2E_SITE_PORT"
   fi
 done
 docker info >/dev/null 2>&1 || fail "Docker isn't running"
@@ -527,10 +528,14 @@ summary+=("agents enrolled: $agents")
 log "building the web app"
 web_started="$(now_ms)"
 (cd web && pnpm install --frozen-lockfile) >"$out/web-build.log" 2>&1 || fail "pnpm install failed; see private/e2e/web-build.log"
-(cd web && IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
+# The app and the website are two builds, each told the other's address (web/src/build-settings.ts).
+site_settings=(IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port")
+(cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
   VITE_OIDC_CLIENT_ID=idleo-local pnpm build) >>"$out/web-build.log" 2>&1 || fail "the web build failed; see private/e2e/web-build.log"
+(cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" pnpm build:site) >>"$out/web-build.log" 2>&1 ||
+  fail "the website's build failed; see private/e2e/web-build.log"
 if $web_only; then
-  (cd web && IDLEO_DIST=dist-firebase IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=firebase \
+  (cd web && env "${site_settings[@]}" IDLEO_DIST=dist-firebase IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=firebase \
     VITE_FIREBASE_API_KEY=placeholder-not-a-key VITE_FIREBASE_AUTH_DOMAIN=placeholder.firebaseapp.com \
     VITE_FIREBASE_PROJECT_ID=placeholder pnpm build) >>"$out/web-build.log" 2>&1 ||
     fail "the Firebase web build failed; see private/e2e/web-build.log"
@@ -539,21 +544,26 @@ serve_web() {
   (cd web && IDLEO_DIST="$1" PORT="$2" exec node scripts/serve.ts) >>"$out/web-serve.log" 2>&1 &
   echo $! >"$out/web-$2.pid"
   local deadline=$((SECONDS + 15))
-  until curl -sf "http://localhost:$2/sign-in/" >/dev/null 2>&1; do
+  # The app answers at /sign-in/; the website (dist-website) has no such page, and answers at /.
+  local probe=/sign-in/
+  [[ $1 == dist-website ]] && probe=/
+  until curl -sf "http://localhost:$2$probe" >/dev/null 2>&1; do
     ((SECONDS < deadline)) || fail "the web app didn't start on :$2; see private/e2e/web-serve.log"
     sleep 0.2
   done
 }
 if ! $keep_running || [[ "${E2E_SERVE_WEB:-1}" != 0 ]]; then serve_web dist "$web_port"; fi
 $web_only && serve_web dist-firebase "$firebase_web_port"
+serve_web dist-website "$site_port"
 if ! $keep_running; then
   (cd web && pnpm exec playwright install chromium) >>"$out/web-build.log" 2>&1 || fail "installing Playwright's browser failed"
 fi
 summary+=("web app built and served: $(seconds_since "$web_started") s")
 web_url="http://localhost:$web_port"
+site_url="http://localhost:$site_port"
 # Playwright, with this stack's addresses (web/playwright.config.ts).
 web_test() {
-  (cd web && WEB_URL="$web_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
+  (cd web && WEB_URL="$web_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" FIREBASE_WEB_URL="http://localhost:$firebase_web_port" \
     pnpm exec playwright test "$@")
 }
 
@@ -1090,7 +1100,7 @@ if $web_only; then
     --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 ||
     fail "the web app's browser tests failed; see private/e2e/web-playwright.log and web/playwright-report"
   summary+=("web: $(grep -Eo '[0-9]+ passed' "$out/web-playwright.log" | tail -1) (every screen and state, light and dark, 390 and 1280 px; axe; layout shift; Firebase screens; journey) in $(seconds_since "$checks_started") s: PASS")
-  (cd web && rm -rf .lighthouseci .lighthouseci-desktop && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" \
+  (cd web && rm -rf .lighthouseci .lighthouseci-desktop && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" \
     API_URL="$api" SIGN_IN_URL="$sign_in" pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || fail "a Lighthouse budget failed; see private/e2e/web-lighthouse.log"
   while IFS= read -r line; do summary+=("lighthouse $line"); done < <(python3 - <<'PY'
 import json
@@ -1112,7 +1122,7 @@ PY
   summary+=("lighthouse public pages (mobile, the median of 3 runs: LCP <= 1500 ms, TBT <= 100 ms, CLS 0, accessibility 100, SEO 100): PASS")
   first_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/first-load.ts | tail -1)" || fail "the first-load JavaScript budget failed"
   summary+=("${first_load# }: PASS")
-  site_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/site-size.ts | tail -1)" || fail "the public pages' first-load budget failed"
+  site_load="$(cd web && node scripts/site-size.ts | tail -1)" || fail "the public pages' first-load budget failed"
   summary+=("${site_load# }: PASS")
 fi
 

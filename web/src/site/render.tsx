@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { brand } from "@/brand/brand";
 import type { PageDef, SiteContext } from "./context";
+import type { EntryLinks } from "./paths";
 import { Docs } from "./pages/Docs";
 import { Earn } from "./pages/Earn";
 import { Gpus } from "./pages/Gpus";
@@ -9,6 +10,7 @@ import { Placeholder } from "./pages/Placeholder";
 import { Pricing } from "./pages/Pricing";
 import { CONTACT, EARN, GPUS, LANDING, PRICING, PRIVACY, TERMS } from "./paths";
 import { Shell } from "./Shell";
+import { band, column, heading, link, muted } from "./ui";
 
 /**
  * Every public page (ADR 0029), by path: what its document says about it, and its body. scripts/build-site.ts writes
@@ -38,7 +40,7 @@ export function pages(context: SiteContext): PageDef[] {
       title: `What each GPU can run · ${brand.name}`,
       description:
         "What 8, 12, 16 and 24 GB consumer GPUs typically run: fine-tuning with QLoRA, batches and models.",
-      body: <Gpus />,
+      body: <Gpus links={context.links} />,
       islands: [],
     },
     {
@@ -46,7 +48,7 @@ export function pages(context: SiteContext): PageDef[] {
       title: `Earn with your GPU · ${brand.name}`,
       description:
         "Rent out your RTX laptop or desktop while you aren't using it. How it stays safe, what you need, and an honest earnings estimate.",
-      body: <Earn apiUrl={context.apiUrl} />,
+      body: <Earn apiUrl={context.apiUrl} links={context.links} />,
       islands: ["earn"],
     },
     {
@@ -94,6 +96,32 @@ export function pages(context: SiteContext): PageDef[] {
 }
 
 /** One page's body as HTML inside the shared frame. */
-export function renderPage(page: PageDef): string {
-  return renderToStaticMarkup(<Shell path={page.path}>{page.body}</Shell>);
+export function renderPage(page: PageDef, links: EntryLinks): string {
+  return renderToStaticMarkup(
+    <Shell path={page.path} links={links}>
+      {page.body}
+    </Shell>,
+  );
+}
+
+/** The page a path the website doesn't have answers with (404.html): not in the sitemap, and no part of the pages. */
+export function notFoundPage(): PageDef {
+  return {
+    path: "/404/",
+    title: `Page not found · ${brand.name}`,
+    description: "This page isn't here.",
+    body: (
+      <section className={`${column} ${band}`}>
+        <h1 className={heading}>Page not found</h1>
+        <p className={`${muted} mt-4 max-w-prose`}>
+          There is nothing at this address.{" "}
+          <a href={LANDING} className={link}>
+            Go to the home page
+          </a>
+          .
+        </p>
+      </section>
+    ),
+    islands: [],
+  };
 }

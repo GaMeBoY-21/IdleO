@@ -1,12 +1,12 @@
 // @vitest-environment node
 import { readdirSync, readFileSync } from "node:fs";
 import { brand } from "../../src/brand/brand";
-import { PRODUCT_PLACEHOLDER } from "./docs";
+import { APP_PLACEHOLDER, PRODUCT_PLACEHOLDER } from "./docs";
 import { describe, expect, it } from "vitest";
 import { publicOperations, loadSpec } from "./openapi";
 import { repository, siteContext } from "./context";
 
-const context = siteContext("https://api.example.invalid");
+const context = siteContext("https://api.example.invalid", "https://app.example.invalid");
 const page = (path: string) => context.docs.find((candidate) => candidate.path === path)!;
 const spec = loadSpec(repository("api/openapi.yaml"));
 
@@ -103,6 +103,11 @@ describe("the docs generators", () => {
     }
     expect(page("/docs/").html).toContain(`${brand.name} rents you a gaming GPU by the minute`);
     expect(page("/docs/").html).not.toContain(PRODUCT_PLACEHOLDER);
+    // Links into the app lead to its own address, and no placeholder is left in any page.
+    for (const doc of context.docs) {
+      expect(doc.html, doc.path).not.toContain(APP_PLACEHOLDER);
+    }
+    expect(page("/docs/").html).toContain('href="https://app.example.invalid/sign-in/"');
     for (const path of ["/docs/hosting/", "/docs/faq/"]) {
       const html = page(path).html;
       expect(html, path).toContain("Hosting opens after our safety tests");

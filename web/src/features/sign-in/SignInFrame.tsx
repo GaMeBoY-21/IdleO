@@ -1,8 +1,9 @@
-import { Clock, Cpu, Lock, Zap, type LucideIcon } from "lucide-react";
+import { ChevronLeft, Clock, Cpu, Lock, Zap, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Wordmark } from "@/brand/Wordmark";
 import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
+import { siteLink } from "@/lib/site-links";
 
 /**
  * The signed-out screens, and the pages for a wrong link or a broken screen: the name, and one white tile on the page
@@ -15,15 +16,29 @@ export function SignInFrame({
   title,
   children,
   collage = false,
+  back = false,
 }: {
   title: string;
   children: ReactNode;
   collage?: boolean;
+  /** A small "← idleo" in place of the wordmark, back to the website's front door (the sign-in screen). */
+  back?: boolean;
 }) {
   return (
     <main className="flex min-h-dvh flex-col items-center px-3.5 pt-4 pb-12 md:justify-center md:py-12 xl:items-stretch xl:px-0 xl:py-0">
       <div className="flex w-full max-w-narrow flex-col gap-4 xl:max-w-none xl:flex-1 xl:px-8 xl:py-8 2xl:px-10">
-        <Wordmark className="self-start px-1.5 xl:px-0" />
+        {back ? (
+          <a
+            href={siteLink("/")}
+            aria-label="Back to the idleo website"
+            className="flex min-h-touch items-center gap-1 self-start px-1.5 xl:px-0"
+          >
+            <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
+            <Wordmark />
+          </a>
+        ) : (
+          <Wordmark className="self-start px-1.5 xl:px-0" />
+        )}
         <div
           className={cn(
             "flex flex-col gap-4 xl:flex-1",
@@ -63,7 +78,8 @@ function Collage() {
         <div className="flex flex-col gap-3">
           <h2 className="text-question">Rent a GPU by the minute</h2>
           <p className="text-body text-dark-muted">
-            Paid in rupees, and only for the minutes it ran. We provide the GPU; you bring your own model, data and code.
+            Paid in rupees, and only for the minutes it ran. We provide the GPU; you bring your own model,
+            data and code.
           </p>
         </div>
       </Tile>

@@ -22,10 +22,15 @@ export const tileLime = "rounded-tile bg-lime p-5 text-on-colour";
 export const tileLavender = "rounded-tile bg-lavender p-5 text-on-colour";
 export const tileApricot = "rounded-tile bg-apricot p-6 text-on-colour md:p-8";
 /** The grid the bento pages lay their tiles on: a 10 px gap on a phone, 14 px from 768 px. */
-export const grid = "grid gap-2.5 md:gap-3.5";
+export const grid = "grid gap-2.5 md:gap-3.5 xl:gap-4 2xl:gap-5";
 
-/** The page's column: 14 px margins on a phone, 24 from 768 px, 32 from 1280. */
-export const column = "mx-auto w-full max-w-content px-3.5 md:px-6 xl:px-8";
+/**
+ * The page's frame, as the app's: the full width of the window with no maximum, 14 px margins on a phone, 24 from
+ * 768 px, 32 from 1200 px and 40 from 1680 px (web/DESIGN.md "Laptop layout"). The docs keep a readable column inside it.
+ */
+export const column = "w-full px-3.5 md:px-6 xl:px-8 2xl:px-10";
+/** The docs' column of text, inside the frame. */
+export const readable = "mx-auto max-w-content";
 /** A band of the page, with room above and below. */
 export const band = "py-8 md:py-12";
 export const heading = "text-title text-text md:text-question";

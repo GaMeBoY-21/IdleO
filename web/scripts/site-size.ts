@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 export const SITE_BUDGET_KB = 80;
 
-const dist = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}/`, import.meta.url));
+const dist = fileURLToPath(
+  new URL(`../${process.env.IDLEO_WEBSITE_DIST ?? "dist-website"}/`, import.meta.url),
+);
 const gz = (file: string) => gzipSync(readFileSync(file), { level: 9 }).length / 1024;
 
 /** Every public page: the folders with an index.html that load the public style sheet. */
@@ -36,7 +38,7 @@ const rows = pages().map((file) => {
   };
 });
 if (rows.length === 0) {
-  throw new Error("no public pages in dist/; build the site first");
+  throw new Error("no public pages in dist-website/; build the website first (pnpm build:site)");
 }
 for (const row of rows.sort((a, b) => b.kb - a.kb)) {
   console.log(

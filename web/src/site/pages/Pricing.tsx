@@ -2,7 +2,6 @@ import { COMMISSION_PERCENT } from "@/lib/hosting";
 import { GPU_CLASSES } from "../gpus";
 import type { SiteContext } from "../context";
 import { EXAMPLE_CLASS_GB } from "../examples";
-import { SIGN_IN } from "../paths";
 import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
 /** A row's place on the page, 96 px high whatever it holds, so what arrives never moves anything. */
@@ -144,7 +143,7 @@ export function Pricing({ context }: { context: SiteContext }) {
       </section>
 
       <section className={`${column} pb-14 md:pb-20`}>
-        <a href={SIGN_IN} className={`${primaryButton} ${largeButton}`}>
+        <a href={context.links.getStarted} className={`${primaryButton} ${largeButton}`}>
           Get started
         </a>
       </section>

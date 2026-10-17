@@ -10,9 +10,11 @@ import { join } from "node:path";
  * TBT 100 ms, CLS 0, accessibility 100). The first-load size, 80 KB, is `pnpm size` (scripts/site-size.ts).
  */
 const PORT = 9334;
-const WEB = process.env.WEB_URL ?? "http://localhost:3000";
+const WEB = process.env.SITE_URL ?? "http://localhost:3002";
 const RUNS = 3;
-const PAGES = ["/about/", "/pricing/", "/gpus/", "/earn/", "/docs/", "/docs/cli/", "/docs/api/", "/terms/"];
+// The front door is measured as "/?site", which the website serves as "/": the query tells `lhci assert` (lighthouserc.json)
+// that it is a public page and not the app's Home.
+const PAGES = ["/?site", "/pricing/", "/gpus/", "/earn/", "/docs/", "/docs/cli/", "/docs/api/", "/terms/"];
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) / 2)]!;
 

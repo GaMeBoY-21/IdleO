@@ -72,6 +72,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 | `text-title` | 28 / 34 px | Page titles on a phone; big figures beside the timer |
 | `text-question` | 40 / 44 px | The laptop's page question ("What do you want to run?") |
 | `text-timer` | 54 / 54 px | The running timer on a phone, and the big credit |
+| `text-timer-lg` | 60 / 60 px | The running timer in the live session's tile on a laptop |
 | `text-timer-xl` | 72 / 72 px | The running timer on a laptop |
 
 - **Line length:** reading text is at most 68 characters wide (`max-w-prose`, set to 68ch). Tables and lists may be wider.
@@ -303,6 +304,45 @@ The owner's screens (ADR 0023), for someone who wants to know "is my machine ear
 
 Sign-in, the invite step, Account, API keys, the notifications list and the CLI approval are white tiles on the page colour, with one primary action each. The admin console (ADR 0027) stays dense: it takes the font, the colours and the radii, and is not reorganised into tiles.
 
+## Laptop layout
+
+From 1200 px every signed-in screen is laid out for the screen, not as the phone's tiles in a column (ADR 0031's addendum). The references are `docs/design/bento/laptop/` (`home-laptop.html`, `live-session-laptop.html`, `hosting-laptop.html`, `account-laptop.html`), judged at 1440 × 900.
+
+**The system**
+- **Breakpoints:** phone under 768 px; tablet 768 to 1199 px (the laptop's header and tabs, with 6 columns and stacked rails); laptop from 1200 px (`xl:`, `useLaptop()`); a wide step at 1680 px (`2xl:`).
+- **Frame and grid** (`components/shell/Layout.tsx`): the content runs the full width of the window, no maximum and no centred column; side padding 14 px on a phone, 24 from 768 px, 32 from 1200 px and 40 from 1680 px; 12 columns with a 16 px gap (20 px from 1680 px), 6 columns on a tablet. A screen that fills the window (Home, the live session, Hosting) is 100% of the height under the header less 16 px above and 24 px below (`FIT_FRAME`, `fit-screen`).
+- **The header** is 76 px high in three zones: the wordmark on the left; in the middle one white pill bar of five tabs (Home, Book, Sessions, Hosting, Credit), the current one dark; on the right the credit chip (`CreditChip`, the wallet's available amount), the bell and the avatar. The avatar is a link to Account, with a 3 px lime ring while Account or a page under it is current; the account menu's contents (My files, theme, Sign out) are in Account's rail. A phone keeps the header and the floating tab bar.
+- **Rails** (`RailColumns`): a left column of 400 px (320 px for Account) of summary tiles and the rest beside it, stacked on a tablet. The live session, Hosting's pages, Credit and Account use it; the left column's first tile is dark.
+- **Tiles hold their space:** no more than about 35% of a tile is empty at 1440 × 900. A tile is as tall as its content, or two tiles share a row's height; one with nothing to say isn't drawn (no free GPUs, a log with under two loss values, a host with no sessions). Figures are tabular and come only from the API; money is `formatPaise`.
+- **Rules that stay:** one dark primary button on a screen; touch targets of 44 px or more; no layout shift, so a skeleton is exactly its tile's height; the first screen's requests are only what it needs to paint, and the tiles that need more ask after the paint (`useAfterPaint`).
+
+**Home** (`home-laptop.html`), 12 columns and three rows that fill the screen:
+
+| Tile | Columns | Colour | What it holds |
+| --- | --- | --- | --- |
+| Running now, or "What do you want to run?" | 8 × 2 rows | dark | The live session's service, GPU, elapsed time at 60 px and cost (lime), opening it; or, with none, the question and the offered services as lime and white buttons. Dropping a folder anywhere on the page opens the matching service with it |
+| Credit | 4 | white | Available, on hold, and the way to Credit |
+| Free GPUs now | 4 | white | Each GPU memory class with whether one is free and the live price range (`GET /v1/public/availability`), drawn after the first paint; not there when it has nothing |
+| Recent sessions | 8 | white | The latest sessions as rows, from the sessions already loaded or the first page of the list, drawn after the first paint |
+| Book again | 4 | lavender | The last setup of an offered service ("Fine-tune a model · 41 min"); not there for a new renter or for a test job |
+| Earn with your GPU | 4 | apricot | The host pitch, opening Hosting |
+
+**The live session** (`live-session-laptop.html`): the left rail holds the dark tile (state, the timer at 60 px, the cost and the cap bar), then the GPU and checkpoint tiles and Stop. The right side is the log, a white tile with a monospace body that scrolls inside the screen; above it the steps the log shows (loading the model, training, saving), and the loss chart when the log has two or more loss values. Finding is the dark tile with the ring and the request beside it; Done is the charge, the outputs (lime, with Download), the rating and "Run again". Nothing is drawn that the log or the session doesn't carry.
+
+**Hosting** (`hosting-laptop.html`), two equal rows: the dark tile of the week (the amount, the total and hours rented, the seven days as bars) over 8 columns and the apricot "Add a machine" (what a machine needs, one-time code, about 5 minutes) over 4; then each machine as a 4-column tile (state, temperature and use, name, GPU and price, "Earning now" or Pause or Resume) and "Latest earnings" with the last entries and All. With more than two machines they are a grid of three a row, and the earnings sit under them. Machine, Price, Sessions it ran, Earnings and Add have the 400 px rail with a dark summary tile (the machine's state, name and rating; or the screen's title and what it is) and white tiles beside it.
+
+**Account** (`account-laptop.html`): the 320 px rail holds a dark profile tile (an avatar in lime, the name and email), the four sections (Profile and notifications, API keys, My files, Reports), Appearance (Match my device, Light or Dark) and Sign out. Beside it Profile (name with Edit, email, how they sign in) and Notifications, a table of a kind and two switches (Email, In the app), the kinds about money and safety locked on with their reason. API keys, My files and Reports are tiles of rows in the same frame.
+
+**The other screens**
+- **Book:** the full width with 7 columns of questions and, sticky at the top, the dark "Your request" in 5.
+- **Sessions:** a full-width table (service, started, time, state, charge) in one white tile, a row a link; Active and Ended pills; paging as before.
+- **Credit:** the 400 px rail with the dark balance tile (available, on hold, total) and the history beside it, grouped by day.
+- **Sign-in:** the sign-in tile in 5 columns and, beside it, a collage in 7 of what the product is (dark "Rent a GPU by the minute", lime "Fine-tune a model", apricot "Earn with your GPU", lavender "A locked box"), saying only what the website says. A small "← idleo" leads back to the website; "Get started" from the website arrives as "Create your account".
+- **Notifications, the CLI approval, the invite step:** one white tile, 7 columns, centred, never a phone column.
+- **The admin console** is unchanged.
+
+**The website** (ADR 0029) uses the same frame and grid at the same widths: its landing page is 12 columns (the dark tile 8, the services 4, three steps, three promises, one apricot band), and the docs keep a readable column of text inside it. Its header is the wordmark, the pages as white pills, "Log in" as a link and "Get started" as the dark button.
+
 ## Voice
 
 Short, plain sentences. Second person ("your credit"), active voice, no exclamation marks. Copy follows the reference screens: "What do you want to run?", "Request a GPU", "Finding your GPU", "GPU found", "Best free GPU for this job".
@@ -336,4 +376,4 @@ One set only: **Lucide**, imported one icon at a time. 20 to 22 px in controls a
 
 ## The public pages
 
-The signed-out pages (ADR 0029) follow everything above: the same tokens, type, tiles and primary button, one primary action on a page, and sentence case, except the docs, which are a calm reading layout without tiles. They differ in two ways: they are static HTML with no app code, and their budgets are stricter (on Lighthouse's mobile profile, the median of three runs: LCP 1.5 s, TBT 100 ms, CLS 0, accessibility 100, SEO 100; 80 KB for a first load). A live figure has its place on the page at its final size, so loading, loaded, empty, error and stale never move anything. A number is live (from the API) or marked "typical"; nothing is invented.
+The signed-out pages (ADR 0029) follow everything above: the same tokens, type, tiles and primary button, one primary action on a page, and sentence case, except the docs, which are a calm reading layout without tiles. They differ in three ways: they are their own build at their own address (the website, with the app at another), they are static HTML with no app code, and their budgets are stricter (on Lighthouse's mobile profile, the median of three runs: LCP 1.5 s, TBT 100 ms, CLS 0, accessibility 100, SEO 100; 80 KB for a first load). A live figure has its place on the page at its final size, so loading, loaded, empty, error and stale never move anything. A number is live (from the API) or marked "typical"; nothing is invented.

@@ -1,9 +1,10 @@
 import { COMMISSION_PERCENT } from "@/lib/hosting";
 import { DEFAULT_OCCUPANCY, OCCUPANCY_CHOICES } from "../calculator";
 import { GPU_CLASSES } from "../gpus";
-import { DOCS, START_HOSTING } from "../paths";
+import { DOCS, type EntryLinks } from "../paths";
 import {
   column,
+  grid,
   largeButton,
   link,
   muted,
@@ -48,7 +49,7 @@ const field = "mt-1 h-14 w-full rounded-control bg-ground px-4 text-body text-te
  * (src/site/calculator.ts, wired by src/site/islands/earn.ts). The figures it gives are arithmetic on what the person
  * chooses, and the page says occupancy depends on demand and may be low at first.
  */
-export function Earn({ apiUrl }: { apiUrl: string | null }) {
+export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLinks }) {
   return (
     <>
       <section className={`${column} pt-3.5 pb-6 md:pt-6 md:pb-8`}>
@@ -60,7 +61,7 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
             renters pay. Payouts start with the paid pilot; until then earnings are counted but not paid out.
           </p>
           <div className="mt-8">
-            <a href={START_HOSTING} className={`${primaryButton} ${largeButton}`}>
+            <a href={links.startHosting} className={`${primaryButton} ${largeButton}`}>
               Start hosting
             </a>
           </div>
@@ -95,13 +96,13 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
         <h2 id="requirements" className={sectionTitle}>
           What you need
         </h2>
-        <div className={`${tile} mt-4`}>
-          <ul className="list-disc space-y-1 pl-6 text-body text-text-muted">
-            {REQUIREMENTS.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
+        <ul className={`${grid} mt-4 md:grid-cols-2 xl:grid-cols-4`}>
+          {REQUIREMENTS.map((item) => (
+            <li key={item} className={`${tile} text-body text-text-muted`}>
+              {item}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section
@@ -196,7 +197,7 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
           </div>
         </div>
         <div className="mt-8">
-          <a href={START_HOSTING} className={`${primaryButton} ${largeButton}`}>
+          <a href={links.startHosting} className={`${primaryButton} ${largeButton}`}>
             Start hosting
           </a>
         </div>

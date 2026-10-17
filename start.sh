@@ -3,7 +3,7 @@
 # the development sign-in server, Mailpit), the control plane on the local profile, two laptops' fake GPUs, the web
 # app's dev server and the public site. It never touches production settings or real money.
 #
-#   ./start.sh                  start everything, and open the web app (Ctrl-C stops it all)
+#   ./start.sh                  start everything, and open the website (Ctrl-C stops it all)
 #   ./start.sh --no-browser     the same, without opening a browser (CI, or a machine with no screen)
 #   ./start.sh --real-sign-in   sign in with Google too, from control-plane/.env and web/.env.local
 #                               (docs/runbooks/identity-provider-setup.md)
@@ -179,7 +179,9 @@ stack_control_plane_settings() {
 stack_start_control_plane
 echo "$control_plane_pid" >"$state/control-plane.pid"
 
-web_env=(IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port")
+# The website and the app each know the other's address (web/src/build-settings.ts: IDLEO_SITE_URL, IDLEO_APP_URL).
+web_env=(IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port"
+  IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port")
 if ! $real_sign_in; then
   # The mock sign-in, whatever web/.env.local says: the environment wins over .env files in Vite.
   web_env+=(VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" VITE_OIDC_CLIENT_ID=idleo-local)
@@ -193,19 +195,19 @@ log "building the agent (logs/agent-build.log)"
 stack_build_agent &
 agent_build_pid=$!
 
-# The public site: built again only when its sources changed since the last build.
-site_dist="$root/web/dist-local"
+# The website: its own build, apart from the app's, built again only when its sources changed since the last build.
+site_dist="$root/web/dist-website-local"
 site_stamp="$state/site.stamp"
 # (The API types and tokens are generated into web/src on every start, so they don't count.)
 newest_source="$(find "$root/web/src" "$root/web/scripts" "$root/docs/site" "$root/templates" "$root/api/openapi.yaml" \
   -type f ! -name '*.gen.*' -newer "$site_stamp" 2>/dev/null | head -1 || true)"
 if [[ ! -f "$site_stamp" || ! -d "$site_dist" || -n "$newest_source" ]]; then
-  log "building the public site (logs/site-build.log)"
-  (cd "$root/web" && env "${web_env[@]}" IDLEO_DIST=dist-local IDLEO_SITE_DIST=dist-site-local pnpm build) \
-    >"$out/site-build.log" 2>&1 || fail "the public site's build failed; see logs/site-build.log"
+  log "building the website (logs/site-build.log)"
+  (cd "$root/web" && env "${web_env[@]}" IDLEO_WEBSITE_DIST=dist-website-local IDLEO_SITE_DIST=dist-site-local pnpm build:site) \
+    >"$out/site-build.log" 2>&1 || fail "the website's build failed; see logs/site-build.log"
   touch "$site_stamp"
 fi
-(cd "$root/web" && IDLEO_DIST=dist-local PORT="$site_port" exec node scripts/serve.ts) >>"$out/site.log" 2>&1 &
+(cd "$root/web" && IDLEO_DIST=dist-website-local PORT="$site_port" exec node scripts/serve.ts) >>"$out/site.log" 2>&1 &
 echo $! >"$state/site.pid"
 
 # The web app's dev server, with live reload (pnpm dev makes the API types and tokens first), in its own process
@@ -286,7 +288,7 @@ await "the sign-in server" "$sign_in/.well-known/openid-configuration"
 await "object storage" "http://localhost:$storage_port/minio/health/live"
 await "Mailpit" "http://localhost:$mail_web_port/api/v1/info"
 await "the web app" "http://localhost:$web_port/"
-await "the public site" "http://localhost:$site_port/about/"
+await "the website" "http://localhost:$site_port/"
 for i in 1 2; do
   curl -sf "$api/v1/hosts/${host_ids[$i]}" -H "Authorization: Bearer $owner_token" | grep -q '"online":true' ||
     fail "the ${laptops[$((i - 1))]%%|*} went offline; see logs/agent-$i.log"
@@ -296,8 +298,8 @@ cat <<READY
 
 Everything is up, in $((SECONDS - started)) s.
 
+  Website        http://localhost:$site_port/   (the public pages; its "Get started" and "Log in" lead to the app)
   Web app        http://localhost:$web_port
-  Public site    http://localhost:$site_port/about/
   Email          http://localhost:$mail_web_port   (Mailpit: every email the stack sends, none delivered)
   Admin console  http://localhost:$web_port/admin/   (needs the admin role: docs/runbooks/admin.md)
   API            $api
@@ -318,7 +320,8 @@ cat <<READY
 READY
 log "ready"
 if ! $no_browser; then
-  if command -v open >/dev/null; then open "http://localhost:$web_port"; elif command -v xdg-open >/dev/null; then xdg-open "http://localhost:$web_port" >/dev/null 2>&1 || true; fi
+  # The website first, as a visitor arrives; its buttons lead into the app.
+  if command -v open >/dev/null; then open "http://localhost:$site_port/"; elif command -v xdg-open >/dev/null; then xdg-open "http://localhost:$site_port/" >/dev/null 2>&1 || true; fi
 fi
 
 # Until Ctrl-C (or ./start.sh --stop): if the control plane stops, everything stops.
