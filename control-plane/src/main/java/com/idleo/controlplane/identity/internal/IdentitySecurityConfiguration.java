@@ -33,6 +33,10 @@ class IdentitySecurityConfiguration {
         return new OrRequestMatcher(
                 paths.matcher(HttpMethod.POST, "/v1/cli-logins"),
                 paths.matcher(HttpMethod.POST, "/v1/cli-logins/{id}/token"),
+                // A host's agent asking to be linked, and polling for its ticket (ADR 0032): its poll token is its
+                // proof.
+                paths.matcher(HttpMethod.POST, "/v1/host-links"),
+                paths.matcher(HttpMethod.POST, "/v1/host-links/{id}/ticket"),
                 paths.matcher(HttpMethod.GET, "/v1/public/availability"));
     }
 

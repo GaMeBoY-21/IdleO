@@ -91,6 +91,13 @@ public final class TestAgent {
         }
     }
 
+    /** Trades an enrolment code for a certificate, as an agent does; fails if the control plane refuses the code. */
+    public static void enrolWithCode(int grpcPort, String code) {
+        try (var client = new AgentClient(grpcPort)) {
+            client.enroll(code, AgentClient.p256Csr(AgentClient.newP256Keys()));
+        }
+    }
+
     /** A channel presenting this agent's own certificate. */
     public ManagedChannel channel(int grpcPort) {
         return channel(grpcPort, keys.getPrivate(), chain);

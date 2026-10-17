@@ -1598,6 +1598,142 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - ownerEarnings
+  /v1/host-links:
+    post:
+      operationId: hostLinkStart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartLinkRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedLink"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLink
+  /v1/host-links/{id}:
+    get:
+      operationId: hostLinkGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLink
+  /v1/host-links/{id}/approve:
+    post:
+      operationId: hostLinkApprove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveLinkRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLink
+  /v1/host-links/{id}/deny:
+    post:
+      operationId: hostLinkDeny
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLink
+  /v1/host-links/{id}/ticket:
+    post:
+      operationId: hostLinkTicket
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostLink
   /v1/hosts:
     get:
       operationId: hostList
@@ -4072,6 +4208,34 @@ components:
       - name
       - prefix
       - scope
+    ApproveLinkRequest:
+      type: object
+      properties:
+        batchPricePaisePerMin:
+          type: integer
+          format: int32
+          minimum: 1
+        gpuTempCapC:
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 95
+          minimum: 60
+        keepFreeGb:
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 500
+          minimum: 10
+        name:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - batchPricePaisePerMin
+      - name
     AuditEntry:
       type: object
       properties:
@@ -4521,6 +4685,21 @@ components:
       - hostsOnline
       - pricePaisePerMin
       - vramMb
+    GpuInfo:
+      type: object
+      properties:
+        model:
+          type: string
+          maxLength: 100
+          minLength: 0
+        vramMb:
+          type: integer
+          format: int32
+          maximum: 1000000
+          minimum: 1
+      required:
+      - model
+      - vramMb
     GpuResponse:
       type: object
       properties:
@@ -4776,6 +4955,43 @@ components:
       - email
       - inApp
       - kind
+    LinkResponse:
+      type: object
+      properties:
+        agentVersion:
+          type: string
+        awaitsActivation:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+        gpus:
+          type: array
+          items:
+            $ref: "#/components/schemas/GpuInfo"
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        machineName:
+          type: string
+        os:
+          type: string
+        state:
+          type: string
+      required:
+      - agentVersion
+      - awaitsActivation
+      - expiresAt
+      - gpus
+      - id
+      - machineName
+      - os
+      - state
     Listing:
       type: object
       properties:
@@ -5156,6 +5372,9 @@ components:
           - /problems/notification-locked
           - /problems/too-many-api-keys
           - /problems/authorization-pending
+          - /problems/host-link-denied
+          - /problems/host-link-expired
+          - /problems/host-link-approved
           - /problems/cli-login-expired
           - /problems/rate-limited
           - /problems/idempotency-key-invalid
@@ -5630,6 +5849,32 @@ components:
           minLength: 0
       required:
       - deviceName
+    StartLinkRequest:
+      type: object
+      properties:
+        agentVersion:
+          type: string
+          maxLength: 40
+          minLength: 0
+        gpus:
+          type: array
+          items:
+            $ref: "#/components/schemas/GpuInfo"
+          maxItems: 8
+          minItems: 0
+        machineName:
+          type: string
+          maxLength: 100
+          minLength: 0
+        os:
+          type: string
+          maxLength: 40
+          minLength: 0
+      required:
+      - agentVersion
+      - gpus
+      - machineName
+      - os
     StartedCliLogin:
       type: object
       properties:
@@ -5659,6 +5904,28 @@ components:
       - pollToken
       - userCode
       - verificationUrl
+    StartedLink:
+      type: object
+      properties:
+        approveUrl:
+          type: string
+        expiresInSeconds:
+          type: integer
+          format: int64
+        id:
+          type: string
+          format: uuid
+        intervalSeconds:
+          type: integer
+          format: int64
+        pollToken:
+          type: string
+      required:
+      - approveUrl
+      - expiresInSeconds
+      - id
+      - intervalSeconds
+      - pollToken
     StopRequest:
       type: object
       properties:
@@ -5900,6 +6167,34 @@ components:
       - params
       - questions
       - service
+    Ticket:
+      type: object
+      properties:
+        codeExpiresAt:
+          type: string
+          format: date-time
+        enrolmentCode:
+          type: string
+        hostId:
+          type: string
+          format: uuid
+        ownerHint:
+          type:
+          - string
+          - "null"
+      required:
+      - codeExpiresAt
+      - enrolmentCode
+      - hostId
+    TicketRequest:
+      type: object
+      properties:
+        pollToken:
+          type: string
+          maxLength: 128
+          minLength: 0
+      required:
+      - pollToken
     Unread:
       type: object
       properties:

@@ -40,6 +40,7 @@ import tools.jackson.databind.json.JsonMapper;
             "limits.requests-per-minute=5",
             "limits.log-reads-per-minute=8",
             "limits.cli-logins-per-hour=2",
+            "limits.host-links-per-hour=2",
             "sessions.limits.new-per-hour=3",
             "sessions.limits.new-per-hour-first-day=2",
             "sessions.limits.at-once=2"
@@ -203,6 +204,23 @@ class RenterLimitsTests {
                 .andReturn()
                 .getResponse();
         assertThat(Integer.parseInt(refused.getHeader("Retry-After"))).isBetween(1, 3600);
+    }
+
+    @Test
+    void anAddressAsksToLinkAtMostTwoHostsAnHour() throws Exception {
+        var machine = "{\"machineName\":\"box\",\"os\":\"linux\",\"agentVersion\":\"0.1.0\",\"gpus\":[]}";
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(from(post("/v1/host-links"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(machine))
+                    .andExpect(status().isCreated());
+        }
+        mvc.perform(from(post("/v1/host-links"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(machine))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.type").value("/problems/rate-limited"))
+                .andExpect(header().exists("Retry-After"));
     }
 
     @Test

@@ -150,6 +150,30 @@ class AuthorizationPending(IdleoError):
     title = "Waiting for approval"
 
 
+class HostLinkDenied(IdleoError):
+    """Link denied (HTTP 400)."""
+
+    slug = "host-link-denied"
+    status = 400
+    title = "Link denied"
+
+
+class HostLinkExpired(IdleoError):
+    """Link expired or used (HTTP 400)."""
+
+    slug = "host-link-expired"
+    status = 400
+    title = "Link expired or used"
+
+
+class HostLinkApproved(IdleoError):
+    """Link already approved (HTTP 409)."""
+
+    slug = "host-link-approved"
+    status = 409
+    title = "Link already approved"
+
+
 class CliLoginExpired(IdleoError):
     """CLI sign-in expired or used (HTTP 400)."""
 
@@ -465,6 +489,9 @@ __all__ = [
     "NotificationLocked",
     "TooManyApiKeys",
     "AuthorizationPending",
+    "HostLinkDenied",
+    "HostLinkExpired",
+    "HostLinkApproved",
     "CliLoginExpired",
     "RateLimited",
     "IdempotencyKeyInvalid",
@@ -523,6 +550,9 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "notification-locked": NotificationLocked,
     "too-many-api-keys": TooManyApiKeys,
     "authorization-pending": AuthorizationPending,
+    "host-link-denied": HostLinkDenied,
+    "host-link-expired": HostLinkExpired,
+    "host-link-approved": HostLinkApproved,
     "cli-login-expired": CliLoginExpired,
     "rate-limited": RateLimited,
     "idempotency-key-invalid": IdempotencyKeyInvalid,

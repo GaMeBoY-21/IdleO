@@ -1,6 +1,6 @@
 # 0011. The agent stream: mutual TLS, Hello and Welcome, heartbeats and presence
 
-- **Status:** Accepted
+- **Status:** Accepted; the step where the owner types a one-time code is superseded for hosts by ADR 0032 (linking by approval). The code stays for operators and tests.
 - **Date:** 2026-10-05
 
 Sources:

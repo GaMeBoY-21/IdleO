@@ -48,6 +48,7 @@ limits:
   requests-per-minute: 100000
   log-reads-per-minute: 100000
   cli-logins-per-hour: 100000
+  host-links-per-hour: 100000
 
 sessions:
   limits:

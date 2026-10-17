@@ -108,8 +108,25 @@ public enum Problem {
             "authorization-pending",
             HttpStatus.BAD_REQUEST,
             "Waiting for approval",
-            "The CLI sign-in hasn't been approved in the web app yet. Keep polling at the interval it gave "
-                    + "(RFC 8628's authorization_pending)."),
+            "The CLI sign-in or host link hasn't been approved in the web app yet. Keep polling at the interval it "
+                    + "gave (RFC 8628's authorization_pending)."),
+    HOST_LINK_DENIED(
+            "host-link-denied",
+            HttpStatus.BAD_REQUEST,
+            "Link denied",
+            "The person who opened the link said it isn't their laptop, so it was denied. The agent should stop polling; "
+                    + "link again from the app on the laptop if it was a mistake."),
+    HOST_LINK_EXPIRED(
+            "host-link-expired",
+            HttpStatus.BAD_REQUEST,
+            "Link expired or used",
+            "The link has expired (links last 10 minutes), or its enrolment code was already handed out. Link again "
+                    + "from the app on the laptop."),
+    HOST_LINK_APPROVED(
+            "host-link-approved",
+            HttpStatus.CONFLICT,
+            "Link already approved",
+            "This laptop was already linked, so the link can't be denied. To take it back, remove it from Hosting."),
     CLI_LOGIN_EXPIRED(
             "cli-login-expired",
             HttpStatus.BAD_REQUEST,

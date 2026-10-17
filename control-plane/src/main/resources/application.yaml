@@ -136,6 +136,12 @@ logging:
       console: ecs
 
 hosts:
+  # Linking a host by approval (ADR 0032): the web app's /link/<id>/ page is where its owner approves, the same web app
+  # as a CLI sign-in. A new host is created pending, and an admin activates it, until auto-activate is turned on after
+  # the invite-only pilot (a host whose self-test passed is then activated by itself; the self-test comes later).
+  link:
+    web-app-url: ${IDENTITY_WEB_APP_URL:http://localhost:3000}
+  auto-activate: false
   ca:
     # Our online intermediate CA (ADR 0010), from the environment: PEM content
     # or a location. The root's private key is never here, only its certificate.

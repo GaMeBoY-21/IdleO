@@ -31,6 +31,7 @@ import org.springframework.stereotype.Component;
  *   <li>a web origin in {@code web.allowed-origins} that is {@code *}, plain HTTP or on this machine (ADR 0018);
  *   <li>an {@code identity.web-app-url}, where CLI sign-ins are approved, that is plain HTTP or on this machine
  *       (ADR 0025);
+ *   <li>a {@code hosts.link.web-app-url}, where a host link is approved, that is plain HTTP or on this machine (ADR 0032);
  *   <li>a {@code notifications.web-app-url}, where an email's links go, that is plain HTTP or on this machine; a
  *       {@code notifications.email.from} on this machine; a mail server ({@code spring.mail.host}) on this machine,
  *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026);
@@ -60,6 +61,7 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "limits.requests-per-minute", 60,
             "limits.log-reads-per-minute", 120,
             "limits.cli-logins-per-hour", 10,
+            "limits.host-links-per-hour", 10,
             "sessions.limits.new-per-hour", 10,
             "sessions.limits.new-per-hour-first-day", 2,
             "sessions.limits.at-once", 3);
@@ -116,6 +118,10 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         var webApp = binder.bind("identity.web-app-url", String.class).orElse("");
         if (isDevelopmentIssuer(webApp)) {
             problems.add("identity.web-app-url " + webApp + " is plain HTTP or on this machine");
+        }
+        var linkApproval = binder.bind("hosts.link.web-app-url", String.class).orElse("");
+        if (isDevelopmentIssuer(linkApproval)) {
+            problems.add("hosts.link.web-app-url " + linkApproval + " is plain HTTP or on this machine");
         }
         var emailLinks = binder.bind("notifications.web-app-url", String.class).orElse("");
         if (isDevelopmentIssuer(emailLinks)) {

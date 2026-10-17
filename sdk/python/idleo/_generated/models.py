@@ -45,6 +45,16 @@ class ApiKeyResponse(BaseModel):
     scope: Scope
 
 
+class ApproveLinkRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    batch_price_paise_per_min: Annotated[int, Field(alias="batchPricePaisePerMin", ge=1)]
+    gpu_temp_cap_c: Annotated[int | None, Field(alias="gpuTempCapC", ge=60, le=95)] = None
+    keep_free_gb: Annotated[int | None, Field(alias="keepFreeGb", ge=10, le=500)] = None
+    name: Annotated[str, Field(max_length=100, min_length=0)]
+
+
 class CreateApiKeyRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -186,6 +196,14 @@ class EventResponse(BaseModel):
     state: str
 
 
+class GpuInfo(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    model: Annotated[str, Field(max_length=100, min_length=0)]
+    vram_mb: Annotated[int, Field(alias="vramMb", ge=1, le=1000000)]
+
+
 class GpuResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -263,6 +281,21 @@ class KindChoice(BaseModel):
     email: bool
     in_app: Annotated[bool, Field(alias="inApp")]
     kind: str
+
+
+class LinkResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    agent_version: Annotated[str, Field(alias="agentVersion")]
+    awaits_activation: Annotated[bool, Field(alias="awaitsActivation")]
+    expires_at: Annotated[AwareDatetime, Field(alias="expiresAt")]
+    gpus: list[GpuInfo]
+    host_id: Annotated[UUID | None, Field(alias="hostId")] = None
+    id: UUID
+    machine_name: Annotated[str, Field(alias="machineName")]
+    os: str
+    state: str
 
 
 class Listing(BaseModel):
@@ -454,6 +487,9 @@ class Type(Enum):
     field_problems_notification_locked = "/problems/notification-locked"
     field_problems_too_many_api_keys = "/problems/too-many-api-keys"
     field_problems_authorization_pending = "/problems/authorization-pending"
+    field_problems_host_link_denied = "/problems/host-link-denied"
+    field_problems_host_link_expired = "/problems/host-link-expired"
+    field_problems_host_link_approved = "/problems/host-link-approved"
     field_problems_cli_login_expired = "/problems/cli-login-expired"
     field_problems_rate_limited = "/problems/rate-limited"
     field_problems_idempotency_key_invalid = "/problems/idempotency-key-invalid"
@@ -711,6 +747,16 @@ class StartCliLoginRequest(BaseModel):
     device_name: Annotated[str, Field(alias="deviceName", max_length=60, min_length=0)]
 
 
+class StartLinkRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    agent_version: Annotated[str, Field(alias="agentVersion", max_length=40, min_length=0)]
+    gpus: Annotated[list[GpuInfo], Field(max_length=8, min_length=0)]
+    machine_name: Annotated[str, Field(alias="machineName", max_length=100, min_length=0)]
+    os: Annotated[str, Field(max_length=40, min_length=0)]
+
+
 class StartedCliLogin(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -739,6 +785,17 @@ class StartedCliLogin(BaseModel):
             description="The web app's page that approves this login, with the code in it",
         ),
     ]
+
+
+class StartedLink(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    approve_url: Annotated[str, Field(alias="approveUrl")]
+    expires_in_seconds: Annotated[int, Field(alias="expiresInSeconds")]
+    id: UUID
+    interval_seconds: Annotated[int, Field(alias="intervalSeconds")]
+    poll_token: Annotated[str, Field(alias="pollToken")]
 
 
 class StopRequest(BaseModel):
@@ -816,6 +873,23 @@ class TemplateQuestion(BaseModel):
     name: str | None = None
     options: list[PresetOption]
     param: str | None = None
+
+
+class Ticket(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code_expires_at: Annotated[AwareDatetime, Field(alias="codeExpiresAt")]
+    enrolment_code: Annotated[str, Field(alias="enrolmentCode")]
+    host_id: Annotated[UUID, Field(alias="hostId")]
+    owner_hint: Annotated[str | None, Field(alias="ownerHint")] = None
+
+
+class TicketRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    poll_token: Annotated[str, Field(alias="pollToken", max_length=128, min_length=0)]
 
 
 class Unread(BaseModel):

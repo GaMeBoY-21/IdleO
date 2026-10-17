@@ -30,6 +30,10 @@
  *   <li>{@code POST /v1/hosts}, body {@code {"name": …}}: creates a pending host. It needs an {@code
  *       Idempotency-Key} header: 400 without it, the stored response for a repeat, 422 when the key
  *       is reused with a different body, and 409 while the first request is still running.
+ *   <li>{@code POST /v1/host-links} (no sign-in), {@code GET /v1/host-links/{id}}, {@code POST …/approve}, {@code POST
+ *       …/deny} and {@code POST …/ticket} (no sign-in): linking a host by approval instead of a code (ADR 0032). The
+ *       agent asks, its owner approves in the web app (with the name and the price), and the agent's poll gets the
+ *       host's enrolment code once. An approved host is pending until an admin activates it ({@code hosts.auto-activate}).
  *   <li>{@code POST /v1/hosts/{id}/enrolment-code}: issues a one-time code for the host's agent and
  *       replaces any earlier one. The code is shown once, works once, and expires after an hour.
  *   <li>{@code PUT /v1/hosts/{id}/listing}, body {@code {"batchPricePaisePerMin": …, "gpuTempCapC": 60–95,

@@ -23,7 +23,10 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/unsupported-media-type` | 415 | Unsupported media type | The body's Content-Type isn't one this address takes; send application/json. |
 | `/problems/notification-locked` | 422 | That notification can't be turned off | Messages about money and safety are always on, by email and in the app: stopped for credit or the spending cap, a host lost, a machine offline, payouts and top-ups, and a new device signing in. |
 | `/problems/too-many-api-keys` | 409 | Too many API keys | A person can have at most 20 keys that aren't revoked. Revoke one you no longer use first. |
-| `/problems/authorization-pending` | 400 | Waiting for approval | The CLI sign-in hasn't been approved in the web app yet. Keep polling at the interval it gave (RFC 8628's authorization_pending). |
+| `/problems/authorization-pending` | 400 | Waiting for approval | The CLI sign-in or host link hasn't been approved in the web app yet. Keep polling at the interval it gave (RFC 8628's authorization_pending). |
+| `/problems/host-link-denied` | 400 | Link denied | The person who opened the link said it isn't their laptop, so it was denied. The agent should stop polling; link again from the app on the laptop if it was a mistake. |
+| `/problems/host-link-expired` | 400 | Link expired or used | The link has expired (links last 10 minutes), or its enrolment code was already handed out. Link again from the app on the laptop. |
+| `/problems/host-link-approved` | 409 | Link already approved | This laptop was already linked, so the link can't be denied. To take it back, remove it from Hosting. |
 | `/problems/cli-login-expired` | 400 | CLI sign-in expired or used | The CLI sign-in has expired, or its key was already handed out. Start a new one with idleo login (RFC 8628's expired_token). |
 | `/problems/rate-limited` | 429 | Too many requests | More requests than the limit allows: 60 a minute for each person, counted once for a session's event stream and its logs. Retry-After says how many seconds to wait. |
 | `/problems/idempotency-key-invalid` | 400 | Idempotency-Key missing or invalid | A create request needs an Idempotency-Key header: 1 to 255 visible ASCII characters, without spaces. |

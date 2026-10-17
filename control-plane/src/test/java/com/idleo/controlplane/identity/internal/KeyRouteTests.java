@@ -55,6 +55,7 @@ class KeyRouteTests {
     private String host;
     private String loginId;
     private String loginCode;
+    private String linkId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -81,6 +82,17 @@ class KeyRouteTests {
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
+        linkId = json.readTree(mvc.perform(
+                                post("/v1/host-links")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"machineName\":\"Laptop\",\"os\":\"windows\",\"agentVersion\":\"0.1.0\",\"gpus\":[]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString())
+                .get("id")
+                .asString();
         loginId = login.get("id").asString();
         loginCode = login.get("userCode").asString();
     }
@@ -119,6 +131,9 @@ class KeyRouteTests {
                         "POST /v1/api-keys",
                         "GET /v1/cli-logins",
                         "POST /v1/cli-logins/{id}/approve",
+                        "GET /v1/host-links/{id}",
+                        "POST /v1/host-links/{id}/approve",
+                        "POST /v1/host-links/{id}/deny",
                         "POST /v1/hosts",
                         "DELETE /v1/hosts/{id}",
                         "PUT /v1/hosts/{id}/listing",
@@ -132,7 +147,9 @@ class KeyRouteTests {
         for (var route : browserOnlyRoutes()) {
             var method = HttpMethod.valueOf(route.substring(0, route.indexOf(' ')));
             var path = route.substring(route.indexOf(' ') + 1)
-                    .replace("{id}", route.contains("cli-logins") ? loginId : host);
+                    .replace(
+                            "{id}",
+                            route.contains("cli-logins") ? loginId : route.contains("host-links") ? linkId : host);
             for (var spelling : spellings(path)) {
                 var routed = reaches(method, spelling, route);
                 var request = request(
@@ -244,6 +261,7 @@ class KeyRouteTests {
             case "POST /v1/api-keys" -> "{\"name\":\"x\",\"scope\":\"full\"}";
             case "POST /v1/hosts" -> "{\"name\":\"x\"}";
             case "PUT /v1/hosts/{id}/listing" -> "{}";
+            case "POST /v1/host-links/{id}/approve" -> "{\"name\":\"x\",\"batchPricePaisePerMin\":10}";
             case "PUT /v1/me/notifications" -> "{\"items\":[]}";
             default -> "";
         };
