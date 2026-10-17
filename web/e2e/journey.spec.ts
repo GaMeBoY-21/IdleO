@@ -412,7 +412,10 @@ test.describe("on a laptop", () => {
   test("the stream drops: the screen says so, keeps polling, and the stream comes back", streamDropJourney);
 });
 
-test("on a phone: a running session stopped, with its charge, and Run again", async ({ page, request }) => {
+test("on a phone: a running session stopped, with its charge, and no Run again for a test job", async ({
+  page,
+  request,
+}) => {
   const session = await book(request, "long-run", "web-stop");
   await startAt(page, `/session/?id=${session.id}`);
   await expect(page.getByTestId("state-chip").first()).toHaveText("Running", { timeout: 90_000 });
@@ -428,10 +431,7 @@ test("on a phone: a running session stopped, with its charge, and Run again", as
   const settled = await getSession(request, session.id);
   await expect(page.getByText(formatPaise(settled.chargedPaise), { exact: true })).toBeVisible();
   await expectAccessible(page);
-  await page.getByRole("link", { name: "Run again" }).click();
-  await expect(page).toHaveURL(/template=long-run&from=/);
-  // A template without budget chips asks for the amount, filled from the session.
-  await expect(page.getByLabel("Stop at, in ₹")).toHaveValue(
-    formatPaise(settled.maxSpendPaise).replace("₹", "").replaceAll(",", ""),
-  );
+  // long-run is a test job: Book doesn't offer it, so there is no "Run again" (Run again for an offered service is
+  // the fine-tune journey above).
+  await expect(page.getByRole("link", { name: "Run again" })).toHaveCount(0);
 });

@@ -48,7 +48,8 @@ test.describe("the Hosting tab", () => {
     await expect(rog).toContainText(
       onPhone(info) ? "Running a session · earning ₹2.59" : "Running a session",
     );
-    await expect(rog).toContainText("₹2.59");
+    // On a laptop the earning is the foot of the machine's tile, beside the link into it.
+    await expect(onPhone(info) ? rog : rog.locator("xpath=..")).toContainText("₹2.59");
     await expect(page.getByRole("link", { name: /Home desktop/ })).toContainText("Paused until 6 pm");
     await expect(page.getByRole("link", { name: "Add a machine" })).toBeVisible();
     await expectAccessible(page);
@@ -75,10 +76,13 @@ test.describe("the Hosting tab", () => {
     );
     await expect(page.getByRole("link", { name: /Studio PC/ })).toContainText("Idle");
     await expect(page.getByRole("link", { name: /Spare laptop/ })).toContainText("Offline");
-    await expect(page.getByRole("link", { name: /Office PC/ })).toContainText(
-      "Update the host app to get work",
-    );
-    await expect(page.getByRole("link", { name: /My new machine/ })).toContainText("waiting for our checks");
+    // On a laptop what each can't do yet is the foot of its tile, beside the link into it.
+    const tileOf = (name: RegExp) => {
+      const link = page.getByRole("link", { name });
+      return onPhone(info) ? link : link.locator("xpath=..");
+    };
+    await expect(tileOf(/Office PC/)).toContainText("Update the host app to get work");
+    await expect(tileOf(/My new machine/)).toContainText("waiting for our checks");
     await expectAccessible(page);
     await capture(page, info, "hosting-states");
   });
