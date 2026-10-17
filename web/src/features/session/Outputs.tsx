@@ -57,15 +57,27 @@ function useFreshOutputs(id: string) {
       link.click();
     }
   };
-  return { outputs, open };
+  /** Every file, one after another (browsers refuse a burst), each from a link renewed when it is older than its life. */
+  const all = async () => {
+    const fresh =
+      Date.now() - outputs.dataUpdatedAt < LINK_LIFE_MS ? outputs.data : (await outputs.refetch()).data;
+    for (const file of fresh?.files ?? []) {
+      const link = document.createElement("a");
+      link.href = file.url;
+      link.download = file.path.split("/").pop() ?? file.path;
+      link.click();
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  };
+  return { outputs, open, all };
 }
 
 /**
- * "Download outputs", the done screen's one primary action, at the top of the outputs tile: the file itself when
- * there's one, the list under it when there are several.
+ * The done screen's one primary action, at the top of the outputs tile: "Download outputs", the file itself, when
+ * there's one; "Download all", every file in turn, when there are several (each is also a row under it).
  */
 export function DownloadOutputs({ id }: { id: string }) {
-  const { outputs, open } = useFreshOutputs(id);
+  const { outputs, open, all } = useFreshOutputs(id);
   const files = outputs.data?.files ?? [];
   const only = files.length === 1 ? files[0] : undefined;
   if (files.length === 0) {
@@ -82,9 +94,10 @@ export function DownloadOutputs({ id }: { id: string }) {
       Download outputs
     </a>
   ) : (
-    <a href="#outputs" className={buttonClasses("primary", true, true)}>
-      Download outputs
-    </a>
+    <button type="button" onClick={() => void all()} className={buttonClasses("primary", true, true)}>
+      <Download aria-hidden="true" className="size-5" strokeWidth={1.75} />
+      Download all
+    </button>
   );
 }
 

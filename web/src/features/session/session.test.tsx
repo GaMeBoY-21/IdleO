@@ -22,7 +22,7 @@ describe("a session's title", () => {
 describe("a session's route", () => {
   it("is at finding its GPU, with its data done", () => {
     expect(titles(progressStops(data.finding, { now, uploadBytes: 48_213_504 }))).toEqual([
-      "Data uploaded · 46 MB · done",
+      "Uploaded · 46 MB · done",
       "Finding your GPU · Usually under a minute · current",
       "Running · It saves checkpoints as it runs · next",
       "Outputs · When it's done · end",
@@ -31,8 +31,8 @@ describe("a session's route", () => {
 
   it("says how long finding its host took, its checkpoints, and when its outputs are due", () => {
     expect(titles(progressStops(data.running, { now, typicalRuntimeSeconds: 2_700 }))).toEqual([
-      "Data uploaded · Ready · done",
-      "Host found · in 2 s · done",
+      "Uploaded · Ready · done",
+      "GPU found · in 2 s · done",
       "Running · 4 checkpoints so far · current",
       "Outputs · In about 23 min · end",
     ]);

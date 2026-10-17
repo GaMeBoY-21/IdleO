@@ -123,7 +123,7 @@ export function LogPanel({
         </button>
       </div>
       {/* The scroller fills its box absolutely, so lines arriving never make the panels around it lay out again. */}
-      <div className="relative min-h-panel flex-1 basis-0">
+      <div className="relative min-h-panel flex-1 basis-0 xl:min-h-40">
         <div
           ref={scroller}
           role="region"

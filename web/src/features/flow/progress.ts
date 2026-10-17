@@ -11,6 +11,8 @@ const RUNNING = new Set(["PROVISIONING", "RUNNING", "HOST_LOST", "FINISHING"]);
 /** What the route knows besides the session: its upload's size, once read, and the template's typical runtime. */
 export interface ProgressExtras {
   uploadBytes?: number | null;
+  /** How many files the upload holds, once read. */
+  uploadFiles?: number | null;
   typicalRuntimeSeconds?: number | null;
   /** For "in about 26 min"; from the app's clock. */
   now: number;
@@ -50,12 +52,14 @@ export function progressStops(session: Session, extras: ProgressExtras): Stop[] 
   const data: Stop[] = input
     ? [
         {
-          title: "Data uploaded",
+          title: "Uploaded",
           detail: input.url
             ? "From your link"
             : extras.uploadBytes == null
               ? "Ready"
-              : formatBytes(extras.uploadBytes),
+              : extras.uploadFiles == null
+                ? formatBytes(extras.uploadBytes)
+                : `${formatBytes(extras.uploadBytes)} · ${extras.uploadFiles} ${extras.uploadFiles === 1 ? "file" : "files"}`,
           state: "done",
         },
       ]
@@ -66,7 +70,7 @@ export function progressStops(session: Session, extras: ProgressExtras): Stop[] 
       ? { title: "Finding your GPU", detail: "Usually under a minute", state: "current" }
       : found === null
         ? { title: "Finding your GPU", detail: "No GPU took it", state: "next" }
-        : { title: "Host found", detail: found, state: "done" },
+        : { title: "GPU found", detail: found, state: "done" },
     {
       title: "Running",
       detail:

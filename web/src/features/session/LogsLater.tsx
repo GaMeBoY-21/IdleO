@@ -13,7 +13,7 @@ const Logs = lazy(() => import("./Logs").then((module) => ({ default: module.Log
 export function LogsLater({ id, settled, laptop }: { id: string; settled: boolean; laptop: boolean }) {
   const painted = useAfterPaint();
   const placeholder = laptop ? (
-    <Tile as="section" aria-label="Logs" className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-5">
+    <Tile as="section" aria-label="Logs" className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-5 xl:px-7">
       <h2 className="text-section">Logs</h2>
     </Tile>
   ) : (

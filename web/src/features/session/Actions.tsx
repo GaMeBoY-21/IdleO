@@ -25,7 +25,16 @@ function useSettle() {
 const failed = (error: unknown): ReactNode => <Banner tone="danger">{problemMessage(error)}</Banner>;
 
 /** "Stop session", outlined, asking first in the one dialog the app has (web/DESIGN.md principle 5). */
-export function StopAction({ session, laptop }: { session: Session; laptop: boolean }) {
+export function StopAction({
+  session,
+  laptop,
+  inside = false,
+}: {
+  session: Session;
+  laptop: boolean;
+  /** On a laptop the button sits inside the dark tile (docs/design/bento/laptop/live-session-laptop.html). */
+  inside?: boolean;
+}) {
   const settle = useSettle();
   const [asking, setAsking] = useState(false);
   const stop = useMutation({
@@ -42,15 +51,8 @@ export function StopAction({ session, laptop }: { session: Session; laptop: bool
     },
   });
   useEffect(() => afterFirstScreen(() => void loadStopDialog()), []);
-  return (
-    <ActionFoot
-      laptop={laptop}
-      note={
-        laptop
-          ? "It saves a checkpoint first. Nothing more is charged once it stops."
-          : "Saves a checkpoint first. Nothing more is charged."
-      }
-    >
+  const button = (
+    <>
       <Button variant="secondary" large block onClick={() => setAsking(true)}>
         Stop session
       </Button>
@@ -68,6 +70,28 @@ export function StopAction({ session, laptop }: { session: Session; laptop: bool
           />
         </Suspense>
       )}
+    </>
+  );
+  if (inside) {
+    return (
+      <div className="flex flex-col gap-2">
+        {button}
+        <p className="text-center text-caption text-dark-muted">
+          It saves a checkpoint first. Nothing more is charged once it stops.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <ActionFoot
+      laptop={laptop}
+      note={
+        laptop
+          ? "It saves a checkpoint first. Nothing more is charged once it stops."
+          : "Saves a checkpoint first. Nothing more is charged."
+      }
+    >
+      {button}
     </ActionFoot>
   );
 }

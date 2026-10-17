@@ -3,7 +3,11 @@ import type { Session } from "@/api/queries";
 import { ActionFoot, StopAction } from "./Actions";
 import { Banners } from "./Banners";
 import { GpuTile, RunningTile, SmallTiles } from "./Figures";
+import { LiveTile } from "./laptop/LiveTile";
+import { RailColumns } from "@/components/shell/Layout";
+import { CheckpointsTile, GpuStats } from "./laptop/SideTiles";
 import { LogsLater } from "./LogsLater";
+import type { LogSignals } from "@/lib/log-signals";
 import { CheckpointTile } from "./Outputs";
 
 /**
@@ -20,6 +24,8 @@ export function Running({
   status,
   laptop,
   progress,
+  serviceName,
+  signals,
 }: {
   session: Session;
   title: string;
@@ -27,8 +33,10 @@ export function Running({
   about: string | null;
   status: ReactNode;
   laptop: boolean;
-  /** The route of the session's progress, in a tile of its own; shown on a laptop. */
+  /** The steps tile (laptop): where it has got, by the route and the job's own log. */
   progress: ReactNode;
+  serviceName: string;
+  signals: LogSignals;
 }) {
   const stop =
     session.state === "RUNNING" ? (
@@ -69,15 +77,27 @@ export function Running({
     );
   }
   return (
-    <div className="grid grid-cols-12 items-stretch gap-3.5">
-      <div className="col-span-6 flex flex-col gap-3.5">
-        {tiles}
-        {progress}
-        {stop}
-      </div>
-      <div className="col-span-6 flex min-h-panel">
-        <LogsLater id={session.id} settled={session.settled} laptop />
-      </div>
-    </div>
+    <RailColumns
+      left={
+        <>
+          <Banners session={session} />
+          <LiveTile
+            session={session}
+            serviceName={serviceName}
+            about={about}
+            status={status}
+            signals={signals}
+          />
+          {session.gpu && <GpuStats gpu={session.gpu} />}
+          <CheckpointsTile session={session} />
+        </>
+      }
+      right={
+        <>
+          {progress}
+          <LogsLater id={session.id} settled={session.settled} laptop />
+        </>
+      }
+    />
   );
 }

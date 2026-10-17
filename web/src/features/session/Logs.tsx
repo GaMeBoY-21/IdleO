@@ -7,6 +7,8 @@ import { useAfterPaint } from "@/lib/after-first-screen";
 import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
+import { readSignals } from "@/lib/log-signals";
+import { LossChart } from "./laptop/LossChart";
 import { logButton, LogPanel } from "./LogPanel";
 
 /**
@@ -63,8 +65,10 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
       ))}
     </div>
   );
+  const signals = readSignals(id, log.data);
   const panel = (
     <Tile
+      key={log.data ? "log" : "loading"}
       as="section"
       aria-label="Logs"
       className={cn("flex flex-col gap-4", laptop ? "min-h-0 flex-1 px-6 py-5" : "p-4")}
@@ -74,7 +78,14 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
     </Tile>
   );
   if (laptop) {
-    return panel;
+    // The chart, when the log carries loss values, above the log, which keeps the rest of the column. While the log is
+    // unread there is only the panel; when it arrives, a new panel is drawn (its key changes), so nothing moves.
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-4 2xl:gap-5">
+        {log.data && <LossChart losses={signals.losses} />}
+        {panel}
+      </div>
+    );
   }
 
   const newest = log.data && total > 0 ? linesBetween(log.data, total - 1, total)[0] : undefined;

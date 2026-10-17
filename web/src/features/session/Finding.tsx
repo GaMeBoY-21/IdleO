@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { gigabytes, gpuName, withArticle } from "@/lib/gpu";
 import { sessionInput } from "@/lib/inputs";
 import { CancelAction } from "./Actions";
+import { RailColumns } from "@/components/shell/Layout";
 import { Banners } from "./Banners";
 
 /** What the screen knows of the session's data: its upload's name, once read. */
@@ -19,7 +20,20 @@ export interface DataName {
  * reduced motion), and a small white tile for what was asked for and what's done, that nothing is charged until it
  * runs, and "Cancel request". On a laptop the two sit side by side.
  */
-export function Finding({ session, data, laptop }: { session: Session; data: DataName; laptop: boolean }) {
+export function Finding({
+  session,
+  data,
+  laptop,
+  steps,
+  request,
+}: {
+  session: Session;
+  data: DataName;
+  laptop: boolean;
+  /** The steps tile and the request tile, the laptop's right column. */
+  steps: ReactNode;
+  request: ReactNode;
+}) {
   const found = session.state === "PROVISIONING" ? session.gpu : null;
   const gpu = found ? `${gpuName(found.model)} · ${gigabytes(found.vramMb)}` : null;
   const state = (
@@ -27,7 +41,7 @@ export function Finding({ session, data, laptop }: { session: Session; data: Dat
       tone="dark"
       className={cn(
         "flex flex-col items-center justify-center gap-7 px-5 py-10 text-center",
-        laptop && "min-h-panel",
+        laptop && "min-h-panel xl:flex-1",
       )}
     >
       <FindingRing />
@@ -73,14 +87,21 @@ export function Finding({ session, data, laptop }: { session: Session; data: Dat
     );
   }
   return (
-    <div className="grid grid-cols-12 items-stretch gap-3.5">
-      <div className="col-span-7 flex flex-col">{state}</div>
-      <div className="col-span-5 flex flex-col gap-3.5">
-        <Banners session={session} />
-        {asked}
-        {cancel}
-      </div>
-    </div>
+    <RailColumns
+      left={
+        <>
+          {state}
+          <Banners session={session} />
+          {cancel}
+        </>
+      }
+      right={
+        <>
+          {steps}
+          {request}
+        </>
+      }
+    />
   );
 }
 

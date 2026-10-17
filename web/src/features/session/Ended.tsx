@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Link } from "wouter";
 import type { Session } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
@@ -12,6 +11,7 @@ import { bookFrom } from "@/lib/sessions";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { formatDuration } from "@/lib/time";
 import { ActionFoot } from "./Actions";
+import { RailColumns } from "@/components/shell/Layout";
 import { LogsLater } from "./LogsLater";
 import { Outputs } from "./Outputs";
 import { Rating } from "./Rating";
@@ -31,20 +31,20 @@ const HEADLINES: Record<string, string> = {
  * A session that has ended. Completed: "Done", the final charge in the dark tile and how long it ran, its outputs in the
  * lime tile with "Download outputs" as the one primary action, the rating, "Report a problem" and "Run again". Failed,
  * cancelled or never matched: why in plain words, the charge (often nothing), and "Try again", which opens Book filled
- * from it. The charge is "so far" until the API says it's settled. On a laptop the session's progress and logs are
+ * from it. The charge is "so far" until the API says it's settled. On a laptop the outputs, the rating and the report are
  * beside it.
  */
 export function Ended({
   session,
   templateName,
   laptop,
-  progress,
+  offered,
 }: {
   session: Session;
   templateName: string;
   laptop: boolean;
-  /** The route of the session's progress, in a tile of its own; shown on a laptop. */
-  progress: ReactNode;
+  /** Whether its service is one Home offers: only those get "Run again" and "Try again". */
+  offered: boolean;
 }) {
   const done = session.state === "COMPLETED";
   const last = session.events.at(-1)?.reason;
@@ -74,7 +74,7 @@ export function Ended({
       Run again
     </Link>
   );
-  const foot = done ? (
+  const foot = !offered ? null : done ? (
     laptop ? (
       <Tile as="div">{runAgain}</Tile>
     ) : (
@@ -114,7 +114,7 @@ export function Ended({
           <p className="text-body text-dark-muted">{why.next}</p>
         </div>
       )}
-      <Charge session={session} />
+      <Charge session={session} laptop={laptop} />
     </Tile>
   );
   const banner = why && done && (
@@ -141,34 +141,37 @@ export function Ended({
       </>
     );
   }
-  // The outputs come last in their column, so the list arriving moves nothing under it.
+  // The charge on the left; on the right the outputs, with the one Download, then the rating and the report, and the
+  // log, collapsed.
   return (
-    <div className="grid grid-cols-12 items-stretch gap-3.5">
-      <div className="col-span-6 flex flex-col gap-3.5">
-        {banner}
-        {charge}
-        {feedback}
-        {foot}
-        {done && <Outputs id={session.id} />}
-      </div>
-      <div className="col-span-6 flex flex-col gap-3.5">
-        {progress}
-        {session.startedAt && (
-          <div className="flex min-h-panel flex-1">
-            <LogsLater id={session.id} settled={session.settled} laptop />
-          </div>
-        )}
-      </div>
-    </div>
+    <RailColumns
+      left={
+        <>
+          {banner}
+          {charge}
+          {foot}
+        </>
+      }
+      right={
+        <>
+          {done && <Outputs id={session.id} />}
+          {feedback && <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">{feedback}</div>}
+          {session.startedAt && <LogsLater id={session.id} settled={session.settled} laptop={false} />}
+        </>
+      }
+    />
   );
 }
 
 /** The final charge, big, or "Nothing was charged"; until it's settled, what it has cost so far. */
-function Charge({ session }: { session: Session }) {
+function Charge({ session, laptop }: { session: Session; laptop: boolean }) {
   if (!session.settled) {
     return (
       <p className="flex flex-col gap-1">
-        <Money paise={session.chargedPaise + session.accruedPaise} className="text-timer" />
+        <Money
+          paise={session.chargedPaise + session.accruedPaise}
+          className={laptop ? "text-timer-lg" : "text-timer"}
+        />
         <span className="text-small text-dark-muted">so far · working out the final charge</span>
       </p>
     );
@@ -178,7 +181,7 @@ function Charge({ session }: { session: Session }) {
   }
   return (
     <p className="flex flex-col gap-1">
-      <Money paise={session.chargedPaise} className="text-timer" />
+      <Money paise={session.chargedPaise} className={laptop ? "text-timer-lg" : "text-timer"} />
       <span className="text-small text-dark-muted">Charged</span>
     </p>
   );
