@@ -97,6 +97,43 @@ class PriceBandTests {
     }
 
     @Test
+    void aGpuThatIsntAHostYetGetsTheBandOfTheHostsWithItsModel() throws Exception {
+        var user = TestUsers.signUp(mvc);
+        // Nobody lists this model: the default for its memory class (12 GB: 12 to 20).
+        mvc.perform(get("/v1/price-band")
+                        .param("gpuModel", "NVIDIA GeForce RTX 9999")
+                        .param("vramMb", "12282")
+                        .header("Authorization", user.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lowPaisePerMin").value(12))
+                .andExpect(jsonPath("$.highPaisePerMin").value(20))
+                .andExpect(jsonPath("$.sampleSize").value(0));
+
+        var first = host(10);
+        for (var price : new int[] {12, 14, 20}) {
+            host(price);
+        }
+        var model =
+                jdbc.queryForObject("select model from hosts.host_gpus where host_id = ?", String.class, first.id());
+        mvc.perform(get("/v1/price-band")
+                        .param("gpuModel", model)
+                        .param("vramMb", "12282")
+                        .header("Authorization", user.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lowPaisePerMin").value(10))
+                .andExpect(jsonPath("$.highPaisePerMin").value(20))
+                .andExpect(jsonPath("$.sampleSize").value(4));
+        mvc.perform(get("/v1/price-band")
+                        .param("gpuModel", "")
+                        .param("vramMb", "0")
+                        .header("Authorization", user.bearer()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-failed"));
+        mvc.perform(get("/v1/price-band").param("gpuModel", model).param("vramMb", "12282"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void anotherUsersHostIsNotFoundAndAHostWithoutAGpuHasNoBand() throws Exception {
         var mine = host(15);
         var stranger = TestUsers.signUp(mvc);

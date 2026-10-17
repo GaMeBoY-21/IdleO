@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -38,6 +39,25 @@ class PriceBandController {
      *     it's the default for the GPU's memory class
      */
     record PriceBand(int lowPaisePerMin, int highPaisePerMin, int sampleSize) {}
+
+    /**
+     * The band for a GPU that isn't a host yet: the laptop a link is asking to add (ADR 0032). The approval page asks
+     * with the model and memory the machine reported, to prefill its price; the range is the same as a host's own
+     * would be, from every listed host with that model (the machine isn't one, so none is left out).
+     */
+    @GetMapping("/v1/price-band")
+    PriceBand forGpu(@RequestParam String gpuModel, @RequestParam int vramMb) {
+        if (gpuModel.isBlank() || gpuModel.length() > 100 || vramMb < 1 || vramMb > 1_000_000) {
+            throw ApiProblem.of(
+                    Problem.VALIDATION_FAILED, "gpuModel is 1 to 100 characters and vramMb 1 to 1,000,000.");
+        }
+        var peers = hosts.listedForBatch().stream()
+                .filter(candidate -> candidate.gpuModel().equals(gpuModel))
+                .map(SchedulableHosts.Candidate::pricePaisePerMin)
+                .toList();
+        var band = PriceBands.of(peers, vramMb, properties);
+        return new PriceBand(band.lowPaisePerMin(), band.highPaisePerMin(), band.sampleSize());
+    }
 
     /** Another user's host is a 404. */
     @GetMapping("/v1/hosts/{hostId}/price-band")

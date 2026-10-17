@@ -2288,6 +2288,36 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - inbox
+  /v1/price-band:
+    get:
+      operationId: priceBandForGpu
+      parameters:
+      - in: query
+        name: gpuModel
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: vramMb
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceBand"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - priceBand
   /v1/public/availability:
     get:
       operationId: publicAvailabilityGet
