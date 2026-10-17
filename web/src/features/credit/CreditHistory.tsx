@@ -1,7 +1,9 @@
 import { ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "wouter";
 import { useHistory, useWallet, type HistoryEntry } from "@/api/queries";
 import { Page } from "@/components/shell/AppShell";
+import { RailColumns } from "@/components/shell/Layout";
 import { Button } from "@/components/ui/Button";
 import { SectionTitle } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
@@ -14,6 +16,7 @@ import { Tile } from "@/components/ui/Tile";
 import { CreditCard } from "./CreditCard";
 import { creditKind } from "@/lib/labels";
 import { cn } from "@/lib/cn";
+import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 
 const ROW = "flex min-h-18 items-center gap-3 py-4";
@@ -41,11 +44,12 @@ export function CreditHistory() {
   const entries = history.data?.pages.flatMap((page) => page.entries);
   const since = staleSince(wallet, history);
   const now = useNow("half-minute");
+  const wide = useWide();
+  const Frame = wide ? Rail : Narrow;
 
   return (
-    <Page title="Credit">
+    <Frame title="Credit" summary={<CreditCard wallet={wallet} wide={wide} />}>
       {since !== null && <StaleNotice updatedAt={since} />}
-      <CreditCard wallet={wallet} />
       <section aria-labelledby="history-title" className="flex flex-col gap-1">
         <SectionTitle id="history-title">History</SectionTitle>
         {entries ? (
@@ -117,7 +121,35 @@ export function CreditHistory() {
           </Tile>
         )}
       </section>
+    </Frame>
+  );
+}
+
+function Narrow({ title, summary, children }: { title: string; summary: ReactNode; children: ReactNode }) {
+  return (
+    <Page title={title}>
+      {summary}
+      {children}
     </Page>
+  );
+}
+
+/**
+ * From 768 px: the balance in the left rail's dark tile and the history beside it (web/DESIGN.md "Laptop layout"). On
+ * a phone the balance is the first block of the page, under its title.
+ */
+function Rail({ title, summary, children }: { title: string; summary: ReactNode; children: ReactNode }) {
+  return (
+    <RailColumns
+      fit={false}
+      left={summary}
+      right={
+        <>
+          <h1 className="sr-only">{title}</h1>
+          {children}
+        </>
+      }
+    />
   );
 }
 

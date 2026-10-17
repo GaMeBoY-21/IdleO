@@ -1,3 +1,4 @@
+import { breakable } from "@/lib/breakable";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FileText, Folder } from "lucide-react";
 import { useState } from "react";
@@ -39,7 +40,7 @@ export function FileRow({ upload, now }: { upload: UploadInfo; now: number }) {
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
         <Icon aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={1.75} />
         <div className="flex min-w-0 flex-1 basis-menu flex-col gap-0.5">
-          <p className="text-option font-semibold break-words">{name}</p>
+          <p className="text-option font-semibold break-words">{breakable(name)}</p>
           <p className="text-small text-text-muted tabular">{uploadFacts(upload, now)}</p>
         </div>
         {confirming ? (

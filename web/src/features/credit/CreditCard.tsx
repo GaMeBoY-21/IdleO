@@ -13,12 +13,17 @@ const PAGE_OPENED_AT = Date.now();
  * The renter's credit, as the big dark tile (web/DESIGN.md "Credit"): what they can spend now at 54 px, and under it
  * what's on hold and both together. A stale refresh is said once, at the top of the screen (staleSince), not here.
  */
-export function CreditCard({ wallet }: { wallet: UseQueryResult<Wallet> }) {
+export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wallet>; wide?: boolean }) {
   // Figures kept from an earlier visit say when they're from until the fresh ones arrive.
   const restored =
     wallet.data && wallet.isFetching && !wallet.isRefetchError && wallet.dataUpdatedAt < PAGE_OPENED_AT;
   return (
-    <Tile tone="dark" aria-labelledby="credit-title" className="flex flex-col gap-5">
+    <Tile
+      tone="dark"
+      size={wide ? "lg" : "md"}
+      aria-labelledby="credit-title"
+      className="flex flex-col gap-5"
+    >
       <h2 id="credit-title" className="sr-only">
         Your credit
       </h2>
@@ -26,7 +31,7 @@ export function CreditCard({ wallet }: { wallet: UseQueryResult<Wallet> }) {
         <>
           <div className="flex flex-col gap-1">
             <p className="text-small font-semibold text-dark-muted">Available</p>
-            <Money paise={wallet.data.availablePaise} className="block text-timer" />
+            <Money paise={wallet.data.availablePaise} className="block text-timer xl:text-timer-lg" />
             <p className="min-h-4.5 text-caption text-dark-muted" role="status">
               {restored ? (
                 <>

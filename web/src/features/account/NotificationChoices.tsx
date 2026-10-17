@@ -38,7 +38,10 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
       </div>
       <ul className="flex flex-col divide-y divide-divider">
         {items.map((item) => (
-          <li key={item.kind} className={cn(ROWS, "min-h-18 py-3", save.isPending && "opacity-60")}>
+          <li
+            key={item.kind}
+            className={cn(ROWS, "min-h-18 py-3 xl:min-h-16", save.isPending && "opacity-60")}
+          >
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <p className="text-option font-semibold">{item.title}</p>
               {item.locked && (

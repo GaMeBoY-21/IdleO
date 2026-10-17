@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from "react";
 import { Link } from "wouter";
 import { ChevronLeft } from "lucide-react";
 import { useApiKeys, useRevokeKey, type ApiKey } from "@/api/keys";
-import { Page } from "@/components/shell/AppShell";
+import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
@@ -39,10 +39,10 @@ export function ApiKeys() {
   const since = staleSince(keys);
 
   return (
-    <Page title="API keys">
+    <AccountFrame title="API keys">
       <Link
         href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline md:hidden"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Account
@@ -113,7 +113,7 @@ export function ApiKeys() {
           />
         </Suspense>
       )}
-    </Page>
+    </AccountFrame>
   );
 }
 

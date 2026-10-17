@@ -20,6 +20,7 @@ import { StepInput } from "./StepInput";
 import { StepPreset } from "./StepPreset";
 import { StepGpu, StepParam } from "./StepQuestion";
 import { advancedParams, chosenOption, stepsOf } from "./steps";
+import { takeDrop } from "./dropped";
 import { useQuote } from "./useQuote";
 import { useRequest } from "./useRequest";
 import { isBusy, useUploads, type InputUpload } from "./useUploads";
@@ -76,6 +77,15 @@ export function ServiceForm({
     mode: "onTouched",
   });
   const { uploads, choose, retry, pick, remove } = useUploads(initialUploads);
+  // What was dropped on Home becomes the first upload step, once (web/DESIGN.md "Home").
+  const [dropped] = useState(takeDrop);
+  useEffect(() => {
+    const first = template.inputs[0];
+    if (dropped && first && !initialUploads[first.name]) {
+      choose(first.name, dropped);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the screen opens
+  }, []);
   const values = useWatch({ control: form.control }) as BookValues;
   const painted = useAfterPaint();
   const [advanced, setAdvanced] = useState(false);

@@ -1,3 +1,4 @@
+import { breakable } from "@/lib/breakable";
 import { FileText, FileUp, Folder, FolderUp } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import type { components } from "@/api/schema.gen";
@@ -110,7 +111,7 @@ export function FilePicker({
           <div className="flex min-w-0 flex-1 basis-menu flex-col gap-0.5">
             <p className="text-body font-semibold break-words">
               {upload
-                ? `${upload.name}${upload.folder ? "/" : ""}`
+                ? breakable(`${upload.name}${upload.folder ? "/" : ""}`)
                 : folder
                   ? "Choose a folder, or one file"
                   : "Choose a file"}

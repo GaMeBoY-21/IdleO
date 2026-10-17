@@ -47,7 +47,7 @@ export function SignIn() {
 
   if (sentTo) {
     return (
-      <SignInFrame title="Check your email">
+      <SignInFrame title="Check your email" collage>
         <div className="flex flex-col gap-4">
           <MailCheck aria-hidden="true" className="size-8 text-running" strokeWidth={1.75} />
           <p className="text-body">
@@ -66,7 +66,7 @@ export function SignIn() {
   }
 
   return (
-    <SignInFrame title="Sign in">
+    <SignInFrame title="Sign in" collage>
       <p className="mb-8 text-body text-text-muted">Rent a GPU by the minute, paid in rupees.</p>
       <div className="flex flex-col gap-6">
         {search.get("expired") && (

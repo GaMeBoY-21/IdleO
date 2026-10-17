@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useUploadPages } from "@/api/queries";
-import { Page } from "@/components/shell/AppShell";
+import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Tile } from "@/components/ui/Tile";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { SkeletonLine } from "@/components/ui/Skeleton";
@@ -22,7 +22,7 @@ export function MyFiles() {
   const since = staleSince(pages);
 
   return (
-    <Page title="My files">
+    <AccountFrame title="My files">
       {since !== null && <StaleNotice updatedAt={since} />}
       <p className="text-body text-text-muted">
         What you upload when you book is kept here, to use again. Each is deleted 30 days after a session last
@@ -92,6 +92,6 @@ export function MyFiles() {
           ))}
         </Tile>
       )}
-    </Page>
+    </AccountFrame>
   );
 }

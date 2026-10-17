@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useDisputePages, type Dispute } from "@/api/trust";
-import { Page } from "@/components/shell/AppShell";
+import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button } from "@/components/ui/Button";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
@@ -28,10 +28,10 @@ export function Reports() {
   const rows = reports.data?.pages.flatMap((page) => page.disputes);
 
   return (
-    <Page title="Reports">
+    <AccountFrame title="Reports">
       <Link
         href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline md:hidden"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Account
@@ -97,7 +97,7 @@ export function Reports() {
           </div>
         )}
       </Tile>
-    </Page>
+    </AccountFrame>
   );
 }
 

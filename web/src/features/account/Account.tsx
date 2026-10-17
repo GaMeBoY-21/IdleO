@@ -1,7 +1,7 @@
 import { useNotifications } from "@/api/account";
 import { useMe } from "@/api/queries";
 import { signOut } from "@/auth";
-import { Page } from "@/components/shell/AppShell";
+import { AccountFrame } from "@/components/shell/AccountFrame";
 import { Button } from "@/components/ui/Button";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
@@ -30,16 +30,23 @@ export function Account() {
   const methods = me.data?.signInMethods.map((method) => METHODS[method] ?? method).join(", ") ?? "";
 
   return (
-    <Page title="Account">
+    <AccountFrame title="Account" className="xl:grid xl:grid-cols-5 xl:items-start">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <Tile as="section" aria-labelledby="you-title" className="flex flex-col gap-1">
-        <SectionTitle id="you-title">You</SectionTitle>
+      <Tile
+        as="section"
+        aria-labelledby="you-title"
+        className="flex flex-col gap-1 md:p-6 xl:col-span-2 xl:p-7"
+      >
+        <SectionTitle id="you-title">
+          <span className="md:hidden">You</span>
+          <span className="hidden md:inline">Profile</span>
+        </SectionTitle>
         {me.data ? (
           <div className="flex flex-col divide-y divide-divider">
             <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
             <Fact label="Email" value={me.data.email ?? "No email on file"} />
             {methods !== "" && <Fact label="Signed in with" value={methods} />}
-            <Link href="/account/keys/" className={`${ROW} hover:bg-ground`}>
+            <Link href="/account/keys/" className={`${ROW} hover:bg-ground md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">API keys</p>
                 <p className="text-small text-text-muted">For the command line, scripts and the SDK</p>
@@ -50,7 +57,7 @@ export function Account() {
                 strokeWidth={1.75}
               />
             </Link>
-            <Link href="/account/reports/" className={`${ROW} hover:bg-ground`}>
+            <Link href="/account/reports/" className={`${ROW} hover:bg-ground md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">Reports</p>
                 <p className="text-small text-text-muted">
@@ -88,13 +95,17 @@ export function Account() {
             ))}
           </div>
         )}
-        <div className="pt-4">
+        <div className="pt-4 md:hidden">
           <Button variant="secondary" onClick={() => void signOut()}>
             Sign out
           </Button>
         </div>
       </Tile>
-      <Tile as="section" aria-labelledby="notifications-title" className="flex flex-col gap-1">
+      <Tile
+        as="section"
+        aria-labelledby="notifications-title"
+        className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-7"
+      >
         <SectionTitle id="notifications-title">Notifications</SectionTitle>
         <p className="mb-2 max-w-prose text-small text-text-muted">
           Choose what we tell you about. Messages about your money and your safety always stay on.
@@ -132,7 +143,7 @@ export function Account() {
           </div>
         )}
       </Tile>
-    </Page>
+    </AccountFrame>
   );
 }
 

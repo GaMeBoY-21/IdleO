@@ -1,11 +1,14 @@
+import type { ReactNode } from "react";
 import { Link, useSearch } from "wouter";
 import { useSessionPages, useTemplatesKnown } from "@/api/queries";
 import { Page } from "@/components/shell/AppShell";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
+import { FIT_FRAME } from "@/components/shell/Layout";
+import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
-import { SessionList, SessionRowsSkeleton } from "./SessionRow";
+import { SessionList, SessionRowsSkeleton, SessionTable } from "./SessionRow";
 
 /**
  * Every session, newest first: the active ones, or the ended ones, a page at a time, as rows with dividers
@@ -18,9 +21,11 @@ export function AllSessions() {
   const namesKnown = useTemplatesKnown();
   const sessions = pages.data?.pages.flatMap((page) => page.sessions);
   const since = staleSince(pages);
+  const wide = useWide();
+  const Frame = wide ? LaptopFrame : Page;
 
   return (
-    <Page title="Sessions">
+    <Frame title="Sessions">
       {since !== null && <StaleNotice updatedAt={since} />}
       <nav aria-label="Which sessions" className="flex gap-2">
         {[
@@ -57,7 +62,7 @@ export function AllSessions() {
             </EmptyState>
           ) : (
             <div className="flex flex-col gap-4">
-              <SessionList sessions={sessions} />
+              {wide ? <SessionTable sessions={sessions} /> : <SessionList sessions={sessions} />}
               {pages.hasNextPage && (
                 <Button
                   variant="secondary"
@@ -84,10 +89,20 @@ export function AllSessions() {
           />
         ) : (
           <div role="status" aria-label="Loading your sessions">
-            <SessionRowsSkeleton rows={5} />
+            <SessionRowsSkeleton rows={5} table={wide} />
           </div>
         )}
       </section>
-    </Page>
+    </Frame>
+  );
+}
+
+/** From 768 px the list runs the full width of the window, as the other tabs do (web/DESIGN.md "Laptop layout"). */
+function LaptopFrame({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className={cn(FIT_FRAME, "flex flex-col gap-4")}>
+      <h1 className="text-title xl:text-question">{title}</h1>
+      {children}
+    </div>
   );
 }
