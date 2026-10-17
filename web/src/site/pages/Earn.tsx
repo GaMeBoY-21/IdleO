@@ -4,7 +4,6 @@ import { GPU_CLASSES } from "../gpus";
 import { DOCS, START_HOSTING } from "../paths";
 import {
   column,
-  heading,
   largeButton,
   link,
   muted,
@@ -54,7 +53,7 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
     <>
       <section className={`${column} pt-3.5 pb-6 md:pt-6 md:pb-8`}>
         <div className={tileApricot}>
-          <h1 className={`${heading} max-w-prose`}>Earn with your GPU</h1>
+          <h1 className="max-w-prose text-title md:text-question">Earn with your GPU</h1>
           <p className="mt-4 max-w-prose text-body text-apricot-fg md:text-option">
             If you have a gaming laptop or desktop with an NVIDIA RTX card, you can rent it out by the minute
             while you aren&apos;t using it. You set the price and keep {100 - COMMISSION_PERCENT}% of what
