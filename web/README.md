@@ -164,7 +164,7 @@ It's under the gitignored `private/`, and the data in it is invented.
 | `src/features/` | The screens: `home`, `book` (the screen generator, the upload manager, the quote), `files` (My files), `session` (live: figures, logs, checkpoints), `sessions`, `credit`, `sign-in`, and `admin` (the console, its client with the admin session held in memory, the action sheet) |
 | `src/lib/money.ts` | `formatPaise`, the only way money is shown |
 | `e2e/` | Playwright: screens (`*screens.spec.ts`), layout shift, Firebase sign-in, the journeys, Lighthouse, the 10 MiB log, the gallery recordings; `fixtures.ts` is the one builder of invented data, and its figures add up (`src/test/fixtures.test.ts`) |
-| `scripts/` | The theme generator, post-build (CSP, screens, pre-render), the server, the size check, the font subset, the wordmark, the gallery |
+| `scripts/` | The theme generator, post-build (CSP, screens, pre-render), the server, the size check, the font subset, the gallery |
 
 ## The public site
 

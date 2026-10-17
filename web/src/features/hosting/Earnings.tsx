@@ -1,7 +1,7 @@
 import { useEarnings, useHosts, type EarningsEntry, type OwnerEarnings } from "@/api/hosting";
 import { Page } from "@/components/shell/AppShell";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Tile";
+import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
@@ -62,9 +62,9 @@ export function Earnings() {
 /** The totals, this week and the hours rented, the free-beta note, and each machine when there are several. */
 function Totals({ owner }: { owner: OwnerEarnings }) {
   return (
-    <section aria-label="Totals" className="flex flex-col gap-5">
+    <Tile tone="dark" as="section" aria-label="Totals" className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <p className="text-small font-semibold text-text-muted">All machines, in total</p>
+        <p className="text-small font-semibold text-dark-muted">All machines, in total</p>
         <Money paise={owner.totalPaise} className="block text-timer" />
       </div>
       <dl className="grid grid-cols-2 gap-2">
@@ -75,21 +75,21 @@ function Totals({ owner }: { owner: OwnerEarnings }) {
           <span className="tabular">{formatMinutes(owner.minutesRentedThisWeek)}</span>
         </Figure>
       </dl>
-      <p className="max-w-prose text-small text-text-muted">{BETA_NOTE}</p>
+      <p className="max-w-prose text-small text-dark-muted">{BETA_NOTE}</p>
       {owner.machines.length > 1 && (
-        <ul aria-label="Each machine" className="flex flex-col divide-y divide-divider">
+        <ul aria-label="Each machine" className="flex flex-col divide-y divide-dark-fg/15">
           {owner.machines.map((machine) => (
             <li key={machine.hostId} className="flex min-h-touch items-center justify-between gap-3 py-2">
               <span className="text-small font-semibold break-words">
                 {machine.name}
-                {machine.removed && <span className="font-normal text-text-muted"> (removed)</span>}
+                {machine.removed && <span className="font-normal text-dark-muted"> (removed)</span>}
               </span>
               <Money paise={machine.earnedPaise} className="text-small font-semibold" />
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </Tile>
   );
 }
 
@@ -110,11 +110,13 @@ function History({
             What your machines earn, and any time given back for a lost session, will be listed here.
           </EmptyState>
         ) : (
-          <ul className="flex flex-col divide-y divide-divider">
-            {entries.map((entry) => (
-              <EntryRow key={entry.id} entry={entry} />
-            ))}
-          </ul>
+          <Tile as="div" className="px-4.5 py-0">
+            <ul className="flex flex-col divide-y divide-divider">
+              {entries.map((entry) => (
+                <EntryRow key={entry.id} entry={entry} />
+              ))}
+            </ul>
+          </Tile>
         )}
         {next.has && (
           <Button variant="secondary" className="self-center" busy={next.busy} onClick={next.load}>
@@ -135,18 +137,18 @@ function History({
 function EarningsSkeleton() {
   return (
     <div role="status" aria-label="Loading your earnings" className="flex flex-col gap-7">
-      <div className="flex flex-col gap-5">
+      <Tile tone="dark" className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
-          <SkeletonLine size="small" width="w-1/3" />
-          <SkeletonLine size="timer" width="w-1/2" />
+          <SkeletonLine size="small" width="w-1/3" onDark />
+          <SkeletonLine size="timer" width="w-1/2" onDark />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="skeleton h-18 rounded-control" />
-          <div className="skeleton h-18 rounded-control" />
+          <div className="skeleton-dark h-18 rounded-control" />
+          <div className="skeleton-dark h-18 rounded-control" />
         </div>
-        <p className="max-w-prose text-small text-text-muted">{BETA_NOTE}</p>
-      </div>
-      <div className="flex flex-col divide-y divide-divider">
+        <p className="max-w-prose text-small text-dark-muted">{BETA_NOTE}</p>
+      </Tile>
+      <Tile as="div" className="flex flex-col divide-y divide-divider px-4.5 py-0">
         {[0, 1, 2, 3].map((key) => (
           <div key={key} className={ROW}>
             <div className="flex flex-1 flex-col gap-0.5">
@@ -156,15 +158,15 @@ function EarningsSkeleton() {
             <SkeletonLine size="option" width="w-1/4" />
           </div>
         ))}
-      </div>
+      </Tile>
     </div>
   );
 }
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-fill px-4 py-3.5">
-      <dt className="text-small text-text-muted">{label}</dt>
+    <div className="flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-dark-fg/10 px-4 py-3.5">
+      <dt className="text-small text-dark-muted">{label}</dt>
       <dd className="text-option font-semibold">{children}</dd>
     </div>
   );

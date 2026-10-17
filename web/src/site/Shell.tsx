@@ -12,7 +12,7 @@ const NAV = [
 ] as const;
 
 /**
- * The frame every public page shares (ADR 0029): the header with the pages, Sign in and the black "Get started"
+ * The frame every public page shares (ADR 0029): the header with the pages as white pills, Sign in and the dark "Get started"
  * button, and the footer. Plain markup, no script. On a phone the pages sit on a row of their own under the wordmark
  * and the two buttons, so nothing is hidden behind a menu that would need script.
  */
@@ -23,16 +23,16 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
     <>
       <a
         href="#content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-control focus:bg-primary focus:px-4 focus:py-3 focus:text-primary-fg"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-full focus:bg-primary focus:px-4 focus:py-3 focus:text-primary-fg"
       >
         Skip to the content
       </a>
-      <header className="border-b border-divider">
+      <header>
         <div
           className={`${column} flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-2 md:flex-nowrap`}
         >
           <a href={LANDING} className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-            <Wordmark className="h-6 w-auto" />
+            <Wordmark />
           </a>
           <nav aria-label="Pages" className="order-last flex w-full gap-1 md:order-none md:w-auto md:flex-1">
             {NAV.map((item) => (
@@ -40,14 +40,14 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
                 key={item.href}
                 href={item.href}
                 aria-current={current(item.href)}
-                className="flex min-h-touch items-center rounded-full px-3 text-small font-semibold text-text hover:bg-fill aria-[current=page]:bg-fill"
+                className="flex min-h-touch items-center rounded-full bg-fill px-4 text-small font-semibold text-text hover:bg-fill-selected aria-[current=page]:bg-primary aria-[current=page]:text-primary-fg"
               >
                 {item.label}
               </a>
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <a href={SIGN_IN} className={`${secondaryButton} bg-ground`}>
+            <a href={SIGN_IN} className={secondaryButton}>
               Sign in
             </a>
             <a href={SIGN_IN} className={primaryButton}>
@@ -59,7 +59,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
       <main id="content" tabIndex={-1}>
         {children}
       </main>
-      <footer className="border-t border-divider">
+      <footer>
         <div
           className={`${column} flex flex-col gap-3 py-8 text-small text-text-muted md:flex-row md:items-center md:justify-between`}
         >

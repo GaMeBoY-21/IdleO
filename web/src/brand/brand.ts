@@ -1,6 +1,6 @@
 /**
  * The brand, in one place (web/DESIGN.md "Brand"): the product name isn't decided, so the working name, the
- * ring's colour, the wordmark (Wordmark.tsx) and the favicon (icon.svg) all live here, and the final brand is
+ * ring's colour, the wordmark (Wordmark.tsx) and the favicon (icon.svg, the ring) all live here, and the final brand is
  * one small change. The design tokens take the ring's colour from here.
  */
 export const brand = {

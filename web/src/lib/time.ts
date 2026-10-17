@@ -7,6 +7,23 @@ const dateTime = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeSty
 const time = new Intl.DateTimeFormat("en-IN", { timeStyle: "short" });
 const dayMonth = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
 
+const dayKey = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
+
+/** The calendar day a moment falls on, in the reader's own time zone ("2026-10-07"): what a day's group is keyed by. */
+export const dayOf = (value: string | number) => dayKey.format(new Date(value));
+
+/** A day's heading: "Today", "Yesterday", then the date ("12 Oct"). */
+export function dayHeading(value: string, now: number): string {
+  const day = dayOf(value);
+  if (day === dayOf(now)) {
+    return "Today";
+  }
+  if (day === dayOf(now - 24 * 60 * 60_000)) {
+    return "Yesterday";
+  }
+  return dayMonth.format(new Date(value));
+}
+
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 export const formatTime = (value: string | number) => time.format(new Date(value));
 

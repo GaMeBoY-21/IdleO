@@ -5,6 +5,7 @@ import { Page } from "@/components/shell/AppShell";
 import { Button } from "@/components/ui/Button";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
+import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
@@ -41,7 +42,7 @@ export function Notifications() {
         </Link>
         .
       </p>
-      <section aria-labelledby="notifications-title" className="flex flex-col gap-1">
+      <Tile as="section" aria-labelledby="notifications-title" className="flex flex-col gap-1">
         <div className="flex min-h-touch items-center justify-between gap-3">
           <h2 id="notifications-title" className="text-section">
             {unread > 0 ? `${unread} unread` : "All read"}
@@ -123,7 +124,7 @@ export function Notifications() {
             ))}
           </div>
         )}
-      </section>
+      </Tile>
     </Page>
   );
 }
@@ -132,7 +133,7 @@ export function Notifications() {
 function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
   return (
     <li>
-      <Link href={item.link} onClick={onOpen} className={cn(ROW, "hover:bg-fill")}>
+      <Link href={item.link} onClick={onOpen} className={cn(ROW, "hover:bg-ground")}>
         <span
           aria-hidden="true"
           className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-primary")}

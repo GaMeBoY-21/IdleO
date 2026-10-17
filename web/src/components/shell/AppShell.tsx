@@ -2,16 +2,12 @@ import { ChevronLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
+import { Wordmark } from "@/brand/Wordmark";
 import { cn } from "@/lib/cn";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
 import { destinations, isCurrent, isFlow } from "./nav";
 import { UserMenuButton } from "./UserMenuButton";
-
-/** The name as the header's wordmark: lowercase, heavy and tight, as in the reference (docs/design/bento/). */
-function Name() {
-  return <span className="text-figure">{brand.name.toLowerCase()}</span>;
-}
 
 /**
  * The frame around every signed-in screen (web/DESIGN.md "Navigation"). On a phone: a header with the wordmark, the
@@ -34,7 +30,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className={cn("sticky top-0 z-10 bg-ground", flow ? "hidden md:block" : "block")}>
         <div className="mx-auto flex h-16 max-w-content items-center gap-8 px-4.5 md:px-6">
           <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-            <Name />
+            <Wordmark />
           </Link>
           <nav aria-label="Main" className="hidden flex-1 items-center gap-2 md:flex">
             {destinations.map(({ href, label }) => (

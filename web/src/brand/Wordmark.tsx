@@ -1,30 +1,10 @@
+import { cn } from "@/lib/cn";
 import { brand } from "./brand";
 
 /**
- * The IdleO wordmark (web/DESIGN.md "Brand"): "Idle" in Inter SemiBold, as outlines from scripts/wordmark.py, and
- * a ring for the "O" in the brand's indigo, with a gap at the top like a power button at rest. The letters take
- * the text colour around them.
+ * The wordmark (web/DESIGN.md "Brand"): the name in lowercase, set heavy and tight in the one typeface, as in the
+ * Bento reference (docs/design/bento/). It takes the text colour around it and has no image to load.
  */
 export function Wordmark({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 420 4933 1604"
-      role="img"
-      aria-label={brand.name}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        fill="currentColor"
-        d="M388 494V1984H124V494ZM1032 2005Q895 2005 791 1936Q688 1867 631 1743Q575 1619 575 1455Q575 1293 632 1169Q689 1045 792 976Q895 907 1030 907Q1099 907 1159 925Q1218 944 1266 982Q1314 1020 1348 1078H1350V494H1602V1984H1354V1823H1352Q1319 1884 1270 1925Q1222 1965 1162 1985Q1101 2005 1032 2005ZM1091 1794Q1174 1794 1235 1753Q1296 1711 1330 1634Q1364 1558 1364 1455Q1364 1352 1330 1276Q1296 1200 1235 1158Q1174 1116 1091 1116Q1014 1116 955 1156Q896 1195 863 1270Q830 1346 830 1455Q830 1564 863 1640Q896 1716 955 1755Q1014 1794 1091 1794ZM2078 494V1984H1826V494ZM2768 2008Q2610 2008 2494 1937Q2378 1866 2316 1742Q2253 1617 2253 1457Q2253 1296 2317 1171Q2382 1046 2496 975Q2610 904 2758 904Q2872 904 2965 944Q3058 984 3125 1057Q3192 1131 3228 1231Q3264 1332 3264 1453V1522H2353V1348H3138L3025 1395Q3025 1305 2992 1240Q2960 1175 2901 1140Q2843 1104 2762 1104Q2682 1104 2623 1140Q2564 1175 2532 1240Q2500 1305 2500 1395V1504Q2500 1595 2532 1664Q2564 1733 2625 1771Q2687 1809 2774 1809Q2837 1809 2886 1790Q2935 1771 2968 1737Q3001 1703 3015 1658H3251Q3231 1761 3164 1840Q3096 1919 2994 1963Q2892 2008 2768 2008Z"
-      />
-      <path
-        className="stroke-brand"
-        fill="none"
-        strokeWidth="240"
-        strokeLinecap="round"
-        d="M4435 670A633 633 0 1 1 3881 670"
-      />
-    </svg>
-  );
+  return <span className={cn("text-figure", className)}>{brand.name.toLowerCase()}</span>;
 }

@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useDisputePages, type Dispute } from "@/api/trust";
 import { Page } from "@/components/shell/AppShell";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Tile";
+import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
@@ -40,7 +40,7 @@ export function Reports() {
       <p className="max-w-prose text-small text-text-muted">
         A person reads every report. {REPLY_PROMISE} A refund goes straight to your credit.
       </p>
-      <section aria-labelledby="reports-title" className="flex flex-col gap-1">
+      <Tile as="section" aria-labelledby="reports-title" className="flex flex-col gap-1">
         <SectionTitle id="reports-title">Your reports</SectionTitle>
         {rows ? (
           <div className="flex flex-col gap-4">
@@ -96,7 +96,7 @@ export function Reports() {
             ))}
           </div>
         )}
-      </section>
+      </Tile>
     </Page>
   );
 }
@@ -106,7 +106,7 @@ function ReportItem({ dispute }: { dispute: Dispute }) {
   const words = reportWords(dispute);
   return (
     <li>
-      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-fill")}>
+      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-ground")}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-option font-semibold break-words">{reasonTitle(dispute.reason)}</p>
           <p className="text-small text-text-muted first-letter:uppercase">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { usePause, useResume, type Host } from "@/api/hosting";
+import { Tile } from "@/components/ui/Tile";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { RadioGroup } from "@/components/ui/Inputs";
@@ -23,7 +24,7 @@ export function PauseControl({ host }: { host: Host }) {
   const error = pause.error ?? resume.error;
 
   return (
-    <section aria-label="Pause hosting" className="flex flex-col gap-3 border-t border-divider pt-4">
+    <Tile as="section" aria-label="Pause hosting" className="flex flex-col gap-3">
       {error && <Banner tone="danger">{problemMessage(error)}</Banner>}
       {host.paused ? (
         <>
@@ -85,6 +86,6 @@ export function PauseControl({ host }: { host: Host }) {
           </p>
         </>
       )}
-    </section>
+    </Tile>
   );
 }

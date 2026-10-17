@@ -1,5 +1,6 @@
 import { useHost } from "@/api/hosting";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { Tile } from "@/components/ui/Tile";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
 import { ApiError } from "@/api/errors";
@@ -19,7 +20,7 @@ import { useHostId } from "@/lib/use-host-id";
 const PAGE_OPENED_AT = Date.now();
 
 /**
- * One machine (docs/design/hosting/machine-phone.html, designed for the phone first): its state and name, its GPU with
+ * One machine (designed for the phone first): in the dark tile its state, name and rating, then its GPU with
  * temperature and use against the limit, what it's running now and what that has earned so far, the privacy line, rows
  * to its price and limits, the sessions it ran, and renaming or removing it; and, at the foot, Pause hosting or Resume.
  */
@@ -71,10 +72,10 @@ export function Machine() {
   return (
     <HostFlow back="/hosting/" backLabel="Hosting">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <div className="flex flex-col gap-2">
+      <Tile tone="dark" className="flex flex-col gap-2">
         <MachineChip state={state} />
         <h1 className="text-title break-words">{machine.name}</h1>
-        <p className="min-h-5 text-small text-text-muted">
+        <p className="min-h-5 text-small text-dark-muted">
           {restored ? (
             <>
               Updated <span className="tabular">{formatTime(host.dataUpdatedAt)}</span> · refreshing
@@ -88,12 +89,12 @@ export function Machine() {
             "The host app on it isn't connected."
           )}
         </p>
-      </div>
-      <RatingLine host={machine} />
+        <RatingLine host={machine} />
+      </Tile>
       <GpuLine host={machine} />
       <RightNow host={machine} />
       <PrivacyLine />
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         <MachineLink
           href={`/hosting/price/?id=${machine.id}`}
           title="Price and limits"
@@ -120,21 +121,21 @@ export function Machine() {
 /** The machine's frame before it arrives: the same blocks, the same heights. */
 function MachineSkeleton() {
   return (
-    <div role="status" aria-label="Loading this machine" className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
+    <div role="status" aria-label="Loading this machine" className="flex flex-col gap-3.5">
+      <Tile tone="dark" className="flex flex-col gap-2">
         <Skeleton className="h-9 w-1/3 rounded-full" />
-        <SkeletonLine size="title" width="w-2/3" />
-        <SkeletonLine size="small" width="w-1/2" />
-      </div>
-      <SkeletonLine size="small" width="w-1/3" />
-      <div className="flex min-h-18 flex-col gap-1">
+        <SkeletonLine size="title" width="w-2/3" onDark />
+        <SkeletonLine size="small" width="w-1/2" onDark />
+        <SkeletonLine size="small" width="w-1/3" onDark />
+      </Tile>
+      <Tile className="flex min-h-18 flex-col gap-1">
         <SkeletonLine size="section" width="w-1/2" />
         <SkeletonLine size="small" width="w-2/3" />
-      </div>
-      <Skeleton className="h-32 w-full rounded-tile" />
-      <Skeleton className="h-18 w-full" />
-      <Skeleton className="h-18 w-full" />
-      <Skeleton className="h-18 w-full" />
+      </Tile>
+      <Skeleton tile className="h-32 w-full" />
+      <Skeleton tile className="h-18 w-full" />
+      <Skeleton tile className="h-18 w-full" />
+      <Skeleton tile className="h-18 w-full" />
     </div>
   );
 }

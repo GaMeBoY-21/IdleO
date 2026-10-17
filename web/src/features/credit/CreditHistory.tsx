@@ -8,12 +8,30 @@ import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
-import { CreditCard } from "@/features/home/CreditCard";
+import { useNow } from "@/lib/clock";
+import { dayHeading, dayOf } from "@/lib/time";
+import { Tile } from "@/components/ui/Tile";
+import { CreditCard } from "./CreditCard";
 import { creditKind } from "@/lib/labels";
 import { cn } from "@/lib/cn";
 import { useTitle } from "@/lib/title";
 
 const ROW = "flex min-h-18 items-center gap-3 py-4";
+
+/** The entries as days, in the order they came (newest first): a day's entries are consecutive. */
+function byDay(entries: HistoryEntry[]): { day: string; first: string; entries: HistoryEntry[] }[] {
+  const days: { day: string; first: string; entries: HistoryEntry[] }[] = [];
+  for (const entry of entries) {
+    const day = dayOf(entry.createdAt);
+    const last = days.at(-1);
+    if (last?.day === day) {
+      last.entries.push(entry);
+    } else {
+      days.push({ day, first: entry.createdAt, entries: [entry] });
+    }
+  }
+  return days;
+}
 
 /** The renter's credit, big, then every movement of it, newest first, a page at a time. */
 export function CreditHistory() {
@@ -22,6 +40,7 @@ export function CreditHistory() {
   const history = useHistory();
   const entries = history.data?.pages.flatMap((page) => page.entries);
   const since = staleSince(wallet, history);
+  const now = useNow("half-minute");
 
   return (
     <Page title="Credit">
@@ -36,11 +55,24 @@ export function CreditHistory() {
                 Credit you receive, and what your sessions are charged, will be listed here.
               </EmptyState>
             ) : (
-              <ul className="flex flex-col divide-y divide-divider">
-                {entries.map((entry) => (
-                  <HistoryRow key={entry.id} entry={entry} />
-                ))}
-              </ul>
+              byDay(entries).map((group) => (
+                <section
+                  key={group.day}
+                  aria-label={dayHeading(group.first, now)}
+                  className="flex flex-col gap-2"
+                >
+                  <h3 className="px-1 text-small font-semibold text-text-muted">
+                    {dayHeading(group.first, now)}
+                  </h3>
+                  <Tile as="div" className="px-4.5 py-0">
+                    <ul className="flex flex-col divide-y divide-divider">
+                      {group.entries.map((entry) => (
+                        <HistoryRow key={entry.id} entry={entry} />
+                      ))}
+                    </ul>
+                  </Tile>
+                </section>
+              ))
             )}
             {history.hasNextPage && (
               <Button
@@ -66,8 +98,9 @@ export function CreditHistory() {
             retrying={history.isFetching}
           />
         ) : (
-          <div
-            className="flex flex-col divide-y divide-divider"
+          <Tile
+            as="div"
+            className="flex flex-col divide-y divide-divider px-4.5 py-0"
             role="status"
             aria-label="Loading your credit history"
           >
@@ -81,7 +114,7 @@ export function CreditHistory() {
                 <span aria-hidden="true" className="size-5 shrink-0" />
               </div>
             ))}
-          </div>
+          </Tile>
         )}
       </section>
     </Page>
@@ -110,7 +143,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   return (
     <li>
       {isSession ? (
-        <Link href={`/session/?id=${entry.reference.id}`} className={cn(ROW, "hover:bg-fill")}>
+        <Link href={`/session/?id=${entry.reference.id}`} className={cn(ROW, "hover:underline")}>
           {content}
           <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" strokeWidth={1.75} />
         </Link>

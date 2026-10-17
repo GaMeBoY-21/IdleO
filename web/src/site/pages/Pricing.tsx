@@ -3,10 +3,12 @@ import { GPU_CLASSES } from "../gpus";
 import type { SiteContext } from "../context";
 import { EXAMPLE_CLASS_GB } from "../examples";
 import { SIGN_IN } from "../paths";
-import { band, column, heading, largeButton, muted, primaryButton, sectionTitle } from "../ui";
+import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
 /** A row's place on the page, 96 px high whatever it holds, so what arrives never moves anything. */
-const ROW = "flex h-24 flex-col justify-center rounded-tile bg-fill px-5";
+const ROW = "flex h-24 flex-col justify-center rounded-tile bg-fill px-5 text-text";
+/** The same, in lavender, for the two typical examples. */
+const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-tile bg-lavender px-5 text-on-colour";
 
 /**
  * The pricing page (ADR 0029). Its figures come from GET /v1/public/availability after the page has painted
@@ -33,7 +35,7 @@ export function Pricing({ context }: { context: SiteContext }) {
         <h2 id="prices" className={sectionTitle}>
           What a GPU costs
         </h2>
-        <ul className="mt-4 grid gap-2 md:grid-cols-2">
+        <ul className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
           {GPU_CLASSES.map((gpu) => (
             <li key={gpu.gb} className={ROW} data-class-row={gpu.gb} data-state="loading">
               <p className="flex items-center justify-between text-option font-semibold">
@@ -79,24 +81,24 @@ export function Pricing({ context }: { context: SiteContext }) {
           {EXAMPLE_CLASS_GB} GB class at the prices above. A job's real cost depends on the model, the data
           and the GPU it gets.
         </p>
-        <ul className="mt-4 grid gap-2 md:grid-cols-2">
+        <ul className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
           {context.examples.map((example) => (
             <li
               key={example.label}
-              className={ROW}
+              className={EXAMPLE_ROW}
               data-example=""
               data-minutes={example.minutes}
               data-gb={example.gpuMemoryGb}
               data-label={example.label}
             >
               <p className="text-option font-semibold">{example.label}</p>
-              <p className="text-small text-text-muted">About {example.minutes} minutes, typical</p>
+              <p className="text-small text-lavender-fg">About {example.minutes} minutes, typical</p>
               <span
                 data-role="skeleton"
                 className="skeleton block h-6 w-2/5 rounded-control"
                 aria-hidden="true"
               />
-              <p data-role="cost" className="tabular h-6 text-body text-text" hidden></p>
+              <p data-role="cost" className="tabular h-6 text-body text-on-colour" hidden></p>
             </li>
           ))}
         </ul>
@@ -106,7 +108,7 @@ export function Pricing({ context }: { context: SiteContext }) {
         <h2 id="billing" className={sectionTitle}>
           How billing works
         </h2>
-        <dl className="mt-4 grid gap-3 md:grid-cols-2">
+        <dl className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
           {[
             [
               "By the minute",
@@ -133,7 +135,7 @@ export function Pricing({ context }: { context: SiteContext }) {
               `Of what you pay for a session, the host who ran it keeps ${100 - COMMISSION_PERCENT}% and we keep ${COMMISSION_PERCENT}%. It's inside the price you see, not added on top.`,
             ],
           ].map(([title, text]) => (
-            <div key={title} className="rounded-tile bg-fill p-5">
+            <div key={title} className={tile}>
               <dt className="text-option font-semibold">{title}</dt>
               <dd className="mt-1 text-body text-text-muted">{text}</dd>
             </div>

@@ -167,6 +167,7 @@ Every text pair meets 4.5:1 (1.4.3), and every control outline, focus ring and g
 
 - **Tiles, no borders.** A tile is `fill` (or a colour, or `dark`) with 26 px corners and 18 px of padding. Separation comes from the page's colour between tiles. A 1 px `divider` appears only between rows inside a tile. A very soft shadow appears only where a tile floats: the phone's tab bar, menus and a bottom sheet.
 - **Corners:** 26 px for tiles and the top of a bottom sheet (`rounded-tile`); 22 px for the floating tab bar (`rounded-bar`); 16 px for inputs and for rows or options inside a tile (`rounded-control`); 14 px for icon squares; fully round (999 px) for buttons, chips, pills, avatars and navigation.
+- **A tile inside a tile** (a field, a secondary button, an option, a row that opens) is pressed in with `ground`, the page's colour; the code marks a tile's inside with `data-tile` and does this once (the `tiled` variant and one nested-tile rule in `styles.css`), so no component needs to know where it sits.
 - **The selected option** is a lime tile with a check (`on-colour` text); the ones not selected are white tiles.
 - **The tile grid:** two columns on a phone with rows of 88 px (`auto-rows-tile`), so a small tile is one row and a tall one two; four columns on a laptop, with the same tiles. The gap is 10 px on a phone and 14 px on a laptop.
 - **Page padding:** 14 px on a phone, 24 px or more on a laptop.
@@ -326,7 +327,7 @@ The parts of credit have fixed labels too: **Available** (what you can spend now
 The product name isn't decided. **IdleO** is the working name.
 
 - The name, the wordmark, the ring's colour and the favicon live in one place, `web/src/brand/`, so the final brand is one small change.
-- **In the app's header the wordmark is the name in lowercase** ("idleo"), set at 22 px, weight 800, −0.03em, as in the reference; it comes from `brand.name`. **The ring** (a ring in the brand's indigo with a small gap at the top, like a power button at rest) is the favicon and the large, breathing ring of "Finding your GPU".
+- **The wordmark is the name in lowercase** ("idleo"), set at the `figure` step (24 px), weight 800, as in the reference: one `Wordmark` component, in the app's header, sign-in, the admin console and the public pages; it comes from `brand.name` and has no image to load. **The ring** (a ring in the brand's indigo with a small gap at the top, like a power button at rest) is the favicon and the large, breathing ring of "Finding your GPU".
 - No stock logos or icons stand in for the brand.
 
 ## Icons

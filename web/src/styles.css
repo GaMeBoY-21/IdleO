@@ -29,6 +29,16 @@
 /* Inside a tile (components/ui/Tile.tsx marks it with data-tile), a filled thing is pressed in with the page's colour. */
 @custom-variant tiled (&:where([data-tile] *));
 
+/* A tile inside a tile is pressed into it, with the page's colour. */
+[data-tile] [data-tile] {
+  background-color: var(--ground);
+}
+
+/* ...and what is pressed into the tile that was pressed in is the tile's colour again. */
+[data-tile] [data-tile] [class*="tiled:bg-ground"] {
+  background-color: var(--fill);
+}
+
 @theme {
   --font-sans: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", ui-sans-serif, system-ui, sans-serif;
 }

@@ -18,7 +18,8 @@ export function MachineRow({ host }: { host: Host }) {
       href={`/hosting/machine/?id=${host.id}`}
       className={cn(
         "flex min-h-18 items-center gap-3.5 rounded-tile px-4.5 py-3.5",
-        running ? "bg-dark text-dark-fg" : "bg-fill hover:bg-fill-selected",
+        "tile-motion",
+        running ? "bg-dark text-dark-fg" : state.kind === "idle" ? "bg-apricot text-on-colour" : "bg-fill",
       )}
     >
       <span
@@ -34,7 +35,12 @@ export function MachineRow({ host }: { host: Host }) {
       />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-body font-semibold break-words">{host.name}</span>
-        <span className={cn("text-caption tabular", running ? "text-dark-muted" : "text-text-muted")}>
+        <span
+          className={cn(
+            "text-caption tabular",
+            running ? "text-dark-muted" : state.kind === "idle" ? "text-apricot-fg" : "text-text-muted",
+          )}
+        >
           {state.detail}
         </span>
       </span>

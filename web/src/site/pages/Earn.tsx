@@ -2,7 +2,18 @@ import { COMMISSION_PERCENT } from "@/lib/hosting";
 import { DEFAULT_OCCUPANCY, OCCUPANCY_CHOICES } from "../calculator";
 import { GPU_CLASSES } from "../gpus";
 import { DOCS, START_HOSTING } from "../paths";
-import { band, column, heading, largeButton, link, muted, primaryButton, sectionTitle } from "../ui";
+import {
+  column,
+  heading,
+  largeButton,
+  link,
+  muted,
+  primaryButton,
+  sectionTitle,
+  tile,
+  tileApricot,
+  tileDark,
+} from "../ui";
 
 /** What hosting will have when it opens (ADR 0029): the sandbox is still being finished and tested on real laptops. */
 const SAFETY = [
@@ -31,7 +42,7 @@ const REQUIREMENTS = [
   "Some free disk: you choose how much to keep for yourself",
 ] as const;
 
-const field = "mt-1 h-14 w-full rounded-control bg-fill px-4 text-body text-text";
+const field = "mt-1 h-14 w-full rounded-control bg-ground px-4 text-body text-text";
 
 /**
  * The host pitch (ADR 0029): what hosting is, the safety promises, what it takes, and an honest earnings calculator
@@ -41,17 +52,19 @@ const field = "mt-1 h-14 w-full rounded-control bg-fill px-4 text-body text-text
 export function Earn({ apiUrl }: { apiUrl: string | null }) {
   return (
     <>
-      <section className={`${column} ${band}`}>
-        <h1 className={`${heading} max-w-prose`}>Earn with your GPU</h1>
-        <p className={`${muted} mt-4 max-w-prose md:text-option`}>
-          If you have a gaming laptop or desktop with an NVIDIA RTX card, you can rent it out by the minute
-          while you aren't using it. You set the price and keep {100 - COMMISSION_PERCENT}% of what renters
-          pay. Payouts start with the paid pilot; until then earnings are counted but not paid out.
-        </p>
-        <div className="mt-8">
-          <a href={START_HOSTING} className={`${primaryButton} ${largeButton}`}>
-            Start hosting
-          </a>
+      <section className={`${column} pt-3.5 pb-6 md:pt-6 md:pb-8`}>
+        <div className={tileApricot}>
+          <h1 className={`${heading} max-w-prose`}>Earn with your GPU</h1>
+          <p className="mt-4 max-w-prose text-body text-apricot-fg md:text-option">
+            If you have a gaming laptop or desktop with an NVIDIA RTX card, you can rent it out by the minute
+            while you aren&apos;t using it. You set the price and keep {100 - COMMISSION_PERCENT}% of what
+            renters pay. Payouts start with the paid pilot; until then earnings are counted but not paid out.
+          </p>
+          <div className="mt-8">
+            <a href={START_HOSTING} className={`${primaryButton} ${largeButton}`}>
+              Start hosting
+            </a>
+          </div>
         </div>
       </section>
 
@@ -63,9 +76,9 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
           Hosting opens after our safety tests on real Windows laptops. These are the protections it will
           have.
         </p>
-        <ul className="mt-4 grid gap-3 md:grid-cols-2">
+        <ul className="mt-4 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
           {SAFETY.map((item) => (
-            <li key={item.title} className="rounded-tile bg-fill p-5">
+            <li key={item.title} className={tile}>
               <h3 className="text-option font-semibold">{item.title}</h3>
               <p className="mt-2 text-body text-text-muted">{item.text}</p>
             </li>
@@ -83,11 +96,13 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
         <h2 id="requirements" className={sectionTitle}>
           What you need
         </h2>
-        <ul className="mt-4 list-disc space-y-1 pl-6 text-body text-text-muted">
-          {REQUIREMENTS.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
+        <div className={`${tile} mt-4`}>
+          <ul className="list-disc space-y-1 pl-6 text-body text-text-muted">
+            {REQUIREMENTS.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       <section
@@ -104,8 +119,8 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
           Hours free a day × your price × the share of those hours that get rented ×{" "}
           {100 - COMMISSION_PERCENT}%. Change any of them.
         </p>
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <div className="grid gap-4">
+        <div className="mt-6 grid gap-2.5 md:grid-cols-2 md:gap-3.5">
+          <div className={`${tile} grid gap-4`}>
             <label className="block text-small font-semibold">
               Your GPU's memory
               <select id="calc-class" defaultValue="12" className={field}>
@@ -158,25 +173,25 @@ export function Earn({ apiUrl }: { apiUrl: string | null }) {
               </select>
             </label>
           </div>
-          <div className="rounded-tile bg-fill p-5" role="group" aria-label="Estimated earnings">
+          <div className={tileDark} role="group" aria-label="Estimated earnings">
             <div aria-live="polite" className="grid gap-4" data-role="result">
               <div>
-                <p className="text-small text-text-muted">You keep, a day</p>
-                <p className="tabular text-title text-text" data-role="per-day">
+                <p className="text-small text-dark-muted">You keep, a day</p>
+                <p className="tabular text-title text-live" data-role="per-day">
                   –
                 </p>
               </div>
               <div>
-                <p className="text-small text-text-muted">You keep, in 30 days</p>
-                <p className="tabular text-title text-text" data-role="per-month">
+                <p className="text-small text-dark-muted">You keep, in 30 days</p>
+                <p className="tabular text-title text-live" data-role="per-month">
                   –
                 </p>
               </div>
-              <p className="min-h-15 text-small text-text-muted" data-role="detail">
+              <p className="min-h-15 text-small text-dark-muted" data-role="detail">
                 Enter a price to see an estimate.
               </p>
             </div>
-            <p className="mt-4 text-small font-semibold text-text">
+            <p className="mt-4 text-small font-semibold text-dark-fg">
               Occupancy depends on demand; early on it may be low.
             </p>
           </div>

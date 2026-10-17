@@ -1,6 +1,7 @@
 import { Check, Copy } from "lucide-react";
 import { useRef, useState } from "react";
 import { useCreateKey, type CreatedApiKey } from "@/api/keys";
+import { Tile } from "@/components/ui/Tile";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -63,7 +64,7 @@ export function CreateKey() {
 
   if (made) {
     return (
-      <section aria-label="Your new key" className="flex flex-col gap-3 rounded-tile bg-fill p-5">
+      <Tile as="section" aria-label="Your new key" className="flex flex-col gap-3">
         <p className="text-option font-semibold">Made &ldquo;{made.name}&rdquo;</p>
         <Banner tone="warning">Copy it now. You won&apos;t see it again.</Banner>
         <p
@@ -89,7 +90,7 @@ export function CreateKey() {
             Done
           </Button>
         </div>
-      </section>
+      </Tile>
     );
   }
 
@@ -97,7 +98,8 @@ export function CreateKey() {
     <form
       noValidate
       aria-label="Create a key"
-      className="flex flex-col gap-2 rounded-tile bg-fill p-5"
+      data-tile=""
+      className="flex flex-col gap-2 rounded-tile bg-fill p-4.5"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();

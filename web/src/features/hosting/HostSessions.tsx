@@ -2,6 +2,7 @@ import { useHost, useHostSessions, type HostSession } from "@/api/hosting";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
+import { Tile } from "@/components/ui/Tile";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
@@ -38,11 +39,13 @@ export function HostSessions() {
           </EmptyState>
         ) : (
           <div className="flex flex-col gap-4">
-            <ul className="flex flex-col divide-y divide-divider">
-              {sessions.map((session) => (
-                <SessionRow key={session.id} session={session} />
-              ))}
-            </ul>
+            <Tile as="div" className="px-4.5 py-0">
+              <ul className="flex flex-col divide-y divide-divider">
+                {sessions.map((session) => (
+                  <SessionRow key={session.id} session={session} />
+                ))}
+              </ul>
+            </Tile>
             {pages.hasNextPage && (
               <Button
                 variant="secondary"
@@ -68,10 +71,11 @@ export function HostSessions() {
           retrying={pages.isFetching}
         />
       ) : (
-        <div
+        <Tile
+          as="div"
           role="status"
           aria-label="Loading the sessions it ran"
-          className="flex flex-col divide-y divide-divider"
+          className="flex flex-col divide-y divide-divider px-4.5 py-0"
         >
           {[0, 1, 2, 3].map((key) => (
             <div key={key} className={ROW}>
@@ -82,7 +86,7 @@ export function HostSessions() {
               <SkeletonLine size="option" width="w-1/4" />
             </div>
           ))}
-        </div>
+        </Tile>
       )}
     </HostFlow>
   );

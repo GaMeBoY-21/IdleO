@@ -3,7 +3,7 @@ import { useMe } from "@/api/queries";
 import { signOut } from "@/auth";
 import { Page } from "@/components/shell/AppShell";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Tile";
+import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -32,14 +32,14 @@ export function Account() {
   return (
     <Page title="Account">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <section aria-labelledby="you-title" className="flex flex-col gap-1">
+      <Tile as="section" aria-labelledby="you-title" className="flex flex-col gap-1">
         <SectionTitle id="you-title">You</SectionTitle>
         {me.data ? (
           <div className="flex flex-col divide-y divide-divider">
             <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
             <Fact label="Email" value={me.data.email ?? "No email on file"} />
             {methods !== "" && <Fact label="Signed in with" value={methods} />}
-            <Link href="/account/keys/" className={`${ROW} hover:bg-fill`}>
+            <Link href="/account/keys/" className={`${ROW} hover:bg-ground`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">API keys</p>
                 <p className="text-small text-text-muted">For the command line, scripts and the SDK</p>
@@ -50,7 +50,7 @@ export function Account() {
                 strokeWidth={1.75}
               />
             </Link>
-            <Link href="/account/reports/" className={`${ROW} hover:bg-fill`}>
+            <Link href="/account/reports/" className={`${ROW} hover:bg-ground`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">Reports</p>
                 <p className="text-small text-text-muted">
@@ -93,8 +93,8 @@ export function Account() {
             Sign out
           </Button>
         </div>
-      </section>
-      <section aria-labelledby="notifications-title" className="flex flex-col gap-1">
+      </Tile>
+      <Tile as="section" aria-labelledby="notifications-title" className="flex flex-col gap-1">
         <SectionTitle id="notifications-title">Notifications</SectionTitle>
         <p className="mb-2 max-w-prose text-small text-text-muted">
           Choose what we tell you about. Messages about your money and your safety always stay on.
@@ -131,7 +131,7 @@ export function Account() {
             ))}
           </div>
         )}
-      </section>
+      </Tile>
     </Page>
   );
 }

@@ -23,7 +23,7 @@ export function Banner({
         "flex items-start gap-3 rounded-tile px-4.5 py-3.5 text-small",
         tone === "warning" && "bg-warning-soft text-warning",
         tone === "danger" && "bg-danger-soft text-danger",
-        tone === "info" && "bg-fill text-text",
+        tone === "info" && "bg-fill text-text tiled:bg-ground",
       )}
     >
       <Icon aria-hidden="true" className="mt-px size-5 shrink-0" strokeWidth={1.75} />

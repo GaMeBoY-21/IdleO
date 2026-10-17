@@ -56,8 +56,8 @@
 }
 
 @utility skeleton {
-  background: var(--fill-selected);
-  background-image: linear-gradient(90deg, transparent, var(--ground), transparent);
+  background: var(--bone);
+  background-image: linear-gradient(90deg, transparent, var(--bone-shine), transparent);
   background-size: 200% 100%;
   animation: idleo-shimmer 1.4s linear infinite;
 }
@@ -91,7 +91,7 @@
     @apply mt-4;
   }
   .docs h2 {
-    @apply mt-10 text-section font-semibold;
+    @apply mt-10 text-section;
   }
   .docs h3 {
     @apply mt-8 text-option font-semibold;

@@ -5,7 +5,8 @@ import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Money } from "@/components/ui/Money";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { SkeletonLine } from "@/components/ui/Skeleton";
+import { Tile } from "@/components/ui/Tile";
 import { gpuName } from "@/lib/gpu";
 import {
   KEEP_FREE_MAX,
@@ -67,17 +68,16 @@ export function PriceForm({
     save.reset();
   };
 
-  if (price === null) {
-    return <PriceSkeleton />;
-  }
-  const { keep, fee } = youKeep(price);
+  // While the suggested price is looked up the form is drawn whole, its figures as skeleton lines of their own height, so
+  // nothing moves when they arrive.
+  const { keep, fee } = price === null ? { keep: 0, fee: 0 } : youKeep(price);
 
   return (
     <form
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-3.5"
       onSubmit={(event) => {
         event.preventDefault();
-        if (keepFree !== null && !keepFreeError) {
+        if (price !== null && keepFree !== null && !keepFreeError) {
           save.mutate(
             {
               batchPricePaisePerMin: price,
@@ -90,7 +90,7 @@ export function PriceForm({
         }
       }}
     >
-      <section aria-labelledby="price-title" className="flex flex-col gap-4">
+      <Tile as="section" aria-labelledby="price-title" className="flex flex-col gap-4">
         <h2 id="price-title" className="text-small font-semibold text-text-muted">
           Your price per hour
         </h2>
@@ -98,42 +98,67 @@ export function PriceForm({
           <Button
             variant="secondary"
             aria-label={`Lower the price by ${STEP_LABEL}`}
-            className="size-14 rounded-full p-0"
-            disabled={price <= MIN_PRICE}
-            onClick={() => change({ price: stepPrice(price, -1) })}
+            className="size-14 shrink-0 rounded-full p-0"
+            disabled={price === null || price <= MIN_PRICE}
+            onClick={() => price !== null && change({ price: stepPrice(price, -1) })}
           >
             <Minus aria-hidden="true" className="size-5" strokeWidth={2} />
           </Button>
-          <output aria-live="polite" className="text-timer tabular">
-            <span className="sr-only">Price: </span>
-            <Money paise={price * 60} />
-            <span className="sr-only"> an hour</span>
+          <output
+            aria-live="polite"
+            className="block min-w-0 flex-1 text-center text-question tabular md:text-timer"
+          >
+            {price === null ? (
+              <span role="status" aria-label="Looking up the price" className="mx-auto block w-full">
+                <SkeletonLine size="question" md="timer" width="w-full" />
+              </span>
+            ) : (
+              <>
+                <span className="sr-only">Price: </span>
+                <Money paise={price * 60} />
+                <span className="sr-only"> an hour</span>
+              </>
+            )}
           </output>
           <Button
             variant="secondary"
             aria-label={`Raise the price by ${STEP_LABEL}`}
-            className="size-14 rounded-full p-0"
-            disabled={price >= MAX_PRICE}
-            onClick={() => change({ price: stepPrice(price, 1) })}
+            className="size-14 shrink-0 rounded-full p-0"
+            disabled={price === null || price >= MAX_PRICE}
+            onClick={() => price !== null && change({ price: stepPrice(price, 1) })}
           >
             <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
           </Button>
         </div>
-        <dl className="flex flex-col gap-2 rounded-control bg-fill px-4 py-3.5 text-small">
+        <dl className="flex flex-col gap-2 rounded-control bg-ground px-4 py-3.5 text-small">
           <div className="flex items-baseline justify-between gap-4">
             <dt className="font-semibold">You keep</dt>
-            <dd className="tabular font-semibold">
-              <Money paise={keep} /> an hour
+            <dd className="w-24 text-right tabular font-semibold">
+              {price === null ? (
+                <span className="block w-full">
+                  <SkeletonLine size="small" width="w-full" />
+                </span>
+              ) : (
+                <>
+                  <Money paise={keep} /> an hour
+                </>
+              )}
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-4 text-text-muted">
             <dt>Platform fee (20%)</dt>
-            <dd className="tabular">
-              <Money paise={fee} />
+            <dd className="w-16 text-right tabular">
+              {price === null ? (
+                <span className="block w-full">
+                  <SkeletonLine size="small" width="w-full" />
+                </span>
+              ) : (
+                <Money paise={fee} />
+              )}
             </dd>
           </div>
         </dl>
-        <p className="min-h-10 text-small text-text-muted" role="status">
+        <p className="min-h-15 text-small text-text-muted" role="status">
           {band.data ? (
             band.data.sampleSize >= 3 ? (
               <>
@@ -158,9 +183,9 @@ export function PriceForm({
             "Looking up what others charge…"
           )}
         </p>
-      </section>
+      </Tile>
 
-      <section aria-label="Temperature limit" className="flex flex-col gap-2">
+      <Tile as="section" aria-label="Temperature limit" className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
           <label htmlFor={`${tempId}-range`} className="text-small font-semibold">
             Pause above this temperature
@@ -188,38 +213,31 @@ export function PriceForm({
           The session saves a checkpoint and pauses if your GPU gets hotter. Paused minutes aren&apos;t
           charged.
         </p>
-      </section>
+      </Tile>
 
-      <Field
-        label="Keep free on my disk (GB)"
-        inputMode="numeric"
-        value={keepFreeText}
-        onChange={(event) => change({ keepFree: event.target.value })}
-        error={keepFreeError}
-        hint="A session is only offered if its files fit beside this."
-        autoComplete="off"
-      />
-
-      <p className="text-small text-text-muted">One session at a time, so your laptop stays usable.</p>
+      <Tile as="section" aria-label="Disk to keep free" className="flex flex-col gap-3">
+        <Field
+          label="Keep free on my disk (GB)"
+          inputMode="numeric"
+          value={keepFreeText}
+          onChange={(event) => change({ keepFree: event.target.value })}
+          error={keepFreeError}
+          hint="A session is only offered if its files fit beside this."
+          autoComplete="off"
+        />
+        <p className="text-small text-text-muted">One session at a time, so your laptop stays usable.</p>
+      </Tile>
 
       {save.isError && <Banner tone="danger">{problemMessage(save.error)}</Banner>}
-      <Button type="submit" large block busy={save.isPending} disabled={keepFreeError !== undefined}>
+      <Button
+        type="submit"
+        large
+        block
+        busy={save.isPending}
+        disabled={price === null || keepFreeError !== undefined}
+      >
         {saveLabel}
       </Button>
     </form>
-  );
-}
-
-/** The form's shape while the suggested price is looked up: the same blocks, the same heights. */
-function PriceSkeleton() {
-  return (
-    <div role="status" aria-label="Loading the price" className="flex flex-col gap-6">
-      <Skeleton className="h-5 w-1/3" />
-      <Skeleton className="h-14 w-full" />
-      <Skeleton className="h-20 w-full" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-28 w-full" />
-      <Skeleton className="h-24 w-full" />
-    </div>
   );
 }

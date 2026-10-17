@@ -64,7 +64,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       <header className="flex flex-col gap-2 border-b border-divider px-4 py-3 md:w-56 md:shrink-0 md:border-r md:border-b-0 md:py-6">
         <div className="flex items-center justify-between gap-2 md:flex-col md:items-start">
           <Link href="/" className="flex items-center gap-2" aria-label="IdleO home">
-            <Wordmark className="h-6" />
+            <Wordmark />
           </Link>
           <span className="text-small font-semibold">Admin</span>
         </div>

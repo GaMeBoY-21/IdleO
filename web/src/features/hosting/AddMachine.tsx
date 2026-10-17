@@ -10,6 +10,7 @@ import {
   type Host,
 } from "@/api/hosting";
 import { ApiError } from "@/api/errors";
+import { Tile } from "@/components/ui/Tile";
 import { Banner } from "@/components/ui/Banner";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -87,7 +88,7 @@ export function AddMachine() {
           <div
             role="status"
             aria-label="Loading this machine"
-            className="skeleton h-40 w-full rounded-tile"
+            className="skeleton h-24 w-full rounded-tile"
           />
         )}
       </HostFlow>
@@ -97,87 +98,91 @@ export function AddMachine() {
   return (
     <HostFlow back="/hosting/" backLabel="Hosting">
       <h1 className="text-title">Add this machine</h1>
-      <ol className="flex flex-col">
-        <Step number={1} title="Name it" state={machine ? "done" : "active"} summary={machine?.name}>
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (nameProblem) {
-                return;
-              }
-              add.mutate(
-                { name: trimmed, idempotencyKey },
-                {
-                  onSuccess: (created) => {
-                    issue.mutate(created.id, { onSuccess: setCode });
-                    navigate(`/hosting/add/?id=${created.id}`, { replace: true });
+      <Tile as="div">
+        <ol className="flex flex-col">
+          <Step number={1} title="Name it" state={machine ? "done" : "active"} summary={machine?.name}>
+            <form
+              className="flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (nameProblem) {
+                  return;
+                }
+                add.mutate(
+                  { name: trimmed, idempotencyKey },
+                  {
+                    onSuccess: (created) => {
+                      issue.mutate(created.id, { onSuccess: setCode });
+                      navigate(`/hosting/add/?id=${created.id}`, { replace: true });
+                    },
                   },
-                },
-              );
-            }}
-          >
-            <Field
-              label="What do you call this machine?"
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-                add.reset();
+                );
               }}
-              placeholder="Nikki's ROG Strix"
-              error={name.length > 0 ? nameProblem : undefined}
-              hint="Only you see this."
-              autoComplete="off"
-            />
-            {add.isError && <Banner tone="danger">{problemMessage(add.error)}</Banner>}
-            <Button type="submit" large block busy={add.isPending} disabled={nameProblem !== undefined}>
-              Next
-            </Button>
-          </form>
-        </Step>
-        <Step
-          number={2}
-          title="Install"
-          state={connected ? "done" : machine ? "active" : "later"}
-          summary={
-            connected && gpu ? `Connected · ${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : undefined
-          }
-        >
-          <EnrolmentCodeCard code={code} issuing={issue.isPending} onNewCode={newCode} />
-          {issue.isError && <Banner tone="danger">{problemMessage(issue.error)}</Banner>}
-          <p className="flex items-center gap-2 text-small font-semibold" role="status">
-            <Loader aria-hidden="true" className="size-4 motion-safe:animate-spin" strokeWidth={2} />
-            Waiting for your machine
-          </p>
-          <p className="-mt-2 text-small text-text-muted">
-            This page moves on by itself once the host app connects.
-          </p>
-        </Step>
-        <Step
-          number={3}
-          title="Quick checks"
-          state={machine?.status === "active" ? "done" : "later"}
-          summary={
-            machine?.status === "active"
-              ? "Passed. Your machine is ready for work."
-              : connected
-                ? "Pending. We check your machine once you've set a price, by hand for now, so it can take a while."
-                : "We check your machine once it has connected."
-          }
-        />
-        <Step
-          number={4}
-          title="Set your price"
-          state={connected ? (saved ? "done" : "active") : "later"}
-          summary={
-            saved && machine?.listing
-              ? `${rupeesAnHour(machine.listing.batchPricePaisePerMin)} an hour`
-              : undefined
-          }
-        >
-          {machine && <PriceForm host={machine} saveLabel="Save and finish" onSaved={() => setSaved(true)} />}
-        </Step>
-      </ol>
+            >
+              <Field
+                label="What do you call this machine?"
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  add.reset();
+                }}
+                placeholder="Nikki's ROG Strix"
+                error={name.length > 0 ? nameProblem : undefined}
+                hint="Only you see this."
+                autoComplete="off"
+              />
+              {add.isError && <Banner tone="danger">{problemMessage(add.error)}</Banner>}
+              <Button type="submit" large block busy={add.isPending} disabled={nameProblem !== undefined}>
+                Next
+              </Button>
+            </form>
+          </Step>
+          <Step
+            number={2}
+            title="Install"
+            state={connected ? "done" : machine ? "active" : "later"}
+            summary={
+              connected && gpu ? `Connected · ${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : undefined
+            }
+          >
+            <EnrolmentCodeCard code={code} issuing={issue.isPending} onNewCode={newCode} />
+            {issue.isError && <Banner tone="danger">{problemMessage(issue.error)}</Banner>}
+            <p className="flex items-center gap-2 text-small font-semibold" role="status">
+              <Loader aria-hidden="true" className="size-4 motion-safe:animate-spin" strokeWidth={2} />
+              Waiting for your machine
+            </p>
+            <p className="-mt-2 text-small text-text-muted">
+              This page moves on by itself once the host app connects.
+            </p>
+          </Step>
+          <Step
+            number={3}
+            title="Quick checks"
+            state={machine?.status === "active" ? "done" : "later"}
+            summary={
+              machine?.status === "active"
+                ? "Passed. Your machine is ready for work."
+                : connected
+                  ? "Pending. We check your machine once you've set a price, by hand for now, so it can take a while."
+                  : "We check your machine once it has connected."
+            }
+          />
+          <Step
+            number={4}
+            title="Set your price"
+            state={connected ? (saved ? "done" : "active") : "later"}
+            summary={
+              saved && machine?.listing
+                ? `${rupeesAnHour(machine.listing.batchPricePaisePerMin)} an hour`
+                : undefined
+            }
+          >
+            {machine && (
+              <PriceForm host={machine} saveLabel="Save and finish" onSaved={() => setSaved(true)} />
+            )}
+          </Step>
+        </ol>
+      </Tile>
       {saved && machine && (
         <div className="flex flex-col gap-3">
           <Banner tone="info">
@@ -190,11 +195,15 @@ export function AddMachine() {
           </Link>
         </div>
       )}
-      <ul className="flex flex-col gap-2 rounded-tile bg-fill p-4 text-small text-text-muted md:p-6">
-        <li>Renter work runs in a locked box. It can&apos;t see your files or your home network.</li>
-        <li>Take your machine back any time from the tray icon. A session stops safely within 2 minutes.</li>
-        <li>Keep it plugged in. If your laptop has a battery charge limit, turn it on.</li>
-      </ul>
+      <Tile as="div">
+        <ul className="flex flex-col gap-2 text-small text-text-muted">
+          <li>Renter work runs in a locked box. It can&apos;t see your files or your home network.</li>
+          <li>
+            Take your machine back any time from the tray icon. A session stops safely within 2 minutes.
+          </li>
+          <li>Keep it plugged in. If your laptop has a battery charge limit, turn it on.</li>
+        </ul>
+      </Tile>
     </HostFlow>
   );
 }

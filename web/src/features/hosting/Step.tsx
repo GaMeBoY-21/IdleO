@@ -31,7 +31,7 @@ export function Step({
             "flex size-9 shrink-0 items-center justify-center rounded-full text-small font-semibold",
             state === "done" && "bg-running-soft text-running",
             state === "active" && "bg-primary text-primary-fg",
-            state === "later" && "bg-fill text-text-muted",
+            state === "later" && "bg-ground text-text-muted",
           )}
         >
           {state === "done" ? <Check className="size-4.5" strokeWidth={2.5} /> : number}

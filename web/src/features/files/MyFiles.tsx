@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { useUploadPages } from "@/api/queries";
 import { Page } from "@/components/shell/AppShell";
+import { Tile } from "@/components/ui/Tile";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
@@ -41,11 +42,13 @@ export function MyFiles() {
           </EmptyState>
         ) : (
           <div className="flex flex-col gap-4">
-            <ul aria-label="Your files" className="flex flex-col divide-y divide-divider">
-              {uploads.map((upload) => (
-                <FileRow key={upload.id} upload={upload} now={now} />
-              ))}
-            </ul>
+            <Tile as="div" className="px-4.5 py-0">
+              <ul aria-label="Your files" className="flex flex-col divide-y divide-divider">
+                {uploads.map((upload) => (
+                  <FileRow key={upload.id} upload={upload} now={now} />
+                ))}
+              </ul>
+            </Tile>
             {pages.hasNextPage && (
               <Button
                 variant="secondary"
@@ -71,7 +74,12 @@ export function MyFiles() {
           retrying={pages.isFetching}
         />
       ) : (
-        <div className="flex flex-col divide-y divide-divider" role="status" aria-label="Loading your files">
+        <Tile
+          as="div"
+          className="flex flex-col divide-y divide-divider px-4.5 py-0"
+          role="status"
+          aria-label="Loading your files"
+        >
           {[0, 1, 2].map((key) => (
             <div key={key} className="flex items-center gap-3.5 py-4">
               <span aria-hidden="true" className="size-5.5 shrink-0" />
@@ -82,7 +90,7 @@ export function MyFiles() {
               <SkeletonLine size="body" width="w-14" />
             </div>
           ))}
-        </div>
+        </Tile>
       )}
     </Page>
   );

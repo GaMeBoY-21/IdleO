@@ -11,8 +11,8 @@ const weekday = new Intl.DateTimeFormat("en-IN", { weekday: "long", timeZone: "U
 const dayName = (date: string) => weekday.format(new Date(`${date}T00:00:00Z`));
 
 /**
- * The last 7 days as bars (docs/design/hosting/hosting-phone.html): each as tall as its share of the busiest day, today
- * in black, a day with nothing a thin line. Each day is a list item with its name and amount for a screen reader.
+ * The last 7 days as bars on the dark tile: each as tall as its share of the busiest day, in lime, today in full, a
+ * day with nothing a thin line. Each day is a list item with its name and amount for a screen reader.
  */
 export function WeekBars({ days }: { days: Day[] }) {
   const busiest = Math.max(0, ...days.map((day) => day.earnedPaise));
@@ -30,13 +30,13 @@ export function WeekBars({ days }: { days: Day[] }) {
               aria-hidden="true"
               className={cn(
                 "w-full rounded-control",
-                day.earnedPaise > 0 ? (today ? "bg-primary" : "bg-dark-muted") : "bg-divider",
+                day.earnedPaise > 0 ? (today ? "bg-live" : "bg-live/50") : "bg-dark-fg/20",
               )}
               style={{ height: percent === 0 ? undefined : `${percent}%`, minHeight: "0.25rem" }}
             />
             <span
               aria-hidden="true"
-              className={cn("text-caption", today ? "font-semibold" : "text-text-muted")}
+              className={cn("text-caption", today ? "font-semibold" : "text-dark-muted")}
             >
               {dayName(day.date).charAt(0)}
             </span>
@@ -52,7 +52,7 @@ export function WeekBarsSkeleton() {
   return (
     <div aria-hidden="true" className="flex h-18 items-end gap-2">
       {Array.from({ length: 7 }, (_, key) => (
-        <span key={key} className="skeleton h-full flex-1 rounded-control" />
+        <span key={key} className="skeleton-dark h-full flex-1 rounded-control" />
       ))}
     </div>
   );

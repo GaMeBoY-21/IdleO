@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useRemove, useRename, type Host } from "@/api/hosting";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
+import { Tile } from "@/components/ui/Tile";
 import { Field } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
@@ -35,12 +36,12 @@ export function ManageMachine({ host }: { host: Host }) {
         : undefined;
 
   return (
-    <section aria-label="Rename or remove" className="flex flex-col gap-3">
+    <section aria-label="Rename or remove" className="flex flex-col gap-2.5">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex min-h-18 w-full items-center gap-3.5 rounded-control bg-fill px-4 py-3.5 text-left hover:bg-fill-selected"
+        className="tile-motion flex min-h-18 w-full items-center gap-3.5 rounded-tile bg-fill px-4.5 py-3.5 text-left"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-body font-semibold">Rename or remove</span>
@@ -53,7 +54,7 @@ export function ManageMachine({ host }: { host: Host }) {
         />
       </button>
       {open && (
-        <div className="flex flex-col gap-4 rounded-control bg-fill px-4 py-4">
+        <Tile as="div" className="flex flex-col gap-4">
           <form
             className="flex flex-col gap-2"
             onSubmit={(event) => {
@@ -91,7 +92,7 @@ export function ManageMachine({ host }: { host: Host }) {
               Remove this machine
             </Button>
           </div>
-        </div>
+        </Tile>
       )}
       {asking && (
         <Suspense fallback={null}>

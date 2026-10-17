@@ -1,6 +1,6 @@
 import { SIGN_IN } from "../paths";
 import { GPU_CLASSES } from "../gpus";
-import { band, column, heading, largeButton, muted, primaryButton, sectionTitle } from "../ui";
+import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
 /**
  * What each GPU memory class can run (ADR 0029). Static: nothing here is measured on our hosts, so every line is marked
@@ -19,9 +19,9 @@ export function Gpus() {
       </section>
 
       <section className={`${column} pb-14 md:pb-20`}>
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid gap-2.5 md:grid-cols-2 md:gap-3.5">
           {GPU_CLASSES.map((gpu) => (
-            <li key={gpu.gb} className="rounded-tile bg-fill p-5" aria-labelledby={`gpu-${gpu.gb}`}>
+            <li key={gpu.gb} className={tile} aria-labelledby={`gpu-${gpu.gb}`}>
               <h2 id={`gpu-${gpu.gb}`} className={sectionTitle}>
                 {gpu.gb} GB GPU memory
               </h2>

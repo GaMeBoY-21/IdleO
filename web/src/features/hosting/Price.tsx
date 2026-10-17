@@ -32,9 +32,9 @@ export function Price() {
           retrying={host.isFetching}
         />
       ) : (
-        <div role="status" aria-label="Loading this machine" className="flex flex-col gap-6">
+        <div role="status" aria-label="Loading this machine" className="flex flex-col gap-3.5">
           <SkeletonLine size="title" width="w-2/3" />
-          <Skeleton className="h-14 w-full" />
+          <Skeleton tile className="h-24 w-full" />
         </div>
       )}
     </HostFlow>

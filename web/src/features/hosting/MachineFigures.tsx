@@ -2,6 +2,7 @@ import { Star } from "lucide-react";
 import { useTelemetry, type Host } from "@/api/hosting";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Tile } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
 import { COMMISSION_PERCENT } from "@/lib/hosting";
 import { gpuName, gigabytes } from "@/lib/gpu";
@@ -18,12 +19,13 @@ export function GpuLine({ host }: { host: Host }) {
   const hour = telemetry.data?.lastHour ?? [];
   const peak = Math.max(0, ...hour.flatMap((point) => point.gpus.map((r) => r.tempC)));
   return (
-    <section aria-label="Your GPU" className="flex min-h-18 flex-col gap-1">
+    <Tile as="section" aria-label="Your GPU" className="flex min-h-18 flex-col gap-1">
       <p className="text-section">
         {gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "No GPU reported yet"}
       </p>
+      {/* Two lines are always kept for the reading, which can wrap on a phone, so it arriving moves nothing. */}
       {!host.online ? (
-        <p className="text-small text-text-muted">
+        <p className="min-h-10 text-small text-text-muted">
           {host.lastSeenAt ? (
             <>
               Offline · last seen <RelativeTime value={host.lastSeenAt} />
@@ -33,16 +35,18 @@ export function GpuLine({ host }: { host: Host }) {
           )}
         </p>
       ) : reading ? (
-        <p className="text-small text-text-muted tabular">
+        <p className="min-h-10 text-small text-text-muted tabular">
           {reading.tempC}°C{cap ? ` of ${cap}°C limit` : ""} · {reading.utilPct}% busy
           {peak > 0 && ` · peak ${peak}°C in the last hour`}
         </p>
       ) : telemetry.isLoading ? (
-        <Skeleton className="h-5 w-2/3" />
+        <div className="min-h-10">
+          <Skeleton className="h-5 w-2/3" />
+        </div>
       ) : (
-        <p className="text-small text-text-muted">No reading yet</p>
+        <p className="min-h-10 text-small text-text-muted">No reading yet</p>
       )}
-    </section>
+    </Tile>
   );
 }
 
@@ -58,10 +62,10 @@ export const RATINGS_SHOWN_FROM = 5;
 export function RatingLine({ host }: { host: Host }) {
   const rating = host.rating;
   return (
-    <p className="flex min-h-5 items-center gap-1.5 text-small text-text-muted">
+    <p className="flex min-h-5 items-center gap-1.5 text-small text-dark-muted">
       {rating ? (
         <>
-          <Star aria-hidden="true" className="size-4 text-text" fill="currentColor" strokeWidth={1.75} />
+          <Star aria-hidden="true" className="size-4 text-live" fill="currentColor" strokeWidth={1.75} />
           <span className="tabular">
             <span className="sr-only">Rated </span>
             {rating.averageStars.toFixed(1)}
@@ -82,7 +86,7 @@ export function RatingLine({ host }: { host: Host }) {
 export function RightNow({ host }: { host: Host }) {
   const session = host.currentSession;
   return (
-    <section aria-labelledby="right-now" className="flex flex-col gap-2 rounded-tile bg-fill p-4 md:p-6">
+    <Tile as="section" aria-labelledby="right-now" className="flex flex-col gap-2">
       <h2 id="right-now" className="text-small font-semibold text-text-muted">
         Right now
       </h2>
@@ -99,7 +103,7 @@ export function RightNow({ host }: { host: Host }) {
           Nothing is running. You earn as soon as a renter&apos;s job starts here.
         </p>
       )}
-    </section>
+    </Tile>
   );
 }
 

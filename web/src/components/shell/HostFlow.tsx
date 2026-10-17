@@ -24,13 +24,13 @@ export function HostFlow({
       <FlowHeader back={back} title={backLabel} />
       <div
         className={cn(
-          "mx-auto flex w-full max-w-card flex-1 flex-col gap-6 px-4 pt-1 pb-8 md:px-6 md:pt-8",
+          "mx-auto flex w-full max-w-card flex-1 flex-col gap-3.5 px-3.5 pt-1 pb-8 md:px-6 md:pt-6",
           className,
         )}
       >
         <Link
           href={back}
-          className="hidden min-h-touch items-center gap-1 self-start text-small font-semibold hover:underline md:flex"
+          className="hidden min-h-touch items-center gap-1 self-start rounded-full bg-fill px-3.5 text-small font-semibold hover:bg-fill-selected md:flex"
         >
           <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2} />
           {backLabel}

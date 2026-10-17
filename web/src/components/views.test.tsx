@@ -5,7 +5,7 @@ import { ApiError } from "@/api/errors";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { StateChip } from "@/components/ui/StateChip";
-import { CreditCard } from "@/features/home/CreditCard";
+import { CreditCard } from "@/features/credit/CreditCard";
 import { data, queryResult, wallet } from "@/test/fixtures";
 
 vi.mock("@/api/queries", async (original) => ({

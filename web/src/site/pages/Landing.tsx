@@ -3,15 +3,18 @@ import { COMMISSION_PERCENT } from "@/lib/hosting";
 import type { SiteContext } from "../context";
 import { EARN, PRICING, SIGN_IN } from "../paths";
 import {
-  band,
   column,
-  heading,
+  grid,
   largeButton,
   link,
-  muted,
-  primaryButton,
+  liveButton,
   secondaryButton,
   sectionTitle,
+  tile,
+  tileApricot,
+  tileDark,
+  tileLavender,
+  tileLime,
 } from "../ui";
 
 const STEPS = [
@@ -44,33 +47,64 @@ const PROMISES = [
   },
 ] as const;
 
-/** The landing page (ADR 0029): one screen on what this is, three steps, the services, the promises, one line for hosts. */
+/**
+ * The landing page (ADR 0029, ADR 0031): a bento of tiles of different sizes. What this is, in the dark tile, with the
+ * services beside it (the first lime); three steps; the promises on billing; and one tile for hosts.
+ */
 export function Landing({ context }: { context: SiteContext }) {
+  const [main, ...others] = context.services;
   return (
     <>
-      <section className={`${column} ${band}`}>
-        <h1 className={`${heading} max-w-prose`}>Rent a gaming GPU by the minute, in India.</h1>
-        <p className={`${muted} mt-4 max-w-prose md:text-option`}>
-          Fine-tune a model or run your code on an RTX GPU that someone nearby isn't using, and pay in rupees
-          for the minutes it ran. We provide the GPU. You bring your own model, data and code.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <a href={SIGN_IN} className={`${primaryButton} ${largeButton}`}>
-            Get started
-          </a>
-          <a href={PRICING} className={`${secondaryButton} ${largeButton}`}>
-            See the prices
-          </a>
+      <section className={`${column} pt-3.5 pb-2.5 md:pt-6 md:pb-3.5`} aria-labelledby="what">
+        <div className={`${grid} md:grid-cols-4`}>
+          <div className={`${tileDark} md:col-span-3 md:row-span-2`}>
+            <h1 id="what" className="max-w-prose text-title md:text-question">
+              Rent a gaming GPU by the minute, in India.
+            </h1>
+            <p className="mt-4 max-w-prose text-body text-dark-muted md:text-option">
+              Fine-tune a model or run your code on an RTX GPU that someone nearby isn&apos;t using, and pay
+              in rupees for the minutes it ran. We provide the GPU. You bring your own model, data and code.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a href={SIGN_IN} className={`${liveButton} ${largeButton}`}>
+                Get started
+              </a>
+              <a href={PRICING} className={`${secondaryButton} ${largeButton}`}>
+                See the prices
+              </a>
+            </div>
+          </div>
+          <h2 className="sr-only">What you can run</h2>
+          {main && (
+            <div className={`${tileLime} md:row-span-1`}>
+              <h3 className="text-section">{main.name}</h3>
+              <p className="mt-1 text-body text-lime-fg">{main.tagline}</p>
+              {main.youGet && <p className="mt-3 text-small text-lime-fg">You get: {main.youGet}</p>}
+            </div>
+          )}
+          {others.map((service) => (
+            <div key={service.id} className={tile}>
+              <h3 className="text-section">{service.name}</h3>
+              <p className="mt-1 text-body text-text-muted">{service.tagline}</p>
+              {service.youGet && <p className="mt-3 text-small text-text-muted">You get: {service.youGet}</p>}
+            </div>
+          ))}
         </div>
+        <p className="mt-3.5 text-small text-text-muted">
+          Every service takes your model, data or code as its input; none of them supplies a model.{" "}
+          <a href="/docs/services/" className={link}>
+            What each one takes
+          </a>
+        </p>
       </section>
 
-      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="steps">
+      <section className={`${column} py-6 md:py-8`} aria-labelledby="steps">
         <h2 id="steps" className={sectionTitle}>
           How it works
         </h2>
-        <ol className="mt-4 grid gap-3 md:grid-cols-3">
+        <ol className={`${grid} mt-3 md:grid-cols-3`}>
           {STEPS.map((step, index) => (
-            <li key={step.title} className="rounded-tile bg-fill p-5">
+            <li key={step.title} className={tile}>
               <p className="text-small font-semibold text-text-muted">Step {index + 1}</p>
               <h3 className="mt-1 text-option font-semibold">{step.title}</h3>
               <p className="mt-2 text-body text-text-muted">{step.text}</p>
@@ -79,55 +113,37 @@ export function Landing({ context }: { context: SiteContext }) {
         </ol>
       </section>
 
-      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="services">
-        <h2 id="services" className={sectionTitle}>
-          What you can run
-        </h2>
-        <ul className="mt-4 grid gap-3 md:grid-cols-2">
-          {context.services.map((service) => (
-            <li key={service.id} className="rounded-tile bg-fill p-5">
-              <h3 className="text-option font-semibold">{service.name}</h3>
-              <p className="mt-1 text-body text-text-muted">{service.tagline}</p>
-              {service.youGet && <p className="mt-3 text-small text-text-muted">You get: {service.youGet}</p>}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-4 text-small text-text-muted">
-          Every service takes your model, data or code as its input; none of them supplies a model.{" "}
-          <a href="/docs/services/" className={link}>
-            What each one takes
-          </a>
-        </p>
-      </section>
-
-      <section className={`${column} pb-10 md:pb-14`} aria-labelledby="promises">
+      <section className={`${column} py-6 md:py-8`} aria-labelledby="promises">
         <h2 id="promises" className={sectionTitle}>
           What we promise
         </h2>
-        <ul className="mt-4 grid gap-3 md:grid-cols-3">
-          {PROMISES.map((promise) => (
-            <li key={promise.title} className="rounded-tile bg-fill p-5">
+        <ul className={`${grid} mt-3 md:grid-cols-3`}>
+          {PROMISES.map((promise, index) => (
+            <li key={promise.title} className={index === 0 ? tileLavender : tile}>
               <h3 className="text-option font-semibold">{promise.title}</h3>
-              <p className="mt-2 text-body text-text-muted">{promise.text}</p>
+              <p className={`mt-2 text-body ${index === 0 ? "text-lavender-fg" : "text-text-muted"}`}>
+                {promise.text}
+              </p>
             </li>
           ))}
         </ul>
       </section>
 
-      <section className={`${column} pb-14 md:pb-20`} aria-labelledby="hosts">
-        <div className="rounded-tile bg-dark p-6 text-dark-fg">
-          <h2 id="hosts" className="text-section font-semibold">
+      <section className={`${column} pt-6 pb-14 md:pt-8 md:pb-20`} aria-labelledby="hosts">
+        <div className={tileApricot}>
+          <h2 id="hosts" className="text-headline">
             Have an RTX laptop or desktop?
           </h2>
-          <p className="mt-2 text-body text-dark-muted">
-            Rent out the hours you aren't using it and keep {100 - COMMISSION_PERCENT}% of what renters pay.{" "}
-            <a href={EARN} className="text-dark-fg underline underline-offset-4">
+          <p className="mt-2 max-w-prose text-body text-apricot-fg">
+            Rent out the hours you aren&apos;t using it and keep {100 - COMMISSION_PERCENT}% of what renters
+            pay.{" "}
+            <a href={EARN} className="text-on-colour underline underline-offset-4">
               Earn with your GPU
             </a>
           </p>
         </div>
         <p className="mt-6 text-small text-text-muted">
-          {brand.name} is invite-only while it's in its pilot.
+          {brand.name} is invite-only while it&apos;s in its pilot.
         </p>
       </section>
     </>

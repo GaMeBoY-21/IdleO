@@ -5,7 +5,7 @@ import { useApiKeys, useRevokeKey, type ApiKey } from "@/api/keys";
 import { Page } from "@/components/shell/AppShell";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
-import { SectionTitle } from "@/components/ui/Tile";
+import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { RelativeTime } from "@/components/ui/Time";
@@ -53,7 +53,7 @@ export function ApiKeys() {
         you. Treat a key like a password: it works until you revoke it.
       </p>
       <CreateKey />
-      <section aria-labelledby="keys-title" className="flex flex-col gap-1">
+      <Tile as="section" aria-labelledby="keys-title" className="flex flex-col gap-1">
         <SectionTitle id="keys-title">Your keys</SectionTitle>
         {revoke.isError && <Banner tone="danger">{problemMessage(revoke.error)}</Banner>}
         {keys.data ? (
@@ -93,7 +93,7 @@ export function ApiKeys() {
             ))}
           </div>
         )}
-      </section>
+      </Tile>
       {revoking !== null && (
         <Suspense fallback={null}>
           <RevokeDialog
