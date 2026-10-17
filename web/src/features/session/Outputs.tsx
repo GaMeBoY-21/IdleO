@@ -61,13 +61,16 @@ function useFreshOutputs(id: string) {
 }
 
 /**
- * "Download outputs", the done screen's one primary action: the file itself when there's one, the list of them
- * when there are several.
+ * "Download outputs", the done screen's one primary action, at the top of the outputs tile: the file itself when
+ * there's one, the list under it when there are several.
  */
 export function DownloadOutputs({ id }: { id: string }) {
   const { outputs, open } = useFreshOutputs(id);
   const files = outputs.data?.files ?? [];
   const only = files.length === 1 ? files[0] : undefined;
+  if (files.length === 0) {
+    return null;
+  }
   return only ? (
     <a
       href={only.url}
@@ -97,6 +100,7 @@ export function Outputs({ id }: { id: string }) {
       className="flex flex-col gap-1"
     >
       <SectionTitle id="outputs-title">Outputs</SectionTitle>
+      <DownloadOutputs id={id} />
       {outputs.data ? (
         outputs.data.files.length === 0 ? (
           <EmptyState title="No outputs">This session finished without saving any outputs.</EmptyState>

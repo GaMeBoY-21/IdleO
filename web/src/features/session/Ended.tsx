@@ -13,7 +13,7 @@ import { useAfterPaint } from "@/lib/after-first-screen";
 import { formatDuration } from "@/lib/time";
 import { ActionFoot } from "./Actions";
 import { LogsLater } from "./LogsLater";
-import { DownloadOutputs, Outputs } from "./Outputs";
+import { Outputs } from "./Outputs";
 import { Rating } from "./Rating";
 import { ReportRow } from "./ReportRow";
 
@@ -67,20 +67,24 @@ export function Ended({
   // One cancelled before it ran left nothing to report; one that failed to start can still be reported.
   const canReport = startedAt != null || session.state !== "CANCELLED";
 
-  const foot = (
+  // A finished session's "Run again" is plain, at the end of its tiles: its one primary action, Download, is in the
+  // outputs tile. Only "Try again" is held at the foot of a phone, where nothing else is.
+  const runAgain = (
+    <Link href={bookFrom(session)} className={buttonClasses("secondary", true, true)}>
+      Run again
+    </Link>
+  );
+  const foot = done ? (
+    laptop ? (
+      <Tile as="div">{runAgain}</Tile>
+    ) : (
+      runAgain
+    )
+  ) : (
     <ActionFoot laptop={laptop} note={null}>
-      {done ? (
-        <>
-          <DownloadOutputs id={session.id} />
-          <Link href={bookFrom(session)} className={buttonClasses("secondary", true, true)}>
-            Run again
-          </Link>
-        </>
-      ) : (
-        <Link href={bookFrom(session)} className={buttonClasses("primary", true, true)}>
-          Try again
-        </Link>
-      )}
+      <Link href={bookFrom(session)} className={buttonClasses("primary", true, true)}>
+        Try again
+      </Link>
     </ActionFoot>
   );
 
@@ -132,8 +136,8 @@ export function Ended({
         {charge}
         {feedback}
         {session.startedAt && <LogsLater id={session.id} settled={session.settled} laptop={false} />}
-        {done && <Outputs id={session.id} />}
         {foot}
+        {done && <Outputs id={session.id} />}
       </>
     );
   }
