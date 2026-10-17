@@ -9,9 +9,10 @@ import { API, expectAccessible } from "./support";
 
 /**
  * The owner's journeys against the real local stack (scripts/e2e/agent-online.sh), with a real agent on a fake RTX 4060
- * Laptop that the journey enrols itself, from the code the page shows (ADR 0023). They run after every other scenario
+ * Laptop that the journey links itself, by approval (ADR 0032, ADR 0023). They run after every other scenario
  * is over, so the machine they add is the only change in the stack, and one after another, on one machine:
- * - add it from its name to connected, set its price, and have an operator activate it (the one step done by hand);
+ * - link it by approval (`idleo-agent link`, one click on the approval page: no code), see it pending on Hosting, and have
+ *   an operator activate it (the one step done by hand; the admin console calls the same service);
  * - pause it and resume it, and see the scheduler follow: one host fewer fits while it's paused;
  * - change its price, and see the quote's range move with it;
  * - earn from a session, and see the Hosting tab, the earnings and the machine's sessions agree with the ledger;
@@ -61,31 +62,78 @@ const earnings = async (request: APIRequestContext) =>
     history: { entries: { amountPaise: number; minutes: number; machineName: string }[] };
   };
 
-test("adds a machine from its name to connected, sets its price, and an operator activates it", async ({
+test("links a laptop by approval: asked for, approved in one click, pending on Hosting, then an operator activates it", async ({
   page,
 }) => {
-  await startAt(page, "/hosting/add/");
-  await expect(page.getByRole("heading", { level: 1, name: "Add this machine" })).toBeVisible();
-  await expectAccessible(page);
-  await page.getByLabel("What do you call this machine?").fill("Journey laptop");
-  await page.getByRole("button", { name: "Next" }).click();
-  const codeBox = page.getByText(/^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}$/);
-  await expect(codeBox).toBeVisible({ timeout: 30_000 });
-  const code = await codeBox.innerText();
-  await expect(page.getByText(/^Works once · expires in 5\d:\d\d$/)).toBeVisible();
-  await expect(page.getByText("Waiting for your machine")).toBeVisible();
-  await expectAccessible(page);
-  hostId = new URL(page.url()).searchParams.get("id")!;
-  expect(hostId).toMatch(/^[0-9a-f-]{36}$/);
-
-  // The host app, as an owner would run it: enrolled with the code, then connected. The code is never logged.
+  // The host app, as an owner would run it: `idleo-agent link` asks, prints the approve address (no browser to open on a
+  // test machine), and waits. No code is ever shown or typed.
   const dir = mkdtempSync(join(tmpdir(), "idleo-hosting-"));
   const config = join(dir, "agent.toml");
   writeFileSync(
     config,
     `ca_root = "${process.env.E2E_AGENT_CA}"\ndata_dir = "${join(dir, "data")}"\nlog_format = "text"\n\n[control_plane]\nhost = "localhost"\nport = ${process.env.E2E_GRPC_PORT}\n`,
   );
-  await run(agentBinary, ["--config", config, "enrol", "--code", code]);
+  const asked = Date.now();
+  const linking = spawn(
+    agentBinary,
+    [
+      "--config",
+      config,
+      "link",
+      "--api",
+      API,
+      "--no-browser",
+      "--name",
+      "Journey laptop",
+      "--fake-gpu",
+      "--fake-gpu-model",
+      "RTX 4060 Laptop",
+      "--fake-gpu-vram-mb",
+      "8188",
+    ],
+    { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, IDLEO_LOG: "info" } },
+  );
+  agents.push(linking);
+  let output = "";
+  linking.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  const finished = new Promise<number | null>((resolve) => linking.on("close", resolve));
+  await expect
+    .poll(() => /Open this link on any device to approve: (\S+)/.exec(output)?.[1], {
+      timeout: 60_000,
+    })
+    .toBeTruthy();
+  const approveUrl = /Open this link on any device to approve: (\S+)/.exec(output)![1]!;
+  expect(output).toContain("Waiting for you to approve in the browser");
+  // The page the owner would be sent to, on this stack's web app.
+  await startAt(page, new URL(approveUrl).pathname);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Link this laptop to your account?" }),
+  ).toBeVisible();
+  await expect(page.getByText("RTX 4060 Laptop · 8 GB")).toBeVisible();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Journey laptop");
+  await expect(page.getByText(/You'll earn/)).toContainText("an hour (renters pay");
+  await expectAccessible(page);
+  const approving = Date.now();
+  await page.getByRole("button", { name: "Approve and start earning" }).click();
+  await expect(page.getByRole("heading", { name: "Linked" })).toBeVisible();
+  await expect(page.getByText(/We check every new laptop before it goes live/)).toBeVisible();
+  // The agent's poll gets its ticket and finishes linking by itself.
+  expect(await finished).toBe(0);
+  const linked = Date.now();
+  expect(output).toMatch(/Linked to \S… as 'Journey laptop'\. You can close the browser\./);
+  numbers.link = {
+    askToApproveMs: approving - asked,
+    approveToLinkedMs: linked - approving,
+    totalMs: linked - asked,
+  };
+  hostId = new URL(
+    (await page.getByRole("link", { name: "Open your laptop" }).getAttribute("href", { timeout: 10_000 })) ??
+      "",
+    "http://x",
+  ).searchParams.get("id")!;
+  expect(hostId).toMatch(/^[0-9a-f-]{36}$/);
+
+  // Linked, the host app runs and connects. The machine is pending: it is not offered work until it's activated.
   agents.push(
     spawn(
       agentBinary,
@@ -105,17 +153,10 @@ test("adds a machine from its name to connected, sets its price, and an operator
       { stdio: "ignore", env: { ...process.env, IDLEO_LOG: "info" } },
     ),
   );
-
-  // The page moves on by itself.
-  await expect(page.getByText("Connected · RTX 4060 Laptop · 8 GB")).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText(/^Pending\. We check your machine once you've set a price/)).toBeVisible();
-  await expect(page.getByText(/Hosts with a GPU like yours usually charge/)).toBeVisible();
-  await page.getByLabel("Keep free on my disk (GB)").fill("10");
+  await page.goto("/hosting/");
+  const pending = page.getByRole("link", { name: /Journey laptop/ });
+  await expect(pending.locator("xpath=..")).toContainText(/waiting for our checks/i, { timeout: 60_000 });
   await expectAccessible(page);
-  await page.getByRole("button", { name: "Save and finish" }).click();
-  await expect(
-    page.getByText("You're set. Your machine starts earning once it passes our checks."),
-  ).toBeVisible();
 
   // The check an operator does by hand until onboarding's benchmark exists.
   await run(process.env.E2E_ACTIVATE_HOST!, [hostId], { timeout: 300_000 });

@@ -1255,8 +1255,9 @@ scenario_hosting_web() {
     COMPOSE_PROJECT_NAME="$compose_project" E2E_HOSTING_REPORT="$report" SKIP_VISUAL=1 \
     web_test --project=hosting-journey --reporter=line >>"$out/hosting-journey.log" 2>&1 ||
     fail "the hosting journeys failed; see private/e2e/hosting-journey.log"
-  note "hosting journeys: $(grep -Eo '[0-9]+ passed' "$out/hosting-journey.log" | tail -1) (a machine added from its name to connected with a real agent, activated, paused and resumed, its price changed, an earning session, removed): PASS"
+  note "hosting journeys: $(grep -Eo '[0-9]+ passed' "$out/hosting-journey.log" | tail -1) (a laptop linked by approval with a real agent: one click, no code, pending until activated, then paused and resumed, its price changed, an earning session, removed): PASS"
   host="$(json_get .addedMachine.hostId <"$report")"
+  note "hosting journey: link, from 'idleo-agent link' asking to approval to the agent linked: $(json_get .link.askToApproveMs <"$report") ms to approve and $(json_get .link.approveToLinkedMs <"$report") ms from the click to linked, $(json_get .link.totalMs <"$report") ms in all: PASS"
   note "hosting journey: pausing the machine took the hosts that fit a quote from $(json_get .pause.hostsFitBefore <"$report") to $(json_get .pause.hostsFitWhilePaused <"$report") and resuming brought it back; its price went from $(json_get .price.before <"$report") to $(json_get .price.after <"$report") paise a minute and the quote's top price followed: PASS"
   sum="$(sql "select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0)
               from billing.ledger_entries where account = 'host_payable' and owner_id = '$host'")"
