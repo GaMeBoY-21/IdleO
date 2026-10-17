@@ -11,7 +11,8 @@ import { fakeApi, recordLayoutShifts, signIn, type Answer } from "./support";
  * too. Measured in every screens project: phone and laptop, light and dark.
  */
 const screens = [
-  { name: "home", path: "/", ready: () => "Book again" },
+  // The phone's "Book again" tile, and the laptop's "Run again" in the recent sessions: both come with the sessions.
+  { name: "home", path: "/", ready: () => /Book again|Run again/ },
   { name: "credit", path: "/credit/", ready: () => "Show older" },
   { name: "a completed session", path: `/session/?id=${data.completed.id}`, ready: () => "result.json" },
   {

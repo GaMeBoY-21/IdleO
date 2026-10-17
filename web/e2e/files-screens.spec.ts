@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import * as data from "./fixtures";
-import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
+import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type Answer } from "./support";
 
 /**
  * My files (ADR 0022) in every state, light and dark, phone and laptop: the renter's uploads with their size, files
@@ -30,8 +30,14 @@ const list = (page: import("@playwright/test").Page) => page.getByRole("list", {
 test("my files, from the account menu", async ({ page }, info) => {
   await fakeApi(page, api());
   await signIn(page, "asha", "/");
-  await page.getByRole("button", { name: "Your account and settings" }).click();
-  await page.getByRole("menuitem", { name: "My files" }).click();
+  if (onPhone(info)) {
+    await page.getByRole("button", { name: "Your account and settings" }).click();
+    await page.getByRole("menuitem", { name: "My files" }).click();
+  } else {
+    // On a laptop the avatar is a link to Account, whose rail has My files.
+    await page.getByRole("link", { name: "Account" }).click();
+    await page.getByRole("navigation", { name: "Account" }).getByRole("link", { name: "My files" }).click();
+  }
   await expect(page).toHaveURL(/\/files\/$/);
   await expect(page.getByRole("heading", { level: 1, name: "My files" })).toBeVisible();
   await expect(list(page).getByRole("listitem")).toHaveCount(4);

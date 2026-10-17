@@ -128,6 +128,7 @@ export function LaptopHosting({
       <AddTile className="md:col-span-6 xl:col-span-4" />
       {machines === undefined ? (
         <>
+          <span role="status" aria-label="Loading your machines" className="sr-only" />
           <Skeleton tile className="md:col-span-3 xl:col-span-4" />
           <Skeleton tile className="md:col-span-3 xl:col-span-4" />
           <Skeleton tile className="md:col-span-6 xl:col-span-4" />

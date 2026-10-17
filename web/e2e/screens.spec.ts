@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import * as data from "./fixtures";
-import { capture, expectAccessible, fakeApi, signIn, type Answer } from "./support";
+import { capture, expectAccessible, fakeApi, onPhone, signIn, type Answer } from "./support";
 
 /**
  * Every screen in every state (web/DESIGN.md "States"), in light and dark, on a phone and a laptop: zero axe
@@ -86,20 +86,32 @@ test.describe("home", () => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
     await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
-    // The live session is the dark tile: what it's doing and on which GPU, the time, and what it has cost.
-    const running = page.getByRole("link", { name: /^Running now/ });
-    await expect(running).toContainText("Fine-tuning on RTX 4080 Laptop");
-    await expect(running).toContainText("₹3.08 so far");
-    // The first service is the lime tile, the other a wide one; the last setup is lavender, credit is white.
-    await expect(page.getByRole("link", { name: /^Fine-tune a model/ })).toHaveAttribute(
-      "href",
-      "/book/?service=fine-tune",
-    );
-    await expect(page.getByRole("link", { name: /^Run your code/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Checking the GPU");
+    if (onPhone(info)) {
+      // The live session is the dark tile: what it's doing and on which GPU, the time, and what it has cost.
+      const running = page.getByRole("link", { name: /^Running now/ });
+      await expect(running).toContainText("Fine-tuning on RTX 4080 Laptop");
+      await expect(running).toContainText("₹3.08 so far");
+      // The last setup of a service that is offered is lavender (never a test job), credit is white.
+      await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Fine-tuning · 6 min 10 s");
+      await expect(page.getByRole("link", { name: "All sessions" }).first()).toBeVisible();
+    } else {
+      // On a laptop the live session is a row of the recent sessions, with Open; Book again is Run again there, and
+      // only for a service that is offered.
+      const recent = page.getByRole("table", { name: "Recent sessions" });
+      const live = recent.getByRole("row").filter({ hasText: "Open" });
+      await expect(live).toContainText("RTX 4080 Laptop");
+      await expect(live).toContainText("₹3.08");
+      await expect(recent.getByRole("link", { name: "Run again" }).first()).toHaveAttribute("href", /from=/);
+      await expect(recent.getByRole("row").filter({ hasText: "Diagnostics" })).not.toContainText("Run again");
+      await expect(page.getByRole("link", { name: /^Book again/ })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "All sessions ›" })).toHaveAttribute("href", "/sessions/");
+      await expect(page.getByRole("region", { name: "GPUs free right now" })).toBeVisible();
+    }
+    // The first service is the lime tile, the other a white one.
+    await expect(page.locator('a[href="/book/?service=fine-tune"]')).toContainText("Fine-tune a model");
+    await expect(page.locator('a[href="/book/?service=run-code"]')).toContainText("Run your code");
     await expect(page.getByRole("main").getByRole("link", { name: /^Credit/ })).toContainText("₹462.12");
-    await expect(page.getByRole("link", { name: /^For gamers/ })).toHaveAttribute("href", "/hosting/");
-    await expect(page.getByRole("link", { name: "All sessions" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^(For gamers|Earn)/ })).toHaveAttribute("href", "/hosting/");
     await expectAccessible(page);
     await capture(page, info, "home");
   });
@@ -123,6 +135,9 @@ test.describe("home", () => {
     await expect(question.getByRole("link")).toHaveCount(2);
     await expect(page.getByRole("link", { name: /^Book again/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "All sessions" })).toHaveCount(0);
+    if (!onPhone(info)) {
+      await expect(page.getByText("No sessions yet. Pick a service above to start.")).toBeVisible();
+    }
     await expectAccessible(page);
     await capture(page, info, "home-empty");
   });
@@ -178,12 +193,33 @@ test.describe("home", () => {
   });
 
   test("with the user menu open", async ({ page }, info) => {
+    test.skip(!onPhone(info), "on a laptop the avatar is a link to Account, which holds the menu's choices");
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
     await page.getByRole("button", { name: "Your account and settings" }).click();
     await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "home-user-menu");
+  });
+});
+
+test.describe("the laptop's header", () => {
+  test("has five tabs, the credit chip, the bell, and an avatar that links to Account", async ({
+    page,
+  }, info) => {
+    test.skip(onPhone(info), "the header's tabs and chip are from 768 px");
+    await fakeApi(page, signedIn());
+    await signIn(page, "asha");
+    const tabs = page.getByRole("navigation", { name: "Main" });
+    await expect(tabs.getByRole("link")).toHaveText(["Home", "Book", "Sessions", "Hosting", "Credit"]);
+    await expect(tabs.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("banner").getByText("₹462.12")).toBeVisible();
+    const avatar = page.getByRole("link", { name: "Account" });
+    await expect(avatar).toHaveAttribute("href", "/account/");
+    await expect(page.getByRole("button", { name: "Your account and settings" })).toHaveCount(0);
+    await avatar.click();
+    await expect(page.getByRole("link", { name: "Account" })).toHaveAttribute("aria-current", "page");
+    await expectAccessible(page);
   });
 });
 

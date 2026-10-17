@@ -110,7 +110,7 @@ export function Outputs({ id }: { id: string }) {
       as="section"
       aria-labelledby="outputs-title"
       id="outputs"
-      className="flex flex-col gap-1"
+      className="flex flex-col gap-1 xl:h-outputs"
     >
       <SectionTitle id="outputs-title">Outputs</SectionTitle>
       <DownloadOutputs id={id} />
@@ -119,7 +119,7 @@ export function Outputs({ id }: { id: string }) {
           <EmptyState title="No outputs">This session finished without saving any outputs.</EmptyState>
         ) : (
           <>
-            <ul className="flex flex-col divide-y divide-on-colour/15">
+            <ul className="flex min-h-0 flex-col divide-y divide-on-colour/15 xl:overflow-y-auto">
               {outputs.data.files.map((file) => (
                 <li key={file.path}>
                   <a

@@ -191,12 +191,7 @@ function TotalsSkeleton() {
 
 function HistorySkeleton() {
   return (
-    <Tile
-      as="div"
-      className="flex flex-col divide-y divide-divider px-4.5 py-0"
-      role="status"
-      aria-label="Loading your earnings"
-    >
+    <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-divider px-4.5 py-0">
       {[0, 1, 2, 3].map((key) => (
         <div key={key} className={ROW}>
           <div className="flex flex-1 flex-col gap-0.5">

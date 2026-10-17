@@ -125,9 +125,10 @@ test("adds a machine from its name to connected, sets its price, and an operator
   await expect(page.getByText(/^Online since/)).toBeVisible();
   await expectAccessible(page);
   await page.getByRole("link", { name: "Hosting", exact: true }).first().click();
-  await expect(page.getByRole("link", { name: /Journey laptop/ })).toContainText(
-    "Idle · RTX 4060 Laptop · 8 GB",
-  );
+  // The laptop's machine tile: its state, then its GPU and price.
+  const tile = page.getByRole("link", { name: /Journey laptop/ });
+  await expect(tile).toContainText("Idle");
+  await expect(tile).toContainText("RTX 4060 Laptop · 8 GB");
   numbers.addedMachine = { hostId, name: "Journey laptop" };
   report();
 });
@@ -217,9 +218,10 @@ test("earns from a session, and the Hosting tab, earnings and sessions it ran ag
 
   await page.goto("/hosting/");
   await expect(page.getByText("₹0.02").first()).toBeVisible();
-  await expect(page.getByText(/in total · payouts start with the paid pilot/)).toContainText("₹0.02");
+  await expect(page.getByText(/in total ·/)).toContainText("₹0.02");
+  await expect(page.getByText(/Weekly UPI payouts start with the paid pilot/)).toBeVisible();
   await expectAccessible(page);
-  await page.getByRole("link", { name: /Earnings, all machines/ }).click();
+  await page.getByRole("link", { name: /^All/ }).click();
   await expect(page.getByRole("main")).toContainText("Journey laptop");
   await expect(page.getByRole("main")).toContainText("+₹0.02");
   await expect(page.getByRole("main")).toContainText("3 min");

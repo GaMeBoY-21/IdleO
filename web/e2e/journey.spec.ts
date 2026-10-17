@@ -72,10 +72,9 @@ test("a booked session shows live on the home screen, through to its charge", as
     .toBe(true);
   const charged = (await getSession(request, session.id)).chargedPaise;
   expect(charged).toBeGreaterThan(0);
-  // What it ran is the lavender tile now: the last setup, ready to book again (its charge is on the session).
-  await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Running a test job", {
-    timeout: 30_000,
-  });
+  // A test job isn't a service Home offers, so it is never the lavender "Book again" tile (its charge is on the session).
+  await expect(page.getByRole("link", { name: /^Running now/ })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("link", { name: /^Book again/ })).toHaveCount(0);
   await page.reload();
   await expect(credit).toHaveText(new RegExp(formatPaise(50_000 - charged).replace(".", "\\.")), {
     timeout: 30_000,

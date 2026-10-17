@@ -52,9 +52,11 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
         <h2 id="recent-title" className="text-section">
           Recent sessions
         </h2>
-        <Link href="/sessions/" className="text-small font-bold hover:underline">
-          All sessions ›
-        </Link>
+        {shown.length > 0 && (
+          <Link href="/sessions/" className="text-small font-bold hover:underline">
+            All sessions ›
+          </Link>
+        )}
       </div>
       {shown.length === 0 ? (
         <p className="py-6 text-body text-text-muted">No sessions yet. Pick a service above to start.</p>

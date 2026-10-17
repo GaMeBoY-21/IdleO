@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
-import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
+import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type Answer } from "./support";
 
 /**
  * Signing in with an invite code, the Account screen, and the way sign-in links to the terms (ADR 0024), every state, light
@@ -113,7 +113,8 @@ test.describe("the account", () => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha", "/account/");
     await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
-    await expect(page.getByText("asha@example.com", { exact: true })).toBeVisible();
+    // On a laptop the rail names the person too, so the first of them.
+    await expect(page.getByText("asha@example.com", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Google", { exact: true })).toBeVisible();
     await expect(page.getByRole("switch")).toHaveCount(26);
     for (const title of ["Host lost", "Payout sent or failed"]) {
@@ -124,13 +125,42 @@ test.describe("the account", () => {
     await capture(page, info, "account");
   });
 
-  test("is reached from the avatar menu", async ({ page }) => {
+  test("is reached from the avatar menu, or on a laptop the avatar itself", async ({ page }, info) => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
-    await page.getByRole("button", { name: "Your account and settings" }).click();
-    await page.getByRole("menuitem", { name: "Account" }).click();
+    if (onPhone(info)) {
+      await page.getByRole("button", { name: "Your account and settings" }).click();
+      await page.getByRole("menuitem", { name: "Account" }).click();
+    } else {
+      await page.getByRole("link", { name: "Account" }).click();
+    }
     await expect(page).toHaveURL(/\/account\/$/);
     await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
+  });
+
+  test("on a laptop, has the rail: the sections, the theme and Sign out", async ({ page }, info) => {
+    test.skip(onPhone(info), "the rail is from 768 px; a phone has the menu");
+    await fakeApi(page, signedIn());
+    await signIn(page, "asha", "/account/");
+    const sections = page.getByRole("navigation", { name: "Account" });
+    await expect(sections.getByRole("link")).toHaveText([
+      "Profile and notifications",
+      "API keys",
+      "My files",
+      "Reports",
+    ]);
+    await expect(sections.getByRole("link", { name: "Profile and notifications" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    const theme = page.getByRole("radiogroup", { name: "Appearance" });
+    await theme.getByRole("radio", { name: "Dark" }).click();
+    await expect(theme.getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await theme.getByRole("radio", { name: "Match my device" }).click();
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await sections.getByRole("link", { name: "My files" }).click();
+    await expect(page).toHaveURL(/\/files\/$/);
   });
 
   test("while the choices load", async ({ page }, info) => {
@@ -204,7 +234,7 @@ test.describe("the account", () => {
     await capture(page, info, "account-edit-name");
     await page.getByLabel("Name").fill("  Asha Rao ");
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Asha Rao", { exact: true })).toBeVisible();
+    await expect(page.getByText("Asha Rao", { exact: true }).first()).toBeVisible();
     expect(patched).toEqual({ displayName: "Asha Rao", ifMatch: '"3"' });
     await expect(page.getByRole("button", { name: "Edit your name" })).toBeVisible();
   });

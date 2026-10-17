@@ -9,6 +9,9 @@ import {
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+/** Whether this Playwright project is a phone: the laptop layout starts at 1200 px (web/DESIGN.md "Laptop layout"). */
+export const onPhone = (info: TestInfo): boolean => info.project.name.includes("phone");
+
 export const API = process.env.API_URL ?? "http://localhost:8080";
 /** Storage's origin: the stack's (LOCAL_STORAGE_PORT, when it is moved off its usual port) or the usual one. */
 export const STORAGE = `http://localhost:${process.env.LOCAL_STORAGE_PORT ?? "9100"}`;

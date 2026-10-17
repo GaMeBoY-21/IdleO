@@ -77,7 +77,7 @@ function ProfileTile() {
         {(name ?? me.data?.email ?? " ").charAt(0).toUpperCase()}
       </span>
       {name === null ? (
-        <span role="status" aria-label="Loading your account" className="flex flex-col gap-1">
+        <span role="status" aria-label="Loading your account" className="flex flex-col">
           <Skeleton className="skeleton-dark h-7 w-1/2" />
           <Skeleton className="skeleton-dark h-5 w-3/4" />
         </span>

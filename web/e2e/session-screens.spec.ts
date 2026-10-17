@@ -43,7 +43,12 @@ test.describe("a session", () => {
   test("running, live, with its logs and checkpoints", async ({ page }, info) => {
     await fakeApi(page, api(data.running));
     await signIn(page, "asha", open(data.running));
-    await expect(page.getByRole("heading", { name: "Fine-tuning on an RTX 4080 Laptop" })).toBeVisible();
+    // A phone's title says what it is doing and where; a laptop's dark tile names the service, with the GPU in its own tile.
+    await expect(
+      page.getByRole("heading", {
+        name: info.project.name.includes("phone") ? "Fine-tuning on an RTX 4080 Laptop" : "Fine-tune a model",
+      }),
+    ).toBeVisible();
     await expect(page.getByText("Started 22 min ago")).toBeVisible();
     await expect(page.locator("[data-pulse]")).toBeVisible();
     await expect(page.getByText("of about 45 min")).toBeVisible();
@@ -54,7 +59,7 @@ test.describe("a session", () => {
     await expect(page.getByRole("button", { name: "Stop session" })).toBeVisible();
     await expect(page.getByText(/Live, updated/)).toBeVisible();
     if (info.project.name.includes("laptop")) {
-      await expect(page.getByText("Host found")).toBeVisible();
+      await expect(page.getByText("GPU found")).toBeVisible();
       await expect(page.getByText("46 MB")).toBeVisible();
       await expect(page.getByTestId("log-panel")).toContainText("loading the model in 4-bit");
     } else {
@@ -117,8 +122,14 @@ test.describe("a session", () => {
     await signIn(page, "asha", open(data.finding));
     await expect(page.getByRole("heading", { name: "Finding your GPU" })).toBeVisible();
     await expect(page.getByText("Usually under a minute.", { exact: false })).toBeVisible();
-    await expect(page.getByText("dataset.jsonl uploaded")).toBeVisible();
-    await expect(page.getByText("Nothing is charged until it runs")).toBeVisible();
+    if (info.project.name.includes("phone")) {
+      await expect(page.getByText("dataset.jsonl uploaded")).toBeVisible();
+    } else {
+      await expect(
+        page.getByRole("region", { name: "Your request" }).getByText("dataset.jsonl"),
+      ).toBeVisible();
+    }
+    await expect(page.getByText("Nothing is charged until it runs").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Cancel request" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "session-finding");
@@ -127,8 +138,10 @@ test.describe("a session", () => {
   test("cancelled while finding its GPU: nothing charged", async ({ page }, info) => {
     // On the real stack a free host takes a request within a second, so this is the screen's side; the control
     // plane's tests cancel in every state that can be cancelled.
+    // A service that is offered (a test job isn't, and has no "Try again").
     const cancelled: Session = {
       ...data.finding,
+      templateId: "qlora-finetune",
       state: "CANCELLED",
       settled: true,
       reservedPaise: 0,
@@ -157,7 +170,7 @@ test.describe("a session", () => {
     await expect(page.getByText("Nothing was charged")).toBeVisible();
     await expect(page.getByRole("link", { name: "Try again" })).toHaveAttribute(
       "href",
-      /template=echo-input&from=/,
+      /template=qlora-finetune&from=/,
     );
     await expectAccessible(page);
     await capture(page, info, "session-cancelled-while-finding");
@@ -208,11 +221,14 @@ test.describe("a session", () => {
   });
 
   test("done, with its outputs", async ({ page }, info) => {
-    await fakeApi(page, api(data.completed));
-    await signIn(page, "asha", open(data.completed));
+    // A service that is offered, so it has "Run again".
+    const offered: Session = { ...data.completed, templateId: "qlora-finetune" };
+    await fakeApi(page, api(offered));
+    await signIn(page, "asha", open(offered));
     await expect(page.getByRole("heading", { name: "Done" })).toBeVisible();
     await expect(page.getByRole("link", { name: /result\.json/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Download outputs" })).toBeVisible();
+    // Two files, so one button downloads them all, and each is a row of its own.
+    await expect(page.getByRole("button", { name: "Download all" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Run again" })).toHaveAttribute("href", /from=/);
     await expect(page.getByText("Charged", { exact: true })).toBeVisible();
     // It ran 22 seconds: under a minute, so there's nothing to rate, though a problem can still be reported.
@@ -220,6 +236,14 @@ test.describe("a session", () => {
     await expect(page.getByRole("button", { name: /Report a problem/ })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "session-completed");
+  });
+
+  test("done, as a test job: outputs, and no Run again, since Book doesn't offer it", async ({ page }) => {
+    await fakeApi(page, api(data.completed));
+    await signIn(page, "asha", open(data.completed));
+    await expect(page.getByRole("heading", { name: "Done" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Download all" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Run again" })).toHaveCount(0);
   });
 
   test("done: rated with one tap, then a comment added", async ({ page }, info) => {

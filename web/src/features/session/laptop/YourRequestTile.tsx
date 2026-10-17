@@ -50,7 +50,7 @@ export function YourRequestTile({
             className="flex items-baseline justify-between gap-4 border-b border-divider py-2.5 text-body"
           >
             <dt className="shrink-0 text-text-muted">{row.label}</dt>
-            <dd className="min-w-0 text-right font-semibold break-words">{row.value}</dd>
+            <dd className="min-w-0 flex-1 text-right font-semibold break-words">{row.value}</dd>
           </div>
         ))}
         <div className="flex items-baseline justify-between gap-4 border-b border-divider py-2.5 text-body">

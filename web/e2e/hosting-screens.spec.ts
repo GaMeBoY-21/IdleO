@@ -3,7 +3,7 @@ import * as data from "./fixtures";
 import * as hosting from "./fixtures-hosting";
 import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
-import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
+import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type Answer } from "./support";
 
 /**
  * The hosting screens (ADR 0023) in every state, light and dark, phone and laptop: the Hosting tab, a machine in each
@@ -37,11 +37,18 @@ test.describe("the Hosting tab", () => {
   test("with a running machine and a paused one", async ({ page }, info) => {
     await open(page, "/hosting/");
     await expect(page.getByText("Earned this week")).toBeVisible();
-    await expect(page.getByText("in total · payouts start with the paid pilot")).toBeVisible();
+    if (onPhone(info)) {
+      await expect(page.getByText("in total · payouts start with the paid pilot")).toBeVisible();
+    } else {
+      await expect(page.getByText("in total ·")).toBeVisible();
+      await expect(page.getByText("Weekly UPI payouts start with the paid pilot.")).toBeVisible();
+    }
     await expect(page.getByRole("list", { name: "Earned each day, the last 7 days" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Nikki's ROG Strix/ })).toContainText(
-      "Running a session · earning ₹2.59",
+    const rog = page.getByRole("link", { name: /Nikki's ROG Strix/ });
+    await expect(rog).toContainText(
+      onPhone(info) ? "Running a session · earning ₹2.59" : "Running a session",
     );
+    await expect(rog).toContainText("₹2.59");
     await expect(page.getByRole("link", { name: /Home desktop/ })).toContainText("Paused until 6 pm");
     await expect(page.getByRole("link", { name: "Add a machine" })).toBeVisible();
     await expectAccessible(page);
@@ -64,8 +71,9 @@ test.describe("the Hosting tab", () => {
       },
     });
     await expect(page.getByRole("link", { name: /Studio PC/ })).toContainText(
-      "Idle · RTX 4080 Laptop · 12 GB",
+      onPhone(info) ? "Idle · RTX 4080 Laptop · 12 GB" : "RTX 4080 Laptop · 12 GB",
     );
+    await expect(page.getByRole("link", { name: /Studio PC/ })).toContainText("Idle");
     await expect(page.getByRole("link", { name: /Spare laptop/ })).toContainText("Offline");
     await expect(page.getByRole("link", { name: /Office PC/ })).toContainText(
       "Update the host app to get work",
