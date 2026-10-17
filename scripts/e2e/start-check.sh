@@ -14,7 +14,7 @@ api=http://localhost:8080
 sign_in=http://localhost:8099/idleo-local
 
 started=$SECONDS
-./start.sh --no-browser >"$out/start-check.log" 2>&1 &
+./start.sh --no-browser --link-demo >"$out/start-check.log" 2>&1 &
 start_pid=$!
 cleanup() {
   ./start.sh --stop >/dev/null 2>&1 || true
@@ -29,7 +29,7 @@ until grep -q "^start: ready" "$out/start-check.log"; do
   sleep 2
 done
 ready_in=$((SECONDS - started))
-for line in "Web app" "Website" "Mailpit" "Admin console" "nikki-low@example.com" "logs/"; do
+for line in "Web app" "Website" "Link demo" "Mailpit" "Admin console" "nikki-low@example.com" "logs/"; do
   grep -q "$line" "$out/start-check.log" || fail "the ready block doesn't mention $line"
 done
 
@@ -45,6 +45,20 @@ until [[ "$(curl -sf "$api/v1/sessions/$session" -H "Authorization: Bearer $toke
   python3 -c 'import json, sys; s = json.load(sys.stdin); print(s["state"] if s["settled"] else "")')" == COMPLETED ]]; do
   ((SECONDS < deadline)) || fail "the simulated session $session didn't complete in 3 minutes"
   sleep 2
+done
+
+# The link demo (ADR 0032): its laptop asked to be linked and its approval page is in the ready block; approving it as
+# nikki@example.com, the way the page's one button does, makes the host (pending) and the laptop connects by itself.
+link_id="$(sed -n 's#.*/link/\([0-9a-f-]\{36\}\)/.*#\1#p' "$out/start-check.log" | head -1)"
+[[ -n "$link_id" ]] || fail "the ready block doesn't give the link demo's approval address"
+curl -sf -X POST "$api/v1/host-links/$link_id/approve" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+  -d '{"name": "Link demo laptop", "batchPricePaisePerMin": 9}' >/dev/null || fail "approving the link demo failed"
+deadline=$((SECONDS + 90))
+until curl -sf "$api/v1/hosts" -H "Authorization: Bearer $token" | python3 -c 'import json, sys
+hosts = [h for h in json.load(sys.stdin)["hosts"] if h["name"] == "Link demo laptop"]
+sys.exit(0 if hosts and hosts[0]["online"] and hosts[0]["status"] == "pending" else 1)'; do
+  ((SECONDS < deadline)) || fail "the link demo laptop didn't come online, pending: $(tail -3 "$out/link-demo.log")"
+  sleep 1
 done
 
 stop_started=$SECONDS
@@ -64,5 +78,5 @@ for port in 8080 9443 3000 3002; do
   (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && leftovers+=" port-$port"
 done
 [[ -z "$leftovers" ]] || fail "still running after ./start.sh --stop:$leftovers"
-printf 'start-check: ./start.sh ready in %s s; session %s booked and completed; --stop left nothing running (%s s): PASS\n' \
+printf 'start-check: ./start.sh ready in %s s; session %s booked and completed; the link demo laptop approved and online, pending; --stop left nothing running (%s s): PASS\n' \
   "$ready_in" "$session" $((SECONDS - stop_started))

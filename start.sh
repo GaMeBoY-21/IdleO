@@ -7,6 +7,8 @@
 #   ./start.sh --no-browser     the same, without opening a browser (CI, or a machine with no screen)
 #   ./start.sh --real-sign-in   sign in with Google too, from control-plane/.env and web/.env.local
 #                               (docs/runbooks/identity-provider-setup.md)
+#   ./start.sh --link-demo      also start a third fake laptop that links by approval, to try the flow: its approval
+#                               page opens, you press Approve and start earning (docs/runbooks/hosts.md)
 #   ./start.sh --fresh          wipe the local database and storage first (it asks)
 #   ./start.sh --stop           stop what another ./start.sh started
 #   ./start.sh --status         what's running
@@ -22,15 +24,17 @@ root="$(pwd)"
 no_browser=false
 real_sign_in=false
 fresh=false
+link_demo=false
 action=start
 for arg in "$@"; do
   case "$arg" in
     --no-browser) no_browser=true ;;
     --real-sign-in) real_sign_in=true ;;
     --fresh) fresh=true ;;
+    --link-demo) link_demo=true ;;
     --stop) action=stop ;;
     --status) action=status ;;
-    -h | --help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "start: unknown option $arg; ./start.sh --help lists them" >&2; exit 2 ;;
   esac
 done
@@ -89,7 +93,7 @@ stop_all() {
 
 status() {
   local name pid_file
-  for name in control-plane web site agent-1 agent-2; do
+  for name in control-plane web site agent-1 agent-2 agent-3; do
     pid_file="$state/$name.pid"
     if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
       printf '  %-14s running (pid %s)\n' "$name" "$(cat "$pid_file")"
@@ -294,6 +298,31 @@ for i in 1 2; do
     fail "the ${laptops[$((i - 1))]%%|*} went offline; see logs/agent-$i.log"
 done
 
+# The link demo (ADR 0032): a third fake laptop that asks to be linked, as a real host's app does. Its approval page is
+# opened for you (a link lasts 10 minutes; start again for a new one). Approved, it enrols and connects by itself, and is
+# pending until it is activated, as every new host is during the pilot.
+link_url=""
+if $link_demo; then
+  log "starting the link demo laptop (logs/link-demo.log)"
+  rm -rf "$state/agent-3" "$state/agent-3.host"
+  stack_agent_config 3
+  : >"$out/link-demo.log"
+  set -m
+  (
+    "$agent" --config "$state/agent-3.toml" link --api "$api" --no-browser --name "Link demo laptop" \
+      --fake-gpu --fake-gpu-model "RTX 3060 Laptop" --fake-gpu-vram-mb 6144 >>"$out/link-demo.log" 2>&1 &&
+      IDLEO_LOG=info exec "$agent" --config "$state/agent-3.toml" run --fake-gpu --fake-gpu-model "RTX 3060 Laptop" \
+        --fake-gpu-vram-mb 6144 --fake-free-disk-mb 200000 --dev-runner >>"$out/agent-3.log" 2>&1
+  ) &
+  echo $! >"$state/agent-3.pid"
+  set +m
+  deadline=$((SECONDS + 30))
+  until link_url="$(sed -n 's/^Open this link on any device to approve: //p' "$out/link-demo.log" | head -1)" && [[ -n "$link_url" ]]; do
+    ((SECONDS < deadline)) || fail "the link demo laptop didn't ask to be linked; see logs/link-demo.log"
+    sleep 0.5
+  done
+fi
+
 cat <<READY
 
 Everything is up, in $((SECONDS - started)) s.
@@ -313,8 +342,16 @@ if $real_sign_in; then
 fi
 cat <<READY
   Laptops        RTX 4060 Laptop (8 GB, ₹7.20/h), RTX 4080 Laptop (12 GB, ₹10.80/h), online
-
-  Logs           logs/  (control-plane, web, site, agent-1, agent-2, ops)
+READY
+if $link_demo; then
+  cat <<READY
+  Link demo      a third laptop (RTX 3060 Laptop, 6 GB) is waiting to be linked. Approve it, signed in as
+                 nikki@example.com, at $link_url
+                 (the link lasts 10 minutes; it is pending until an admin or operator activates it)
+READY
+fi
+cat <<READY
+  Logs           logs/  (control-plane, web, site, agent-1, agent-2, ops, link-demo)
   Stop           Ctrl-C here, or ./start.sh --stop from another terminal
 
 READY
@@ -322,6 +359,10 @@ log "ready"
 if ! $no_browser; then
   # The website first, as a visitor arrives; its buttons lead into the app.
   if command -v open >/dev/null; then open "http://localhost:$site_port/"; elif command -v xdg-open >/dev/null; then xdg-open "http://localhost:$site_port/" >/dev/null 2>&1 || true; fi
+  # The demo's approval page too, in a second tab, if there is one.
+  if [[ -n "$link_url" ]]; then
+    if command -v open >/dev/null; then open "$link_url"; elif command -v xdg-open >/dev/null; then xdg-open "$link_url" >/dev/null 2>&1 || true; fi
+  fi
 fi
 
 # Until Ctrl-C (or ./start.sh --stop): if the control plane stops, everything stops.
