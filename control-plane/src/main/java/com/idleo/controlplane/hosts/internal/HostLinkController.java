@@ -84,6 +84,7 @@ class HostLinkController {
     /** The one-time code that lets the agent trade its key for a certificate, shown to it this once. */
     record Ticket(
             UUID hostId,
+            String hostName,
             String enrolmentCode,
             Instant codeExpiresAt,
             @Nullable String ownerHint) {}
@@ -163,7 +164,11 @@ class HostLinkController {
                 ResponseEntity.ok()
                         .cacheControl(CacheControl.noStore())
                         .body(new Ticket(
-                                ticket.hostId(), ticket.enrolmentCode(), ticket.codeExpiresAt(), ticket.ownerHint()));
+                                ticket.hostId(),
+                                ticket.hostName(),
+                                ticket.enrolmentCode(),
+                                ticket.codeExpiresAt(),
+                                ticket.ownerHint()));
             case HostLinks.Redemption.WaitingForApproval _ ->
                 throw ApiProblem.of(
                         Problem.AUTHORIZATION_PENDING,

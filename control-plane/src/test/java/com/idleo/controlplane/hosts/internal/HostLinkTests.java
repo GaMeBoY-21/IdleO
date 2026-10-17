@@ -160,6 +160,7 @@ class HostLinkTests {
         var ticket = json.readTree(ticket(link)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hostId").value(hostId))
+                .andExpect(jsonPath("$.hostName").value("Nikki's laptop"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString());

@@ -41,7 +41,7 @@ macOS has no NVML, so use `--fake-gpu` (one invented GPU; `--fake-gpu 2` for two
    port = 9443
    ```
    For a local control plane, `ca-root.pem` is the root from `control-plane/scripts/dev-ca.sh` (`private/dev-ca/`).
-2. `idleo-agent enrol --code XXXXX-XXXXX-XXXXX-XXXXX` with a code from the web app.
+2. `idleo-agent link`: it opens the web app's approval page in the browser (or prints the link, on a machine with no browser), and you click **Approve**; no code to copy (ADR 0032). The config needs the control plane's REST address, `api_url = "http://localhost:8080"` (or `link --api URL`). Operators and tests can still enrol with a code: `idleo-agent enrol --code XXXXX-XXXXX-XXXXX-XXXXX`.
 3. `idleo-agent run --fake-gpu`. Ctrl-C closes the stream within 5 seconds.
 
 A Mac reports `OPERATING_SYSTEM_MACOS` in `Hello`. That value is for development only: a control plane accepts it, and fake GPUs, only with `agentgateway.allow-development-hosts` on, which the `local` profile sets and production refuses (ADR 0013).
@@ -76,7 +76,8 @@ The three identity files are replaced together: new files are staged as `*.new`,
 
 ## Commands and exit codes
 
-- `idleo-agent enrol --code <code> [--force]`: generates a key pair, sends the code and a CSR over TLS 1.3, checks the certificate (it chains to `ca_root`, it's for our key, its only name is one host URN), and only then saves it. A malformed code is refused before any network call.
+- `idleo-agent link [--name NAME] [--api URL] [--no-browser] [--force] [--fake-gpu [N] [--fake-gpu-model NAME] [--fake-gpu-vram-mb MB]]` (ADR 0032): reads the machine's name and GPUs, asks `POST /v1/host-links`, opens the approve address in the default browser (`open`, `xdg-open` or `explorer.exe`; if none can be opened it prints "Open this link on any device to approve: URL"), and polls every 3 seconds, saying once "Waiting for you to approve in the browser…". When the owner approves it gets the host's one-time enrolment code, trades it for its certificate exactly as `enrol` does (the key pair is made here and never leaves), and prints "Linked to n… as 'name'. You can close the browser." Its exit codes are the table's below, with **0 linked, 2 denied, 3 expired, 4 network** and 5 already linked, 6 the identity couldn't be saved, 7 no GPU source. The flow is a library function, `idleo_agent::link::link`, which reports progress through a callback and prints nothing itself; the Windows setup app calls it and shows its own screens.
+- `idleo-agent enrol --code <code> [--force]` (for operators and tests; a host's owner links with `link`): generates a key pair, sends the code and a CSR over TLS 1.3, checks the certificate (it chains to `ca_root`, it's for our key, its only name is one host URN), and only then saves it. A malformed code is refused before any network call.
 - `idleo-agent run [--fake-gpu [N] [--fake-gpu-model NAME] [--fake-gpu-vram-mb MB] [--fake-free-disk-mb MB] [--dev-runner]]`: connects with mutual TLS, sends `Hello`, waits for `Welcome`, then sends a heartbeat every interval the control plane sets. GPUs are read every second; each heartbeat carries, per GPU, the highest temperature and power, the mean utilisation and the latest memory in use. `net_up_kbps` is 0 until the onboarding benchmark exists, `owner_active` is keyboard or mouse input in the last 2 minutes on Windows and always false on Linux and macOS for now, `sessions` lists the attempts running, and `free_disk_mb` is the free space on the data folder's volume, where sessions' files go (ADR 0022), absent when it can't be read: the scheduler offers a session only to a host with room for its inputs and scratch disk. `Hello` carries it too, so the host's room is known from the moment it connects.
   - Reconnects: backoff from 1 second doubling to 60, with full jitter, reset only after a connection stays up 60 seconds past `Welcome`. `UNAUTHENTICATED` or `PERMISSION_DENIED` (revoked certificate or suspended host) and an expired certificate retry every 10 minutes (plus up to 1 minute of jitter), so a reinstated host recovers by itself. `ABORTED` (another connection for this host replaced ours) is normal backoff with a warning.
   - Sessions (ADR 0016): see below.
@@ -98,9 +99,9 @@ The three identity files are replaced together: new files are staged as `*.new`,
 | --- | --- |
 | 0 | Done, or stopped on request |
 | 1 | Other failure |
-| 2 | Bad command line, or a malformed enrolment code |
-| 3 | The control plane refused the code (wrong, used or expired) |
-| 4 | The issued certificate failed a check; nothing was saved |
+| 2 | Bad command line, or a malformed enrolment code; for `link`: the link was denied |
+| 3 | The control plane refused the code (wrong, used or expired); for `link`: the link expired unapproved |
+| 4 | The issued certificate failed a check; nothing was saved; for `link`: the control plane couldn't be reached |
 | 5 | Already enrolled; use `--force` |
 | 6 | Config or identity problem (unreadable, inconsistent, or a key file others can read) |
 | 7 | No GPU source: NVML missing, no NVIDIA GPU, or a build without NVML and no `--fake-gpu` |

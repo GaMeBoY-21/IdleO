@@ -19,6 +19,14 @@ fn the_fake_gpus_model_and_memory_need_fake_gpus() {
     }
 }
 
+/// `link` takes the same development flags, under the same rule.
+#[test]
+fn link_refuses_a_fake_gpu_model_without_fake_gpus() {
+    let (code, stderr) = run(&["link", "--fake-gpu-model", "RTX 4060 Laptop"]);
+    assert_eq!(code, Some(2), "{stderr}");
+    assert!(stderr.contains("--fake-gpu"), "{stderr}");
+}
+
 #[test]
 fn a_fake_gpu_needs_at_least_a_gigabyte() {
     let (code, stderr) = run(&["run", "--fake-gpu", "--fake-gpu-vram-mb", "512"]);

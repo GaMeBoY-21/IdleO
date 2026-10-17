@@ -882,6 +882,7 @@ class Ticket(BaseModel):
     code_expires_at: Annotated[AwareDatetime, Field(alias="codeExpiresAt")]
     enrolment_code: Annotated[str, Field(alias="enrolmentCode")]
     host_id: Annotated[UUID, Field(alias="hostId")]
+    host_name: Annotated[str, Field(alias="hostName")]
     owner_hint: Annotated[str | None, Field(alias="ownerHint")] = None
 
 

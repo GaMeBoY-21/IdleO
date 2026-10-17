@@ -6178,6 +6178,8 @@ components:
         hostId:
           type: string
           format: uuid
+        hostName:
+          type: string
         ownerHint:
           type:
           - string
@@ -6186,6 +6188,7 @@ components:
       - codeExpiresAt
       - enrolmentCode
       - hostId
+      - hostName
     TicketRequest:
       type: object
       properties:

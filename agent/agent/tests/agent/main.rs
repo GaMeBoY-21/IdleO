@@ -5,6 +5,7 @@ mod support;
 mod backoff;
 mod cli;
 mod enrolment;
+mod link;
 mod offers;
 mod renewal;
 mod secrets;

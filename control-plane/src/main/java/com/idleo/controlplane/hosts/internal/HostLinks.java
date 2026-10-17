@@ -103,6 +103,7 @@ class HostLinks {
     sealed interface Redemption {
         record Handed(
                 UUID hostId,
+                String hostName,
                 String enrolmentCode,
                 Instant codeExpiresAt,
                 @Nullable String ownerHint) implements Redemption {}
@@ -303,7 +304,12 @@ class HostLinks {
                     .param("now", Timestamp.from(Instant.now(clock)))
                     .param("id", id)
                     .update();
-            return new Redemption.Handed(row.hostId(), issued.code(), issued.expiresAt(), ownerHint(row.approvedBy()));
+            var hostName = jdbc.sql("select name from hosts.hosts where id = :id")
+                    .param("id", row.hostId())
+                    .query(String.class)
+                    .single();
+            return new Redemption.Handed(
+                    row.hostId(), hostName, issued.code(), issued.expiresAt(), ownerHint(row.approvedBy()));
         }));
     }
 

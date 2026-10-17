@@ -25,6 +25,8 @@ pub struct Config {
     pub log_format: LogFormat,
     /// How long to wait for `Welcome` after sending `Hello`.
     pub welcome_timeout: Duration,
+    /// The control plane's REST address, where `link` asks to be linked (for example `https://api.idleo.in`).
+    pub api_url: Option<String>,
 }
 
 /// The control plane's agent endpoint.
@@ -56,6 +58,7 @@ struct File {
     data_dir: Option<PathBuf>,
     log_format: Option<LogFormat>,
     welcome_timeout_secs: Option<u64>,
+    api_url: Option<String>,
 }
 
 /// Why the config couldn't be loaded.
@@ -129,6 +132,11 @@ impl Config {
             Some(0) => return Err(invalid("welcome_timeout_secs is 0")),
             Some(secs) => Duration::from_secs(secs),
         };
+        if let Some(url) = &file.api_url
+            && !(url.starts_with("http://") || url.starts_with("https://"))
+        {
+            return Err(invalid("api_url must start with http:// or https://"));
+        }
         let base = path.parent().unwrap_or(Path::new("."));
         Ok(Self {
             control_plane: file.control_plane,
@@ -136,6 +144,7 @@ impl Config {
             data_dir: file.data_dir.map_or_else(default_dir, |dir| base.join(dir)),
             log_format: file.log_format.unwrap_or_default(),
             welcome_timeout,
+            api_url: file.api_url,
         })
     }
 }

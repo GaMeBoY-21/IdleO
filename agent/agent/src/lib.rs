@@ -11,6 +11,7 @@ pub mod connection;
 pub mod disk;
 pub mod enrol;
 pub mod lease_clock;
+pub mod link;
 pub mod logs;
 pub mod offers;
 pub mod owner;

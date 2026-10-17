@@ -14,6 +14,7 @@ use idleo_agent::connection::{self, RunOptions, Timing};
 use idleo_agent::disk::{FixedDisk, FreeDisk, SystemDisk};
 use idleo_agent::enrol::{self, EnrolmentCode};
 use idleo_agent::lease_clock::SystemLeaseClock;
+use idleo_agent::link;
 use idleo_agent::owner::SystemOwner;
 use idleo_agent::runner::SessionRunner;
 use idleo_agent::runner::dev::DevRunner;
@@ -47,7 +48,31 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Enrol this machine with the one-time code from the web app.
+    /// Link this machine to your account: open the link it shows, and approve it in the browser.
+    Link {
+        /// The name to offer on the approval page [default: this computer's name].
+        #[arg(long, value_name = "NAME")]
+        name: Option<String>,
+        /// The control plane's REST address [default: the address set in the config file].
+        #[arg(long, value_name = "URL")]
+        api: Option<String>,
+        /// Don't open a browser; only print the link.
+        #[arg(long)]
+        no_browser: bool,
+        /// Replace an existing link, keeping a backup of it.
+        #[arg(long)]
+        force: bool,
+        /// Use N invented GPUs instead of NVML, for development and tests [default: 1].
+        #[arg(long, value_name = "N", num_args = 0..=1, default_missing_value = "1")]
+        fake_gpu: Option<u8>,
+        /// Only with --fake-gpu: the model name the fake GPUs report [default: IdleO Fake GPU].
+        #[arg(long, value_name = "NAME", requires = "fake_gpu")]
+        fake_gpu_model: Option<String>,
+        /// Only with --fake-gpu: each fake GPU's memory in MB, at least 1024 [default: 12282].
+        #[arg(long, value_name = "MB", requires = "fake_gpu", value_parser = clap::value_parser!(i32).range(i64::from(FakeModel::MIN_VRAM_MB)..))]
+        fake_gpu_vram_mb: Option<i32>,
+    },
+    /// For operators and tests: enrol this machine with a one-time code from the web app or an operator command.
     Enrol {
         /// The code, XXXXX-XXXXX-XXXXX-XXXXX.
         #[arg(long, value_name = "CODE")]
@@ -92,6 +117,14 @@ fn main() -> ExitCode {
     };
     runtime.block_on(async move {
         match cli.command {
+            Command::Link { name, api, no_browser, force, fake_gpu, fake_gpu_model, fake_gpu_vram_mb } => {
+                let defaults = FakeModel::default();
+                let model = FakeModel {
+                    name: fake_gpu_model.unwrap_or(defaults.name),
+                    vram_mb: fake_gpu_vram_mb.unwrap_or(defaults.vram_mb),
+                };
+                link_command(&config, name, api, no_browser, force, fake_gpu.map(|count| (count, model))).await
+            }
             Command::Enrol { code, force } => enrol_command(&config, &code, force).await,
             Command::Run { fake_gpu, fake_gpu_model, fake_gpu_vram_mb, fake_free_disk_mb, dev_runner } => {
                 let defaults = FakeModel::default();
@@ -103,6 +136,79 @@ fn main() -> ExitCode {
             }
         }
     })
+}
+
+/// `idleo-agent link`: a thin wrapper over `idleo_agent::link::link` that prints its progress and maps how it ended to
+/// an exit code (0 linked, 2 denied, 3 expired, 4 network; see the README).
+async fn link_command(
+    config: &Config,
+    name: Option<String>,
+    api: Option<String>,
+    no_browser: bool,
+    force: bool,
+    fake_gpu: Option<(u8, FakeModel)>,
+) -> ExitCode {
+    let Some(api_url) = api.or_else(|| config.api_url.clone()) else {
+        return fail(exit::CONFIG, &"no control plane address: set api_url in the config, or pass --api");
+    };
+    let gpus: Box<dyn GpuSource> = match fake_gpu {
+        Some((count, model)) => {
+            tracing::warn!(count, model = %model.name, vram_mb = model.vram_mb, "using fake GPUs, as asked by --fake-gpu");
+            Box::new(FakeGpus::new(count, &model))
+        }
+        None => match telemetry::system() {
+            Ok(source) => source,
+            Err(e) => return fail(exit::GPU, &e),
+        },
+    };
+    let gpus = match gpus.gpus() {
+        Ok(gpus) => gpus
+            .into_iter()
+            .take(8)
+            .map(|gpu| link::LinkGpu { model: gpu.name, vram_mb: gpu.vram_mb })
+            .collect::<Vec<_>>(),
+        Err(e) => return fail(exit::GPU, &e),
+    };
+    let (target, roots) = match connection_settings(config) {
+        Ok(settings) => settings,
+        Err(e) => return fail(exit::CONFIG, &e),
+    };
+    let client = match idleo_agent::storage::http_client() {
+        Ok(client) => client,
+        Err(e) => return fail(exit::FAILURE, &e),
+    };
+    let settings = link::Settings {
+        api_url,
+        machine: link::Machine {
+            name: name.unwrap_or_else(link::local_machine_name),
+            os: link::os_name().to_owned(),
+            agent_version: idleo_agent::AGENT_VERSION.to_owned(),
+            gpus,
+        },
+        target,
+        roots,
+        data_dir: config.data_dir.clone(),
+        force,
+        poll_interval: None,
+    };
+    let mut progress = |step: link::Progress| match step {
+        link::Progress::Asking => {}
+        link::Progress::ApproveAt { url, .. } => {
+            if no_browser || !link::open_browser(&url) {
+                println!("Open this link on any device to approve: {url}");
+            }
+        }
+        link::Progress::Waiting => println!("Waiting for you to approve in the browser…"),
+        link::Progress::Enrolling => println!("Approved. Linking this laptop…"),
+    };
+    match link::link(&settings, &client, &mut progress).await {
+        Ok(linked) => {
+            let who = linked.owner_hint.map_or_else(String::new, |hint| format!(" to {hint}…"));
+            println!("Linked{who} as '{}'. You can close the browser.", linked.host_name);
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(e.exit_code(), &e),
+    }
 }
 
 async fn enrol_command(config: &Config, code: &str, force: bool) -> ExitCode {
