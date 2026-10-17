@@ -14,8 +14,7 @@ import { useTitle } from "@/lib/title";
 import { Ended } from "./Ended";
 import { RailColumns } from "@/components/shell/Layout";
 import { useLogSignals } from "./laptop/useLogSignals";
-import { StepsTile } from "./laptop/StepsTile";
-import { YourRequestTile } from "./laptop/YourRequestTile";
+import { laptopTiles, useLaptopTiles } from "./laptop/registry";
 import { FRAME } from "@/components/shell/Layout";
 import { Finding } from "./Finding";
 import { Running } from "./Running";
@@ -44,6 +43,7 @@ export function SessionDetail() {
   const painted = useAfterPaint(session.data !== undefined);
   const uploadId = (session.data && sessionInput(session.data)?.uploadId) ?? null;
   const upload = useUploadInfo(uploadId, painted);
+  const tiles = useLaptopTiles(laptop);
 
   const frame = (content: ReactNode) =>
     laptop ? (
@@ -65,7 +65,7 @@ export function SessionDetail() {
     );
   }
   const known = templates.data !== undefined || templates.isError;
-  if (!session.data || !known) {
+  if (!session.data || !known || !tiles) {
     return frame(
       session.isError ? (
         <ErrorState
@@ -100,7 +100,8 @@ export function SessionDetail() {
   );
 
   // Where it has got, in four steps, beside the log (and above the request on the finding screen).
-  const steps = (
+  const { StepsTile, YourRequestTile } = laptop ? laptopTiles() : { StepsTile: null, YourRequestTile: null };
+  const steps = StepsTile && (
     <StepsTile
       session={current}
       signals={signals}
@@ -117,7 +118,13 @@ export function SessionDetail() {
       laptop={laptop}
       steps={steps}
       request={
-        <YourRequestTile session={current} template={template} filename={upload.data?.upload.name ?? null} />
+        YourRequestTile && (
+          <YourRequestTile
+            session={current}
+            template={template}
+            filename={upload.data?.upload.name ?? null}
+          />
+        )
       }
     />
   ) : STARTED.has(current.state) ? (

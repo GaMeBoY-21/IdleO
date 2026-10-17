@@ -1,3 +1,4 @@
+import { lazy, Suspense, useEffect } from "react";
 import { Link } from "wouter";
 import { isChanging, isLive, useSessions, useTemplates, useWallet } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
@@ -11,10 +12,16 @@ import { BookAgainTile, latestSetup } from "./BookAgain";
 import { CreditTile } from "./CreditTile";
 import { EarnTile } from "./EarnTile";
 import { RunningTile } from "./RunningTile";
-import { LaptopHome, LaptopHomeSkeleton } from "./laptop/LaptopHome";
+import { LaptopHomeSkeleton } from "./laptop/LaptopHomeSkeleton";
 import { MainServiceTile, QuestionTile, WideServiceTile } from "./ServiceTiles";
 
 const QUESTION = "What do you want to run?";
+
+// The laptop's tiles are a chunk of their own, so a phone's first load doesn't carry them (ADR 0018: every byte on the
+// first screen counts); a laptop asks for it as Home opens, while the sessions are still loading, and the grid's
+// skeleton, the same shape, holds the place until both are there.
+const loadLaptopHome = () => import("./laptop/LaptopHome");
+const LaptopHome = lazy(() => loadLaptopHome().then((module) => ({ default: module.LaptopHome })));
 const NO_CATALOG = { services: [], templates: [] };
 
 /** The tile grid (web/DESIGN.md "Shapes and space"): two columns of 88 px rows on a phone, four of 112 px from 768 px. */
@@ -36,6 +43,11 @@ export function Home() {
   const wallet = useWallet(sessions.data?.sessions.some(isChanging) ?? false);
   const since = staleSince(sessions, templates);
   const wide = useWide();
+  useEffect(() => {
+    if (wide) {
+      void loadLaptopHome();
+    }
+  }, [wide]);
 
   // Until the sessions and the catalog are known, Home is one skeleton: a live session arriving would push
   // everything under it down.
@@ -57,38 +69,40 @@ export function Home() {
 
   if (wide) {
     return (
-      <LaptopHome
-        catalog={catalog}
-        sessions={list}
-        wallet={wallet}
-        banners={
-          <>
-            {since !== null && <StaleNotice updatedAt={since} />}
-            {live.some((session) => session.lowCredit) && (
-              <Banner tone="warning">
-                Your credit is running low. A running session stops, after a last checkpoint, when it runs
-                out.
-              </Banner>
-            )}
-            {!templates.data && (
-              <ErrorState
-                error={templates.error}
-                what="what you can run"
-                onRetry={() => void templates.refetch()}
-                retrying={templates.isFetching}
-              />
-            )}
-            {!sessions.data && (
-              <ErrorState
-                error={sessions.error}
-                what="your sessions"
-                onRetry={() => void sessions.refetch()}
-                retrying={sessions.isFetching}
-              />
-            )}
-          </>
-        }
-      />
+      <Suspense fallback={<LaptopHomeSkeleton />}>
+        <LaptopHome
+          catalog={catalog}
+          sessions={list}
+          wallet={wallet}
+          banners={
+            <>
+              {since !== null && <StaleNotice updatedAt={since} />}
+              {live.some((session) => session.lowCredit) && (
+                <Banner tone="warning">
+                  Your credit is running low. A running session stops, after a last checkpoint, when it runs
+                  out.
+                </Banner>
+              )}
+              {!templates.data && (
+                <ErrorState
+                  error={templates.error}
+                  what="what you can run"
+                  onRetry={() => void templates.refetch()}
+                  retrying={templates.isFetching}
+                />
+              )}
+              {!sessions.data && (
+                <ErrorState
+                  error={sessions.error}
+                  what="your sessions"
+                  onRetry={() => void sessions.refetch()}
+                  retrying={sessions.isFetching}
+                />
+              )}
+            </>
+          }
+        />
+      </Suspense>
     );
   }
 

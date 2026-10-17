@@ -3,9 +3,8 @@ import type { Session } from "@/api/queries";
 import { ActionFoot, StopAction } from "./Actions";
 import { Banners } from "./Banners";
 import { GpuTile, RunningTile, SmallTiles } from "./Figures";
-import { LiveTile } from "./laptop/LiveTile";
+import { laptopTiles } from "./laptop/registry";
 import { RailColumns } from "@/components/shell/Layout";
-import { CheckpointsTile, GpuStats } from "./laptop/SideTiles";
 import { LogsLater } from "./LogsLater";
 import type { LogSignals } from "@/lib/log-signals";
 import { CheckpointTile } from "./Outputs";
@@ -76,6 +75,7 @@ export function Running({
       </>
     );
   }
+  const { LiveTile, GpuStats, CheckpointsTile } = laptopTiles();
   return (
     <RailColumns
       left={
