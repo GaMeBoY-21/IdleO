@@ -14,10 +14,13 @@ const dayName = (date: string) => weekday.format(new Date(`${date}T00:00:00Z`));
  * The last 7 days as bars on the dark tile: each as tall as its share of the busiest day, in lime, today in full, a
  * day with nothing a thin line. Each day is a list item with its name and amount for a screen reader.
  */
-export function WeekBars({ days }: { days: Day[] }) {
+export function WeekBars({ days, tall = false }: { days: Day[]; tall?: boolean }) {
   const busiest = Math.max(0, ...days.map((day) => day.earnedPaise));
   return (
-    <ul aria-label="Earned each day, the last 7 days" className="flex h-18 items-end gap-2">
+    <ul
+      aria-label="Earned each day, the last 7 days"
+      className={cn("flex items-end", tall ? "h-chart gap-3" : "h-18 gap-2")}
+    >
       {days.map((day, index) => {
         const percent = barPercent(day.earnedPaise, busiest);
         const today = index === days.length - 1;
@@ -29,16 +32,27 @@ export function WeekBars({ days }: { days: Day[] }) {
             <span
               aria-hidden="true"
               className={cn(
-                "w-full rounded-control",
-                day.earnedPaise > 0 ? (today ? "bg-live" : "bg-live/50") : "bg-dark-fg/20",
+                "w-full",
+                tall ? "rounded-icon" : "rounded-control",
+                tall
+                  ? day.earnedPaise > 0
+                    ? today
+                      ? "bg-live"
+                      : "bg-dark-fg/20"
+                    : "bg-dark-fg/10"
+                  : day.earnedPaise > 0
+                    ? today
+                      ? "bg-live"
+                      : "bg-live/50"
+                    : "bg-dark-fg/20",
               )}
               style={{ height: percent === 0 ? undefined : `${percent}%`, minHeight: "0.25rem" }}
             />
             <span
               aria-hidden="true"
-              className={cn("text-caption", today ? "font-semibold" : "text-dark-muted")}
+              className={cn("text-caption", today ? "font-bold text-live" : "text-dark-muted")}
             >
-              {dayName(day.date).charAt(0)}
+              {tall ? dayName(day.date).slice(0, 3) : dayName(day.date).charAt(0)}
             </span>
           </li>
         );

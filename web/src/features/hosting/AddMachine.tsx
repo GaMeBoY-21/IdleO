@@ -27,6 +27,9 @@ import { useHostId } from "@/lib/use-host-id";
 
 const MAX_NAME = 100;
 
+const LEDE =
+  "Four short steps: name it, install the host app with a one-time code, our checks, and set the price.";
+
 /** The agent is online and has reported a GPU. */
 const isConnected = (host: Host) => host.online && host.gpus.some((gpu) => !gpu.gone);
 
@@ -69,8 +72,7 @@ export function AddMachine() {
   if (id !== null && !machine) {
     const gone = host.isError && host.error instanceof ApiError && [404, 410].includes(host.error.status);
     return (
-      <HostFlow back="/hosting/" backLabel="Hosting">
-        <h1 className="text-title">Add this machine</h1>
+      <HostFlow back="/hosting/" backLabel="Hosting" title="Add this machine" lede={LEDE}>
         {host.isError ? (
           gone ? (
             <Banner tone="warning">
@@ -96,8 +98,7 @@ export function AddMachine() {
   }
 
   return (
-    <HostFlow back="/hosting/" backLabel="Hosting">
-      <h1 className="text-title">Add this machine</h1>
+    <HostFlow back="/hosting/" backLabel="Hosting" title="Add this machine" lede={LEDE}>
       <Tile as="div">
         <ol className="flex flex-col">
           <Step number={1} title="Name it" state={machine ? "done" : "active"} summary={machine?.name}>

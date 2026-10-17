@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useHost } from "@/api/hosting";
-import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { useTitle } from "@/lib/title";
 import { HostFlow } from "@/components/shell/HostFlow";
@@ -16,12 +16,16 @@ export function Price() {
   const back = id ? `/hosting/machine/?id=${id}` : "/hosting/";
 
   return (
-    <HostFlow back={back} backLabel={host.data?.name ?? "Hosting"}>
+    <HostFlow
+      back={back}
+      backLabel={host.data?.name ?? "Hosting"}
+      title="Price and limits"
+      lede="What a renter pays an hour on this machine, and when it stops to keep your GPU cool. You can change it any time."
+    >
       {id === null ? (
         <EmptyState title="No machine chosen">Open a machine from the Hosting tab.</EmptyState>
       ) : host.data ? (
         <>
-          <h1 className="text-title">Price and limits</h1>
           <PriceForm key={host.data.id} host={host.data} onSaved={() => navigate(back)} />
         </>
       ) : host.isError ? (
@@ -33,7 +37,6 @@ export function Price() {
         />
       ) : (
         <div role="status" aria-label="Loading this machine" className="flex flex-col gap-3.5">
-          <SkeletonLine size="title" width="w-2/3" />
           <Skeleton tile className="h-24 w-full" />
         </div>
       )}

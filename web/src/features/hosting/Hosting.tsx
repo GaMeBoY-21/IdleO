@@ -8,7 +8,9 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { formatTime } from "@/lib/time";
+import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
+import { LaptopHosting, LaptopPitch } from "./laptop/LaptopHosting";
 import { MachineRow } from "./MachineRow";
 import { WeekBars, WeekBarsSkeleton } from "./WeekBars";
 
@@ -29,6 +31,29 @@ export function Hosting() {
   const machines = hosts.data?.hosts;
   // Figures kept from an earlier visit say when they're from until the fresh ones arrive.
   const restored = earnings.isFetching && !earnings.isRefetchError && earnings.dataUpdatedAt < PAGE_OPENED_AT;
+
+  const wide = useWide();
+  if (wide && !hosts.isError) {
+    return (
+      <>
+        {since !== null && (
+          <div className="px-6 pb-4 xl:px-8 2xl:px-10">
+            <StaleNotice updatedAt={since} />
+          </div>
+        )}
+        {machines?.length === 0 ? (
+          <LaptopPitch />
+        ) : (
+          <LaptopHosting
+            machines={machines}
+            owner={owner}
+            earnings={earnings}
+            restoredAt={restored ? earnings.dataUpdatedAt : null}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <Page title="Hosting">

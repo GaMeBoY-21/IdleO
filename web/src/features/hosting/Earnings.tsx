@@ -1,5 +1,6 @@
 import { useEarnings, useHosts, type EarningsEntry, type OwnerEarnings } from "@/api/hosting";
 import { Page } from "@/components/shell/AppShell";
+import { HostFlow } from "@/components/shell/HostFlow";
 import { Button } from "@/components/ui/Button";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { Money } from "@/components/ui/Money";
@@ -8,6 +9,7 @@ import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui
 import { RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
 import { formatMinutes } from "@/lib/hosting";
+import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 
 const BETA_NOTE =
@@ -28,6 +30,39 @@ export function Earnings() {
   const owner = earnings.data?.pages[0];
   const entries = earnings.data?.pages.flatMap((page) => page.history.entries);
   const since = staleSince(earnings);
+  const wide = useWide();
+  const next = {
+    has: earnings.hasNextPage,
+    busy: earnings.isFetchingNextPage,
+    failed: earnings.isFetchNextPageError,
+    load: () => void earnings.fetchNextPage(),
+  };
+
+  if (wide) {
+    // From 768 px: the totals in the left rail's dark tile, the history beside it (web/DESIGN.md "Laptop layout").
+    return (
+      <HostFlow
+        back="/hosting/"
+        backLabel="Hosting"
+        summary={owner ? <Totals owner={owner} heading /> : <TotalsSkeleton />}
+      >
+        <h1 className="sr-only">Earnings</h1>
+        {since !== null && <StaleNotice updatedAt={since} />}
+        {owner && entries ? (
+          <History entries={entries} next={next} />
+        ) : earnings.isError ? (
+          <ErrorState
+            error={earnings.error}
+            what="your earnings"
+            onRetry={() => void earnings.refetch()}
+            retrying={earnings.isFetching}
+          />
+        ) : (
+          <HistorySkeleton />
+        )}
+      </HostFlow>
+    );
+  }
 
   return (
     <Page title="Earnings">
@@ -35,15 +70,7 @@ export function Earnings() {
       {owner && entries ? (
         <>
           <Totals owner={owner} />
-          <History
-            entries={entries}
-            next={{
-              has: earnings.hasNextPage,
-              busy: earnings.isFetchingNextPage,
-              failed: earnings.isFetchNextPageError,
-              load: () => void earnings.fetchNextPage(),
-            }}
-          />
+          <History entries={entries} next={next} />
         </>
       ) : earnings.isError ? (
         <ErrorState
@@ -60,9 +87,15 @@ export function Earnings() {
 }
 
 /** The totals, this week and the hours rented, the free-beta note, and each machine when there are several. */
-function Totals({ owner }: { owner: OwnerEarnings }) {
+function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: boolean }) {
   return (
-    <Tile tone="dark" as="section" aria-label="Totals" className="flex flex-col gap-5">
+    <Tile
+      tone="dark"
+      size={heading ? "lg" : undefined}
+      as="section"
+      aria-label="Totals"
+      className="flex flex-col gap-5 xl:p-7"
+    >
       <div className="flex flex-col gap-1">
         <p className="text-small font-semibold text-dark-muted">All machines, in total</p>
         <Money paise={owner.totalPaise} className="block text-timer" />
@@ -133,6 +166,50 @@ function History({
   );
 }
 
+/** The rail's dark tile before the figures arrive: the same blocks and heights. */
+function TotalsSkeleton() {
+  return (
+    <Tile
+      tone="dark"
+      size="lg"
+      className="flex flex-col gap-5 xl:p-7"
+      role="status"
+      aria-label="Loading your earnings"
+    >
+      <div className="flex flex-col gap-1">
+        <SkeletonLine size="small" width="w-1/3" onDark />
+        <SkeletonLine size="timer" width="w-1/2" onDark />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="skeleton-dark h-18 rounded-control" />
+        <div className="skeleton-dark h-18 rounded-control" />
+      </div>
+      <p className="max-w-prose text-small text-dark-muted">{BETA_NOTE}</p>
+    </Tile>
+  );
+}
+
+function HistorySkeleton() {
+  return (
+    <Tile
+      as="div"
+      className="flex flex-col divide-y divide-divider px-4.5 py-0"
+      role="status"
+      aria-label="Loading your earnings"
+    >
+      {[0, 1, 2, 3].map((key) => (
+        <div key={key} className={ROW}>
+          <div className="flex flex-1 flex-col gap-0.5">
+            <SkeletonLine size="option" width="w-1/2" />
+            <SkeletonLine size="small" width="w-1/3" />
+          </div>
+          <SkeletonLine size="option" width="w-1/4" />
+        </div>
+      ))}
+    </Tile>
+  );
+}
+
 /** Both sections' shape, as one block that the content replaces whole, so nothing in it moves. */
 function EarningsSkeleton() {
   return (
@@ -182,14 +259,22 @@ function EntryRow({ entry }: { entry: EarningsEntry }) {
           {entry.label}
           {!givenBack && entry.minutes > 0 && ` · ${formatMinutes(entry.minutes)}`}
         </p>
-        <p className="text-small text-text-muted first-letter:uppercase">
+        <p className="text-small text-text-muted first-letter:uppercase xl:hidden">
           {entry.machineName} · <RelativeTime value={entry.createdAt} />
         </p>
         {entry.payoutHeld && (
           <p className="text-small font-semibold text-warning">Held from payout while a report is open</p>
         )}
       </div>
-      <p className={cn("text-option font-semibold tabular", !givenBack && "text-running")}>
+      <p className="hidden w-1/4 shrink-0 text-small text-text-muted first-letter:uppercase xl:block">
+        {entry.machineName} · <RelativeTime value={entry.createdAt} />
+      </p>
+      <p
+        className={cn(
+          "text-option font-semibold tabular xl:w-24 xl:text-right",
+          !givenBack && "text-running",
+        )}
+      >
         <span className="sr-only">{givenBack ? "Taken back" : "Earned"} </span>
         <span aria-hidden="true">{givenBack ? "−" : "+"}</span>
         <Money paise={Math.abs(entry.amountPaise)} />

@@ -70,31 +70,37 @@ export function Machine() {
   const state = machineState(machine, now);
   const listing = machine.listing;
   return (
-    <HostFlow back="/hosting/" backLabel="Hosting">
+    <HostFlow
+      back="/hosting/"
+      backLabel="Hosting"
+      className="xl:grid xl:grid-cols-2 xl:items-start"
+      summary={
+        <Tile tone="dark" size="lg" className="flex flex-col gap-2 xl:p-7">
+          <MachineChip state={state} />
+          <h1 className="text-title break-words xl:text-question">{machine.name}</h1>
+          <p className="min-h-5 text-small text-dark-muted">
+            {restored ? (
+              <>
+                Updated <span className="tabular">{formatTime(host.dataUpdatedAt)}</span> · refreshing
+              </>
+            ) : machine.online && machine.onlineSince ? (
+              <>
+                Online since <RelativeTime value={machine.onlineSince} /> ·{" "}
+                {machine.updateRequired ? "host app needs an update" : "host app up to date"}
+              </>
+            ) : (
+              "The host app on it isn't connected."
+            )}
+          </p>
+          <RatingLine host={machine} />
+        </Tile>
+      }
+    >
       {since !== null && <StaleNotice updatedAt={since} />}
-      <Tile tone="dark" className="flex flex-col gap-2">
-        <MachineChip state={state} />
-        <h1 className="text-title break-words">{machine.name}</h1>
-        <p className="min-h-5 text-small text-dark-muted">
-          {restored ? (
-            <>
-              Updated <span className="tabular">{formatTime(host.dataUpdatedAt)}</span> · refreshing
-            </>
-          ) : machine.online && machine.onlineSince ? (
-            <>
-              Online since <RelativeTime value={machine.onlineSince} /> ·{" "}
-              {machine.updateRequired ? "host app needs an update" : "host app up to date"}
-            </>
-          ) : (
-            "The host app on it isn't connected."
-          )}
-        </p>
-        <RatingLine host={machine} />
-      </Tile>
       <GpuLine host={machine} />
       <RightNow host={machine} />
       <PrivacyLine />
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2.5 xl:col-span-2">
         <MachineLink
           href={`/hosting/price/?id=${machine.id}`}
           title="Price and limits"
@@ -111,7 +117,7 @@ export function Machine() {
         />
         <ManageMachine key={machine.id} host={machine} />
       </div>
-      <div className="mt-auto">
+      <div className="mt-auto xl:col-span-2">
         <PauseControl host={machine} />
       </div>
     </HostFlow>

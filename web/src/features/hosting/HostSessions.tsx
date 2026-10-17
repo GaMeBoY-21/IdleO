@@ -27,8 +27,12 @@ export function HostSessions() {
   const back = id ? `/hosting/machine/?id=${id}` : "/hosting/";
 
   return (
-    <HostFlow back={back} backLabel={host.data?.name ?? "Hosting"}>
-      <h1 className="text-title">Sessions it ran</h1>
+    <HostFlow
+      back={back}
+      backLabel={host.data?.name ?? "Hosting"}
+      title="Sessions it ran"
+      lede="What ran here, when, for how long and what each earned. Renters are never named."
+    >
       {since !== null && <StaleNotice updatedAt={since} />}
       {id === null ? (
         <EmptyState title="No machine chosen">Open a machine from the Hosting tab.</EmptyState>
