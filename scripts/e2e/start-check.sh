@@ -29,7 +29,7 @@ until grep -q "^start: ready" "$out/start-check.log"; do
   sleep 2
 done
 ready_in=$((SECONDS - started))
-for line in "Web app" "Public site" "Mailpit" "Admin console" "nikki-low@example.com" "logs/"; do
+for line in "Web app" "Website" "Mailpit" "Admin console" "nikki-low@example.com" "logs/"; do
   grep -q "$line" "$out/start-check.log" || fail "the ready block doesn't mention $line"
 done
 
