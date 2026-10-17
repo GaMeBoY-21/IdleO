@@ -82,16 +82,22 @@ describe("Home", () => {
   });
 
   it("offers the last setup that ended, with how long it ran", () => {
-    const setup = latestSetup(data.asha.sessions);
+    const setup = latestSetup(data.asha.sessions, catalog);
     expect(setup).toBeDefined();
     render(<BookAgainTile session={setup!} name={templateName(setup!.templateId)} />);
     const tile = screen.getByRole("link");
     expect(tile).toHaveTextContent("Book again");
-    expect(tile).toHaveTextContent("Echo an input · 22 s");
-    expect(tile.getAttribute("href")).toMatch(/^\/book\/\?template=echo-input&from=/);
+    expect(tile).toHaveTextContent("Fine-tune your model (LoRA) · 6 min 10 s");
+    expect(tile.getAttribute("href")).toMatch(/^\/book\/\?template=qlora-finetune&from=/);
+  });
+
+  it("never offers to book again a service that isn't offered, such as the test jobs", () => {
+    const echoes = data.asha.sessions.filter((session) => session.templateId === "echo-input");
+    expect(echoes.length).toBeGreaterThan(0);
+    expect(latestSetup(echoes, catalog)).toBeUndefined();
   });
 
   it("offers nothing to book again to a new renter", () => {
-    expect(latestSetup([])).toBeUndefined();
+    expect(latestSetup([], catalog)).toBeUndefined();
   });
 });

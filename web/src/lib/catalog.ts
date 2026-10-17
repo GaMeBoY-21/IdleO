@@ -48,3 +48,33 @@ export function bookHref(serviceId: string, templateId?: string): string {
   }
   return `/book/?${query.toString()}`;
 }
+
+/**
+ * A service's typical time, from its templates in the catalog: the shortest to the longest of its presets' minutes
+ * ("about 15–75 min"), else the template's own typical runtime, else that the renter sets the time limit.
+ */
+export function serviceTime(catalog: Catalog, serviceId: string): string {
+  const own = templatesOf(catalog, serviceId);
+  const minutes = own.flatMap((template) =>
+    template.questions.flatMap((question) =>
+      question.options.flatMap((option) => (option.minutes == null ? [] : [option.minutes])),
+    ),
+  );
+  if (minutes.length > 0) {
+    const low = Math.min(...minutes);
+    const high = Math.max(...minutes);
+    return low === high ? `about ${low} min` : `about ${low}–${high} min`;
+  }
+  const typical = own.map((template) => template.typicalRuntimeSeconds).find((seconds) => seconds != null);
+  return aboutRuntime(typical) ?? "you choose the time limit";
+}
+
+/** One sentence on what a service does: its first template's description. */
+export const serviceSentence = (catalog: Catalog, serviceId: string): string =>
+  templatesOf(catalog, serviceId)[0]?.description ?? "";
+
+/** Whether a template's service is one the catalog offers (not hidden): the only ones Book again and Run again offer. */
+export const isOffered = (catalog: Catalog, templateId: string): boolean => {
+  const service = serviceOf(catalog, templateId);
+  return service !== undefined && offeredServices(catalog).some((offered) => offered.id === service.id);
+};

@@ -30,7 +30,7 @@
 @custom-variant tiled (&:where([data-tile] *));
 
 /* A tile inside a tile is pressed into it, with the page's colour. */
-[data-tile] [data-tile] {
+[data-tile] [data-tile="white"] {
   background-color: var(--ground);
 }
 
@@ -95,6 +95,33 @@
 
 @utility auto-rows-tile-lg {
   grid-auto-rows: var(--spacing-tile-row-lg);
+}
+
+/* The laptop's grids (web/DESIGN.md "Laptop layout"): a rail and the rest, and the two row splits that fill the screen
+   between the header and the bottom padding. */
+@utility cols-rail-lg {
+  grid-template-columns: var(--container-rail-lg) minmax(0, 1fr);
+}
+@utility cols-rail-sm {
+  grid-template-columns: var(--container-rail-sm) minmax(0, 1fr);
+}
+@utility rows-home {
+  grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+@utility rows-even {
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+}
+/* At least the height of the window less the header and the bottom padding: a screen that fits does not scroll, one
+   with more is taller. */
+@utility fit-screen {
+  min-height: calc(100dvh - var(--spacing-header) - var(--spacing-4) - var(--spacing-6));
+}
+
+/* A table of sessions on Home: what, GPU, how long, cost, and the action. */
+@utility cols-recent {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) var(--spacing-24) var(--spacing-24) var(
+      --container-price
+    );
 }
 
 /* A tile that is a link or a button lifts a little on hover (a laptop) and presses in on tap (a phone), in 120 ms.

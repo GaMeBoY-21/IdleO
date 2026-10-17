@@ -6,7 +6,10 @@ import { Wordmark } from "@/brand/Wordmark";
 import { cn } from "@/lib/cn";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
-import { destinations, isCurrent, isFlow } from "./nav";
+import { AccountLink } from "./AccountLink";
+import { CreditChip } from "./CreditChip";
+import { FRAME } from "./Layout";
+import { destinations, isCurrent, isFlow, phoneDestinations } from "./nav";
 import { UserMenuButton } from "./UserMenuButton";
 
 /**
@@ -28,30 +31,39 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <header className={cn("sticky top-0 z-10 bg-ground", flow ? "hidden md:block" : "block")}>
-        <div className="mx-auto flex h-16 max-w-content items-center gap-8 px-4.5 md:px-6">
-          <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-            <Wordmark />
-          </Link>
-          <nav aria-label="Main" className="hidden flex-1 items-center gap-2 md:flex">
-            {destinations.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                aria-current={isCurrent(pathname, href) ? "page" : undefined}
-                className={cn(
-                  "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors",
-                  isCurrent(pathname, href)
-                    ? "bg-primary text-primary-fg"
-                    : "bg-fill text-text hover:bg-fill-selected",
-                )}
-              >
-                {label}
-              </Link>
-            ))}
+        <div className={cn(FRAME, "flex h-16 items-center gap-6 md:h-header")}>
+          <div className="flex flex-1 items-center">
+            <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
+              <Wordmark className="md:text-headline md:tracking-tighter" />
+            </Link>
+          </div>
+          <nav aria-label="Main" className="hidden items-center gap-1 rounded-full bg-fill p-1.25 md:flex">
+            {destinations.map(({ href, label }) => {
+              const current = isCurrent(pathname, href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={current ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-touch items-center rounded-full px-5 text-small transition-colors",
+                    current
+                      ? "bg-primary font-bold text-primary-fg"
+                      : "font-semibold text-text-muted hover:text-text",
+                  )}
+                >
+                  {label}
+                </Link>
+              );
+            })}
           </nav>
-          <div className="ml-auto flex items-center gap-1 md:ml-0">
+          <div className="flex flex-1 items-center justify-end gap-2.5">
+            <CreditChip />
             <NotificationBell />
-            <UserMenuButton />
+            <div className="md:hidden">
+              <UserMenuButton />
+            </div>
+            <AccountLink />
           </div>
         </div>
       </header>
@@ -67,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <ul className="grid h-full grid-cols-4">
-          {destinations.map(({ href, label }) => {
+          {phoneDestinations.map(({ href, label }) => {
             const current = isCurrent(pathname, href);
             return (
               <li key={href} className="flex">
@@ -94,21 +106,23 @@ export function AppShell({ children }: { children: ReactNode }) {
 export function ShellSkeleton({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col" aria-busy="true">
-      <div className="h-16 bg-ground" />
+      <div className="h-16 bg-ground md:h-header" />
       <div className="flex w-full flex-1 flex-col">{children}</div>
     </div>
   );
 }
 
 /**
- * A list screen's content (Sessions, Credit): one column the width of the laptop's card, centred, with the page
- * margins; its title big, as every screen's question is.
+ * A list screen's content (Notifications; Account and the lists use their own frames on a laptop): one column the
+ * width of the card, centred (7 of the 12 columns from 1200 px), with the page margins; its title big.
  */
 export function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mx-auto flex w-full max-w-card flex-col gap-6 px-3.5 pt-2 pb-8 md:px-6 md:pt-6">
-      <h1 className="text-title xl:text-question">{title}</h1>
-      {children}
+    <div className="w-full px-3.5 pt-2 pb-8 md:px-6 md:pt-6 xl:px-8 xl:pt-4 2xl:px-10">
+      <div className="mx-auto flex w-full max-w-card flex-col gap-6 xl:w-7/12 xl:max-w-none">
+        <h1 className="text-title xl:text-question">{title}</h1>
+        {children}
+      </div>
     </div>
   );
 }

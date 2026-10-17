@@ -28,36 +28,46 @@ export const tileMuted: Record<TileTone, string> = {
   apricot: "text-apricot-fg",
 };
 
-export function tileClasses(tone: TileTone = "white") {
-  return cn("rounded-tile p-4.5", surfaces[tone]);
+/** `lg`: the laptop's padding, 24 px and 28 px from 1200 px (web/DESIGN.md "Laptop layout"). */
+export type TileSize = "md" | "lg";
+
+export function tileClasses(tone: TileTone = "white", size: TileSize = "md") {
+  return cn("rounded-tile", size === "lg" ? "p-6 xl:p-7" : "p-4.5", surfaces[tone]);
 }
 
 export function Tile({
   tone = "white",
+  size = "md",
   as: Tag = "section",
   className,
   ...props
-}: HTMLAttributes<HTMLElement> & { tone?: TileTone; as?: "section" | "div" | "li" | "article" }) {
-  return <Tag data-tile="" className={cn(tileClasses(tone), className)} {...props} />;
+}: HTMLAttributes<HTMLElement> & {
+  tone?: TileTone;
+  size?: TileSize;
+  as?: "section" | "div" | "li" | "article";
+}) {
+  return <Tag data-tile={tone} className={cn(tileClasses(tone, size), className)} {...props} />;
 }
 
 /** A tile that opens something: it lifts a little on hover and presses in on tap (`tile-motion`). */
 export function TileLink({
   href,
   tone = "white",
+  size = "md",
   className,
   children,
   ...props
 }: Omit<HTMLAttributes<HTMLAnchorElement>, "href"> & {
   href: string;
   tone?: TileTone;
+  size?: TileSize;
   children: ReactNode;
 }) {
   return (
     <Link
       href={href}
-      data-tile=""
-      className={cn(tileClasses(tone), "tile-motion flex flex-col justify-between", className)}
+      data-tile={tone}
+      className={cn(tileClasses(tone, size), "tile-motion flex flex-col justify-between", className)}
       {...props}
     >
       {children}

@@ -1,13 +1,19 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/auth";
+import { cn } from "@/lib/cn";
 import { afterFirstScreen } from "@/lib/after-first-screen";
 
 /** The avatar the menu opens from, drawn the same before and after the menu's code arrives, so nothing moves. */
-export function Avatar() {
+export function Avatar({ large = false }: { large?: boolean }) {
   const auth = useAuth();
   const email = auth.status === "signed-in" ? auth.user.email : null;
   return (
-    <span className="flex size-10 items-center justify-center rounded-full bg-primary text-small font-semibold text-primary-fg">
+    <span
+      className={cn(
+        "flex items-center justify-center rounded-full bg-primary font-semibold text-primary-fg",
+        large ? "size-touch text-body font-bold" : "size-10 text-small",
+      )}
+    >
       {(email ?? "?").charAt(0).toUpperCase()}
     </span>
   );

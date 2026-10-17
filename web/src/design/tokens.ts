@@ -137,6 +137,7 @@ export const typeScale = {
   title: [28, 34],
   question: [40, 44],
   timer: [54, 54],
+  "timer-lg": [60, 60],
   "timer-xl": [72, 72],
 } as const;
 
@@ -158,6 +159,7 @@ export const spacing = {
   "0": 0,
   "0.5": 2,
   "1": 4,
+  "1.25": 5,
   "1.5": 6,
   "2": 8,
   "2.5": 10,
@@ -183,10 +185,14 @@ export const spacing = {
   "18": 72,
   "24": 96,
   touch: 44,
+  /** The laptop's header, from 768 px. */
+  header: 76,
   /** A row of the phone's tile grid (a small tile is one row, a tall one two). */
   "tile-row": 88,
   /** The session screen's dark tile on a phone, as its placeholder draws it. */
   "session-tile": 336,
+  /** The Hosting tab's chart of the week on a laptop. */
+  chart: 180,
   /** A row of the laptop's tile grid. */
   "tile-row-lg": 112,
   /** The log panel's least height on the session screen: about 21 lines. */
@@ -204,7 +210,12 @@ export const radii = { control: 16, icon: 14, sheet: 26, tile: 26, bar: 22, full
 
 /** Widths: the breakpoints of the layout grid, the reading measure, and the laptop's panels. */
 export const layout = {
-  breakpoints: { md: 768, xl: 1280 },
+  /** Tablet from 768 px; laptop from 1200 px (full width, 32 px side padding); 40 px padding from 1680 px. */
+  breakpoints: { md: 768, xl: 1200, "2xl": 1680 },
+  /** The laptop's left column on the live session, Hosting's pages and Credit: the summary tile. */
+  railLg: 400,
+  /** The laptop's left column on Account: the profile tile and the section navigation. */
+  railSm: 320,
   prose: "68ch",
   content: 1120,
   /** The laptop's left panel: the question, the choices and the one button. */

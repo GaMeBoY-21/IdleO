@@ -27,6 +27,7 @@ services:
     tagline: jobs for trying the platform
     running_label: Running a test job
     icon: flask
+    hidden: true
 
 templates:
   # The services, simulated: 90 to 120 seconds each, checkpointing every 5 seconds. Both of the

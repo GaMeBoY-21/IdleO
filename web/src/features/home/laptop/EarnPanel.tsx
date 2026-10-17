@@ -1,0 +1,40 @@
+import { useEarnings, useHosts } from "@/api/hosting";
+import { Money } from "@/components/ui/Money";
+import { TileLabel, TileLink } from "@/components/ui/Tile";
+import { COMMISSION_PERCENT } from "@/lib/hosting";
+
+/**
+ * Hosting, for gamers: the apricot tile (docs/design/bento/laptop/home-laptop.html). For someone with no machine it is
+ * the pitch, with "Start hosting"; for someone who hosts it shows this week's earnings, the server's, and "Open Hosting".
+ * What they host is asked for once the screen has painted (`enabled`).
+ */
+export function EarnPanel({ enabled }: { enabled: boolean }) {
+  const hosts = useHosts(enabled);
+  const hosting = (hosts.data?.hosts.length ?? 0) > 0;
+  const earnings = useEarnings(false, enabled && hosting);
+  const week = earnings.data?.pages[0]?.weekPaise;
+  return (
+    <TileLink href="/hosting/" tone="apricot" size="lg" className="gap-4 md:col-span-6 xl:col-span-4">
+      <TileLabel tone="apricot">For gamers</TileLabel>
+      <span className="flex flex-col gap-2">
+        {hosting ? (
+          <>
+            <span className="text-small text-apricot-fg">Earned this week</span>
+            <span className="text-timer tabular">{week === undefined ? "…" : <Money paise={week} />}</span>
+          </>
+        ) : (
+          <>
+            <span className="text-headline xl:text-title">Your GPU sits idle. Let it earn.</span>
+            <span className="max-w-prose text-body text-apricot-fg">
+              Rent out your gaming laptop when you&apos;re not using it. You set the price and keep{" "}
+              {100 - COMMISSION_PERCENT}%.
+            </span>
+          </>
+        )}
+      </span>
+      <span className="self-start rounded-full bg-primary px-5 py-3 text-small font-bold text-primary-fg">
+        {hosting ? "Open Hosting" : "Start hosting"}
+      </span>
+    </TileLink>
+  );
+}

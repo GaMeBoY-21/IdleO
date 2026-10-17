@@ -35,7 +35,8 @@ class TemplateApiTests {
 
     /**
      * Templates come grouped into services, each one tile on Home (ADR 0021), in the catalog's order: the development
-     * catalog's simulated production services, then the test jobs.
+     * catalog's simulated production services, then the test jobs, which are hidden: no renter's Home or Book offers them,
+     * and their templates still book.
      */
     @Test
     void templatesComeWithTheirServices() throws Exception {
@@ -51,7 +52,7 @@ class TemplateApiTests {
                 .andExpect(jsonPath("$.services[2].name").value("Test jobs"))
                 .andExpect(jsonPath("$.services[2].runningLabel").value("Running a test job"))
                 .andExpect(jsonPath("$.services[2].icon").value("flask"))
-                .andExpect(jsonPath("$.services[2].hidden").value(false))
+                .andExpect(jsonPath("$.services[2].hidden").value(true))
                 .andExpect(jsonPath("$.templates[?(@.id == 'fine-tune-simulated')].service")
                         .value("fine-tune"))
                 .andExpect(jsonPath("$.templates[?(@.id == 'cuda-smoke-test')].service")

@@ -210,9 +210,10 @@ export function useOutputs(id: string, completed: boolean) {
 
 export const HISTORY_PAGE = 20;
 
-export function useHistory() {
+export function useHistory(enabled = true) {
   return useInfiniteQuery({
     queryKey: keys.history,
+    enabled,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
       data(
@@ -257,8 +258,14 @@ export function useUploadPages(enabled = true) {
 }
 
 /** What's free now, by GPU (ADR 0019): counts and prices, never a host. */
-export function useAvailability(enabled = true) {
-  return useQuery({ queryKey: keys.availability, enabled, queryFn: () => data(api.GET("/v1/availability")) });
+export function useAvailability(enabled = true, liveEvery?: number) {
+  return useQuery({
+    queryKey: keys.availability,
+    enabled,
+    queryFn: () => data(api.GET("/v1/availability")),
+    // Read again on a timer only while the tab is visible (react-query pauses an interval in the background).
+    refetchInterval: liveEvery ?? false,
+  });
 }
 
 export function useTemplates() {

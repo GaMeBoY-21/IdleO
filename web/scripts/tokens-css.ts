@@ -83,6 +83,9 @@ ${Object.entries(radii)
   .join("\n")}
   --breakpoint-md: ${px(layout.breakpoints.md)};
   --breakpoint-xl: ${px(layout.breakpoints.xl)};
+  --breakpoint-2xl: ${px(layout.breakpoints["2xl"])};
+  --container-rail-lg: ${px(layout.railLg)};
+  --container-rail-sm: ${px(layout.railSm)};
   --container-prose: ${layout.prose};
   --container-rail: ${px(layout.rail)};
   --container-card: ${px(layout.card)};

@@ -5,11 +5,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { Tile } from "@/components/ui/Tile";
 import { offeredServices, serviceOf } from "@/lib/catalog";
+import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { BookAgainTile, latestSetup } from "./BookAgain";
 import { CreditTile } from "./CreditTile";
 import { EarnTile } from "./EarnTile";
 import { RunningTile } from "./RunningTile";
+import { LaptopHome, LaptopHomeSkeleton } from "./laptop/LaptopHome";
 import { MainServiceTile, QuestionTile, WideServiceTile } from "./ServiceTiles";
 
 const QUESTION = "What do you want to run?";
@@ -17,7 +19,7 @@ const NO_CATALOG = { services: [], templates: [] };
 
 /** The tile grid (web/DESIGN.md "Shapes and space"): two columns of 88 px rows on a phone, four of 112 px from 768 px. */
 const GRID = "grid grid-cols-2 auto-rows-tile gap-2.5 md:grid-cols-4 md:auto-rows-tile-lg md:gap-3.5";
-const FRAME =
+const PHONE_FRAME =
   "mx-auto flex w-full max-w-content flex-col gap-2.5 px-3.5 pt-1 pb-4 md:gap-3.5 md:px-6 md:pt-2";
 
 /**
@@ -33,27 +35,65 @@ export function Home() {
   // The credit tile moves while a session can still change it.
   const wallet = useWallet(sessions.data?.sessions.some(isChanging) ?? false);
   const since = staleSince(sessions, templates);
+  const wide = useWide();
 
   // Until the sessions and the catalog are known, Home is one skeleton: a live session arriving would push
   // everything under it down.
   const known = (query: { data?: unknown; isError: boolean }) => query.data !== undefined || query.isError;
   if (!known(sessions) || !known(templates)) {
-    return <HomeSkeleton />;
+    return wide ? <LaptopHomeSkeleton /> : <HomeSkeleton />;
   }
 
   const catalog = templates.data ?? NO_CATALOG;
   const list = sessions.data?.sessions ?? [];
   const live = list.filter(isLive);
   const services = offeredServices(catalog);
-  const again = latestSetup(list);
+  const again = latestSetup(list, catalog);
   const againName = again
     ? (serviceOf(catalog, again.templateId)?.runningLabel ??
       catalog.templates.find((template) => template.id === again.templateId)?.name ??
       again.templateId)
     : "";
 
+  if (wide) {
+    return (
+      <LaptopHome
+        catalog={catalog}
+        sessions={list}
+        wallet={wallet}
+        banners={
+          <>
+            {since !== null && <StaleNotice updatedAt={since} />}
+            {live.some((session) => session.lowCredit) && (
+              <Banner tone="warning">
+                Your credit is running low. A running session stops, after a last checkpoint, when it runs
+                out.
+              </Banner>
+            )}
+            {!templates.data && (
+              <ErrorState
+                error={templates.error}
+                what="what you can run"
+                onRetry={() => void templates.refetch()}
+                retrying={templates.isFetching}
+              />
+            )}
+            {!sessions.data && (
+              <ErrorState
+                error={sessions.error}
+                what="your sessions"
+                onRetry={() => void sessions.refetch()}
+                retrying={sessions.isFetching}
+              />
+            )}
+          </>
+        }
+      />
+    );
+  }
+
   return (
-    <div className={FRAME}>
+    <div className={PHONE_FRAME}>
       {since !== null && <StaleNotice updatedAt={since} />}
       {live.some((session) => session.lowCredit) && (
         <Banner tone="warning">
@@ -120,7 +160,7 @@ export function Home() {
 /** Home's shape before anything is known: the tiles of a home with nothing running, with no words in them. */
 function HomeSkeleton() {
   return (
-    <div className={FRAME}>
+    <div className={PHONE_FRAME}>
       <div role="status" aria-label="Loading" className={GRID}>
         <Skeleton tile className="col-span-2 row-span-2" />
         <Skeleton tile />
