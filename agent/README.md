@@ -1,6 +1,6 @@
 # agent
 
-The Rust host agent that runs on each host's laptop or PC. Today it enrols the host with a one-time code, keeps one mutual-TLS stream open to the control plane, sends heartbeats with GPU telemetry, reconnects with capped backoff, and renews its certificate before it expires. Sessions, the local store, the updater and service installation come later (ADR 0012).
+The Rust host agent that runs on each host's laptop or PC, and the Windows app around it (ADRs 0012, 0033, 0034). The agent links the host by approval (or enrols it with a one-time code), keeps one mutual-TLS stream open to the control plane, sends heartbeats with GPU telemetry, runs sessions under leases, pauses by itself while the owner uses the laptop, self-tests, updates itself from the signed release feed, reconnects with capped backoff, and renews its certificate before it expires. On Windows it's one of five programs, installed per user by `IdleO-Setup.exe`.
 
 ## Layout
 
@@ -9,8 +9,13 @@ A Cargo workspace:
 | Crate | What it is |
 | --- | --- |
 | `agent-proto` | Rust code generated from `../proto/gpu/agent/v1` at build time, and nothing else. Its `build.rs` uses `protox`, a pure-Rust protobuf compiler, so no `protoc` on the machine is ever used. Nothing generated is committed. |
-| `agent` | The library (`idleo_agent`) and the binary `idleo-agent`. |
-| `agent-windows` | The agent's only `unsafe` code: Windows API calls for owner activity, the OS build, and the key file's access list. Empty on other systems. |
+| `agent` | The library (`idleo_agent`) and two binaries: `idleo-agent` (the command line) and `idleo-hostd` (its `run` with the Windows GUI subsystem, so no console window ever flashes; the same code). |
+| `agent-windows` | The workspace's only `unsafe` code: Windows API calls for owner activity (input, full-screen apps, power), the OS build, virtualization, the key file's and the pipe's access lists, the per-user registry, shortcuts and the native dialogs. Empty on other systems. |
+| `release` | The library (`idleo_release`) the agent, setup and the launcher share, one implementation each: the app's folders, the signed manifest and its key, download with resume and verify, versions, installing and removing the app, the WSL commands, the local channel and the update trial's state. Also the binary `idleo-release` (keys, manifests, signing, uploads), the only code that reads a private release key. |
+| `launcher` | `idleo-launcher.exe`: small and rarely changed. Starts and watches `idleo-hostd` and `idleo-tray`, runs the update trial and rollback, and uninstalls. The Run entry, the Start-menu shortcut and the Uninstall entry point at it. |
+| `tray` | `idleo-tray.exe`: the tray icon and its native menu (`tray-icon`, no webview). |
+| `setup` | `IdleO-Setup.exe`: the one download, a small WebView2 window (`wry`) whose page is built into the program. |
+| `brand` | The icon and the Windows manifest (`asInvoker`, per-monitor DPI) the four Windows programs embed. |
 
 The toolchain is pinned in `rust-toolchain.toml` (with rustfmt and clippy), and every dependency version in the committed `Cargo.lock`.
 
@@ -57,7 +62,7 @@ A Mac reports `OPERATING_SYSTEM_MACOS` in `Hello`. That value is for development
 | `welcome_timeout_secs` | How long to wait for `Welcome` after `Hello` | 10 |
 
 Relative paths are relative to the config file. The default directory, for both `agent.toml` and the identity:
-- **Windows:** `%ProgramData%\IdleO\agent`
+- **Windows:** `%LOCALAPPDATA%\IdleO\agent` (per user, ADR 0033)
 - **Linux:** `/var/lib/idleo-agent`
 - **macOS:** `~/Library/Application Support/IdleO/agent`, for development only
 
@@ -66,7 +71,7 @@ Logs go to stderr: the agent at info and libraries at warn, or as `IDLEO_LOG` sa
 ## On disk
 
 In `data_dir`:
-- `host.key`: the private key (ECDSA P-256, PKCS#8 PEM). Unix: mode 0600, and the agent refuses to start if it's more open. Windows: created with an access list allowing only SYSTEM and Administrators, so on Windows the agent runs elevated or as a service.
+- `host.key`: the private key (ECDSA P-256, PKCS#8 PEM). Unix: mode 0600, and the agent refuses to start if it's more open. Windows: created with an access list allowing only SYSTEM and the signed-in owner's own SID, read at run time (ADR 0033), so the agent never needs to run elevated.
 - `host.crt`: the host certificate, then the intermediate.
 - `host.json`: the host id (from the certificate's `urn:idleo:host:` name) and the certificate's expiry.
 
@@ -106,7 +111,28 @@ The three identity files are replaced together: new files are staged as `*.new`,
 | 6 | Config or identity problem (unreadable, inconsistent, or a key file others can read) |
 | 7 | No GPU source: NVML missing, no NVIDIA GPU, or a build without NVML and no `--fake-gpu` |
 | 8 | Not enrolled yet |
+| 9 | `self-test`: a check failed |
 | 10 | The control plane couldn't be reached, or its certificate isn't from our CA |
+
+## The Windows app (ADRs 0033, 0034)
+
+Five programs, built from this workspace, installed per user with no admin rights after setup:
+
+| Program | What it does |
+| --- | --- |
+| `IdleO-Setup.exe` | The one download (about 7 MB; it carries no payload). Checks the laptop, turns WSL on (with resume after a restart), downloads and verifies the signed release, installs the app and the sealed Linux space, self-tests, links by approval and starts hosting. Two clicks of its own: **Set up**, and **Approve** in the browser. Run again, it repairs. |
+| `idleo-launcher.exe` | Started at sign-in. Starts and watches the other two, restarts them with backoff, runs the 5-minute trial of a new version and rolls back if it isn't confirmed or crashes 3 times. `uninstall` removes everything. |
+| `idleo-hostd.exe` | The agent's `run`, with no console window. |
+| `idleo-tray.exe` | The state in colour and words, "Earned today", an update under way, Hosting on and off, Pause (an hour, until this evening, until tomorrow morning), Resume, Auto-pause's settings and Open dashboard. No Quit: turning hosting off is how a host stops. |
+| `idleo-agent.exe` | The command line, as on any system. |
+
+- **Folders:** programs in `%LOCALAPPDATA%\Programs\IdleO\` (`idleo-launcher.exe`, `current`, and an `app-<version>\` per installed version, two at most); data in `%LOCALAPPDATA%\IdleO\` (`agent\`, `updates\`, `setup\`, `wsl\<distro version>\`, `update-state.json`, `logs\`). Registry: `HKCU\…\Run\IdleO`, `HKCU\…\RunOnce\IdleO Setup` (setup's resume), `HKCU\…\Uninstall\IdleO`.
+- **The local channel:** the tray and the launcher talk to `idleo-hostd` over `\\.\pipe\idleo-<owner SID>`, which only the owner and SYSTEM can open, in JSON lines that carry `"v": 1` (`idleo_release::channel`). No port is opened.
+- **Auto-pause** (`agent/src/availability.rs`): keyboard or mouse input, a full-screen app or game, unplugged power, or the GPU busy with something not ours for 10 seconds pauses hosting within 2 seconds and stops a running session with a checkpoint first (`owner_returned`); 10 quiet minutes start it again. Settings in `settings.toml`, changed from the tray. Linux and macOS never pause.
+- **Self-test** (`idleo-agent self-test [--quick]`, exit 9 on a failure): the sealed image registered and locked down, the GPU visible, the container runtime, then (not with `--quick`) the GPU inside a container (the image's `gpu-check`), the lockdown script and storage speed. Run after linking, after each update and when the tray asks; reported to the control plane. Skipped, and said so, on Linux, macOS and with fake GPUs.
+- **Updates:** see ADR 0034. The release key is baked in at build time: the development key from `private/release-dev/release.pub` (`scripts/release/dev-key.sh`) or `IDLEO_RELEASE_DEV_PUBLIC_KEY` in a normal build, which says "Development build" and refuses control planes ending `idleo.in`; `release-keys/release.pub` with `--features prod-keys`, which fails while that file is empty. `IDLEO_APP_VERSION` at build time sets the version the programs report (`scripts/release/publish.sh` sets it).
+
+**Building on the Mac:** `scripts/build-windows.sh` cross-builds the five programs for `x86_64-pc-windows-msvc` with cargo-xwin (`cargo install --locked cargo-xwin`) and Homebrew's `llvm` and `lld` (`llvm-rc` compiles the icons and manifests) into `dist/windows/`, and prints their sizes; `--release-keys` is a release build. `IDLEO_SETUP_API_URL`, `IDLEO_SETUP_APP_URL`, `IDLEO_SETUP_SITE_URL`, `IDLEO_SETUP_CONTROL_PLANE` (`host:port`) and `IDLEO_SETUP_CA_ROOT` set where the setup program points (the local stack without them; a release build needs every one). `scripts/checks/agent.sh` also lints the workspace for Windows with `cargo xwin clippy` when cargo-xwin is installed, and runs cargo-deny twice: `deny.toml` for every target (the tray and setup, whose Linux backends we never ship, left out of its graph) and `deny-windows.toml` for the Windows app alone. To try it on a laptop: `./start.sh --lan`, then `docs/windows-laptop-test.md`.
 
 ## Dependencies
 
@@ -140,6 +166,14 @@ Each is here for one reason. Versions are locked in `Cargo.lock`.
 | reqwest | 0.13.5 | HTTP for object storage, over our own rustls config |
 | rustls-platform-verifier | 0.7.1 | Storage's public certificate is checked against the operating system's trust store, not a bundled one |
 | rustix | 1.1.5 | `clock_gettime(CLOCK_BOOTTIME)` on Linux and `CLOCK_MONOTONIC` on macOS without unsafe code (Unix only) |
-| tempfile | 3.27.0 | Temporary directories in tests (tests only) |
+| tempfile | 3.27.0 | Temporary directories in tests, and the fakes' disks (`release`'s `fakes` feature) |
+| ed25519-dalek | 3.0.0 | Checks the release manifest's Ed25519 signature; makes and uses release keys in `idleo-release` (`release`) |
+| sha2 | 0.11.0 | SHA-256 of downloaded files, and the rollout's bucket (`release`) |
+| base64 | 0.22.1 | The release key and signatures as text (`release`, `setup`) |
+| zip | 9.0.5 | Unpacks the app zip, deflate only (`release`) |
+| tray-icon | 0.26.1 | The tray icon and its menu (muda, re-exported) (`tray`, Windows only) |
+| tao | 0.37.1 | The event loop the tray and the setup window run on (Windows only) |
+| wry | 0.57.0 | The setup window: WebView2, part of Windows 10 22H2 and 11 (`setup`, Windows only) |
+| embed-resource | 3.0.12 | Compiles the icon and the manifest into the Windows programs (`brand`, build only) |
 
 **The rustls provider is `ring`**, not `aws-lc-rs`. ring builds with only a C compiler on all three systems (aws-lc-rs can need extra build tools, such as NASM on Windows), is smaller, and is the same library rcgen already uses, so the agent carries one crypto library instead of two. Its licence is plain Apache-2.0 and ISC. What we give up is `aws-lc-rs`'s post-quantum hybrid key exchange and its FIPS option; switching is a feature flag in two crates if we need them (ADR 0012).
