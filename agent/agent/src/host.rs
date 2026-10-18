@@ -66,6 +66,8 @@ struct Inner {
     earning_now: Option<i64>,
     session_running: bool,
     gpu_util: Option<u32>,
+    /// Whether the GPU's use counts for auto-pause: real GPUs on Windows only (see [`Host::ignore_gpu_use`]).
+    gpu_watched: bool,
     update: UpdatePhase,
     outbox: Vec<Pending>,
     leaving: Leaving,
@@ -111,6 +113,7 @@ impl Host {
             earning_now: None,
             session_running: false,
             gpu_util: None,
+            gpu_watched: true,
             update: UpdatePhase::Idle,
             outbox: Vec::new(),
             leaving: Leaving::No,
@@ -205,7 +208,18 @@ impl Host {
 
     /// The busiest GPU's latest use, for the GPU-busy rule.
     pub fn set_gpu_util(&self, util: Option<u32>) {
-        self.lock().gpu_util = util;
+        let mut inner = self.lock();
+        if inner.gpu_watched {
+            inner.gpu_util = util;
+        }
+    }
+
+    /// Never counts the GPU's use for auto-pause: on Linux and macOS, where nobody is watched (`crate::owner`), and
+    /// with fake GPUs, whose use is invented and must never pause a host or keep it from being offered work.
+    pub fn ignore_gpu_use(&self) {
+        let mut inner = self.lock();
+        inner.gpu_watched = false;
+        inner.gpu_util = None;
     }
 
     /// Whether the control plane can be reached: true once welcomed, false when the stream ends.
@@ -503,5 +517,14 @@ mod tests {
         assert_eq!(changes.borrow_and_update().auto_pause, settings);
         assert_eq!(settings::load(dir.path()), settings);
         assert!(host.set_auto_pause(AutoPause { start_again_after_minutes: 3, ..settings }).is_err());
+    }
+
+    #[test]
+    fn ignored_gpu_use_never_pauses() {
+        let dir = tempfile::tempdir().unwrap();
+        let host = Host::new(Arc::new(Quiet), dir.path().to_path_buf(), true);
+        host.ignore_gpu_use();
+        host.set_gpu_util(Some(100));
+        assert_eq!(host.lock().gpu_util, None);
     }
 }

@@ -326,6 +326,16 @@ async fn enrol_command(config: &Config, code: &str, force: bool) -> ExitCode {
     }
 }
 
+/// The hub for `run`, watching the signed-in owner. The GPU's use counts for auto-pause only with real GPUs on Windows.
+fn owner_host(config: &Config, runner_installed: bool, fake: bool) -> Arc<Host> {
+    let host =
+        Host::with_app_url(Arc::new(SystemOwner), config.data_dir.clone(), runner_installed, config.app_url.clone());
+    if fake || !cfg!(windows) {
+        host.ignore_gpu_use();
+    }
+    host
+}
+
 async fn run_command(
     config: Config,
     fake_gpu: Option<(u8, FakeModel)>,
@@ -375,8 +385,7 @@ async fn run_command(
         std::process::exit(0);
     });
     let fake = fake_gpu_given;
-    let host =
-        Host::with_app_url(Arc::new(SystemOwner), config.data_dir.clone(), runner.is_some(), config.app_url.clone());
+    let host = owner_host(&config, runner.is_some(), fake);
     let lease_clock: Arc<dyn LeaseClock> = Arc::new(SystemLeaseClock);
     let http = match crate::storage::http_client() {
         Ok(client) => client,
