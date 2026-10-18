@@ -401,7 +401,7 @@ async fn run_command(
             idleo_release::keys::RELEASE_KEY,
             crate::AGENT_VERSION,
             restart,
-            Updater::fail_trial_from_env(),
+            Updater::fail_trial_built_in(),
         )
     });
     tokio::spawn(async move {

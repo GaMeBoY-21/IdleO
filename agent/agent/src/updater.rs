@@ -59,7 +59,7 @@ pub struct Updater {
     busy: Mutex<bool>,
     /// Asks `idleo-agent run` to exit for the launcher's restart.
     restart: tokio::sync::watch::Sender<bool>,
-    /// Never confirm a trial: `IDLEO_TEST_FAIL_TRIAL=1`, honoured in development builds only.
+    /// Never confirm a trial: a development build made with `IDLEO_TEST_FAIL_TRIAL=1`.
     fail_trial: bool,
 }
 
@@ -91,10 +91,11 @@ impl Updater {
         })
     }
 
-    /// Whether `IDLEO_TEST_FAIL_TRIAL=1` should make trials fail: only in a development build.
+    /// Whether this build's trials never confirm, to try a rollback: a development build made with
+    /// `IDLEO_TEST_FAIL_TRIAL=1` (`scripts/release/publish.sh --dev`). A release build ignores it.
     #[must_use]
-    pub fn fail_trial_from_env() -> bool {
-        idleo_release::keys::DEV_BUILD && std::env::var("IDLEO_TEST_FAIL_TRIAL").is_ok_and(|value| value == "1")
+    pub fn fail_trial_built_in() -> bool {
+        idleo_release::keys::DEV_BUILD && matches!(option_env!("IDLEO_TEST_FAIL_TRIAL"), Some("1"))
     }
 
     /// The distro version in use: `IdleO\distro`, written by setup and switched by updates.
@@ -301,7 +302,7 @@ impl Updater {
         match state.outcome.clone() {
             update_state::Outcome::Trial if state.trial == self.version => {
                 if self.fail_trial {
-                    tracing::warn!("IDLEO_TEST_FAIL_TRIAL=1: this trial is never confirmed");
+                    tracing::warn!("built with IDLEO_TEST_FAIL_TRIAL=1: this trial is never confirmed");
                     return;
                 }
                 if !quick_self_test.await {

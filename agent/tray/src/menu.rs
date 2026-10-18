@@ -1,7 +1,8 @@
 //! The tray's menu as data (ADR 0033), built from the agent's status, and what each item asks the agent. The native
 //! menu is drawn from this, so what it holds and what a click sends are tested without a desktop.
 //!
-//! - Status (disabled), "Earned today ₹12.40" (disabled), a separator.
+//! - Status (disabled), "Earned today ₹12.40" (disabled), where an update stands while one is under way (disabled), a
+//!   separator.
 //! - **Hosting** (a check item).
 //! - **Pause** ▸ For 1 hour · Until this evening (6 pm) · Until tomorrow morning (9 am): hidden while hosting is off.
 //! - **Resume now**: only while paused by the owner.
@@ -83,6 +84,9 @@ pub fn build(status: Option<&Status>, now: OffsetDateTime, offset: UtcOffset) ->
     };
     if let Some(earned) = status::earned_today(Some(status)) {
         items.push(Item::Label(earned));
+    }
+    if let Some(update) = status::update_line(Some(status)) {
+        items.push(Item::Label(update));
     }
     items.push(Item::Separator);
     let hosting = status.state != State::HostingOff;

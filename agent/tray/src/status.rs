@@ -1,7 +1,7 @@
 //! What the tray says, as pure functions of the agent's status (ADR 0033): the first line of the menu, the tooltip,
 //! the icon's colour and "Earned today". Each is tested for every state.
 
-use idleo_release::channel::{LinkState, Reason, State, Status};
+use idleo_release::channel::{LinkState, Reason, State, Status, UpdatePhase};
 use time::{OffsetDateTime, UtcOffset};
 
 /// The icon's colour.
@@ -113,6 +113,18 @@ pub fn earned_today(status: Option<&Status>) -> Option<String> {
     status.and_then(|status| status.earned_today_paise).map(|paise| format!("Earned today {}", rupees(paise)))
 }
 
+/// Where an update stands, while one is under way: none when there's nothing to do. An update never interrupts a
+/// renter's job, so "ready" says it waits for an idle moment.
+#[must_use]
+pub fn update_line(status: Option<&Status>) -> Option<String> {
+    match status?.update {
+        UpdatePhase::Idle => None,
+        UpdatePhase::Downloading => Some("Downloading an update".to_owned()),
+        UpdatePhase::Ready => Some("Update ready · installs when idle".to_owned()),
+        UpdatePhase::Installing => Some("Installing an update".to_owned()),
+    }
+}
+
 /// Integer paise as rupees, the way the web app and the control plane write them (`api/money-format.json`): Indian
 /// grouping, two decimals, a real minus sign.
 #[must_use]
@@ -153,7 +165,7 @@ pub fn clock(at: OffsetDateTime, offset: UtcOffset) -> String {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use idleo_release::channel::{AutoPause, UpdatePhase};
+    use idleo_release::channel::AutoPause;
 
     use super::*;
 
@@ -283,5 +295,20 @@ pub(crate) mod tests {
         assert_eq!(clock(at(0, 5), IST), "12:05 am");
         assert_eq!(clock(at(12, 30), IST), "12:30 pm");
         assert_eq!(clock(at(9, 0), IST), "9:00 am");
+    }
+
+    #[test]
+    fn an_update_under_way_has_its_line_and_none_when_idle() {
+        let mut status = ready();
+        assert_eq!(update_line(Some(&status)), None);
+        assert_eq!(update_line(None), None);
+        for (phase, line) in [
+            (UpdatePhase::Downloading, "Downloading an update"),
+            (UpdatePhase::Ready, "Update ready · installs when idle"),
+            (UpdatePhase::Installing, "Installing an update"),
+        ] {
+            status.update = phase;
+            assert_eq!(update_line(Some(&status)).as_deref(), Some(line));
+        }
     }
 }
