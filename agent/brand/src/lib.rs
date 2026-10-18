@@ -132,9 +132,8 @@ pub fn embed_windows_resources(description: &str) {
     std::fs::write(out.join("idleo.ico"), ico(GREEN)).expect("OUT_DIR is writable");
     std::fs::write(out.join("idleo.manifest"), MANIFEST).expect("OUT_DIR is writable");
     println!("cargo:rerun-if-env-changed=IDLEO_APP_VERSION");
-    let version = std::env::var("IDLEO_APP_VERSION")
-        .or_else(|_| std::env::var("CARGO_PKG_VERSION"))
-        .unwrap_or_default();
+    let version =
+        std::env::var("IDLEO_APP_VERSION").or_else(|_| std::env::var("CARGO_PKG_VERSION")).unwrap_or_default();
     let numbers: Vec<&str> = version.split(['-', '+']).next().unwrap_or("0.0.0").split('.').collect();
     let comma = format!(
         "{},{},{},0",
