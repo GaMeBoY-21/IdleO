@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # How each install of the Windows app went (host experience §6 row 11), read from the local stack's database: the
 # setup app's own measurements, which it sends as it goes (hosts.install_events). For each install, newest first: the
-# minutes from opening the setup app to "listed", the clicks it took, each step's duration and how it went, and where
-# it stopped. Nothing is copied from the laptop: run this on the Mac after the laptop test (docs/windows-laptop-test.md).
+# minutes from opening the setup app to "listed", the clicks it took, each step's duration and how it went (with the
+# words behind a failure, which setup scrubbed of the person and the machine before sending), and where it stopped.
+# Nothing is copied from the laptop: run this on the Mac after the laptop test (docs/windows-laptop-test.md).
 #
 #   scripts/install-report.sh                  every install the local stack (./start.sh) has seen
 #   scripts/install-report.sh <install id>     just that one
@@ -40,10 +41,11 @@ with installs as (
 steps as (
   -- Each step's end, with its duration, in the order the steps ran.
   select install_id,
-         string_agg(format('    %-10s %8s  %s%s', step,
+         string_agg(format('    %-10s %8s  %s%s%s', step,
                            coalesce(round(duration_ms / 1000.0, 1)::text || ' s', ''),
-                           outcome, coalesce(': ' || reason, '')),
-                    E'\n' order by at) as lines
+                           outcome, coalesce(': ' || reason, ''),
+                           coalesce(E'\n        why: ' || replace(detail, E'\n', E'\n             '), '')),
+                    E'\n' order by at, received_at) as lines
   from hosts.install_events
   where step not in ('setup_opened', 'listed', 'click') and outcome <> 'started'
   group by install_id

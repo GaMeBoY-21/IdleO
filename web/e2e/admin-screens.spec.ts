@@ -150,6 +150,14 @@ test.describe("the console", () => {
       admin.installs.recent.length + 1,
     );
     await expect(page.getByRole("table", { name: "Failures by reason" })).toContainText("driver_too_old");
+    // The words behind a failure open under their install; an install that didn't fail has none.
+    const stuck = admin.installs.recent.find((install) => install.details.length > 0)!;
+    const toggle = page.getByRole("button", { name: "1 reason" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByText(stuck.details[0]!.detail)).toBeHidden();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText(stuck.details[0]!.detail)).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "admin-dashboard");
   });

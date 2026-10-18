@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { RelativeTime } from "@/components/ui/Time";
 import { ADMIN, adminApi, adminData, type AdminDashboard, type AdminInstalls } from "./api";
@@ -106,19 +107,10 @@ function Installs() {
             </p>
             <Table
               caption="The last 20 installs"
-              columns={["Opened", "Minutes", "Clicks", "Where it got to", "GPU", "Windows"]}
+              columns={["Opened", "Minutes", "Clicks", "Where it got to", "GPU", "Windows", "Why it failed"]}
             >
               {data.recent.map((install) => (
-                <Row key={install.installId}>
-                  <Cell>
-                    <RelativeTime value={install.openedAt} />
-                  </Cell>
-                  <Cell className="tabular">{minutes(install.minutes)}</Cell>
-                  <Cell className="tabular">{install.clicks}</Cell>
-                  <Cell>{install.stoppedAt}</Cell>
-                  <Cell>{install.gpuModel ?? "—"}</Cell>
-                  <Cell className="tabular">{install.windowsBuild ?? "—"}</Cell>
-                </Row>
+                <InstallRow key={install.installId} install={install} />
               ))}
             </Table>
             {data.failures.length > 0 && (
@@ -136,5 +128,62 @@ function Installs() {
         )}
       </QueryView>
     </Section>
+  );
+}
+
+type Install = AdminInstalls["recent"][number];
+
+/**
+ * One install, and when it has words behind a failure (the error's text or a self-test check's finding, which the setup
+ * app scrubbed of the person and the machine before sending), a button that opens them in a row under it.
+ */
+function InstallRow({ install }: { install: Install }) {
+  const [open, setOpen] = useState(false);
+  const count = install.details.length;
+  const panel = `install-${install.installId}`;
+  return (
+    <>
+      <Row>
+        <Cell>
+          <RelativeTime value={install.openedAt} />
+        </Cell>
+        <Cell className="tabular">{minutes(install.minutes)}</Cell>
+        <Cell className="tabular">{install.clicks}</Cell>
+        <Cell>{install.stoppedAt}</Cell>
+        <Cell>{install.gpuModel ?? "—"}</Cell>
+        <Cell className="tabular">{install.windowsBuild ?? "—"}</Cell>
+        <Cell>
+          {count === 0 ? (
+            "—"
+          ) : (
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={panel}
+              onClick={() => setOpen((was) => !was)}
+              className="inline-flex min-h-touch items-center font-semibold underline-offset-4 hover:underline"
+            >
+              {count === 1 ? "1 reason" : `${count} reasons`}
+            </button>
+          )}
+        </Cell>
+      </Row>
+      {open && (
+        <tr id={panel} className="border-b border-divider bg-fill">
+          <td colSpan={7} className="px-2 py-3">
+            <ul className="flex flex-col gap-3">
+              {install.details.map((each) => (
+                <li key={`${each.step}-${each.reason ?? ""}-${each.at}`} className="flex flex-col gap-1">
+                  <p className="text-caption text-text-muted">
+                    {each.step} · {each.reason ?? "no reason code"} · <RelativeTime value={each.at} />
+                  </p>
+                  <p className="whitespace-pre-wrap break-words text-small">{each.detail}</p>
+                </li>
+              ))}
+            </ul>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

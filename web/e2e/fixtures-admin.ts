@@ -370,6 +370,7 @@ const installRows = [
     windowsBuild: 26100,
     gpuModel: "NVIDIA GeForce RTX 4060 Laptop GPU",
     hostId: PENDING_HOST_ID,
+    details: [],
   },
   {
     installId: "01a14c00-0000-7000-8000-0000000000f2",
@@ -381,6 +382,14 @@ const installRows = [
     windowsBuild: 22631,
     gpuModel: "NVIDIA GeForce RTX 3060 Laptop GPU",
     hostId: null,
+    details: [
+      {
+        step: "checks",
+        reason: "driver_too_old:531.79",
+        detail: "NVIDIA driver 531.79; this needs a newer one",
+        at: ago(30),
+      },
+    ],
   },
 ];
 const listedMinutes = installRows
