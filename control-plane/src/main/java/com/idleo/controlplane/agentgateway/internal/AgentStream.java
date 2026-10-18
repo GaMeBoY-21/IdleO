@@ -1,6 +1,8 @@
 package com.idleo.controlplane.agentgateway.internal;
 
 import com.google.protobuf.Duration;
+import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.hosts.HostTelemetry;
 import gpu.agent.v1.AgentGateway.Ack;
@@ -74,6 +76,11 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         return hostId;
     }
 
+    /** The version the agent said in its Hello; empty until then. */
+    synchronized String agentVersion() {
+        return agentVersion;
+    }
+
     synchronized void start() {
         var timeout = services.properties().helloTimeout();
         helloTimer = services.scheduler()
@@ -105,6 +112,11 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             case SESSION_STATUS -> onSessionStatus(request);
             case USAGE_REPORT -> onUsageReport(request);
             case ACK -> onAck(request.getAck().getAckedMessageId());
+            case SELF_TEST_REPORT -> onSelfTestReport(request);
+            case SET_PAUSE -> onSetPause(request);
+            case LEAVE -> onLeave(request);
+            case UPDATE_RESULT -> onUpdateResult(request);
+            case SPEED_TEST_REQUEST -> onSpeedTestRequest();
             default -> services.metrics().unhandledMessage(body.name().toLowerCase(java.util.Locale.ROOT));
         }
     }
@@ -187,6 +199,12 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                 .build());
         synchronized (this) {
             welcomed = true;
+        }
+        // Where the host stands, for its tray, and any update it should have (ADR 0034), queued before delivery.
+        try {
+            services.hostStatus().welcomed(hostId, hello.hello().agentVersion());
+        } catch (RuntimeException e) {
+            log.warn("Couldn't queue host {}'s status after Welcome; the next change will", hostId, e);
         }
         // Anything queued while the agent was away (ADR 0015).
         var delivery = services.delivery();
@@ -286,6 +304,122 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             return;
         }
         ack(request);
+    }
+
+    /**
+     * The agent's self-test (ADR 0034): stored as the host's latest, which may activate a pending host, then acked.
+     * One that breaks the protocol is counted and dropped.
+     */
+    private void onSelfTestReport(OpenStreamRequest request) {
+        switch (AgentMessages.validate(request.getSelfTestReport())) {
+            case AgentMessages.SelfTestResult.Invalid invalid -> {
+                log.warn("Invalid SelfTestReport from host {}: {}", hostId, invalid.reason());
+                services.metrics().unhandledMessage("invalid_self_test_report");
+            }
+            case AgentMessages.SelfTestResult.Valid valid -> {
+                try {
+                    services.reports().recordSelfTest(hostId, valid.selfTest());
+                } catch (RuntimeException e) {
+                    log.warn("Couldn't record host {}'s self-test; it will resend", hostId, e);
+                    return;
+                }
+                ack(request);
+            }
+        }
+    }
+
+    /**
+     * The owner paused or resumed from the tray (ADR 0034): the same pause as the web app's, through the hosts module,
+     * then acked. A pause the hosts module refuses (more than 7 days, say) is acked too, since sending it again can't
+     * help, and the agent is told where the host still stands.
+     */
+    private void onSetPause(OpenStreamRequest request) {
+        var pause = request.getSetPause();
+        try {
+            if (pause.getResume()) {
+                services.hostRequests().resume(hostId);
+            } else {
+                services.hostRequests()
+                        .pause(
+                                hostId,
+                                pause.hasUntil()
+                                        ? Instant.ofEpochSecond(
+                                                pause.getUntil().getSeconds(),
+                                                pause.getUntil().getNanos())
+                                        : null);
+            }
+        } catch (ApiProblem refused) {
+            log.info("Host {}'s pause was refused: {}", hostId, refused.detail());
+            services.hostStatus().sendStatus(hostId);
+        } catch (RuntimeException e) {
+            log.warn("Couldn't change host {}'s pause; it will resend", hostId, e);
+            return;
+        }
+        ack(request);
+    }
+
+    /**
+     * The app is being uninstalled (ADR 0034): the host is removed as the web app's Remove does, which revokes its
+     * certificates and closes this stream, so the agent hears the stream end rather than an ack. While the host runs a
+     * session it can't be removed: no ack, and the agent sends it again once the session has stopped.
+     */
+    private void onLeave(OpenStreamRequest request) {
+        try {
+            services.hostRequests().leave(hostId);
+        } catch (ApiProblem refused) {
+            if (refused.problem() == Problem.HOST_BUSY) {
+                log.info("Host {} asked to leave while it runs a session; waiting for it to stop", hostId);
+                return;
+            }
+            log.warn("Host {}'s leave was refused: {}", hostId, refused.detail());
+        } catch (RuntimeException e) {
+            log.warn("Couldn't remove host {}; it will resend", hostId, e);
+            return;
+        }
+        ack(request);
+    }
+
+    /** How an offered update went (ADR 0034): stored per version, then acked; an invalid one is counted and dropped. */
+    private void onUpdateResult(OpenStreamRequest request) {
+        var result = request.getUpdateResult();
+        var outcome = AgentMessages.outcome(result);
+        if (outcome.isEmpty()) {
+            services.metrics().unhandledMessage("invalid_update_result");
+            return;
+        }
+        try {
+            services.reports()
+                    .recordUpdateResult(
+                            hostId, result.getVersion(), outcome.get(), AgentMessages.cut(result.getDetail()));
+            services.hostStatus().rolledBack(hostId, agentVersion());
+        } catch (RuntimeException e) {
+            log.warn("Couldn't record host {}'s update result; it will resend", hostId, e);
+            return;
+        }
+        ack(request);
+    }
+
+    /**
+     * The self-test's speed check (ADR 0034): a short-lived grant for this host's one speed-check object, sent straight
+     * back as the answer, like an ack. If storage can't mint one, nothing is sent and the check is skipped.
+     */
+    private void onSpeedTestRequest() {
+        var credentials = services.credentials();
+        if (credentials == null) {
+            services.metrics().unhandledMessage("speed_test_request");
+            return;
+        }
+        try {
+            var test = credentials.speedTest(hostId);
+            send(OpenStreamResponse.newBuilder()
+                    .setMessageId(services.ids().newId().toString())
+                    .setSpeedTestGrant(gpu.agent.v1.Host.SpeedTestGrant.newBuilder()
+                            .setGrant(test.grant())
+                            .setKey(test.key()))
+                    .build());
+        } catch (RuntimeException e) {
+            log.warn("Couldn't mint a speed-check grant for host {}; its self-test skips the check", hostId, e);
+        }
     }
 
     private void ack(OpenStreamRequest request) {

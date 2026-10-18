@@ -21,6 +21,7 @@ const host = (overrides: Partial<Host> = {}): Host => ({
   online: true,
   paused: false,
   updateRequired: false,
+  updateWaiting: false,
   createdAt: "2026-10-01T10:00:00Z",
   gpus: [{ model: "NVIDIA GeForce RTX 4080 Laptop GPU", vramMb: 12282, gone: false }],
   ...overrides,

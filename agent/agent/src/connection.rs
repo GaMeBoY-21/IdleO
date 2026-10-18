@@ -706,6 +706,8 @@ fn log_unhandled(message: &OpenStreamResponse) {
         Some(ServerBody::UpdateAgent(_)) => "UpdateAgent",
         Some(ServerBody::Ack(_)) => "Ack",
         Some(ServerBody::RefreshCredentials(_)) => "RefreshCredentials",
+        Some(ServerBody::HostStatus(_)) => "HostStatus",
+        Some(ServerBody::SpeedTestGrant(_)) => "SpeedTestGrant",
         None => "empty",
     };
     tracing::debug!(kind, message_id = %message.message_id, "message not handled by this agent version; ignored");

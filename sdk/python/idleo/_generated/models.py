@@ -274,6 +274,27 @@ class InboxPage(BaseModel):
     unread: int
 
 
+class InstallEvent(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    at: AwareDatetime
+    duration_ms: Annotated[int | None, Field(alias="durationMs", ge=0, le=86400000)] = None
+    gpu_model: Annotated[str | None, Field(alias="gpuModel", max_length=100, min_length=0)] = None
+    outcome: str
+    reason: Annotated[str | None, Field(max_length=120, min_length=0)] = None
+    setup_version: Annotated[str | None, Field(alias="setupVersion", max_length=40, min_length=0)] = None
+    step: Annotated[str, Field(max_length=40, min_length=0)]
+    windows_build: Annotated[int | None, Field(alias="windowsBuild", ge=0, le=1000000)] = None
+
+
+class InstallEventsRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    events: Annotated[list[InstallEvent], Field(max_length=20, min_length=0)]
+
+
 class KindChoice(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -517,6 +538,9 @@ class Type(Enum):
     field_problems_host_removed = "/problems/host-removed"
     field_problems_host_no_gpu = "/problems/host-no-gpu"
     field_problems_pause_too_long = "/problems/pause-too-long"
+    field_problems_no_agent_release = "/problems/no-agent-release"
+    field_problems_install_events_full = "/problems/install-events-full"
+    field_problems_request_too_large = "/problems/request-too-large"
     field_problems_session_not_rateable = "/problems/session-not-rateable"
     field_problems_rating_closed = "/problems/rating-closed"
     field_problems_report_window_closed = "/problems/report-window-closed"
@@ -604,6 +628,15 @@ class Reading(BaseModel):
     temp_c: Annotated[int, Field(alias="tempC")]
     util_pct: Annotated[int, Field(alias="utilPct")]
     vram_used_mb: Annotated[int, Field(alias="vramUsedMb")]
+
+
+class ReleaseUrls(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    app: str
+    distro: str
+    setup: str
 
 
 class RenameRequest(BaseModel):
@@ -753,6 +786,7 @@ class StartLinkRequest(BaseModel):
     )
     agent_version: Annotated[str, Field(alias="agentVersion", max_length=40, min_length=0)]
     gpus: Annotated[list[GpuInfo], Field(max_length=8, min_length=0)]
+    install_id: Annotated[UUID | None, Field(alias="installId")] = None
     machine_name: Annotated[str, Field(alias="machineName", max_length=100, min_length=0)]
     os: Annotated[str, Field(max_length=40, min_length=0)]
 
@@ -1072,6 +1106,18 @@ class HostResponse(BaseModel):
     rating: Rating | None = None
     status: str
     update_required: Annotated[bool, Field(alias="updateRequired")]
+    update_waiting: Annotated[bool, Field(alias="updateWaiting")]
+
+
+class LatestRelease(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    manifest: str
+    setup_size_bytes: Annotated[int, Field(alias="setupSizeBytes")]
+    signature: str
+    urls: ReleaseUrls
+    version: str
 
 
 class NotificationChoices(BaseModel):

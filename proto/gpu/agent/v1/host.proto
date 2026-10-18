@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package gpu.agent.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "gpu/agent/v1/session.proto";
+
+// Agent to control plane: the result of the agent's self-test (its distro,
+// the GPU inside it, the lockdown, the disk and, once linked, the speed to
+// storage). Sent after enrolment, after every update trial, and when its
+// owner's tray asks. Acked. Stored as the host's latest self-test; with
+// automatic activation on, a pending host whose self-test passed goes live.
+message SelfTestReport {
+  // Every check that ran, in the order it ran.
+  repeated SelfTestCheck checks = 1;
+  // True if every check passed.
+  bool passed = 2;
+  // The version of the agent's Linux distribution, for example "0.1.0";
+  // empty where there is none (Linux and macOS hosts).
+  string distro_version = 3;
+}
+
+// One named check of a self-test.
+message SelfTestCheck {
+  // Which check, for example "gpu_in_container".
+  // Empty is invalid; the receiver rejects the message.
+  string name = 1;
+  // True if it passed.
+  bool passed = 2;
+  // What it found, in one line, for the admin console: never a path or a
+  // user name.
+  string detail = 3;
+  // How long it took.
+  google.protobuf.Duration took = 4;
+}
+
+// Agent to control plane: its owner paused or resumed hosting from the tray.
+// The same pause as the web app's Hosting tab: one pause, shown in both
+// places. Acked. A HostStatus follows with the result.
+message SetPause {
+  // When the pause ends; absent for a pause that lasts until it's resumed.
+  // At most 7 days away.
+  optional google.protobuf.Timestamp until = 1;
+  // True to resume now; `until` is then ignored.
+  bool resume = 2;
+}
+
+// Agent to control plane: the app is being uninstalled. The control plane
+// removes the host, as the web app's Remove does, and revokes its
+// certificate; the stream then closes. Acked.
+message Leave {}
+
+// Agent to control plane: how an update offered by UpdateAgent went. Acked.
+// The control plane never offers a version again to a host that rolled it
+// back.
+message UpdateResult {
+  // How it ended.
+  enum Outcome {
+    // Never sent. A receiver treats it as an error.
+    OUTCOME_UNSPECIFIED = 0;
+    // The new version is running and passed its trial.
+    OUTCOME_INSTALLED = 1;
+    // The new version failed its trial and the old one is back.
+    OUTCOME_ROLLED_BACK = 2;
+    // The manifest's signature, the download's size or its SHA-256 didn't
+    // match, so nothing was installed.
+    OUTCOME_FAILED_VERIFY = 3;
+    // The download couldn't be finished.
+    OUTCOME_FAILED_DOWNLOAD = 4;
+  }
+  // The version the result is for, semantic versioning.
+  // Empty is invalid; the receiver rejects the message.
+  string version = 1;
+  // How it ended.
+  // UNSPECIFIED is invalid; the receiver rejects the message.
+  Outcome outcome = 2;
+  // Why, in one line, for the admin console.
+  string detail = 3;
+}
+
+// Where a host stands with the control plane.
+enum HostState {
+  // Never sent. A receiver treats it as an error.
+  HOST_STATE_UNSPECIFIED = 0;
+  // Linked, waiting to be checked and activated before it gets work.
+  HOST_STATE_PENDING_APPROVAL = 1;
+  // Live: renters can book it.
+  HOST_STATE_ACTIVE = 2;
+  // Its owner paused it, from the web app or the tray.
+  HOST_STATE_PAUSED = 3;
+  // Removed by its owner; the stream closes after this.
+  HOST_STATE_REMOVED = 4;
+  // Suspended by an operator.
+  HOST_STATE_SUSPENDED = 5;
+}
+
+// Control plane to agent: where the host stands, for its tray. Sent after
+// Welcome, whenever the host's status or pause changes, and after its
+// earnings change. Acked. Each replaces the last.
+message HostStatus {
+  // The host's state.
+  // UNSPECIFIED is invalid; the receiver rejects the message.
+  HostState state = 1;
+  // When the pause ends, while paused with an end.
+  optional google.protobuf.Timestamp paused_until = 2;
+  // What the host has earned today (India's calendar day), in paise, from
+  // the ledger: the same figure as the web app's Earnings.
+  int64 earned_today_paise = 3;
+  // What the session running now has earned the host so far, in paise: the
+  // machine page's figure. Absent while no session runs.
+  optional int64 earning_now_paise = 4;
+}
+
+// Agent to control plane: asks for a storage grant for its self-test's speed
+// check. Not acked: answered by SpeedTestGrant. Sent only by a linked agent,
+// at most once per self-test.
+message SpeedTestRequest {}
+
+// Control plane to agent: a short-lived read-write grant covering only this
+// host's speed-check object. The agent writes 32 MB at `key` and reads it
+// back, timing both; the next check overwrites it. Not acked.
+message SpeedTestGrant {
+  // The grant, scoped to the host's speed-check folder.
+  // Absent is invalid; the receiver rejects the message.
+  StorageGrant grant = 1;
+  // The object to write and read, inside the grant's prefix.
+  // Empty is invalid; the receiver rejects the message.
+  string key = 2;
+}

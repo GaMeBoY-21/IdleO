@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Hosts, for the admin console (ADR 0027): find them, read one in full, and activate, suspend or revoke its
@@ -41,6 +43,8 @@ class AdminHostsController {
     private final HostPresence presence;
     private final HostTelemetry telemetry;
     private final AuditTrail audit;
+    private final JsonMapper json = JsonMapper.builder().build();
+    private static final TypeReference<List<AdminSelfTestCheck>> SELF_TEST_CHECKS = new TypeReference<>() {};
 
     AdminHostsController(
             JdbcClient jdbc,
@@ -94,9 +98,24 @@ class AdminHostsController {
     /** One change of the host's status: from, to, why and by whom. */
     record AdminHostStatusChange(String from, String to, String reason, String changedBy, Instant at) {}
 
+    /** One check of the agent's self-test: its name, whether it passed, what it found and how long it took. */
+    record AdminSelfTestCheck(String name, boolean passed, String detail, long tookMs) {}
+
+    /** The agent's latest self-test, shown beside Activate: every check, and the agent and distro it ran on. */
+    record AdminSelfTest(
+            boolean passed,
+            String distroVersion,
+            @Nullable String agentVersion,
+            List<AdminSelfTestCheck> checks,
+            Instant reportedAt) {}
+
+    /** How the latest update offered to the host went: {@code outcome} is installed, rolled_back, failed_verify or failed_download. */
+    record AdminUpdateResult(String version, String outcome, String detail, Instant reportedAt) {}
+
     /**
      * Everything about a host an admin needs: its listing, pause and agent, its GPUs, certificates and status history,
-     * and its telemetry (the latest heartbeat and the last hour), which is never used for billing.
+     * its telemetry (the latest heartbeat and the last hour), which is never used for billing, its agent's latest
+     * self-test and how its last update went.
      */
     record AdminHost(
             UUID id,
@@ -116,7 +135,9 @@ class AdminHostsController {
             List<AdminHostGpu> gpus,
             List<AdminHostCertificate> certificates,
             List<AdminHostStatusChange> statusHistory,
-            HostTelemetry.Telemetry telemetry) {}
+            HostTelemetry.Telemetry telemetry,
+            @Nullable AdminSelfTest selfTest,
+            @Nullable AdminUpdateResult lastUpdate) {}
 
     /**
      * {@code query} is part of a host's name, or a whole host or owner id; {@code status} is pending, verified, active,
@@ -259,6 +280,26 @@ class AdminHostsController {
                         rs.getTimestamp("created_at").toInstant()))
                 .list();
         var connection = presence.connections(List.of(id)).get(id);
+        var selfTest = jdbc.sql("select * from hosts.self_tests where host_id = :id")
+                .param("id", id)
+                .query((rs, n) -> new AdminSelfTest(
+                        rs.getBoolean("passed"),
+                        rs.getString("distro_version"),
+                        rs.getString("agent_version"),
+                        json.readValue(rs.getString("checks"), SELF_TEST_CHECKS),
+                        rs.getTimestamp("reported_at").toInstant()))
+                .optional()
+                .orElse(null);
+        var lastUpdate = jdbc.sql(
+                        "select * from hosts.update_results where host_id = :id order by reported_at desc limit 1")
+                .param("id", id)
+                .query((rs, n) -> new AdminUpdateResult(
+                        rs.getString("version"),
+                        rs.getString("outcome"),
+                        rs.getString("detail"),
+                        rs.getTimestamp("reported_at").toInstant()))
+                .optional()
+                .orElse(null);
         return new AdminHost(
                 host.id(),
                 host.ownerUserId(),
@@ -277,7 +318,9 @@ class AdminHostsController {
                 gpus,
                 issued,
                 history,
-                telemetry.of(id));
+                telemetry.of(id),
+                selfTest,
+                lastUpdate);
     }
 
     private static void refusing(Supplier<?> action) {

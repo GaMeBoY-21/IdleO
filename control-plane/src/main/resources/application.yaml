@@ -138,11 +138,25 @@ logging:
 
 hosts:
   # Linking a host by approval (ADR 0032): the web app's /link/<id>/ page is where its owner approves, the same web app
-  # as a CLI sign-in. A new host is created pending, and an admin activates it, until auto-activate is turned on after
-  # the invite-only pilot (a host whose self-test passed is then activated by itself; the self-test comes later).
+  # as a CLI sign-in. A new host is created pending, and an admin activates it (its agent's self-test beside the
+  # button), until auto-activate is turned on after the invite-only pilot: a pending host whose self-test passed is then
+  # activated by itself.
   link:
     web-app-url: ${HOSTS_LINK_WEB_APP_URL:${IDENTITY_WEB_APP_URL:http://localhost:3000}}
   auto-activate: false
+  # The Windows app's signed release feed (ADR 0034): stable/latest.json and its .sig in the releases bucket of the
+  # object storage sessions use, read every refresh-every and served only if its Ed25519 signature verifies against
+  # public-key (the raw key in base64; agent/release-keys/release.pub in production). With no public key the feed is
+  # off and there's no download. Download links last link-ttl.
+  releases:
+    endpoint: ${HOSTS_RELEASES_ENDPOINT:${SESSIONS_STORAGE_ENDPOINT:}}
+    bucket: ${HOSTS_RELEASES_BUCKET:releases}
+    region: ${HOSTS_RELEASES_REGION:auto}
+    access-key-id: ${HOSTS_RELEASES_ACCESS_KEY_ID:${SESSIONS_STORAGE_ACCESS_KEY_ID:}}
+    secret-access-key: ${HOSTS_RELEASES_SECRET_ACCESS_KEY:${SESSIONS_STORAGE_SECRET_ACCESS_KEY:}}
+    public-key: ${IDLEO_RELEASE_PUBLIC_KEY:}
+    refresh-every: 5m
+    link-ttl: 1h
   ca:
     # Our online intermediate CA (ADR 0010), from the environment: PEM content
     # or a location. The root's private key is never here, only its certificate.

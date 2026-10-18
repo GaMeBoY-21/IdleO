@@ -146,6 +146,10 @@ sessions/{session_id}/
     logs/
       {seq}.log              the job's output, one chunk each, seq = 1, 2, 3 ...,
                              written as 8 zero-padded digits (00000001.log)
+speedtest/{host_id}/
+  probe                      the self-test's speed check (ADR 0034): 32 MB the
+                             agent writes and reads back, overwritten each time,
+                             through a grant (SpeedTestGrant) for this folder only
 ```
 
 The control plane writes `uploads/` itself, through pre-signed multipart links the renter's client PUTs to, one multipart upload per file; nothing an agent holds can write there. An upload belongs to its renter, not to one session: it's kept in their My files, so the same model can be several sessions' input. Uploads made before folders (ADR 0022) keep their one file at `uploads/{upload_id}/{name}`; `InputRef.prefix` names whichever folder a file is in.

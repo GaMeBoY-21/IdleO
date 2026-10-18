@@ -2,6 +2,7 @@ package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
+import com.idleo.controlplane.billing.HostEarningsChanged;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -26,6 +28,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>The code checks every transaction before it reaches the database, and the database checks it
  * again: a deferred trigger refuses an unbalanced transaction at commit, triggers refuse any change
  * to an entry, and the wallet table refuses a negative balance.
+ *
+ * <p>A posting that touches hosts' earnings announces it ({@link HostEarningsChanged}) in the same database
+ * transaction, so each host's tray shows today's figure again.
  */
 @Component
 class Ledger {
@@ -34,12 +39,19 @@ class Ledger {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    Ledger(JdbcClient jdbc, PlatformTransactionManager transactionManager, IdGenerator ids, Clock clock) {
+    Ledger(
+            JdbcClient jdbc,
+            PlatformTransactionManager transactionManager,
+            IdGenerator ids,
+            Clock clock,
+            ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
         this.clock = clock;
+        this.events = events;
     }
 
     /** The outcome of a posting: {@code posted} is false when the transaction was already in the ledger. */
@@ -192,6 +204,15 @@ class Ledger {
                     .param("now", Timestamp.from(now))
                     .param("userId", wallet.userId())
                     .update();
+        }
+        var hosts = transaction.entries().stream()
+                .filter(entry -> entry.account() == Account.HOST_PAYABLE)
+                .map(LedgerEntry::ownerId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (!hosts.isEmpty()) {
+            events.publishEvent(new HostEarningsChanged(hosts));
         }
         return new Posting(transaction.txnId(), true, now);
     }

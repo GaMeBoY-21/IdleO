@@ -32,4 +32,10 @@ public interface SessionCredentials {
 
     /** {@code refresh} went down the host's stream at {@code sentAt}. */
     void refreshed(UUID hostId, RefreshCredentials refresh, Instant sentAt);
+
+    /** A grant for the host's self-test speed check (ADR 0034), covering only its one object, and that object's key. */
+    record SpeedTest(gpu.agent.v1.Session.StorageGrant grant, String key) {}
+
+    /** Mints a speed-check grant for the host, now. Throws if storage can't mint one. */
+    SpeedTest speedTest(UUID hostId);
 }

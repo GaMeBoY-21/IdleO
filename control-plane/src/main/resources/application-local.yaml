@@ -57,6 +57,14 @@ agentgateway:
 # private/dev-ca/. Development only: production reads every value from the
 # environment (application.yaml).
 hosts:
+  # The Windows app's release feed in the same MinIO (ADR 0034), at the address sessions' storage uses, so a laptop on
+  # the LAN can download from it too. Its public key comes from private/release-dev/release.pub, which start.sh reads
+  # into IDLEO_RELEASE_PUBLIC_KEY (scripts/release/dev-key.sh makes it).
+  releases:
+    endpoint: ${sessions.storage.endpoint}
+    region: us-east-1
+    access-key-id: ${sessions.storage.access-key-id}
+    secret-access-key: ${sessions.storage.secret-access-key}
   ca:
     root-certificate: file:../private/dev-ca/root.pem
     intermediate-certificate: file:../private/dev-ca/intermediate.pem

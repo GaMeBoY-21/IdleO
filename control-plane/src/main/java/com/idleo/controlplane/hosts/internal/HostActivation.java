@@ -1,6 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.hosts.HostStandingChanged;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -8,6 +9,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -27,18 +29,21 @@ class HostActivation {
     private final IdGenerator ids;
     private final Clock clock;
     private final AuditTrail audit;
+    private final ApplicationEventPublisher events;
 
     HostActivation(
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
             Clock clock,
-            AuditTrail audit) {
+            AuditTrail audit,
+            ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
         this.clock = clock;
         this.audit = audit;
+        this.events = events;
     }
 
     /** The outcome: {@code changed} is false when the host already had that status. */
@@ -111,6 +116,7 @@ class HostActivation {
                     reason,
                     Map.of("status", from),
                     Map.of("status", to.dbValue())));
+            events.publishEvent(new HostStandingChanged(hostId));
             return new Change(hostId, from, to.dbValue(), true);
         }));
     }

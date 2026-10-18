@@ -25,7 +25,8 @@ class IdentitySecurityConfiguration {
 
     /**
      * The calls that need no sign-in: starting a CLI sign-in and polling it (ADR 0025), whose poll token is its own
-     * credential, and the public pages' availability (ADR 0029).
+     * credential, the public pages' availability (ADR 0029), and the Windows app's release and its setup program's
+     * measurements (ADR 0034).
      */
     @Bean
     RequestMatcher signedOutCalls() {
@@ -37,7 +38,12 @@ class IdentitySecurityConfiguration {
                 // proof.
                 paths.matcher(HttpMethod.POST, "/v1/host-links"),
                 paths.matcher(HttpMethod.POST, "/v1/host-links/{id}/ticket"),
-                paths.matcher(HttpMethod.GET, "/v1/public/availability"));
+                paths.matcher(HttpMethod.GET, "/v1/public/availability"),
+                // The Windows app's latest release and its download, for the setup app and the Download buttons.
+                paths.matcher(HttpMethod.GET, "/v1/agent-releases/latest"),
+                paths.matcher(HttpMethod.GET, "/v1/agent-releases/latest/setup"),
+                // The setup app's measurements, under an install id it makes, before anyone has signed in.
+                paths.matcher(HttpMethod.POST, "/v1/host-installs/{installId}/events"));
     }
 
     /**

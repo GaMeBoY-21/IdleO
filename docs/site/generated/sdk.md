@@ -264,6 +264,9 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `HostRemoved` | `host-removed` | 410 | 1 |
 | `HostNoGpu` | `host-no-gpu` | 409 | 1 |
 | `PauseTooLong` | `pause-too-long` | 400 | 1 |
+| `NoAgentRelease` | `no-agent-release` | 404 | 1 |
+| `InstallEventsFull` | `install-events-full` | 422 | 1 |
+| `RequestTooLarge` | `request-too-large` | 413 | 1 |
 | `SessionNotRateable` | `session-not-rateable` | 409 | 1 |
 | `RatingClosed` | `rating-closed` | 409 | 1 |
 | `ReportWindowClosed` | `report-window-closed` | 409 | 1 |

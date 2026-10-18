@@ -49,12 +49,16 @@ class HostLinkController {
             @NotBlank @Size(max = 100) String model,
             @NotNull @Min(1) @Max(1_000_000) Integer vramMb) {}
 
-    /** What the agent knows of its machine. None of it is trusted: it is what the approval page shows. */
+    /**
+     * What the agent knows of its machine. None of it is trusted: it is what the approval page shows. {@code
+     * installId} is the Windows setup app's, when it asks, so its install is tied to the host once approved.
+     */
     record StartLinkRequest(
             @NotBlank @Size(max = 100) String machineName,
             @NotBlank @Size(max = 40) String os,
             @NotBlank @Size(max = 40) String agentVersion,
-            @NotNull @Size(max = 8) List<@Valid GpuInfo> gpus) {}
+            @NotNull @Size(max = 8) List<@Valid GpuInfo> gpus,
+            @Nullable UUID installId) {}
 
     /** What the agent keeps: the link to open, and the token to poll with, which is never shown to the person. */
     record StartedLink(UUID id, String approveUrl, String pollToken, long intervalSeconds, long expiresInSeconds) {}
@@ -99,7 +103,7 @@ class HostLinkController {
                 request.gpus().stream()
                         .map(gpu -> new HostLinks.Gpu(gpu.model().strip(), gpu.vramMb()))
                         .toList());
-        var started = links.start(machine);
+        var started = links.start(machine, request.installId());
         var url = UriComponentsBuilder.fromUri(links.properties().link().webAppUrl())
                 .path("/link/{id}/")
                 .buildAndExpand(started.id())

@@ -28,7 +28,9 @@ class HostViews {
      * the agent last reported; {@code updateRequired} says it's older than the oldest release we support, and {@code
      * onlineSince} when its current stream opened, empty while it's offline. {@code currentSession} is what it's
      * running now and what it has earned from that so far, never for whom; empty when it's idle. {@code rating} is
-     * its renters' average over the last 90 days, empty until 5 of them have rated it (ADR 0028).
+     * its renters' average over the last 90 days, empty until 5 of them have rated it (ADR 0028). {@code
+     * updateWaiting} says a newer release of the Windows app is offered to it, which it installs once it's idle (ADR
+     * 0034).
      */
     record HostResponse(
             UUID id,
@@ -40,6 +42,7 @@ class HostViews {
             @Nullable Instant pausedUntil,
             @Nullable String agentVersion,
             boolean updateRequired,
+            boolean updateWaiting,
             @Nullable Instant onlineSince,
             HostWork.@Nullable CurrentSession currentSession,
             List<GpuResponse> gpus,
@@ -52,6 +55,7 @@ class HostViews {
     private final HostPresence presence;
     private final HostWork work;
     private final HostRatings ratings;
+    private final AgentReleaseFeed releases;
     private final Clock clock;
 
     HostViews(
@@ -60,12 +64,14 @@ class HostViews {
             HostPresence presence,
             HostWork work,
             HostRatings ratings,
+            AgentReleaseFeed releases,
             Clock clock) {
         this.hosts = hosts;
         this.listings = listings;
         this.presence = presence;
         this.work = work;
         this.ratings = ratings;
+        this.releases = releases;
         this.clock = clock;
     }
 
@@ -104,6 +110,9 @@ class HostViews {
                             paused ? host.pausedUntil() : null,
                             host.agentVersion(),
                             connection != null && connection.updateRequired(),
+                            !host.removed()
+                                    && releases.eligible(host.id(), host.agentVersion())
+                                            .isPresent(),
                             connection == null ? null : connection.since(),
                             current.get(host.id()),
                             gpus.getOrDefault(host.id(), List.of()).stream()

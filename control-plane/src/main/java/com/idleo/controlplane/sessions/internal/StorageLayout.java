@@ -22,6 +22,16 @@ final class StorageLayout {
         return uploadPrefix(uploadId) + "files/" + storedPath;
     }
 
+    /** A host's speed-check folder (ADR 0034): one object, overwritten by each self-test. */
+    static String speedTestPrefix(UUID hostId) {
+        return "speedtest/" + hostId + "/";
+    }
+
+    /** The speed check's one object. */
+    static String speedTestKey(UUID hostId) {
+        return speedTestPrefix(hostId) + "probe";
+    }
+
     static String sessionPrefix(UUID sessionId) {
         return "sessions/" + sessionId + "/";
     }

@@ -3,8 +3,11 @@ package com.idleo.controlplane.billing.internal;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.billing.HostEarnings;
 import com.idleo.controlplane.billing.SessionCharges;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -16,10 +19,23 @@ class HostEarningsService implements HostEarnings {
 
     private final JdbcClient jdbc;
     private final SessionCharges charges;
+    private final OwnerEarningsQueries queries;
+    private final Clock clock;
 
-    HostEarningsService(JdbcClient jdbc, SessionCharges charges) {
+    HostEarningsService(JdbcClient jdbc, SessionCharges charges, OwnerEarningsQueries queries, Clock clock) {
         this.jdbc = jdbc;
         this.charges = charges;
+        this.queries = queries;
+        this.clock = clock;
+    }
+
+    @Override
+    public long earnedToday(UUID hostId) {
+        var today = Instant.now(clock).atZone(OwnerEarningsController.IST).toLocalDate();
+        return queries.between(
+                List.of(hostId),
+                today.atStartOfDay(OwnerEarningsController.IST).toInstant(),
+                today.plusDays(1).atStartOfDay(OwnerEarningsController.IST).toInstant());
     }
 
     @Override

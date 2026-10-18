@@ -1,5 +1,6 @@
 package com.idleo.controlplane.agentgateway.internal;
 
+import com.idleo.controlplane.SemanticVersion;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;

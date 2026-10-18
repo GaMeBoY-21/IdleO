@@ -75,6 +75,22 @@ class AgentCommandService implements AgentCommands {
                         """).param("sessionId", sessionId).param("type", type).update();
     }
 
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public UUID replace(UUID hostId, String type, OpenStreamResponse.Builder message) {
+        withdrawFor(hostId, type);
+        return enqueue(hostId, null, type, message, null, true);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void withdrawFor(UUID hostId, String type) {
+        jdbc.sql("""
+                        update agentgateway.agent_commands set status = 'withdrawn'
+                        where host_id = :hostId and type = :type and status in ('pending', 'sent')
+                        """).param("hostId", hostId).param("type", type).update();
+    }
+
     /**
      * The host's agent acknowledged a message that needed it. The ack can overtake the commit that marks the
      * command sent, so a pending one matches too: the update then waits for that commit and checks the row

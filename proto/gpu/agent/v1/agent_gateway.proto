@@ -4,6 +4,7 @@ package gpu.agent.v1;
 
 import "google/protobuf/duration.proto";
 import "gpu/agent/v1/enrollment.proto";
+import "gpu/agent/v1/host.proto";
 import "gpu/agent/v1/session.proto";
 import "gpu/agent/v1/telemetry.proto";
 
@@ -41,9 +42,20 @@ message OpenStreamRequest {
     SessionStatus session_status = 13;
     // One minute of usage. Acked.
     UsageReport usage_report = 14;
-    // Acknowledges a StartSession, StopSession, UpdateAgent or
-    // RefreshCredentials.
+    // Acknowledges a StartSession, StopSession, UpdateAgent,
+    // RefreshCredentials or HostStatus.
     Ack ack = 15;
+    // The agent's self-test results. Acked.
+    SelfTestReport self_test_report = 16;
+    // The owner paused or resumed hosting from the tray. Acked.
+    SetPause set_pause = 17;
+    // The app is being uninstalled: remove this host. Acked.
+    Leave leave = 18;
+    // How an offered update went. Acked.
+    UpdateResult update_result = 19;
+    // Asks for a grant for the self-test's speed check. Answered by
+    // SpeedTestGrant.
+    SpeedTestRequest speed_test_request = 20;
   }
 }
 
@@ -68,10 +80,15 @@ message OpenStreamResponse {
     StopSession stop_session = 14;
     // Install a newer agent build. Acked.
     UpdateAgent update_agent = 15;
-    // Acknowledges an OfferReply, SessionStatus or UsageReport.
+    // Acknowledges an OfferReply, SessionStatus, UsageReport,
+    // SelfTestReport, SetPause, Leave or UpdateResult.
     Ack ack = 16;
     // Fresh storage credentials for a running attempt. Acked.
     RefreshCredentials refresh_credentials = 17;
+    // Where the host stands, for its tray. Acked.
+    HostStatus host_status = 18;
+    // The answer to SpeedTestRequest. Not acked.
+    SpeedTestGrant speed_test_grant = 19;
   }
 }
 
@@ -132,22 +149,39 @@ message Ack {
 }
 
 // Control plane to agent: install a newer, signed agent build. Acked when
-// received; the agent installs it once no session is running.
+// received; the agent installs it once no session is running. Sent once per
+// connection, and only when the version is newer than the agent's, the host
+// is in the release's rollout, and the host hasn't rolled that version back.
 message UpdateAgent {
-  // The version to install, semantic versioning.
+  // The version to install, semantic versioning. Mirrors the manifest's.
   // Empty is invalid; the receiver rejects the message.
   string version = 1;
-  // Where to download the build.
-  // Empty is invalid; the receiver rejects the message.
+  // Deprecated, never used by any agent: the signed manifest (field 5)
+  // replaced it.
   string download_url = 2;
-  // SHA-256 of the download, as lowercase hex. The agent checks it before
-  // anything else.
-  // Empty is invalid; the receiver rejects the message.
+  // Deprecated, never used by any agent: the signed manifest (field 5)
+  // carries the SHA-256 of each file.
   string sha256 = 3;
-  // cosign signature over the build. The agent installs only builds that
-  // verify against the release key built into it.
-  // Empty is invalid; the receiver rejects the message.
+  // Deprecated, never used by any agent: the release is signed with Ed25519
+  // over the manifest (field 6), not with cosign.
   bytes cosign_signature = 4;
+  // The release's manifest, JSON, exactly as signed: version, channel,
+  // rollout, the minimum Windows build, and the size and SHA-256 of the app
+  // zip, the distro tarball and the setup program.
+  // Empty is invalid; the receiver rejects the message.
+  bytes manifest = 5;
+  // The Ed25519 signature over `manifest`. The agent installs only a release
+  // whose manifest verifies against the release key built into it.
+  // Empty is invalid; the receiver rejects the message.
+  bytes manifest_signature = 6;
+  // Where to download the app zip, valid for an hour. Not signed: the
+  // manifest's size and SHA-256 are the check.
+  // Empty is invalid; the receiver rejects the message.
+  string app_url = 7;
+  // Where to download the distro tarball, valid for an hour. Not signed: the
+  // manifest's size and SHA-256 are the check.
+  // Empty is invalid; the receiver rejects the message.
+  string distro_url = 8;
 }
 
 // Asks for a fresh client certificate.

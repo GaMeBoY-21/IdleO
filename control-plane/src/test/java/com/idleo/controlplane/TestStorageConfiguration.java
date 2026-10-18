@@ -18,6 +18,8 @@ public class TestStorageConfiguration {
     public static final String ROOT_USER = "test-storage-root";
     public static final String ROOT_PASSWORD = "test-storage-password";
     public static final String BUCKET = "idleo-test";
+    /** The Windows app's release feed (ADR 0034), in the same MinIO. */
+    public static final String RELEASES_BUCKET = "releases-test";
 
     /** MinIO, as its own type so it never competes with the other containers for injection. */
     public static class StorageContainer extends GenericContainer<StorageContainer> {
@@ -50,6 +52,15 @@ public class TestStorageConfiguration {
             registry.add("sessions.storage.region", () -> "us-east-1");
             registry.add("sessions.storage.access-key-id", () -> ROOT_USER);
             registry.add("sessions.storage.secret-access-key", () -> ROOT_PASSWORD);
+            registry.add("hosts.releases.endpoint", storage::endpoint);
+            registry.add("hosts.releases.bucket", () -> RELEASES_BUCKET);
+            registry.add("hosts.releases.region", () -> "us-east-1");
+            registry.add("hosts.releases.access-key-id", () -> ROOT_USER);
+            registry.add("hosts.releases.secret-access-key", () -> ROOT_PASSWORD);
+            registry.add(
+                    "hosts.releases.public-key", () -> TestReleaseKeys.get().publicKeyBase64());
+            // Tests read the feed when they mean to (AgentReleaseFeed.refresh), never on a timer.
+            registry.add("hosts.releases.refresh-every", () -> "1h");
         };
     }
 }

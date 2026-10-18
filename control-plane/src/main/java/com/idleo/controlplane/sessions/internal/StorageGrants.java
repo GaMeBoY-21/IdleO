@@ -40,4 +40,9 @@ class StorageGrants {
         var readGrant = readPrefixes.isEmpty() ? null : issuer.issue(readPrefixes, false);
         return new AttemptGrants(attemptGrant, readGrant);
     }
+
+    /** A read-write grant for a host's speed-check folder only (ADR 0034). */
+    StorageGrant speedTest(UUID hostId) {
+        return issuer.issue(java.util.List.of(StorageLayout.speedTestPrefix(hostId)), true);
+    }
 }

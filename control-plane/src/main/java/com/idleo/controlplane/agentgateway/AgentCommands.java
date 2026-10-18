@@ -32,4 +32,16 @@ public interface AgentCommands {
 
     /** Stops delivery of the session's commands of {@code type} that haven't been delivered, or acked. */
     void withdraw(UUID sessionId, String type);
+
+    /**
+     * Queues {@code message} for the host's agent in place of any command of the same {@code type} for that host not
+     * yet delivered or acked, inside the caller's transaction; kept and resent until the agent's Ack. For messages
+     * where only the latest matters, such as HostStatus and UpdateAgent.
+     *
+     * @return the message id
+     */
+    UUID replace(UUID hostId, String type, OpenStreamResponse.Builder message);
+
+    /** Stops delivery of the host's commands of {@code type} that haven't been delivered, or acked. */
+    void withdrawFor(UUID hostId, String type);
 }

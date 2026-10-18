@@ -54,6 +54,9 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/host-removed` | 410 | The host was removed | This host was removed and never comes back; add the machine again to rent it out. |
 | `/problems/host-no-gpu` | 409 | The host hasn't reported a GPU | A price can only be suggested once the host's agent has connected and reported its GPU. |
 | `/problems/pause-too-long` | 400 | The pause is too long | A pause with an end must end within 7 days from now. Pause until you resume it for longer. |
+| `/problems/no-agent-release` | 404 | No release yet | The Windows app hasn't been released yet, so there's nothing to download. Try again later. |
+| `/problems/install-events-full` | 422 | Too many events for this install | One install can send at most 200 events in all. Nothing from this request was kept. |
+| `/problems/request-too-large` | 413 | The request is too large | The body is bigger than this call accepts. Send less at once. |
 | `/problems/session-not-rateable` | 409 | This session can't be rated | Only a session that ran for at least a minute can be rated. |
 | `/problems/rating-closed` | 409 | Too late to rate this session | A session can be rated within 7 days of ending, and its rating changed within 7 days of being given. |
 | `/problems/report-window-closed` | 409 | Too late to report this session | A problem with a session can be reported within 7 days of it ending. |

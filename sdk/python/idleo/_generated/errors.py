@@ -390,6 +390,30 @@ class PauseTooLong(IdleoError):
     title = "The pause is too long"
 
 
+class NoAgentRelease(IdleoError):
+    """No release yet (HTTP 404)."""
+
+    slug = "no-agent-release"
+    status = 404
+    title = "No release yet"
+
+
+class InstallEventsFull(IdleoError):
+    """Too many events for this install (HTTP 422)."""
+
+    slug = "install-events-full"
+    status = 422
+    title = "Too many events for this install"
+
+
+class RequestTooLarge(IdleoError):
+    """The request is too large (HTTP 413)."""
+
+    slug = "request-too-large"
+    status = 413
+    title = "The request is too large"
+
+
 class SessionNotRateable(IdleoError):
     """This session can't be rated (HTTP 409)."""
 
@@ -519,6 +543,9 @@ __all__ = [
     "HostRemoved",
     "HostNoGpu",
     "PauseTooLong",
+    "NoAgentRelease",
+    "InstallEventsFull",
+    "RequestTooLarge",
     "SessionNotRateable",
     "RatingClosed",
     "ReportWindowClosed",
@@ -580,6 +607,9 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "host-removed": HostRemoved,
     "host-no-gpu": HostNoGpu,
     "pause-too-long": PauseTooLong,
+    "no-agent-release": NoAgentRelease,
+    "install-events-full": InstallEventsFull,
+    "request-too-large": RequestTooLarge,
     "session-not-rateable": SessionNotRateable,
     "rating-closed": RatingClosed,
     "report-window-closed": ReportWindowClosed,

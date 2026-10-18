@@ -505,6 +505,27 @@ paths:
         idToken: []
       tags:
       - adminHosts
+  /admin/v1/installs:
+    get:
+      operationId: adminInstallsInstalls
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Summary"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminInstalls
   /admin/v1/invites:
     get:
       operationId: adminInvitesList
@@ -1267,6 +1288,42 @@ paths:
         idToken: []
       tags:
       - adminUsers
+  /v1/agent-releases/latest:
+    get:
+      operationId: agentReleaseLatest
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LatestRelease"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - agentRelease
+  /v1/agent-releases/latest/setup:
+    get:
+      operationId: agentReleaseSetup
+      responses:
+        "302":
+          description: "The setup program's download link, valid for an hour"
+          headers:
+            Location:
+              description: Where to download IdleO-Setup.exe
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - agentRelease
   /v1/api-keys:
     get:
       operationId: apiKeyList
@@ -1598,6 +1655,33 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - ownerEarnings
+  /v1/host-installs/{installId}/events:
+    post:
+      operationId: hostInstallRecord
+      parameters:
+      - in: path
+        name: installId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstallEventsRequest"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostInstall
   /v1/host-links:
     post:
       operationId: hostLinkStart
@@ -3250,6 +3334,10 @@ components:
           - string
           - "null"
           format: date-time
+        lastUpdate:
+          oneOf:
+          - $ref: "#/components/schemas/AdminUpdateResult"
+          - type: "null"
         name:
           type: string
         online:
@@ -3277,6 +3365,10 @@ components:
           - string
           - "null"
           format: date-time
+        selfTest:
+          oneOf:
+          - $ref: "#/components/schemas/AdminSelfTest"
+          - type: "null"
         status:
           type: string
         statusHistory:
@@ -3789,6 +3881,46 @@ components:
           - "null"
       required:
       - minutes
+    AdminSelfTest:
+      type: object
+      properties:
+        agentVersion:
+          type:
+          - string
+          - "null"
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSelfTestCheck"
+        distroVersion:
+          type: string
+        passed:
+          type: boolean
+        reportedAt:
+          type: string
+          format: date-time
+      required:
+      - checks
+      - distroVersion
+      - passed
+      - reportedAt
+    AdminSelfTestCheck:
+      type: object
+      properties:
+        detail:
+          type: string
+        name:
+          type: string
+        passed:
+          type: boolean
+        tookMs:
+          type: integer
+          format: int64
+      required:
+      - detail
+      - name
+      - passed
+      - tookMs
     AdminSession:
       type: object
       properties:
@@ -4031,6 +4163,23 @@ components:
       - settledAt
       - txnId
       - windowNumber
+    AdminUpdateResult:
+      type: object
+      properties:
+        detail:
+          type: string
+        outcome:
+          type: string
+        reportedAt:
+          type: string
+          format: date-time
+        version:
+          type: string
+      required:
+      - detail
+      - outcome
+      - reportedAt
+      - version
     AdminUsage:
       type: object
       properties:
@@ -4693,6 +4842,20 @@ components:
       - at
       - reason
       - state
+    Failures:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        step:
+          type: string
+      required:
+      - count
+      - reason
+      - step
     GpuAvailability:
       type: object
       properties:
@@ -4856,6 +5019,8 @@ components:
           type: string
         updateRequired:
           type: boolean
+        updateWaiting:
+          type: boolean
       required:
       - createdAt
       - gpus
@@ -4865,6 +5030,7 @@ components:
       - paused
       - status
       - updateRequired
+      - updateWaiting
     HostSession:
       type: object
       properties:
@@ -4972,6 +5138,107 @@ components:
       required:
       - items
       - unread
+    Install:
+      type: object
+      properties:
+        clicks:
+          type: integer
+          format: int32
+        gpuModel:
+          type:
+          - string
+          - "null"
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        installId:
+          type: string
+          format: uuid
+        minutes:
+          type:
+          - number
+          - "null"
+          format: double
+        openedAt:
+          type: string
+          format: date-time
+        setupVersion:
+          type:
+          - string
+          - "null"
+        stoppedAt:
+          type: string
+        windowsBuild:
+          type:
+          - integer
+          - "null"
+          format: int32
+      required:
+      - clicks
+      - installId
+      - openedAt
+      - stoppedAt
+    InstallEvent:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        durationMs:
+          type:
+          - integer
+          - "null"
+          format: int64
+          maximum: 86400000
+          minimum: 0
+        gpuModel:
+          type:
+          - string
+          - "null"
+          maxLength: 100
+          minLength: 0
+        outcome:
+          type: string
+        reason:
+          type:
+          - string
+          - "null"
+          maxLength: 120
+          minLength: 0
+        setupVersion:
+          type:
+          - string
+          - "null"
+          maxLength: 40
+          minLength: 0
+        step:
+          type: string
+          maxLength: 40
+          minLength: 0
+        windowsBuild:
+          type:
+          - integer
+          - "null"
+          format: int32
+          maximum: 1000000
+          minimum: 0
+      required:
+      - at
+      - outcome
+      - step
+    InstallEventsRequest:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstallEvent"
+          maxItems: 20
+          minItems: 0
+      required:
+      - events
     KindChoice:
       type: object
       properties:
@@ -4985,6 +5252,26 @@ components:
       - email
       - inApp
       - kind
+    LatestRelease:
+      type: object
+      properties:
+        manifest:
+          type: string
+        setupSizeBytes:
+          type: integer
+          format: int64
+        signature:
+          type: string
+        urls:
+          $ref: "#/components/schemas/ReleaseUrls"
+        version:
+          type: string
+      required:
+      - manifest
+      - setupSizeBytes
+      - signature
+      - urls
+      - version
     LinkResponse:
       type: object
       properties:
@@ -5432,6 +5719,9 @@ components:
           - /problems/host-removed
           - /problems/host-no-gpu
           - /problems/pause-too-long
+          - /problems/no-agent-release
+          - /problems/install-events-full
+          - /problems/request-too-large
           - /problems/session-not-rateable
           - /problems/rating-closed
           - /problems/report-window-closed
@@ -5572,6 +5862,19 @@ components:
       - tempC
       - utilPct
       - vramUsedMb
+    ReleaseUrls:
+      type: object
+      properties:
+        app:
+          type: string
+        distro:
+          type: string
+        setup:
+          type: string
+      required:
+      - app
+      - distro
+      - setup
     RenameRequest:
       type: object
       properties:
@@ -5892,6 +6195,11 @@ components:
             $ref: "#/components/schemas/GpuInfo"
           maxItems: 8
           minItems: 0
+        installId:
+          type:
+          - string
+          - "null"
+          format: uuid
         machineName:
           type: string
           maxLength: 100
@@ -5963,6 +6271,33 @@ components:
           type:
           - boolean
           - "null"
+    Summary:
+      type: object
+      properties:
+        failures:
+          type: array
+          items:
+            $ref: "#/components/schemas/Failures"
+        listed:
+          type: integer
+          format: int32
+        medianMinutes:
+          type:
+          - number
+          - "null"
+          format: double
+        opened:
+          type: integer
+          format: int32
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/Install"
+      required:
+      - failures
+      - listed
+      - opened
+      - recent
     Telemetry:
       type: object
       properties:

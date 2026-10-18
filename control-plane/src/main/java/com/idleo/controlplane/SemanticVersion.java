@@ -1,21 +1,24 @@
-package com.idleo.controlplane.agentgateway.internal;
+package com.idleo.controlplane;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** A semantic version (https://semver.org), compared by major, minor, patch, then pre-release. */
-record SemanticVersion(
+/**
+ * A semantic version (https://semver.org), compared by major, minor, patch, then pre-release: the agent gateway's
+ * minimum agent version and the release feed's newer-than check use this one comparison.
+ */
+public record SemanticVersion(
         int major, int minor, int patch, @Nullable String preRelease) implements Comparable<SemanticVersion> {
 
     /** The pattern published at semver.org, without its named groups. */
-    static final String PATTERN = "(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"
+    public static final String PATTERN = "(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"
             + "(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
             + "(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?";
 
     private static final Pattern REGEX = Pattern.compile(PATTERN);
 
-    static Optional<SemanticVersion> parse(String text) {
+    public static Optional<SemanticVersion> parse(String text) {
         var match = REGEX.matcher(text);
         if (!match.matches()) {
             return Optional.empty();

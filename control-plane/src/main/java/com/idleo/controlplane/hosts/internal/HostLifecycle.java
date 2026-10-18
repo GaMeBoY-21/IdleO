@@ -4,6 +4,7 @@ import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostRemoved;
+import com.idleo.controlplane.hosts.HostStandingChanged;
 import com.idleo.controlplane.hosts.HostWork;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
@@ -21,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * What an owner does with a machine after adding it (ADR 0023): rename it, pause and resume it, remove it. Each locks
  * the host's row, so it takes turns with a booking, and each answers empty for a host that isn't the owner's, and
- * fails with {@code host-removed} for one that was removed.
+ * fails with {@code host-removed} for one that was removed. The web app and the host's own tray (through {@link
+ * HostAgentRequestService}) both call these, and each change tells the agent where the host stands ({@link
+ * HostStandingChanged}).
  */
 @Service
 class HostLifecycle {
@@ -119,6 +122,7 @@ class HostLifecycle {
                 .param("now", now)
                 .update();
         events.publishEvent(new HostRemoved(hostId));
+        events.publishEvent(new HostStandingChanged(hostId));
         return hosts.findById(hostId);
     }
 
@@ -132,6 +136,7 @@ class HostLifecycle {
                         .param("updatedAt", Timestamp.from(Instant.now(clock)))
                         .param("hostId", hostId))
                 .update();
+        events.publishEvent(new HostStandingChanged(hostId));
         return hosts.findById(hostId);
     }
 

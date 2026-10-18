@@ -1,12 +1,15 @@
 package com.idleo.controlplane.agentgateway.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.SemanticVersion;
 import com.idleo.controlplane.agentgateway.OfferReplies;
+import com.idleo.controlplane.agentgateway.SessionCredentials;
 import com.idleo.controlplane.agentgateway.SessionLogProgress;
 import com.idleo.controlplane.agentgateway.SessionReconciliation;
 import com.idleo.controlplane.agentgateway.SessionStatuses;
 import com.idleo.controlplane.agentgateway.UsageReports;
 import com.idleo.controlplane.hosts.HostAgentReports;
+import com.idleo.controlplane.hosts.HostAgentRequests;
 import com.idleo.controlplane.hosts.HostListings;
 import java.time.Clock;
 import java.util.concurrent.Executors;
@@ -22,12 +25,15 @@ import tools.jackson.databind.json.JsonMapper;
 class AgentStreamServices implements DisposableBean {
 
     private final HostAgentReports reports;
+    private final HostAgentRequests hostRequests;
+    private final HostStatusSender hostStatus;
     private final HostListings listings;
     private final AgentCommandService commands;
     private final ObjectProvider<OfferReplies> offerReplies;
     private final ObjectProvider<SessionStatuses> sessionStatuses;
     private final ObjectProvider<SessionLogProgress> logProgress;
     private final ObjectProvider<SessionReconciliation> reconciliation;
+    private final ObjectProvider<SessionCredentials> credentials;
     private final ObjectProvider<UsageReports> usageReports;
     private final ObjectProvider<CommandDelivery> delivery;
     private final Presence presence;
@@ -48,12 +54,15 @@ class AgentStreamServices implements DisposableBean {
 
     AgentStreamServices(
             HostAgentReports reports,
+            HostAgentRequests hostRequests,
+            HostStatusSender hostStatus,
             HostListings listings,
             AgentCommandService commands,
             ObjectProvider<OfferReplies> offerReplies,
             ObjectProvider<SessionStatuses> sessionStatuses,
             ObjectProvider<SessionLogProgress> logProgress,
             ObjectProvider<SessionReconciliation> reconciliation,
+            ObjectProvider<SessionCredentials> credentials,
             ObjectProvider<UsageReports> usageReports,
             ObjectProvider<CommandDelivery> delivery,
             Presence presence,
@@ -66,12 +75,15 @@ class AgentStreamServices implements DisposableBean {
             JsonMapper json,
             Clock clock) {
         this.reports = reports;
+        this.hostRequests = hostRequests;
+        this.hostStatus = hostStatus;
         this.listings = listings;
         this.commands = commands;
         this.offerReplies = offerReplies;
         this.sessionStatuses = sessionStatuses;
         this.logProgress = logProgress;
         this.reconciliation = reconciliation;
+        this.credentials = credentials;
         this.usageReports = usageReports;
         this.delivery = delivery;
         this.presence = presence;
@@ -93,6 +105,14 @@ class AgentStreamServices implements DisposableBean {
 
     HostListings listings() {
         return listings;
+    }
+
+    HostAgentRequests hostRequests() {
+        return hostRequests;
+    }
+
+    HostStatusSender hostStatus() {
+        return hostStatus;
     }
 
     AgentCommandService commands() {
@@ -117,6 +137,11 @@ class AgentStreamServices implements DisposableBean {
     @Nullable
     SessionReconciliation reconciliation() {
         return reconciliation.getIfAvailable();
+    }
+
+    @Nullable
+    SessionCredentials credentials() {
+        return credentials.getIfAvailable();
     }
 
     @Nullable

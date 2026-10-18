@@ -16,6 +16,11 @@
  *   <li>{@link com.idleo.controlplane.agentgateway.AgentPresence}: live agents, for the scheduler.
  * </ul>
  *
+ * <p>After Welcome, and whenever the host's standing or earnings change, it queues {@code HostStatus} for the host's
+ * tray, and {@code UpdateAgent} when the hosts module's release feed says the host should update (ADR 0034); both
+ * replace any undelivered one of their kind ({@code AgentCommands.replace}). It hands the agent's {@code
+ * SelfTestReport}, {@code SetPause}, {@code Leave} and {@code UpdateResult} to the hosts module.
+ *
  * <p>Ports it declares and other modules implement, so dependencies point one way: {@link
  * com.idleo.controlplane.agentgateway.OfferReplies} (scheduling), and {@link
  * com.idleo.controlplane.agentgateway.SessionCredentials}, {@link

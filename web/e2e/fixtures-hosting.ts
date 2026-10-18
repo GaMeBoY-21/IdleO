@@ -184,6 +184,7 @@ const base = (machine: { id: string; name: string; price: number }): Host => ({
   pausedUntil: null,
   agentVersion: "0.1.0",
   updateRequired: false,
+  updateWaiting: false,
   currentSession: null,
   gpus: [gpu("NVIDIA GeForce RTX 4080 Laptop GPU", 12282)],
   listing: listing(machine.price),

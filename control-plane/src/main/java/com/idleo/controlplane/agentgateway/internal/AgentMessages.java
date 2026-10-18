@@ -1,8 +1,14 @@
 package com.idleo.controlplane.agentgateway.internal;
 
+import com.idleo.controlplane.SemanticVersion;
 import com.idleo.controlplane.hosts.HostAgentReports.AgentHello;
 import com.idleo.controlplane.hosts.HostAgentReports.ReportedGpu;
+import com.idleo.controlplane.hosts.HostAgentReports.SelfTest;
+import com.idleo.controlplane.hosts.HostAgentReports.SelfTestCheck;
+import com.idleo.controlplane.hosts.HostAgentReports.UpdateOutcome;
 import gpu.agent.v1.AgentGateway.Hello;
+import gpu.agent.v1.Host.SelfTestReport;
+import gpu.agent.v1.Host.UpdateResult;
 import gpu.agent.v1.Session.SessionState;
 import gpu.agent.v1.Session.SessionStatus;
 import gpu.agent.v1.Session.UsageReport;
@@ -181,5 +187,60 @@ final class AgentMessages {
         } catch (IllegalArgumentException e) {
             return false;
         }
+    }
+
+    /** The most checks one self-test may carry, and the longest detail kept for each. */
+    static final int MAX_SELF_TEST_CHECKS = 32;
+
+    static final int MAX_DETAIL = 300;
+
+    /** A self-test ready to record, or the reason it's invalid. */
+    sealed interface SelfTestResult {
+        record Valid(SelfTest selfTest) implements SelfTestResult {}
+
+        record Invalid(String reason) implements SelfTestResult {}
+    }
+
+    /** Validates a SelfTestReport: at most 32 checks, each named; long details are cut, never refused. */
+    static SelfTestResult validate(SelfTestReport report) {
+        if (report.getChecksCount() > MAX_SELF_TEST_CHECKS) {
+            return new SelfTestResult.Invalid("more than " + MAX_SELF_TEST_CHECKS + " checks");
+        }
+        var checks = new ArrayList<SelfTestCheck>();
+        for (var check : report.getChecksList()) {
+            if (check.getName().isBlank() || check.getName().length() > 60) {
+                return new SelfTestResult.Invalid("every check needs a name of at most 60 characters");
+            }
+            long tookMs = check.hasTook()
+                    ? Math.max(
+                            0,
+                            check.getTook().getSeconds() * 1000
+                                    + check.getTook().getNanos() / 1_000_000)
+                    : 0;
+            checks.add(new SelfTestCheck(check.getName(), check.getPassed(), cut(check.getDetail()), tookMs));
+        }
+        if (report.getPassed() && checks.stream().anyMatch(check -> !check.passed())) {
+            return new SelfTestResult.Invalid("passed is true but a check failed");
+        }
+        return new SelfTestResult.Valid(new SelfTest(report.getPassed(), cut(report.getDistroVersion()), checks));
+    }
+
+    /** The outcome of a valid UpdateResult, or empty if it's invalid. */
+    static Optional<UpdateOutcome> outcome(UpdateResult result) {
+        if (SemanticVersion.parse(result.getVersion()).isEmpty()) {
+            return Optional.empty();
+        }
+        return switch (result.getOutcome()) {
+            case OUTCOME_INSTALLED -> Optional.of(UpdateOutcome.INSTALLED);
+            case OUTCOME_ROLLED_BACK -> Optional.of(UpdateOutcome.ROLLED_BACK);
+            case OUTCOME_FAILED_VERIFY -> Optional.of(UpdateOutcome.FAILED_VERIFY);
+            case OUTCOME_FAILED_DOWNLOAD -> Optional.of(UpdateOutcome.FAILED_DOWNLOAD);
+            default -> Optional.empty();
+        };
+    }
+
+    static String cut(String text) {
+        var strip = text.strip();
+        return strip.length() <= MAX_DETAIL ? strip : strip.substring(0, MAX_DETAIL);
     }
 }

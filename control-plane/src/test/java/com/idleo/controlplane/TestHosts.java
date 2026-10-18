@@ -85,10 +85,26 @@ public final class TestHosts {
 
     /** Enrols a host, opens its stream with Hello for {@code gpuUuids}, and waits for Welcome. */
     public static ConnectedHost connect(MockMvc mvc, int grpcPort, String... gpuUuids) throws Exception {
-        var agent = TestAgent.enrol(mvc, grpcPort);
+        return open(TestAgent.enrol(mvc, grpcPort), grpcPort, "0.1.0", gpuUuids);
+    }
+
+    /** Enrols a host whose agent says it runs {@code agentVersion}, and connects it with one GPU. */
+    public static ConnectedHost connectAs(MockMvc mvc, int grpcPort, String agentVersion) throws Exception {
+        return open(TestAgent.enrol(mvc, grpcPort), grpcPort, agentVersion);
+    }
+
+    /** Disconnects a host and connects its agent again, saying it runs {@code agentVersion}. */
+    public static ConnectedHost reconnect(ConnectedHost host, int grpcPort, String agentVersion)
+            throws InterruptedException {
+        host.disconnect();
+        return open(host.agent(), grpcPort, agentVersion);
+    }
+
+    private static ConnectedHost open(TestAgent agent, int grpcPort, String agentVersion, String... gpuUuids)
+            throws InterruptedException {
         var channel = agent.channel(grpcPort);
         var stream = TestAgent.open(channel);
-        stream.send(TestAgent.hello("0.1.0", gpuUuids.length == 0 ? new String[] {TestAgent.GPU_A} : gpuUuids));
+        stream.send(TestAgent.hello(agentVersion, gpuUuids.length == 0 ? new String[] {TestAgent.GPU_A} : gpuUuids));
         var welcome = stream.next(Duration.ofSeconds(5));
         assertThat(welcome.hasWelcome()).as("Welcome").isTrue();
         var gpu = gpuUuids.length == 0 ? TestAgent.GPU_A : gpuUuids[0];

@@ -280,6 +280,23 @@ public enum Problem {
             "The pause is too long",
             "A pause with an end must end within 7 days from now. Pause until you resume it for longer."),
 
+    // The Windows app (ADR 0034).
+    NO_AGENT_RELEASE(
+            "no-agent-release",
+            HttpStatus.NOT_FOUND,
+            "No release yet",
+            "The Windows app hasn't been released yet, so there's nothing to download. Try again later."),
+    INSTALL_EVENTS_FULL(
+            "install-events-full",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "Too many events for this install",
+            "One install can send at most 200 events in all. Nothing from this request was kept."),
+    REQUEST_TOO_LARGE(
+            "request-too-large",
+            HttpStatus.CONTENT_TOO_LARGE,
+            "The request is too large",
+            "The body is bigger than this call accepts. Send less at once."),
+
     // Ratings and reports (ADR 0028).
     SESSION_NOT_RATEABLE(
             "session-not-rateable",

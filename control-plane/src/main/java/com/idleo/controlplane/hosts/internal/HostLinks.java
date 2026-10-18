@@ -126,6 +126,7 @@ class HostLinks {
     private final HostListingService listings;
     private final UserDirectory users;
     private final AuditTrail audit;
+    private final HostInstalls installs;
     private final IdGenerator ids;
     private final HostLinkProperties properties;
     private final Clock clock;
@@ -139,6 +140,7 @@ class HostLinks {
             HostListingService listings,
             UserDirectory users,
             AuditTrail audit,
+            HostInstalls installs,
             IdGenerator ids,
             HostLinkProperties properties,
             Clock clock) {
@@ -148,6 +150,7 @@ class HostLinks {
         this.listings = listings;
         this.users = users;
         this.audit = audit;
+        this.installs = installs;
         this.ids = ids;
         this.properties = properties;
         this.clock = clock;
@@ -157,7 +160,7 @@ class HostLinks {
         return properties;
     }
 
-    Started start(Machine machine) {
+    Started start(Machine machine, @Nullable UUID installId) {
         var now = Instant.now(clock);
         var expiresAt = now.plus(properties.link().ttl());
         var token = new byte[32];
@@ -166,8 +169,10 @@ class HostLinks {
         var id = ids.newId();
         jdbc.sql("""
                         insert into hosts.host_links
-                            (id, poll_token_hash, machine_name, os, agent_version, gpus, created_at, expires_at)
-                        values (:id, :token, :name, :os, :version, cast(:gpus as jsonb), :now, :expiresAt)
+                            (id, poll_token_hash, machine_name, os, agent_version, gpus, created_at, expires_at,
+                             install_id)
+                        values (:id, :token, :name, :os, :version, cast(:gpus as jsonb), :now, :expiresAt,
+                                :installId)
                         """)
                 .param("id", id)
                 .param("token", sha256(pollToken))
@@ -177,6 +182,7 @@ class HostLinks {
                 .param("gpus", json.writeValueAsString(machine.gpus()))
                 .param("now", Timestamp.from(now))
                 .param("expiresAt", Timestamp.from(expiresAt))
+                .param("installId", installId)
                 .update();
         return new Started(id, pollToken, expiresAt);
     }
@@ -239,6 +245,9 @@ class HostLinks {
                             host.id().toString(),
                             "machineName",
                             row.machine().name())));
+            if (row.installId() != null) {
+                installs.approved(row.installId());
+            }
             return new Approval.Approved(row.link(now).withHost(host.id()), host.id());
         }));
     }
@@ -324,7 +333,7 @@ class HostLinks {
     private Optional<Row> lock(UUID id, boolean forUpdate) {
         return jdbc.sql("""
                         select id, poll_token_hash, machine_name, os, agent_version, gpus::text as gpus, expires_at,
-                               approved_by, host_id, denied_by, denied_at, redeemed_at
+                               approved_by, host_id, denied_by, denied_at, redeemed_at, install_id
                         from hosts.host_links where id = :id
                         """ + (forUpdate ? " for update" : ""))
                 .param("id", id)
@@ -345,7 +354,8 @@ class HostLinks {
                                 : rs.getTimestamp("denied_at").toInstant(),
                         rs.getTimestamp("redeemed_at") == null
                                 ? null
-                                : rs.getTimestamp("redeemed_at").toInstant()))
+                                : rs.getTimestamp("redeemed_at").toInstant(),
+                        rs.getObject("install_id", UUID.class)))
                 .optional();
     }
 
@@ -358,7 +368,8 @@ class HostLinks {
             @Nullable UUID hostId,
             @Nullable UUID deniedBy,
             @Nullable Instant deniedAt,
-            @Nullable Instant redeemedAt) {
+            @Nullable Instant redeemedAt,
+            @Nullable UUID installId) {
 
         Link link(Instant now) {
             var state = deniedAt != null

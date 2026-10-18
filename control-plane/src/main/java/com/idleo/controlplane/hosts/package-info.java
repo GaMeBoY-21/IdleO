@@ -61,6 +61,17 @@
  * com.idleo.controlplane.hosts.HostRatings} (trust: the host's average rating, shown from 5 ratings, ADR 0028). {@link com.idleo.controlplane.hosts.HostRemoved}
  * is published when an owner removes a host.
  *
+ * <p>The Windows app (ADR 0034): {@link com.idleo.controlplane.hosts.AgentReleases} is the signed release feed, read
+ * from the {@code releases} bucket every five minutes and served only if its Ed25519 signature verifies; {@code GET
+ * /v1/agent-releases/latest} and {@code …/latest/setup} (no sign-in) give it and its setup program to download. {@link
+ * com.idleo.controlplane.hosts.HostAgentRequests} is what a host's agent asks for its owner from the tray or the
+ * uninstaller (pause, resume, leave), through the same {@code HostLifecycle} as the Hosting tab, and where the host
+ * stands; {@link com.idleo.controlplane.hosts.HostStandingChanged} is published whenever that changes. {@link
+ * com.idleo.controlplane.hosts.HostAgentReports} also records the agent's self-test, which activates a pending host
+ * only with {@code hosts.auto-activate} on, and how each update went. {@code POST /v1/host-installs/{id}/events} (no
+ * sign-in) keeps the setup app's measurements, at most 20 a request and 200 an install; {@code GET /admin/v1/installs}
+ * is the admin console's Installs card.
+ *
  * <p>The admin console (ADR 0027): {@code GET /admin/v1/hosts} and {@code /admin/v1/hosts/{id}} (its GPUs,
  * certificates, status history and telemetry), and {@code POST /admin/v1/hosts/{id}/activate}, {@code /suspend} and
  * {@code /revoke-certificates}, each with a reason. Activating and suspending call the same service as the {@code

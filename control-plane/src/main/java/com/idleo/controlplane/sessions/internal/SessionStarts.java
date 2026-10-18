@@ -265,6 +265,11 @@ class SessionStarts implements SessionCredentials {
         }
     }
 
+    @Override
+    public SpeedTest speedTest(UUID hostId) {
+        return new SpeedTest(message(grants.speedTest(hostId)), StorageLayout.speedTestKey(hostId));
+    }
+
     private static gpu.agent.v1.Session.StorageGrant message(StorageGrant grant) {
         return gpu.agent.v1.Session.StorageGrant.newBuilder()
                 .setEndpoint(grant.endpoint())

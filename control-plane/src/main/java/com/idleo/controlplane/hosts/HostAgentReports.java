@@ -23,6 +23,34 @@ public interface HostAgentReports {
      */
     boolean recordSeen(UUID hostId);
 
+    /**
+     * Records the host's latest self-test, replacing the last. With {@code hosts.auto-activate} on, a pending host
+     * whose self-test passed is activated, through the same service as the admin console's Approve.
+     */
+    void recordSelfTest(UUID hostId, SelfTest selfTest);
+
+    /** Records how an update went, the latest per version; a version rolled back is never offered to the host again. */
+    void recordUpdateResult(UUID hostId, String version, UpdateOutcome outcome, String detail);
+
+    /** A self-test: every check that ran, whether all passed, and the distro's version (empty without one). */
+    record SelfTest(boolean passed, String distroVersion, List<SelfTestCheck> checks) {
+
+        public SelfTest {
+            checks = List.copyOf(checks);
+        }
+    }
+
+    /** One check of a self-test. */
+    record SelfTestCheck(String name, boolean passed, String detail, long tookMs) {}
+
+    /** How an offered update ended. */
+    enum UpdateOutcome {
+        INSTALLED,
+        ROLLED_BACK,
+        FAILED_VERIFY,
+        FAILED_DOWNLOAD
+    }
+
     /** A validated Hello. */
     record AgentHello(String os, String agentVersion, List<ReportedGpu> gpus) {
 
