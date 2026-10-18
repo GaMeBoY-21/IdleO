@@ -13,6 +13,8 @@ use idleo_release::manifest::Artifact;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::scrub::Identity;
+
 /// A GPU, as NVML sees it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Gpu {
@@ -63,6 +65,18 @@ pub struct InstallEvent {
     /// The GPU's model, once known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu_model: Option<String>,
+    /// Why it failed, in words, already scrubbed ([`crate::scrub::detail`]) and at most 2,000 characters.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+/// IdleO didn't take a batch of measurements.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rejected {
+    /// What to say in a few characters: the HTTP status such as `422`, or `no answer`.
+    pub status: String,
+    /// What it answered, for the setup log.
+    pub answer: String,
 }
 
 /// The machine, as setup sees it.
@@ -160,8 +174,15 @@ pub trait System: Machine {
     /// If it can't be copied.
     fn copy_self(&self, to: &Path) -> Result<(), String>;
 
-    /// Sends measurements. Never fails: they're best effort.
-    async fn send_events(&self, install_id: Uuid, events: Vec<InstallEvent>);
+    /// Who and what a report must not name: the profile folder, the user and the computer.
+    fn identity(&self) -> Identity;
+
+    /// Sends measurements once, with a short wait. They're best effort: setup carries on whatever the answer, but
+    /// says in the log (and in a development build on the last screen) when IdleO didn't take them.
+    ///
+    /// # Errors
+    /// If IdleO answered with anything but success, or didn't answer.
+    async fn send_events(&self, install_id: Uuid, events: Vec<InstallEvent>) -> Result<(), Rejected>;
 }
 
 /// A machine for tests: the fake disk, registry and `wsl.exe` of [`idleo_release::install::fake`], and every other
@@ -183,7 +204,7 @@ pub mod fake {
     use idleo_release::wsl::Runner;
     use uuid::Uuid;
 
-    use super::{Gpu, InstallEvent, Latest, System};
+    use super::{Gpu, Identity, InstallEvent, Latest, Rejected, System};
 
     /// A value the fake changes behind `&self`, shareable between threads as `Machine` requires.
     #[derive(Debug, Default)]
@@ -237,6 +258,16 @@ pub mod fake {
         pub files: Vec<(String, Vec<u8>)>,
         /// Whether the self-test passes.
         pub self_test_passes: bool,
+        /// The self-test's checks when a test wants its own; else one, `gpu_in_container`.
+        pub self_test_checks: Option<Vec<Check>>,
+        /// Who the fake laptop's owner is.
+        pub identity: Identity,
+        /// When set, IdleO refuses every batch of measurements with this status.
+        pub reject_events: Option<Rejected>,
+        /// How many batches were offered, taken or not.
+        pub batches_offered: Shared<usize>,
+        /// The size in bytes of each batch, as it goes on the wire.
+        pub batch_bytes: Shared<Vec<usize>>,
         /// How each link attempt goes, in turn.
         pub links: Shared<VecDeque<LinkGoes>>,
         /// What the host's first status says.
@@ -271,6 +302,15 @@ pub mod fake {
                 latest: Ok(latest),
                 files,
                 self_test_passes: true,
+                self_test_checks: None,
+                identity: Identity {
+                    profile: r"C:\Users\Asha Rao".into(),
+                    user: "Asha".into(),
+                    machine: "TESTRIG-7".into(),
+                },
+                reject_events: None,
+                batches_offered: Shared::new(0),
+                batch_bytes: Shared::new(Vec::new()),
                 links: Shared::new(VecDeque::from([LinkGoes::Approved])),
                 listed: LinkState::PendingApproval,
                 opened: Shared::new(Vec::new()),
@@ -366,13 +406,16 @@ pub mod fake {
 
         fn self_test(&self, agent: &Path, distro_version: &str) -> Result<Report, String> {
             assert!(agent.exists(), "the installed agent runs the self-test");
-            let check = Check {
-                name: "gpu_in_container".into(),
-                passed: self.self_test_passes,
-                detail: format!("distro {distro_version}"),
-                took_ms: 900,
-            };
-            Ok(Report { passed: self.self_test_passes, checks: vec![check], distro_version: distro_version.into() })
+            let checks = self.self_test_checks.clone().unwrap_or_else(|| {
+                vec![Check {
+                    name: "gpu_in_container".into(),
+                    passed: self.self_test_passes,
+                    detail: format!("distro {distro_version}"),
+                    took_ms: 900,
+                }]
+            });
+            let passed = checks.iter().all(|check| check.passed);
+            Ok(Report { passed, checks, distro_version: distro_version.into() })
         }
 
         fn linked(&self) -> bool {
@@ -434,8 +477,19 @@ pub mod fake {
             std::fs::write(to, "IdleO-Setup").map_err(|e| e.to_string())
         }
 
-        async fn send_events(&self, _install_id: Uuid, events: Vec<InstallEvent>) {
+        fn identity(&self) -> Identity {
+            self.identity.clone()
+        }
+
+        async fn send_events(&self, _install_id: Uuid, events: Vec<InstallEvent>) -> Result<(), Rejected> {
+            *self.batches_offered.borrow_mut() += 1;
+            let wire = serde_json::json!({ "events": events }).to_string();
+            self.batch_bytes.borrow_mut().push(wire.len());
+            if let Some(rejected) = &self.reject_events {
+                return Err(rejected.clone());
+            }
             self.events.borrow_mut().extend(events);
+            Ok(())
         }
     }
 }

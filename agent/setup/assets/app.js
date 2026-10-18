@@ -32,7 +32,7 @@
         ["3", "You approve in your browser", "One click links this laptop to your account."]
       ];
       return [
-        el("h1", { text: s.already_set_up ? "IdleO is already set up on this laptop" : "Earn with this laptop" }),
+        el("h1", { text: s.unfinished ? "Setup didn't finish on this laptop" : s.already_set_up ? "IdleO is already set up on this laptop" : "Earn with this laptop" }),
         el("div", { class: "tiles" }, tiles.map(function (t) {
           return el("section", { class: "tile" }, [
             el("span", { class: "badge", "aria-hidden": "true", text: t[0] }),
@@ -42,8 +42,8 @@
         })),
         el("div", { class: "grow" }),
         el("div", { class: "row" }, [
-          button(s.already_set_up ? "Repair" : "Set up", "set_up"),
-          el("p", { class: "muted", text: s.already_set_up ? "Checks everything again. Your link stays." : "About 5 minutes. Renters never see your files." })
+          button(s.already_set_up || s.unfinished ? "Repair" : "Set up", "set_up"),
+          el("p", { class: "muted", text: s.unfinished ? "Carries on from the step that didn't pass." : s.already_set_up ? "Checks everything again. Your link stays." : "About 5 minutes. Renters never see your files." })
         ])
       ];
     },
@@ -63,7 +63,10 @@
         el("h1", { text: s.text }),
         el("p", { class: "muted", text: s.rechecking ? "We'll carry on by ourselves the moment it's fixed." : "" }),
         el("div", { class: "grow" }),
-        el("div", { class: "row" }, [button(s.button, s.problem === "cant_reach_idleo" ? "try_again" : "fix")])
+        el("div", { class: "row" }, [
+          button(s.button, s.problem === "cant_reach_idleo" ? "try_again" : "fix"),
+          s.keep ? button("Keep it for troubleshooting", "keep", "secondary small") : null
+        ].filter(Boolean))
       ];
     },
     approve: function (s) {
@@ -94,8 +97,19 @@
         el("p", { text: "IdleO lives by the clock and earns only when you're not using your laptop." }),
         el("section", { class: "tile" }, [el("p", { text: s.pending ? "We check every new laptop before it goes live. You'll get an email." : "Live. Renters can book this laptop now." })]),
         el("div", { class: "grow" }),
-        el("div", { class: "row" }, [button("Close", "close")])
-      ];
+        el("div", { class: "row" }, [button("Close", "close")]),
+        s.report_problem ? el("p", { class: "muted small", text: "Couldn't report to IdleO: " + s.report_problem }) : null
+      ].filter(Boolean);
+    },
+    stopped: function (s) {
+      return [
+        el("h1", { text: s.kept ? "Kept for troubleshooting." : "Not set up." }),
+        el("p", { class: "muted", text: s.kept ? "Everything installed so far is still here. Run IdleO-Setup again and choose Repair." : "What was installed has been removed." }),
+        el("section", { class: "tile" }, [el("p", { class: "muted small", text: "The setup log" }), el("p", { class: "path", text: s.log })]),
+        el("div", { class: "grow" }),
+        el("div", { class: "row" }, [button("Close", "close")]),
+        s.report_problem ? el("p", { class: "muted small", text: "Couldn't report to IdleO: " + s.report_problem }) : null
+      ].filter(Boolean);
     }
   };
 
@@ -109,7 +123,7 @@
       if (first) first.focus();
     },
     askClose: function () {
-      if (current && current.screen === "done") return send("close");
+      if (current && (current.screen === "done" || current.screen === "stopped")) return send("close");
       confirm.hidden = false;
       confirm.querySelector("[data-action=cancel_close]").focus();
     },

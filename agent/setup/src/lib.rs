@@ -8,6 +8,9 @@
 #![forbid(unsafe_code)]
 
 pub mod ipc;
+pub mod log;
+pub mod reasons;
+pub mod scrub;
 pub mod steps;
 pub mod system;
 

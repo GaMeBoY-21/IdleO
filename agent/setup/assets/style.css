@@ -50,6 +50,7 @@ button:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
 .waiting .label { color: var(--muted); }
 .detail { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 .machine { font-size: 28px; font-weight: 800; }
+.path { font-size: 14px; font-weight: 600; word-break: break-all; }
 .note { background: var(--apricot); color: #5A3410; border-radius: 16px; padding: 10px 14px; font-size: 14px; }
 .dev { position: fixed; top: 10px; right: 14px; font-size: 12px; color: var(--muted); }
 .overlay { position: fixed; inset: 0; background: rgba(22, 22, 26, 0.35); display: grid; place-items: center; }

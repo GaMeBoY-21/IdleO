@@ -61,6 +61,14 @@ pub fn resume_command(setup_copy: &Path) -> String {
     format!("\"{}\" --resume", setup_copy.display())
 }
 
+/// Writes the Run entry, so the launcher starts at sign-in.
+///
+/// # Errors
+/// If it can't be written.
+pub fn enable_at_sign_in(machine: &dyn Machine) -> io::Result<()> {
+    machine.registry().set(RUN_KEY, RUN_VALUE, &Value::Text(run_command(machine.layout())))
+}
+
 /// Writes the Run entry, the Start-menu shortcut and the Uninstall entry for `version`, whose files take `size_kb`.
 ///
 /// # Errors
@@ -69,7 +77,7 @@ pub fn register(machine: &dyn Machine, version: &str, size_kb: u32) -> io::Resul
     let layout = machine.layout();
     let registry = machine.registry();
     let launcher = layout.launcher();
-    registry.set(RUN_KEY, RUN_VALUE, &Value::Text(run_command(layout)))?;
+    enable_at_sign_in(machine)?;
     machine.create_shortcut(&machine.shortcut_path(), &launcher, "open")?;
     let text = |value: String| Value::Text(value);
     for (name, value) in [
@@ -114,11 +122,26 @@ pub struct Removal {
     pub problems: Vec<String>,
 }
 
+/// What a removal leaves on purpose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Keep {
+    /// Nothing: the uninstall, and a release build's setup.
+    Nothing,
+    /// The data folder's `logs`, so a development build's failed setup can be read afterwards.
+    Logs,
+}
+
 /// Removes everything of ours: our distributions, the registry entries, the shortcut, the data folder and the
 /// programs folder. `running` is a program that can't be deleted yet because it is the one running this; it's left,
 /// with the folder holding it, and named in [`Removal::leftover`]. Keeps going past a failure, and says what failed.
 #[must_use]
 pub fn remove_all(machine: &dyn Machine, running: Option<&Path>) -> Removal {
+    remove_all_keeping(machine, running, Keep::Nothing)
+}
+
+/// [`remove_all`], leaving what `keep` says.
+#[must_use]
+pub fn remove_all_keeping(machine: &dyn Machine, running: Option<&Path>, keep: Keep) -> Removal {
     let mut removal = Removal::default();
     let wsl = Wsl::new(machine.wsl_runner());
     match wsl.ours() {
@@ -148,7 +171,11 @@ pub fn remove_all(machine: &dyn Machine, running: Option<&Path>) -> Removal {
         removal.problems.push(format!("the Start-menu shortcut: {e}"));
     }
     let layout = machine.layout();
-    if let Err(e) = remove_dir(layout.data()) {
+    let data_result = match keep {
+        Keep::Nothing => remove_dir(layout.data()),
+        Keep::Logs => remove_all_but(layout.data(), &layout.logs()),
+    };
+    if let Err(e) = data_result {
         removal.problems.push(format!("{}: {e}", layout.data().display()));
     }
     match running.filter(|program| program.starts_with(layout.programs())) {
@@ -210,6 +237,23 @@ fn remove_file(path: &Path) -> io::Result<()> {
         Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
         _ => Ok(()),
     }
+}
+
+/// Everything in `folder` except `kept`.
+fn remove_all_but(folder: &Path, kept: &Path) -> io::Result<()> {
+    let Ok(entries) = fs::read_dir(folder) else { return Ok(()) };
+    let mut first_error = None;
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if path == kept {
+            continue;
+        }
+        let result = if path.is_dir() { remove_dir(&path) } else { remove_file(&path) };
+        if let Err(e) = result {
+            first_error.get_or_insert(e);
+        }
+    }
+    first_error.map_or(Ok(()), Err)
 }
 
 fn remove_dir(path: &Path) -> io::Result<()> {

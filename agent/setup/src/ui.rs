@@ -30,8 +30,8 @@ enum UserEvent {
     Show(ToPage),
     /// A message from the page.
     Page(String),
-    /// The steps ended.
-    Ended(Ending),
+    /// The steps ended, and for a development build's failed setup, the last screen with where the log is.
+    Ended(Ending, Option<ToPage>),
 }
 
 fn page() -> String {
@@ -125,11 +125,11 @@ pub fn run() -> ExitCode {
                 }
                 None => {}
             },
-            Event::UserEvent(UserEvent::Ended(ending)) => {
-                tracing::info!(?ending, "setup ended");
-                match ending {
-                    Ending::Done { .. } => finished = Some(ending),
-                    Ending::Restarting | Ending::Later | Ending::Undo => *control_flow = ControlFlow::Exit,
+            Event::UserEvent(UserEvent::Ended(ending, last_screen)) => {
+                if let Some(last) = ended(&webview, ending, last_screen) {
+                    finished = Some(last);
+                } else {
+                    *control_flow = ControlFlow::Exit;
                 }
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -144,6 +144,20 @@ pub fn run() -> ExitCode {
     });
 }
 
+/// The steps ended. A finished setup, and a development build's failed one with its last screen (where the log is),
+/// stay open until closed: the ending is returned. Anything else closes the window.
+fn ended(webview: &wry::WebView, ending: Ending, last_screen: Option<ToPage>) -> Option<Ending> {
+    tracing::info!(?ending, "setup ended");
+    match (&ending, last_screen) {
+        (Ending::Done { .. }, _) => Some(ending),
+        (Ending::Undo | Ending::Kept, Some(screen)) => {
+            let _ = webview.evaluate_script(&ipc::script(&screen));
+            Some(ending)
+        }
+        _ => None,
+    }
+}
+
 /// Runs the steps on their own thread, with a runtime of their own; a confirmed "Stop setting up?" cancels whatever
 /// step is running, and everything done is undone.
 fn steps_thread(
@@ -153,37 +167,53 @@ fn steps_thread(
     resume: bool,
 ) {
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else { return };
-    let ending = runtime.block_on(async {
+    let (ending, last_screen) = runtime.block_on(async {
         let system = match WindowsSystem::new(idleo_setup::config::baked()) {
             Ok(system) => system,
             Err(e) => {
                 tracing::error!(error = %e, "setup couldn't start");
-                return Ending::Undo;
+                return (Ending::Undo, None);
             }
         };
         let show_proxy = proxy.clone();
         let mut show = move |screen: ToPage| {
             let _ = show_proxy.send_event(UserEvent::Show(screen));
         };
-        let ending = {
+        let (ending, summary) = {
             let mut engine = Engine::new(
                 &system,
                 idleo_setup::config::baked(),
                 idleo_release::keys::RELEASE_KEY,
                 &mut show,
                 &mut from_page,
-            );
-            tokio::select! {
+            )
+            .dev_build(idleo_release::keys::DEV_BUILD);
+            let ending = tokio::select! {
                 ending = engine.run(resume) => ending,
                 _ = cancelled => Ending::Undo,
-            }
+            };
+            (ending, engine.summary())
         };
+        // A development build keeps the log of a setup that didn't pass, and says where it is; a release build
+        // leaves nothing behind.
+        let dev_log = idleo_release::keys::DEV_BUILD && summary.failed;
         if ending == Ending::Undo {
             let running = std::env::current_exe().ok();
-            let removal = steps::undo(&system, running.as_deref());
+            let removal = if dev_log {
+                steps::undo_keeping_logs(&system, running.as_deref())
+            } else {
+                steps::undo(&system, running.as_deref())
+            };
             tracing::info!(problems = ?removal.problems, "undid setup");
         }
-        ending
+        let last_screen = (idleo_release::keys::DEV_BUILD
+            && (ending == Ending::Kept || dev_log && ending == Ending::Undo))
+            .then(|| ToPage::Stopped {
+                kept: ending == Ending::Kept,
+                log: summary.log.display().to_string(),
+                report_problem: summary.report_problem,
+            });
+        (ending, last_screen)
     });
-    let _ = proxy.send_event(UserEvent::Ended(ending));
+    let _ = proxy.send_event(UserEvent::Ended(ending, last_screen));
 }

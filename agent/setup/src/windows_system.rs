@@ -1,7 +1,6 @@
 //! The real machine for setup: NVML, the registry, `wsl.exe`, the network and the processes it starts.
 
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Duration;
 
 use base64::Engine as _;
@@ -14,8 +13,9 @@ use idleo_release::manifest::Artifact;
 use idleo_release::paths::Layout;
 use idleo_release::registry::Registry;
 use idleo_release::wsl::Runner;
+use idleo_setup::scrub::Identity;
 use idleo_setup::steps::Config;
-use idleo_setup::system::{Gpu, InstallEvent, Latest, System};
+use idleo_setup::system::{Gpu, InstallEvent, Latest, Rejected, System};
 use uuid::Uuid;
 
 /// `CREATE_NO_WINDOW`: no console flashes up.
@@ -249,13 +249,28 @@ impl System for WindowsSystem {
         std::fs::copy(me, to).map(|_| ()).map_err(|e| e.to_string())
     }
 
-    async fn send_events(&self, install_id: Uuid, events: Vec<InstallEvent>) {
-        // Best effort, and never in the way: sent on its own task.
-        let client = self.client.clone();
+    fn identity(&self) -> Identity {
+        let var = |name: &str| std::env::var(name).unwrap_or_default();
+        Identity { profile: var("USERPROFILE"), user: var("USERNAME"), machine: var("COMPUTERNAME") }
+    }
+
+    async fn send_events(&self, install_id: Uuid, events: Vec<InstallEvent>) -> Result<(), Rejected> {
         let url = format!("{}/v1/host-installs/{install_id}/events", self.config.api_url.trim_end_matches('/'));
-        let body = Arc::new(serde_json::json!({ "events": events }));
-        tokio::spawn(async move {
-            let _ = client.post(url).json(&*body).timeout(Duration::from_secs(10)).send().await;
-        });
+        let sent = self
+            .client
+            .post(url)
+            .json(&serde_json::json!({ "events": events }))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await;
+        match sent {
+            Ok(answer) if answer.status().is_success() => Ok(()),
+            Ok(answer) => {
+                let status = answer.status().as_u16().to_string();
+                let answer = answer.text().await.unwrap_or_default();
+                Err(Rejected { status, answer })
+            }
+            Err(e) => Err(Rejected { status: "no answer".to_owned(), answer: e.to_string() }),
+        }
     }
 }

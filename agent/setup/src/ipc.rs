@@ -75,6 +75,8 @@ pub enum ToPage {
         already_set_up: bool,
         /// A development build says so in its title.
         dev_build: bool,
+        /// An earlier setup stopped part-way and was kept: Repair carries on from the step that didn't pass.
+        unfinished: bool,
     },
     /// The steps, ticked as they go.
     Progress {
@@ -93,6 +95,8 @@ pub enum ToPage {
         button: String,
         /// For "Update driver": checking again by itself.
         rechecking: bool,
+        /// A development build offers "Keep it for troubleshooting" beside the button.
+        keep: bool,
     },
     /// Approve in the browser.
     Approve {
@@ -114,6 +118,17 @@ pub enum ToPage {
     Done {
         /// The host waits for IdleO's check (the pilot); false when it's live.
         pending: bool,
+        /// A development build says when IdleO didn't take setup's measurements: `422`, `no answer`.
+        report_problem: Option<String>,
+    },
+    /// A development build's last screen after a setup that didn't finish: where the log is.
+    Stopped {
+        /// Kept for troubleshooting, not undone.
+        kept: bool,
+        /// The setup log's file.
+        log: String,
+        /// When IdleO didn't take setup's measurements: `422`, `no answer`.
+        report_problem: Option<String>,
     },
 }
 
@@ -137,6 +152,8 @@ pub enum FromPage {
     Later,
     /// Close: the window asks "Stop setting up?" itself.
     Close,
+    /// Keep it for troubleshooting (development builds): leave what's installed and close.
+    Keep,
     /// Yes, stop setting up: undo everything and close.
     ConfirmClose,
 }
@@ -165,19 +182,21 @@ mod tests {
     #[test]
     fn messages_round_trip_as_json() {
         let messages = [
-            ToPage::Welcome { already_set_up: false, dev_build: true },
+            ToPage::Welcome { already_set_up: false, dev_build: true, unfinished: false },
             ToPage::Fix {
                 problem: Problem::DriverTooOld,
                 text: Problem::DriverTooOld.text(0),
                 button: "Update driver".into(),
                 rechecking: true,
+                keep: false,
             },
             ToPage::Approve {
                 machine_name: "ASUS ROG Strix".into(),
                 url: "https://app.idleo.in/link/1/".into(),
                 short_url: "app.idleo.in/link/1/".into(),
             },
-            ToPage::Done { pending: true },
+            ToPage::Done { pending: true, report_problem: Some("422".into()) },
+            ToPage::Stopped { kept: true, log: r"C:\x\setup.log".into(), report_problem: None },
         ];
         for message in messages {
             let text = serde_json::to_string(&message).unwrap();
@@ -190,6 +209,7 @@ mod tests {
     fn the_page_messages_parse_and_anything_else_is_ignored() {
         assert_eq!(FromPage::parse(r#"{"type":"set_up"}"#), Some(FromPage::SetUp));
         assert_eq!(FromPage::parse(r#"{"type":"confirm_close"}"#), Some(FromPage::ConfirmClose));
+        assert_eq!(FromPage::parse(r#"{"type":"keep"}"#), Some(FromPage::Keep));
         assert_eq!(FromPage::parse(r#"{"type":"format_disk"}"#), None);
         assert_eq!(FromPage::parse("nonsense"), None);
     }

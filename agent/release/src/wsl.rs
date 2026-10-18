@@ -317,6 +317,8 @@ pub mod fake {
         pub exec: BTreeMap<String, (i32, String)>,
         /// Every call, as its arguments joined by spaces.
         pub calls: Vec<String>,
+        /// When set, `--import` fails with this on stderr.
+        pub import_error: Option<String>,
     }
 
     /// A fake `wsl.exe`. Clones share the same state.
@@ -393,6 +395,9 @@ pub mod fake {
                         + "  Stopped  2
 "
                 })),
+                ["--import", ..] if state.import_error.is_some() => {
+                    fail(&state.import_error.clone().unwrap_or_default())
+                }
                 ["--import", name, dir, _tarball, "--version", "2"] => {
                     state.distros.insert((*name).to_owned(), (*dir).to_owned());
                     ok(String::new())

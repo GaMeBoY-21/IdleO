@@ -14,10 +14,10 @@ use sha2::{Digest, Sha256};
 use tokio::sync::mpsc;
 
 use crate::ipc::{FromPage, Problem, ToPage};
-use crate::steps::{Config, Ending, Engine, undo};
-use crate::system::Latest;
+use crate::steps::{Config, Ending, Engine, Summary, undo, undo_keeping_logs};
 use crate::system::fake::{FakeSystem, LinkGoes, rtx};
 use crate::system::{Gpu, System};
+use crate::system::{Latest, Rejected};
 
 fn key() -> SigningKey {
     SigningKey::from_bytes(&[3; 32])
@@ -96,18 +96,30 @@ fn laptop() -> FakeSystem {
 
 /// Runs setup with these page answers queued, and returns how it ended and every screen it showed.
 async fn run(system: &FakeSystem, answers: &[FromPage], resume: bool) -> (Ending, Vec<ToPage>) {
+    let (ending, screens, _) = run_as(system, answers, resume, false).await;
+    (ending, screens)
+}
+
+/// [`run`] as a development build (or not), with how the run went for the last screen.
+async fn run_as(
+    system: &FakeSystem,
+    answers: &[FromPage],
+    resume: bool,
+    dev_build: bool,
+) -> (Ending, Vec<ToPage>, Summary) {
     let (send, mut events) = mpsc::unbounded_channel();
     for answer in answers {
         send.send(answer.clone()).unwrap();
     }
     let mut screens = Vec::new();
     let mut page = |screen: ToPage| screens.push(screen);
-    let ending = {
-        let mut engine = Engine::new(system, config(), Some(key().verifying_key().to_bytes()), &mut page, &mut events);
-        engine.run(resume).await
+    let (ending, summary) = {
+        let mut engine = Engine::new(system, config(), Some(key().verifying_key().to_bytes()), &mut page, &mut events)
+            .dev_build(dev_build);
+        (engine.run(resume).await, engine.summary())
     };
     drop(send);
-    (ending, screens)
+    (ending, screens, summary)
 }
 
 fn measured(system: &FakeSystem) -> Vec<String> {
@@ -130,7 +142,7 @@ async fn the_happy_path_runs_every_step_in_order_and_leaves_a_listed_install() {
     let (ending, screens) = run(&system, &[FromPage::SetUp], false).await;
     assert_eq!(ending, Ending::Done { pending: true });
     assert!(matches!(screens.first(), Some(ToPage::Welcome { already_set_up: false, .. })));
-    assert!(matches!(screens.last(), Some(ToPage::Done { pending: true })));
+    assert!(matches!(screens.last(), Some(ToPage::Done { pending: true, .. })));
     assert!(
         screens
             .iter()
@@ -183,7 +195,7 @@ async fn a_live_host_is_told_so() {
     system.listed = LinkState::Active;
     let (ending, screens) = run(&system, &[FromPage::SetUp], false).await;
     assert_eq!(ending, Ending::Done { pending: false });
-    assert!(matches!(screens.last(), Some(ToPage::Done { pending: false })));
+    assert!(matches!(screens.last(), Some(ToPage::Done { pending: false, .. })));
 }
 
 #[tokio::test]
@@ -323,7 +335,8 @@ async fn a_failed_self_test_is_reported_and_leaves_the_laptop_unlisted() {
     assert_eq!(fixes(&screens), [Problem::SomethingDidntPass]);
     let failed =
         system.events.borrow().iter().find(|e| e.step == "self_test" && e.outcome == "failed").cloned().unwrap();
-    assert_eq!(failed.reason.as_deref(), Some("self_test:gpu_in_container"));
+    assert_eq!(failed.reason.as_deref(), Some("gpu_in_container"));
+    assert_eq!(failed.detail.as_deref(), Some("distro 0.1.0 (took 900 ms)"));
     assert!(!system.linked());
 }
 
@@ -343,15 +356,311 @@ async fn repair_runs_the_steps_again_but_never_links_again() {
 }
 
 #[tokio::test]
-async fn installed_but_not_linked_starts_at_the_link() {
+async fn installed_but_not_linked_carries_on_at_the_link() {
     let system = laptop();
     *system.links.borrow_mut() = VecDeque::from([LinkGoes::Denied]);
     run(&system, &[FromPage::SetUp, FromPage::ConfirmClose], false).await;
     system.events.borrow_mut().clear();
     *system.links.borrow_mut() = VecDeque::from([LinkGoes::Approved]);
-    let (ending, screens) = run(&system, &[], false).await;
+    let (ending, screens) = run(&system, &[FromPage::SetUp], false).await;
     assert_eq!(ending, Ending::Done { pending: true });
-    assert!(!screens.iter().any(|s| matches!(s, ToPage::Welcome { .. })));
+    assert!(
+        matches!(screens.first(), Some(ToPage::Welcome { unfinished: true, .. })),
+        "an install that stopped part-way offers Repair"
+    );
     let started: Vec<String> = measured(&system).into_iter().filter(|e| e.ends_with(" started")).collect();
     assert_eq!(started, ["link started", "start started"]);
+}
+
+/// A self-test with these checks, `(name, passed, what it found)`.
+fn checks(found: &[(&str, bool, &str)]) -> Vec<idleo_agent::self_test::Check> {
+    found
+        .iter()
+        .enumerate()
+        .map(|(i, (name, passed, detail))| idleo_agent::self_test::Check {
+            name: (*name).into(),
+            passed: *passed,
+            detail: (*detail).into(),
+            took_ms: 100 + i as u64,
+        })
+        .collect()
+}
+
+fn failing_self_test(system: &mut FakeSystem) {
+    system.self_test_checks = Some(checks(&[
+        ("gpu_visible", true, "RTX 4080"),
+        ("gpu_in_container", false, "nvidia-smi: no devices found"),
+        ("lockdown", false, "a shell answered on port 22"),
+    ]));
+}
+
+fn sent_events(system: &FakeSystem) -> Vec<crate::system::InstallEvent> {
+    system.events.borrow().clone()
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Setup diagnostics: what is sent when something doesn't pass, the log, and keeping a failed install.
+// ---------------------------------------------------------------------------------------------------------------
+
+#[tokio::test]
+async fn each_failed_check_is_its_own_event_with_what_it_found_and_how_long_it_took() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    let (ending, _) = run(&system, &[FromPage::SetUp, FromPage::Fix], false).await;
+    assert_eq!(ending, Ending::Undo);
+    let failed: Vec<_> =
+        sent_events(&system).into_iter().filter(|e| e.step == "self_test" && e.outcome == "failed").collect();
+    let reasons: Vec<_> = failed.iter().map(|e| e.reason.clone().unwrap()).collect();
+    assert_eq!(reasons, ["gpu_in_container", "lockdown"], "only the checks that failed, one event each");
+    assert_eq!(failed[0].detail.as_deref(), Some("nvidia-smi: no devices found (took 101 ms)"));
+    assert_eq!(failed[1].detail.as_deref(), Some("a shell answered on port 22 (took 102 ms)"));
+    let closed = sent_events(&system).into_iter().find(|e| e.step == "setup_closed").unwrap();
+    assert_eq!(closed.reason.as_deref(), Some("self_test"));
+}
+
+#[tokio::test]
+async fn a_failed_step_sends_the_error_text_and_not_the_person() {
+    let system = laptop();
+    let profile = system.identity.profile.clone();
+    system.machine.wsl.state().import_error = Some(format!(
+        "Wsl/Service/RegisterDistro: cannot create {profile}\\AppData\\Local\\IdleO\\wsl\\0.1.0 for Asha on TESTRIG-7"
+    ));
+    let (ending, _) = run(&system, &[FromPage::SetUp, FromPage::Fix], false).await;
+    assert_eq!(ending, Ending::Undo);
+    let events = sent_events(&system);
+    let failed = events.iter().find(|e| e.step == "distro" && e.outcome == "failed").unwrap();
+    assert_eq!(failed.reason.as_deref(), Some("distro_import"));
+    let detail = failed.detail.as_deref().unwrap();
+    assert!(detail.contains("RegisterDistro: cannot create %USERPROFILE%"), "{detail}");
+    assert!(detail.contains("for <user> on <machine>"), "{detail}");
+    // Nothing anywhere in what went to IdleO names the person or the machine.
+    let wire = serde_json::to_string(&events).unwrap().to_lowercase();
+    for secret in ["asha", "testrig", "c:\\\\users"] {
+        assert!(!wire.contains(secret), "{secret} was sent: {wire}");
+    }
+}
+
+#[tokio::test]
+async fn long_details_are_cut_and_every_request_stays_under_the_servers_limit() {
+    let mut system = laptop();
+    let long = "x".repeat(3_000);
+    let many: Vec<(String, bool, String)> = (0..15).map(|i| (format!("check_{i}"), false, long.clone())).collect();
+    system.self_test_checks = Some(
+        many.iter()
+            .map(|(name, passed, detail)| idleo_agent::self_test::Check {
+                name: name.clone(),
+                passed: *passed,
+                detail: detail.clone(),
+                took_ms: 5,
+            })
+            .collect(),
+    );
+    run(&system, &[FromPage::SetUp, FromPage::Fix], false).await;
+    let failed: Vec<_> =
+        sent_events(&system).into_iter().filter(|e| e.step == "self_test" && e.outcome == "failed").collect();
+    assert_eq!(failed.len(), 15);
+    assert!(failed.iter().all(|e| e.detail.as_ref().unwrap().chars().count() <= 2_000));
+    let sizes = system.batch_bytes.borrow().clone();
+    assert!(sizes.iter().all(|size| *size <= 16 * 1024), "{sizes:?}");
+}
+
+#[tokio::test]
+async fn every_reason_setup_sends_is_one_the_server_accepts() {
+    // A spread of failures, each with text that would break a looser rule: spaces, capitals, commas, a path.
+    let mut scenarios: Vec<FakeSystem> = Vec::new();
+    for (tamper, wrong) in [(true, false), (false, true)] {
+        let (latest, files) = release(tamper, wrong);
+        scenarios.push(FakeSystem::new(latest, files));
+    }
+    let import_fails = laptop();
+    import_fails.machine.wsl.state().import_error = Some("The Operation Failed, At C:\\Some Path".into());
+    scenarios.push(import_fails);
+    let mut self_test = laptop();
+    failing_self_test(&mut self_test);
+    scenarios.push(self_test);
+    let mut unreachable = laptop();
+    unreachable.latest = Err("error sending request: Connection refused".into());
+    scenarios.push(unreachable);
+    let no_gpu = laptop();
+    *no_gpu.gpus.borrow_mut() = VecDeque::from([vec![]]);
+    scenarios.push(no_gpu);
+    let denied = laptop();
+    *denied.links.borrow_mut() = VecDeque::from([LinkGoes::Denied]);
+    scenarios.push(denied);
+    for system in &scenarios {
+        run(system, &[FromPage::SetUp, FromPage::Fix, FromPage::Fix, FromPage::ConfirmClose], false).await;
+    }
+    run(&laptop(), &[FromPage::SetUp], false).await;
+    let mut seen = 0;
+    for system in &scenarios {
+        for event in sent_events(system) {
+            if let Some(reason) = event.reason.clone() {
+                seen += 1;
+                assert!(crate::reasons::is_valid(&reason), "{reason:?} in {event:?}");
+            }
+        }
+    }
+    assert!(seen > 10, "{seen}");
+}
+
+#[tokio::test]
+async fn the_setup_log_has_every_step_every_command_and_the_self_test() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    // A command's output longer than 4 KB is cut.
+    system.machine.wsl.state().exec.insert("never".into(), (0, String::new()));
+    let (_, _, summary) = run_as(&system, &[FromPage::SetUp, FromPage::Fix], false, true).await;
+    assert!(summary.failed);
+    let log = std::fs::read_to_string(&summary.log).unwrap();
+    assert!(summary.log.starts_with(system.layout().logs()));
+    assert!(summary.log.file_name().unwrap().to_string_lossy().starts_with("setup-"));
+    for step in ["checks", "wsl", "download", "install", "distro", "self_test"] {
+        assert!(log.contains(&format!("step {step}: started")), "{step}\n{log}");
+    }
+    assert!(log.contains("step self_test: failed after"), "{log}");
+    assert!(log.contains("ran `wsl.exe --import IdleO-0.1.0"), "{log}");
+    assert!(log.contains(": exit 0 after"), "{log}");
+    assert!(log.contains("self-test answered:"), "{log}");
+    assert!(log.contains("\"name\": \"gpu_in_container\""), "{log}");
+}
+
+#[tokio::test]
+async fn a_commands_output_is_cut_to_four_kilobytes_in_the_log() {
+    let system = laptop();
+    system.machine.wsl.state().import_error = Some("e".repeat(10_000));
+    let (_, _, summary) = run_as(&system, &[FromPage::SetUp, FromPage::Fix], false, true).await;
+    let log = std::fs::read_to_string(&summary.log).unwrap();
+    assert!(log.contains("stderr:"), "{log}");
+    assert!(log.contains("more bytes)"), "{log}");
+    assert!(log.len() < 12 * 1024, "{}", log.len());
+}
+
+#[tokio::test]
+async fn a_release_build_undoes_everything_including_the_log() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    let (ending, screens, summary) = run_as(&system, &[FromPage::SetUp, FromPage::Fix], false, false).await;
+    assert_eq!(ending, Ending::Undo);
+    assert!(summary.log.exists());
+    assert!(
+        screens.iter().all(|s| !matches!(s, ToPage::Fix { keep: true, .. })),
+        "a release build never offers to keep it"
+    );
+    let removal = undo(&system, None);
+    assert_eq!(removal.problems, Vec::<String>::new());
+    assert!(!summary.log.exists());
+    assert!(!system.layout().logs().exists());
+    assert_eq!(install::leftovers(&system), Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn a_release_build_ignores_a_page_that_asks_to_keep_it_anyway() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    let (ending, _) = run(&system, &[FromPage::SetUp, FromPage::Keep, FromPage::Fix], false).await;
+    assert_eq!(ending, Ending::Undo, "Keep did nothing; OK undid it");
+    assert!(!sent_events(&system).iter().any(|e| e.reason.as_deref() == Some("keep")));
+}
+
+#[tokio::test]
+async fn a_development_build_keeps_a_failed_install_and_the_next_run_repairs_it() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    let (ending, screens, summary) = run_as(&system, &[FromPage::SetUp, FromPage::Keep], false, true).await;
+    assert_eq!(ending, Ending::Kept);
+    assert!(screens.iter().any(|s| matches!(s, ToPage::Fix { keep: true, .. })), "the button is offered");
+    // Everything so far is still there; nothing is linked, started or set to start at sign-in.
+    assert!(install::is_installed(&system));
+    assert!(Wsl::new(system.wsl_runner()).ours().unwrap().contains(&"IdleO-0.1.0".to_owned()));
+    assert!(system.registry().get(install::RUN_KEY, install::RUN_VALUE).is_none(), "no Run entry");
+    assert!(system.registry().get(UNINSTALL_KEY, "UninstallString").is_some(), "the uninstall entry stays");
+    assert!(!system.linked());
+    assert!(!*system.started.borrow(), "the launcher wasn't started");
+    assert!(summary.log.exists());
+    let measured_first = measured(&system);
+    assert!(measured_first.contains(&"click passed".to_owned()));
+    assert!(sent_events(&system).iter().any(|e| e.step == "click" && e.reason.as_deref() == Some("keep")));
+    assert!(measured_first.contains(&"setup_closed failed".to_owned()));
+
+    // The fix is made; running setup again offers Repair and carries on from the self-test, not from the start.
+    system.events.borrow_mut().clear();
+    system.self_test_checks = None;
+    let (ending, screens, _) = run_as(&system, &[FromPage::SetUp], false, true).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert!(matches!(screens.first(), Some(ToPage::Welcome { unfinished: true, .. })));
+    let started: Vec<String> = measured(&system).into_iter().filter(|e| e.ends_with(" started")).collect();
+    assert_eq!(started, ["self_test started", "link started", "start started"]);
+    assert!(system.linked());
+    assert!(*system.started.borrow());
+    assert!(system.registry().get(install::RUN_KEY, install::RUN_VALUE).is_some(), "Repair puts the Run entry back");
+}
+
+#[tokio::test]
+async fn repair_after_a_kept_import_failure_starts_again_at_the_import() {
+    let system = laptop();
+    system.machine.wsl.state().import_error = Some("0x80070057".into());
+    let (ending, _, _) = run_as(&system, &[FromPage::SetUp, FromPage::Keep], false, true).await;
+    assert_eq!(ending, Ending::Kept);
+    system.machine.wsl.state().import_error = None;
+    system.events.borrow_mut().clear();
+    let (ending, _, _) = run_as(&system, &[FromPage::SetUp], false, true).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    let started: Vec<String> = measured(&system).into_iter().filter(|e| e.ends_with(" started")).collect();
+    assert_eq!(started, ["distro started", "self_test started", "link started", "start started"]);
+}
+
+#[tokio::test]
+async fn a_development_build_that_is_uninstalled_after_keeping_removes_everything_but_the_log() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    let (_, _, summary) = run_as(&system, &[FromPage::SetUp, FromPage::Keep], false, true).await;
+    // The uninstall entry removes everything, the log included.
+    let removal = idleo_release::install::remove_all(&system, None);
+    assert_eq!(removal.problems, Vec::<String>::new());
+    assert!(!summary.log.exists());
+    assert_eq!(install::leftovers(&system), Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn a_development_builds_undo_keeps_only_the_logs_folder() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    let (ending, _, summary) = run_as(&system, &[FromPage::SetUp, FromPage::Fix], false, true).await;
+    assert_eq!(ending, Ending::Undo);
+    let removal = undo_keeping_logs(&system, None);
+    assert_eq!(removal.problems, Vec::<String>::new());
+    assert!(summary.log.exists(), "the log is how the failure gets looked at");
+    assert!(!system.layout().setup_dir().exists() && !system.layout().programs().exists());
+    assert!(system.registry().get(UNINSTALL_KEY, "UninstallString").is_none());
+    assert_eq!(Wsl::new(system.wsl_runner()).ours().unwrap(), Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn a_batch_idleo_refuses_is_logged_shown_in_a_development_build_and_never_retried_forever() {
+    let mut system = laptop();
+    system.reject_events =
+        Some(Rejected { status: "422".into(), answer: "{\"type\":\"/problems/validation-failed\"}".into() });
+    let (ending, screens, summary) = run_as(&system, &[FromPage::SetUp], false, true).await;
+    assert_eq!(ending, Ending::Done { pending: true }, "reporting never gets in the install's way");
+    assert!(matches!(
+        screens.last(),
+        Some(ToPage::Done { report_problem: Some(problem), .. }) if problem == "422"
+    ));
+    let log = std::fs::read_to_string(&summary.log).unwrap();
+    assert!(log.contains("IdleO didn't take") && log.contains("422") && log.contains("validation-failed"), "{log}");
+    assert_eq!(
+        *system.batches_offered.borrow(),
+        usize::from(crate::steps::GIVE_UP_REPORTING),
+        "tried a few times, then stopped"
+    );
+    assert!(log.contains("not reported to IdleO"), "{log}");
+}
+
+#[tokio::test]
+async fn a_release_build_says_nothing_about_a_refused_batch() {
+    let mut system = laptop();
+    system.reject_events = Some(Rejected { status: "no answer".into(), answer: "timed out".into() });
+    let (ending, screens, _) = run_as(&system, &[FromPage::SetUp], false, false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert!(matches!(screens.last(), Some(ToPage::Done { report_problem: None, .. })));
 }

@@ -13,7 +13,9 @@
 //! 7. `link`: approval in the browser (click 3).
 //! 8. `start`: the launcher, then the host's first status.
 //!
-//! Every step's start and end, and every click, are measured (host experience §6 row 11).
+//! Every step's start and end, and every click, are measured (host experience §6 row 11); when a step or a self-test
+//! check fails, the words go with it (`detail`, scrubbed of the person and the machine), and the whole run is written to
+//! the setup log. A development build can keep a failed install for troubleshooting instead of undoing it.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -22,7 +24,7 @@ use idleo_agent::link::{LinkError, Progress};
 use idleo_release::apps::Apps;
 use idleo_release::channel::LinkState;
 use idleo_release::download::DownloadError;
-use idleo_release::install::{self, RUNONCE_KEY, RUNONCE_VALUE};
+use idleo_release::install::{self, RUN_KEY, RUN_VALUE, RUNONCE_KEY, RUNONCE_VALUE};
 use idleo_release::manifest::{self, Manifest};
 use idleo_release::paths;
 use idleo_release::registry::Value;
@@ -33,6 +35,9 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use crate::ipc::{FromPage, Problem, StepView, ToPage};
+use crate::log::{LoggingRunner, SetupLog};
+use crate::reasons;
+use crate::scrub::{self, Identity};
 use crate::system::{Gpu, InstallEvent, Latest, System};
 
 /// The steps, in order.
@@ -133,6 +138,9 @@ pub enum Ending {
     Restarting,
     /// The owner chose to restart later; setup carries on after the restart.
     Later,
+    /// A development build was told to keep what was installed so far, for troubleshooting. Nothing is linked or
+    /// started, and the Run entry is gone; running setup again offers Repair.
+    Kept,
     /// Stopped: by the owner ("Stop setting up?"), or because the laptop can't host, or something didn't pass. Whatever
     /// was done is undone.
     Undo,
@@ -175,6 +183,37 @@ pub struct Engine<'a, S: System> {
     reason: Option<String>,
     /// Where the host stood when it was first listed.
     listed: Option<LinkState>,
+    /// A development build: it offers to keep a failed install, and says where the log is.
+    dev_build: bool,
+    /// Whom the reports must not name.
+    identity: Identity,
+    /// This run's log.
+    log: SetupLog,
+    /// Why the step under way failed, in words as they were (scrubbed when sent).
+    failure: Option<String>,
+    /// The failure was reported already, check by check.
+    reported: bool,
+    /// What IdleO answered when it didn't take a batch, until the end.
+    report_problem: Option<String>,
+    /// Batches refused or unanswered in a row; after [`GIVE_UP_REPORTING`] setup stops trying.
+    report_failures: u8,
+}
+
+/// Refused or unanswered batches in a row after which setup stops reporting, so a server that is down costs a few
+/// seconds, never the install.
+pub const GIVE_UP_REPORTING: u8 = 3;
+/// Most bytes of events in one request; the control plane takes 16 KiB.
+const MAX_BATCH_BYTES: usize = 12 * 1024;
+
+/// How a run ended, for the window's last screen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Summary {
+    /// A step didn't pass.
+    pub failed: bool,
+    /// The log's file.
+    pub log: std::path::PathBuf,
+    /// What IdleO answered when it didn't take setup's measurements.
+    pub report_problem: Option<String>,
 }
 
 impl<'a, S: System> Engine<'a, S> {
@@ -209,7 +248,37 @@ impl<'a, S: System> Engine<'a, S> {
             pending_events: Vec::new(),
             reason: None,
             listed: None,
+            dev_build: false,
+            identity: system.identity(),
+            log: SetupLog::new(&system.layout().logs(), time::OffsetDateTime::now_utc()),
+            failure: None,
+            reported: false,
+            report_problem: None,
+            report_failures: 0,
         }
+    }
+
+    /// A development build: failed installs can be kept, and the last screen says where the log is.
+    #[must_use]
+    pub fn dev_build(mut self, dev_build: bool) -> Self {
+        self.dev_build = dev_build;
+        self
+    }
+
+    /// How the run went, for the last screen.
+    #[must_use]
+    pub fn summary(&self) -> Summary {
+        Summary { failed: self.failed.is_some(), log: self.log.path(), report_problem: self.report_problem.clone() }
+    }
+
+    /// `wsl.exe`, every command of it written to the log.
+    fn wsl_tool(&self) -> Wsl<LoggingRunner<'a>> {
+        Wsl::new(LoggingRunner::new(self.system.wsl_runner(), self.log.clone()))
+    }
+
+    /// What a development build's screens say about measurements IdleO didn't take.
+    fn dev_report_problem(&self) -> Option<String> {
+        self.dev_build.then(|| self.report_problem.clone()).flatten()
     }
 
     /// The install's id.
@@ -229,6 +298,21 @@ impl<'a, S: System> Engine<'a, S> {
     }
 
     fn measure(&mut self, step: &str, outcome: &str, reason: Option<String>, took: Option<Duration>) {
+        self.measure_detail(step, outcome, reason, None, took);
+    }
+
+    /// A measurement with the words behind it: scrubbed of the person and the machine, and at most 2,000 characters.
+    fn measure_detail(
+        &mut self,
+        step: &str,
+        outcome: &str,
+        reason: Option<String>,
+        detail: Option<&str>,
+        took: Option<Duration>,
+    ) {
+        debug_assert!(reason.as_deref().is_none_or(reasons::is_valid), "{reason:?} is not a reason code");
+        let reason = reason.map(|reason| if reasons::is_valid(&reason) { reason } else { reasons::code(&reason) });
+        let detail = detail.map(|detail| scrub::detail(detail, &self.identity)).filter(|detail| !detail.is_empty());
         self.pending_events.push(InstallEvent {
             step: step.to_owned(),
             outcome: outcome.to_owned(),
@@ -238,17 +322,55 @@ impl<'a, S: System> Engine<'a, S> {
             setup_version: idleo_agent::AGENT_VERSION.to_owned(),
             windows_build: self.windows_build,
             gpu_model: self.gpus.first().map(|gpu| gpu.name.clone()),
+            detail,
         });
+    }
+
+    /// Notes why the step under way is failing: a short code for the measurement, the words for its detail.
+    fn fail(&mut self, reason: impl Into<String>, words: impl std::fmt::Display) {
+        self.reason = Some(reason.into());
+        self.failure = Some(words.to_string());
     }
 
     fn click(&mut self, which: &str) {
         self.measure("click", "passed", Some(which.to_owned()), None);
     }
 
+    /// Sends what's measured, in requests of at most 20 events and 12 KiB, each tried once. A batch IdleO doesn't take
+    /// is written to the log and remembered for the last screen; after a few in a row, setup stops trying.
     async fn flush(&mut self) {
-        let events = std::mem::take(&mut self.pending_events);
-        for batch in events.chunks(20) {
-            self.system.send_events(self.state.install_id, batch.to_vec()).await;
+        let mut events = std::mem::take(&mut self.pending_events).into_iter().peekable();
+        while events.peek().is_some() {
+            let mut batch = Vec::new();
+            let mut bytes = 0;
+            while let Some(event) = events.peek() {
+                let size = serde_json::to_string(event).map_or(0, |text| text.len() + 1);
+                if !batch.is_empty() && (batch.len() >= 20 || bytes + size > MAX_BATCH_BYTES) {
+                    break;
+                }
+                bytes += size;
+                batch.extend(events.next());
+            }
+            if self.report_failures >= GIVE_UP_REPORTING {
+                self.log.line(&format!(
+                    "not reported to IdleO: {} measurements, after {GIVE_UP_REPORTING} failures",
+                    batch.len()
+                ));
+                continue;
+            }
+            match self.system.send_events(self.state.install_id, batch.clone()).await {
+                Ok(()) => self.report_failures = 0,
+                Err(rejected) => {
+                    self.report_failures += 1;
+                    self.log.line(&format!(
+                        "IdleO didn't take {} measurements: {} {}",
+                        batch.len(),
+                        rejected.status,
+                        crate::log::trimmed(&rejected.answer, 500)
+                    ));
+                    self.report_problem = Some(rejected.status);
+                }
+            }
         }
     }
 
@@ -298,9 +420,14 @@ impl<'a, S: System> Engine<'a, S> {
         let ending = match self.steps(resume).await {
             Ok(ending) | Err(Stop::Ending(ending)) => ending,
         };
-        if ending == Ending::Undo {
+        if matches!(ending, Ending::Undo | Ending::Kept) {
             self.measure("setup_closed", "failed", self.failed.map(|step| step.name().to_owned()), None);
         }
+        if ending == Ending::Kept {
+            // Nothing starts by itself at sign-in while it is kept; Repair puts the entry back.
+            let _ = self.system.registry().delete_value(RUN_KEY, RUN_VALUE);
+        }
+        self.log.line(&format!("setup ended: {ending:?}"));
         self.flush().await;
         ending
     }
@@ -309,23 +436,46 @@ impl<'a, S: System> Engine<'a, S> {
         let installed = install::is_installed(self.system);
         let linked = self.system.linked();
         let mut repair = false;
+        // Stopped part-way and kept, or interrupted: some steps done, the last one never was.
+        let unfinished = installed && !self.state.completed.is_empty() && !self.state.completed.contains(&Step::Start);
         let first = if resume && !self.state.completed.is_empty() {
             self.first_incomplete()
-        } else if installed && linked {
-            self.show(ToPage::Welcome { already_set_up: true, dev_build: idleo_release::keys::DEV_BUILD });
+        } else if unfinished {
+            self.show(ToPage::Welcome {
+                already_set_up: false,
+                dev_build: idleo_release::keys::DEV_BUILD,
+                unfinished: true,
+            });
             self.wait_for(&FromPage::SetUp).await?;
-            self.click("repair");
+            self.click(reasons::CLICK_REPAIR);
+            self.first_incomplete()
+        } else if installed && linked {
+            self.show(ToPage::Welcome {
+                already_set_up: true,
+                dev_build: idleo_release::keys::DEV_BUILD,
+                unfinished: false,
+            });
+            self.wait_for(&FromPage::SetUp).await?;
+            self.click(reasons::CLICK_REPAIR);
             repair = true;
             self.state.completed.clear();
             Step::Checks
         } else if installed {
             Step::Link
         } else {
-            self.show(ToPage::Welcome { already_set_up: false, dev_build: idleo_release::keys::DEV_BUILD });
+            self.show(ToPage::Welcome {
+                already_set_up: false,
+                dev_build: idleo_release::keys::DEV_BUILD,
+                unfinished: false,
+            });
             self.wait_for(&FromPage::SetUp).await?;
-            self.click("set_up");
+            self.click(reasons::CLICK_SET_UP);
             self.first_incomplete()
         };
+        // Repairing from the middle needs the release's manifest, which only the first step fetches.
+        if matches!(first, Step::Install | Step::Distro) && self.latest.is_none() {
+            self.fetch_release().await?;
+        }
         let mut started = false;
         for step in Step::ALL {
             if step == first {
@@ -336,7 +486,7 @@ impl<'a, S: System> Engine<'a, S> {
             }
             self.run_step(step).await?;
         }
-        self.show(ToPage::Done { pending: self.pending_listing() });
+        self.show(ToPage::Done { pending: self.pending_listing(), report_problem: self.dev_report_problem() });
         Ok(Ending::Done { pending: self.pending_listing() })
     }
 
@@ -359,8 +509,12 @@ impl<'a, S: System> Engine<'a, S> {
     async fn run_step(&mut self, step: Step) -> Result<(), Stop> {
         self.current = Some(step);
         self.detail = None;
+        self.reason = None;
+        self.failure = None;
+        self.reported = false;
         self.show_progress();
         self.measure(step.name(), "started", None, None);
+        self.log.step_started(step.name());
         let started = Instant::now();
         let result = match step {
             Step::Checks => self.checks().await,
@@ -374,17 +528,31 @@ impl<'a, S: System> Engine<'a, S> {
         };
         match &result {
             Ok(()) => {
+                self.log.step_ended(step.name(), "passed", started.elapsed(), None);
                 self.measure(step.name(), "passed", None, Some(started.elapsed()));
                 if !self.state.completed.contains(&step) {
                     self.state.completed.push(step);
                 }
                 self.save();
             }
-            Err(Stop::Ending(Ending::Restarting | Ending::Later)) => {}
+            Err(Stop::Ending(Ending::Restarting | Ending::Later)) => {
+                self.log.step_ended(step.name(), "paused", started.elapsed(), None);
+            }
             Err(Stop::Ending(_)) => {
                 self.failed = Some(step);
                 let reason = self.reason.take();
-                self.measure(step.name(), "failed", reason, Some(started.elapsed()));
+                let words = self.failure.take();
+                let why = [reason.clone(), words.clone()].into_iter().flatten().collect::<Vec<_>>().join(": ");
+                self.log.step_ended(
+                    step.name(),
+                    "failed",
+                    started.elapsed(),
+                    Some(&why).filter(|why| !why.is_empty()).map(String::as_str),
+                );
+                // A self-test reports each failed check on its own; the step's own line would say the same twice.
+                if !std::mem::take(&mut self.reported) {
+                    self.measure_detail(step.name(), "failed", reason, words.as_deref(), Some(started.elapsed()));
+                }
             }
         }
         self.flush().await;
@@ -400,7 +568,7 @@ impl<S: System> Engine<'_, S> {
         let build = self.system.windows_build().unwrap_or(0);
         self.windows_build = Some(build);
         if build < minimum {
-            self.reason = Some(format!("windows_build_{build}"));
+            self.fail(reasons::windows_build(build), format!("Windows build {build}; this needs {minimum} or later"));
             let system = self.system;
             self.fix(Problem::WindowsTooOld, 0, Some("ms-settings:windowsupdate".to_owned()), move || {
                 system.windows_build().unwrap_or(0) >= minimum
@@ -409,19 +577,26 @@ impl<S: System> Engine<'_, S> {
         }
         self.gpus = rtx(&self.system.gpus().unwrap_or_default());
         if self.gpus.is_empty() {
-            self.reason = Some("no_rtx_gpu".to_owned());
+            let seen = self.system.gpus().unwrap_or_default();
+            let names = seen.iter().map(|gpu| format!("{} ({} MB)", gpu.name, gpu.vram_mb)).collect::<Vec<_>>();
+            self.fail(
+                reasons::NO_RTX_GPU,
+                if names.is_empty() { "no NVIDIA GPU found".to_owned() } else { format!("found {}", names.join(", ")) },
+            );
             self.show(ToPage::Fix {
                 problem: Problem::NoRtxGpu,
                 text: Problem::NoRtxGpu.text(0),
                 button: Problem::NoRtxGpu.button().to_owned(),
                 rechecking: false,
+                keep: false,
             });
             self.wait_for(&FromPage::Fix).await?;
-            self.click("fix:no_rtx_gpu");
+            self.click(&reasons::fix(problem_name(Problem::NoRtxGpu)));
             return Err(Ending::Undo.into());
         }
         if !self.gpus.iter().any(|gpu| idleo_release::drivers::is_supported(&gpu.driver)) {
-            self.reason = Some(format!("driver_too_old:{}", self.gpus[0].driver));
+            let driver = self.gpus[0].driver.clone();
+            self.fail(reasons::driver_too_old(&driver), format!("NVIDIA driver {driver}; this needs a newer one"));
             let system = self.system;
             self.fix(
                 Problem::DriverTooOld,
@@ -437,7 +612,7 @@ impl<S: System> Engine<'_, S> {
             self.gpus = rtx(&self.system.gpus().unwrap_or_default());
         }
         if !self.system.virtualization_enabled() {
-            self.reason = Some("virtualization_off".to_owned());
+            self.fail(reasons::VIRTUALIZATION_OFF, "virtualization is off in the firmware");
             let help =
                 format!("{}/help/virtualization/{}/", self.config.site_url.trim_end_matches('/'), self.system.maker());
             let system = self.system;
@@ -445,7 +620,7 @@ impl<S: System> Engine<'_, S> {
         }
         let free_gb = self.system.free_disk_bytes().unwrap_or(0) / 1_000_000_000;
         if free_gb < NEEDED_FREE_GB {
-            self.reason = Some(format!("disk_{free_gb}_gb"));
+            self.fail(reasons::disk(free_gb), format!("{free_gb} GB free; {NEEDED_FREE_GB} GB needed"));
             let system = self.system;
             self.fix(
                 Problem::NotEnoughDisk,
@@ -457,7 +632,7 @@ impl<S: System> Engine<'_, S> {
         }
         if self.system.on_battery() {
             self.note = Some("Plug your laptop in: IdleO pauses while it runs on battery.".to_owned());
-            self.measure("plugged_in", "failed", Some("on_battery".to_owned()), None);
+            self.measure("plugged_in", "failed", Some(reasons::ON_BATTERY.to_owned()), None);
         }
         Ok(())
     }
@@ -477,13 +652,13 @@ impl<S: System> Engine<'_, S> {
                             Ok(())
                         }
                         Err(e) => {
-                            self.reason = Some(format!("manifest:{e}"));
+                            self.fail(reasons::MANIFEST_INVALID, e);
                             self.something_didnt_pass().await
                         }
                     };
                 }
                 Err(e) => {
-                    self.reason = Some(format!("unreachable:{e}"));
+                    self.fail(reasons::UNREACHABLE, e);
                     self.cant_reach().await?;
                 }
             }
@@ -496,24 +671,37 @@ impl<S: System> Engine<'_, S> {
             text: Problem::CantReachIdleo.text(0),
             button: Problem::CantReachIdleo.button().to_owned(),
             rechecking: false,
+            keep: false,
         });
         self.wait_for(&FromPage::Fix).await?;
-        self.click("try_again");
+        self.click(reasons::CLICK_TRY_AGAIN);
         self.show_progress();
         Ok(())
     }
 
-    /// "Something didn't pass": the report reaches us, the laptop stays unlisted, and setup undoes what it did.
+    /// "Something didn't pass": the report reaches us, the laptop stays unlisted, and setup undoes what it did. A
+    /// development build also offers to keep what's installed, so the failure can be looked at on the laptop.
     async fn something_didnt_pass(&mut self) -> Result<(), Stop> {
+        let keep = self.dev_build;
         self.show(ToPage::Fix {
             problem: Problem::SomethingDidntPass,
             text: Problem::SomethingDidntPass.text(0),
             button: Problem::SomethingDidntPass.button().to_owned(),
             rechecking: false,
+            keep,
         });
         self.flush().await;
-        self.wait_for(&FromPage::Fix).await?;
-        Err(Ending::Undo.into())
+        loop {
+            match self.next_event().await? {
+                FromPage::Fix => return Err(Ending::Undo.into()),
+                // A release build never offers it, and ignores a page that asks anyway.
+                FromPage::Keep if keep => {
+                    self.click(reasons::CLICK_KEEP);
+                    return Err(Ending::Kept.into());
+                }
+                _ => {}
+            }
+        }
     }
 
     /// A fix screen: its button opens `url`, and every 10 seconds it checks again, carrying on the moment it passes.
@@ -529,13 +717,14 @@ impl<S: System> Engine<'_, S> {
             text: problem.text(free_up_gb),
             button: problem.button().to_owned(),
             rechecking: true,
+            keep: false,
         });
         self.flush().await;
         loop {
             tokio::select! {
                 event = self.events.recv() => match event {
                     Some(FromPage::Fix) => {
-                        self.click(&format!("fix:{}", problem_name(problem)));
+                        self.click(&reasons::fix(problem_name(problem)));
                         if let Some(url) = &url {
                             self.system.open_url(url);
                         }
@@ -545,8 +734,9 @@ impl<S: System> Engine<'_, S> {
                 },
                 () = tokio::time::sleep(RECHECK_EVERY) => {
                     if recheck() {
-                        self.measure(Step::Checks.name(), "fixed", Some(problem_name(problem).to_owned()), None);
+                        self.measure(Step::Checks.name(), "fixed", Some(reasons::fix(problem_name(problem))), None);
                         self.reason = None;
+                        self.failure = None;
                         self.show_progress();
                         return Ok(());
                     }
@@ -556,14 +746,14 @@ impl<S: System> Engine<'_, S> {
     }
 
     async fn wsl(&mut self) -> Result<(), Stop> {
-        let wsl = Wsl::new(self.system.wsl_runner());
+        let wsl = self.wsl_tool();
         match wsl.state() {
             WslState::Ready(_) => Ok(()),
             WslState::TooOld(found) => {
                 self.detail = Some("Updating WSL".to_owned());
                 self.show_progress();
                 wsl.update().map_err(|e| {
-                    self.reason = Some(format!("wsl_update:{found}:{e}"));
+                    self.fail(reasons::WSL_UPDATE, format!("WSL {found}: {e}"));
                     Stop::from(Ending::Undo)
                 })
             }
@@ -574,7 +764,7 @@ impl<S: System> Engine<'_, S> {
                     Ok(false) => Ok(()),
                     Ok(true) => self.restart().await,
                     Err(e) => {
-                        self.reason = Some(format!("wsl_install:{e}"));
+                        self.fail(reasons::WSL_INSTALL, e);
                         self.something_didnt_pass().await
                     }
                 }
@@ -595,7 +785,7 @@ impl<S: System> Engine<'_, S> {
         loop {
             match self.next_event().await? {
                 FromPage::RestartNow => {
-                    self.click("restart_now");
+                    self.click(reasons::CLICK_RESTART_NOW);
                     self.flush().await;
                     if let Err(e) = self.system.restart_windows() {
                         tracing::warn!(error = %e, "Windows couldn't be restarted from setup");
@@ -660,11 +850,11 @@ impl<S: System> Engine<'_, S> {
                 Ok(()) => return Ok(()),
                 Err(DownloadError::Verify(e)) => {
                     let _ = std::fs::remove_dir_all(&updates);
-                    self.reason = Some(format!("download_verify:{e}"));
+                    self.fail(reasons::DOWNLOAD_VERIFY, e);
                     return self.something_didnt_pass().await;
                 }
                 Err(DownloadError::Download(e)) => {
-                    self.reason = Some(format!("download:{e}"));
+                    self.fail(reasons::DOWNLOAD, e);
                     self.cant_reach().await?;
                 }
             }
@@ -700,7 +890,7 @@ impl<S: System> Engine<'_, S> {
             Ok(())
         })();
         result.map_err(|e| {
-            self.reason = Some(format!("install:{e}"));
+            self.fail(reasons::INSTALL, e);
             Stop::from(Ending::Undo)
         })
     }
@@ -722,11 +912,11 @@ impl<S: System> Engine<'_, S> {
         let Some((_, manifest)) = self.latest.clone() else { return Err(Ending::Undo.into()) };
         let layout = self.system.layout().clone();
         let name = manifest.distro_name();
-        let wsl = Wsl::new(self.system.wsl_runner());
+        let wsl = self.wsl_tool();
         let tarball = layout.updates().join(file_name(&manifest.distro.file));
         let registered = wsl.ours().is_ok_and(|ours| ours.contains(&name));
         if !registered && let Err(e) = wsl.import(&name, &layout.wsl_dir(&manifest.distro.version), &tarball) {
-            self.reason = Some(format!("distro:{e}"));
+            self.fail(reasons::DISTRO_IMPORT, e);
             return self.something_didnt_pass().await;
         }
         let distro_file = layout.data().join("distro");
@@ -740,20 +930,37 @@ impl<S: System> Engine<'_, S> {
         let apps = Apps::new(layout.clone());
         let Some(version) = apps.current() else { return Err(Ending::Undo.into()) };
         let distro = std::fs::read_to_string(layout.data().join("distro")).unwrap_or_default().trim().to_owned();
-        match self.system.self_test(&apps.program(&version, paths::AGENT_EXE), &distro) {
-            Ok(report) if report.passed => {
-                self.detail = Some(format!("{} checks passed", report.checks.len()));
-                self.show_progress();
-                Ok(())
-            }
+        let agent = apps.program(&version, paths::AGENT_EXE);
+        self.log.line(&format!("ran `{} self-test --json --distro {distro}`", agent.display()));
+        match self.system.self_test(&agent, &distro) {
             Ok(report) => {
-                let failed: Vec<&str> =
-                    report.checks.iter().filter(|check| !check.passed).map(|check| check.name.as_str()).collect();
-                self.reason = Some(format!("self_test:{}", failed.join(",")));
+                self.log.block("self-test answered:", &serde_json::to_string_pretty(&report).unwrap_or_default());
+                if report.passed {
+                    self.detail = Some(format!("{} checks passed", report.checks.len()));
+                    self.show_progress();
+                    return Ok(());
+                }
+                // Each failed check is its own measurement, with what it found and how long it took.
+                let mut first = None;
+                for check in report.checks.iter().filter(|check| !check.passed) {
+                    let reason = reasons::check(&check.name);
+                    let words = format!("{} (took {} ms)", check.detail, check.took_ms);
+                    self.measure_detail(
+                        Step::SelfTest.name(),
+                        "failed",
+                        Some(reason.clone()),
+                        Some(&words),
+                        Some(Duration::from_millis(check.took_ms)),
+                    );
+                    first.get_or_insert((reason, words));
+                }
+                self.reported = true;
+                let (reason, words) = first.unwrap_or_else(|| (reasons::SELF_TEST_RUN.to_owned(), "failed".to_owned()));
+                self.fail(reason, words);
                 self.something_didnt_pass().await
             }
             Err(e) => {
-                self.reason = Some(format!("self_test:{e}"));
+                self.fail(reasons::SELF_TEST_RUN, e);
                 self.something_didnt_pass().await
             }
         }
@@ -808,24 +1015,24 @@ impl<S: System> Engine<'_, S> {
             let Some(outcome) = outcome else { return Err(Ending::Undo.into()) };
             match outcome {
                 Ok(_) | Err(LinkError::AlreadyEnrolled(_)) => {
-                    self.click("approve_seen");
+                    self.click(reasons::CLICK_APPROVE_SEEN);
                     self.show_progress();
                     return Ok(());
                 }
                 Err(LinkError::Denied) => {
-                    self.reason = Some("link_denied".to_owned());
+                    self.fail(reasons::LINK_DENIED, "the owner said this isn't their laptop");
                     self.link_failed("This laptop wasn't approved. If that was a mistake, try again.").await?;
                 }
                 Err(LinkError::Expired) => {
-                    self.reason = Some("link_expired".to_owned());
+                    self.fail(reasons::LINK_EXPIRED, "the link ran out after 10 minutes");
                     self.link_failed("The link ran out after 10 minutes. Try again to get a new one.").await?;
                 }
                 Err(LinkError::Network(e)) => {
-                    self.reason = Some(format!("link_network:{e}"));
+                    self.fail(reasons::LINK_NETWORK, e);
                     self.cant_reach().await?;
                 }
                 Err(e) => {
-                    self.reason = Some(format!("link:{e}"));
+                    self.fail(reasons::LINK, e);
                     return self.something_didnt_pass().await;
                 }
             }
@@ -833,29 +1040,34 @@ impl<S: System> Engine<'_, S> {
     }
 
     async fn link_failed(&mut self, message: &str) -> Result<(), Stop> {
-        self.measure(Step::Link.name(), "failed", self.reason.clone(), None);
+        let (reason, words) = (self.reason.clone(), self.failure.clone());
+        self.measure_detail(Step::Link.name(), "failed", reason, words.as_deref(), None);
         self.show(ToPage::LinkFailed { message: message.to_owned() });
         self.flush().await;
         self.wait_for(&FromPage::TryAgain).await?;
-        self.click("try_again");
+        self.click(reasons::CLICK_TRY_AGAIN);
         self.show_progress();
         Ok(())
     }
 
     async fn start(&mut self) -> Result<(), Stop> {
         loop {
-            if let Err(e) = self.system.start_launcher() {
-                self.reason = Some(format!("start:{e}"));
+            // The entry that starts it at sign-in; a kept install has none until Repair gets here.
+            if let Err(e) = install::enable_at_sign_in(self.system)
+                .map_err(|e| e.to_string())
+                .and_then(|()| self.system.start_launcher())
+            {
+                self.fail(reasons::START_LAUNCHER, e);
                 return self.something_didnt_pass().await;
             }
             match self.system.wait_listed().await {
                 Ok(state) => {
                     self.listed = Some(state);
-                    self.measure("listed", "passed", Some(format!("{state:?}").to_lowercase()), None);
+                    self.measure("listed", "passed", Some(reasons::listed(&format!("{state:?}"))), None);
                     return Ok(());
                 }
                 Err(e) => {
-                    self.reason = Some(format!("start:{e}"));
+                    self.fail(reasons::START_LISTED, e);
                     self.cant_reach().await?;
                 }
             }
@@ -919,6 +1131,12 @@ fn progress_screen(completed: &[Step], current: Step, detail: &str) -> ToPage {
 #[must_use]
 pub fn undo<S: System>(system: &S, running: Option<&std::path::Path>) -> install::Removal {
     install::remove_all(system, running)
+}
+
+/// [`undo`], leaving the `logs` folder: a development build's failed setup, whose log is how it gets looked at.
+#[must_use]
+pub fn undo_keeping_logs<S: System>(system: &S, running: Option<&std::path::Path>) -> install::Removal {
+    install::remove_all_keeping(system, running, install::Keep::Logs)
 }
 
 /// Where setup keeps itself across the restart.
