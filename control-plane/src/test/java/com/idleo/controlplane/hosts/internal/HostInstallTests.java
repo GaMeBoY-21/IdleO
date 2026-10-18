@@ -100,6 +100,104 @@ class HostInstallTests {
                 .isEqualTo(200);
     }
 
+    /** Setup's list of every reason code it can send, written by its own tests ({@code agent/setup/src/reasons.rs}). */
+    private static final java.nio.file.Path SETUP_REASONS = java.nio.file.Path.of("..", "api", "install-reasons.json");
+
+    @Test
+    void everyReasonCodeSetupCanSendIsOneThisServerAccepts() throws Exception {
+        var list = json.readTree(java.nio.file.Files.readString(SETUP_REASONS));
+        assertThat(list.get("pattern").asString())
+                .as("the pattern setup believes the server uses")
+                .isEqualTo(HostInstallController.REASON.pattern());
+        assertThat(list.get("maxLength").asInt())
+                .as("the longest reason setup believes the server takes")
+                .isEqualTo(120);
+        assertThat(list.get("reasons").size()).isGreaterThan(30);
+        var install = UUID.randomUUID();
+        var now = Instant.now(clock);
+        var reasons = list.get("reasons").valueStream().map(r -> r.asString()).toList();
+        // As the pattern says, and then through the endpoint itself, which is what counts.
+        for (var reason : reasons) {
+            assertThat(HostInstallController.REASON.matcher(reason).matches())
+                    .as(reason)
+                    .isTrue();
+            assertThat(reason.length()).as(reason).isLessThanOrEqualTo(120);
+        }
+        for (int from = 0; from < reasons.size(); from += HostInstalls.MAX_PER_REQUEST) {
+            var events = reasons.subList(from, Math.min(from + HostInstalls.MAX_PER_REQUEST, reasons.size())).stream()
+                    .map(reason -> event("checks", "failed", now)
+                            .replace("\"durationMs\"", "\"reason\":\"" + reason + "\",\"durationMs\""))
+                    .toArray(String[]::new);
+            send(UUID.randomUUID(), batch(events)).andExpect(status().isNoContent());
+        }
+        // And the codes this list was written to keep out are still refused.
+        for (var bad : new String[] {"self_test:a,b", "Has Spaces", "C:\\\\Users"}) {
+            send(
+                            install,
+                            batch(event("checks", "failed", now)
+                                    .replace("\"durationMs\"", "\"reason\":\"" + bad + "\",\"durationMs\"")))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    void aDetailIsKeptCutAtTwoThousandCharactersAndShownWithItsInstall() throws Exception {
+        var install = UUID.randomUUID();
+        var opened = Instant.now(clock).minus(Duration.ofMinutes(3));
+        var long2500 = "é".repeat(2_500);
+        send(
+                        install,
+                        batch(
+                                event("setup_opened", "passed", opened),
+                                event("self_test", "failed", opened.plusSeconds(30))
+                                        .replace(
+                                                "\"durationMs\"",
+                                                "\"reason\":\"gpu_in_container\",\"detail\":\"nvidia-smi found no devices"
+                                                        + " (took 101 ms)\",\"durationMs\""),
+                                event("distro", "failed", opened.plusSeconds(31))
+                                        .replace(
+                                                "\"durationMs\"",
+                                                "\"reason\":\"distro_import\",\"detail\":\"" + long2500
+                                                        + "\",\"durationMs\""),
+                                event("checks", "passed", opened.plusSeconds(32))))
+                .andExpect(status().isNoContent());
+        var stored = jdbc.queryForList(
+                "select reason, length(detail) as length from hosts.install_events"
+                        + " where install_id = ? and detail is not null order by at",
+                install);
+        assertThat(stored).hasSize(2);
+        assertThat(((Number) stored.get(0).get("length")).intValue())
+                .isEqualTo("nvidia-smi found no devices (took 101 ms)".length());
+        assertThat(((Number) stored.get(1).get("length")).intValue()).isEqualTo(HostInstalls.MAX_DETAIL);
+
+        var admin = TestAdmins.signIn(mvc, jdbc, clock);
+        var card = json.readTree(mvc.perform(admin.as(get("/admin/v1/installs")))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        var row = card.get("recent")
+                .valueStream()
+                .filter(r -> r.get("installId").asString().equals(install.toString()))
+                .findFirst()
+                .orElseThrow();
+        var details = row.get("details");
+        assertThat(details.size()).isEqualTo(2);
+        assertThat(details.get(0).get("step").asString()).isEqualTo("self_test");
+        assertThat(details.get(0).get("reason").asString()).isEqualTo("gpu_in_container");
+        assertThat(details.get(0).get("detail").asString()).isEqualTo("nvidia-smi found no devices (took 101 ms)");
+        assertThat(details.get(1).get("detail").asString()).hasSize(HostInstalls.MAX_DETAIL);
+    }
+
+    @Test
+    void aSplitSurrogatePairIsNeverLeftAtTheCut() {
+        var atTheCut = "a".repeat(HostInstalls.MAX_DETAIL - 1) + "\uD83D\uDE00";
+        var cut = HostInstalls.truncated(atTheCut);
+        assertThat(cut).hasSize(HostInstalls.MAX_DETAIL - 1);
+        assertThat(HostInstalls.truncated("short")).isEqualTo("short");
+        assertThat(HostInstalls.truncated(null)).isNull();
+    }
+
     @Test
     void anInstallIsTiedToItsHostAndCountedOnTheAdminCard() throws Exception {
         var install = UUID.randomUUID();

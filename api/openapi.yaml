@@ -3530,6 +3530,10 @@ components:
         clicks:
           type: integer
           format: int32
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailureDetail"
         gpuModel:
           type:
           - string
@@ -3563,6 +3567,7 @@ components:
           format: int32
       required:
       - clicks
+      - details
       - installId
       - openedAt
       - stoppedAt
@@ -4884,6 +4889,24 @@ components:
       - at
       - reason
       - state
+    FailureDetail:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        detail:
+          type: string
+        reason:
+          type:
+          - string
+          - "null"
+        step:
+          type: string
+      required:
+      - at
+      - detail
+      - step
     GpuAvailability:
       type: object
       properties:
@@ -5172,6 +5195,10 @@ components:
         at:
           type: string
           format: date-time
+        detail:
+          type:
+          - string
+          - "null"
         durationMs:
           type:
           - integer

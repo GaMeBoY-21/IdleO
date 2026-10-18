@@ -48,7 +48,9 @@ class HostInstallController {
     /**
      * One step of an install. {@code step} is a name such as {@code setup_opened}, {@code checks}, {@code click} or
      * {@code listed}; {@code outcome} started, passed, failed or fixed; {@code reason} why it failed, or which button
-     * a click was. Nothing that names the person or the machine: no user name, path or serial.
+     * a click was, as a short code. {@code detail} says why in words (an error's text, a check's finding); the app
+     * scrubs the user name and profile path from it, and the server keeps its first 2,000 characters. Nothing else
+     * names the person or the machine: no user name, path or serial.
      */
     record InstallEvent(
             @NotBlank @Size(max = 40) String step,
@@ -63,7 +65,10 @@ class HostInstallController {
             @Nullable @Size(max = 40) String setupVersion,
 
             @Nullable @Min(0) @Max(1_000_000) Integer windowsBuild,
-            @Nullable @Size(max = 100) String gpuModel) {}
+            @Nullable @Size(max = 100) String gpuModel,
+
+            // No length limit: a longer one is cut, never refused (the request's 16 KiB is the only bound).
+            @Nullable String detail) {}
 
     record InstallEventsRequest(
             @NotNull @NotEmpty @Size(max = HostInstalls.MAX_PER_REQUEST)
@@ -122,14 +127,17 @@ class HostInstallController {
                                 event.windowsBuild(),
                                 event.gpuModel() == null
                                         ? null
-                                        : event.gpuModel().strip()))
+                                        : event.gpuModel().strip(),
+                                event.detail()))
                         .toList());
     }
 
-    private static final java.util.regex.Pattern STEP = java.util.regex.Pattern.compile("[a-z0-9_]+");
+    static final java.util.regex.Pattern STEP = java.util.regex.Pattern.compile("[a-z0-9_]+");
     private static final java.util.regex.Pattern OUTCOME =
             java.util.regex.Pattern.compile("started|passed|failed|fixed");
-    private static final java.util.regex.Pattern REASON = java.util.regex.Pattern.compile("[a-z0-9_:.\\-]+");
+    /** What a reason may be; setup's list of its reason codes ({@code api/install-reasons.json}) is checked against it. */
+    static final java.util.regex.Pattern REASON = java.util.regex.Pattern.compile("[a-z0-9_:.\\-]+");
+
     private static final java.util.regex.Pattern VERSION = java.util.regex.Pattern.compile("[0-9A-Za-z.+\\-]+");
 
     /**

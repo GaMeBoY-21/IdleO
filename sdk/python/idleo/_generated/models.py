@@ -279,6 +279,7 @@ class InstallEvent(BaseModel):
         populate_by_name=True,
     )
     at: AwareDatetime
+    detail: str | None = None
     duration_ms: Annotated[int | None, Field(alias="durationMs", ge=0, le=86400000)] = None
     gpu_model: Annotated[str | None, Field(alias="gpuModel", max_length=100, min_length=0)] = None
     outcome: str

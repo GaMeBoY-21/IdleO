@@ -21,7 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * The setup app's measurements (host experience §6 row 11): each step's start and end with its duration, the clicks,
  * and where an install stopped, so we can see where hosts struggle. Sent without a sign-in under an install id the app
  * makes; at most {@link #MAX_PER_INSTALL} per install. Never the Windows user name, a path or the machine's serial:
- * the fields are fixed and short. An install is tied to its host through its link ({@code hosts.host_links.install_id})
+ * the fields are fixed and short, and the one free-text field, {@code detail}, reaches us already scrubbed by the app. An install is tied to its host through its link ({@code hosts.host_links.install_id})
  * once that's approved, and the approval itself is recorded here as the last click.
  */
 @Service
@@ -37,6 +37,10 @@ class HostInstalls {
     static final String CLICK = "click";
 
     static final String APPROVE = "approve";
+    /** The most of a {@code detail} that is kept; more is cut, never refused. */
+    static final int MAX_DETAIL = 2_000;
+    /** The most details one install shows on the admin card. */
+    static final int MAX_DETAILS_SHOWN = 20;
 
     /** One event, as the app sends it. */
     record Event(
@@ -47,7 +51,8 @@ class HostInstalls {
             Instant at,
             @Nullable String setupVersion,
             @Nullable Integer windowsBuild,
-            @Nullable String gpuModel) {}
+            @Nullable String gpuModel,
+            @Nullable String detail) {}
 
     /** One install, for the admin console. */
     record AdminInstall(
@@ -59,7 +64,11 @@ class HostInstalls {
             @Nullable String setupVersion,
             @Nullable Integer windowsBuild,
             @Nullable String gpuModel,
-            @Nullable UUID hostId) {}
+            @Nullable UUID hostId,
+            List<FailureDetail> details) {}
+
+    /** Why one step or check failed, in words, as the app scrubbed and sent it. */
+    record FailureDetail(String step, @Nullable String reason, String detail, Instant at) {}
 
     /** How many failures a step had, for one reason. */
     record InstallFailures(String step, String reason, int count) {}
@@ -118,16 +127,16 @@ class HostInstalls {
     /** The owner approved a link that came from an install: that's the install's last click. */
     void approved(UUID installId) {
         var now = Instant.now(clock);
-        insert(installId, new Event(CLICK, "passed", APPROVE, null, now, null, null, null), Timestamp.from(now));
+        insert(installId, new Event(CLICK, "passed", APPROVE, null, now, null, null, null, null), Timestamp.from(now));
     }
 
     private void insert(UUID installId, Event event, Timestamp now) {
         jdbc.sql("""
                         insert into hosts.install_events
                             (id, install_id, step, outcome, reason, duration_ms, at, setup_version, windows_build,
-                             gpu_model, received_at)
+                             gpu_model, detail, received_at)
                         values (:id, :installId, :step, :outcome, :reason, :durationMs, :at, :setupVersion,
-                                :windowsBuild, :gpuModel, :now)
+                                :windowsBuild, :gpuModel, :detail, :now)
                         """)
                 .param("id", ids.newId())
                 .param("installId", installId)
@@ -139,8 +148,34 @@ class HostInstalls {
                 .param("setupVersion", event.setupVersion())
                 .param("windowsBuild", event.windowsBuild())
                 .param("gpuModel", event.gpuModel())
+                .param("detail", truncated(event.detail()))
                 .param("now", now)
                 .update();
+    }
+
+    /** At most {@link #MAX_DETAIL} characters, never splitting a surrogate pair. */
+    static @Nullable String truncated(@Nullable String detail) {
+        if (detail == null || detail.length() <= MAX_DETAIL) {
+            return detail;
+        }
+        int end = Character.isHighSurrogate(detail.charAt(MAX_DETAIL - 1)) ? MAX_DETAIL - 1 : MAX_DETAIL;
+        return detail.substring(0, end);
+    }
+
+    private List<FailureDetail> detailsOf(UUID installId) {
+        return jdbc.sql("""
+                        select step, reason, detail, at from hosts.install_events
+                        where install_id = :installId and outcome = 'failed' and detail is not null
+                        order by at, received_at limit :limit
+                        """)
+                .param("installId", installId)
+                .param("limit", MAX_DETAILS_SHOWN)
+                .query((rs, n) -> new FailureDetail(
+                        rs.getString("step"),
+                        rs.getString("reason"),
+                        rs.getString("detail"),
+                        rs.getTimestamp("at").toInstant()))
+                .list();
     }
 
     InstallsSummary summary() {
@@ -223,7 +258,8 @@ class HostInstalls {
                         row.setupVersion(),
                         row.windowsBuild(),
                         row.gpuModel(),
-                        row.hostId()));
+                        row.hostId(),
+                        detailsOf(row.installId())));
             }
         }
         var failures = jdbc.sql("""
