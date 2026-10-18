@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Phase 0: prove the wsl.conf lockdown took effect in gpu-host-dev.
+# Prove the wsl.conf lockdown took effect, in gpu-host-dev (Phase 0) or in the sealed image (agent/distro/).
+# One file, run from either place; wsl.conf is agent/distro/wsl.conf.
 #
-# Run as root after copying wsl.conf.proposed to /etc/wsl.conf, running
+# Run as root after copying agent/distro/wsl.conf to /etc/wsl.conf (the sealed image already has it), running
 # 'wsl --terminate gpu-host-dev' from Windows, and starting it again:
 #
 #   wsl -d gpu-host-dev -u root
-#   bash /root/phase0/wsl/verify-lockdown.sh
+#   bash /root/agent/distro/verify-lockdown.sh   (in the sealed image: /usr/local/share/idleo/verify-lockdown.sh)
 #
 # Run it directly as root, not through sudo: sudo resets PATH, which would
 # hide an appended Windows PATH. Each check prints PASS or FAIL with its
@@ -13,8 +14,14 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source-path=SCRIPTDIR source=gpu-common.sh
-. "$HERE/gpu-common.sh"
+# gpu-common.sh sits beside this script in the sealed image (/usr/local/share/idleo), and in phase0/wsl in the repository.
+if [[ -f "$HERE/gpu-common.sh" ]]; then
+  # shellcheck source-path=SCRIPTDIR source=gpu-common.sh
+  . "$HERE/gpu-common.sh"
+else
+  # shellcheck source=../../phase0/wsl/gpu-common.sh
+  . "$HERE/../../phase0/wsl/gpu-common.sh"
+fi
 
 FAILED=0
 pass() { printf 'PASS  %s\n' "$1"; shift; evidence "$@"; }

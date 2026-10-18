@@ -4,8 +4,9 @@
 #
 #   scripts/check-all.sh                 every suite, in order
 #   scripts/check-all.sh web e2e         just these
+#   scripts/check-all.sh --no-distro     every suite but the sealed Linux image's (it downloads a few hundred MB)
 #
-# Suites: agent, cli, control-plane, proto, sdk, web (types, lint, unit tests, builds and size), web-browser
+# Suites: agent, cli, control-plane, proto, distro (the sealed Linux image, agent/distro/test.sh), sdk, web (types, lint, unit tests, builds and size), web-browser
 # (scripts/e2e/agent-online.sh --web: every screen and state, axe, layout shift, the journeys, Lighthouse and the
 # performance spec), e2e (scripts/e2e/agent-online.sh, then scripts/e2e/start-check.sh). Each suite's output goes
 # to logs/check-all/<suite>.log; the summary at the end says which passed and how long each took. It keeps going
@@ -14,9 +15,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 root="$(pwd)"
-all=(agent cli control-plane proto sdk web web-browser e2e)
-suites=("$@")
-((${#suites[@]} > 0)) || suites=("${all[@]}")
+all=(agent cli control-plane proto distro sdk web web-browser e2e)
+suites=()
+skip_distro=false
+for arg in "$@"; do
+  if [[ "$arg" == --no-distro ]]; then skip_distro=true; else suites+=("$arg"); fi
+done
+if ((${#suites[@]} == 0)); then
+  # Every suite, in order; the image's only when it isn't turned off (CI minutes, or a machine without Docker's room).
+  for suite in "${all[@]}"; do
+    if [[ "$suite" == distro ]] && $skip_distro; then continue; fi
+    suites+=("$suite")
+  done
+fi
 
 # shellcheck source=scripts/lib/toolchains.sh
 . "$root/scripts/lib/toolchains.sh"
@@ -29,7 +40,7 @@ started_all=$SECONDS
 
 run_suite() {
   case "$1" in
-    agent | cli | control-plane | proto | sdk | web) "$root/scripts/checks/$1.sh" ;;
+    agent | cli | control-plane | proto | distro | sdk | web) "$root/scripts/checks/$1.sh" ;;
     web-browser) "$root/scripts/e2e/agent-online.sh" --web ;;
     e2e) "$root/scripts/e2e/agent-online.sh" && "$root/scripts/e2e/start-check.sh" ;;
     *)

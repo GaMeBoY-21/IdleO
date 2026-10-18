@@ -6,6 +6,16 @@ A host only gets work once it's **active** (ADR 0015). Onboarding's benchmark an
 - every change is an append-only row in `hosts.status_changes`, saying who, why, from and to, and when;
 - asking for a status the host already has changes nothing.
 
+## How a laptop joins (ADR 0032)
+
+The owner installs the agent and runs `idleo-agent link`. It asks the control plane for a link, opens the web app's `/link/<id>/` page in the owner's browser (or prints the address with `--no-browser`) and waits. The owner signs in, checks the laptop's name and GPU, sets a price and presses "Approve and start earning"; the agent then collects its ticket, enrols, and connects. Nothing is typed in by hand.
+
+- A link lives 10 minutes. After that, or after "This isn't my laptop", the agent exits (3 expired, 2 denied; 4 is the network, 0 linked) and the owner runs `link` again.
+- The new host is **pending** until an operator activates it, as below, unless `hosts.auto-activate` is true (`HOSTS_AUTO_ACTIVATE`; false by default, and for the pilot). The owner's Hosting tab says it is being checked.
+- Each approval and denial is an audit row (a link that just expires leaves none). `idleo-agent enrol --code` still works and is for operators.
+- If the page opens on the wrong address, `HOSTS_LINK_WEB_APP_URL` (else `IDENTITY_WEB_APP_URL`) is the base of the link; production refuses plain HTTP and localhost. The static host must also serve `/link/<anything>/` with `/link/index.html` (`dist/rewrites.json`, docs/runbooks/deployment.md).
+- Locally: `./start.sh --link-demo` starts a third fake laptop that links this way and prints the address to open.
+
 ## Before activating
 
 The command refuses a host unless all three of these hold:

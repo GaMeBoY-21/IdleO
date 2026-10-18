@@ -23,10 +23,10 @@ The scripts aren't tied to the Asus: any Windows 11 laptop or desktop with an NV
 1. **`wsl/setup-wsl.ps1`** in an admin PowerShell on the Asus. Creates the `gpu-host-dev` distribution. See `wsl/README.md`.
 2. **`wsl/setup-docker-nvidia.sh`** inside `gpu-host-dev`. Installs Docker Engine and the NVIDIA Container Toolkit, and checks `nvidia-smi` in a container.
 3. **Apply the lockdown and prove it (required).** Follow `wsl/README.md`:
-   - Copy `qlora-test/` and `wsl/` into the distribution.
-   - Copy `wsl/wsl.conf.proposed` to `/etc/wsl.conf`.
+   - Copy `qlora-test/`, `wsl/` and `../agent/distro/` (the lockdown and its proof, shared with the sealed image) into the distribution.
+   - Copy `agent/distro/wsl.conf` to `/etc/wsl.conf`.
    - Run `wsl --terminate gpu-host-dev`.
-   - Run `bash /root/phase0/wsl/verify-lockdown.sh` as root.
+   - Run `bash /root/agent/distro/verify-lockdown.sh` as root.
 
    Every check must say PASS before going on. If any says FAIL, stop and report the output: a QLoRA run outside the lockdown doesn't count toward the gate.
 4. **The QLoRA run and resume test, with the logger running.** See `qlora-test/README.md`.

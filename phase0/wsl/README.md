@@ -24,25 +24,26 @@ Sets up a dedicated WSL2 distribution, `gpu-host-dev`, on the Asus with Docker E
 
 The distribution runs as `root` by default, because imported distributions do. That's fine for Phase 0; on real hosts the agent will manage the distribution.
 
-## wsl.conf.proposed: the shipped lockdown, applied by hand
+## The shipped lockdown (`agent/distro/wsl.conf`), applied by hand
 
-`wsl.conf.proposed` is copied from technical design lines 512–521. It turns off drive mounting and Windows interop, and keeps systemd on. **It isn't applied automatically.**
+`agent/distro/wsl.conf` is copied from technical design lines 512–521. It turns off drive mounting and Windows interop, and keeps systemd on. **It isn't applied automatically.**
 
 Once it's applied, the distribution can no longer see `C:` (no `/mnt/c`), and it can't launch Windows programs. So:
 
-1. **Copy the test files and this folder in first.** `verify-lockdown.sh` must be inside before `/mnt/c` disappears:
+1. **Copy the test files, this folder and the lockdown files in first.** `verify-lockdown.sh` (now in `agent/distro/`, shared with the sealed image) must be inside before `/mnt/c` disappears:
    ```
-   mkdir -p /root/phase0
+   mkdir -p /root/phase0 /root/agent
    cp -r /mnt/c/<path-to-repo>/phase0/qlora-test /mnt/c/<path-to-repo>/phase0/wsl /root/phase0/
+   cp -r /mnt/c/<path-to-repo>/agent/distro /root/agent/
    ```
 2. **Apply the lockdown:**
    ```
-   cp /mnt/c/<path-to-repo>/phase0/wsl/wsl.conf.proposed /etc/wsl.conf
+   cp /mnt/c/<path-to-repo>/agent/distro/wsl.conf /etc/wsl.conf
    ```
 3. **From Windows**, run `wsl --terminate gpu-host-dev`, then start it again with `wsl -d gpu-host-dev -u root`.
 4. **Prove it took effect**, as root (not through `sudo`, which resets PATH):
    ```
-   bash /root/phase0/wsl/verify-lockdown.sh
+   bash /root/agent/distro/verify-lockdown.sh
    ```
    - Every check must say PASS, and the script must exit 0.
    - It checks: no Windows drives, interop off, no Windows PATH, systemd running, and the GPU still working in the pinned CUDA container.

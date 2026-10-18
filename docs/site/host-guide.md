@@ -26,11 +26,11 @@ Hosting opens after our safety tests on real Windows laptops. These are the prot
 ## Add a machine
 
 1. Sign in and open **Hosting**, then **Add a machine**.
-2. Name it, then follow the install steps. The page shows a one-time code and a countdown; the code lives only on that page and is never saved.
-3. The page moves on by itself when your machine connects. Quick checks come next, and an operator activates the machine once it has passed them.
-4. Set your price.
+2. Download the {{product}} app for Windows and open it. It sets everything up by itself.
+3. The app opens a page in your browser: **Link this laptop to your account?** It shows your laptop as the app described it. Check that it is yours, give it a name, look at the price (already filled in from what others with your GPU charge, and yours to change) and press **Approve and start earning**. There is no code to copy.
+4. New laptops are checked before they go live; an operator activates yours once it has passed, and its page shows it live.
 
-The Windows installer is still being finished; the Add a machine page gives the current steps.
+The Windows app is still being finished: until it is, the Add a machine page says so and offers no download. A developer can link a laptop from a terminal with `idleo-agent link`, which opens the same page.
 
 ## Your price and limits
 

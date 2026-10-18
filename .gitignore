@@ -60,3 +60,4 @@ phase0/qlora-test/work/
 
 # ./start.sh and scripts/check-all.sh write their logs here
 /logs/
+dist/
