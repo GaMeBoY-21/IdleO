@@ -457,7 +457,7 @@ mod tests {
         assert_eq!(status.link_state, LinkState::Active);
         assert_eq!(status.state, channel::State::HostingOff);
         assert_eq!(status.earned_today_paise, Some(1240));
-        assert!(host.owner_active());
+        assert!(!host.owner_active(), "the owner's pause isn't the owner being at the machine");
 
         host.on_host_status(&HostStatus {
             state: HostState::Paused.into(),

@@ -11,7 +11,10 @@
 //!
 //! **Rules**: any enabled trigger auto-pauses at once. Leaving an auto-pause needs every trigger clear **and** no input
 //! for the "start again after" time. The owner's pause wins over everything. `owner_active`, in heartbeats and offer
-//! replies, is true whenever the state isn't [`State::Available`].
+//! replies, is true only while the owner is at the machine ([`State::AutoPaused`]). The owner's pause is not part of
+//! it: the control plane keeps that in its database, where a pause and a resume count at once, and never offers a paused
+//! host a session. Said again here, it lagged a resume by up to 5 s (until the agent heard `HostStatus` and sent its next
+//! heartbeat), and a session booked in that time went to another laptop.
 
 use std::time::Duration;
 
@@ -122,10 +125,11 @@ impl Availability {
         self.pause = pause;
     }
 
-    /// True whenever the machine isn't available: heartbeats and offer replies say so.
+    /// True while the owner is at the machine (auto-pause): heartbeats and offer replies say so. Not true for the
+    /// owner's own pause or hosting switch: those are the control plane's to enforce, as soon as they are made.
     #[must_use]
     pub fn owner_active(&self) -> bool {
-        self.state != State::Available
+        matches!(self.state, State::AutoPaused { .. })
     }
 
     /// Applies one sample taken at `now` (monotonic) and `wall` (UTC). Returns the state before and after.
@@ -352,11 +356,29 @@ mod tests {
     }
 
     #[test]
+    fn only_the_owner_being_at_the_machine_is_owner_active() {
+        let mut fake = Fake::new();
+        assert!(!fake.machine.owner_active());
+        fake.machine.set_pause(OwnerPause::Until(wall(fake.now + 30 * MINUTE)));
+        fake.step();
+        assert!(!fake.machine.owner_active(), "paused by the owner, nobody at the machine");
+        // Resumed: the machine is offered work in the very next breath, with no wait for anything to be heard.
+        fake.machine.set_pause(OwnerPause::None);
+        assert_eq!(fake.step(), State::Available);
+        assert!(!fake.machine.owner_active());
+        assert!(paused(fake.touch(), Reason::KeyboardMouse));
+        assert!(fake.machine.owner_active(), "someone at the machine");
+    }
+
+    #[test]
     fn the_owners_pause_wins_and_ends_by_itself() {
         let mut fake = Fake::new();
         fake.machine.set_pause(OwnerPause::Indefinite);
         assert_eq!(fake.touch(), State::HostingOff);
-        assert!(fake.machine.owner_active());
+        assert!(
+            !fake.machine.owner_active(),
+            "the owner's pause is the control plane's to enforce, not the machine's to report"
+        );
         let until = wall(fake.now + 30 * MINUTE);
         fake.machine.set_pause(OwnerPause::Until(until));
         assert_eq!(fake.step(), State::Paused { until });
