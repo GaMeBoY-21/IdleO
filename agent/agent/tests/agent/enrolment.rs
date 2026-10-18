@@ -50,7 +50,10 @@ async fn enrolment_saves_the_key_certificate_and_host_id() {
         assert_eq!(mode, 0o600);
     }
     #[cfg(windows)]
-    assert_eq!(agent_windows::file_access_sddl(&dir.path().join(KEY_FILE)).unwrap(), agent_windows::PRIVATE_FILE_SDDL);
+    assert_eq!(
+        agent_windows::file_access_sddl(&dir.path().join(KEY_FILE)).unwrap(),
+        agent_windows::private_file_sddl(&agent_windows::current_user_sid().unwrap())
+    );
 }
 
 #[tokio::test]

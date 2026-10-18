@@ -21,9 +21,7 @@ use windows::Win32::System::SystemInformation::GetTickCount;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 use windows::core::{PCWSTR, PWSTR};
 
-use crate::PRIVATE_FILE_SDDL;
-
-fn wide(text: impl AsRef<OsStr>) -> Vec<u16> {
+pub(crate) fn wide(text: impl AsRef<OsStr>) -> Vec<u16> {
     text.as_ref().encode_wide().chain(std::iter::once(0)).collect()
 }
 
@@ -121,10 +119,10 @@ pub fn windows_build() -> io::Result<u32> {
 }
 
 /// A security descriptor from SDDL, freed with `LocalFree` when dropped.
-struct SecurityDescriptor(PSECURITY_DESCRIPTOR);
+pub(crate) struct SecurityDescriptor(pub(crate) PSECURITY_DESCRIPTOR);
 
 impl SecurityDescriptor {
-    fn from_sddl(sddl: &str) -> io::Result<Self> {
+    pub(crate) fn from_sddl(sddl: &str) -> io::Result<Self> {
         let sddl = wide(sddl);
         let mut descriptor = PSECURITY_DESCRIPTOR::default();
         // SAFETY: `sddl` is NUL-terminated UTF-16 and `descriptor` is a valid out-pointer; on
@@ -151,13 +149,13 @@ impl Drop for SecurityDescriptor {
     }
 }
 
-/// Creates a new file that only SYSTEM and Administrators can open, for writing. The access list
-/// is part of the creation, so no other account ever has a moment to open the file.
+/// Creates a new file that only SYSTEM and the signed-in owner can open, for writing. The access list is part of the
+/// creation, so no other account ever has a moment to open the file.
 ///
 /// # Errors
 /// If the file exists or can't be created.
 pub fn create_private_file(path: &Path) -> io::Result<File> {
-    let descriptor = SecurityDescriptor::from_sddl(PRIVATE_FILE_SDDL)?;
+    let descriptor = SecurityDescriptor::from_sddl(&crate::private_file_sddl(&crate::current_user_sid()?))?;
     let attributes = SECURITY_ATTRIBUTES {
         nLength: u32::try_from(size_of::<SECURITY_ATTRIBUTES>()).unwrap_or(24),
         lpSecurityDescriptor: descriptor.0.0,
@@ -183,7 +181,7 @@ pub fn create_private_file(path: &Path) -> io::Result<File> {
     Ok(unsafe { File::from_raw_handle(handle.0 as RawHandle) })
 }
 
-/// A file's access list in SDDL, for example `D:P(A;;FA;;;SY)(A;;FA;;;BA)`.
+/// A file's access list in SDDL, for example `D:P(A;;FA;;;SY)(A;;FA;;;S-1-5-21-…-1001)`.
 ///
 /// # Errors
 /// If the file's security can't be read.
@@ -268,14 +266,14 @@ mod tests {
     }
 
     #[test]
-    fn a_private_file_allows_only_system_and_administrators() {
+    fn a_private_file_allows_only_system_and_its_owner() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("host.key");
         let mut file = create_private_file(&path).unwrap();
         file.write_all(b"secret").unwrap();
         drop(file);
 
-        assert_eq!(file_access_sddl(&path).unwrap(), PRIVATE_FILE_SDDL);
+        assert_eq!(file_access_sddl(&path).unwrap(), crate::private_file_sddl(&crate::current_user_sid().unwrap()));
         assert!(create_private_file(&path).is_err(), "an existing file is never replaced");
     }
 }

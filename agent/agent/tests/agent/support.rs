@@ -23,8 +23,9 @@ use agent_proto::v1::{
 use idleo_agent::connection::{Event, RunOptions, Timing};
 use idleo_agent::disk::FixedDisk;
 use idleo_agent::enrol::{self, Enrolled, EnrolmentCode};
+use idleo_agent::host::Host;
 use idleo_agent::lease_clock::SystemLeaseClock;
-use idleo_agent::owner::OwnerActivity;
+use idleo_agent::owner::{MachineInputs, Sample};
 use idleo_agent::runner::{Job, Report, SessionRunner};
 use idleo_agent::telemetry::{FakeGpus, FakeModel};
 use idleo_agent::tls::{Dialer, Io, Target};
@@ -429,7 +430,9 @@ impl TestServer {
             data_dir: data_dir.to_owned(),
             gpus: Arc::new(FakeGpus::new(1, &FakeModel::default())),
             disk: Arc::new(FixedDisk(512_000)),
-            owner: Arc::new(Owner(false)),
+            host: Host::new(Arc::new(Owner(false)), data_dir.to_owned(), true),
+            updater: None,
+            self_test: None,
             lease_clock: Arc::new(SystemLeaseClock),
             runner: Some(Arc::new(TestRunner::default())),
             timing,
@@ -476,11 +479,12 @@ pub async fn next_event(events: &mut mpsc::UnboundedReceiver<Event>, wanted: imp
     }
 }
 
+/// The owner at the machine (input just now) or not (none ever).
 pub struct Owner(pub bool);
 
-impl OwnerActivity for Owner {
-    fn is_active(&self) -> bool {
-        self.0
+impl MachineInputs for Owner {
+    fn sample(&self) -> Sample {
+        Sample { idle: if self.0 { Duration::ZERO } else { Duration::MAX }, ..Sample::QUIET }
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "agent-windows"
-description = "The agent's only unsafe code: Windows API calls for owner activity, the OS build, key-file protection and the lease clock"
+description = "The agent's only unsafe code: Windows API calls for owner activity, the OS build, key-file protection, the lease clock, the registry, shortcuts, dialogs and the local channel's pipe"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,15 +10,26 @@ publish.workspace = true
 workspace = true
 
 [target.'cfg(windows)'.dependencies]
+tokio = { version = "1.53.2", features = ["net"] }
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_Authorization",
+    "Win32_Storage_EnhancedStorage",
     "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
     "Win32_System_Performance",
+    "Win32_System_Power",
     "Win32_System_Registry",
     "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Controls",
     "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 
 [target.'cfg(windows)'.dev-dependencies]

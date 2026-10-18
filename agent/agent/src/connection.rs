@@ -13,7 +13,7 @@ use agent_proto::v1::agent_gateway_service_client::AgentGatewayServiceClient;
 use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::open_stream_response::Body as ServerBody;
 use agent_proto::v1::{
-    GpuTelemetry, Heartbeat, Hello, Offer, OfferDeclineReason, OfferReply, OpenStreamRequest, OpenStreamResponse,
+    Ack, GpuTelemetry, Heartbeat, Hello, Offer, OfferDeclineReason, OfferReply, OpenStreamRequest, OpenStreamResponse,
     RenewCertificateRequest, Welcome,
 };
 use rustls::RootCertStore;
@@ -28,15 +28,17 @@ use uuid::Uuid;
 
 use crate::backoff::{Backoff, full_jitter};
 use crate::disk::FreeDisk;
+use crate::host::{self, Host, Kind};
 use crate::lease_clock::LeaseClock;
+use crate::local;
 use crate::offers::{self, OfferFacts};
-use crate::owner::OwnerActivity;
 use crate::pki::{self, NewKey};
 use crate::runner::SessionRunner;
 use crate::state::{self, StateError};
 use crate::supervisor::{self, Shared};
 use crate::telemetry::{GpuError, GpuInfo, GpuSource, Readings};
 use crate::tls::{self, Target};
+use crate::updater::{self, Updater};
 use crate::{AGENT_VERSION, new_message_id, system, version};
 
 const RENEW_TIMEOUT: Duration = Duration::from_secs(30);
@@ -107,8 +109,14 @@ pub struct RunOptions {
     pub gpus: Arc<dyn GpuSource>,
     /// Free disk space under the data folder, where sessions' files go.
     pub disk: Arc<dyn FreeDisk>,
-    /// Whether the owner is at the machine.
-    pub owner: Arc<dyn OwnerActivity>,
+    /// The Windows app's hub: auto-pause (whether the owner is at the machine), what the control plane said, the tray's
+    /// status and the messages queued for the control plane (ADR 0033).
+    pub host: Arc<Host>,
+    /// Automatic updates; `None` where the agent isn't installed by the Windows app.
+    pub updater: Option<Arc<Updater>>,
+    /// The self-test, full or quick; with it the agent serves its local channel, sends a self-test after its first
+    /// Welcome when this version and distro haven't reported one, and confirms an update's trial.
+    pub self_test: Option<local::SelfTestFn>,
     /// The clock leases and offer expiries count on: one that keeps counting during sleep.
     pub lease_clock: Arc<dyn LeaseClock>,
     /// What runs sessions; `None` for an agent that can't run any yet, which declines offers.
@@ -261,17 +269,35 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
     let sampler = AbortOnDrop(tokio::spawn(sample(
         Arc::clone(&options.gpus),
         Arc::clone(&readings),
+        Arc::clone(&options.host),
         options.timing.sample_every,
     )));
+    let watching = AbortOnDrop(tokio::spawn(host::watch(
+        Arc::clone(&options.host),
+        sessions.clone(),
+        options.timing.sample_every,
+    )));
+    let serving = options.self_test.clone().map(|self_test| {
+        AbortOnDrop(tokio::spawn(local::serve_pipe(local::Context {
+            host: Arc::clone(&options.host),
+            sessions: sessions.clone(),
+            self_test,
+            poll: Duration::from_secs(1),
+        })))
+    });
+    let updating = options.updater.clone().map(|updater| {
+        AbortOnDrop(tokio::spawn(install_when_idle(updater, Arc::clone(&options.host), sessions.clone())))
+    });
     let mut manager = Manager {
         backoff: Backoff::new(options.timing.backoff_base, options.timing.backoff_cap),
         next_renewal_check: Instant::now(),
         readings,
         sessions,
         options,
+        welcomed_once: false,
     };
     let result = manager.run(&mut shutdown).await;
-    drop(sampler);
+    drop((sampler, watching, serving, updating));
     drop(supervising);
     result
 }
@@ -282,6 +308,8 @@ struct Manager {
     next_renewal_check: Instant,
     readings: Arc<Readings>,
     sessions: Shared,
+    /// Whether this process has been welcomed before: its first Welcome may send a self-test.
+    welcomed_once: bool,
 }
 
 impl Manager {
@@ -297,6 +325,10 @@ impl Manager {
                 return Ok(());
             }
             let outcome = self.attempt(shutdown).await?;
+            self.options.host.set_reachable(false);
+            if matches!(&outcome, Outcome::Ended { reason: EndReason::Refused(_), .. }) {
+                self.options.host.refused();
+            }
             let (reason, healthy_for) = match outcome {
                 Outcome::Shutdown => return Ok(()),
                 Outcome::Renewed => continue,
@@ -386,6 +418,8 @@ impl Manager {
         let welcomed_at = Instant::now();
         tracing::info!(%host_id, heartbeat_interval = ?interval, "connected");
         self.emit(Event::Welcomed { heartbeat_interval: interval });
+        self.options.host.set_reachable(true);
+        self.after_welcome();
 
         let mut heartbeats = tokio::time::interval_at(welcomed_at + interval, interval);
         heartbeats.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -400,6 +434,10 @@ impl Manager {
         let due = self.sessions.lock().due(Instant::now(), self.options.timing.status_resend_after);
         for status in due {
             let _ = outbound.send(status).await;
+        }
+        self.options.host.unsend_all();
+        for message in self.options.host.due(Instant::now(), self.options.timing.status_resend_after) {
+            let _ = outbound.send(message).await;
         }
 
         loop {
@@ -420,7 +458,7 @@ impl Manager {
                         }).collect(),
                         // Measured by the onboarding benchmark, which doesn't exist yet.
                         net_up_kbps: 0,
-                        owner_active: self.options.owner.is_active(),
+                        owner_active: self.owner_active(),
                         sessions: self.sessions.lock().running(),
                         free_disk_mb: self.options.disk.free_mb(),
                     };
@@ -433,11 +471,19 @@ impl Manager {
                         let _ = outbound.send(status).await;
                     }
                 }
+                () = self.options.host.changed() => {
+                    for message in self.options.host.due(Instant::now(), self.options.timing.status_resend_after) {
+                        let _ = outbound.send(message).await;
+                    }
+                }
                 _ = resends.tick() => {
                     let now = Instant::now();
                     let due = self.sessions.lock().due(now, self.options.timing.status_resend_after);
                     for status in due {
                         let _ = outbound.send(status).await;
+                    }
+                    for message in self.options.host.due(now, self.options.timing.status_resend_after) {
+                        let _ = outbound.send(message).await;
                     }
                     for (request, sent_at) in unacked.values_mut() {
                         if now.duration_since(*sent_at) >= self.options.timing.reply_resend_after {
@@ -454,19 +500,24 @@ impl Manager {
                             let mut sessions = self.sessions.lock();
                             (i32::try_from(sessions.running().len()).unwrap_or(i32::MAX), sessions.can_run())
                         };
+                        let updating = self.options.host.update_phase() == idleo_release::channel::UpdatePhase::Installing;
+                        let owner_active = self.owner_active();
                         let facts = |vram_needed_mb, expired| OfferFacts {
                             expired,
-                            shutting_down: *shutdown.borrow(),
+                            shutting_down: *shutdown.borrow() || updating,
                             can_run,
                             running_sessions,
                             max_concurrent_sessions: policy.max_concurrent_sessions,
-                            owner_active: self.options.owner.is_active(),
+                            owner_active,
                             hottest_gpu_c: self.readings.hottest_latest_c(),
                             gpu_temp_cap_c: policy.gpu_temp_cap_c,
                             largest_gpu_vram_mb,
                             vram_needed_mb,
                         };
                         if let Some(reply) = self.answer(offer, received_at, facts) {
+                            if let Some(AgentBody::OfferReply(answer)) = &reply.body {
+                                self.options.host.offer_answered(answer.accepted);
+                            }
                             unacked.insert(reply.message_id.clone(), (reply.clone(), Instant::now()));
                             let _ = outbound.send(reply).await;
                         }
@@ -496,9 +547,32 @@ impl Manager {
                         }
                     }
                     Ok(Some(OpenStreamResponse { body: Some(ServerBody::Ack(ack)), .. })) => {
-                        if unacked.remove(&ack.acked_message_id).is_none() {
+                        if unacked.remove(&ack.acked_message_id).is_some() {
+                            // An offer reply.
+                        } else if let Some(kind) = self.options.host.acked(&ack.acked_message_id) {
+                            if kind == Kind::UpdateResult && let Some(updater) = &self.options.updater {
+                                updater.result_acked();
+                            }
+                        } else {
                             self.sessions.lock().acked(&ack.acked_message_id);
                         }
+                    }
+                    Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::HostStatus(status)) })) => {
+                        let _ = outbound.send(ack_for(&message_id)).await;
+                        tracing::debug!(state = ?status.state(), "the control plane said where this host stands");
+                        self.options.host.on_host_status(&status);
+                    }
+                    Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::UpdateAgent(update)) })) => {
+                        let _ = outbound.send(ack_for(&message_id)).await;
+                        if let Some(updater) = &self.options.updater {
+                            tracing::info!(version = %update.version, "an update was offered");
+                            updater.offer(update);
+                        } else {
+                            tracing::debug!("an update was offered, but this agent wasn't installed by the app");
+                        }
+                    }
+                    Ok(Some(OpenStreamResponse { body: Some(ServerBody::SpeedTestGrant(grant)), .. })) => {
+                        self.options.host.speed_grant(grant);
                     }
                     Ok(Some(message)) => log_unhandled(&message),
                     Ok(None) => return Outcome::Ended {
@@ -544,6 +618,41 @@ impl Manager {
 }
 
 impl Manager {
+    /// Whether the owner is at the machine now: a fresh step of auto-pause.
+    fn owner_active(&self) -> bool {
+        let running = !self.sessions.lock().running().is_empty();
+        self.options.host.step(running).0
+    }
+
+    /// After every Welcome: an update's trial is confirmed (or a rollback reported), and after the first Welcome a
+    /// self-test is sent if this version and distro haven't reported one (after enrolment, and after an update).
+    fn after_welcome(&mut self) {
+        let Some(self_test) = self.options.self_test.clone() else { return };
+        if let Some(updater) = self.options.updater.clone() {
+            let quick = Arc::clone(&self_test);
+            tokio::spawn(async move {
+                updater.welcomed(async move { quick(true).await.passed }).await;
+            });
+        }
+        if std::mem::replace(&mut self.welcomed_once, true) {
+            return;
+        }
+        let marker = self.options.data_dir.join(SELF_TEST_MARKER);
+        let distro =
+            self.options.updater.as_ref().map_or_else(String::new, |updater| updater.distro().unwrap_or_default());
+        let stamp = format!("{AGENT_VERSION} {distro}");
+        if std::fs::read_to_string(&marker).is_ok_and(|text| text.trim() == stamp) {
+            return;
+        }
+        let host = Arc::clone(&self.options.host);
+        tokio::spawn(async move {
+            let report = self_test(false).await;
+            tracing::info!(passed = report.passed, "self-test done; reporting it");
+            host.queue(AgentBody::SelfTestReport(report.to_message()), Kind::SelfTest);
+            let _ = std::fs::write(&marker, format!("{stamp}\n"));
+        });
+    }
+
     /// Decides on an offer within its `expires_in`, counted from receipt; the reply to send, or `None`
     /// for an invalid offer, which is ignored (it expires at the control plane).
     fn answer(
@@ -768,8 +877,35 @@ async fn read_gpus(source: &Arc<dyn GpuSource>) -> Result<Vec<GpuInfo>, GpuError
     tokio::task::spawn_blocking(move || source.gpus()).await.map_err(|e| GpuError(format!("GPU read failed: {e}")))?
 }
 
-/// Reads the GPUs every `every`, for the heartbeat summaries.
-async fn sample(source: Arc<dyn GpuSource>, readings: Arc<Readings>, every: Duration) {
+/// The file saying which agent and distro versions last reported a self-test.
+const SELF_TEST_MARKER: &str = "self-test-sent";
+
+/// An Ack for one of the control plane's messages.
+fn ack_for(message_id: &str) -> OpenStreamRequest {
+    envelope(AgentBody::Ack(Ack { acked_message_id: message_id.to_owned() }))
+}
+
+/// Installs a downloaded update once the agent is idle: no session running, and no offer accepted in the last minute.
+async fn install_when_idle(updater: Arc<Updater>, host: Arc<Host>, sessions: Shared) {
+    let mut ticks = tokio::time::interval(Duration::from_secs(1));
+    loop {
+        ticks.tick().await;
+        if !updater.is_ready() {
+            continue;
+        }
+        let idle = sessions.lock().running().is_empty() && !host.accepted_within(updater::OFFER_SETTLES_IN);
+        let installing = Arc::clone(&updater);
+        match tokio::task::spawn_blocking(move || installing.install_if_idle(idle)).await {
+            Ok(Ok(true)) => return,
+            Ok(Ok(false)) => {}
+            Ok(Err(e)) => tracing::warn!(error = %e, "the update couldn't be installed; carrying on with this version"),
+            Err(e) => tracing::warn!(error = %e, "the update's install task failed"),
+        }
+    }
+}
+
+/// Reads the GPUs every `every`, for the heartbeat summaries and auto-pause's GPU rule.
+async fn sample(source: Arc<dyn GpuSource>, readings: Arc<Readings>, host: Arc<Host>, every: Duration) {
     let mut ticks = tokio::time::interval(every);
     ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
     let mut failing = false;
@@ -780,6 +916,7 @@ async fn sample(source: Arc<dyn GpuSource>, readings: Arc<Readings>, every: Dura
             Ok(Ok(round)) => {
                 failing = false;
                 readings.record(&round);
+                host.set_gpu_util(round.iter().map(|reading| u32::try_from(reading.util_pct).unwrap_or(0)).max());
             }
             Ok(Err(e)) if !failing => {
                 failing = true;

@@ -53,13 +53,21 @@ fn mib(bytes: u64) -> i32 {
 }
 
 #[cfg(unix)]
-fn available_bytes(path: &std::path::Path) -> io::Result<u64> {
+/// Bytes this user may still write on the volume holding `path`.
+///
+/// # Errors
+/// If it can't be read.
+pub fn available_bytes(path: &std::path::Path) -> io::Result<u64> {
     let stats = rustix::fs::statvfs(path)?;
     Ok(stats.f_bavail.saturating_mul(stats.f_frsize))
 }
 
 #[cfg(windows)]
-fn available_bytes(path: &std::path::Path) -> io::Result<u64> {
+/// Bytes this user may still write on the volume holding `path`.
+///
+/// # Errors
+/// If it can't be read.
+pub fn available_bytes(path: &std::path::Path) -> io::Result<u64> {
     agent_windows::free_disk_space(path)
 }
 

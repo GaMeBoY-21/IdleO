@@ -133,6 +133,11 @@ struct PendingEnd {
     since: Duration,
 }
 
+/// What a STOPPED status says about who stopped it.
+fn stop_message(reason: &str) -> &'static str {
+    if reason == OWNER_RETURNED { "the host's owner took the machine back" } else { "stopped by the control plane" }
+}
+
 /// A terminal status goes out at the latest this long after its attempt ended, flushed or not.
 const END_WAITS_AT_MOST: Duration = Duration::from_secs(logs::FLUSH_FOR.as_secs() + 5);
 
@@ -184,6 +189,11 @@ type LiveAttempt = (Uuid, Duration, Duration, Option<(Duration, String)>);
 
 /// One minute on the lease clock.
 const MINUTE: Duration = Duration::from_secs(60);
+
+/// Why an attempt stopped when its owner took the machine back, on its STOPPED status.
+pub const OWNER_RETURNED: &str = "owner_returned";
+/// How long a job has to save its progress when the owner comes back or the app is uninstalled.
+pub const OWNER_STOP_GRACE: Duration = Duration::from_secs(120);
 
 /// The sessions this agent runs.
 pub struct Supervisor {
@@ -473,6 +483,29 @@ impl Supervisor {
         Some(ack(message_id))
     }
 
+    /// The owner took the machine back, or the app is being uninstalled (ADR 0033): every running attempt is stopped
+    /// the way a checkpoint-first `StopSession` stops it (the runner writes a last checkpoint and stops, and the
+    /// attempt ends when it has or when `grace` runs out), reporting STOPPED. The control plane treats a stop it didn't
+    /// ask for as the host lost, and carries the session on elsewhere from that checkpoint, waiving this attempt's
+    /// minutes after it. Returns how many attempts it began stopping; one already stopping is left as it is.
+    pub fn owner_stop(&mut self, grace: Duration) -> usize {
+        self.check_deadlines();
+        let deadline = self.clock.now() + grace;
+        let mut stopping = 0;
+        for (session_id, attempt) in &mut self.attempts {
+            if !attempt.is_live() || attempt.stopping.is_some() {
+                continue;
+            }
+            attempt.stopping = Some((deadline, OWNER_RETURNED.to_owned()));
+            if let Some(signal) = &attempt.stop_signal {
+                let _ = signal.send(true);
+            }
+            tracing::info!(%session_id, attempt = attempt.number, ?grace, "the owner is back: stopping after a checkpoint");
+            stopping += 1;
+        }
+        stopping
+    }
+
     /// A `RefreshCredentials`, received at `received_at` on the lease clock: the running attempt's grants are
     /// replaced in place, without restarting its job. Acked; credentials for any other attempt are ignored.
     pub fn refresh(
@@ -581,7 +614,7 @@ impl Supervisor {
             } else if let Some((grace_end, reason)) = stopping.filter(|(grace_end, _)| now >= *grace_end) {
                 tracing::warn!(%session_id, "no checkpoint within the grace period; stopping anyway");
                 let _ = grace_end;
-                self.end(session_id, SessionState::Stopped, Some((&reason, "stopped by the control plane")), None);
+                self.end(session_id, SessionState::Stopped, Some((&reason, stop_message(&reason))), None);
             } else {
                 self.report_minutes(session_id, now);
             }
@@ -674,12 +707,7 @@ impl Supervisor {
             Reported::Report(Report::Stopped) => {
                 let reason =
                     attempt.stopping.as_ref().map_or_else(|| "stopped".to_owned(), |(_, reason)| reason.clone());
-                self.end(
-                    tagged.session_id,
-                    SessionState::Stopped,
-                    Some((&reason, "stopped by the control plane")),
-                    None,
-                );
+                self.end(tagged.session_id, SessionState::Stopped, Some((&reason, stop_message(&reason))), None);
             }
             Reported::Report(Report::Failed { code, message, exit_code }) => {
                 self.end(tagged.session_id, SessionState::Failed, Some((&code, &message)), exit_code);
@@ -1243,6 +1271,48 @@ mod tests {
         assert_eq!(last.state(), SessionState::Stopped);
         assert_eq!(last.latest_checkpoint_seq, 3);
         assert_eq!(last.error.unwrap().code, "renter_requested");
+    }
+
+    #[tokio::test]
+    async fn the_owner_coming_back_stops_the_job_after_its_checkpoint() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
+
+        assert_eq!(setup.shared.lock().owner_stop(OWNER_STOP_GRACE), 1);
+        assert_eq!(setup.shared.lock().owner_stop(OWNER_STOP_GRACE), 0, "already stopping");
+        assert!(*setup.runner.stops.lock().unwrap()[0].borrow(), "the runner was asked to checkpoint and stop");
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        reports.send(Report::Checkpoint(4)).unwrap();
+        reports.send(Report::Stopped).unwrap();
+        settle(&mut setup).await;
+        let last = statuses(&setup.shared).pop().unwrap();
+        assert_eq!(last.state(), SessionState::Stopped);
+        assert_eq!(last.latest_checkpoint_seq, 4);
+        let error = last.error.unwrap();
+        assert_eq!(error.code, OWNER_RETURNED);
+        assert_eq!(error.message, "the host's owner took the machine back");
+    }
+
+    #[tokio::test]
+    async fn an_owner_stop_that_isnt_checkpointed_in_its_grace_ends_anyway() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        setup.shared.lock().start("m1", start(session, 1, "c1"), Duration::ZERO);
+        let fence = setup.runner.started.lock().unwrap()[0].0.clone();
+        // A grace inside the test's lease, so the grace (not the lease) is what ends it.
+        setup.shared.lock().owner_stop(Duration::from_secs(30));
+
+        setup.clock.advance(Duration::from_secs(29));
+        setup.shared.lock().check_deadlines();
+        assert!(fence.is_up());
+        setup.clock.advance(Duration::from_secs(1));
+        setup.shared.lock().check_deadlines();
+        settle(&mut setup).await;
+        assert!(!fence.is_up());
+        let last = statuses(&setup.shared).pop().unwrap();
+        assert_eq!(last.state(), SessionState::Stopped);
+        assert_eq!(last.error.unwrap().code, OWNER_RETURNED);
     }
 
     #[tokio::test]

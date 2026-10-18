@@ -16,7 +16,7 @@ async fn answer(server: &TestServer, owner_active: bool) -> (String, Option<Offe
     let dir = tempfile::tempdir().unwrap();
     server.enrol(dir.path()).await;
     let (mut options, mut events) = server.run_options(dir.path(), timing());
-    options.owner = std::sync::Arc::new(Owner(owner_active));
+    options.host = idleo_agent::host::Host::new(std::sync::Arc::new(Owner(owner_active)), dir.path().to_owned(), true);
     let (_stop, _agent) = spawn_agent(options);
     let Event::OfferAnswered { offer_id, declined } =
         next_event(&mut events, |e| matches!(e, Event::OfferAnswered { .. })).await

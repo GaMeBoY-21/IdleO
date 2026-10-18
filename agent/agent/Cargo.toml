@@ -16,6 +16,10 @@ name = "idleo_agent"
 name = "idleo-agent"
 path = "src/main.rs"
 
+[[bin]]
+name = "idleo-hostd"
+path = "src/bin/idleo-hostd.rs"
+
 [features]
 default = ["nvml"]
 # Reads real GPUs through NVIDIA's NVML. Only Windows and Linux builds have it; elsewhere it's empty.
@@ -23,10 +27,12 @@ nvml = ["dep:nvml-wrapper"]
 
 [dependencies]
 agent-proto = { path = "../agent-proto" }
+release = { path = "../release" }
 clap = { version = "4.6.7", features = ["derive"] }
 getrandom = "0.4.3"
 hyper-util = { version = "0.1.21", default-features = false, features = ["tokio"] }
 pem = "4.0.0"
+prost-types = "0.14.4"
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "pem", "ring"] }
 # HTTP for object storage, over our own rustls config (ring, the operating system's roots).
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }
@@ -42,7 +48,7 @@ time = { version = "0.3.55", features = ["formatting", "parsing", "serde"] }
 tokio = { version = "1.53.2", features = ["fs", "io-util", "macros", "net", "rt", "signal", "sync", "time"] }
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring"] }
 tokio-stream = { version = "0.1.19", default-features = false }
-toml = { version = "1.1.6", default-features = false, features = ["parse", "serde"] }
+toml = { version = "1.1.6", default-features = false, features = ["display", "parse", "serde"] }
 tonic = { version = "0.14.6", default-features = false, features = ["channel", "codegen"] }
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
 tracing = "0.1.44"
@@ -61,7 +67,9 @@ rustix = { version = "1.1.5", default-features = false, features = ["fs", "std",
 agent-windows = { path = "../agent-windows" }
 
 [dev-dependencies]
-prost-types = "0.14.4"
+ed25519-dalek = "3.0.0"
+release = { path = "../release", features = ["fakes"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "pem", "ring", "x509-parser"] }
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 tempfile = "3.27.0"

@@ -27,6 +27,8 @@ pub struct Config {
     pub welcome_timeout: Duration,
     /// The control plane's REST address, where `link` asks to be linked (for example `https://api.idleo.in`).
     pub api_url: Option<String>,
+    /// The web app, where the tray's Open dashboard goes (for example `https://app.idleo.in`).
+    pub app_url: Option<String>,
 }
 
 /// The control plane's agent endpoint.
@@ -59,6 +61,7 @@ struct File {
     log_format: Option<LogFormat>,
     welcome_timeout_secs: Option<u64>,
     api_url: Option<String>,
+    app_url: Option<String>,
 }
 
 /// Why the config couldn't be loaded.
@@ -85,14 +88,14 @@ impl fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {}
 
 /// The default directory for the config file and the agent's state:
-/// - Windows: `%ProgramData%\IdleO\agent`
+/// - Windows: `%LOCALAPPDATA%\IdleO\agent`: the agent runs as the signed-in owner, never as a service, and needs no
+///   admin rights (ADR 0033)
 /// - Linux: `/var/lib/idleo-agent`
 /// - macOS: `~/Library/Application Support/IdleO/agent`, for development only
 #[must_use]
 pub fn default_dir() -> PathBuf {
     if cfg!(windows) {
-        let program_data = std::env::var_os("ProgramData").unwrap_or_else(|| r"C:\ProgramData".into());
-        PathBuf::from(program_data).join("IdleO").join("agent")
+        idleo_release::paths::Layout::for_user().agent_dir()
     } else if cfg!(target_os = "macos") {
         let home = std::env::var_os("HOME").unwrap_or_else(|| "/".into());
         PathBuf::from(home).join("Library/Application Support/IdleO/agent")
@@ -137,6 +140,11 @@ impl Config {
         {
             return Err(invalid("api_url must start with http:// or https://"));
         }
+        if let Some(url) = &file.app_url
+            && !(url.starts_with("http://") || url.starts_with("https://"))
+        {
+            return Err(invalid("app_url must start with http:// or https://"));
+        }
         let base = path.parent().unwrap_or(Path::new("."));
         Ok(Self {
             control_plane: file.control_plane,
@@ -145,6 +153,7 @@ impl Config {
             log_format: file.log_format.unwrap_or_default(),
             welcome_timeout,
             api_url: file.api_url,
+            app_url: file.app_url,
         })
     }
 }
