@@ -2,7 +2,9 @@
 # How each install of the Windows app went (host experience §6 row 11), read from the local stack's database: the
 # setup app's own measurements, which it sends as it goes (hosts.install_events). For each install, newest first: the
 # minutes from opening the setup app to "listed", the clicks it took, each step's duration and how it went (with the
-# words behind a failure, which setup scrubbed of the person and the machine before sending), and where it stopped.
+# words behind a failure, which setup scrubbed of the person and the machine before sending), under "facts" what a
+# development build found out about the laptop (WSL, kernel, driver, memory, what the distribution can reach), and
+# where it stopped.
 # Nothing is copied from the laptop: run this on the Mac after the laptop test (docs/windows-laptop-test.md).
 #
 #   scripts/install-report.sh                  every install the local stack (./start.sh) has seen
@@ -47,7 +49,15 @@ steps as (
                            coalesce(E'\n        why: ' || replace(detail, E'\n', E'\n             '), '')),
                     E'\n' order by at, received_at) as lines
   from hosts.install_events
-  where step not in ('setup_opened', 'listed', 'click') and outcome <> 'started'
+  where step not in ('setup_opened', 'listed', 'click', 'facts') and outcome <> 'started'
+  group by install_id
+),
+facts as (
+  -- A development build's environment facts about the laptop, one "name: value" a line, in the order sent.
+  select install_id,
+         string_agg(replace(detail, E'\n', E'\n    '), E'\n    ' order by at, received_at) as lines
+  from hosts.install_events
+  where step = 'facts' and detail is not null
   group by install_id
 ),
 clicks as (
@@ -57,10 +67,10 @@ clicks as (
 last as (
   select distinct on (install_id) install_id, step, outcome, reason
   from hosts.install_events
-  where step <> 'click'
+  where step not in ('click', 'facts')
   order by install_id, at desc, received_at desc
 )
-select format(E'Install %s\n  setup %s, Windows build %s, %s\n  opened %s UTC\n  %s\n  clicks: %s%s\n%s\n  stopped at: %s\n',
+select format(E'Install %s\n  setup %s, Windows build %s, %s\n  opened %s UTC\n  %s\n  clicks: %s%s\n%s\n%s  stopped at: %s\n',
               i.install_id,
               coalesce(i.setup_version, '?'), coalesce(i.windows_build::text, '?'), coalesce(i.gpu_model, 'no GPU named'),
               coalesce(to_char(i.opened_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS'), '(no setup_opened event)'),
@@ -69,11 +79,13 @@ select format(E'Install %s\n  setup %s, Windows build %s, %s\n  opened %s UTC\n 
                    else 'not listed' end,
               i.clicks, coalesce(' (' || c.buttons || ')', ''),
               coalesce(E'  steps:\n' || s.lines, '  steps: none reported'),
+              coalesce(E'  facts:\n    ' || f.lines || E'\n', ''),
               case when i.listed_at is not null then 'listed'
                    else concat_ws(' ', l.step, l.outcome) || coalesce(': ' || l.reason, '') end)
 from installs i
 left join steps s using (install_id)
 left join clicks c using (install_id)
+left join facts f using (install_id)
 left join last l using (install_id)
 order by i.opened_at desc nulls last;
 SQL

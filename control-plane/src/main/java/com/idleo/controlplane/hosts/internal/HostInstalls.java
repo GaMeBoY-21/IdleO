@@ -37,6 +37,8 @@ class HostInstalls {
     static final String CLICK = "click";
 
     static final String APPROVE = "approve";
+    /** A development build's environment facts: never where an install "stopped" (see {@code summary}). */
+    static final String FACTS = "facts";
     /** The most of a {@code detail} that is kept; more is cut, never refused. */
     static final int MAX_DETAIL = 2_000;
     /** The most details one install shows on the admin card. */
@@ -215,7 +217,7 @@ class HostInstalls {
                         from opened o
                         left join lateral (
                             select step, outcome, reason from hosts.install_events e
-                            where e.install_id = o.install_id and e.step <> :click
+                            where e.install_id = o.install_id and e.step not in (:click, :facts)
                             order by e.at desc, e.received_at desc limit 1
                         ) last on true
                         order by o.opened_at desc
@@ -223,6 +225,7 @@ class HostInstalls {
                 .param("opened", OPENED)
                 .param("listed", LISTED)
                 .param("click", CLICK)
+                .param("facts", FACTS)
                 .param("since", since)
                 .query((rs, n) -> new Row(
                         rs.getObject("install_id", UUID.class),

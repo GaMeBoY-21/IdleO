@@ -70,7 +70,11 @@ does either: one calm screen, and nothing left behind.
 
 1. **On the Mac,** run `scripts/install-report.sh`. The failed step or self-test check is under its install, with a
    `why:` line, the words the laptop found (scrubbed of the Windows user name, the profile path and the computer's
-   name). Send that to Claude. If the laptop's last screen says "Couldn't report to IdleO: …", the Mac didn't get
+   name). Under `facts:` it also shows what a development build found out about the laptop, on a pass as well as a
+   fail: WSL's version and networking mode, the kernel, the NVIDIA driver and the CUDA version `nvidia-smi` reports,
+   the laptop's RAM and what the WSL VM is using, and what the distribution can reach (the gateway, one address in
+   each common LAN range, and our storage). The LAN lines are expected to say `silent` or `unreachable`; they are
+   facts, not failures. Send that to Claude. If the laptop's last screen says "Couldn't report to IdleO: …", the Mac didn't get
    it: read the setup log (step 2) instead.
 2. **On the laptop,** press **Keep it for troubleshooting**. The window says where the setup log is; it is
    `%LOCALAPPDATA%\IdleO\logs\setup-<date-time>.log` (UTC) and has every step with its duration, every command with its

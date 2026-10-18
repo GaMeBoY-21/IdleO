@@ -190,6 +190,46 @@ class HostInstallTests {
     }
 
     @Test
+    void factsAreKeptAsPassedEventsAndAreNeverWhereAnInstallStopped() throws Exception {
+        var install = UUID.randomUUID();
+        var opened = Instant.now(clock).minus(Duration.ofMinutes(2));
+        send(
+                        install,
+                        batch(
+                                event("setup_opened", "passed", opened),
+                                event("self_test", "failed", opened.plusSeconds(30))
+                                        .replace(
+                                                "\"durationMs\"",
+                                                "\"reason\":\"lockdown\",\"detail\":\"a shell answered\",\"durationMs\""),
+                                event("facts", "passed", opened.plusSeconds(31))
+                                        .replace(
+                                                "\"durationMs\"",
+                                                "\"reason\":\"facts_network\",\"detail\":\"reach_gateway: reachable\\nreach_lan_10_0_0_1: silent\","
+                                                        + "\"durationMs\"")))
+                .andExpect(status().isNoContent());
+        var stored = jdbc.queryForObject(
+                "select detail from hosts.install_events where install_id = ? and step = 'facts'",
+                String.class,
+                install);
+        assertThat(stored).isEqualTo("reach_gateway: reachable\nreach_lan_10_0_0_1: silent");
+        var admin = TestAdmins.signIn(mvc, jdbc, clock);
+        var card = json.readTree(mvc.perform(admin.as(get("/admin/v1/installs")))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        var row = card.get("recent")
+                .valueStream()
+                .filter(r -> r.get("installId").asString().equals(install.toString()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(row.get("stoppedAt").asString()).isEqualTo("self_test failed: lockdown");
+        assertThat(row.get("details").size())
+                .as("only failures are shown on the card")
+                .isEqualTo(1);
+    }
+
+    @Test
     void aSplitSurrogatePairIsNeverLeftAtTheCut() {
         var atTheCut = "a".repeat(HostInstalls.MAX_DETAIL - 1) + "\uD83D\uDE00";
         var cut = HostInstalls.truncated(atTheCut);
