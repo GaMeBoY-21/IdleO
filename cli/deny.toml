@@ -11,7 +11,14 @@ all-features = true
 version = 2
 yanked = "deny"
 unmaintained = "all"
-ignore = []
+ignore = [
+    # The zbus family (keyring's Secret Service store, Linux only) was merged into `zbus` itself and the standalone
+    # crates are flagged unmaintained. There is no upgrade: keyring 4.2 still depends on them. They are only the D-Bus
+    # wire format, with no vulnerability reported. Drop these when keyring moves to zbus 6.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant is folded into zbus; only reachable through keyring on Linux" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names is folded into zbus; only reachable through keyring on Linux" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive is folded into zbus; only reachable through keyring on Linux" },
+]
 
 [licenses]
 # Permissive licences only: no GPL, LGPL, AGPL or other copyleft in the CLI.

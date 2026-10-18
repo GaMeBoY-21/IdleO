@@ -1,4 +1,4 @@
-import { Download, MonitorCheck, MousePointerClick } from "lucide-react";
+import { MonitorCheck, MonitorDown, MousePointerClick } from "lucide-react";
 import { HostFlow } from "@/components/shell/HostFlow";
 import { Tile } from "@/components/ui/Tile";
 import { useTitle } from "@/lib/title";
@@ -7,7 +7,7 @@ const LEDE = "One download, one click to approve, and then it earns. No code to 
 
 const STEPS = [
   {
-    icon: Download,
+    icon: MonitorDown,
     title: "Download the IdleO app for Windows",
     text: "One file, opened from your browser's download bar.",
   },

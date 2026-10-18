@@ -94,11 +94,12 @@ management:
 
 # The renter's request limit (technical design "Limits", ADR 0025): requests a minute for each person (or each
 # address without a sign-in), counted in Valkey; reads of a session's logs a minute, counted apart so a live log view
-# doesn't use up the rest; CLI sign-ins started an hour from one address.
+# doesn't use up the rest; CLI sign-ins and host links started an hour from one address.
 limits:
   requests-per-minute: 60
   log-reads-per-minute: 120
   cli-logins-per-hour: 10
+  host-links-per-hour: 10
 
 # The web app, where a CLI sign-in is approved (ADR 0025): its /cli-login/ page is the link `idleo login` shows.
 # Production sets IDENTITY_WEB_APP_URL; the prod profile refuses plain HTTP or this machine (ProductionSettingsGuard).

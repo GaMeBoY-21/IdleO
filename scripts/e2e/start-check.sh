@@ -51,12 +51,14 @@ done
 # nikki@example.com, the way the page's one button does, makes the host (pending) and the laptop connects by itself.
 link_id="$(sed -n 's#.*/link/\([0-9a-f-]\{36\}\)/.*#\1#p' "$out/start-check.log" | head -1)"
 [[ -n "$link_id" ]] || fail "the ready block doesn't give the link demo's approval address"
-curl -sf -X POST "$api/v1/host-links/$link_id/approve" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-  -d '{"name": "Link demo laptop", "batchPricePaisePerMin": 9}' >/dev/null || fail "approving the link demo failed"
+# The host it made is the one the approval names: an earlier run's laptop may carry the same name.
+link_host="$(curl -sf -X POST "$api/v1/host-links/$link_id/approve" -H "Authorization: Bearer $token" \
+  -H 'Content-Type: application/json' -d '{"name": "Link demo laptop", "batchPricePaisePerMin": 9}' |
+  python3 -c 'import json, sys; print(json.load(sys.stdin)["hostId"])')" || fail "approving the link demo failed"
 deadline=$((SECONDS + 90))
-until curl -sf "$api/v1/hosts" -H "Authorization: Bearer $token" | python3 -c 'import json, sys
-hosts = [h for h in json.load(sys.stdin)["hosts"] if h["name"] == "Link demo laptop"]
-sys.exit(0 if hosts and hosts[0]["online"] and hosts[0]["status"] == "pending" else 1)'; do
+until curl -sf "$api/v1/hosts/$link_host" -H "Authorization: Bearer $token" | python3 -c 'import json, sys
+host = json.load(sys.stdin)
+sys.exit(0 if host["online"] and host["status"] == "pending" else 1)'; do
   ((SECONDS < deadline)) || fail "the link demo laptop didn't come online, pending: $(tail -3 "$out/link-demo.log")"
   sleep 1
 done

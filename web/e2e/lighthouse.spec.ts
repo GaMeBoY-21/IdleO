@@ -45,6 +45,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
     let liveId = "";
     let logsInpMs = 0;
     let machineId = "";
+    let linkId = "";
     for (const [name, signedIn] of [
       ["sign-in", false],
       ["home", true],
@@ -61,6 +62,9 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       ["keys", true],
       // What the sessions and machines have told the person (ADR 0026).
       ["notifications", true],
+      // A laptop joining (ADR 0032): the page that explains it, and the page where its owner approves its link.
+      ["add", true],
+      ["link", true],
     ] as const) {
       if (name === "home") {
         await signIn(page, user);
@@ -93,6 +97,9 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       if (name === "hosting") {
         machineId = await addMachine(context.request);
       }
+      if (name === "link") {
+        linkId = await startLink(context.request);
+      }
       const path = {
         "sign-in": "/sign-in/",
         home: "/",
@@ -104,6 +111,8 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         account: "/account/",
         keys: "/account/keys/",
         notifications: "/notifications/",
+        add: "/hosting/add/",
+        link: `/link/${linkId}/`,
       }[name];
       for (const formFactor of ["mobile", "desktop"] as const) {
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.
@@ -198,6 +207,20 @@ async function addMachine(request: APIRequestContext): Promise<string> {
   });
   expect(added.ok(), `adding a machine for the Hosting tab: ${added.status()}`).toBe(true);
   return ((await added.json()) as { id: string }).id;
+}
+
+/** A laptop asking to be linked, as the agent does it: no sign-in, and the page that approves it is the person's. */
+async function startLink(request: APIRequestContext): Promise<string> {
+  const started = await request.post(`${API}/v1/host-links`, {
+    data: {
+      machineName: "Lighthouse laptop",
+      os: "windows",
+      agentVersion: "0.1.0",
+      gpus: [{ model: "NVIDIA GeForce RTX 4060 Laptop GPU", vramMb: 8188 }],
+    },
+  });
+  expect(started.ok(), `asking for a link: ${started.status()}`).toBe(true);
+  return ((await started.json()) as { id: string }).id;
 }
 
 /** The owner's screens: opening a machine from the Hosting tab, and choosing how long to pause it. */

@@ -234,6 +234,9 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `NotificationLocked` | `notification-locked` | 422 | 1 |
 | `TooManyApiKeys` | `too-many-api-keys` | 409 | 1 |
 | `AuthorizationPending` | `authorization-pending` | 400 | 1 |
+| `HostLinkDenied` | `host-link-denied` | 400 | 1 |
+| `HostLinkExpired` | `host-link-expired` | 400 | 1 |
+| `HostLinkApproved` | `host-link-approved` | 409 | 1 |
 | `CliLoginExpired` | `cli-login-expired` | 400 | 1 |
 | `RateLimited` | `rate-limited` | 429 | 6 |
 | `IdempotencyKeyInvalid` | `idempotency-key-invalid` | 400 | 1 |

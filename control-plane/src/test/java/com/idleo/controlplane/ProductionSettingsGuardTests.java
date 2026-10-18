@@ -23,6 +23,7 @@ class ProductionSettingsGuardTests {
                 .withPropertyValues(
                         "identity.web-app-url=https://app.example.invalid",
                         "notifications.web-app-url=https://app.example.invalid",
+                        "hosts.link.web-app-url=https://app.example.invalid",
                         "notifications.email.from=IdleO <notifications@example.invalid>",
                         "spring.mail.host=smtp.example.invalid",
                         "identity.invite-code-key=" + PRODUCTION_KEY)
@@ -128,6 +129,17 @@ class ProductionSettingsGuardTests {
                         "agentgateway.allow-development-hosts=true",
                         "identity.issuers[0].issuer-uri=http://localhost:8099/idleo-local")
                 .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void prodRefusesAHostLinkAddressThatIsPlainHttpOrOnThisMachine() {
+        for (var url : new String[] {"http://localhost:3000", "http://app.example.invalid", "http://127.0.0.1:3000"}) {
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, "hosts.link.web-app-url=" + url)
+                    .run(context -> assertThat(context)
+                            .hasFailed()
+                            .getFailure()
+                            .hasMessageContaining("hosts.link.web-app-url " + url));
+        }
     }
 
     @Test
