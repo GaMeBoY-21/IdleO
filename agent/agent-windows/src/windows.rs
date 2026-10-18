@@ -91,10 +91,27 @@ fn ticks(count: i64, frequency: i64) -> Option<Duration> {
 /// # Errors
 /// If the registry value can't be read or isn't a number.
 pub fn windows_build() -> io::Result<u32> {
-    let key = wide(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
-    let value = wide("CurrentBuildNumber");
-    let mut buffer = [0u16; 32];
-    let mut size = u32::try_from(size_of_val(&buffer)).unwrap_or(64);
+    machine_string(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber")?
+        .trim()
+        .parse()
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "CurrentBuildNumber isn't a number"))
+}
+
+/// Who made this computer, as its firmware says (for example `ASUSTeK COMPUTER INC.`): the setup app picks the
+/// "Show me how" page for turning virtualization on by it.
+///
+/// # Errors
+/// If the registry value can't be read.
+pub fn system_manufacturer() -> io::Result<String> {
+    machine_string(r"HARDWARE\DESCRIPTION\System\BIOS", "SystemManufacturer").map(|text| text.trim().to_owned())
+}
+
+/// A text value under `HKEY_LOCAL_MACHINE`, read only.
+fn machine_string(key: &str, value: &str) -> io::Result<String> {
+    let key = wide(key);
+    let value = wide(value);
+    let mut buffer = [0u16; 256];
+    let mut size = u32::try_from(size_of_val(&buffer)).unwrap_or(512);
     // SAFETY: the key and value names are NUL-terminated UTF-16; `buffer` is writable for `size`
     // bytes, and RegGetValueW writes at most that many (NUL-terminated for RRF_RT_REG_SZ).
     let status = unsafe {
@@ -112,10 +129,7 @@ pub fn windows_build() -> io::Result<u32> {
         return Err(io::Error::from_raw_os_error(i32::try_from(status.0).unwrap_or(i32::MAX)));
     }
     let length = buffer.iter().position(|c| *c == 0).unwrap_or(buffer.len());
-    String::from_utf16_lossy(&buffer[..length])
-        .trim()
-        .parse()
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "CurrentBuildNumber isn't a number"))
+    Ok(String::from_utf16_lossy(&buffer[..length]))
 }
 
 /// A security descriptor from SDDL, freed with `LocalFree` when dropped.
@@ -261,8 +275,9 @@ mod tests {
     }
 
     #[test]
-    fn the_build_number_reads() {
+    fn the_build_number_and_the_maker_read() {
         assert!(windows_build().unwrap() >= 10_000);
+        system_manufacturer().unwrap();
     }
 
     #[test]

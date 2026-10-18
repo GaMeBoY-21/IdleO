@@ -272,6 +272,7 @@ async fn link_command(
             os: link::os_name().to_owned(),
             agent_version: crate::AGENT_VERSION.to_owned(),
             gpus,
+            install_id: None,
         },
         target,
         roots,

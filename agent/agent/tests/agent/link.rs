@@ -115,6 +115,7 @@ fn machine() -> Machine {
         os: "windows".to_owned(),
         agent_version: "0.1.0".to_owned(),
         gpus: vec![LinkGpu { model: "NVIDIA GeForce RTX 4080 Laptop GPU".to_owned(), vram_mb: 12282 }],
+        install_id: None,
     }
 }
 

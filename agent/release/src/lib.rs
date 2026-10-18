@@ -1,6 +1,7 @@
 //! What the Windows app's programs share (ADR 0033, ADR 0034), one implementation each: the setup app, the launcher
 //! and the agent's updater all use these.
 //!
+//! - [`browser`]: opening an address in the person's default browser.
 //! - [`keys`]: the release key baked into this build, and what a development build refuses.
 //! - [`manifest`]: the signed release manifest, verified with Ed25519.
 //! - [`version`]: comparing semantic versions.
@@ -16,6 +17,7 @@
 #![forbid(unsafe_code)]
 
 pub mod apps;
+pub mod browser;
 pub mod channel;
 pub mod download;
 pub mod drivers;

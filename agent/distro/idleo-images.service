@@ -1,0 +1,12 @@
+[Unit]
+Description=Import IdleO's baked images into containerd
+After=containerd.service
+Requires=containerd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/idleo-import-images
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

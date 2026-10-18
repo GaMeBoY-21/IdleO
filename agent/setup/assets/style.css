@@ -1,0 +1,59 @@
+/* The setup window (ADR 0033), in the web app's Bento look (web/DESIGN.md): a light page, white 26 px tiles, Plus
+   Jakarta Sans, and a lime main action. Fixed at 720×520. */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url(data:font/woff2;base64,/*FONT*/) format("woff2");
+  font-weight: 400 800;
+  font-display: block;
+}
+:root {
+  --ground: #EFEFF2;
+  --fill: #FFFFFF;
+  --text: #16161A;
+  --muted: #5C5C66;
+  --lime: #C9F27B;
+  --lime-fg: #2E3A12;
+  --apricot: #FFB86B;
+  --danger: #B42318;
+  --green: #4D7C0F;
+  --radius: 26px;
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  color: var(--text);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ground); overflow: hidden; }
+main { height: 100%; padding: 28px 32px; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 30px; line-height: 1.15; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 0; font-weight: 700; }
+p { margin: 0; font-size: 15px; line-height: 1.45; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.tile { background: var(--fill); border-radius: var(--radius); padding: 20px 22px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.tiles .tile { padding: 18px; display: flex; flex-direction: column; gap: 10px; min-height: 132px; }
+.badge { width: 34px; height: 34px; border-radius: 12px; background: var(--ground); display: grid; place-items: center; font-weight: 800; }
+.grow { flex: 1; }
+.row { display: flex; gap: 12px; align-items: center; }
+.row.end { justify-content: flex-end; }
+button { font: inherit; font-size: 16px; font-weight: 700; border: 0; border-radius: 999px; padding: 0 26px; min-height: 52px; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+.primary { background: var(--lime); color: var(--lime-fg); }
+.secondary { background: var(--ground); color: var(--text); }
+.link { background: none; padding: 0; min-height: 0; font-weight: 600; text-decoration: underline; color: var(--text); }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; }
+.mark { width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.done .mark { background: var(--lime); color: var(--lime-fg); }
+.current .mark { border: 3px solid var(--ground); border-top-color: var(--text); animation: spin 0.9s linear infinite; }
+.waiting .mark { background: var(--ground); }
+.failed .mark { background: var(--danger); color: #fff; }
+.waiting .label { color: var(--muted); }
+.detail { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.machine { font-size: 28px; font-weight: 800; }
+.note { background: var(--apricot); color: #5A3410; border-radius: 16px; padding: 10px 14px; font-size: 14px; }
+.dev { position: fixed; top: 10px; right: 14px; font-size: 12px; color: var(--muted); }
+.overlay { position: fixed; inset: 0; background: rgba(22, 22, 26, 0.35); display: grid; place-items: center; }
+.overlay[hidden] { display: none; }
+.sheet { width: 420px; display: flex; flex-direction: column; gap: 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .current .mark { animation: none; border-top-color: var(--muted); } }

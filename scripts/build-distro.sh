@@ -36,10 +36,17 @@ context="$(mktemp -d)"
 trap 'rm -rf "$context"; docker rm -f "idleo-distro-export-$$" >/dev/null 2>&1 || true' EXIT
 
 # The build context is only what the image copies in, so nothing else in the repository can reach it.
-cp "$distro/Dockerfile" "$distro/wsl.conf" "$distro/verify-lockdown.sh" "$distro/runner-placeholder.sh" "$context/"
+cp "$distro/Dockerfile" "$distro/wsl.conf" "$distro/verify-lockdown.sh" "$distro/runner-placeholder.sh" \
+  "$distro/import-images.sh" "$distro/idleo-images.service" "$context/"
 cp "$root/phase0/wsl/gpu-common.sh" "$context/"
 
 started=$SECONDS
+# The GPU-check image first, saved as an archive containerd imports (docker save keeps its name).
+gpu_check="docker.io/idleo/gpu-check:local"
+docker buildx build --platform linux/amd64 ${cache[@]+"${cache[@]}"} -f "$distro/gpu-check.Dockerfile" \
+  --tag "$gpu_check" --load "$distro"
+docker save "$gpu_check" -o "$context/gpu-check.tar"
+
 docker buildx build --platform linux/amd64 ${cache[@]+"${cache[@]}"} --build-arg "IDLEO_DISTRO_VERSION=$version" \
   --tag "$image" --load "$context"
 

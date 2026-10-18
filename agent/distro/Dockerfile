@@ -51,6 +51,14 @@ COPY verify-lockdown.sh gpu-common.sh /usr/local/share/idleo/
 RUN chmod 0755 /usr/local/share/idleo/verify-lockdown.sh
 COPY runner-placeholder.sh /usr/local/bin/idleo-runner
 
+# The GPU-check image (gpu-check.Dockerfile), imported into containerd on the first boot by idleo-images.service.
+COPY gpu-check.tar /opt/idleo/images/gpu-check.tar
+COPY import-images.sh /usr/local/libexec/idleo-import-images
+COPY idleo-images.service /etc/systemd/system/idleo-images.service
+RUN chmod 0755 /usr/local/libexec/idleo-import-images \
+    && mkdir -p /etc/systemd/system/multi-user.target.wants \
+    && ln -s /etc/systemd/system/idleo-images.service /etc/systemd/system/multi-user.target.wants/idleo-images.service
+
 RUN printf '%s\n' "${IDLEO_DISTRO_VERSION}" > /etc/idleo-distro-version
 
 # Nothing is started by the image itself: systemd (wsl.conf's boot setting) starts containerd, and the host's app the rest.

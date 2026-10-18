@@ -4,6 +4,10 @@
 # Check every platform the agent ships for, not just the one running the check.
 targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin"]
 all-features = true
+# The tray and the setup app ship only for Windows. cargo-deny joins every target's edges, so their GUI crates (tao,
+# wry, tray-icon) would bring their GTK, WebKit and macOS backends, which we never build; deny-windows.toml checks the
+# whole workspace, them included, for the Windows target alone, under the same rules.
+exclude = ["tray", "setup"]
 
 [advisories]
 # Every RustSec advisory fails the check, including unmaintained and unsound crates, unless an

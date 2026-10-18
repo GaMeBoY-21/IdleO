@@ -36,8 +36,12 @@ pub mod tls;
 pub mod updater;
 pub use idleo_release::version;
 
-/// The agent's own version, from the crate, sent in `Hello`.
-pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The agent's own version, sent in `Hello`: the crate's, unless a release build sets `IDLEO_APP_VERSION`
+/// (scripts/release/publish.sh), which every program of the Windows app is built with.
+pub const AGENT_VERSION: &str = match option_env!("IDLEO_APP_VERSION") {
+    Some(version) => version,
+    None => env!("CARGO_PKG_VERSION"),
+};
 
 /// A new message id: a UUIDv7 in canonical text form (ADR 0007).
 #[must_use]

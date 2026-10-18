@@ -1,0 +1,36 @@
+[package]
+name = "tray"
+description = "The Windows app's tray icon: the host's state at a glance, hosting on and off, pause, auto-pause and the dashboard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "idleo_tray"
+
+[[bin]]
+name = "idleo-tray"
+path = "src/main.rs"
+
+[dependencies]
+brand = { path = "../brand" }
+release = { path = "../release" }
+time = { version = "0.3.55", features = ["local-offset", "macros"] }
+tokio = { version = "1.53.2", features = ["io-util", "macros", "rt", "sync", "time"] }
+tracing = "0.1.44"
+
+[target.'cfg(windows)'.dependencies]
+# The menu is muda's, re-exported by tray-icon as tray_icon::menu, so the two always agree.
+tao = { version = "0.37.1", default-features = false, features = ["rwh_06"] }
+tray-icon = { version = "0.26.1", default-features = false }
+
+[build-dependencies]
+brand = { path = "../brand", features = ["build"] }
+
+[dev-dependencies]
+serde_json = "1.0.151"
+tokio = { version = "1.53.2", features = ["io-util", "macros", "rt", "sync", "test-util", "time"] }

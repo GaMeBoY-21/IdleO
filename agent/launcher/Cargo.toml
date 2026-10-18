@@ -1,0 +1,35 @@
+[package]
+name = "launcher"
+description = "The Windows app's launcher: starts and watches idleo-hostd and the tray, runs update trials and rollbacks, updates itself by rename, and uninstalls"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "idleo_launcher"
+
+[[bin]]
+name = "idleo-launcher"
+path = "src/main.rs"
+
+[dependencies]
+release = { path = "../release" }
+time = "0.3.55"
+tokio = { version = "1.53.2", features = ["io-util", "macros", "rt", "sync", "time"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
+
+[target.'cfg(windows)'.dependencies]
+agent-windows = { path = "../agent-windows" }
+
+[build-dependencies]
+brand = { path = "../brand", features = ["build"] }
+
+[dev-dependencies]
+release = { path = "../release", features = ["fakes"] }
+tempfile = "3.27.0"
+tokio = { version = "1.53.2", features = ["io-util", "macros", "rt", "sync", "test-util", "time"] }

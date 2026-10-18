@@ -34,7 +34,8 @@ pub use crate::session::{ac_line_status, current_user_sid, user_notification_sta
 pub use crate::shell::{Progress, ask, create_pipe_server, create_shortcut, message_box, progress};
 #[cfg(windows)]
 pub use crate::windows::{
-    create_private_file, file_access_sddl, free_disk_space, idle_time, performance_counter, windows_build,
+    create_private_file, file_access_sddl, free_disk_space, idle_time, performance_counter, system_manufacturer,
+    windows_build,
 };
 
 /// The access list `host.key` gets: protected from inheritance, full access for SYSTEM (`SY`) and the signed-in owner

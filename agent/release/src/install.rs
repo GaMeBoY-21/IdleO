@@ -286,6 +286,55 @@ pub mod fake {
     }
 }
 
+/// The real machine: the signed-in user's folders and registry, `wsl.exe`, and the Start menu.
+#[cfg(windows)]
+pub struct SystemMachine {
+    layout: Layout,
+    registry: crate::registry::UserRegistry,
+    runner: crate::wsl::SystemRunner,
+}
+
+#[cfg(windows)]
+impl SystemMachine {
+    /// This user's machine.
+    #[must_use]
+    pub fn new() -> Self {
+        Self { layout: Layout::for_user(), registry: crate::registry::UserRegistry, runner: crate::wsl::SystemRunner }
+    }
+}
+
+#[cfg(windows)]
+impl Default for SystemMachine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(windows)]
+impl Machine for SystemMachine {
+    fn layout(&self) -> &Layout {
+        &self.layout
+    }
+
+    fn registry(&self) -> &dyn Registry {
+        &self.registry
+    }
+
+    fn wsl_runner(&self) -> &dyn Runner {
+        &self.runner
+    }
+
+    fn shortcut_path(&self) -> PathBuf {
+        let roaming = std::env::var_os("APPDATA")
+            .map_or_else(|| self.layout.data().join("..").join("..").join("Roaming"), PathBuf::from);
+        roaming.join("Microsoft").join("Windows").join("Start Menu").join("Programs").join("IdleO.lnk")
+    }
+
+    fn create_shortcut(&self, link: &Path, target: &Path, arguments: &str) -> io::Result<()> {
+        agent_windows::create_shortcut(link, target, arguments, APP_USER_MODEL_ID)
+    }
+}
+
 /// Every program of the app, as file names, for building and checking zips.
 #[must_use]
 pub fn program_files() -> Vec<String> {

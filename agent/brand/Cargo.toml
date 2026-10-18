@@ -1,0 +1,20 @@
+[package]
+name = "brand"
+description = "The Windows app's look in code: the round icon (the tray's and each program's), and the manifest and resources every Windows program embeds"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "idleo_brand"
+
+[features]
+# For build scripts: compiles the icon and the manifest into a Windows program (llvm-rc when building on a Mac).
+build = ["dep:embed-resource"]
+
+[dependencies]
+embed-resource = { version = "3.0.12", optional = true }

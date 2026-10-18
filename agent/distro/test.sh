@@ -80,6 +80,25 @@ else
 fi
 [[ "$(in_image cat /etc/idleo-distro-version)" == "$version" ]] && pass "the image says its version, $version" || fail "the image says its version"
 
+# The GPU-check image is baked in, named as the self-test runs it, and imported by a service enabled at boot.
+# containerd names an imported image from the archive's index.json annotation.
+if in_image sh -c 'tar -xOf /opt/idleo/images/gpu-check.tar index.json' | grep -q '"io.containerd.image.name":"docker.io/idleo/gpu-check:local"'; then
+  pass "the GPU-check image is in the image, as docker.io/idleo/gpu-check:local"
+else
+  fail "the GPU-check image is in the image" "$(in_image sh -c 'tar -tf /opt/idleo/images/gpu-check.tar | head -5' 2>&1)"
+fi
+entrypoint="$(docker image inspect --format '{{json .Config.Entrypoint}}' docker.io/idleo/gpu-check:local)"
+[[ "$entrypoint" == '["nvidia-smi","--query-gpu=name,memory.total","--format=csv,noheader"]' ]] &&
+  pass "the GPU-check image runs nvidia-smi's name and memory query" || fail "the GPU-check image's entrypoint" "$entrypoint"
+[[ "$(docker image inspect --format '{{.Architecture}}' docker.io/idleo/gpu-check:local)" == amd64 ]] &&
+  pass "the GPU-check image is amd64" || fail "the GPU-check image is amd64"
+if in_image test -L /etc/systemd/system/multi-user.target.wants/idleo-images.service &&
+  in_image test -x /usr/local/libexec/idleo-import-images; then
+  pass "idleo-images.service imports it at boot"
+else
+  fail "idleo-images.service imports it at boot"
+fi
+
 # The size the installer will download.
 bytes="$(wc -c <"$tarball" | tr -d ' ')"
 if ((bytes < 400 * 1000 * 1000)); then

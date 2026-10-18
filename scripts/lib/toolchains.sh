@@ -12,6 +12,10 @@ done
 for dir in "$HOME/.cargo/bin" /opt/homebrew/opt/rustup/bin; do
   [[ -d "$dir" ]] && PATH="$PATH:$dir"
 done
+# LLVM's llvm-rc and lld, for building and linting the Windows app on a Mac (scripts/build-windows.sh).
+for dir in /opt/homebrew/opt/llvm/bin /opt/homebrew/opt/lld/bin /opt/homebrew/opt/llvm@22/bin /opt/homebrew/opt/lld@22/bin; do
+  [[ -d "$dir" ]] && PATH="$PATH:$dir"
+done
 # The web app pins Node 24 (web/.node-version); a Mac may keep it beside a newer Node.
 [[ -d /opt/homebrew/opt/node@24/bin ]] && PATH="/opt/homebrew/opt/node@24/bin:$PATH"
 # pnpm comes with Node, through corepack, at the version web/package.json pins; where it has no command yet, give it

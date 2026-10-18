@@ -1,0 +1,52 @@
+[package]
+name = "setup"
+description = "IdleO-Setup.exe, the one download: checks the laptop, turns on WSL, installs the app and its Linux space, self-tests, links by approval and starts hosting"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "idleo_setup"
+
+[[bin]]
+name = "IdleO-Setup"
+path = "src/main.rs"
+
+[features]
+# A release build: the production release key (agent/release-keys/release.pub) and the production addresses, which
+# must be given at build time.
+prod-keys = ["release/prod-keys"]
+
+[dependencies]
+agent = { path = "../agent", default-features = false }
+release = { path = "../release" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+time = { version = "0.3.55", features = ["formatting", "serde"] }
+tokio = { version = "1.53.2", features = ["macros", "rt", "sync", "time"] }
+tracing = "0.1.44"
+uuid = { version = "1.27.0", features = ["serde", "v4"] }
+
+[target.'cfg(windows)'.dependencies]
+agent = { path = "../agent" }
+agent-windows = { path = "../agent-windows" }
+base64 = "0.22.1"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider"] }
+tao = { version = "0.37.1", default-features = false, features = ["rwh_06"] }
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
+wry = { version = "0.57.0", default-features = false, features = ["os-webview"] }
+
+[build-dependencies]
+brand = { path = "../brand", features = ["build"] }
+
+[dev-dependencies]
+ed25519-dalek = "3.0.0"
+release = { path = "../release", features = ["fakes"] }
+sha2 = "0.11.0"
+tempfile = "3.27.0"
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+tokio = { version = "1.53.2", features = ["macros", "rt", "sync", "test-util", "time"] }

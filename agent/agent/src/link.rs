@@ -48,6 +48,9 @@ pub struct Machine {
     pub agent_version: String,
     /// Its GPUs, at most eight.
     pub gpus: Vec<LinkGpu>,
+    /// The Windows setup app's install id, when it asks, so the install is tied to the host once approved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub install_id: Option<Uuid>,
 }
 
 /// Where to link and what to link.
@@ -315,36 +318,7 @@ fn describe(error: &reqwest::Error) -> String {
     }
 }
 
-/// How to open `url` in the person's default browser on this system, as a program and its arguments.
-#[must_use]
-pub fn browser_command(os: &str, url: &str) -> (&'static str, Vec<String>) {
-    match os {
-        "macos" => ("open", vec![url.to_owned()]),
-        "windows" => ("explorer.exe", vec![url.to_owned()]),
-        _ => ("xdg-open", vec![url.to_owned()]),
-    }
-}
-
-/// Opens `url` in the default browser; false if there is none to open (a headless machine), in which case the caller
-/// prints the address for the person to open anywhere.
-#[must_use]
-pub fn open_browser(url: &str) -> bool {
-    let os = if cfg!(windows) {
-        "windows"
-    } else if cfg!(target_os = "macos") {
-        "macos"
-    } else {
-        "linux"
-    };
-    let (program, args) = browser_command(os, url);
-    std::process::Command::new(program)
-        .args(args)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .is_ok()
-}
+pub use idleo_release::browser::open as open_browser;
 
 /// This machine's name, for the approval page: the computer's own, which the owner may change there.
 #[must_use]
@@ -386,14 +360,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_browser_is_opened_the_way_each_system_does_it() {
-        assert_eq!(browser_command("macos", "http://x/").0, "open");
-        assert_eq!(browser_command("linux", "http://x/").0, "xdg-open");
-        assert_eq!(browser_command("windows", "http://x/").0, "explorer.exe");
-        assert_eq!(browser_command("linux", "http://x/?a=1&b=2").1, ["http://x/?a=1&b=2"]);
-    }
-
-    #[test]
     fn each_way_it_ends_has_its_own_exit_code() {
         assert_eq!(LinkError::Denied.exit_code(), 2);
         assert_eq!(LinkError::Expired.exit_code(), 3);
@@ -409,8 +375,14 @@ mod tests {
             os: "windows".to_owned(),
             agent_version: "0.1.0".to_owned(),
             gpus: vec![LinkGpu { model: "RTX 4080 Laptop".to_owned(), vram_mb: 12282 }],
+            install_id: None,
         };
         let json: serde_json::Value = serde_json::from_str(&serde_json::to_string(&machine).unwrap()).unwrap();
+        assert!(json.get("installId").is_none(), "left out when there's no install");
+        let install = Uuid::nil();
+        let from_setup = Machine { install_id: Some(install), ..machine.clone() };
+        let with_install: serde_json::Value = serde_json::to_value(&from_setup).unwrap();
+        assert_eq!(with_install["installId"], install.to_string());
         assert_eq!(json["machineName"], "ASUS ROG Strix");
         assert_eq!(json["agentVersion"], "0.1.0");
         assert_eq!(json["gpus"][0]["vramMb"], 12282);
