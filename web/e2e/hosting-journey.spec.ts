@@ -62,6 +62,34 @@ const earnings = async (request: APIRequestContext) =>
     history: { entries: { amountPaise: number; minutes: number; machineName: string }[] };
   };
 
+test("offers the released Windows app on Add a machine, and its link redirects to the setup program", async ({
+  page,
+  request,
+}) => {
+  // The script published a small signed release to this stack's storage (ADR 0034), older than the agents, so no agent
+  // is offered it as an update.
+  const version = process.env.E2E_RELEASE_VERSION ?? "";
+  const setupBytes = Number(process.env.E2E_RELEASE_SETUP_BYTES ?? "0");
+  expect(version, "E2E_RELEASE_VERSION from scripts/e2e/agent-online.sh").toMatch(/^\d+\.\d+\.\d+$/);
+  await startAt(page, "/hosting/add/");
+  const download = page.getByRole("link", { name: "Download for Windows" });
+  await expect(download).toHaveAttribute("href", `${API}/v1/agent-releases/latest/setup`);
+  await expect(page.getByText(`v${version} · ${(setupBytes / 1_000_000).toFixed(1)} MB`)).toBeVisible();
+  await expectAccessible(page);
+
+  // The link is a redirect to storage, which serves the bare setup program under its own name.
+  const redirect = await request.get(`${API}/v1/agent-releases/latest/setup`, { maxRedirects: 0 });
+  expect(redirect.status()).toBe(302);
+  const location = redirect.headers()["location"] ?? "";
+  expect(location).toContain(`/releases/stable/${version}/IdleO-Setup.exe`);
+  const setup = await request.get(location);
+  expect(setup.status()).toBe(200);
+  expect(setup.headers()["content-disposition"]).toBe('attachment; filename="IdleO-Setup.exe"');
+  expect((await setup.body()).length).toBe(setupBytes);
+  numbers.release = { version, setupBytes };
+  report();
+});
+
 test("links a laptop by approval: asked for, approved in one click, pending on Hosting, then an operator activates it", async ({
   page,
 }) => {

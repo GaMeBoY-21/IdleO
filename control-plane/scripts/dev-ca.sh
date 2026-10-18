@@ -6,10 +6,23 @@
 #
 #   scripts/dev-ca.sh            create it, if it doesn't exist yet
 #   scripts/dev-ca.sh --force    throw it away and create a new one
+#   scripts/dev-ca.sh --server-ip 192.168.1.20
+#                                also name that address in the server certificate (./start.sh --lan): only the server
+#                                certificate is issued again, so enrolled agents keep trusting the root
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 out=private/dev-ca
+force=false
+server_ip=""
+while (($# > 0)); do
+  case "$1" in
+    --force) force=true ;;
+    --server-ip) server_ip="${2:?--server-ip needs an address}"; shift ;;
+    *) echo "dev-ca: unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 if ! git check-ignore -q "$out/probe"; then
   echo "dev-ca: refusing to write keys: $out/ is not gitignored." >&2
@@ -41,8 +54,36 @@ make_admin_totp_key() {
   done
 }
 
-if [[ -e "$out/root.pem" && "${1:-}" != "--force" ]]; then
+key() {
+  "$openssl_bin" genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$1"
+}
+serial() {
+  echo "0x$("$openssl_bin" rand -hex 16)"
+}
+
+# Server: the gRPC port's certificate for localhost (and the --server-ip address), serverAuth only, 90 days.
+issue_server() {
+  local names="DNS:localhost" work
+  [[ -n "$server_ip" ]] && names="$names,IP:$server_ip"
+  work="$(mktemp -d)"
+  key "$out/server.key"
+  printf 'basicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=%s\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid\n' "$names" > "$work/server.ext"
+  "$openssl_bin" req -new -key "$out/server.key" -subj "/CN=localhost" -out "$work/server.csr"
+  "$openssl_bin" x509 -req -in "$work/server.csr" -CA "$out/intermediate.pem" -CAkey "$out/intermediate.key" -days 90 -sha256 \
+    -set_serial "$(serial)" -extfile "$work/server.ext" -out "$out/server.pem"
+  cat "$out/server.pem" "$out/intermediate.pem" > "$out/server-chain.pem"
+  rm -rf "$work"
+  "$openssl_bin" verify -CAfile "$out/root.pem" -untrusted "$out/intermediate.pem" "$out/server.pem" >/dev/null
+}
+
+if [[ -e "$out/root.pem" ]] && ! $force; then
   make_admin_totp_key
+  if [[ -n "$server_ip" ]] && ! "$openssl_bin" x509 -in "$out/server.pem" -noout -ext subjectAltName 2>/dev/null |
+    grep -q "IP Address:$server_ip\(,\|$\)"; then
+    (umask 077 && issue_server)
+    echo "dev-ca: issued the server certificate again, for localhost and $server_ip"
+    exit 0
+  fi
   echo "dev-ca: $out already exists; scripts/dev-ca.sh --force replaces it."
   exit 0
 fi
@@ -53,13 +94,6 @@ find "$out" -mindepth 1 ! -name admin-totp.key ! -name invite-code.key -delete
 make_admin_totp_key
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-
-key() {
-  "$openssl_bin" genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$1"
-}
-serial() {
-  echo "0x$("$openssl_bin" rand -hex 16)"
-}
 
 # Root: self-signed, 10 years, may sign one level of CA below it.
 key "$out/root.key"
@@ -75,13 +109,5 @@ printf 'basicConstraints=critical,CA:true,pathlen:0\nkeyUsage=critical,keyCertSi
 "$openssl_bin" x509 -req -in "$work/intermediate.csr" -CA "$out/root.pem" -CAkey "$out/root.key" -days 365 -sha256 \
   -set_serial "$(serial)" -extfile "$work/intermediate.ext" -out "$out/intermediate.pem"
 
-# Server: the gRPC port's certificate for localhost, serverAuth only, 90 days.
-key "$out/server.key"
-printf 'basicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:localhost\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid\n' > "$work/server.ext"
-"$openssl_bin" req -new -key "$out/server.key" -subj "/CN=localhost" -out "$work/server.csr"
-"$openssl_bin" x509 -req -in "$work/server.csr" -CA "$out/intermediate.pem" -CAkey "$out/intermediate.key" -days 90 -sha256 \
-  -set_serial "$(serial)" -extfile "$work/server.ext" -out "$out/server.pem"
-cat "$out/server.pem" "$out/intermediate.pem" > "$out/server-chain.pem"
-
-"$openssl_bin" verify -CAfile "$out/root.pem" -untrusted "$out/intermediate.pem" "$out/server.pem" >/dev/null
+issue_server
 echo "dev-ca: created $out/ (root, intermediate, localhost server certificate, the admin TOTP key). Never commit it."

@@ -17,8 +17,12 @@
 # Production needs IDLEO_RELEASE_KEY (the private key's path, which only idleo-release sign reads),
 # IDLEO_RELEASE_S3_ENDPOINT, IDLEO_RELEASE_S3_ACCESS_KEY_ID and IDLEO_RELEASE_S3_SECRET_ACCESS_KEY, and the setup
 # program's IDLEO_SETUP_* addresses. --dev uses private/release-dev/ (scripts/release/dev-key.sh) and the local
-# stack's MinIO, at IDLEO_RELEASE_S3_ENDPOINT if set (./start.sh --lan sets the LAN address). IDLEO_TEST_FAIL_TRIAL=1
-# is passed through to nothing: it is read by the installed agent at run time (development builds only).
+# stack's MinIO (IDLEO_RELEASE_S3_ENDPOINT moves it), and bakes the setup program's addresses from
+# private/release-dev/setup.env, which ./start.sh --lan writes, unless IDLEO_SETUP_* are set: so the next development
+# release reaches the same laptop. It notes what it published in private/release-dev/published.
+#
+# IDLEO_TEST_FAIL_TRIAL=1 with --dev builds a version whose update trial never confirms, so the launcher rolls it back:
+# how a rollback is tried (docs/windows-laptop-test.md). A release build ignores it, and publish.sh refuses it.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
@@ -38,11 +42,21 @@ while (($# > 0)); do
 done
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "publish: --version must be X.Y.Z" >&2; exit 2; }
 [[ "$rollout" =~ ^[0-9]+$ ]] && ((rollout <= 100)) || { echo "publish: --rollout must be 0 to 100" >&2; exit 2; }
+if ! $dev && [[ -n "${IDLEO_TEST_FAIL_TRIAL:-}" ]]; then
+  echo "publish: IDLEO_TEST_FAIL_TRIAL is only for --dev releases" >&2
+  exit 2
+fi
 # shellcheck source=scripts/lib/toolchains.sh
 . "$root/scripts/lib/toolchains.sh"
 
 if $dev; then
   "$root/scripts/release/dev-key.sh"
+  if [[ -f "$root/private/release-dev/setup.env" ]]; then
+    while IFS='=' read -r name value; do
+      [[ "$name" == IDLEO_SETUP_* && -z "${!name:-}" ]] && export "$name=$value"
+    done <"$root/private/release-dev/setup.env"
+  fi
+  echo "publish: the setup program reaches ${IDLEO_SETUP_API_URL:-the local stack (http://localhost:8080)}"
   key="$root/private/release-dev/release.key"
   public="$root/private/release-dev/release.pub"
   export IDLEO_RELEASE_S3_ENDPOINT="${IDLEO_RELEASE_S3_ENDPOINT:-http://localhost:${LOCAL_STORAGE_PORT:-9100}}"
@@ -94,4 +108,7 @@ fi
 uploads+=("$manifest=stable/latest.json" "$manifest.sig=stable/latest.json.sig")
 idleo_release upload --endpoint "$IDLEO_RELEASE_S3_ENDPOINT" --bucket "$bucket" --region "$region" \
   ${create[@]+"${create[@]}"} "${uploads[@]}"
+if $dev; then
+  printf '%s %s\n' "$version" "${IDLEO_SETUP_API_URL:-http://localhost:8080}" >"$root/private/release-dev/published"
+fi
 echo "publish: $version at $rollout% is the latest release; control planes read it within 5 minutes"

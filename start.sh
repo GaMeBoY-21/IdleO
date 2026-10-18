@@ -9,6 +9,9 @@
 #                               (docs/runbooks/identity-provider-setup.md)
 #   ./start.sh --link-demo      also start a third fake laptop that links by approval, to try the flow: its approval
 #                               page opens, you press Approve and start earning (docs/runbooks/hosts.md)
+#   ./start.sh --lan            also serve a Windows laptop on the same Wi-Fi: the API, the website, the web app
+#                               and storage on this Mac's LAN address, and a development release of the Windows app
+#                               built for it and published to local storage (docs/windows-laptop-test.md)
 #   ./start.sh --fresh          wipe the local database and storage first (it asks)
 #   ./start.sh --stop           stop what another ./start.sh started
 #   ./start.sh --status         what's running
@@ -25,6 +28,7 @@ no_browser=false
 real_sign_in=false
 fresh=false
 link_demo=false
+lan=false
 action=start
 for arg in "$@"; do
   case "$arg" in
@@ -32,9 +36,10 @@ for arg in "$@"; do
     --real-sign-in) real_sign_in=true ;;
     --fresh) fresh=true ;;
     --link-demo) link_demo=true ;;
+    --lan) lan=true ;;
     --stop) action=stop ;;
     --status) action=status ;;
-    -h | --help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "start: unknown option $arg; ./start.sh --help lists them" >&2; exit 2 ;;
   esac
 done
@@ -147,6 +152,19 @@ for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smt
     fail "port $port is already in use. Stop what holds it (lsof -iTCP:$port -sTCP:LISTEN shows it), or ./start.sh --stop if it's an earlier start."
   fi
 done
+# The LAN address a Windows laptop reaches this Mac at: the default route's interface, or IDLEO_LAN_IP.
+lan_ip=""
+if $lan; then
+  lan_ip="${IDLEO_LAN_IP:-}"
+  if [[ -z "$lan_ip" ]]; then
+    lan_interface="$(route -n get default 2>/dev/null | awk '/interface:/ {print $2}')"
+    [[ -n "$lan_interface" ]] && lan_ip="$(ipconfig getifaddr "$lan_interface" 2>/dev/null || true)"
+  fi
+  [[ "$lan_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+    fail "--lan couldn't find this Mac's LAN address. Join the Wi-Fi the laptop is on, or set IDLEO_LAN_IP=<address>."
+  command -v cargo-xwin >/dev/null ||
+    fail "--lan builds the Windows app here and needs cargo-xwin: cargo install --locked cargo-xwin (and brew install llvm lld)"
+fi
 if $real_sign_in; then
   [[ -f "$root/web/.env.local" ]] ||
     fail "--real-sign-in needs web/.env.local with your Firebase settings (identity-provider-setup.md, section 7)."
@@ -168,7 +186,13 @@ trap 'echo; log "stopping…"; exit 0' INT TERM
 started=$SECONDS
 
 # The development CA and the codes' keys, made once (control-plane/scripts/dev-ca.sh).
-"$root/control-plane/scripts/dev-ca.sh" >>"$out/dev-ca.log" 2>&1 || fail "the development CA couldn't be made; see logs/dev-ca.log"
+# With --lan, the gRPC port's certificate also names the LAN address, which the laptop's agent connects to.
+"$root/control-plane/scripts/dev-ca.sh" ${lan_ip:+--server-ip "$lan_ip"} >>"$out/dev-ca.log" 2>&1 || fail "the development CA couldn't be made; see logs/dev-ca.log"
+
+# The development release key (ADR 0034), which the control plane trusts and the Windows app is built with.
+if $lan; then
+  "$root/scripts/release/dev-key.sh" >>"$out/release.log" 2>&1 || fail "the development release key couldn't be made; see logs/release.log"
+fi
 
 # The control plane, and meanwhile what can be built beside it.
 log "starting the control plane (logs/control-plane.log)"
@@ -179,6 +203,13 @@ stack_control_plane_settings() {
   export SESSIONS_TEMPLATES_CATALOG="file:$root/templates/development.yaml"
   # Origins that may call the API from a browser: the dev server, and the public site's pricing page.
   export WEB_ALLOWED_ORIGINS="http://localhost:$web_port,http://localhost:$site_port"
+  if $lan; then
+    # The laptop's browser opens the website and the web app at the LAN address; storage is reached there by the
+    # laptop (the app's download, a session's files) and by this Mac alike, so presigned links work from both.
+    WEB_ALLOWED_ORIGINS="$WEB_ALLOWED_ORIGINS,http://$lan_ip:$web_port,http://$lan_ip:$site_port"
+    export SESSIONS_STORAGE_ENDPOINT="http://$lan_ip:$storage_port" LOCAL_STORAGE_BIND=0.0.0.0
+    export HOSTS_LINK_WEB_APP_URL="http://$lan_ip:$web_port"
+  fi
 }
 stack_start_control_plane
 echo "$control_plane_pid" >"$state/control-plane.pid"
@@ -186,6 +217,10 @@ echo "$control_plane_pid" >"$state/control-plane.pid"
 # The website and the app each know the other's address (web/src/build-settings.ts: IDLEO_SITE_URL, IDLEO_APP_URL).
 web_env=(IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port"
   IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port")
+if $lan; then
+  # The laptop's browser calls the API (the website's Download button) at the LAN address; so does this Mac's.
+  web_env+=(VITE_API_URL="http://$lan_ip:$http_port" VITE_STORAGE_URL="http://$lan_ip:$storage_port")
+fi
 if ! $real_sign_in; then
   # The mock sign-in, whatever web/.env.local says: the environment wins over .env files in Vite.
   web_env+=(VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" VITE_OIDC_CLIENT_ID=idleo-local)
@@ -203,21 +238,29 @@ agent_build_pid=$!
 site_dist="$root/web/dist-website-local"
 site_stamp="$state/site.stamp"
 # (The API types and tokens are generated into web/src on every start, so they don't count.)
+# (A change of settings, such as --lan's API address, counts too.)
+site_settings="${web_env[*]}"
 newest_source="$(find "$root/web/src" "$root/web/scripts" "$root/docs/site" "$root/templates" "$root/api/openapi.yaml" \
   -type f ! -name '*.gen.*' -newer "$site_stamp" 2>/dev/null | head -1 || true)"
-if [[ ! -f "$site_stamp" || ! -d "$site_dist" || -n "$newest_source" ]]; then
+if [[ ! -f "$site_stamp" || ! -d "$site_dist" || -n "$newest_source" || "$(cat "$site_stamp")" != "$site_settings" ]]; then
   log "building the website (logs/site-build.log)"
   (cd "$root/web" && env "${web_env[@]}" IDLEO_WEBSITE_DIST=dist-website-local IDLEO_SITE_DIST=dist-site-local pnpm build:site) \
     >"$out/site-build.log" 2>&1 || fail "the website's build failed; see logs/site-build.log"
-  touch "$site_stamp"
+  printf '%s' "$site_settings" >"$site_stamp"
 fi
-(cd "$root/web" && IDLEO_DIST=dist-website-local PORT="$site_port" exec node scripts/serve.ts) >>"$out/site.log" 2>&1 &
+serve_host=127.0.0.1
+dev_host=()
+if $lan; then
+  serve_host=0.0.0.0
+  dev_host=(--host 0.0.0.0)
+fi
+(cd "$root/web" && IDLEO_DIST=dist-website-local PORT="$site_port" IDLEO_SERVE_HOST="$serve_host" exec node scripts/serve.ts) >>"$out/site.log" 2>&1 &
 echo $! >"$state/site.pid"
 
 # The web app's dev server, with live reload (pnpm dev makes the API types and tokens first), in its own process
 # group, so stopping it reaches Vite under pnpm too.
 set -m
-(cd "$root/web" && exec env "${web_env[@]}" pnpm dev --port "$web_port" --strictPort) >>"$out/web.log" 2>&1 &
+(cd "$root/web" && exec env "${web_env[@]}" pnpm dev ${dev_host[@]+"${dev_host[@]}"} --port "$web_port" --strictPort) >>"$out/web.log" 2>&1 &
 echo $! >"$state/web.pid"
 set +m
 
@@ -323,6 +366,56 @@ if $link_demo; then
   done
 fi
 
+# --lan: a development release of the Windows app (ADR 0034) built for this LAN address, in local storage, once per
+# address. Its setup program has the LAN addresses and the development CA baked in; publish.sh --dev reuses them
+# (private/release-dev/setup.env) for the next release, which is how an update is tried (docs/windows-laptop-test.md).
+lan_version=""
+if $lan; then
+  release_settings="$root/private/release-dev/setup.env"
+  cat >"$release_settings" <<SETUP
+IDLEO_SETUP_API_URL=http://$lan_ip:$http_port
+IDLEO_SETUP_APP_URL=http://$lan_ip:$web_port
+IDLEO_SETUP_SITE_URL=http://$lan_ip:$site_port
+IDLEO_SETUP_CONTROL_PLANE=$lan_ip:$grpc_port
+IDLEO_SETUP_CA_ROOT=$root/private/dev-ca/root.pem
+SETUP
+  # The release this stack serves, once the feed has been read (it is read at start and every 10 s).
+  served_version() {
+    local deadline=$((SECONDS + 15)) version=""
+    until version="$(curl -sf "$api/v1/agent-releases/latest" | json_get .version 2>/dev/null)" && [[ -n "$version" ]]; do
+      ((SECONDS < deadline)) || return 0
+      sleep 1
+    done
+    printf '%s' "$version"
+  }
+  published="$(cat "$root/private/release-dev/published" 2>/dev/null || true)"
+  last_version="${published%% *}"
+  served="$(served_version)"
+  if [[ -n "$served" && "$published" == "$served http://$lan_ip:$http_port" ]]; then
+    lan_version="$served"
+    log "the Windows app $served, built for $lan_ip, is already published"
+  else
+    # Always a newer version than the last: the control plane never goes back to an older one.
+    if [[ "$last_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      lan_version="${last_version%.*}.$((${last_version##*.} + 1))"
+    else
+      lan_version=0.1.0
+    fi
+    distro_version="$(tr -d '[:space:]' <"$root/agent/distro/VERSION")"
+    if [[ ! -s "$root/dist/distro/idleo-distro-$distro_version.tar.gz" ]]; then
+      log "building the sealed Linux image, once (logs/release.log; a few minutes)"
+      "$root/scripts/build-distro.sh" >>"$out/release.log" 2>&1 || fail "the sealed Linux image's build failed; see logs/release.log"
+    fi
+    log "building the Windows app $lan_version for $lan_ip and publishing it to local storage (logs/release.log; minutes)"
+    "$root/scripts/release/publish.sh" --dev --version "$lan_version" --rollout 100 >>"$out/release.log" 2>&1 ||
+      fail "the Windows app's release failed; see logs/release.log"
+    deadline=$((SECONDS + 30))
+    until [[ "$(served_version)" == "$lan_version" ]]; do
+      ((SECONDS < deadline)) || fail "the control plane didn't pick up the Windows app $lan_version; see logs/control-plane.log"
+    done
+  fi
+fi
+
 cat <<READY
 
 Everything is up, in $((SECONDS - started)) s.
@@ -350,6 +443,17 @@ if $link_demo; then
                  (the link lasts 10 minutes; it is pending until an admin or operator activates it)
 READY
 fi
+if $lan; then
+  cat <<READY
+  Windows laptop the Windows app $lan_version is published, built for $lan_ip.
+
+    On the Windows laptop (same Wi-Fi), open http://$lan_ip:$site_port → Download for Windows.
+    Approve on this Mac: its approval page opens here by itself when the laptop asks. (The laptop's browser can't
+    sign in over plain http, so approving there doesn't work; this Mac signs in at http://localhost:$web_port.)
+    If macOS asks to allow incoming connections, click Allow.
+
+READY
+fi
 cat <<READY
   Logs           logs/  (control-plane, web, site, agent-1, agent-2, ops, link-demo)
   Stop           Ctrl-C here, or ./start.sh --stop from another terminal
@@ -365,8 +469,24 @@ if ! $no_browser; then
   fi
 fi
 
+# --lan: each new request to link a laptop, as its setup program makes it, opens its approval page on this Mac, where
+# signing in works. Read from the database: a link has no owner until it's approved, so no API lists it.
+opened_links=" ${link_url##*/link/} "
+open_new_links() {
+  local id
+  for id in $(compose exec -T postgres psql -U controlplane -d controlplane -tA -c \
+    "SELECT id FROM hosts.host_links WHERE approved_at IS NULL AND denied_at IS NULL AND expires_at > now() ORDER BY created_at" \
+    2>/dev/null); do
+    [[ "$opened_links" == *" $id "* || "$opened_links" == *" $id/ "* ]] && continue
+    opened_links="$opened_links$id "
+    log "a laptop asks to be linked: approve it at http://localhost:$web_port/link/$id/"
+    if ! $no_browser && command -v open >/dev/null; then open "http://localhost:$web_port/link/$id/"; fi
+  done
+}
+
 # Until Ctrl-C (or ./start.sh --stop): if the control plane stops, everything stops.
 while kill -0 "$control_plane_pid" 2>/dev/null; do
+  if $lan; then open_new_links; fi
   sleep 2
 done
 if [[ ! -f "$state/control-plane.pid" ]]; then

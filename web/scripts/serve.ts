@@ -11,6 +11,8 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 
 const dist = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}/`, import.meta.url));
 const port = Number(process.env.PORT ?? 3000);
+// This machine only, unless IDLEO_SERVE_HOST says otherwise (./start.sh --lan serves the website to the LAN with 0.0.0.0).
+const host = process.env.IDLEO_SERVE_HOST ?? "127.0.0.1";
 const headers = JSON.parse(readFileSync(join(dist, "headers.json"), "utf8")) as Record<string, string>;
 const rewrites = existsSync(join(dist, "rewrites.json"))
   ? (JSON.parse(readFileSync(join(dist, "rewrites.json"), "utf8")) as Record<string, string>)
@@ -94,6 +96,6 @@ createServer((request, response) => {
     ...(encoding ? { "Content-Encoding": encoding } : {}),
   });
   response.end(request.method === "HEAD" ? undefined : body);
-}).listen(port, "127.0.0.1", () =>
+}).listen(port, host, () =>
   console.log(`serving ${relative(process.cwd(), dist) || "."} on http://localhost:${port}`),
 );

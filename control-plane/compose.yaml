@@ -32,8 +32,9 @@ services:
       # WEB_ALLOWED_ORIGINS is the control plane's own list, comma-separated.
       MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     ports:
-      # A fixed port: agents and download links use this endpoint.
-      - "127.0.0.1:${LOCAL_STORAGE_PORT:-9100}:9000"
+      # A fixed port: agents and download links use this endpoint. ./start.sh --lan opens it to the LAN
+      # (LOCAL_STORAGE_BIND=0.0.0.0), so a Windows laptop can download the app and run sessions.
+      - "${LOCAL_STORAGE_BIND:-127.0.0.1}:${LOCAL_STORAGE_PORT:-9100}:9000"
   sign-in:
     # A development sign-in server (navikt/mock-oauth2-server) issuing ID tokens
     # shaped like Identity Platform's for invented users (ADR 0013). The local

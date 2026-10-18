@@ -61,6 +61,13 @@ stack_start_control_plane() {
     # The web app's origin, which may call the API from a browser (ADR 0018), and the website's when the script has one
     # (its pricing page asks for live prices, ADR 0029).
     export WEB_ALLOWED_ORIGINS="http://localhost:$web_port${site_port:+,http://localhost:$site_port}"
+    # The Windows app's release feed (ADR 0034) trusts the development release key when there is one
+    # (scripts/release/dev-key.sh), or the caller's IDLEO_RELEASE_PUBLIC_KEY, and reads the feed every 10 s, so a
+    # release published to this stack's storage shows at once.
+    if [[ -z "${IDLEO_RELEASE_PUBLIC_KEY:-}" && -s "$root/private/release-dev/release.pub" ]]; then
+      IDLEO_RELEASE_PUBLIC_KEY="$(tr -d '[:space:]' <"$root/private/release-dev/release.pub")"
+    fi
+    export IDLEO_RELEASE_PUBLIC_KEY="${IDLEO_RELEASE_PUBLIC_KEY:-}" HOSTS_RELEASES_REFRESH_EVERY=10s
     if declare -F stack_control_plane_settings >/dev/null; then
       stack_control_plane_settings
     fi

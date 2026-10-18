@@ -420,6 +420,20 @@ docker info >/dev/null 2>&1 || fail "Docker isn't running"
 # 1. The development CA, with the localhost server certificate for the gRPC port.
 control-plane/scripts/dev-ca.sh
 
+# 1a. A release key for this run only (ADR 0034): the control plane trusts it, and the hosting journey's release is
+#     signed with it. Raw Ed25519 in base64, as idleo-release keygen writes it, made with OpenSSL so it exists before
+#     the control plane starts and anything is built. Never the development key in private/release-dev/.
+release_test="$out/release-test"
+rm -rf "$release_test"
+mkdir -p "$release_test"
+openssl_bin="$(command -v /opt/homebrew/opt/openssl@3/bin/openssl || command -v openssl)"
+(umask 077 && "$openssl_bin" genpkey -algorithm ed25519 -out "$release_test/key.pem" &&
+  "$openssl_bin" pkey -in "$release_test/key.pem" -outform DER | tail -c 32 | base64 >"$release_test/release.key") ||
+  fail "OpenSSL couldn't make the run's release key"
+"$openssl_bin" pkey -in "$release_test/key.pem" -pubout -outform DER | tail -c 32 | base64 >"$release_test/release.pub"
+IDLEO_RELEASE_PUBLIC_KEY="$(tr -d '[:space:]' <"$release_test/release.pub")"
+export IDLEO_RELEASE_PUBLIC_KEY
+
 # 2. The control plane on the local profile, which starts compose.yaml (scripts/lib/stack.sh).
 log "starting the control plane (logs: private/e2e/control-plane.log)"
 # What this run sets beside the stack's common settings (scripts/lib/stack.sh).
@@ -1248,13 +1262,45 @@ scenario_hosting
 # to connected with a real agent enrolled from the code on the page, paused and resumed, its price changed and the
 # quote's range with it, an earning session read on three screens, and removing it. Once everything else is over, so
 # the machine it adds changes nothing for the scenarios. The one step an operator does by hand is activate-host.sh.
+# A small signed release of the Windows app in this stack's storage (ADR 0034), for the journey's Download button: three
+# stand-in files, a manifest signed with the run's key, uploaded as scripts/release/publish.sh does. Its version is
+# older than the agents', so none is offered it as an update.
+release_version=0.0.1
+publish_test_release() {
+  local rel="$root/agent/target/release/idleo-release" dir="$release_test"
+  printf 'stand-in for the app zip\n' >"$dir/idleo-app-$release_version.zip"
+  printf 'stand-in for the distro\n' >"$dir/idleo-distro-0.0.1.tar.gz"
+  head -c 1234567 /dev/urandom >"$dir/IdleO-Setup.exe"
+  "$rel" manifest --version "$release_version" --rollout 100 --app "$dir/idleo-app-$release_version.zip" \
+    --distro "$dir/idleo-distro-0.0.1.tar.gz" --distro-version 0.0.1 --setup "$dir/IdleO-Setup.exe" \
+    --out "$dir/latest.json" >>"$out/release.log" 2>&1 &&
+    "$rel" sign --key "$dir/release.key" "$dir/latest.json" >>"$out/release.log" 2>&1 &&
+    "$rel" verify --public "$dir/release.pub" "$dir/latest.json" >>"$out/release.log" 2>&1 &&
+    IDLEO_RELEASE_S3_ACCESS_KEY_ID=local-storage-root IDLEO_RELEASE_S3_SECRET_ACCESS_KEY=local-only-not-a-secret \
+      "$rel" upload --endpoint "http://localhost:$storage_port" --create-bucket \
+      "$dir/idleo-app-$release_version.zip=stable/$release_version/idleo-app-$release_version.zip" \
+      "$dir/IdleO-Setup.exe=stable/$release_version/IdleO-Setup.exe" \
+      "$dir/idleo-distro-0.0.1.tar.gz=stable/distro/idleo-distro-0.0.1.tar.gz" \
+      "$dir/latest.json=stable/latest.json" "$dir/latest.json.sig=stable/latest.json.sig" >>"$out/release.log" 2>&1 ||
+    fail "publishing the test release failed; see private/e2e/release.log"
+  # The control plane reads the feed every 10 s (scripts/lib/stack.sh).
+  local deadline=$((SECONDS + 30))
+  until [[ "$(curl -sf "$api/v1/agent-releases/latest" | json_get .version 2>/dev/null)" == "$release_version" ]]; do
+    ((SECONDS < deadline)) || fail "the control plane didn't serve the test release within 30 s; see private/e2e/control-plane.log"
+    sleep 1
+  done
+}
+
 scenario_hosting_web() {
   local host sum report="$out/hosting-journey.json"
-  E2E_WEB_USER="$web_user" E2E_AGENT="$agent" E2E_AGENT_CA="$root/private/dev-ca/root.pem" E2E_GRPC_PORT="$grpc_port" \
+  publish_test_release
+  E2E_RELEASE_VERSION="$release_version" E2E_RELEASE_SETUP_BYTES=1234567 \
+    E2E_WEB_USER="$web_user" E2E_AGENT="$agent" E2E_AGENT_CA="$root/private/dev-ca/root.pem" E2E_GRPC_PORT="$grpc_port" \
     E2E_ACTIVATE_HOST="$root/scripts/e2e/activate-host.sh" LOCAL_SIGN_IN_PORT="$sign_in_port" \
     COMPOSE_PROJECT_NAME="$compose_project" E2E_HOSTING_REPORT="$report" SKIP_VISUAL=1 \
     web_test --project=hosting-journey --reporter=line >>"$out/hosting-journey.log" 2>&1 ||
     fail "the hosting journeys failed; see private/e2e/hosting-journey.log"
+  note "hosting journey: the signed release $release_version on Add a machine as Download for Windows (v$release_version · 1.2 MB), its link a redirect to storage serving IdleO-Setup.exe, all 1,234,567 bytes: PASS"
   note "hosting journeys: $(grep -Eo '[0-9]+ passed' "$out/hosting-journey.log" | tail -1) (a laptop linked by approval with a real agent: one click, no code, pending until activated, then paused and resumed, its price changed, an earning session, removed): PASS"
   host="$(json_get .addedMachine.hostId <"$report")"
   note "hosting journey: link, from 'idleo-agent link' asking to approval to the agent linked: $(json_get .link.askToApproveMs <"$report") ms to approve and $(json_get .link.approveToLinkedMs <"$report") ms from the click to linked, $(json_get .link.totalMs <"$report") ms in all: PASS"
