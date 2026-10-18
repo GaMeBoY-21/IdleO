@@ -16,6 +16,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { Tile, TileLabel } from "@/components/ui/Tile";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
 import { useNow } from "@/lib/clock";
 import { gigabytes, gpuName } from "@/lib/gpu";
@@ -37,7 +38,9 @@ const MAX_NAME = 100;
  */
 export function LinkApproval({ id }: { id: string }) {
   useTitle("Link this laptop");
-  const link = useHostLink(id);
+  // The page is drawn whole first, bars where the values go; the link is asked for after that paint.
+  const painted = useAfterPaint(true, { largestPaintSettled: true });
+  const link = useHostLink(id, painted);
 
   const left = <Machine link={link.data} />;
   return (

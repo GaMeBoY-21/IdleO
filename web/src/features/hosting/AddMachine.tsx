@@ -4,6 +4,7 @@ import { HostFlow } from "@/components/shell/HostFlow";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
 import { config } from "@/config";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { releaseLine } from "@/lib/hosting";
 import { useTitle } from "@/lib/title";
 
@@ -36,7 +37,10 @@ const BUTTON =
  * height and one line under it, so nothing moves when the answer comes.
  */
 function DownloadButton() {
-  const release = useLatestRelease();
+  // The page paints with the button's skeleton first; the answer is asked for after that paint, so the request is not
+  // on the way to the page's largest paint (Lighthouse counts each round trip before it).
+  const painted = useAfterPaint(true, { largestPaintSettled: true });
+  const release = useLatestRelease(painted);
   if (release.isPending) {
     return (
       <div className="flex flex-col gap-3" aria-busy="true" aria-label="Checking for the Windows app">

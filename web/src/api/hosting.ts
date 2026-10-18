@@ -45,10 +45,12 @@ export const hostKeys = {
 /**
  * The Windows app's latest release (ADR 0034), for Add a machine's Download button; `null` when there's none yet
  * (`no-agent-release`), which is an answer, not an error. The API lets it be cached for a minute; so does this.
+ * `enabled` false holds the first fetch back (useAfterPaint): the page paints before the button's answer is asked for.
  */
-export function useLatestRelease() {
+export function useLatestRelease(enabled = true) {
   return useQuery({
     queryKey: hostKeys.release,
+    enabled,
     staleTime: 60_000,
     queryFn: async (): Promise<LatestRelease | null> => {
       try {
@@ -242,11 +244,13 @@ export function useSaveListing(id: string) {
 
 /**
  * The link a laptop asked for (ADR 0032), as the approval page reads it. It is asked for again while it's pending, so
- * the page notices when it runs out; never cached for long, since a link lasts ten minutes.
+ * the page notices when it runs out; never cached for long, since a link lasts ten minutes. `enabled` false holds the
+ * first fetch back (useAfterPaint): the page is drawn whole, with bars where the values go, before it asks.
  */
-export function useHostLink(id: string) {
+export function useHostLink(id: string, enabled = true) {
   return useQuery({
     queryKey: hostKeys.link(id),
+    enabled,
     queryFn: () => data(api.GET("/v1/host-links/{id}", { params: { path: { id } } })),
     staleTime: 0,
     // A link that isn't there (a wrong address) is a 404, shown as such, never retried.
