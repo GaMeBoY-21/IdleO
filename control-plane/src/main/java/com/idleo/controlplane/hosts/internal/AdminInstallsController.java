@@ -19,7 +19,7 @@ class AdminInstallsController {
     }
 
     @GetMapping("/admin/v1/installs")
-    HostInstalls.Summary installs() {
+    HostInstalls.InstallsSummary installs() {
         return installs.summary();
     }
 }

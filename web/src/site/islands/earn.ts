@@ -3,6 +3,7 @@ import { COMMISSION_PERCENT } from "@/lib/hosting";
 import { earnings } from "../calculator";
 import { formatRange, shown, type PublicAvailability } from "../pricing";
 import { watchAvailability, type Outcome } from "./availability";
+import { showRelease } from "./release";
 
 /**
  * The earnings calculator's page (ADR 0029): works the arithmetic of src/site/calculator.ts on what the person
@@ -76,4 +77,9 @@ if (root) {
     });
   }
   update();
+}
+
+const download = document.querySelector<HTMLElement>("[data-download]");
+if (download) {
+  showRelease(download);
 }

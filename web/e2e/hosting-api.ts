@@ -11,6 +11,8 @@ export function hostingApi(): Record<string, Answer> {
     "/v1/hosts": { json: hosting.hosts },
     "/v1/host-links/[^/]+": { json: hosting.hostLink },
     "/v1/price-band": { json: hosting.priceBandDefault },
+    // No release until a screen says otherwise: the Download button is "coming soon".
+    "/v1/agent-releases/latest": { status: 404, problem: "no-agent-release" },
     "/v1/earnings": { json: hosting.earnings },
     "/v1/hosts/[^/]+/telemetry": (_call, request) => ({ json: hosting.telemetryOf(machine(request)!) }),
     "/v1/hosts/[^/]+/price-band": { json: hosting.priceBand },

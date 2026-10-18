@@ -3,12 +3,14 @@ import { brand } from "@/brand/brand";
 import type { PageDef, SiteContext } from "./context";
 import type { EntryLinks } from "./paths";
 import { Docs } from "./pages/Docs";
+import { MAKERS } from "./help";
 import { Earn } from "./pages/Earn";
+import { Help, laptop } from "./pages/Help";
 import { Gpus } from "./pages/Gpus";
 import { Landing } from "./pages/Landing";
 import { Placeholder } from "./pages/Placeholder";
 import { Pricing } from "./pages/Pricing";
-import { CONTACT, EARN, GPUS, LANDING, PRICING, PRIVACY, TERMS } from "./paths";
+import { CONTACT, EARN, GPUS, HELP_VIRTUALIZATION, LANDING, PRICING, PRIVACY, TERMS } from "./paths";
 import { Shell } from "./Shell";
 import { band, column, heading, link, muted } from "./ui";
 
@@ -92,7 +94,14 @@ export function pages(context: SiteContext): PageDef[] {
     body: <Docs page={page} pages={context.docs} />,
     islands: [] as PageDef["islands"],
   }));
-  return [...base, ...docs];
+  const help = MAKERS.map((maker) => ({
+    path: `${HELP_VIRTUALIZATION}${maker.slug}/`,
+    title: `Turn on virtualization · ${brand.name}`,
+    description: `How to turn on virtualization in ${laptop(maker)}'s startup menu, which hosting needs.`,
+    body: <Help maker={maker} />,
+    islands: [] as PageDef["islands"],
+  }));
+  return [...base, ...docs, ...help];
 }
 
 /** One page's body as HTML inside the shared frame. */

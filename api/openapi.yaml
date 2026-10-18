@@ -513,7 +513,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Summary"
+                $ref: "#/components/schemas/InstallsSummary"
           description: OK
         default:
           content:
@@ -3524,6 +3524,48 @@ components:
       - online
       - ownerId
       - status
+    AdminInstall:
+      type: object
+      properties:
+        clicks:
+          type: integer
+          format: int32
+        gpuModel:
+          type:
+          - string
+          - "null"
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        installId:
+          type: string
+          format: uuid
+        minutes:
+          type:
+          - number
+          - "null"
+          format: double
+        openedAt:
+          type: string
+          format: date-time
+        setupVersion:
+          type:
+          - string
+          - "null"
+        stoppedAt:
+          type: string
+        windowsBuild:
+          type:
+          - integer
+          - "null"
+          format: int32
+      required:
+      - clicks
+      - installId
+      - openedAt
+      - stoppedAt
     AdminInvite:
       type: object
       properties:
@@ -4842,20 +4884,6 @@ components:
       - at
       - reason
       - state
-    Failures:
-      type: object
-      properties:
-        count:
-          type: integer
-          format: int32
-        reason:
-          type: string
-        step:
-          type: string
-      required:
-      - count
-      - reason
-      - step
     GpuAvailability:
       type: object
       properties:
@@ -5138,48 +5166,6 @@ components:
       required:
       - items
       - unread
-    Install:
-      type: object
-      properties:
-        clicks:
-          type: integer
-          format: int32
-        gpuModel:
-          type:
-          - string
-          - "null"
-        hostId:
-          type:
-          - string
-          - "null"
-          format: uuid
-        installId:
-          type: string
-          format: uuid
-        minutes:
-          type:
-          - number
-          - "null"
-          format: double
-        openedAt:
-          type: string
-          format: date-time
-        setupVersion:
-          type:
-          - string
-          - "null"
-        stoppedAt:
-          type: string
-        windowsBuild:
-          type:
-          - integer
-          - "null"
-          format: int32
-      required:
-      - clicks
-      - installId
-      - openedAt
-      - stoppedAt
     InstallEvent:
       type: object
       properties:
@@ -5239,6 +5225,47 @@ components:
           minItems: 0
       required:
       - events
+    InstallFailures:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        step:
+          type: string
+      required:
+      - count
+      - reason
+      - step
+    InstallsSummary:
+      type: object
+      properties:
+        failures:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstallFailures"
+        listed:
+          type: integer
+          format: int32
+        medianMinutes:
+          type:
+          - number
+          - "null"
+          format: double
+        opened:
+          type: integer
+          format: int32
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminInstall"
+      required:
+      - failures
+      - listed
+      - opened
+      - recent
     KindChoice:
       type: object
       properties:
@@ -6271,33 +6298,6 @@ components:
           type:
           - boolean
           - "null"
-    Summary:
-      type: object
-      properties:
-        failures:
-          type: array
-          items:
-            $ref: "#/components/schemas/Failures"
-        listed:
-          type: integer
-          format: int32
-        medianMinutes:
-          type:
-          - number
-          - "null"
-          format: double
-        opened:
-          type: integer
-          format: int32
-        recent:
-          type: array
-          items:
-            $ref: "#/components/schemas/Install"
-      required:
-      - failures
-      - listed
-      - opened
-      - recent
     Telemetry:
       type: object
       properties:

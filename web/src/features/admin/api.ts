@@ -46,6 +46,7 @@ export const ADMIN = "admin";
 type Schemas = components["schemas"];
 export type AdminSessionStatus = Schemas["AdminSessionStatus"];
 export type AdminDashboard = Schemas["AdminDashboard"];
+export type AdminInstalls = Schemas["InstallsSummary"];
 export type AdminUser = Schemas["AdminUser"];
 export type AdminHost = Schemas["AdminHost"];
 export type AdminHostSummary = Schemas["AdminHostSummary"];

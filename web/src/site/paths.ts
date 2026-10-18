@@ -11,6 +11,8 @@ export const DOCS = "/docs/";
 export const TERMS = "/terms/";
 export const PRIVACY = "/privacy/";
 export const CONTACT = "/contact/";
+/** The setup app's "Show me how" pages, one per laptop maker: `/help/virtualization/<maker>/`. */
+export const HELP_VIRTUALIZATION = "/help/virtualization/";
 /** Where the landing page used to be, before the website had its own address: it answers with a redirect to `/`. */
 export const OLD_LANDING = "/about/";
 

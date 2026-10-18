@@ -446,7 +446,7 @@ test.describe("adding a machine", () => {
       /Open it: it sets everything up/,
       /Approve the link in your browser/,
     ]);
-    // The installer doesn't exist yet, so there's no download to offer.
+    // No release yet, so there's no download to offer.
     await expect(page.getByRole("button", { name: "Windows app: coming soon" })).toBeDisabled();
     await expect(page.getByRole("link", { name: /Download/ })).toHaveCount(0);
     await expect(page.getByText("Windows 10 or 11 · NVIDIA RTX graphics · 40 GB free")).toBeVisible();
@@ -454,6 +454,16 @@ test.describe("adding a machine", () => {
     await expect(page.getByText(/enrolment code|one-time code|countdown/i)).toHaveCount(0);
     await expectAccessible(page);
     await capture(page, info, "add-download");
+  });
+
+  test("offers the Windows app with its version and size once it's released", async ({ page }, info) => {
+    await open(page, "/hosting/add/", { "/v1/agent-releases/latest": { json: hosting.latestRelease } });
+    const download = page.getByRole("link", { name: "Download for Windows" });
+    await expect(download).toHaveAttribute("href", /\/v1\/agent-releases\/latest\/setup$/);
+    await expect(page.getByText("v0.2.0 · 6.8 MB")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Windows app: coming soon" })).toHaveCount(0);
+    await expectAccessible(page);
+    await capture(page, info, "add-download-released");
   });
 });
 

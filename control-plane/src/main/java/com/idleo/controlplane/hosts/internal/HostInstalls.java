@@ -50,7 +50,7 @@ class HostInstalls {
             @Nullable String gpuModel) {}
 
     /** One install, for the admin console. */
-    record Install(
+    record AdminInstall(
             UUID installId,
             Instant openedAt,
             @Nullable Double minutes,
@@ -62,14 +62,18 @@ class HostInstalls {
             @Nullable UUID hostId) {}
 
     /** How many failures a step had, for one reason. */
-    record Failures(String step, String reason, int count) {}
+    record InstallFailures(String step, String reason, int count) {}
 
     /**
      * The admin console's Installs card: the median minutes from {@code setup_opened} to {@code listed} over installs
      * opened in the last 30 days that got listed, how many opened, the last 20, and the failures by reason.
      */
-    record Summary(
-            @Nullable Double medianMinutes, int opened, int listed, List<Install> recent, List<Failures> failures) {}
+    record InstallsSummary(
+            @Nullable Double medianMinutes,
+            int opened,
+            int listed,
+            List<AdminInstall> recent,
+            List<InstallFailures> failures) {}
 
     static final Duration WINDOW = Duration.ofDays(30);
 
@@ -139,7 +143,7 @@ class HostInstalls {
                 .update();
     }
 
-    Summary summary() {
+    InstallsSummary summary() {
         var since = Timestamp.from(Instant.now(clock).minus(WINDOW));
         record Row(
                 UUID installId,
@@ -201,7 +205,7 @@ class HostInstalls {
                         rs.getObject("host_id", UUID.class)))
                 .list();
         var minutes = new ArrayList<Double>();
-        var recent = new ArrayList<Install>();
+        var recent = new ArrayList<AdminInstall>();
         for (var row : rows) {
             Double took = row.listedAt() == null
                     ? null
@@ -210,7 +214,7 @@ class HostInstalls {
                 minutes.add(took);
             }
             if (recent.size() < 20) {
-                recent.add(new Install(
+                recent.add(new AdminInstall(
                         row.installId(),
                         row.openedAt(),
                         took,
@@ -228,9 +232,9 @@ class HostInstalls {
                         group by step, coalesce(reason, 'unknown') order by count desc, step, reason
                         """)
                 .param("since", since)
-                .query((rs, n) -> new Failures(rs.getString("step"), rs.getString("reason"), rs.getInt("count")))
+                .query((rs, n) -> new InstallFailures(rs.getString("step"), rs.getString("reason"), rs.getInt("count")))
                 .list();
-        return new Summary(median(minutes), rows.size(), minutes.size(), recent, failures);
+        return new InstallsSummary(median(minutes), rows.size(), minutes.size(), recent, failures);
     }
 
     /** {@code listed}, or the last step and how it went: {@code drivers failed: driver_too_old}. */

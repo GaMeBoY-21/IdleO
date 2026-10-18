@@ -245,6 +245,19 @@ export const noHosts = { hosts: [] };
 export const priceBand = { lowPaisePerMin: 15, highPaisePerMin: 20, sampleSize: 4 };
 export const priceBandDefault = { lowPaisePerMin: 12, highPaisePerMin: 20, sampleSize: 0 };
 
+/** The Windows app's latest release, as GET /v1/agent-releases/latest serves it once one is published (ADR 0034). */
+export const latestRelease = {
+  version: "0.2.0",
+  setupSizeBytes: 6_812_345,
+  manifest: "{}",
+  signature: "",
+  urls: {
+    app: "https://storage.example.invalid/releases/stable/0.2.0/idleo-app-0.2.0.zip",
+    distro: "https://storage.example.invalid/releases/stable/distro/idleo-distro-0.1.0.tar.gz",
+    setup: "https://storage.example.invalid/releases/stable/0.2.0/IdleO-Setup.exe",
+  },
+};
+
 /** What a machine ran, as GET /v1/hosts/{id}/sessions serves it, newest first. */
 export function hostSessionsPage(machineId: string): { sessions: HostSession[]; nextCursor: null } {
   return {

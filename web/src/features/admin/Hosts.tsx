@@ -115,6 +115,14 @@ function HostStatus({ status }: { status: string }) {
 
 type Action = "activate" | "suspend" | "revoke-certificates";
 
+/** How an update offered to the host ended, in words. */
+const UPDATE_OUTCOMES: Record<string, string> = {
+  installed: "installed",
+  rolled_back: "rolled back",
+  failed_verify: "didn't match the release",
+  failed_download: "couldn't be downloaded",
+};
+
 const ACTIONS: Record<
   Action,
   { title: string; confirm: string; change: (host: AdminHost) => string; destructive: boolean }
@@ -197,6 +205,13 @@ function HostRecord({ id }: { id: string }) {
                     : `${formatPaise(found.pricePaisePerMin)} a minute (${formatPaise(found.pricePaisePerMin * 60)} an hour)`,
                 ],
                 ["Disk kept free", `${found.keepFreeGb} GB`],
+                ["Agent", found.agentVersion ?? "hasn't connected yet"],
+                [
+                  "Last update",
+                  found.lastUpdate
+                    ? `${found.lastUpdate.version}: ${UPDATE_OUTCOMES[found.lastUpdate.outcome] ?? found.lastUpdate.outcome}${found.lastUpdate.detail ? ` (${found.lastUpdate.detail})` : ""}`
+                    : "none offered yet",
+                ],
                 [
                   "Paused",
                   found.pausedAt ? (
@@ -238,6 +253,27 @@ function HostRecord({ id }: { id: string }) {
                 Sessions it ran
               </Link>
             </div>
+            <Section title="Self-test">
+              {found.selfTest ? (
+                <Table
+                  caption={`Self-test ${found.selfTest.passed ? "passed" : "failed"}, agent ${found.selfTest.agentVersion ?? "—"}, distro ${found.selfTest.distroVersion || "—"}`}
+                  columns={["Check", "Result", "What it found", "Took"]}
+                >
+                  {found.selfTest.checks.map((check) => (
+                    <Row key={check.name}>
+                      <Cell className="tabular">{check.name}</Cell>
+                      <Cell>{check.passed ? "passed" : "failed"}</Cell>
+                      <Cell>{check.detail}</Cell>
+                      <Cell className="tabular">{check.tookMs} ms</Cell>
+                    </Row>
+                  ))}
+                </Table>
+              ) : (
+                <Empty title="No self-test yet">
+                  Its agent runs one after it links, and after each update.
+                </Empty>
+              )}
+            </Section>
             {action !== null && (
               <ActionSheet
                 open

@@ -18,6 +18,7 @@ export type HostSession = components["schemas"]["HostSession"];
 export type OwnerEarnings = components["schemas"]["OwnerEarnings"];
 export type EarningsEntry = components["schemas"]["EarningsEntry"];
 export type HostLink = components["schemas"]["LinkResponse"];
+export type LatestRelease = components["schemas"]["LatestRelease"];
 
 /**
  * The owner's side of the cache (ADR 0023): their machines, what each is doing, what they have earned. The same rules
@@ -38,7 +39,29 @@ export const hostKeys = {
   earnings: ["earnings"] as const,
   link: (id: string) => ["host-link", id] as const,
   gpuBand: (model: string, vramMb: number) => ["price-band", model, vramMb] as const,
+  release: ["agent-release", "latest"] as const,
 };
+
+/**
+ * The Windows app's latest release (ADR 0034), for Add a machine's Download button; `null` when there's none yet
+ * (`no-agent-release`), which is an answer, not an error. The API lets it be cached for a minute; so does this.
+ */
+export function useLatestRelease() {
+  return useQuery({
+    queryKey: hostKeys.release,
+    staleTime: 60_000,
+    queryFn: async (): Promise<LatestRelease | null> => {
+      try {
+        return await data(api.GET("/v1/agent-releases/latest"));
+      } catch (error) {
+        if (error instanceof ApiError && error.type === "/problems/no-agent-release") {
+          return null;
+        }
+        throw error;
+      }
+    },
+  });
+}
 
 const running = (host: Host) => host.currentSession != null;
 

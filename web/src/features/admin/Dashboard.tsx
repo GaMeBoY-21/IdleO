@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { RelativeTime } from "@/components/ui/Time";
-import { ADMIN, adminApi, adminData, type AdminDashboard } from "./api";
-import { AdminPage, QueryView } from "./ui";
+import { ADMIN, adminApi, adminData, type AdminDashboard, type AdminInstalls } from "./api";
+import { AdminPage, Cell, Empty, QueryView, Row, Section, Table } from "./ui";
 
 const FIGURES: [keyof AdminDashboard, string, string][] = [
   ["hostsOnline", "Hosts online", "with a connected agent now"],
@@ -69,6 +69,72 @@ export function Dashboard() {
           </>
         )}
       </QueryView>
+      <Installs />
     </AdminPage>
+  );
+}
+
+/** Minutes with one decimal, or a dash. */
+const minutes = (value: number | null | undefined) => (value == null ? "—" : `${value.toFixed(1)} min`);
+
+/**
+ * The Installs card (host experience §6 row 11): how long installs take from opening the setup app to the laptop
+ * listed, the last 20 with their clicks and where each stopped, and the failures by reason, over the last 30 days.
+ */
+function Installs() {
+  const installs = useQuery({
+    queryKey: [ADMIN, "installs"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/installs")),
+    refetchInterval: 60_000,
+  });
+  return (
+    <Section title="Installs">
+      <QueryView
+        query={installs}
+        what="the installs"
+        skeleton={<Skeleton className="h-40 w-full" />}
+        isEmpty={(data: AdminInstalls) => data.opened === 0}
+        empty={
+          <Empty title="No installs yet">The setup app's measurements show here once someone opens it.</Empty>
+        }
+      >
+        {(data) => (
+          <div className="flex flex-col gap-4">
+            <p className="text-body">
+              <span className="tabular font-bold">{minutes(data.medianMinutes)}</span> median from opening
+              setup to listed, over {data.listed} of {data.opened} installs in the last 30 days.
+            </p>
+            <Table
+              caption="The last 20 installs"
+              columns={["Opened", "Minutes", "Clicks", "Where it got to", "GPU", "Windows"]}
+            >
+              {data.recent.map((install) => (
+                <Row key={install.installId}>
+                  <Cell>
+                    <RelativeTime value={install.openedAt} />
+                  </Cell>
+                  <Cell className="tabular">{minutes(install.minutes)}</Cell>
+                  <Cell className="tabular">{install.clicks}</Cell>
+                  <Cell>{install.stoppedAt}</Cell>
+                  <Cell>{install.gpuModel ?? "—"}</Cell>
+                  <Cell className="tabular">{install.windowsBuild ?? "—"}</Cell>
+                </Row>
+              ))}
+            </Table>
+            {data.failures.length > 0 && (
+              <Table caption="Failures by reason" columns={["Step", "Reason", "How many"]}>
+                {data.failures.map((failure) => (
+                  <Row key={`${failure.step}-${failure.reason}`}>
+                    <Cell>{failure.step}</Cell>
+                    <Cell>{failure.reason}</Cell>
+                    <Cell className="tabular">{failure.count}</Cell>
+                  </Row>
+                ))}
+              </Table>
+            )}
+          </div>
+        )}
+      </QueryView>
+    </Section>
   );
 }

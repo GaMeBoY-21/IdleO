@@ -200,3 +200,22 @@ describe("the week's bars", () => {
     expect(barPercent(10, 0)).toBe(0);
   });
 });
+
+describe("the machine page's host app line", () => {
+  it("says the version, and whether an update is needed or waiting for an idle moment", async () => {
+    const { appLine, releaseLine } = await import("./hosting");
+    expect(appLine({ agentVersion: "0.1.0", updateRequired: false, updateWaiting: false })).toBe(
+      "host app 0.1.0 · up to date",
+    );
+    expect(appLine({ agentVersion: "0.1.0", updateRequired: false, updateWaiting: true })).toBe(
+      "host app 0.1.0 · updating when idle",
+    );
+    expect(appLine({ agentVersion: "0.0.9", updateRequired: true, updateWaiting: true })).toBe(
+      "host app needs an update",
+    );
+    expect(appLine({ agentVersion: null, updateRequired: false, updateWaiting: false })).toBe(
+      "host app · up to date",
+    );
+    expect(releaseLine({ version: "0.2.0", setupSizeBytes: 9_800_000 })).toBe("v0.2.0 · 9.8 MB");
+  });
+});

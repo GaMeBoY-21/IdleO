@@ -133,6 +133,30 @@ export const host = {
     },
   ],
   telemetry: { now: { at: ago(0), gpus: [reading] }, lastHour: [] },
+  selfTest: {
+    passed: true,
+    distroVersion: "0.1.0",
+    agentVersion: "0.1.0",
+    checks: [
+      { name: "distro_registered", passed: true, detail: "IdleO-0.1.0, WSL 2", tookMs: 410 },
+      {
+        name: "gpu_in_container",
+        passed: true,
+        detail: "NVIDIA GeForce RTX 4060 Laptop GPU, 8188 MiB",
+        tookMs: 2950,
+      },
+      { name: "lockdown", passed: true, detail: "verify-lockdown.sh passed", tookMs: 1830 },
+      { name: "storage_speed", passed: true, detail: "up 41 Mbit/s, down 88 Mbit/s", tookMs: 9600 },
+    ],
+    reportedAt: ago(3 * 24 * 60 - 40),
+  } as {
+    passed: boolean;
+    distroVersion: string;
+    agentVersion: string | null;
+    checks: { name: string; passed: boolean; detail: string; tookMs: number }[];
+    reportedAt: string;
+  } | null,
+  lastUpdate: null as { version: string; outcome: string; detail: string; reportedAt: string } | null,
 };
 
 export const pendingHost = {
@@ -144,6 +168,16 @@ export const pendingHost = {
   pricePaisePerMin: 10,
   createdAt: ago(40),
   statusHistory: [],
+  selfTest: {
+    passed: false,
+    distroVersion: "0.1.0",
+    agentVersion: "0.1.0",
+    checks: [
+      { name: "distro_registered", passed: true, detail: "IdleO-0.1.0, WSL 2", tookMs: 380 },
+      { name: "gpu_visible", passed: false, detail: "nvidia-smi found no GPU", tookMs: 640 },
+    ],
+    reportedAt: ago(35),
+  },
 };
 
 const summary = (of: typeof host) => ({
@@ -322,6 +356,49 @@ export const audit = {
     },
   ],
   nextCursor: null,
+};
+
+/** The setup app's installs over the last 30 days (host experience §6 row 11): one listed, one stuck at its driver. */
+const installRows = [
+  {
+    installId: "01a14c00-0000-7000-8000-0000000000f1",
+    openedAt: ago(60),
+    minutes: 4.5,
+    clicks: 3,
+    stoppedAt: "listed",
+    setupVersion: "0.2.0",
+    windowsBuild: 26100,
+    gpuModel: "NVIDIA GeForce RTX 4060 Laptop GPU",
+    hostId: PENDING_HOST_ID,
+  },
+  {
+    installId: "01a14c00-0000-7000-8000-0000000000f2",
+    openedAt: ago(30),
+    minutes: null,
+    clicks: 2,
+    stoppedAt: "checks failed: driver_too_old:531.79",
+    setupVersion: "0.2.0",
+    windowsBuild: 22631,
+    gpuModel: "NVIDIA GeForce RTX 3060 Laptop GPU",
+    hostId: null,
+  },
+];
+const listedMinutes = installRows
+  .flatMap((row) => (row.minutes === null ? [] : [row.minutes]))
+  .sort((a, b) => a - b);
+
+export const installs = {
+  medianMinutes: listedMinutes.length ? listedMinutes[Math.floor(listedMinutes.length / 2)]! : null,
+  opened: installRows.length,
+  listed: listedMinutes.length,
+  recent: installRows,
+  failures: [
+    {
+      step: "checks",
+      reason: "driver_too_old:531.79",
+      count: installRows.filter((row) => row.stoppedAt.startsWith("checks failed")).length,
+    },
+  ],
 };
 
 /** The dashboard counts the records above: one host online and running one session, booked today. */

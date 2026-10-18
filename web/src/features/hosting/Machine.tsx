@@ -5,7 +5,7 @@ import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui
 import { RelativeTime } from "@/components/ui/Time";
 import { ApiError } from "@/api/errors";
 import { useNow } from "@/lib/clock";
-import { machineState, rupeesAnHour } from "@/lib/hosting";
+import { appLine, machineState, rupeesAnHour } from "@/lib/hosting";
 import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { HostFlow } from "@/components/shell/HostFlow";
@@ -85,8 +85,7 @@ export function Machine() {
               </>
             ) : machine.online && machine.onlineSince ? (
               <>
-                Online since <RelativeTime value={machine.onlineSince} /> ·{" "}
-                {machine.updateRequired ? "host app needs an update" : "host app up to date"}
+                Online since <RelativeTime value={machine.onlineSince} /> · {appLine(machine)}
               </>
             ) : (
               "The host app on it isn't connected."

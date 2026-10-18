@@ -114,6 +114,22 @@ describe("the public pages", () => {
     }
   });
 
+  it("offer the Windows app only once the API says there is one, in the same box as coming soon", () => {
+    const earn = all.find(({ page }) => page.path === "/earn/")!.html;
+    expect(text(earn)).toContain("Windows app: coming soon");
+    expect(earn).toMatch(
+      /<a data-role="download" hidden="" href="https:\/\/api\.example\.invalid\/v1\/agent-releases\/latest\/setup"/,
+    );
+  });
+
+  it("have a Show me how page for each laptop maker the setup app knows, and one for the rest", () => {
+    for (const maker of ["asus", "msi", "lenovo", "hp", "acer", "dell", "other"]) {
+      const help = all.find(({ page }) => page.path === `/help/virtualization/${maker}/`);
+      expect(help, maker).toBeDefined();
+      expect(text(help!.html)).toContain("UEFI Firmware Settings");
+    }
+  });
+
   it("keep the earnings calculator honest about demand", () => {
     expect(text(all.find(({ page }) => page.path === "/earn/")!.html)).toContain(
       "Occupancy depends on demand; early on it may be low.",

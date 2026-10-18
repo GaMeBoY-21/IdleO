@@ -9,6 +9,7 @@ import {
   link,
   muted,
   primaryButton,
+  secondaryButton,
   sectionTitle,
   tile,
   tileApricot,
@@ -45,6 +46,30 @@ const REQUIREMENTS = [
 const field = "mt-1 h-14 w-full rounded-control bg-ground px-4 text-body text-text";
 
 /**
+ * The Windows app's download (ADR 0034): "Windows app: coming soon" in the page as built, swapped in place for the
+ * Download for Windows button, with its version and size, by src/site/islands/release.ts once the API says a release
+ * exists. Both fill the same box, so nothing moves; never a download that isn't there.
+ */
+function WindowsDownload({ apiUrl }: { apiUrl: string | null }) {
+  return (
+    <div className="flex min-h-14 items-center gap-3 md:min-h-15" data-download="" data-api={apiUrl ?? ""}>
+      <a
+        data-role="download"
+        hidden
+        href={apiUrl ? `${apiUrl}/v1/agent-releases/latest/setup` : undefined}
+        className={`${secondaryButton} ${largeButton}`}
+      >
+        Download for Windows
+      </a>
+      <span data-role="download-meta" hidden className="text-small text-apricot-fg tabular" />
+      <span data-role="download-soon" className="text-small font-semibold text-apricot-fg">
+        Windows app: coming soon
+      </span>
+    </div>
+  );
+}
+
+/**
  * The host pitch (ADR 0029): what hosting is, the safety promises, what it takes, and an honest earnings calculator
  * (src/site/calculator.ts, wired by src/site/islands/earn.ts). The figures it gives are arithmetic on what the person
  * chooses, and the page says occupancy depends on demand and may be low at first.
@@ -60,10 +85,11 @@ export function Earn({ apiUrl, links }: { apiUrl: string | null; links: EntryLin
             while you aren&apos;t using it. You set the price and keep {100 - COMMISSION_PERCENT}% of what
             renters pay. Payouts start with the paid pilot; until then earnings are counted but not paid out.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href={links.startHosting} className={`${primaryButton} ${largeButton}`}>
               Start hosting
             </a>
+            <WindowsDownload apiUrl={apiUrl} />
           </div>
         </div>
       </section>

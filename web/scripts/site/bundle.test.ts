@@ -31,7 +31,7 @@ describe("the public site's bundle", () => {
     expect(build.status, build.stderr).toBe(0);
   });
 
-  it("holds none of the app: no React, query cache, router, sign-in, or any call but the public availability", () => {
+  it("holds none of the app: no React, query cache, router, sign-in, or any call but the public availability and the Windows app's release", () => {
     const scripts = files(out).filter((file) => file.endsWith(".js"));
     expect(scripts.length).toBeGreaterThanOrEqual(3);
     for (const script of scripts) {
@@ -51,7 +51,9 @@ describe("the public site's bundle", () => {
         expect(code, `${relative(out, script)} has ${marker}`).not.toContain(marker);
       }
       for (const call of code.matchAll(/\/v1\/[\w/-]*/g)) {
-        expect(call[0], relative(out, script)).toBe("/v1/public/availability");
+        expect(["/v1/public/availability", "/v1/agent-releases/latest"], relative(out, script)).toContain(
+          call[0],
+        );
       }
     }
   });

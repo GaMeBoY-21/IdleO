@@ -216,3 +216,20 @@ export function outcomeLabel(session: Pick<HostSession, "outcome" | "givenBackPa
       return session.outcome.charAt(0).toUpperCase() + session.outcome.slice(1);
   }
 }
+
+/**
+ * The machine page's words for its host app (ADR 0034): its version, and whether it needs an update to get work, or
+ * has one waiting that it installs when it's idle.
+ */
+export function appLine(host: Pick<Host, "agentVersion" | "updateRequired" | "updateWaiting">): string {
+  if (host.updateRequired) {
+    return "host app needs an update";
+  }
+  const version = host.agentVersion ? `host app ${host.agentVersion}` : "host app";
+  return host.updateWaiting ? `${version} · updating when idle` : `${version} · up to date`;
+}
+
+/** "v0.2.0 · 9.8 MB": the Download button's version and the setup program's size. */
+export function releaseLine(release: { version: string; setupSizeBytes: number }): string {
+  return `v${release.version} · ${(release.setupSizeBytes / 1_000_000).toFixed(1)} MB`;
+}

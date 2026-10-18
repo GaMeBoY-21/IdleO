@@ -16,6 +16,7 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
   "/admin/v1/session": { json: admin.inside },
   "/admin/v1/dashboard": { json: admin.dashboard },
+  "/admin/v1/installs": { json: admin.installs },
   "/admin/v1/users": { json: admin.users },
   [`/admin/v1/users/${admin.RENTER_ID}`]: { json: admin.renter },
   "/admin/v1/credit-grants": { json: admin.grants },
@@ -143,6 +144,12 @@ test.describe("the console", () => {
     await expect(figures.filter({ hasText: "Review queue" })).toContainText(
       String(admin.dashboard.reviewQueue),
     );
+    // The Installs card: the median minutes to listed, the last installs, and the failures by reason.
+    await expect(page.getByText(`${admin.installs.medianMinutes!.toFixed(1)} min`).first()).toBeVisible();
+    await expect(page.getByRole("table", { name: "The last 20 installs" }).getByRole("row")).toHaveCount(
+      admin.installs.recent.length + 1,
+    );
+    await expect(page.getByRole("table", { name: "Failures by reason" })).toContainText("driver_too_old");
     await expectAccessible(page);
     await capture(page, info, "admin-dashboard");
   });
@@ -214,6 +221,10 @@ test.describe("the console", () => {
     });
     await expect(page.getByText("pending").first()).toBeVisible();
     await expect(page.getByRole("table", { name: "Certificates" })).toBeVisible();
+    // Its self-test sits beside Activate: the pilot's admin decides with it in front of them.
+    await expect(page.getByRole("table", { name: /^Self-test failed/ })).toContainText(
+      "nvidia-smi found no GPU",
+    );
     await expect(page.getByRole("table", { name: "GPUs now" })).toContainText("71 °C");
     await expectAccessible(page);
     await capture(page, info, "admin-host");
