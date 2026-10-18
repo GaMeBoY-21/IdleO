@@ -15,7 +15,7 @@ use idleo_release::registry::Registry;
 use idleo_release::wsl::Runner;
 use idleo_setup::scrub::Identity;
 use idleo_setup::steps::Config;
-use idleo_setup::system::{Gpu, InstallEvent, Latest, Rejected, System};
+use idleo_setup::system::{FactsRequest, Gpu, InstallEvent, Latest, Rejected, System};
 use uuid::Uuid;
 
 /// `CREATE_NO_WINDOW`: no console flashes up.
@@ -147,13 +147,17 @@ impl System for WindowsSystem {
         idleo_release::download::download(&self.client, url, dest, artifact, progress).await.map(|_| ())
     }
 
-    fn self_test(&self, agent: &Path, distro_version: &str) -> Result<Report, String> {
+    fn self_test(&self, agent: &Path, distro_version: &str, facts: Option<&FactsRequest>) -> Result<Report, String> {
         use std::os::windows::process::CommandExt;
-        let output = std::process::Command::new(agent)
-            .args(["self-test", "--json", "--distro", distro_version])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-            .map_err(|e| e.to_string())?;
+        let mut command = std::process::Command::new(agent);
+        command.args(["self-test", "--json", "--distro", distro_version]);
+        if let Some(request) = facts {
+            command.arg("--facts");
+            if let Some(storage) = &request.storage {
+                command.args(["--storage", storage]);
+            }
+        }
+        let output = command.creation_flags(CREATE_NO_WINDOW).output().map_err(|e| e.to_string())?;
         let text = String::from_utf8_lossy(&output.stdout);
         serde_json::from_str(text.lines().last().unwrap_or("")).map_err(|e| format!("the self-test's answer: {e}"))
     }

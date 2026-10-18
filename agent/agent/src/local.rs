@@ -274,6 +274,7 @@ mod tests {
                     }],
                     passed: true,
                     distro_version: "0.1.0".into(),
+                    facts: Vec::new(),
                 }
             })
         });

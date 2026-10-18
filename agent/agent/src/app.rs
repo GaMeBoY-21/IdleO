@@ -129,6 +129,13 @@ enum Command {
         /// Skip every check, as on a machine with invented GPUs.
         #[arg(long)]
         fake_gpu: bool,
+        /// Also collect environment facts (WSL, kernel, driver, memory, what the distribution can reach), for setup to
+        /// send with its report. Development builds only: a release build collects nothing.
+        #[arg(long)]
+        facts: bool,
+        /// With --facts: our storage's HOST:PORT, for the reachability fact.
+        #[arg(long, value_name = "HOST:PORT", requires = "facts")]
+        storage: Option<String>,
     },
 }
 
@@ -167,8 +174,9 @@ pub fn main(args: impl IntoIterator<Item = OsString>) -> ExitCode {
                 };
                 run_command(config, fake_gpu.map(|count| (count, model)), fake_free_disk_mb, dev_runner).await
             }
-            Command::SelfTest { quick, json, distro, fake_gpu } => {
-                self_test_command(&config, quick, json, distro, fake_gpu).await
+            Command::SelfTest { quick, json, distro, fake_gpu, facts, storage } => {
+                self_test_command(&config, SelfTestOptions { quick, json, distro, fake: fake_gpu, facts, storage })
+                    .await
             }
         }
     })
@@ -196,8 +204,22 @@ fn environment(config: &Config, gpus: Arc<dyn GpuSource>, distro: Option<String>
     }
 }
 
+/// What `idleo-agent self-test` was asked.
+#[allow(clippy::struct_excessive_bools)] // The command line's own switches, each its own.
+struct SelfTestOptions {
+    quick: bool,
+    json: bool,
+    distro: Option<String>,
+    fake: bool,
+    /// Collect environment facts too (a development build only).
+    facts: bool,
+    /// Our storage's `host:port`, for the reachability fact.
+    storage: Option<String>,
+}
+
 /// `idleo-agent self-test`: prints each check (or JSON) and exits 0 if every one passed, 9 if not.
-async fn self_test_command(config: &Config, quick: bool, json: bool, distro: Option<String>, fake: bool) -> ExitCode {
+async fn self_test_command(config: &Config, options: SelfTestOptions) -> ExitCode {
+    let SelfTestOptions { quick, json, distro, fake, facts, storage } = options;
     let gpus: Arc<dyn GpuSource> = if fake || !cfg!(windows) {
         Arc::new(FakeGpus::new(1, &FakeModel::default()))
     } else {
@@ -206,7 +228,12 @@ async fn self_test_command(config: &Config, quick: bool, json: bool, distro: Opt
             Err(e) => return fail(exit::GPU, &e),
         }
     };
-    let report = self_test::run(&environment(config, gpus, distro, fake), quick, None).await;
+    let environment = environment(config, gpus, distro, fake);
+    let mut report = self_test::run(&environment, quick, None).await;
+    if facts {
+        // Facts, not checks: they never change whether the test passed.
+        report.facts = crate::facts::collect(idleo_release::keys::DEV_BUILD, &environment, storage.as_deref());
+    }
     if json {
         match serde_json::to_string(&report) {
             Ok(text) => println!("{text}"),
@@ -221,6 +248,9 @@ async fn self_test_command(config: &Config, quick: bool, json: bool, distro: Opt
                 check.detail,
                 check.took_ms
             );
+        }
+        for fact in &report.facts {
+            println!("FACT {:<18} {}", fact.name, fact.value);
         }
     }
     if report.passed { ExitCode::SUCCESS } else { ExitCode::from(exit::SELF_TEST_FAILED) }

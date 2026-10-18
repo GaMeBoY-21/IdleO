@@ -14,6 +14,9 @@
 //! 7. `disk`: free space where the distribution's disk lives.
 //! 8. `storage_speed`: 32 MB up to our storage and back, only in the running agent once linked.
 //!
+//! Beside the checks, a development build's setup can ask for environment facts (`--facts`, [`crate::facts`]); they never
+//! change whether the test passed.
+//!
 //! `--quick` skips the slow ones (`gpu_in_container`, `lockdown`, `storage_speed`). On Linux and macOS, and with fake
 //! GPUs, every check is skipped and the test passes, so the local stack is unchanged.
 
@@ -59,6 +62,10 @@ pub struct Report {
     pub passed: bool,
     /// The distribution's version; empty without one.
     pub distro_version: String,
+    /// Environment facts, only when asked for in a development build (`self-test --facts`, [`crate::facts`]). They
+    /// are never checks: nothing in them can fail the test, and they aren't sent to the control plane.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facts: Vec<crate::facts::Fact>,
 }
 
 impl Report {
@@ -113,7 +120,7 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
             .into_iter()
             .map(|name| Check { name: name.to_owned(), passed: true, detail: format!("skipped: {why}"), took_ms: 0 })
             .collect();
-        return Report { checks, passed: true, distro_version: String::new() };
+        return Report { checks, passed: true, distro_version: String::new(), facts: Vec::new() };
     }
     let mut checks = Vec::new();
     let Some(version) = environment.distro_version.clone() else {
@@ -210,7 +217,7 @@ fn names(quick: bool, speed: bool) -> Vec<&'static str> {
 
 fn finish(checks: Vec<Check>, distro_version: String) -> Report {
     let passed = !checks.is_empty() && checks.iter().all(|check| check.passed);
-    Report { checks, passed, distro_version }
+    Report { checks, passed, distro_version, facts: Vec::new() }
 }
 
 fn timed(name: &str, check: impl FnOnce() -> (bool, String)) -> Check {

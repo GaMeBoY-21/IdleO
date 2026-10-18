@@ -26,6 +26,8 @@
     "link",
     "start_launcher",
     "start_listed",
+    "facts_system",
+    "facts_network",
     "windows_build_19044",
     "driver_too_old:572.16",
     "driver_too_old:a_driver__5___more_",

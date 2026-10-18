@@ -38,7 +38,7 @@ use crate::ipc::{FromPage, Problem, StepView, ToPage};
 use crate::log::{LoggingRunner, SetupLog};
 use crate::reasons;
 use crate::scrub::{self, Identity};
-use crate::system::{Gpu, InstallEvent, Latest, System};
+use crate::system::{FactsRequest, Gpu, InstallEvent, Latest, System};
 
 /// The steps, in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -931,10 +931,14 @@ impl<S: System> Engine<'_, S> {
         let Some(version) = apps.current() else { return Err(Ending::Undo.into()) };
         let distro = std::fs::read_to_string(layout.data().join("distro")).unwrap_or_default().trim().to_owned();
         let agent = apps.program(&version, paths::AGENT_EXE);
-        self.log.line(&format!("ran `{} self-test --json --distro {distro}`", agent.display()));
-        match self.system.self_test(&agent, &distro) {
+        // A development build also asks for facts about the laptop, which never make the test fail.
+        let request = self.dev_build.then(|| FactsRequest { storage: self.storage_address() });
+        let facts_flag = if request.is_some() { " --facts" } else { "" };
+        self.log.line(&format!("ran `{} self-test --json --distro {distro}{facts_flag}`", agent.display()));
+        match self.system.self_test(&agent, &distro, request.as_ref()) {
             Ok(report) => {
                 self.log.block("self-test answered:", &serde_json::to_string_pretty(&report).unwrap_or_default());
+                self.report_facts(&report.facts);
                 if report.passed {
                     self.detail = Some(format!("{} checks passed", report.checks.len()));
                     self.show_progress();
@@ -962,6 +966,28 @@ impl<S: System> Engine<'_, S> {
             Err(e) => {
                 self.fail(reasons::SELF_TEST_RUN, e);
                 self.something_didnt_pass().await
+            }
+        }
+    }
+
+    /// Where our storage is, as `host:port`, from the release's download link: the self-test checks the distribution
+    /// can reach it.
+    fn storage_address(&self) -> Option<String> {
+        self.latest.as_ref().and_then(|(latest, _)| host_and_port(&latest.app_url))
+    }
+
+    /// The facts a development build's self-test found, as two measurements (the laptop; what the distribution can
+    /// reach), each `name: value` a line, scrubbed like every detail. Facts, not results: a blocked LAN is expected.
+    fn report_facts(&mut self, facts: &[idleo_agent::facts::Fact]) {
+        for (reason, network) in [(reasons::FACTS_SYSTEM, false), (reasons::FACTS_NETWORK, true)] {
+            let text = facts
+                .iter()
+                .filter(|fact| fact.name.starts_with("reach_") == network)
+                .map(|fact| format!("{}: {}", fact.name, fact.value.chars().take(280).collect::<String>()))
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !text.is_empty() {
+                self.measure_detail(FACTS_STEP, "passed", Some(reason.to_owned()), Some(&text), None);
             }
         }
     }
@@ -1072,6 +1098,25 @@ impl<S: System> Engine<'_, S> {
                 }
             }
         }
+    }
+}
+
+/// The step name facts are measured under: `install-report.sh` shows them under their own heading.
+pub const FACTS_STEP: &str = "facts";
+
+/// `host:port` of a link, with the scheme's usual port when it names none: `https://s.example/x` is `s.example:443`.
+#[must_use]
+pub fn host_and_port(url: &str) -> Option<String> {
+    let (scheme, rest) = url.split_once("://")?;
+    let authority = rest.split(['/', '?', '#']).next()?.rsplit('@').next()?;
+    let has_port = authority
+        .rsplit_once(':')
+        .is_some_and(|(_, port)| port.chars().all(|c| c.is_ascii_digit()) && !port.is_empty());
+    match (authority.is_empty(), has_port, scheme) {
+        (true, _, _) => None,
+        (false, true, _) => Some(authority.to_owned()),
+        (false, false, "https") => Some(format!("{authority}:443")),
+        (false, false, _) => Some(format!("{authority}:80")),
     }
 }
 

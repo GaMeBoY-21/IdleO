@@ -61,6 +61,11 @@ pub const START_LAUNCHER: &str = "start_launcher";
 /// The agent never said where the host stands.
 pub const START_LISTED: &str = "start_listed";
 
+/// A development build's environment facts about the laptop (WSL, kernel, driver, memory).
+pub const FACTS_SYSTEM: &str = "facts_system";
+/// A development build's facts about what the distribution can reach.
+pub const FACTS_NETWORK: &str = "facts_network";
+
 /// `windows_build_19044`.
 #[must_use]
 pub fn windows_build(build: u32) -> String {
@@ -150,6 +155,8 @@ pub fn examples() -> Vec<String> {
         LINK,
         START_LAUNCHER,
         START_LISTED,
+        FACTS_SYSTEM,
+        FACTS_NETWORK,
     ]
     .map(str::to_owned)
     .to_vec();

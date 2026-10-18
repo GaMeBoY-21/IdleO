@@ -16,8 +16,8 @@ use tokio::sync::mpsc;
 use crate::ipc::{FromPage, Problem, ToPage};
 use crate::steps::{Config, Ending, Engine, Summary, undo, undo_keeping_logs};
 use crate::system::fake::{FakeSystem, LinkGoes, rtx};
+use crate::system::{FactsRequest, Latest, Rejected};
 use crate::system::{Gpu, System};
-use crate::system::{Latest, Rejected};
 
 fn key() -> SigningKey {
     SigningKey::from_bytes(&[3; 32])
@@ -663,4 +663,106 @@ async fn a_release_build_says_nothing_about_a_refused_batch() {
     let (ending, screens, _) = run_as(&system, &[FromPage::SetUp], false, false).await;
     assert_eq!(ending, Ending::Done { pending: true });
     assert!(matches!(screens.last(), Some(ToPage::Done { report_problem: None, .. })));
+}
+
+fn facts(found: &[(&str, &str)]) -> Vec<idleo_agent::facts::Fact> {
+    found
+        .iter()
+        .map(|(name, value)| idleo_agent::facts::Fact { name: (*name).into(), value: (*value).into() })
+        .collect()
+}
+
+/// What a laptop with a blocked LAN finds: the facts, two of them about the network.
+fn blocked_lan() -> Vec<idleo_agent::facts::Fact> {
+    facts(&[
+        ("wsl_version", "WSL version: 2.3.26.0; Kernel version: 5.15.167.4-1"),
+        ("networking_mode", "nat"),
+        ("kernel", "5.15.167.4-microsoft-standard-WSL2"),
+        ("nvidia_driver", "572.16"),
+        ("cuda_version", "12.8"),
+        ("host_ram", "32768 MB"),
+        ("wsl_vm_memory", "used 1840 MB of 15921 MB (available 13700 MB)"),
+        ("reach_gateway", "reachable: connected (3 ms)"),
+        ("reach_lan_192_168_1_1", "silent: no answer in 3 s (blocked, or nothing there)"),
+        ("reach_lan_10_0_0_1", "unreachable: bash: connect: Network is unreachable"),
+        ("reach_storage", "reachable: connected (12 ms)"),
+    ])
+}
+
+#[tokio::test]
+async fn a_development_build_asks_for_facts_and_sends_them_as_facts_not_failures() {
+    let mut system = laptop();
+    system.facts = blocked_lan();
+    let (ending, _, _) = run_as(&system, &[FromPage::SetUp], false, true).await;
+    assert_eq!(ending, Ending::Done { pending: true }, "a blocked LAN is a fact: setup carries on and doesn't undo");
+    assert_eq!(*system.facts_asked.borrow(), [Some(FactsRequest { storage: None })], "asked once, with --facts");
+    let events = sent_events(&system);
+    let sent: Vec<_> = events.iter().filter(|e| e.step == "facts").collect();
+    assert_eq!(sent.len(), 2);
+    assert!(sent.iter().all(|e| e.outcome == "passed"), "facts never fail");
+    let machine = sent.iter().find(|e| e.reason.as_deref() == Some("facts_system")).unwrap();
+    let detail = machine.detail.as_deref().unwrap();
+    for line in [
+        "kernel: 5.15.167.4-microsoft-standard-WSL2",
+        "nvidia_driver: 572.16",
+        "cuda_version: 12.8",
+        "networking_mode: nat",
+    ] {
+        assert!(detail.contains(line), "{line} in {detail}");
+    }
+    let network = sent.iter().find(|e| e.reason.as_deref() == Some("facts_network")).unwrap();
+    let detail = network.detail.as_deref().unwrap();
+    assert!(detail.contains("reach_lan_192_168_1_1: silent: no answer in 3 s"), "{detail}");
+    assert!(detail.contains("reach_storage: reachable: connected"), "{detail}");
+    assert!(!events.iter().any(|e| e.outcome == "failed"), "no failure was reported for a blocked LAN");
+}
+
+#[tokio::test]
+async fn facts_are_sent_when_the_self_test_fails_too_and_are_scrubbed_like_the_rest() {
+    let mut system = laptop();
+    failing_self_test(&mut system);
+    system.facts = facts(&[
+        ("wsl_version", r"WSL version: 2.3.26.0; log in C:\Users\Asha Rao\AppData for Asha on TESTRIG-7"),
+        ("reach_gateway", "reachable: connected (3 ms)"),
+    ]);
+    let (ending, _, _) = run_as(&system, &[FromPage::SetUp, FromPage::Fix], false, true).await;
+    assert_eq!(ending, Ending::Undo);
+    let events = sent_events(&system);
+    let machine = events.iter().find(|e| e.reason.as_deref() == Some("facts_system")).unwrap();
+    assert_eq!(
+        machine.detail.as_deref(),
+        Some("wsl_version: WSL version: 2.3.26.0; log in %USERPROFILE%\\AppData for <user> on <machine>")
+    );
+    assert!(events.iter().any(|e| e.reason.as_deref() == Some("facts_network")));
+    assert!(
+        events.iter().any(|e| e.reason.as_deref() == Some("gpu_in_container")),
+        "the failed checks are still reported"
+    );
+}
+
+#[tokio::test]
+async fn a_release_build_never_asks_for_facts() {
+    let mut system = laptop();
+    system.facts = blocked_lan();
+    let (ending, _, _) = run_as(&system, &[FromPage::SetUp], false, false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert_eq!(*system.facts_asked.borrow(), [None], "no --facts");
+    assert!(!sent_events(&system).iter().any(|e| e.step == "facts"));
+}
+
+#[test]
+fn storage_is_found_from_the_download_link() {
+    use crate::steps::host_and_port;
+    assert_eq!(
+        host_and_port("http://192.168.1.20:9100/releases/0.2.0/app.zip?X-Amz=1").as_deref(),
+        Some("192.168.1.20:9100")
+    );
+    assert_eq!(
+        host_and_port("https://abc.r2.cloudflarestorage.com/releases/a.zip").as_deref(),
+        Some("abc.r2.cloudflarestorage.com:443")
+    );
+    assert_eq!(host_and_port("http://storage.local/x").as_deref(), Some("storage.local:80"));
+    assert_eq!(host_and_port("https://user:pw@host.example:8443/x").as_deref(), Some("host.example:8443"));
+    assert_eq!(host_and_port("not a url"), None);
+    assert_eq!(host_and_port("https:///nothing"), None);
 }

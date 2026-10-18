@@ -79,6 +79,13 @@ pub struct Rejected {
     pub answer: String,
 }
 
+/// What a development build asks the self-test to find out besides its checks (`idleo-agent self-test --facts`).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FactsRequest {
+    /// Our storage's `host:port`, for the reachability fact.
+    pub storage: Option<String>,
+}
+
 /// The machine, as setup sees it.
 #[allow(async_fn_in_trait)] // Used through generics only; the futures never cross threads.
 pub trait System: Machine {
@@ -127,11 +134,11 @@ pub trait System: Machine {
         progress: &mut (dyn FnMut(u64, u64) + Send),
     ) -> Result<(), DownloadError>;
 
-    /// Runs the installed agent's `self-test --json` against a distro version.
+    /// Runs the installed agent's `self-test --json` against a distro version, with `--facts` when asked.
     ///
     /// # Errors
     /// If it can't be run or its output read.
-    fn self_test(&self, agent: &Path, distro_version: &str) -> Result<Report, String>;
+    fn self_test(&self, agent: &Path, distro_version: &str, facts: Option<&FactsRequest>) -> Result<Report, String>;
 
     /// Whether this machine already has its identity (it's linked).
     fn linked(&self) -> bool;
@@ -204,7 +211,7 @@ pub mod fake {
     use idleo_release::wsl::Runner;
     use uuid::Uuid;
 
-    use super::{Gpu, Identity, InstallEvent, Latest, Rejected, System};
+    use super::{FactsRequest, Gpu, Identity, InstallEvent, Latest, Rejected, System};
 
     /// A value the fake changes behind `&self`, shareable between threads as `Machine` requires.
     #[derive(Debug, Default)]
@@ -260,6 +267,10 @@ pub mod fake {
         pub self_test_passes: bool,
         /// The self-test's checks when a test wants its own; else one, `gpu_in_container`.
         pub self_test_checks: Option<Vec<Check>>,
+        /// The facts the self-test finds when it is asked for them.
+        pub facts: Vec<idleo_agent::facts::Fact>,
+        /// Whether, and how, each self-test was asked for facts.
+        pub facts_asked: Shared<Vec<Option<FactsRequest>>>,
         /// Who the fake laptop's owner is.
         pub identity: Identity,
         /// When set, IdleO refuses every batch of measurements with this status.
@@ -303,6 +314,8 @@ pub mod fake {
                 files,
                 self_test_passes: true,
                 self_test_checks: None,
+                facts: Vec::new(),
+                facts_asked: Shared::new(Vec::new()),
                 identity: Identity {
                     profile: r"C:\Users\Asha Rao".into(),
                     user: "Asha".into(),
@@ -404,8 +417,14 @@ pub mod fake {
             }
         }
 
-        fn self_test(&self, agent: &Path, distro_version: &str) -> Result<Report, String> {
+        fn self_test(
+            &self,
+            agent: &Path,
+            distro_version: &str,
+            facts: Option<&FactsRequest>,
+        ) -> Result<Report, String> {
             assert!(agent.exists(), "the installed agent runs the self-test");
+            self.facts_asked.borrow_mut().push(facts.cloned());
             let checks = self.self_test_checks.clone().unwrap_or_else(|| {
                 vec![Check {
                     name: "gpu_in_container".into(),
@@ -415,7 +434,8 @@ pub mod fake {
                 }]
             });
             let passed = checks.iter().all(|check| check.passed);
-            Ok(Report { passed, checks, distro_version: distro_version.into() })
+            let facts = if facts.is_some() { self.facts.clone() } else { Vec::new() };
+            Ok(Report { passed, checks, distro_version: distro_version.into(), facts })
         }
 
         fn linked(&self) -> bool {

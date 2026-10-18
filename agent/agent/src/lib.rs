@@ -14,6 +14,7 @@ pub mod config;
 pub mod connection;
 pub mod disk;
 pub mod enrol;
+pub mod facts;
 pub mod host;
 pub mod lease_clock;
 pub mod link;
