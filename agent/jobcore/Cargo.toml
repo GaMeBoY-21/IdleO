@@ -1,0 +1,38 @@
+[package]
+name = "jobcore"
+description = "What every runner of a session's job shares: storage through a grant, staging inputs, log chunking, checkpoint manifests and the lease clock"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# MemoryStore and friends, for the tests of what reads and writes storage.
+testing = []
+
+[dependencies]
+agent-proto = { path = "../agent-proto" }
+prost-types = "0.14.4"
+# HTTP for object storage, over our own rustls config (ring, the operating system's roots).
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
+rustls-platform-verifier = "0.7.1"
+# Signs S3 requests with a storage grant's temporary keys; does no I/O of its own (ADR 0016).
+rusty-s3 = { version = "0.10.2", default-features = false, features = ["rustcrypto", "full"] }
+sha2 = "0.11.0"
+tokio = { version = "1.53.2", features = ["fs", "io-util", "macros", "rt", "sync", "time"] }
+tracing = "0.1.44"
+
+[target.'cfg(unix)'.dependencies]
+# The lease clock (CLOCK_BOOTTIME on Linux, CLOCK_MONOTONIC on macOS), without unsafe code.
+rustix = { version = "1.1.5", default-features = false, features = ["std", "time"] }
+
+[target.'cfg(windows)'.dependencies]
+agent-windows = { path = "../agent-windows" }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tokio = { version = "1.53.2", features = ["fs", "io-util", "macros", "rt", "sync", "test-util", "time"] }

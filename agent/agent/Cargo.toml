@@ -27,6 +27,7 @@ nvml = ["dep:nvml-wrapper"]
 
 [dependencies]
 agent-proto = { path = "../agent-proto" }
+jobcore = { path = "../jobcore" }
 release = { path = "../release" }
 clap = { version = "4.6.7", features = ["derive"] }
 getrandom = "0.4.3"
@@ -69,6 +70,7 @@ agent-windows = { path = "../agent-windows" }
 [dev-dependencies]
 ed25519-dalek = "3.0.0"
 release = { path = "../release", features = ["fakes"] }
+jobcore = { path = "../jobcore", features = ["testing"] }
 zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "pem", "ring", "x509-parser"] }
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }

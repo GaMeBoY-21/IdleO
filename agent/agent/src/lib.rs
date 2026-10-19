@@ -16,10 +16,8 @@ pub mod disk;
 pub mod enrol;
 pub mod facts;
 pub mod host;
-pub mod lease_clock;
 pub mod link;
 pub mod local;
-pub mod logs;
 pub mod offers;
 pub mod owner;
 pub mod pki;
@@ -27,15 +25,14 @@ pub mod runner;
 pub mod self_test;
 pub mod settings;
 pub mod speed;
-pub mod staging;
 pub mod state;
-pub mod storage;
 pub mod supervisor;
 pub mod system;
 pub mod telemetry;
 pub mod tls;
 pub mod updater;
 pub use idleo_release::version;
+pub use jobcore::{lease_clock, logs, staging, storage};
 
 /// The agent's own version, sent in `Hello`: the crate's, unless a release build sets `IDLEO_APP_VERSION`
 /// (scripts/release/publish.sh), which every program of the Windows app is built with.

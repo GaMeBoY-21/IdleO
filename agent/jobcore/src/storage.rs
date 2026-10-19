@@ -17,8 +17,10 @@ use std::time::Duration;
 
 use agent_proto::v1::{StorageGrant, StoragePermission};
 use rustls_platform_verifier::BuilderVerifierExt;
-use rusty_s3::actions::{ListObjectsV2, S3Action};
+use rusty_s3::actions::{CreateMultipartUpload, ListObjectsV2, S3Action};
 use rusty_s3::{Bucket, Credentials, UrlStyle};
+use sha2::{Digest, Sha256};
+use tokio::io::AsyncReadExt;
 
 use crate::lease_clock::LeaseClock;
 
@@ -28,6 +30,13 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 /// R2 signs as `auto`; `MinIO`, configured without a region, accepts any.
 const REGION: &str = "auto";
+/// A file is uploaded in parts of this size, so a 2 GiB checkpoint never sits in memory whole. Storage's minimum for
+/// every part but the last is 5 MiB.
+pub const PART_BYTES: usize = 16 * 1024 * 1024;
+/// How many times a request of a file upload is tried (each part, and the two calls around them) before it fails.
+const UPLOAD_TRIES: u32 = 3;
+/// The pause before a retry is this times the number of tries so far.
+const RETRY_DELAY: Duration = Duration::from_secs(1);
 
 /// A boxed future, for a trait the runner can hold as `dyn`.
 pub type StorageFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, StorageError>> + Send + 'a>>;
@@ -69,6 +78,28 @@ pub trait ObjectStore: Send + Sync {
     /// Streams the object at `key` into a new file at `path`, never holding it all in memory, and returns how
     /// many bytes were written. A file already at `path` is replaced.
     fn download<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, u64>;
+    /// Uploads the file at `path` to `key` a part at a time, never holding more than one part in memory, retrying each
+    /// part, and returns the file's size and SHA-256 as read.
+    fn put_file<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, Uploaded>;
+}
+
+/// A file as it was uploaded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Uploaded {
+    /// Its size in bytes.
+    pub size: u64,
+    /// Its SHA-256, in lower-case hex.
+    pub sha256: String,
+}
+
+/// Lower-case hex of `bytes`.
+#[must_use]
+pub fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut text, byte| {
+        let _ = write!(text, "{byte:02x}");
+        text
+    })
 }
 
 /// A storage grant as the agent holds it. Its secrets never reach a log: [`fmt::Debug`] leaves them
@@ -194,6 +225,8 @@ pub struct S3Store {
     signed: RwLock<Signed>,
     http: reqwest::Client,
     clock: Arc<dyn LeaseClock>,
+    part_bytes: usize,
+    retry_delay: Duration,
 }
 
 /// A grant and what it signs with.
@@ -223,7 +256,22 @@ impl S3Store {
     /// # Errors
     /// If the grant's endpoint and bucket don't make a bucket URL.
     pub fn new(grant: Grant, http: reqwest::Client, clock: Arc<dyn LeaseClock>) -> Result<Self, String> {
-        Ok(Self { signed: RwLock::new(Signed::new(grant)?), http, clock })
+        Ok(Self {
+            signed: RwLock::new(Signed::new(grant)?),
+            http,
+            clock,
+            part_bytes: PART_BYTES,
+            retry_delay: RETRY_DELAY,
+        })
+    }
+
+    /// Uploads files in parts of `part_bytes` and pauses `retry_delay` times the tries so far between retries, for
+    /// tests against a server that takes any size of part.
+    #[must_use]
+    pub fn tuned(mut self, part_bytes: usize, retry_delay: Duration) -> Self {
+        self.part_bytes = part_bytes.max(1);
+        self.retry_delay = retry_delay;
+        self
     }
 
     /// Swaps in fresh credentials for the same scope. Requests already under way finish with the old ones.
@@ -250,6 +298,156 @@ impl S3Store {
             status if status.is_success() => Ok(response),
             reqwest::StatusCode::NOT_FOUND => Err(StorageError::NotFound(key.to_owned())),
             status => Err(StorageError::Failed(format!("{status} for {key}"))),
+        }
+    }
+}
+
+impl S3Store {
+    /// Runs one request of a file upload up to [`UPLOAD_TRIES`] times. A grant problem is final at once.
+    async fn retrying<T, F, Fut>(&self, mut attempt: F) -> Result<T, StorageError>
+    where
+        F: FnMut() -> Fut,
+        Fut: Future<Output = Result<T, StorageError>>,
+    {
+        let mut tried = 0;
+        loop {
+            tried += 1;
+            match attempt().await {
+                Err(StorageError::Failed(reason)) if tried < UPLOAD_TRIES => {
+                    tracing::warn!(tried, %reason, "a request of an upload failed; trying again");
+                    tokio::time::sleep(self.retry_delay * tried).await;
+                }
+                other => return other,
+            }
+        }
+    }
+
+    /// One whole object in one request, for a file that's no bigger than a part.
+    async fn put_small(&self, key: &str, body: Vec<u8>) -> Result<(), StorageError> {
+        self.retrying(|| async {
+            let signed = self.current();
+            signed.grant.check(key, true)?;
+            signed.grant.live(self.clock.as_ref())?;
+            let url = signed.bucket.put_object(Some(&signed.credentials), key).sign(SIGNED_FOR);
+            self.send(self.http.put(url).body(body.clone()), key).await.map(|_| ())
+        })
+        .await
+    }
+
+    async fn start_multipart(&self, key: &str) -> Result<String, StorageError> {
+        self.retrying(|| async {
+            let signed = self.current();
+            signed.grant.check(key, true)?;
+            signed.grant.live(self.clock.as_ref())?;
+            let url = signed.bucket.create_multipart_upload(Some(&signed.credentials), key).sign(SIGNED_FOR);
+            let response = self.send(self.http.post(url), key).await?;
+            let text = response.text().await.map_err(|e| StorageError::Failed(describe(&e)))?;
+            CreateMultipartUpload::parse_response(&text)
+                .map(|parsed| parsed.upload_id().to_owned())
+                .map_err(|e| StorageError::Failed(format!("the upload's start didn't parse: {e}")))
+        })
+        .await
+    }
+
+    async fn put_part(&self, key: &str, upload_id: &str, number: u16, body: &[u8]) -> Result<String, StorageError> {
+        self.retrying(|| async {
+            let signed = self.current();
+            signed.grant.check(key, true)?;
+            signed.grant.live(self.clock.as_ref())?;
+            let url = signed.bucket.upload_part(Some(&signed.credentials), key, number, upload_id).sign(SIGNED_FOR);
+            let response = self.send(self.http.put(url).body(body.to_vec()), key).await?;
+            response
+                .headers()
+                .get(reqwest::header::ETAG)
+                .and_then(|etag| etag.to_str().ok())
+                .map(str::to_owned)
+                .ok_or_else(|| StorageError::Failed("storage took a part but gave no ETag".to_owned()))
+        })
+        .await
+    }
+
+    async fn finish_multipart(&self, key: &str, upload_id: &str, etags: &[String]) -> Result<(), StorageError> {
+        self.retrying(|| async {
+            let signed = self.current();
+            signed.grant.check(key, true)?;
+            signed.grant.live(self.clock.as_ref())?;
+            let action = signed.bucket.complete_multipart_upload(
+                Some(&signed.credentials),
+                key,
+                upload_id,
+                etags.iter().map(String::as_str),
+            );
+            let body = action.clone().body();
+            let url = action.sign(SIGNED_FOR);
+            self.send(self.http.post(url).body(body), key).await.map(|_| ())
+        })
+        .await
+    }
+
+    /// Gives up an upload so storage doesn't keep its parts. Best effort: a grant that has run out can't.
+    async fn abort_multipart(&self, key: &str, upload_id: &str) {
+        let signed = self.current();
+        let url = signed.bucket.abort_multipart_upload(Some(&signed.credentials), key, upload_id).sign(SIGNED_FOR);
+        if let Err(error) = self.send(self.http.delete(url), key).await {
+            tracing::debug!(%error, "an unfinished upload couldn't be aborted");
+        }
+    }
+
+    async fn upload_file(&self, key: &str, path: &Path) -> Result<Uploaded, StorageError> {
+        let local = |e: std::io::Error| StorageError::Failed(format!("reading {} failed: {e}", path.display()));
+        {
+            let signed = self.current();
+            signed.grant.check(key, true)?;
+            signed.grant.live(self.clock.as_ref())?;
+        }
+        let mut file = tokio::fs::File::open(path).await.map_err(local)?;
+        let small = file.metadata().await.map_err(local)?.len() <= self.part_bytes as u64;
+        let mut hasher = Sha256::new();
+        let mut total = 0_u64;
+        let mut upload: Option<(String, Vec<String>)> = None;
+        let outcome: Result<(), StorageError> = async {
+            loop {
+                let mut part = vec![0_u8; self.part_bytes];
+                let mut filled = 0;
+                while filled < part.len() {
+                    let read = file.read(&mut part[filled..]).await.map_err(local)?;
+                    if read == 0 {
+                        break;
+                    }
+                    filled += read;
+                }
+                part.truncate(filled);
+                hasher.update(&part);
+                total += filled as u64;
+                let last = filled < self.part_bytes;
+                match &mut upload {
+                    None if last || small => return self.put_small(key, part).await,
+                    None => {
+                        let id = self.start_multipart(key).await?;
+                        upload = Some((id, Vec::new()));
+                    }
+                    Some(_) => {}
+                }
+                let (id, etags) = upload.as_mut().expect("a multipart upload was started above");
+                if !part.is_empty() {
+                    let number = u16::try_from(etags.len() + 1)
+                        .map_err(|_| StorageError::Failed("the file needs more than 65,535 parts".to_owned()))?;
+                    etags.push(self.put_part(key, id, number, &part).await?);
+                }
+                if last {
+                    return self.finish_multipart(key, id, etags).await;
+                }
+            }
+        }
+        .await;
+        match outcome {
+            Ok(()) => Ok(Uploaded { size: total, sha256: hex(&hasher.finalize()) }),
+            Err(error) => {
+                if let Some((id, _)) = &upload {
+                    self.abort_multipart(key, id).await;
+                }
+                Err(error)
+            }
         }
     }
 }
@@ -297,6 +495,10 @@ impl ObjectStore for S3Store {
             let body = response.bytes().await.map_err(|e| StorageError::Failed(describe(&e)))?;
             Ok(body.to_vec())
         })
+    }
+
+    fn put_file<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, Uploaded> {
+        Box::pin(self.upload_file(key, path))
     }
 
     fn download<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, u64> {
@@ -348,8 +550,9 @@ impl ObjectStore for S3Store {
 }
 
 /// Storage in memory with a grant's scope checks, for testing what reads and writes it without a server.
-#[cfg(test)]
-pub(crate) mod testing {
+#[cfg(any(test, feature = "testing"))]
+#[allow(clippy::missing_panics_doc)] // Test doubles: a poisoned lock or an invalid fixture is a bug in the test.
+pub mod testing {
     use std::collections::BTreeMap;
     use std::path::Path;
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -361,9 +564,9 @@ pub(crate) mod testing {
     use super::{Grant, ObjectStore, StorageError, StorageFuture};
 
     /// Every object, by key.
-    pub(crate) type Objects = Arc<Mutex<BTreeMap<String, Vec<u8>>>>;
+    pub type Objects = Arc<Mutex<BTreeMap<String, Vec<u8>>>>;
 
-    pub(crate) struct MemoryStore {
+    pub struct MemoryStore {
         grant: Grant,
         objects: Objects,
         /// Writes refused before the next one is let through.
@@ -371,7 +574,7 @@ pub(crate) mod testing {
     }
 
     impl MemoryStore {
-        pub(crate) fn new(objects: &Objects, prefixes: &[&str], writable: bool) -> Self {
+        pub fn new(objects: &Objects, prefixes: &[&str], writable: bool) -> Self {
             let message = StorageGrant {
                 endpoint: "http://storage.invalid".to_owned(),
                 bucket: "idleo-test".to_owned(),
@@ -390,12 +593,12 @@ pub(crate) mod testing {
         }
 
         /// The grant it checks keys against.
-        pub(crate) fn grant(&self) -> Grant {
+        pub fn grant(&self) -> Grant {
             self.grant.clone()
         }
 
         /// Refuses the next `count` writes, as storage that's briefly down would.
-        pub(crate) fn fail_puts(&self, count: u32) {
+        pub fn fail_puts(&self, count: u32) {
             self.failing_puts.store(count, Ordering::SeqCst);
         }
     }
@@ -424,6 +627,18 @@ pub(crate) mod testing {
             Box::pin(async move {
                 self.grant.check(prefix, false)?;
                 Ok(self.objects.lock().unwrap().keys().filter(|key| key.starts_with(prefix)).cloned().collect())
+            })
+        }
+
+        fn put_file<'a>(&'a self, key: &'a str, path: &'a Path) -> StorageFuture<'a, super::Uploaded> {
+            Box::pin(async move {
+                let body = tokio::fs::read(path).await.map_err(|e| StorageError::Failed(e.to_string()))?;
+                let uploaded = super::Uploaded {
+                    size: body.len() as u64,
+                    sha256: super::hex(&<sha2::Sha256 as sha2::Digest>::digest(&body)),
+                };
+                self.put(key, body).await?;
+                Ok(uploaded)
             })
         }
 
@@ -538,5 +753,224 @@ mod tests {
     #[test]
     fn the_http_client_builds() {
         assert!(http_client().is_ok());
+    }
+
+    /// A small S3 server on a local port: single puts, and the multipart calls, which it can be told to fail.
+    mod server {
+        use std::collections::BTreeMap;
+        use std::sync::{Arc, Mutex};
+
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        #[derive(Default)]
+        pub struct State {
+            pub single: Option<Vec<u8>>,
+            pub started: u32,
+            pub parts: BTreeMap<u16, Vec<u8>>,
+            /// Every part request that arrived, failed or not.
+            pub part_requests: Vec<u16>,
+            /// Part number -> how many of its requests are refused before one is taken.
+            pub refuse: BTreeMap<u16, u32>,
+            pub completed_with: Option<String>,
+            pub aborted: bool,
+        }
+
+        pub async fn start() -> (String, Arc<Mutex<State>>) {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let endpoint = format!("http://{}", listener.local_addr().unwrap());
+            let state = Arc::new(Mutex::new(State::default()));
+            let shared = Arc::clone(&state);
+            tokio::spawn(async move {
+                loop {
+                    let Ok((mut socket, _)) = listener.accept().await else { return };
+                    let state = Arc::clone(&shared);
+                    tokio::spawn(async move {
+                        let mut raw = Vec::new();
+                        let mut chunk = [0_u8; 8192];
+                        let (head_end, length) = loop {
+                            let read = socket.read(&mut chunk).await.unwrap_or(0);
+                            if read == 0 {
+                                return;
+                            }
+                            raw.extend_from_slice(&chunk[..read]);
+                            if let Some(end) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
+                                let head = String::from_utf8_lossy(&raw[..end]).to_ascii_lowercase();
+                                let length = head
+                                    .lines()
+                                    .find_map(|line| line.strip_prefix("content-length: "))
+                                    .and_then(|value| value.trim().parse::<usize>().ok())
+                                    .unwrap_or(0);
+                                break (end + 4, length);
+                            }
+                        };
+                        while raw.len() < head_end + length {
+                            let read = socket.read(&mut chunk).await.unwrap_or(0);
+                            if read == 0 {
+                                return;
+                            }
+                            raw.extend_from_slice(&chunk[..read]);
+                        }
+                        let head = String::from_utf8_lossy(&raw[..head_end]).into_owned();
+                        let body = raw[head_end..head_end + length].to_vec();
+                        let target = head.split_whitespace().nth(1).unwrap_or("/").to_owned();
+                        let method = head.split_whitespace().next().unwrap_or("").to_owned();
+                        let query = target.split_once('?').map_or("", |(_, query)| query);
+                        let param = |name: &str| {
+                            query.split('&').find_map(|pair| pair.strip_prefix(&format!("{name}=")).map(str::to_owned))
+                        };
+                        let (status, extra, text) = {
+                            let mut state = state.lock().unwrap();
+                            match method.as_str() {
+                                "POST" if query.contains("uploads") => {
+                                    state.started += 1;
+                                    (
+                                        200,
+                                        String::new(),
+                                        "<InitiateMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Bucket>b</Bucket><Key>k</Key><UploadId>up-1</UploadId></InitiateMultipartUploadResult>".to_owned(),
+                                    )
+                                }
+                                "PUT" if param("partNumber").is_some() => {
+                                    let number: u16 = param("partNumber").unwrap().parse().unwrap();
+                                    state.part_requests.push(number);
+                                    match state.refuse.get_mut(&number) {
+                                        Some(left) if *left > 0 => {
+                                            *left -= 1;
+                                            (500, String::new(), String::new())
+                                        }
+                                        _ => {
+                                            state.parts.insert(number, body);
+                                            (200, format!("ETag: \"etag-{number}\"\r\n"), String::new())
+                                        }
+                                    }
+                                }
+                                "POST" if query.contains("uploadId=") => {
+                                    state.completed_with = Some(String::from_utf8_lossy(&body).into_owned());
+                                    (200, String::new(), "<CompleteMultipartUploadResult/>".to_owned())
+                                }
+                                "DELETE" if query.contains("uploadId=") => {
+                                    state.aborted = true;
+                                    (204, String::new(), String::new())
+                                }
+                                "PUT" => {
+                                    state.single = Some(body);
+                                    (200, String::new(), String::new())
+                                }
+                                _ => (400, String::new(), String::new()),
+                            }
+                        };
+                        let reply = format!(
+                            "HTTP/1.1 {status} X\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{text}",
+                            text.len()
+                        );
+                        let _ = socket.write_all(reply.as_bytes()).await;
+                        let _ = socket.shutdown().await;
+                    });
+                }
+            });
+            (endpoint, state)
+        }
+    }
+
+    fn store_at(endpoint: &str, part_bytes: usize) -> S3Store {
+        let grant = StorageGrant { endpoint: endpoint.to_owned(), ..message(StoragePermission::ReadWrite, &[ATTEMPT]) };
+        let clock = Arc::new(FakeLeaseClock::default());
+        S3Store::new(Grant::from_message(&grant, clock.now()).unwrap(), http_client().unwrap(), clock)
+            .unwrap()
+            .tuned(part_bytes, Duration::from_millis(5))
+    }
+
+    fn file_of(size: usize) -> (tempfile::TempDir, std::path::PathBuf, Vec<u8>) {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("big.bin");
+        let bytes: Vec<u8> = (0..size).map(|i| u8::try_from((i * 31 + i / 251) % 256).unwrap()).collect();
+        std::fs::write(&path, &bytes).unwrap();
+        (folder, path, bytes)
+    }
+
+    fn sha256_of(bytes: &[u8]) -> String {
+        hex(&Sha256::digest(bytes))
+    }
+
+    #[tokio::test]
+    async fn a_file_bigger_than_a_part_goes_up_in_parts_with_a_part_retried_and_its_hash_recorded() {
+        let (endpoint, state) = server::start().await;
+        let store = store_at(&endpoint, 1_000_000);
+        let (_folder, path, bytes) = file_of(2_500_000);
+        state.lock().unwrap().refuse.insert(2, 1);
+        let key = format!("{ATTEMPT}checkpoints/00000001/model.bin");
+
+        let uploaded = store.put_file(&key, &path).await.unwrap();
+
+        assert_eq!(uploaded, Uploaded { size: 2_500_000, sha256: sha256_of(&bytes) });
+        let state = state.lock().unwrap();
+        assert_eq!(state.started, 1);
+        assert_eq!(state.part_requests, [1, 2, 2, 3], "part 2 was refused once and tried again");
+        let assembled: Vec<u8> = state.parts.values().flatten().copied().collect();
+        assert_eq!(assembled, bytes, "the parts, in order, are the file");
+        assert_eq!(state.parts[&1].len(), 1_000_000);
+        assert_eq!(state.parts[&3].len(), 500_000);
+        let complete = state.completed_with.as_deref().unwrap();
+        assert!(
+            complete.find("etag-1").unwrap() < complete.find("etag-2").unwrap()
+                && complete.find("etag-2").unwrap() < complete.find("etag-3").unwrap(),
+            "{complete}"
+        );
+        assert!(state.single.is_none() && !state.aborted);
+    }
+
+    #[tokio::test]
+    async fn a_file_that_is_a_whole_number_of_parts_has_no_empty_last_part() {
+        let (endpoint, state) = server::start().await;
+        let store = store_at(&endpoint, 1_000_000);
+        let (_folder, path, bytes) = file_of(2_000_000);
+
+        let uploaded = store.put_file(&format!("{ATTEMPT}outputs/a.bin"), &path).await.unwrap();
+
+        assert_eq!(uploaded.sha256, sha256_of(&bytes));
+        assert_eq!(state.lock().unwrap().part_requests, [1, 2]);
+    }
+
+    #[tokio::test]
+    async fn a_file_no_bigger_than_a_part_is_one_request_and_an_empty_file_is_an_empty_object() {
+        let (endpoint, state) = server::start().await;
+        let store = store_at(&endpoint, 1_000_000);
+        let (_folder, path, bytes) = file_of(1_000_000);
+        let uploaded = store.put_file(&format!("{ATTEMPT}outputs/a.bin"), &path).await.unwrap();
+        assert_eq!(uploaded, Uploaded { size: 1_000_000, sha256: sha256_of(&bytes) });
+        assert_eq!(state.lock().unwrap().single.as_deref(), Some(&bytes[..]));
+        assert_eq!(state.lock().unwrap().started, 0, "no multipart upload for one part");
+
+        let (_folder, empty, _) = file_of(0);
+        let uploaded = store.put_file(&format!("{ATTEMPT}outputs/empty"), &empty).await.unwrap();
+        assert_eq!(uploaded, Uploaded { size: 0, sha256: sha256_of(b"") });
+        assert_eq!(state.lock().unwrap().single.as_deref(), Some(&b""[..]));
+    }
+
+    #[tokio::test]
+    async fn a_part_that_keeps_failing_fails_the_upload_and_gives_up_the_parts() {
+        let (endpoint, state) = server::start().await;
+        let store = store_at(&endpoint, 1_000_000);
+        let (_folder, path, _) = file_of(2_500_000);
+        state.lock().unwrap().refuse.insert(2, u32::MAX);
+
+        let error = store.put_file(&format!("{ATTEMPT}outputs/a.bin"), &path).await.unwrap_err();
+
+        assert!(matches!(error, StorageError::Failed(_)), "{error}");
+        let state = state.lock().unwrap();
+        assert_eq!(state.part_requests, [1, 2, 2, 2], "three tries, then it stops");
+        assert!(state.aborted && state.completed_with.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_file_is_never_uploaded_outside_the_grant() {
+        let (endpoint, state) = server::start().await;
+        let store = store_at(&endpoint, 1_000_000);
+        let (_folder, path, _) = file_of(10);
+
+        let error = store.put_file(&format!("{INPUT}stolen.bin"), &path).await.unwrap_err();
+
+        assert!(matches!(error, StorageError::OutOfScope(_)));
+        assert!(state.lock().unwrap().single.is_none());
     }
 }

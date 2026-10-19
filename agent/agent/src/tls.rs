@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use hyper_util::rt::TokioIo;
-use rustls::crypto::CryptoProvider;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, RootCertStore};
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -20,11 +19,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
 const KEEPALIVE_TIMEOUT: Duration = Duration::from_secs(20);
 
-/// The one crypto provider the agent uses, for TLS and for checking issued certificates.
-#[must_use]
-pub fn provider() -> Arc<CryptoProvider> {
-    Arc::new(rustls::crypto::ring::default_provider())
-}
+pub use jobcore::tls::provider;
 
 /// A client TLS config: TLS 1.3 only, `roots` as the only trust anchors, HTTP/2 by ALPN, and the
 /// host's certificate when it has one.
