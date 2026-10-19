@@ -113,6 +113,9 @@ pub struct Config {
     pub control_plane_port: u16,
     /// Our root certificate, PEM.
     pub ca_root_pem: String,
+    /// A development build's image registry, `host:port` (ADR 0035): written into the distribution so its runner can pull
+    /// the development catalog's images over plain HTTP. Always `None` in a release build.
+    pub registry: Option<String>,
 }
 
 /// Setup's saved progress.
@@ -918,6 +921,22 @@ impl<S: System> Engine<'_, S> {
         if !registered && let Err(e) = wsl.import(&name, &layout.wsl_dir(&manifest.distro.version), &tarball) {
             self.fail(reasons::DISTRO_IMPORT, e);
             return self.something_didnt_pass().await;
+        }
+        // A development build tells its runner where the development registry is; a release distribution carries no such file.
+        if self.dev_build
+            && let Some(registry) = self.config.registry.clone()
+        {
+            let script =
+                format!("mkdir -p /etc/idleo && printf 'registry=%s\\n' '{registry}' > /etc/idleo/development");
+            match wsl.exec(&name, "sh", &["-c", &script]) {
+                Ok(output) if output.ok() => {
+                    self.log.line(&format!("told the runner the development registry is {registry}"))
+                }
+                Ok(output) => {
+                    self.log.line(&format!("the development registry couldn't be written: {}", output.text().trim()))
+                }
+                Err(e) => self.log.line(&format!("the development registry couldn't be written: {e}")),
+            }
         }
         let distro_file = layout.data().join("distro");
         let _ = std::fs::write(distro_file, format!("{}\n", manifest.distro.version));

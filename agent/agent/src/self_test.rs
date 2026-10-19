@@ -8,11 +8,17 @@
 //! 2. `lockdown_config`: its `/etc/wsl.conf` is `agent/distro/wsl.conf`, byte for byte.
 //! 3. `gpu_visible`: `nvidia-smi` inside it lists the GPU NVML sees on Windows.
 //! 4. `container_runtime`: containerd answers.
-//! 5. `gpu_in_container`: the GPU-check image prints the GPU's name and memory from inside a container: our "tiny
-//!    CUDA job" until the real runner brings a CUDA kernel.
-//! 6. `lockdown`: `verify-lockdown.sh` passes inside the distribution.
-//! 7. `disk`: free space where the distribution's disk lives.
-//! 8. `storage_speed`: 32 MB up to our storage and back, only in the running agent once linked.
+//! 5. `runner`: the job runner (ADR 0035) answers, the sandbox's network rules are loaded, and a scratch disk can be
+//!    made and removed.
+//! 6. `gpu_in_container`: the GPU-check image prints the GPU's name and memory from inside a container, and, once the
+//!    job image is on the laptop, a real CUDA calculation (a matrix multiply through `PyTorch`, checked against the CPU's
+//!    answer) runs in it; before it's downloaded that part is "skipped: image not downloaded yet", not a failure.
+//! 7. `lockdown`: `verify-lockdown.sh` passes inside the distribution.
+//! 8. `network_lockdown`: in a throwaway container on a session network, the gateway, an address in each private range
+//!    and a link-local address are unreachable, and a public HTTPS address is reachable (when the laptop is online). This
+//!    is the real check that a renter's job can't reach the owner's home network.
+//! 9. `disk`: free space where the distribution's disk lives.
+//! 10. `storage_speed`: 32 MB up to our storage and back, only in the running agent once linked.
 //!
 //! Beside the checks, a development build's setup can ask for environment facts (`--facts`, [`crate::facts`]); they never
 //! change whether the test passed.
@@ -96,6 +102,36 @@ pub trait SpeedCheck: Send + Sync {
     fn measure(&self) -> Pin<Box<dyn Future<Output = Result<String, String>> + Send + '_>>;
 }
 
+/// What the self-test asks the job runner (ADR 0035): its own answer, and its checks.
+pub trait RunnerChecks: Send + Sync {
+    /// The runner's `hello`.
+    fn hello(&self) -> Pin<Box<dyn Future<Output = Result<jobcore::protocol::HelloAnswer, String>> + Send + '_>>;
+    /// The runner's checks (`quick` leaves out the container and the CUDA calculation), with the job image to run the CUDA
+    /// calculation in, if it has been downloaded.
+    fn checks(
+        &self,
+        cuda_image: Option<String>,
+        quick: bool,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<jobcore::protocol::Check>, String>> + Send + '_>>;
+}
+
+impl RunnerChecks for crate::runner::container::ContainerRunner {
+    fn hello(&self) -> Pin<Box<dyn Future<Output = Result<jobcore::protocol::HelloAnswer, String>> + Send + '_>> {
+        Box::pin(async move { Self::hello(self).await.map_err(|failure| failure.message) })
+    }
+
+    fn checks(
+        &self,
+        cuda_image: Option<String>,
+        quick: bool,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<jobcore::protocol::Check>, String>> + Send + '_>> {
+        Box::pin(async move { self.self_check(cuda_image, quick).await.map_err(|failure| failure.message) })
+    }
+}
+
+/// Names the job image to run the CUDA calculation in, if there is one.
+pub type CudaImage = Arc<dyn Fn() -> Option<String> + Send + Sync>;
+
 /// What the self-test looks at.
 pub struct Environment {
     /// What runs `wsl.exe`.
@@ -110,8 +146,14 @@ pub struct Environment {
     pub free_bytes: fn(&std::path::Path) -> std::io::Result<u64>,
     /// Skip everything: Linux, macOS and fake GPUs.
     pub skip: Option<String>,
+    /// The job runner, for the `runner` and `network_lockdown` checks and the CUDA calculation.
+    pub runner: Option<Arc<dyn RunnerChecks>>,
+    /// Names the job image to run the CUDA calculation in, asked each time (the agent learns its images from the control
+    /// plane's Welcome); `None`, or an answer of none, until the image has been downloaded.
+    pub cuda_image: Option<CudaImage>,
 }
 
+#[allow(clippy::too_many_lines)] // The checks in the order they run, each with its own words: clearer whole than split.
 /// Runs the self-test. `quick` leaves out the slow checks; `speed` is the storage speed check, only in the running,
 /// linked agent.
 pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn SpeedCheck>) -> Report {
@@ -167,22 +209,96 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
         Ok(output) => (false, first_line(&output.text())),
         Err(e) => (false, e.to_string()),
     }));
+    // The job runner answers for itself and runs its own checks (ADR 0035), once; what they found is read below.
+    let runner_started = Instant::now();
+    let (hello, results) = match &environment.runner {
+        Some(runner) => {
+            let hello = runner.hello().await;
+            let results = if hello.is_ok() {
+                runner.checks(environment.cuda_image.as_ref().and_then(|name| name()), quick).await
+            } else {
+                Err(String::new())
+            };
+            (Some(hello), Some(results))
+        }
+        None => (None, None),
+    };
+    let found = |name: &str| -> Option<&jobcore::protocol::Check> {
+        results
+            .as_ref()
+            .and_then(|results| results.as_ref().ok())
+            .and_then(|list| list.iter().find(|check| check.name == name))
+    };
+    let (runner_passed, runner_detail) = match (&hello, &results) {
+        (None, _) => (false, "no job runner is set up on this machine".to_owned()),
+        (Some(Err(why)), _) => (false, format!("the job runner doesn't answer: {why}")),
+        (Some(Ok(answer)), _) if !answer.rules_loaded => {
+            (false, "the job runner answers, but the sandbox's network rules aren't loaded".to_owned())
+        }
+        (Some(Ok(answer)), Some(Err(why))) => {
+            (false, format!("the job runner {} couldn't run its checks: {why}", answer.runner_version))
+        }
+        (Some(Ok(answer)), _) => {
+            let failed: Vec<String> = ["sandbox_rules", "scratch_disk"]
+                .iter()
+                .filter_map(|name| found(name).filter(|check| check.status != jobcore::protocol::CheckStatus::Passed))
+                .map(|check| format!("{}: {}", check.name, check.detail))
+                .collect();
+            if failed.is_empty() {
+                (
+                    true,
+                    format!(
+                        "answers (version {}), the sandbox's rules are loaded, a scratch disk can be made and removed",
+                        answer.runner_version
+                    ),
+                )
+            } else {
+                (false, failed.join("; "))
+            }
+        }
+    };
+    checks.push(Check {
+        name: "runner".to_owned(),
+        passed: runner_passed,
+        detail: cut(&runner_detail),
+        took_ms: millis(runner_started),
+    });
     if !quick {
         checks.push(timed("gpu_in_container", || {
             let args = ["run", "--rm", "--gpus", "0", GPU_CHECK_IMAGE, "idleo-gpu-check"];
-            match wsl.exec(&name, "ctr", &args) {
+            let smi = match wsl.exec(&name, "ctr", &args) {
                 Ok(output) if output.ok() && gpu.as_ref().is_some_and(|gpu| output.stdout.contains(gpu.trim())) => {
-                    (true, first_line(&output.stdout))
+                    Ok(first_line(&output.stdout))
                 }
-                Ok(output) if output.ok() => (false, format!("the container saw {:?}", first_line(&output.stdout))),
-                Ok(output) => (false, first_line(&output.text())),
-                Err(e) => (false, e.to_string()),
+                Ok(output) if output.ok() => Err(format!("the container saw {:?}", first_line(&output.stdout))),
+                Ok(output) => Err(first_line(&output.text())),
+                Err(e) => Err(e.to_string()),
+            };
+            // Then the real calculation, in the job image, once it's here: skipped (not failed) before.
+            match (smi, found("cuda_matmul")) {
+                (Err(why), _) => (false, why),
+                (Ok(smi), Some(cuda)) if cuda.status == jobcore::protocol::CheckStatus::Failed => {
+                    (false, format!("{smi}; the CUDA calculation failed: {}", cuda.detail))
+                }
+                (Ok(smi), Some(cuda)) if cuda.status == jobcore::protocol::CheckStatus::Skipped => {
+                    (true, format!("{smi}; CUDA calculation skipped: {}", cuda.detail))
+                }
+                (Ok(smi), Some(cuda)) => (true, format!("{smi}; {}", cuda.detail)),
+                (Ok(smi), None) => (true, format!("{smi}; CUDA calculation skipped: no job runner answered")),
             }
         }));
         checks.push(timed("lockdown", || match wsl.exec(&name, "/usr/local/share/idleo/verify-lockdown.sh", &[]) {
             Ok(output) if output.ok() => (true, "verify-lockdown.sh passed".to_owned()),
             Ok(output) => (false, last_line(&output.text())),
             Err(e) => (false, e.to_string()),
+        }));
+        checks.push(timed("network_lockdown", || match found("network_lockdown") {
+            Some(check) if check.status == jobcore::protocol::CheckStatus::Failed => (false, check.detail.clone()),
+            Some(check) if check.status == jobcore::protocol::CheckStatus::Skipped => {
+                (true, format!("skipped: {}", check.detail))
+            }
+            Some(check) => (true, check.detail.clone()),
+            None => (false, "the job runner didn't run it".to_owned()),
         }));
     }
     checks.push(timed("disk", || match (environment.free_bytes)(&environment.disk_dir) {
@@ -204,9 +320,9 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
 }
 
 fn names(quick: bool, speed: bool) -> Vec<&'static str> {
-    let mut names = vec!["distro_registered", "lockdown_config", "gpu_visible", "container_runtime"];
+    let mut names = vec!["distro_registered", "lockdown_config", "gpu_visible", "container_runtime", "runner"];
     if !quick {
-        names.extend(["gpu_in_container", "lockdown"]);
+        names.extend(["gpu_in_container", "lockdown", "network_lockdown"]);
     }
     names.push("disk");
     if !quick && speed {
@@ -262,7 +378,75 @@ mod tests {
 
     const GPU: &str = "NVIDIA GeForce RTX 4080 Laptop GPU";
 
+    /// A job runner that answers as told.
+    struct FakeRunner {
+        hello: Result<jobcore::protocol::HelloAnswer, String>,
+        checks: Vec<jobcore::protocol::Check>,
+    }
+
+    fn check(name: &str, status: CheckStatus, detail: &str) -> jobcore::protocol::Check {
+        jobcore::protocol::Check { name: name.to_owned(), status, detail: detail.to_owned() }
+    }
+
+    impl FakeRunner {
+        fn healthy() -> Self {
+            Self {
+                hello: Ok(jobcore::protocol::HelloAnswer {
+                    runner_version: "0.1.0".to_owned(),
+                    distro_version: "0.1.0".to_owned(),
+                    gpu: true,
+                    rules_loaded: true,
+                    scratch_free_bytes: 50_000_000_000,
+                    development: false,
+                }),
+                checks: vec![
+                    check("sandbox_rules", CheckStatus::Passed, "loaded"),
+                    check("scratch_disk", CheckStatus::Passed, "made, written and removed"),
+                    check(
+                        "network_lockdown",
+                        CheckStatus::Passed,
+                        "the home network is unreachable and the internet is reachable",
+                    ),
+                    check("cuda_matmul", CheckStatus::Skipped, "the job image isn't downloaded yet"),
+                ],
+            }
+        }
+
+        fn with(mut self, check: jobcore::protocol::Check) -> Self {
+            self.checks.retain(|existing| existing.name != check.name);
+            self.checks.push(check);
+            self
+        }
+    }
+
+    impl RunnerChecks for FakeRunner {
+        fn hello(&self) -> Pin<Box<dyn Future<Output = Result<jobcore::protocol::HelloAnswer, String>> + Send + '_>> {
+            Box::pin(async move { self.hello.clone() })
+        }
+
+        fn checks(
+            &self,
+            _cuda_image: Option<String>,
+            quick: bool,
+        ) -> Pin<Box<dyn Future<Output = Result<Vec<jobcore::protocol::Check>, String>> + Send + '_>> {
+            Box::pin(async move {
+                Ok(self
+                    .checks
+                    .iter()
+                    .filter(|c| !quick || matches!(c.name.as_str(), "sandbox_rules" | "scratch_disk"))
+                    .cloned()
+                    .collect())
+            })
+        }
+    }
+
+    use jobcore::protocol::CheckStatus;
+
     fn environment(fake: &FakeWsl, free_gb: u64) -> Environment {
+        with_runner(fake, free_gb, FakeRunner::healthy())
+    }
+
+    fn with_runner(fake: &FakeWsl, free_gb: u64, runner: FakeRunner) -> Environment {
         let free: fn(&std::path::Path) -> std::io::Result<u64> =
             if free_gb >= 100 { |_| Ok(120_000_000_000) } else { |_| Ok(12_000_000_000) };
         Environment {
@@ -272,6 +456,8 @@ mod tests {
             disk_dir: PathBuf::from("/disk"),
             free_bytes: free,
             skip: None,
+            runner: Some(Arc::new(runner)),
+            cuda_image: None,
         }
     }
 
@@ -307,15 +493,22 @@ mod tests {
                 "lockdown_config",
                 "gpu_visible",
                 "container_runtime",
+                "runner",
                 "gpu_in_container",
                 "lockdown",
+                "network_lockdown",
                 "disk",
                 "storage_speed"
             ]
         );
         assert!(report.passed, "{report:?}");
         assert_eq!(report.distro_version, "0.1.0");
-        assert_eq!(report.to_message().checks.len(), 8);
+        assert_eq!(report.to_message().checks.len(), 10);
+        let in_container = report.checks.iter().find(|c| c.name == "gpu_in_container").unwrap();
+        assert!(
+            in_container.detail.contains("CUDA calculation skipped: the job image isn't downloaded yet"),
+            "{in_container:?}"
+        );
     }
 
     #[tokio::test]
@@ -323,7 +516,10 @@ mod tests {
         let fake = healthy();
         let report = run(&environment(&fake, 120), true, Some(&Speed)).await;
         let names: Vec<_> = report.checks.iter().map(|check| check.name.as_str()).collect();
-        assert_eq!(names, ["distro_registered", "lockdown_config", "gpu_visible", "container_runtime", "disk"]);
+        assert_eq!(
+            names,
+            ["distro_registered", "lockdown_config", "gpu_visible", "container_runtime", "runner", "disk"]
+        );
         assert!(report.passed);
     }
 
@@ -341,6 +537,70 @@ mod tests {
         let report = run(&environment(&missing, 120), true, None).await;
         assert_eq!(report.checks.len(), 1, "nothing else can run without the distribution");
         assert!(!report.passed);
+    }
+
+    #[tokio::test]
+    async fn the_job_runner_has_to_answer_with_the_rules_loaded_and_a_scratch_disk_that_works() {
+        let fake = healthy();
+        let down = FakeRunner { hello: Err("the socket isn't there".to_owned()), ..FakeRunner::healthy() };
+        let report = run(&with_runner(&fake, 120, down), true, None).await;
+        let runner = report.checks.iter().find(|c| c.name == "runner").unwrap();
+        assert!(!runner.passed && runner.detail.contains("doesn't answer"), "{runner:?}");
+
+        let mut unruled = FakeRunner::healthy();
+        unruled.hello.as_mut().unwrap().rules_loaded = false;
+        let report = run(&with_runner(&fake, 120, unruled), true, None).await;
+        assert!(
+            report.checks.iter().any(|c| c.name == "runner" && !c.passed && c.detail.contains("rules aren't loaded"))
+        );
+
+        let no_disk = FakeRunner::healthy().with(check("scratch_disk", CheckStatus::Failed, "mkfs failed"));
+        let report = run(&with_runner(&fake, 120, no_disk), true, None).await;
+        assert!(report.checks.iter().any(|c| c.name == "runner" && !c.passed && c.detail.contains("mkfs failed")));
+        assert!(!report.passed);
+    }
+
+    #[tokio::test]
+    async fn a_job_that_can_reach_the_home_network_fails_the_self_test_and_being_offline_does_not() {
+        let fake = healthy();
+        let open = FakeRunner::healthy().with(check(
+            "network_lockdown",
+            CheckStatus::Failed,
+            "a job can reach the home network: 192.168.1.1:80",
+        ));
+        let report = run(&with_runner(&fake, 120, open), false, None).await;
+        let lockdown = report.checks.iter().find(|c| c.name == "network_lockdown").unwrap();
+        assert!(!lockdown.passed && lockdown.detail.contains("192.168.1.1:80"), "{lockdown:?}");
+        assert!(!report.passed);
+
+        let offline = FakeRunner::healthy().with(check(
+            "network_lockdown",
+            CheckStatus::Skipped,
+            "the internet wasn't tried because this machine is offline",
+        ));
+        let report = run(&with_runner(&fake, 120, offline), false, None).await;
+        let lockdown = report.checks.iter().find(|c| c.name == "network_lockdown").unwrap();
+        assert!(lockdown.passed && lockdown.detail.starts_with("skipped: "), "{lockdown:?}");
+        assert!(report.passed, "{report:?}");
+    }
+
+    #[tokio::test]
+    async fn the_cuda_calculation_runs_when_the_image_is_here_and_a_wrong_answer_fails_the_gpu_check() {
+        let fake = healthy();
+        let ran = FakeRunner::healthy().with(check(
+            "cuda_matmul",
+            CheckStatus::Passed,
+            "matmul ok on NVIDIA GeForce RTX 4080 Laptop GPU",
+        ));
+        let report = run(&with_runner(&fake, 120, ran), false, None).await;
+        let gpu = report.checks.iter().find(|c| c.name == "gpu_in_container").unwrap();
+        assert!(gpu.passed && gpu.detail.contains("matmul ok on"), "{gpu:?}");
+
+        let wrong =
+            FakeRunner::healthy().with(check("cuda_matmul", CheckStatus::Failed, "the GPU and the CPU disagree"));
+        let report = run(&with_runner(&fake, 120, wrong), false, None).await;
+        let gpu = report.checks.iter().find(|c| c.name == "gpu_in_container").unwrap();
+        assert!(!gpu.passed && gpu.detail.contains("the GPU and the CPU disagree"), "{gpu:?}");
     }
 
     #[tokio::test]

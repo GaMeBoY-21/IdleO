@@ -253,7 +253,7 @@ impl Machine for FakeMachine {
         })
     }
 
-    fn self_check<'a>(&'a self, _cuda_image: Option<&'a str>) -> Fut<'a, Vec<Check>> {
+    fn self_check<'a>(&'a self, _cuda_image: Option<&'a str>, _quick: bool) -> Fut<'a, Vec<Check>> {
         Box::pin(async { Vec::new() })
     }
 

@@ -136,8 +136,8 @@ impl ContainerRunner {
     ///
     /// # Errors
     /// If it can't be reached.
-    pub async fn self_check(&self, cuda_image: Option<String>) -> Result<Vec<Check>, Failure> {
-        match self.link.request_within(Request::SelfCheck { cuda_image }, Duration::from_secs(180)).await? {
+    pub async fn self_check(&self, cuda_image: Option<String>, quick: bool) -> Result<Vec<Check>, Failure> {
+        match self.link.request_within(Request::SelfCheck { cuda_image, quick }, Duration::from_secs(180)).await? {
             Answer::SelfCheck { checks } => Ok(checks),
             other => Err(Failure::new(code::RUNNER_FAILED, format!("unexpected answer {other:?}"))),
         }

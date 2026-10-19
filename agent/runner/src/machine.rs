@@ -83,7 +83,7 @@ pub trait Machine: Send + Sync + 'static {
     /// Gives the plan its session network and starts the container.
     fn start_container(&self, plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, String>>;
     /// The checks of a self-check.
-    fn self_check<'a>(&'a self, cuda_image: Option<&'a str>) -> Fut<'a, Vec<Check>>;
+    fn self_check<'a>(&'a self, cuda_image: Option<&'a str>, quick: bool) -> Fut<'a, Vec<Check>>;
     /// Sessions' leftovers from a runner that died: containers and scratch disks nobody holds. Run once at start-up.
     fn clean_up_leftovers(&self) -> Fut<'_, ()>;
 }

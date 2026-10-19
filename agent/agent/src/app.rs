@@ -202,7 +202,13 @@ pub fn main(args: impl IntoIterator<Item = OsString>) -> ExitCode {
 }
 
 /// What the self-test looks at on this machine. `skip` says why every check is skipped (Linux, macOS, fake GPUs).
-fn environment(config: &Config, gpus: Arc<dyn GpuSource>, distro: Option<String>, fake: bool) -> Environment {
+fn environment(
+    config: &Config,
+    gpus: Arc<dyn GpuSource>,
+    distro: Option<String>,
+    fake: bool,
+    runner: Option<Arc<dyn crate::self_test::RunnerChecks>>,
+) -> Environment {
     let layout = Layout::for_user();
     let skip = if fake {
         Some("this machine has invented GPUs".to_owned())
@@ -220,6 +226,8 @@ fn environment(config: &Config, gpus: Arc<dyn GpuSource>, distro: Option<String>
         disk_dir,
         free_bytes: crate::disk::available_bytes,
         skip,
+        runner,
+        cuda_image: None,
     }
 }
 
@@ -247,7 +255,16 @@ async fn self_test_command(config: &Config, options: SelfTestOptions) -> ExitCod
             Err(e) => return fail(exit::GPU, &e),
         }
     };
-    let environment = environment(config, gpus, distro, fake);
+    // The laptop's own distribution, reached through wsl.exe, for the runner's checks (ADR 0035).
+    let runner: Option<Arc<dyn crate::self_test::RunnerChecks>> = if fake || !cfg!(windows) {
+        None
+    } else {
+        let version = distro.clone().or_else(|| Updater::current_distro(&Layout::for_user()));
+        version
+            .and_then(|version| ContainerRunner::wsl(&idleo_release::manifest::distro_name(&version)).ok())
+            .map(|runner| Arc::new(runner) as Arc<dyn crate::self_test::RunnerChecks>)
+    };
+    let environment = environment(config, gpus, distro, fake, runner);
     let mut report = self_test::run(&environment, quick, None).await;
     if facts {
         // Facts, not checks: they never change whether the test passed.
@@ -481,7 +498,13 @@ async fn run_command(
         Ok(client) => client,
         Err(e) => return fail(exit::FAILURE, &e),
     };
-    let environment = Arc::new(environment(&config, Arc::clone(&gpus), None, fake));
+    let checks_runner = containers.clone().map(|runner| runner as Arc<dyn crate::self_test::RunnerChecks>);
+    let mut self_test_environment = environment(&config, Arc::clone(&gpus), None, fake, checks_runner);
+    // The CUDA calculation runs in the job image the control plane named, once it's on this machine.
+    let cuda_host = Arc::clone(&host);
+    self_test_environment.cuda_image =
+        Some(Arc::new(move || cuda_host.prefetch_images().into_iter().next().map(|(image, _)| image)));
+    let environment = Arc::new(self_test_environment);
     let speed = Arc::new(StorageSpeed::new(Arc::clone(&host), http.clone(), Arc::clone(&lease_clock)));
     let self_test: SelfTestFn = Arc::new(move |quick| {
         let environment = Arc::clone(&environment);

@@ -175,6 +175,9 @@ pub enum Request {
         /// The job image to run the CUDA calculation in, when it has been downloaded.
         #[serde(default)]
         cuda_image: Option<String>,
+        /// Only the quick checks (the rules and a scratch disk), as an update's trial does.
+        #[serde(default)]
+        quick: bool,
     },
 }
 
@@ -645,7 +648,7 @@ mod tests {
             Frame::request(6, Request::Pull { image: "r/i@sha256:1".to_owned() }),
             Frame::request(9, Request::CancelPulls),
             Frame::request(7, Request::Forget { session: "s".to_owned(), attempt: 1 }),
-            Frame::request(8, Request::SelfCheck { cuda_image: None }),
+            Frame::request(8, Request::SelfCheck { cuda_image: None, quick: false }),
             Frame::reply(1, Outcome::Ok(Answer::Done)),
             Frame::reply(2, Outcome::Err(Failure::new(code::SANDBOX_NOT_READY, "the rules aren't loaded"))),
             Frame::event("s", 1, Event::State { phase: Phase::Running }),

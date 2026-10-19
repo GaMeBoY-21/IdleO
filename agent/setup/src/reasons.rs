@@ -172,6 +172,8 @@ pub fn examples() -> Vec<String> {
         fix("not_enough_disk"),
         check("gpu_in_container"),
         check("Lockdown"),
+        check("network_lockdown"),
+        check("runner"),
         listed("PendingApproval"),
         listed("Active"),
     ]);

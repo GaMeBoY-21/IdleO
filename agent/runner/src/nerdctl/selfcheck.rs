@@ -33,8 +33,8 @@ struct Probe {
 }
 
 impl Nerdctl {
-    pub(super) async fn checks(&self, cuda_image: Option<&str>) -> Vec<Check> {
-        vec![
+    pub(super) async fn checks(&self, cuda_image: Option<&str>, quick: bool) -> Vec<Check> {
+        let mut checks = vec![
             match self.sandbox_ready().await {
                 Ok(()) => {
                     check("sandbox_rules", CheckStatus::Passed, format!("loaded, version {}", &sandbox::hash()[..12]))
@@ -42,9 +42,12 @@ impl Nerdctl {
                 Err(why) => check("sandbox_rules", CheckStatus::Failed, why),
             },
             self.scratch_check().await,
-            self.network_check().await,
-            self.cuda_check(cuda_image).await,
-        ]
+        ];
+        if !quick {
+            checks.push(self.network_check().await);
+            checks.push(self.cuda_check(cuda_image).await);
+        }
+        checks
     }
 
     async fn scratch_check(&self) -> Check {

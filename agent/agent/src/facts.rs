@@ -1,11 +1,12 @@
 //! Environment facts, for a development build's setup only (`idleo-agent self-test --facts`): what the first real
 //! laptop is made of, so a failure can be read without a second visit. WSL's version and networking mode, the kernel, the
 //! NVIDIA driver and the CUDA version `nvidia-smi` reports, the host's RAM and what the WSL VM is using, and what the
-//! distribution can reach: the default gateway, one address in each common LAN range, and our storage.
+//! distribution can reach: the default gateway and our storage.
 //!
-//! These are facts, never checks. The LAN probes are expected to find nothing today (a renter's job must not reach the
-//! owner's network, and the distribution's firewall is meant to say so); whatever they find is reported as it is and
-//! nothing here can fail a self-test or stop setup. A release build collects nothing: [`collect`] answers an empty list.
+//! These are facts, never checks; nothing here can fail a self-test or stop setup. Whether a renter's job can reach the
+//! owner's home network is no longer a fact but a real check, `network_lockdown` ([`crate::self_test`]), done in a throwaway
+//! container on a session network, where the sandbox's rules apply; a probe from the distribution's own shell never
+//! was that. A release build collects nothing: [`collect`] answers an empty list.
 
 use std::sync::Arc;
 
@@ -16,8 +17,6 @@ use crate::self_test::Environment;
 
 /// What the probes below wait for one connection.
 pub const PROBE_SECONDS: u32 = 3;
-/// One address in each common private range: home routers, offices and VPNs use these.
-pub const LAN_PROBES: [&str; 4] = ["192.168.1.1", "192.168.0.1", "10.0.0.1", "172.16.0.1"];
 
 /// One thing found out, as `name: value`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,7 +76,7 @@ pub fn collect(dev_build: bool, environment: &Environment, storage: Option<&str>
     facts
 }
 
-/// What the distribution runs to try a TCP connection to the gateway, each LAN address and storage, each with its own
+/// What the distribution runs to try a TCP connection to the gateway and storage, each with its own
 /// short time limit, printing `name|exit code|milliseconds|first line of any error`. A shell's `/dev/tcp`: no extra
 /// tool is needed in the sealed image.
 const PROBES: &str = r#"
@@ -89,10 +88,6 @@ probe() {
 }
 gw=$(ip route show default 2>/dev/null | awk '{print $3; exit}')
 if [ -n "$gw" ]; then probe gateway "$gw" 53; else echo 'gateway|none|0|no default route'; fi
-probe lan_192_168_1_1 192.168.1.1 80
-probe lan_192_168_0_1 192.168.0.1 80
-probe lan_10_0_0_1 10.0.0.1 80
-probe lan_172_16_0_1 172.16.0.1 80
 if [ -n "$1" ] && [ -n "$2" ]; then probe storage "$1" "$2"; else echo 'storage|none|0|no storage address given'; fi
 "#;
 
@@ -214,6 +209,8 @@ mod tests {
 
     fn environment(script: Script, skip: Option<&str>) -> Environment {
         Environment {
+            runner: None,
+            cuda_image: None,
             wsl: Arc::new(script),
             distro_version: Some("0.1.0".to_owned()),
             gpus: Arc::new(FakeGpus::new(1, &FakeModel::default())),
@@ -227,7 +224,7 @@ mod tests {
         | NVIDIA-SMI 570.86.15              Driver Version: 572.16         CUDA Version: 12.8     |\n\
         +-----------------------------------------------------------------------------------------+\n";
 
-    /// A laptop whose LAN is blocked, as it should be, and whose gateway and storage answer.
+    /// A laptop whose gateway and storage answer.
     fn laptop() -> Script {
         Script(vec![
             (
@@ -246,12 +243,7 @@ mod tests {
                     "               total        used        free      shared  buff/cache   available\nMem:           15921        1840       12000          10        2081       13700\nSwap:           4096           0        4096\n",
                 ),
             ),
-            (
-                "--exec bash -c",
-                out(
-                    "gateway|0|3|\nlan_192_168_1_1|124|3001|\nlan_192_168_0_1|1|2|bash: connect: Connection refused\nlan_10_0_0_1|1|1|bash: connect: Network is unreachable\nlan_172_16_0_1|124|3002|\nstorage|0|12|\n",
-                ),
-            ),
+            ("--exec bash -c", out("gateway|0|3|\nstorage|0|12|\n")),
         ])
     }
 
@@ -274,18 +266,6 @@ mod tests {
         assert_eq!(value(&facts, "wsl_vm_memory"), "used 1840 MB of 15921 MB (available 13700 MB)");
         assert_eq!(value(&facts, "reach_gateway"), "reachable: connected (3 ms)");
         assert_eq!(value(&facts, "reach_storage"), "reachable: connected (12 ms)");
-    }
-
-    #[test]
-    fn the_lan_probes_report_what_they_found_and_nothing_fails() {
-        let facts = collect(true, &environment(laptop(), None), Some("192.168.1.20:9100"));
-        assert_eq!(value(&facts, "reach_lan_192_168_1_1"), "silent: no answer in 3 s (blocked, or nothing there)");
-        assert_eq!(
-            value(&facts, "reach_lan_192_168_0_1"),
-            "reachable: the host answered, nothing listens there (2 ms)"
-        );
-        assert_eq!(value(&facts, "reach_lan_10_0_0_1"), "unreachable: bash: connect: Network is unreachable");
-        assert_eq!(value(&facts, "reach_lan_172_16_0_1"), "silent: no answer in 3 s (blocked, or nothing there)");
     }
 
     #[test]

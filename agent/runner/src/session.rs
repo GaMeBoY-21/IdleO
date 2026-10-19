@@ -411,8 +411,8 @@ impl Registry {
     }
 
     /// The self-test's checks.
-    pub async fn self_check(&self, cuda_image: Option<&str>) -> Vec<Check> {
-        self.machine.self_check(cuda_image).await
+    pub async fn self_check(&self, cuda_image: Option<&str>, quick: bool) -> Vec<Check> {
+        self.machine.self_check(cuda_image, quick).await
     }
 
     /// The answer to one request, as the reply the agent reads.
@@ -435,8 +435,8 @@ impl Registry {
                 Outcome::Ok(Answer::Done)
             }
             Request::Forget { session, attempt } => done(self.forget(&session, attempt)),
-            Request::SelfCheck { cuda_image } => {
-                Outcome::Ok(Answer::SelfCheck { checks: self.self_check(cuda_image.as_deref()).await })
+            Request::SelfCheck { cuda_image, quick } => {
+                Outcome::Ok(Answer::SelfCheck { checks: self.self_check(cuda_image.as_deref(), quick).await })
             }
         }
     }

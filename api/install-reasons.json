@@ -39,6 +39,8 @@
     "fix:not_enough_disk",
     "gpu_in_container",
     "lockdown",
+    "network_lockdown",
+    "runner",
     "pendingapproval",
     "active"
   ]

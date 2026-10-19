@@ -596,8 +596,8 @@ impl Machine for Nerdctl {
         })
     }
 
-    fn self_check<'a>(&'a self, cuda_image: Option<&'a str>) -> Fut<'a, Vec<Check>> {
-        Box::pin(self.checks(cuda_image))
+    fn self_check<'a>(&'a self, cuda_image: Option<&'a str>, quick: bool) -> Fut<'a, Vec<Check>> {
+        Box::pin(self.checks(cuda_image, quick))
     }
 
     fn clean_up_leftovers(&self) -> Fut<'_, ()> {

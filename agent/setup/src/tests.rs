@@ -30,6 +30,7 @@ fn config() -> Config {
         site_url: "http://192.168.1.20:3002".into(),
         control_plane_host: "192.168.1.20".into(),
         control_plane_port: 9443,
+        registry: Some("192.168.1.20:5000".into()),
         ca_root_pem: "-----BEGIN CERTIFICATE-----\nroot\n-----END CERTIFICATE-----\n".into(),
     }
 }
@@ -673,7 +674,7 @@ fn facts(found: &[(&str, &str)]) -> Vec<idleo_agent::facts::Fact> {
 }
 
 /// What a laptop with a blocked LAN finds: the facts, two of them about the network.
-fn blocked_lan() -> Vec<idleo_agent::facts::Fact> {
+fn laptop_facts() -> Vec<idleo_agent::facts::Fact> {
     facts(&[
         ("wsl_version", "WSL version: 2.3.26.0; Kernel version: 5.15.167.4-1"),
         ("networking_mode", "nat"),
@@ -683,8 +684,6 @@ fn blocked_lan() -> Vec<idleo_agent::facts::Fact> {
         ("host_ram", "32768 MB"),
         ("wsl_vm_memory", "used 1840 MB of 15921 MB (available 13700 MB)"),
         ("reach_gateway", "reachable: connected (3 ms)"),
-        ("reach_lan_192_168_1_1", "silent: no answer in 3 s (blocked, or nothing there)"),
-        ("reach_lan_10_0_0_1", "unreachable: bash: connect: Network is unreachable"),
         ("reach_storage", "reachable: connected (12 ms)"),
     ])
 }
@@ -692,9 +691,9 @@ fn blocked_lan() -> Vec<idleo_agent::facts::Fact> {
 #[tokio::test]
 async fn a_development_build_asks_for_facts_and_sends_them_as_facts_not_failures() {
     let mut system = laptop();
-    system.facts = blocked_lan();
+    system.facts = laptop_facts();
     let (ending, _, _) = run_as(&system, &[FromPage::SetUp], false, true).await;
-    assert_eq!(ending, Ending::Done { pending: true }, "a blocked LAN is a fact: setup carries on and doesn't undo");
+    assert_eq!(ending, Ending::Done { pending: true }, "facts never stop setup, and it doesn't undo");
     assert_eq!(*system.facts_asked.borrow(), [Some(FactsRequest { storage: None })], "asked once, with --facts");
     let events = sent_events(&system);
     let sent: Vec<_> = events.iter().filter(|e| e.step == "facts").collect();
@@ -712,9 +711,9 @@ async fn a_development_build_asks_for_facts_and_sends_them_as_facts_not_failures
     }
     let network = sent.iter().find(|e| e.reason.as_deref() == Some("facts_network")).unwrap();
     let detail = network.detail.as_deref().unwrap();
-    assert!(detail.contains("reach_lan_192_168_1_1: silent: no answer in 3 s"), "{detail}");
+    assert!(detail.contains("reach_gateway: reachable: connected (3 ms)"), "{detail}");
     assert!(detail.contains("reach_storage: reachable: connected"), "{detail}");
-    assert!(!events.iter().any(|e| e.outcome == "failed"), "no failure was reported for a blocked LAN");
+    assert!(!events.iter().any(|e| e.outcome == "failed"), "no failure was reported for a fact");
 }
 
 #[tokio::test]
@@ -743,7 +742,7 @@ async fn facts_are_sent_when_the_self_test_fails_too_and_are_scrubbed_like_the_r
 #[tokio::test]
 async fn a_release_build_never_asks_for_facts() {
     let mut system = laptop();
-    system.facts = blocked_lan();
+    system.facts = laptop_facts();
     let (ending, _, _) = run_as(&system, &[FromPage::SetUp], false, false).await;
     assert_eq!(ending, Ending::Done { pending: true });
     assert_eq!(*system.facts_asked.borrow(), [None], "no --facts");
@@ -765,4 +764,23 @@ fn storage_is_found_from_the_download_link() {
     assert_eq!(host_and_port("https://user:pw@host.example:8443/x").as_deref(), Some("host.example:8443"));
     assert_eq!(host_and_port("not a url"), None);
     assert_eq!(host_and_port("https:///nothing"), None);
+}
+
+#[tokio::test]
+async fn a_development_build_tells_the_distribution_where_the_development_registry_is_and_a_release_build_never_does() {
+    let system = laptop();
+    let (ending, _, _) = run_as(&system, &[FromPage::SetUp], false, true).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    let calls = system.machine.wsl.state().calls.clone();
+    let marker: Vec<&String> = calls.iter().filter(|call| call.contains("/etc/idleo/development")).collect();
+    assert_eq!(marker.len(), 1, "{calls:?}");
+    assert!(marker[0].contains("registry=%s") && marker[0].contains("192.168.1.20:5000"), "{marker:?}");
+
+    let release = laptop();
+    let (ending, _, _) = run_as(&release, &[FromPage::SetUp], false, false).await;
+    assert_eq!(ending, Ending::Done { pending: true });
+    assert!(
+        !release.machine.wsl.state().calls.iter().any(|call| call.contains("/etc/idleo/development")),
+        "a release distribution carries no development marker"
+    );
 }
