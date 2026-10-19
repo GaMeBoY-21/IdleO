@@ -19,7 +19,8 @@
 # program's IDLEO_SETUP_* addresses. --dev uses private/release-dev/ (scripts/release/dev-key.sh) and the local
 # stack's MinIO (IDLEO_RELEASE_S3_ENDPOINT moves it), and bakes the setup program's addresses from
 # private/release-dev/setup.env, which ./start.sh --lan writes, unless IDLEO_SETUP_* are set: so the next development
-# release reaches the same laptop. It notes what it published in private/release-dev/published.
+# release reaches the same laptop. It notes what it published, and a fingerprint of what it was built from
+# (source-fingerprint.sh), in private/release-dev/published: ./start.sh --lan publishes again when the code has moved.
 #
 # IDLEO_TEST_FAIL_TRIAL=1 with --dev builds a version whose update trial never confirms, so the launcher rolls it back:
 # how a rollback is tried (docs/windows-laptop-test.md). A release build ignores it, and publish.sh refuses it.
@@ -74,6 +75,13 @@ else
   build_flags=(--release-keys)
 fi
 bucket="${IDLEO_RELEASE_S3_BUCKET:-releases}"
+# Taken before the build, so a change made during it shows as a difference next time. A manifest-only release builds
+# nothing and keeps the fingerprint of the files it names.
+if $manifest_only; then
+  fingerprint="$(awk '{print $3}' "$root/private/release-dev/published" 2>/dev/null || true)"
+else
+  fingerprint="$("$root/scripts/release/source-fingerprint.sh")"
+fi
 release="$root/dist/release/$version"
 distro_version="$(tr -d '[:space:]' <agent/distro/VERSION)"
 tarball="$root/dist/distro/idleo-distro-$distro_version.tar.gz"
@@ -109,6 +117,6 @@ uploads+=("$manifest=stable/latest.json" "$manifest.sig=stable/latest.json.sig")
 idleo_release upload --endpoint "$IDLEO_RELEASE_S3_ENDPOINT" --bucket "$bucket" --region "$region" \
   ${create[@]+"${create[@]}"} "${uploads[@]}"
 if $dev; then
-  printf '%s %s\n' "$version" "${IDLEO_SETUP_API_URL:-http://localhost:8080}" >"$root/private/release-dev/published"
+  printf '%s %s %s\n' "$version" "${IDLEO_SETUP_API_URL:-http://localhost:8080}" "$fingerprint" >"$root/private/release-dev/published"
 fi
 echo "publish: $version at $rollout% is the latest release; control planes read it within 5 minutes"

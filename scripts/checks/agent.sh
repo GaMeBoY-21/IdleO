@@ -7,6 +7,7 @@ cd "$(dirname "$0")/../../agent"
 # all, the default: both.
 part="${1:-all}"
 if [[ "$part" == build || "$part" == all ]]; then
+  ../scripts/release/source-fingerprint-test.sh
   cargo fmt --all --check
   cargo clippy --workspace --all-targets --locked -- -D warnings
   cargo test --workspace --locked

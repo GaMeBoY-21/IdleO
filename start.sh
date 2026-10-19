@@ -367,7 +367,7 @@ if $link_demo; then
 fi
 
 # --lan: a development release of the Windows app (ADR 0034) built for this LAN address, in local storage, once per
-# address. Its setup program has the LAN addresses and the development CA baked in; publish.sh --dev reuses them
+# address and code. Its setup program has the LAN addresses and the development CA baked in; publish.sh --dev reuses them
 # (private/release-dev/setup.env) for the next release, which is how an update is tried (docs/windows-laptop-test.md).
 lan_version=""
 if $lan; then
@@ -391,9 +391,11 @@ SETUP
   published="$(cat "$root/private/release-dev/published" 2>/dev/null || true)"
   last_version="${published%% *}"
   served="$(served_version)"
-  if [[ -n "$served" && "$published" == "$served http://$lan_ip:$http_port" ]]; then
+  # Published for this address from the code as it is now? (An older build would be offered to the laptop otherwise.)
+  fingerprint="$("$root/scripts/release/source-fingerprint.sh")"
+  if [[ -n "$served" && "$published" == "$served http://$lan_ip:$http_port $fingerprint" ]]; then
     lan_version="$served"
-    log "the Windows app $served, built for $lan_ip, is already published"
+    log "the Windows app $served, built for $lan_ip from this code, is already published"
   else
     # Always a newer version than the last: the control plane never goes back to an older one.
     if [[ "$last_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
