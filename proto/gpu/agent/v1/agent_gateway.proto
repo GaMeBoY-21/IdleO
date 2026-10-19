@@ -128,6 +128,16 @@ message AgentPolicy {
   int32 max_concurrent_sessions = 3;
 }
 
+// A job image the agent may download before anyone asks for it, so a renter's job starts at once (ADR 0035).
+message PrefetchImage {
+  // The image, pinned by digest: registry/name@sha256:...
+  // Empty is invalid; the receiver ignores the entry.
+  string image = 1;
+  // The GPU memory, in MB, the least demanding template that uses it needs. The agent fetches only images whose
+  // templates fit its largest GPU.
+  int32 min_vram_mb = 2;
+}
+
 // Control plane to agent: the answer to Hello.
 message Welcome {
   // Rules for this agent.
@@ -136,6 +146,10 @@ message Welcome {
   // three releases). An older agent updates before taking work.
   // Empty is invalid; the receiver rejects the message.
   string minimum_agent_version = 2;
+  // The job images worth having on the machine before a job needs them: every image of the template catalog's visible
+  // services. The agent downloads those that fit its GPU, one at a time, while the host is listed and idle, never on a
+  // metered connection and never while a session runs. Empty for an older control plane; nothing is downloaded then.
+  repeated PrefetchImage prefetch_images = 3;
 }
 
 // Confirms that a message was received and durably recorded. It doesn't mean

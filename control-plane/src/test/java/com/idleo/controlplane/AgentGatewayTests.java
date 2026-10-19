@@ -87,6 +87,11 @@ class AgentGatewayTests {
         assertThat(welcome.getWelcome().getPolicy().getGpuTempCapC()).isEqualTo(85);
         assertThat(welcome.getWelcome().getPolicy().getMaxConcurrentSessions()).isEqualTo(1);
         assertThat(welcome.getWelcome().getMinimumAgentVersion()).isEqualTo("0.1.0");
+        // The job images worth having before a job needs them (ADR 0035): every image of the visible services, pinned.
+        assertThat(welcome.getWelcome().getPrefetchImagesList()).isNotEmpty().allSatisfy(image -> {
+            assertThat(image.getImage()).matches("\\S+@sha256:[0-9a-f]{64}");
+            assertThat(image.getMinVramMb()).isPositive();
+        });
         assertThat(jdbc.queryForList(
                         "select gpu_uuid from hosts.host_gpus where host_id = ? and gone_at is null order by gpu_uuid",
                         String.class,

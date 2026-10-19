@@ -436,6 +436,47 @@ class TemplateCatalogTests {
                         assertThat(service).isEqualTo(production.services().get(service.id())));
     }
 
+    /**
+     * The real runner's local catalog (ADR 0035) shows the same two services in the same words, and its two templates take
+     * what the simulated ones take, so the booking screen, the CLI and the SDK are the same on either stack.
+     */
+    @Test
+    void theRealRunnerCatalogHasTheProductionServicesAndTheSimulatedTemplatesShapes() throws Exception {
+        TemplateCatalog.Parsed production;
+        TemplateCatalog.Parsed real;
+        TemplateCatalog.Parsed simulated;
+        try (var in = Files.newInputStream(Path.of("../templates/catalog.yaml"))) {
+            production = TemplateCatalog.read(in);
+        }
+        try (var in = Files.newInputStream(Path.of("../templates/development-real.yaml"))) {
+            real = TemplateCatalog.read(in);
+        }
+        try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
+            simulated = TemplateCatalog.read(in);
+        }
+        assertThat(real.services().values())
+                .containsExactlyInAnyOrderElementsOf(production.services().values().stream()
+                        .filter(service -> !service.hidden())
+                        .toList());
+        assertThat(real.templates()).containsOnlyKeys("fine-tune-qlora", "run-your-code");
+        var pairs = java.util.Map.of("fine-tune-qlora", "fine-tune-simulated", "run-your-code", "run-code-simulated");
+        pairs.forEach((realId, simulatedId) -> {
+            var a = real.templates().get(realId);
+            var b = simulated.templates().get(simulatedId);
+            assertThat(a.service()).isEqualTo(b.service());
+            assertThat(a.inputs()).isEqualTo(b.inputs());
+            assertThat(a.questions()).isEqualTo(b.questions());
+            assertThat(a.params()).isEqualTo(b.params());
+            assertThat(a.budgetChips()).isEqualTo(b.budgetChips());
+            assertThat(a.vramFromInput()).isEqualTo(b.vramFromInput());
+            assertThat(a.args()).doesNotContain("--simulate");
+            assertThat(a.image()).startsWith("registry.idleo.test:5000/idleo/pytorch@sha256:");
+            // The sandbox's limits are the technical design's: memory, CPUs and processes for the smallest GPU class.
+            assertThat(a.memoryMb()).isEqualTo(12288);
+            assertThat(a.pidsLimit()).isEqualTo(512);
+        });
+    }
+
     @Test
     @SuppressWarnings("unchecked")
     void theApiOffersExactlyTheIconsTheCatalogAccepts() throws Exception {

@@ -9,6 +9,7 @@ import gpu.agent.v1.AgentGateway.Ack;
 import gpu.agent.v1.AgentGateway.AgentPolicy;
 import gpu.agent.v1.AgentGateway.OpenStreamRequest;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
+import gpu.agent.v1.AgentGateway.PrefetchImage;
 import gpu.agent.v1.AgentGateway.Welcome;
 import gpu.agent.v1.Session.RunningSession;
 import gpu.agent.v1.Telemetry.Heartbeat;
@@ -186,9 +187,16 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         } catch (RuntimeException valkeyDown) {
             log.warn("Could not record presence for host {}: {}", hostId, valkeyDown.toString());
         }
+        var prefetch = services.prefetchImages().stream()
+                .map(image -> PrefetchImage.newBuilder()
+                        .setImage(image.image())
+                        .setMinVramMb(image.minVramMb())
+                        .build())
+                .toList();
         send(OpenStreamResponse.newBuilder()
                 .setMessageId(services.ids().newId().toString())
                 .setWelcome(Welcome.newBuilder()
+                        .addAllPrefetchImages(prefetch)
                         .setPolicy(AgentPolicy.newBuilder()
                                 .setHeartbeatInterval(Duration.newBuilder()
                                         .setSeconds(

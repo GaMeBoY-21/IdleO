@@ -2,6 +2,7 @@ package com.idleo.controlplane.agentgateway.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.SemanticVersion;
+import com.idleo.controlplane.agentgateway.ImagesToPrefetch;
 import com.idleo.controlplane.agentgateway.OfferReplies;
 import com.idleo.controlplane.agentgateway.SessionCredentials;
 import com.idleo.controlplane.agentgateway.SessionLogProgress;
@@ -35,6 +36,7 @@ class AgentStreamServices implements DisposableBean {
     private final ObjectProvider<SessionReconciliation> reconciliation;
     private final ObjectProvider<SessionCredentials> credentials;
     private final ObjectProvider<UsageReports> usageReports;
+    private final ObjectProvider<ImagesToPrefetch> prefetch;
     private final ObjectProvider<CommandDelivery> delivery;
     private final Presence presence;
     private final TelemetryRing telemetry;
@@ -64,6 +66,7 @@ class AgentStreamServices implements DisposableBean {
             ObjectProvider<SessionReconciliation> reconciliation,
             ObjectProvider<SessionCredentials> credentials,
             ObjectProvider<UsageReports> usageReports,
+            ObjectProvider<ImagesToPrefetch> prefetch,
             ObjectProvider<CommandDelivery> delivery,
             Presence presence,
             TelemetryRing telemetry,
@@ -85,6 +88,7 @@ class AgentStreamServices implements DisposableBean {
         this.reconciliation = reconciliation;
         this.credentials = credentials;
         this.usageReports = usageReports;
+        this.prefetch = prefetch;
         this.delivery = delivery;
         this.presence = presence;
         this.telemetry = telemetry;
@@ -117,6 +121,12 @@ class AgentStreamServices implements DisposableBean {
 
     AgentCommandService commands() {
         return commands;
+    }
+
+    /** The images worth having before a job needs them; none if the sessions module isn't there. */
+    java.util.List<ImagesToPrefetch.Image> prefetchImages() {
+        var port = prefetch.getIfAvailable();
+        return port == null ? java.util.List.of() : port.images();
     }
 
     @Nullable
