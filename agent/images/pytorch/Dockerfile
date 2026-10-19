@@ -6,16 +6,19 @@
 # catalog pins. The base is pinned by digest (nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04, the multi-architecture index,
 # 2026-10-19) and Python by version.
 #
-# The development variant (`--build-arg BASE=ubuntu:24.04@... --build-arg LOCK=requirements.dev.lock`, linux/arm64, CPU-only
+# The development variant (`--build-arg BASE=ubuntu:24.04@... --build-arg LOCK=requirements.dev.lock --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cpu`, linux/arm64, CPU-only
 # PyTorch) is what a Mac's development distribution runs (scripts/images/publish.sh --dev); it is the same recipe and scripts.
 
 ARG BASE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04@sha256:ac55d124da4882b497f732d8dfd9a702d5447a5f29d08d56da6f64f0a1eb34bc
 ARG PYTHON_VERSION=3.12.3-1ubuntu0.17
+# Where the lock's torch comes from: it has PyTorch's own "+cu128" build, which PyPI doesn't carry (the hashes are checked either way).
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu128
 
 # The libraries are installed in a stage of their own, so nothing a build needs stays in the image.
 FROM ${BASE} AS libraries
 ARG PYTHON_VERSION
 ARG LOCK=requirements.lock
+ARG TORCH_INDEX
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
     apt-get update; \
@@ -24,7 +27,7 @@ RUN set -eux; \
 COPY ${LOCK} /tmp/requirements.lock
 # Wheels only (nothing is compiled here, and nothing could be: there's no compiler), and only exactly the bytes in the lock.
 RUN python3.12 -m venv /opt/idleo/venv \
-    && /opt/idleo/venv/bin/pip install --no-cache-dir --only-binary=:all: --require-hashes -r /tmp/requirements.lock
+    && /opt/idleo/venv/bin/pip install --no-cache-dir --only-binary=:all: --require-hashes --extra-index-url "${TORCH_INDEX}" -r /tmp/requirements.lock
 
 FROM ${BASE}
 ARG PYTHON_VERSION

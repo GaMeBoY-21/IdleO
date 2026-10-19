@@ -7,9 +7,8 @@
 #
 # The services are catalog.yaml's, word for word (a control-plane test fails if they differ). The image is the development
 # variant (linux/arm64, CPU PyTorch) on the local registry; its digest below is a placeholder that scripts/images/publish.sh --dev
-# replaces, in the stack's own copy of this file (private/local/development-real.yaml), with the digest of what it pushed. Lines
-# marked `# dev-only` aren't in the production catalog: scripts/images/publish.sh drops them when it copies the BEGIN/END block
-# there. The limits are the technical design's sandbox ("Sandbox configuration") for the smallest GPU class.
+# replaces, in the stack's own copy of this file (private/local/development-real.yaml), with the digest of what it pushed. A line ending `# dev: VALUE in production` has that value in the production catalog:
+# scripts/images/publish.sh writes it so when it copies the BEGIN/END block there. The limits are the technical design's sandbox ("Sandbox configuration") for the smallest GPU class.
 services:
   - id: fine-tune
     name: Fine-tune a model
@@ -29,7 +28,7 @@ templates:
     name: Fine-tune your model
     description: Bring your model and your examples; you get back a LoRA adapter for your model, trained with QLoRA.
     image: registry.idleo.test:5000/idleo/pytorch@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    args: ["/opt/idleo/finetune.py", "--test-cpu"] # dev-only
+    args: ["/opt/idleo/finetune.py", "--test-cpu"] # dev: ["/opt/idleo/finetune.py"] in production
     min_vram_mb: 6144
     typical_runtime: 45m
     default_max_runtime: 3h
@@ -38,7 +37,7 @@ templates:
     cpu_millicores: 6000
     pids_limit: 512
     scratch_mb: 40960
-    checkpoint_interval: 20s # dev-only
+    checkpoint_interval: 20s # dev: 5m in production
     inputs:
       - name: model
         label: Your model
@@ -104,7 +103,7 @@ templates:
     cpu_millicores: 6000
     pids_limit: 512
     scratch_mb: 20480
-    checkpoint_interval: 20s # dev-only
+    checkpoint_interval: 20s # dev: 5m in production
     inputs:
       - name: code
         label: Your code

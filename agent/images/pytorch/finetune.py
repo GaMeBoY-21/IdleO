@@ -14,7 +14,8 @@ complete with its optimizer and where it was in the data, then an empty `_DONE`;
 SIGTERM the next step ends with a last checkpoint and the job exits.
 
 With `--test-cpu` (or IDLEO_TEST_CPU=1), and only when no GPU is visible, it trains plain LoRA on the CPU, for the tests of
-the job image itself and of the whole path on a machine without a GPU. A GPU present means the real thing, whatever is asked.
+the job image itself and of the whole path on a machine without a GPU (and IDLEO_TEST_STEP_DELAY seconds slows each step there,
+so a test can stop it part-way). A GPU present means the real thing, whatever is asked.
 """
 
 import json
@@ -152,6 +153,7 @@ def main():
         AutoTokenizer,
         BitsAndBytesConfig,
         DataCollatorForLanguageModeling,
+        PrinterCallback,
         Trainer,
         TrainerCallback,
         TrainingArguments,
@@ -201,6 +203,8 @@ def main():
     say(f"LoRA rank {rank}, alpha {2 * rank}, {epochs} epochs, learning rate {learning_rate:g}")
 
     stop = {"asked": False}
+    # Only the tests of this job on a CPU slow each step, so a test can stop it part-way through.
+    step_delay = float(os.environ.get("IDLEO_TEST_STEP_DELAY", "0") or 0) if not on_gpu else 0.0
 
     def on_term(_signal, _frame):
         stop["asked"] = True
@@ -222,6 +226,8 @@ def main():
             self.saved = 0
 
         def on_step_end(self, args, state, control, **kwargs):
+            if step_delay:
+                time.sleep(step_delay)
             if stop["asked"] or time.monotonic() - self.last_save >= interval:
                 control.should_save = True
             if stop["asked"]:
@@ -267,7 +273,7 @@ def main():
         per_device_train_batch_size=batch,
         gradient_accumulation_steps=accumulation,
         lr_scheduler_type="cosine",
-        warmup_ratio=0.03,
+        warmup_steps=0.03,
         logging_steps=5 if on_gpu else 1,
         logging_first_step=True,
         save_strategy="no",
@@ -291,6 +297,8 @@ def main():
         callbacks=[Run()],
     )
 
+    # Our own lines are the log; the trainer's dictionaries would only repeat them.
+    trainer.remove_callback(PrinterCallback)
     resume = None
     if resume_dir is not None:
         if not (resume_dir / "trainer_state.json").is_file():

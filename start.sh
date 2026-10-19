@@ -12,6 +12,11 @@
 #   ./start.sh --lan            also serve a Windows laptop on the same Wi-Fi: the API, the website, the web app
 #                               and storage on this Mac's LAN address, and a development release of the Windows app
 #                               built for it and published to local storage (docs/windows-laptop-test.md)
+#   ./start.sh --real-runner    run the jobs for real: both laptops' jobs run in real containers, through the job runner
+#                               of a development distribution (scripts/dev-distro.sh) and the job image from the local
+#                               registry (scripts/images/publish.sh --dev), under the real templates
+#                               (templates/development-real.yaml: Fine-tune your model, Run your code). CPU-only, and arm64,
+#                               on a Mac; a stack has the simulated jobs or the real ones, not both
 #   ./start.sh --fresh          wipe the local database and storage first (it asks)
 #   ./start.sh --stop           stop what another ./start.sh started
 #   ./start.sh --status         what's running
@@ -29,6 +34,7 @@ real_sign_in=false
 fresh=false
 link_demo=false
 lan=false
+real_runner=false
 action=start
 for arg in "$@"; do
   case "$arg" in
@@ -37,9 +43,10 @@ for arg in "$@"; do
     --fresh) fresh=true ;;
     --link-demo) link_demo=true ;;
     --lan) lan=true ;;
+    --real-runner) real_runner=true ;;
     --stop) action=stop ;;
     --status) action=status ;;
-    -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "start: unknown option $arg; ./start.sh --help lists them" >&2; exit 2 ;;
   esac
 done
@@ -194,13 +201,33 @@ if $lan; then
   "$root/scripts/release/dev-key.sh" >>"$out/release.log" 2>&1 || fail "the development release key couldn't be made; see logs/release.log"
 fi
 
+# --real-runner: the development distribution, the registry and the job image come first, since the catalog names the image's digest.
+if $real_runner; then
+  command -v docker >/dev/null || fail "--real-runner needs Docker"
+  docker image inspect "idleo-distro-dev:$(tr -d '[:space:]' <"$root/agent/distro/VERSION")" >/dev/null 2>&1 || {
+    log "building the development distribution, once (logs/dev-distro-build.log)"
+    "$root/scripts/build-distro.sh" --dev >"$out/dev-distro-build.log" 2>&1 || fail "the development distribution didn't build; see logs/dev-distro-build.log"
+  }
+  # The registry, from the stack's own compose project, so the control plane's compose finds it running.
+  COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/control-plane/compose.yaml" up -d registry >>"$out/dev-distro.log" 2>&1 ||
+    fail "the registry didn't start; see logs/dev-distro.log"
+  log "building and pushing the job image (logs/job-image.log)"
+  "$root/scripts/images/publish.sh" --dev >"$out/job-image.log" 2>&1 || fail "the job image didn't build; see logs/job-image.log"
+  "$root/scripts/dev-distro.sh" up >>"$out/dev-distro.log" 2>&1 || fail "the development distribution didn't start; see logs/dev-distro.log"
+  stack_runner="--container-runner docker:${IDLEO_DEV_DISTRO:-idleo-dev-distro}"
+fi
+
 # The control plane, and meanwhile what can be built beside it.
 log "starting the control plane (logs/control-plane.log)"
 stack_control_plane_settings() {
   # Anyone signing in locally is let in: no invite step on this machine.
   export IDENTITY_INVITE_ONLY=false
-  # The development catalog, whose simulated services the fake GPUs' development runner can run.
+  # The development catalog, whose simulated services the fake GPUs' development runner can run; with --real-runner, the
+  # real ones, with the digest of the image just pushed (private/local/development-real.yaml).
   export SESSIONS_TEMPLATES_CATALOG="file:$root/templates/development.yaml"
+  if $real_runner; then
+    SESSIONS_TEMPLATES_CATALOG="file:$state/development-real.yaml"
+  fi
   # Origins that may call the API from a browser: the dev server, and the public site's pricing page.
   export WEB_ALLOWED_ORIGINS="http://localhost:$web_port,http://localhost:$site_port"
   if $lan; then

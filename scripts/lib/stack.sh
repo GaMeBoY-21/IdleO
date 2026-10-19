@@ -149,11 +149,12 @@ stack_enrol_agent() {
 }
 
 # Runs agent $1 with a fake GPU and the development runner, in the background; its pid goes to $state/agent-$1.pid.
-# The rest of the arguments are the agent's --fake-gpu options (model, memory, free disk).
+# The rest of the arguments are the agent's --fake-gpu options (model, memory, free disk). With stack_runner set (a real
+# runner's `--container-runner docker:<container>`, ./start.sh --real-runner) the jobs run in real containers instead.
 stack_run_agent() {
   local n="$1"
   shift
-  IDLEO_LOG=info "$agent" --config "$state/agent-$n.toml" run --fake-gpu "$@" --dev-runner >>"$out/agent-$n.log" 2>&1 &
+  IDLEO_LOG=info "$agent" --config "$state/agent-$n.toml" run --fake-gpu "$@" ${stack_runner:---dev-runner} >>"$out/agent-$n.log" 2>&1 &
   echo $! >"$state/agent-$n.pid"
 }
 agent_running() { [[ -f "$state/agent-$1.pid" ]] && kill -0 "$(cat "$state/agent-$1.pid")" 2>/dev/null; }
