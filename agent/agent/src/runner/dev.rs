@@ -35,6 +35,8 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 
 use self::simulate::{Given, GivenFile, Kind, Simulation};
+use jobcore::manifest::Manifest;
+
 use super::{Job, Report, SessionRunner};
 use crate::storage::{ObjectStore, StorageError};
 
@@ -52,18 +54,6 @@ pub struct DevRunner;
 struct State {
     /// Simulated work done so far, across every attempt.
     elapsed_ms: u64,
-}
-
-/// A folder's completion marker: every other file in it, with its size.
-#[derive(Debug, Serialize, Deserialize)]
-struct Manifest {
-    files: Vec<ManifestFile>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ManifestFile {
-    path: String,
-    size: u64,
 }
 
 /// The job's output.
@@ -179,11 +169,11 @@ async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), S
     while elapsed < duration {
         let step = TICK.min(duration.saturating_sub(elapsed)).min(next_checkpoint.saturating_sub(elapsed));
         let started = tokio::time::Instant::now();
-        let asked_to_stop = *stop_requested.borrow_and_update()
+        let asked_to_stop = stop_requested.borrow_and_update().is_some()
             || tokio::select! {
                 () = tokio::time::sleep(step) => false,
                 // A closed channel disables this branch: with nobody left to ask, no stop is coming.
-                Ok(_) = stop_requested.wait_for(|stop| *stop) => true,
+                Ok(_) = stop_requested.wait_for(Option::is_some) => true,
             };
         let before = elapsed;
         elapsed += started.elapsed().min(step);
@@ -400,8 +390,7 @@ async fn resume(store: &dyn ObjectStore, checkpoint: &CheckpointRef) -> Result<D
     let folder = format!("{}{:08}/", checkpoint.prefix, checkpoint.seq);
     let missing = |message: String| Stop::Failed { code: "resume_checkpoint_missing", message };
     let marker = store.get(&format!("{folder}_COMPLETE")).await.map_err(|e| missing(e.to_string()))?;
-    let manifest: Manifest =
-        serde_json::from_slice(&marker).map_err(|e| missing(format!("the checkpoint's manifest is invalid: {e}")))?;
+    let manifest = Manifest::from_slice(&marker).map_err(|e| missing(format!("the checkpoint's {e}")))?;
     let state = store.get(&format!("{folder}state.json")).await.map_err(|e| missing(e.to_string()))?;
     let listed = manifest.files.iter().find(|file| file.path == "state.json");
     if listed.map(|file| file.size) != Some(state.len() as u64) {
@@ -445,8 +434,7 @@ async fn upload(job: &Job, key: &str, body: Vec<u8>) -> Result<(), Stop> {
 
 /// A folder's `_COMPLETE` marker, listing every file in it.
 fn manifest(files: &[(String, Vec<u8>)]) -> Vec<u8> {
-    let files = files.iter().map(|(path, body)| ManifestFile { path: path.clone(), size: body.len() as u64 }).collect();
-    serde_json::to_vec(&Manifest { files }).expect("the manifest serialises")
+    Manifest::of_bodies(files).to_bytes()
 }
 
 fn millis(duration: Duration) -> u64 {
@@ -528,10 +516,15 @@ mod tests {
             read_store,
             resume_from,
             fence: Fence::new(),
-            stop_requested: tokio::sync::watch::channel(false).1,
+            stop_requested: tokio::sync::watch::channel(None).1,
             folder: std::env::temp_dir(),
             inputs: BTreeMap::new(),
             logs: LogWriter::discard(),
+            input_refs: Vec::new(),
+            credentials: None,
+            lease_ttl: Duration::from_secs(120),
+            minute_index_base: 0,
+            gpus: Vec::new(),
         }
     }
 
@@ -628,12 +621,12 @@ mod tests {
     async fn asked_to_stop_it_writes_a_last_checkpoint_with_the_time_so_far_and_stops() {
         let objects = Arc::default();
         let session = Uuid::now_v7();
-        let (stop, stop_requested) = tokio::sync::watch::channel(false);
+        let (stop, stop_requested) = tokio::sync::watch::channel(None);
         let job = Job { stop_requested, ..job(session, 1, &objects, None) };
         let (reports, mut received) = mpsc::unbounded_channel();
         let running = tokio::spawn(DevRunner.run(job, reports));
         tokio::time::sleep(Duration::from_secs(7)).await;
-        stop.send(true).unwrap();
+        stop.send(Some(Duration::from_secs(60))).unwrap();
         running.await.unwrap();
 
         let mut all = Vec::new();
@@ -789,7 +782,7 @@ mod tests {
             .filter_map(|(key, body)| key.strip_prefix(&outputs).map(|path| (path.to_owned(), body.clone())))
             .filter(|(path, _)| path != "_COMPLETE")
             .collect();
-        let manifest: Manifest = serde_json::from_slice(&objects[&format!("{outputs}_COMPLETE")]).unwrap();
+        let manifest = Manifest::from_slice(&objects[&format!("{outputs}_COMPLETE")]).unwrap();
         let listed: BTreeMap<String, u64> = manifest.files.into_iter().map(|file| (file.path, file.size)).collect();
         assert_eq!(
             listed,

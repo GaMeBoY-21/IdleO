@@ -85,7 +85,8 @@ pub struct Host {
     inputs: Arc<dyn MachineInputs>,
     data_dir: PathBuf,
     started: Instant,
-    runner_installed: bool,
+    /// Whether the job runner answers with the sandbox's rules loaded: set when it first does ([`Host::set_runner_installed`]).
+    runner_installed: std::sync::atomic::AtomicBool,
     app_url: Option<String>,
 }
 
@@ -129,9 +130,16 @@ impl Host {
             inputs,
             data_dir,
             started: Instant::now(),
-            runner_installed,
+            runner_installed: std::sync::atomic::AtomicBool::new(runner_installed),
             app_url,
         })
+    }
+
+    /// Whether the job runner is there and ready: the tray's "jobs start when the job runner arrives" line goes when it is.
+    pub fn set_runner_installed(&self, installed: bool) {
+        self.runner_installed.store(installed, std::sync::atomic::Ordering::SeqCst);
+        let inner = self.lock();
+        self.publish(&inner);
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
@@ -150,7 +158,12 @@ impl Host {
     }
 
     fn publish(&self, inner: &Inner) {
-        let next = Self::status_of(inner, self.runner_installed, self.app_url.as_deref(), OffsetDateTime::now_utc());
+        let next = Self::status_of(
+            inner,
+            self.runner_installed.load(std::sync::atomic::Ordering::SeqCst),
+            self.app_url.as_deref(),
+            OffsetDateTime::now_utc(),
+        );
         self.status.send_if_modified(|current| {
             if *current == next {
                 false

@@ -1,0 +1,19 @@
+# What the job image carries for renters' code (agent/images/pytorch/README.md). Resolved, with hashes, into
+# requirements.lock by `./lock.sh`; the image installs only from the lock (`pip install --require-hashes`), so it is the same
+# bytes every build. No model is in here, or ever: renters bring their own (ADR 0022).
+torch==2.11.0+cu128
+transformers
+peft
+trl
+accelerate
+datasets
+bitsandbytes
+safetensors
+sentencepiece
+tokenizers
+numpy
+scipy
+pandas
+scikit-learn
+tqdm
+huggingface_hub

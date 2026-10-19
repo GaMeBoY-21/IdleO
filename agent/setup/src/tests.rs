@@ -230,7 +230,7 @@ async fn after_the_restart_wsl_needed_setup_carries_on_after_wsl() {
 #[tokio::test(start_paused = true)]
 async fn an_old_driver_is_checked_again_every_ten_seconds_and_setup_carries_on_by_itself() {
     let system = laptop();
-    let old = Gpu { driver: "531.79".into(), ..rtx() };
+    let old = Gpu { driver: "522.06".into(), ..rtx() };
     *system.gpus.borrow_mut() = VecDeque::from([vec![old.clone()], vec![old.clone()], vec![old], vec![rtx()]]);
     let (ending, screens) = run(&system, &[FromPage::SetUp, FromPage::Fix], false).await;
     assert_eq!(ending, Ending::Done { pending: true });

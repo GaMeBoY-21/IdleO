@@ -22,6 +22,7 @@ use crate::lease_clock::{LeaseClock, SystemLeaseClock};
 use crate::local::SelfTestFn;
 use crate::owner::SystemOwner;
 use crate::runner::SessionRunner;
+use crate::runner::container::ContainerRunner;
 use crate::runner::dev::DevRunner;
 use crate::self_test::{self, Environment};
 use crate::speed::StorageSpeed;
@@ -113,6 +114,10 @@ enum Command {
         /// Only with --fake-gpu: a real host never runs it. Without a runner the agent declines offers.
         #[arg(long, requires = "fake_gpu")]
         dev_runner: bool,
+        /// Run sessions in real containers, through the job runner of a development distribution: `docker:<container>`
+        /// (see scripts/dev-distro.sh). Only with --fake-gpu: a real host reaches its own distribution through `wsl.exe`.
+        #[arg(long, value_name = "docker:CONTAINER", requires = "fake_gpu", conflicts_with = "dev_runner")]
+        container_runner: Option<String>,
     },
     /// Check this machine can host: our distribution, its lockdown, the GPU inside it and in a container, and the
     /// disk. Exits 0 if every check passed, 9 if one failed.
@@ -166,13 +171,27 @@ pub fn main(args: impl IntoIterator<Item = OsString>) -> ExitCode {
                 link_command(&config, name, api, no_browser, force, fake_gpu.map(|count| (count, model))).await
             }
             Command::Enrol { code, force } => enrol_command(&config, &code, force).await,
-            Command::Run { fake_gpu, fake_gpu_model, fake_gpu_vram_mb, fake_free_disk_mb, dev_runner } => {
+            Command::Run {
+                fake_gpu,
+                fake_gpu_model,
+                fake_gpu_vram_mb,
+                fake_free_disk_mb,
+                dev_runner,
+                container_runner,
+            } => {
                 let defaults = FakeModel::default();
                 let model = FakeModel {
                     name: fake_gpu_model.unwrap_or(defaults.name),
                     vram_mb: fake_gpu_vram_mb.unwrap_or(defaults.vram_mb),
                 };
-                run_command(config, fake_gpu.map(|count| (count, model)), fake_free_disk_mb, dev_runner).await
+                run_command(
+                    config,
+                    fake_gpu.map(|count| (count, model)),
+                    fake_free_disk_mb,
+                    dev_runner,
+                    container_runner,
+                )
+                .await
             }
             Command::SelfTest { quick, json, distro, fake_gpu, facts, storage } => {
                 self_test_command(&config, SelfTestOptions { quick, json, distro, fake: fake_gpu, facts, storage })
@@ -366,22 +385,44 @@ fn owner_host(config: &Config, runner_installed: bool, fake: bool) -> Arc<Host> 
     host
 }
 
+#[allow(clippy::too_many_lines)] // The agent's start-up wiring, in the order things must come up.
 async fn run_command(
     config: Config,
     fake_gpu: Option<(u8, FakeModel)>,
     fake_free_disk_mb: Option<i32>,
     dev_runner: bool,
+    container_runner: Option<String>,
 ) -> ExitCode {
     let fake_gpu_given = fake_gpu.is_some();
     // clap already refuses --dev-runner alone; this keeps the rule even if the parser changes.
     if dev_runner && fake_gpu.is_none() {
         return fail(exit::CONFIG, &"--dev-runner needs --fake-gpu");
     }
+    let containers: Option<Arc<ContainerRunner>> = match container_runner {
+        Some(spec) => {
+            let Some(container) = spec.strip_prefix("docker:").filter(|name| !name.is_empty()) else {
+                return fail(exit::CONFIG, &"--container-runner takes docker:<container>");
+            };
+            if !fake_gpu_given {
+                return fail(exit::CONFIG, &"--container-runner needs --fake-gpu");
+            }
+            tracing::warn!(
+                container,
+                "running sessions in containers of a development distribution, as asked by --container-runner"
+            );
+            Some(Arc::new(ContainerRunner::docker(container)))
+        }
+        // A real host on Windows: its own distribution, through wsl.exe (ADR 0035).
+        None if !fake_gpu_given && !dev_runner && cfg!(windows) => Updater::current_distro(&Layout::for_user())
+            .and_then(|version| ContainerRunner::wsl(&idleo_release::manifest::distro_name(&version)).ok())
+            .map(Arc::new),
+        None => None,
+    };
     let runner: Option<Arc<dyn SessionRunner>> = if dev_runner {
         tracing::warn!("running sessions with the development runner, as asked by --dev-runner");
         Some(Arc::new(DevRunner))
     } else {
-        None
+        containers.clone().map(|runner| runner as Arc<dyn SessionRunner>)
     };
     let gpus: Arc<dyn GpuSource> = match fake_gpu {
         Some((count, model)) => {
@@ -415,7 +456,26 @@ async fn run_command(
         std::process::exit(0);
     });
     let fake = fake_gpu_given;
-    let host = owner_host(&config, runner.is_some(), fake);
+    // A container runner counts as installed once it has answered with the sandbox's rules loaded, not before.
+    let host = owner_host(&config, runner.is_some() && containers.is_none(), fake);
+    if let Some(containers) = containers.clone() {
+        let host = Arc::clone(&host);
+        tokio::spawn(async move {
+            for attempt in 1..=6_u64 {
+                match containers.hello().await {
+                    Ok(hello) if hello.rules_loaded => {
+                        tracing::info!(runner = %hello.runner_version, distro = %hello.distro_version, gpu = hello.gpu, "the job runner answers with the sandbox's rules loaded");
+                        host.set_runner_installed(true);
+                        return;
+                    }
+                    Ok(_) => tracing::warn!("the job runner answers, but the sandbox's network rules aren't loaded"),
+                    Err(failure) => tracing::warn!(%failure, "the job runner doesn't answer yet"),
+                }
+                tokio::time::sleep(Duration::from_secs(5 * attempt)).await;
+            }
+            host.set_runner_installed(false);
+        });
+    }
     let lease_clock: Arc<dyn LeaseClock> = Arc::new(SystemLeaseClock);
     let http = match crate::storage::http_client() {
         Ok(client) => client,

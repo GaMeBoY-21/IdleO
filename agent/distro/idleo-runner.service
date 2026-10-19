@@ -1,0 +1,13 @@
+[Unit]
+Description=IdleO job runner
+After=containerd.service idleo-sandbox.service idleo-images.service
+# A job never starts without the rules, so the runner doesn't either.
+Requires=containerd.service idleo-sandbox.service
+
+[Service]
+ExecStart=/usr/local/bin/idleo-runner serve
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

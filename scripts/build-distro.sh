@@ -6,6 +6,9 @@
 #   scripts/build-distro.sh              build, using Docker's layer cache
 #   scripts/build-distro.sh --no-cache   build everything again (the reproducibility test does)
 #   scripts/build-distro.sh --out DIR    write the tarball, its checksum and manifest to DIR [default: dist/distro]
+#   scripts/build-distro.sh --dev        only the development stand-in's image (scripts/dev-distro.sh), for linux/arm64 and left
+#                                        in Docker as idleo-distro-dev:<version>: no tarball. amd64 under Rosetta can't run a
+#                                        container inside itself, so a Mac tests the sandbox in the same recipe built natively.
 #
 # The version is agent/distro/VERSION, the one place it is written. The image is also left in Docker as
 # idleo-distro:<version>, which agent/distro/test.sh inspects.
@@ -17,10 +20,12 @@ distro="$root/agent/distro"
 version="$(tr -d '[:space:]' <"$distro/VERSION")"
 [[ -n "$version" ]] || { echo "build-distro: agent/distro/VERSION is empty" >&2; exit 2; }
 cache=()
+dev=false
 out="$root/dist/distro"
 while (($# > 0)); do
   case "$1" in
     --no-cache) cache=(--no-cache) ;;
+    --dev) dev=true ;;
     --out) out="$2"; shift ;;
     *) echo "build-distro: unknown option $1" >&2; exit 2 ;;
   esac
@@ -29,26 +34,42 @@ done
 command -v docker >/dev/null || { echo "build-distro: Docker isn't installed" >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "build-distro: Docker isn't running" >&2; exit 1; }
 
+platform=linux/amd64
 image="idleo-distro:$version"
+if $dev; then
+  platform="linux/$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')"
+  image="idleo-distro-dev:$version"
+fi
 tarball="idleo-distro-$version.tar.gz"
 mkdir -p "$out"
 context="$(mktemp -d)"
 trap 'rm -rf "$context"; docker rm -f "idleo-distro-export-$$" >/dev/null 2>&1 || true' EXIT
 
 # The build context is only what the image copies in, so nothing else in the repository can reach it.
-cp "$distro/Dockerfile" "$distro/wsl.conf" "$distro/verify-lockdown.sh" "$distro/runner-placeholder.sh" \
-  "$distro/import-images.sh" "$distro/idleo-images.service" "$context/"
+cp "$distro/Dockerfile" "$distro/wsl.conf" "$distro/verify-lockdown.sh" "$distro/sandbox.nft" \
+  "$distro/import-images.sh" "$distro/idleo-images.service" "$distro/idleo-sandbox.service" \
+  "$distro/idleo-runner.service" "$context/"
 cp "$root/phase0/wsl/gpu-common.sh" "$context/"
+# idleo-runner is built inside the image from the agent workspace's own source (ADR 0035): the build context holds it and the
+# protocol files its build needs, without build output.
+mkdir -p "$context/agent" "$context/proto"
+rsync -a --exclude target --exclude .git "$root/agent/" "$context/agent/"
+rsync -a --exclude .git "$root/proto/" "$context/proto/"
 
 started=$SECONDS
 # The GPU-check image first, saved as an archive containerd imports (docker save keeps its name).
 gpu_check="docker.io/idleo/gpu-check:local"
-docker buildx build --platform linux/amd64 ${cache[@]+"${cache[@]}"} -f "$distro/gpu-check.Dockerfile" \
+docker buildx build --platform "$platform" ${cache[@]+"${cache[@]}"} -f "$distro/gpu-check.Dockerfile" \
   --tag "$gpu_check" --load "$distro"
 docker save "$gpu_check" -o "$context/gpu-check.tar"
 
-docker buildx build --platform linux/amd64 ${cache[@]+"${cache[@]}"} --build-arg "IDLEO_DISTRO_VERSION=$version" \
+docker buildx build --platform "$platform" ${cache[@]+"${cache[@]}"} --build-arg "IDLEO_DISTRO_VERSION=$version" \
   --tag "$image" --load "$context"
+
+if $dev; then
+  echo "build-distro: $image built for $platform ($((SECONDS - started)) s)"
+  exit 0
+fi
 
 # The root filesystem, as WSL imports it. `docker export` flattens the layers; gzip -n leaves the time out of its header.
 docker create --platform linux/amd64 --name "idleo-distro-export-$$" "$image" /bin/true >/dev/null

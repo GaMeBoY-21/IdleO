@@ -1,0 +1,38 @@
+[package]
+name = "runner"
+description = "idleo-runner: runs each job in a container inside our sealed Linux distribution, and everything that touches the renter's job and data"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "idleo_runner"
+
+[[bin]]
+name = "idleo-runner"
+path = "src/main.rs"
+
+[dependencies]
+agent-proto = { path = "../agent-proto" }
+jobcore = { path = "../jobcore" }
+prost-types = "0.14.4"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+tokio = { version = "1.53.2", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["ansi", "fmt", "std"] }
+uuid = { version = "1.27.0", features = ["v7"] }
+
+# Runs only in our Linux distribution: on Windows the crate is empty, so the workspace still builds and lints there.
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.5", default-features = false, features = ["fs", "std", "process"] }
+
+[dev-dependencies]
+jobcore = { path = "../jobcore", features = ["testing"] }
+tempfile = "3.27.0"
+tokio = { version = "1.53.2", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync", "test-util", "time"] }

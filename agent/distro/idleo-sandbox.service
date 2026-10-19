@@ -1,0 +1,13 @@
+[Unit]
+Description=Load IdleO's sandbox network rules
+Documentation=file:///usr/local/share/idleo/sandbox.nft
+Before=idleo-runner.service
+After=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/idleo-runner load-rules
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

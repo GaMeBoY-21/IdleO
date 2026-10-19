@@ -144,6 +144,126 @@ templates:
     budget_chips: [5000, 10000, 50000]
     default_budget: 10000
     you_get: whatever your code writes to outputs/
+  # The real jobs (ADR 0035), in the job image of agent/images/pytorch, run by idleo-runner in a real container. The image is
+  # the development variant (linux/arm64, CPU PyTorch) on the local registry; its digest below is a placeholder that
+  # scripts/images/publish.sh --dev replaces, in the stack's own copy of this file (private/local/development.yaml), with the
+  # digest of what it pushed. Lines marked `# dev-only` aren't in the production catalog: scripts/images/publish.sh drops them
+  # when it copies the BEGIN/END block there. The limits are the technical design's sandbox ("Sandbox configuration") for the
+  # smallest GPU class.
+  # BEGIN real-templates
+  - id: fine-tune-qlora
+    service: fine-tune
+    name: Fine-tune your model
+    description: Bring your model and your examples; you get back a LoRA adapter for your model, trained with QLoRA.
+    image: registry.idleo.test:5000/idleo/pytorch@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    args: ["/opt/idleo/finetune.py", "--test-cpu"] # dev-only
+    min_vram_mb: 6144
+    typical_runtime: 45m
+    default_max_runtime: 3h
+    max_runtime_cap: 12h
+    memory_mb: 12288
+    cpu_millicores: 6000
+    pids_limit: 512
+    scratch_mb: 40960
+    checkpoint_interval: 20s # dev-only
+    inputs:
+      - name: model
+        label: Your model
+        help: Upload the model folder from your laptop, pick it from My files, or paste a Hugging Face link.
+        kind: folder
+        accepts: [upload, link]
+        required: true
+        max_size_gb: 40
+      - name: data
+        label: Your training data
+        help: A JSONL file, one example a line.
+        kind: file
+        accepts: [upload, link]
+        required: true
+        max_size_gb: 10
+    questions:
+      - preset: thoroughness
+        label: How thorough?
+        options:
+          - { id: quick, label: Quick, minutes: 15, sets: { epochs: 1 } }
+          - { id: standard, label: Standard, minutes: 45, sets: { epochs: 3 } }
+          - { id: thorough, label: Thorough, minutes: 75, sets: { epochs: 5 } }
+        default: standard
+    params:
+      - name: epochs
+        label: Epochs
+        help: How many times training goes through your examples.
+        type: integer
+        group: advanced
+        default: 3
+        min: 1
+        max: 5
+      - name: learning_rate
+        label: Learning rate
+        help: How big each training step is.
+        type: number
+        group: advanced
+        default: 0.0002
+        min: 0.000001
+        max: 0.01
+      - name: lora_rank
+        label: LoRA rank
+        help: A higher rank learns more, and makes a bigger adapter.
+        type: choice
+        group: advanced
+        default: "16"
+        choices: ["8", "16", "32"]
+    budget_chips: [5000, 10000, 50000]
+    default_budget: 10000
+    vram_from_input: { input: model, base_mb: 2048, per_gb_mb: 700 }
+    you_get: adapter_model.safetensors and its training log
+  - id: run-your-code
+    service: run-code
+    name: Run your Python project
+    description: Bring your project folder; we run your command on a GPU and you get back what it writes to outputs/.
+    image: registry.idleo.test:5000/idleo/pytorch@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    args: ["/opt/idleo/run.sh"]
+    min_vram_mb: 4096
+    typical_runtime: 30m
+    default_max_runtime: 3h
+    max_runtime_cap: 12h
+    memory_mb: 12288
+    cpu_millicores: 6000
+    pids_limit: 512
+    scratch_mb: 20480
+    checkpoint_interval: 20s # dev-only
+    inputs:
+      - name: code
+        label: Your code
+        help: Your project folder, or a zip of it. Anything it writes to outputs/ comes back to you.
+        kind: folder
+        accepts: [upload]
+        required: true
+        max_size_gb: 10
+      - name: data
+        label: Your data
+        help: A folder your code reads, if it needs one.
+        kind: folder
+        accepts: [upload]
+        max_size_gb: 40
+    questions:
+      - param: command
+      - gpu_memory: true
+        label: GPU memory you need
+        choices_gb: [8, 12, 16, 24]
+        default_gb: 8
+    params:
+      - name: command
+        label: Command
+        help: What to run, from the top of your folder.
+        type: string
+        group: basic
+        default: python main.py
+        max_length: 500
+    budget_chips: [5000, 10000, 50000]
+    default_budget: 10000
+    you_get: whatever your code writes to outputs/
+  # END real-templates
   - id: cuda-smoke-test
     service: developer-tests
     name: CUDA smoke test (development runner)

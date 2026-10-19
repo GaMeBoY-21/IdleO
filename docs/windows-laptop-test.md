@@ -11,7 +11,7 @@ reports lands in the Mac's database, so there's nothing to copy off the laptop.
 3. On the Mac, sign in at http://localhost:3000 as nikki@example.com. Leave that browser open: approvals happen here,
    because the laptop's browser can't sign in over plain `http`.
 
-The laptop needs Windows 10 22H2 or 11, an NVIDIA RTX GPU with at least 8 GB, a driver of 536.25 or newer, and 60 GB
+The laptop needs Windows 10 22H2 or 11, an NVIDIA RTX GPU with at least 8 GB, a driver of 527.41 or newer, and 60 GB
 free.
 
 ## Install (target: under 5 minutes, 3 clicks)

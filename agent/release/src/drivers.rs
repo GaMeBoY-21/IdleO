@@ -1,14 +1,20 @@
 //! The NVIDIA driver the sealed Linux image's CUDA needs on Windows.
 
-/// The oldest NVIDIA Windows driver we accept: the R535 branch's, 536.25.
+/// The oldest NVIDIA Windows driver we accept: 527.41, the one CUDA 12.0 GA needs.
 ///
-/// Source: NVIDIA's CUDA Toolkit release notes (<https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/>), table
-/// "CUDA Toolkit and Corresponding Driver Versions": CUDA 12.2 GA needs a Windows driver of at least 536.25 (CUDA
-/// 12.0 GA, 527.41). WSL 2 uses the Windows driver; NVIDIA's CUDA on WSL User Guide says never to install a Linux
-/// driver inside the distribution. TODO(confirm): the distro carries no CUDA toolkit of its own yet (the NVIDIA
-/// container toolkit injects the driver's `nvidia-smi` and libraries), so no CUDA version pins this; confirm it when
-/// the real runner fixes the CUDA version. Until then it is the documented R535 minimum.
-pub const MIN_NVIDIA_DRIVER: &str = "536.25";
+/// The job image (`agent/images/pytorch/`) is built on CUDA 12.8.1 with `PyTorch`'s cu128 wheels, chosen because CUDA 12.8 is
+/// the first with Blackwell (RTX 50, `sm_120`) support, and because every CUDA 12.x application runs on any driver from the
+/// CUDA 12.0 release on, by minor version compatibility: NVIDIA's CUDA Compatibility guide, "Minor Version Compatibility"
+/// (<https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html>), lists CUDA 12.x as needing a
+/// driver of at least 525; the CUDA Toolkit release notes' table "CUDA Toolkit and Corresponding Driver Versions"
+/// (<https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/>) gives CUDA 12.0 GA as 525.60.13 on Linux and 527.41 on
+/// Windows, and CUDA 12.8 GA as 570.26 and 570.65. WSL 2 uses the Windows driver; NVIDIA's CUDA on WSL User Guide says never
+/// to install a Linux driver inside the distribution. So 527.41 is the floor for every GPU older than Blackwell, whose
+/// laptops ship drivers of 570 or newer anyway. The guide's caveats apply below 570.65: code that needs PTX compiled by the
+/// driver fails, and a feature that spans the toolkit and driver can answer `cudaErrorCallRequiresNewerDriver`; the
+/// `PyTorch` wheels carry precompiled code for every GPU generation they support, so neither is expected, and the laptop day
+/// is where a driver this old is first proven.
+pub const MIN_NVIDIA_DRIVER: &str = "527.41";
 
 /// Whether `driver` (for example `572.16`) is at least [`MIN_NVIDIA_DRIVER`]. Unreadable versions fail.
 #[must_use]
@@ -33,9 +39,10 @@ mod tests {
     #[test]
     fn compares_major_then_minor() {
         assert!(is_supported("572.16"));
+        assert!(is_supported("527.41"));
         assert!(is_supported("536.25"));
-        assert!(!is_supported("536.19"));
-        assert!(!is_supported("531.79"));
+        assert!(!is_supported("527.40"));
+        assert!(!is_supported("522.06"));
         assert!(is_supported("600"));
         assert!(!is_supported("unknown"));
     }

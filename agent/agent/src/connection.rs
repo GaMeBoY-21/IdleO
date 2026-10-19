@@ -260,6 +260,14 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
         options.data_dir.join("work"),
     )
     .map_err(RunError::Sessions)?;
+    // A job keeps running in its runner when the agent restarts (ADR 0035): pick those up before the first connection, so
+    // `Hello.running_sessions` tells the control plane the truth and the lease is renewed again.
+    if let Some(runner) = &options.runner {
+        let adopted = runner.adopt().await;
+        if !adopted.is_empty() {
+            sessions.lock().adopt(adopted);
+        }
+    }
     let supervising = AbortOnDrop(tokio::spawn(supervisor::supervise(
         sessions.clone(),
         reports,

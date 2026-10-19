@@ -1,0 +1,86 @@
+# What a job's container may reach (ADR 0035; docs/plan/technical-design.md "Sandbox configuration"): the one rules file.
+#
+# `idleo-runner load-rules` (run by idleo-sandbox.service before idleo-runner starts) loads it, with @HASH@ replaced by the
+# SHA-256 of this text, and the runner re-checks the table's comment against its own copy of the text before every
+# container start: it never runs a job without these rules.
+#
+# Each session has its own bridge, named idl<N> and numbered from 172.30.<N>.0/24. The rules work by destination, so they
+# hold whatever WSL's networking mode is.
+#
+#  - Nothing a job starts may reach a private, link-local, carrier-grade NAT, loopback, multicast or reserved address,
+#    the default gateway (in WSL's NAT mode that is Windows itself) or one of this distribution's own addresses, and
+#    nothing reaches this machine at all, its own bridge's address included.
+#  - The only way out is DNS to the public resolvers named below, and TCP 80 and 443 to public addresses. Replies to
+#    allowed connections pass. Everything else is dropped.
+#  - No IPv6, and nothing starts a connection to a job.
+
+table inet idleo
+delete table inet idleo
+
+table inet idleo {
+    comment "idleo-sandbox @HASH@"
+
+    # Ranges no job may reach, whatever a laptop's network is.
+    set blocked_v4 {
+        type ipv4_addr
+        flags interval
+        elements = {
+            0.0.0.0/8,
+            10.0.0.0/8,
+            100.64.0.0/10,
+            127.0.0.0/8,
+            169.254.0.0/16,
+            172.16.0.0/12,
+            192.168.0.0/16,
+            224.0.0.0/4,
+            240.0.0.0/4
+        }
+    }
+
+    # The default gateway and this distribution's own addresses, whatever they are now: the runner refreshes it before
+    # every container start. Private ones are blocked above already; this covers a public address in mirrored mode.
+    set blocked_extra_v4 {
+        type ipv4_addr
+        flags interval
+    }
+
+    # The only DNS servers a job may ask: public, never the gateway's.
+    set resolvers_v4 {
+        type ipv4_addr
+        elements = { 1.0.0.1, 1.1.1.1, 8.8.4.4, 8.8.8.8 }
+    }
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+        iifname "idl*" drop
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy accept;
+        oifname "idl*" ct state new drop
+        iifname "idl*" jump session
+    }
+
+    chain session {
+        ct state established,related accept
+        meta nfproto ipv6 drop
+        ip daddr @blocked_v4 drop
+        ip daddr @blocked_extra_v4 drop
+        ip daddr @resolvers_v4 udp dport 53 accept
+        ip daddr @resolvers_v4 tcp dport 53 accept
+        tcp dport { 80, 443 } accept
+        drop
+    }
+}
+
+table ip idleo_nat
+delete table ip idleo_nat
+
+table ip idleo_nat {
+    comment "idleo-sandbox @HASH@"
+
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        ip saddr 172.30.0.0/16 oifname != "idl*" masquerade
+    }
+}

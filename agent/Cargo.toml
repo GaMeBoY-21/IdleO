@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["agent", "agent-proto", "agent-windows", "brand", "jobcore", "launcher", "release", "setup", "tray"]
+members = ["agent", "agent-proto", "agent-windows", "brand", "jobcore", "launcher", "release", "runner", "setup", "tray"]
 
 [workspace.package]
 version = "0.1.0"

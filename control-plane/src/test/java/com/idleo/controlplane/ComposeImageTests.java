@@ -19,5 +19,7 @@ class ComposeImageTests {
         assertThat(compose).contains("image: " + TestStorageConfiguration.MINIO_IMAGE);
         // The mail catcher is development only, so no test starts it: its image is pinned by digest all the same.
         assertThat(compose).containsPattern("image: axllent/mailpit:v[0-9.]+@sha256:[0-9a-f]{64}");
+        // So is the development image registry (ADR 0035).
+        assertThat(compose).containsPattern("image: registry:2@sha256:[0-9a-f]{64}");
     }
 }

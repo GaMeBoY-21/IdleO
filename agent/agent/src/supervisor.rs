@@ -42,9 +42,9 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use crate::lease_clock::LeaseClock;
-use crate::logs::{self, LogEvent};
+use crate::logs::{self, LogEvent, LogWriter};
 use crate::new_message_id;
-use crate::runner::{Fence, Job, Report, SessionRunner};
+use crate::runner::{Adopted, Fence, Job, Report, SessionRunner};
 use crate::staging;
 use crate::storage::{Grant, ObjectStore, S3Store};
 
@@ -108,7 +108,7 @@ struct Attempt {
     /// Whole minutes already reported.
     minutes_reported: i32,
     /// Tells the runner to checkpoint and stop.
-    stop_signal: Option<watch::Sender<bool>>,
+    stop_signal: Option<watch::Sender<Option<Duration>>>,
     /// A checkpoint-first stop under way: when its grace ends on the lease clock, and why it was asked.
     stopping: Option<(Duration, String)>,
     /// The job's storage, attempt and read, whose grants `RefreshCredentials` replaces.
@@ -327,6 +327,7 @@ impl Supervisor {
         Some(ack(message_id))
     }
 
+    #[allow(clippy::too_many_lines)] // One list of checks on a StartSession, then the attempt: clearer whole than split.
     fn launch(&mut self, session_id: Uuid, start: StartSession, received_at: Duration) -> Result<(), String> {
         let (Some(runner), Some(http)) = (self.runner.clone(), self.http.clone()) else {
             return Err("this agent has no session runner".to_owned());
@@ -375,15 +376,24 @@ impl Supervisor {
         let attempt_store: Arc<dyn ObjectStore> = Arc::clone(&attempt_s3) as Arc<dyn ObjectStore>;
         let read_store = read_s3.clone().map(|store| store as Arc<dyn ObjectStore>);
         let fence = Fence::new();
-        let (stop_signal, stop_requested) = watch::channel(false);
+        let (stop_signal, stop_requested) = watch::channel(None);
         let (logs_finish, finish_logs) = watch::channel(false);
         let (number, reports) = (start.attempt, self.reports.clone());
-        let (logs, sink) =
-            logs::spawn(Arc::clone(&attempt_store), format!("{attempt_prefix}logs/"), finish_logs, move |event| {
-                let _ = reports.send(Tagged { session_id, attempt: number, reported: Reported::Logs(event) });
-            });
+        // A runner that owns the logs (the container runner) uploads them where the job runs and reports them itself.
+        let owns_logs = runner.owns_logs();
+        let (logs, sink) = if owns_logs {
+            drop(finish_logs);
+            (LogWriter::discard(), None)
+        } else {
+            let (logs, sink) =
+                logs::spawn(Arc::clone(&attempt_store), format!("{attempt_prefix}logs/"), finish_logs, move |event| {
+                    let _ = reports.send(Tagged { session_id, attempt: number, reported: Reported::Logs(event) });
+                });
+            (logs, Some(sink))
+        };
         let folder = self.work_root.join(format!("{session_id}-{}", start.attempt));
-        let staging = (!start.inputs.is_empty()).then(|| start.inputs.clone()).zip(read_store.clone());
+        let staging =
+            (!start.inputs.is_empty() && !runner.stages_inputs()).then(|| start.inputs.clone()).zip(read_store.clone());
         let job = Job {
             session_id,
             attempt: start.attempt,
@@ -397,6 +407,11 @@ impl Supervisor {
             folder: folder.clone(),
             inputs: BTreeMap::new(),
             logs,
+            input_refs: start.inputs.clone(),
+            credentials: Some(credentials),
+            lease_ttl,
+            minute_index_base,
+            gpus: start.gpu_uuids.clone(),
         };
         let tasks = spawn(runner, job, staging, self.reports.clone());
         self.attempts.insert(
@@ -417,8 +432,8 @@ impl Supervisor {
                 stopping: None,
                 stores: Some((attempt_s3, read_s3)),
                 latest_log_seq: 0,
-                logs_finish: Some(logs_finish),
-                sink: Some(sink.abort_handle()),
+                logs_finish: (!owns_logs).then_some(logs_finish),
+                sink: sink.map(|sink| sink.abort_handle()),
                 pending_end: None,
                 folder: Some(folder),
             },
@@ -438,6 +453,9 @@ impl Supervisor {
         match self.attempts.get_mut(&session_id) {
             Some(attempt) if attempt.number == renew.attempt && attempt.is_live() => {
                 attempt.deadline = attempt.deadline.max(received_at + ttl);
+                if let Some(runner) = &self.runner {
+                    runner.renew(session_id, attempt.number, attempt.deadline.saturating_sub(received_at));
+                }
             }
             _ => {
                 tracing::debug!(%session_id, attempt = renew.attempt, "ignored a renewal for an attempt not running here");
@@ -471,7 +489,7 @@ impl Supervisor {
                 if let Some(attempt) = self.attempts.get_mut(&session_id) {
                     attempt.stopping = Some((deadline, reason.to_owned()));
                     if let Some(signal) = &attempt.stop_signal {
-                        let _ = signal.send(true);
+                        let _ = signal.send(Some(grace));
                     }
                 }
                 tracing::info!(%session_id, attempt = stop.attempt, reason, ?grace, "stopping an attempt after a checkpoint");
@@ -498,7 +516,7 @@ impl Supervisor {
             }
             attempt.stopping = Some((deadline, OWNER_RETURNED.to_owned()));
             if let Some(signal) = &attempt.stop_signal {
-                let _ = signal.send(true);
+                let _ = signal.send(Some(grace));
             }
             tracing::info!(%session_id, attempt = attempt.number, ?grace, "the owner is back: stopping after a checkpoint");
             stopping += 1;
@@ -538,7 +556,12 @@ impl Supervisor {
             Ok::<(), String>(())
         })();
         match result {
-            Ok(()) => tracing::info!(%session_id, attempt = refresh.attempt, "storage credentials refreshed"),
+            Ok(()) => {
+                if let (Some(runner), Some(credentials)) = (&self.runner, &refresh.credentials) {
+                    runner.refresh(session_id, refresh.attempt, credentials);
+                }
+                tracing::info!(%session_id, attempt = refresh.attempt, "storage credentials refreshed");
+            }
             Err(reason) => tracing::warn!(%session_id, %reason, "refused fresh credentials; keeping the current ones"),
         }
         Some(ack(message_id))
@@ -571,6 +594,53 @@ impl Supervisor {
     pub fn unsend_all(&mut self) {
         for queued in &mut self.outbox {
             queued.sent_at = None;
+        }
+    }
+
+    /// Picks up attempts that outlived the agent: a job keeps running in its runner when the agent restarts (ADR 0035), and
+    /// the agent that comes back supervises it again, so its lease is renewed, its stop heard and its end reported. What it
+    /// can't know it's careful with: the minutes that passed while no agent was there to report them are never reported
+    /// (a minute only one witness saw is never charged), and the lease and runtime are what the runner says are left.
+    pub fn adopt(&mut self, adopted: Vec<Adopted>) {
+        let now = self.clock.now();
+        for found in adopted {
+            if self.attempts.get(&found.session_id).is_some_and(Attempt::is_live) {
+                continue;
+            }
+            let (stop_signal, stop_requested) = watch::channel(None);
+            let fence = Fence::new();
+            let started = found.running_for > Duration::ZERO
+                || matches!(found.state, SessionState::Running | SessionState::Uploading);
+            let minutes_done = i32::try_from(found.running_for.as_secs() / 60).unwrap_or(i32::MAX);
+            let (sender, receiver) = mpsc::unbounded_channel();
+            let watching = tokio::spawn((found.watching)(sender, stop_requested, fence.clone()));
+            let mut tasks = vec![watching.abort_handle()];
+            tasks.extend(forward(found.session_id, found.attempt, watching, receiver, self.reports.clone()));
+            tracing::info!(session_id = %found.session_id, attempt = found.attempt, state = ?found.state, "picked up an attempt that outlived the agent");
+            self.attempts.insert(
+                found.session_id,
+                Attempt {
+                    number: found.attempt,
+                    deadline: now + found.lease_remaining,
+                    runtime_cap: now + found.runtime_remaining,
+                    fence,
+                    tasks,
+                    state: found.state,
+                    latest_seq: found.latest_checkpoint_seq,
+                    minute_index_base: found.minute_index_base,
+                    gpus: found.gpus,
+                    running_since: started.then(|| now.saturating_sub(found.running_for)),
+                    minutes_reported: minutes_done,
+                    stop_signal: Some(stop_signal),
+                    stopping: None,
+                    stores: None,
+                    latest_log_seq: found.latest_log_seq,
+                    logs_finish: None,
+                    sink: None,
+                    pending_end: None,
+                    folder: None,
+                },
+            );
         }
     }
 
@@ -670,8 +740,12 @@ impl Supervisor {
     }
 
     /// What a runner reported. Anything about an attempt that has ended, or been replaced, is dropped.
-    fn apply(&mut self, tagged: Tagged) {
+    fn apply(&mut self, mut tagged: Tagged) {
         self.check_deadlines();
+        // A runner that owns the logs reports them as reports; they're the same thing the supervisor's own sink says.
+        if let Reported::Report(Report::Logs(event)) = tagged.reported {
+            tagged.reported = Reported::Logs(event);
+        }
         let Some(attempt) = self.attempts.get_mut(&tagged.session_id) else { return };
         if attempt.number != tagged.attempt {
             return;
@@ -720,7 +794,7 @@ impl Supervisor {
                 };
                 self.end(tagged.session_id, SessionState::Failed, Some((code, message)), None);
             }
-            Reported::Logs(_) => unreachable!("handled above"),
+            Reported::Logs(_) | Reported::Report(Report::Logs(_)) => unreachable!("handled above"),
         }
     }
 
@@ -799,8 +873,8 @@ fn spawn(
     reports: mpsc::UnboundedSender<Tagged>,
 ) -> Vec<AbortHandle> {
     let (session_id, attempt) = (job.session_id, job.attempt);
-    let (sender, mut receiver) = mpsc::unbounded_channel();
-    let mut work: JoinHandle<()> = match staging {
+    let (sender, receiver) = mpsc::unbounded_channel();
+    let work: JoinHandle<()> = match staging {
         None => tokio::spawn(runner.run(job, sender)),
         Some((inputs, store)) => tokio::spawn(async move {
             let _ = sender.send(Report::State(SessionState::Preparing));
@@ -816,6 +890,19 @@ fn spawn(
         }),
     };
     let work_handle = work.abort_handle();
+    let mut tasks = forward(session_id, attempt, work, receiver, reports);
+    tasks.insert(0, work_handle);
+    tasks
+}
+
+/// Forwards what a job reports to the supervisor, tagged with its attempt, then says the job's task ended.
+fn forward(
+    session_id: Uuid,
+    attempt: i32,
+    mut work: JoinHandle<()>,
+    mut receiver: mpsc::UnboundedReceiver<Report>,
+    reports: mpsc::UnboundedSender<Tagged>,
+) -> Vec<AbortHandle> {
     let tag = move |reported| Tagged { session_id, attempt, reported };
     let watcher = tokio::spawn(async move {
         loop {
@@ -834,7 +921,7 @@ fn spawn(
             }
         }
     });
-    vec![work_handle, watcher.abort_handle()]
+    vec![watcher.abort_handle()]
 }
 
 /// A protobuf duration that's present and above zero.
@@ -868,7 +955,7 @@ mod tests {
     #[derive(Default)]
     struct FakeRunner {
         started: Mutex<Vec<(Fence, mpsc::UnboundedSender<Report>)>>,
-        stops: Mutex<Vec<watch::Receiver<bool>>>,
+        stops: Mutex<Vec<watch::Receiver<Option<Duration>>>>,
     }
 
     impl SessionRunner for FakeRunner {
@@ -1261,7 +1348,7 @@ mod tests {
 
         setup.shared.lock().stop("m2", &stop_after_checkpoint(session, "s1"));
 
-        assert!(*setup.runner.stops.lock().unwrap()[0].borrow(), "the runner was asked");
+        assert!(setup.runner.stops.lock().unwrap()[0].borrow().is_some(), "the runner was asked");
         assert_eq!(setup.shared.lock().running().len(), 1, "still running while it checkpoints");
         let reports = setup.runner.started.lock().unwrap()[0].1.clone();
         reports.send(Report::Checkpoint(3)).unwrap();
@@ -1281,7 +1368,10 @@ mod tests {
 
         assert_eq!(setup.shared.lock().owner_stop(OWNER_STOP_GRACE), 1);
         assert_eq!(setup.shared.lock().owner_stop(OWNER_STOP_GRACE), 0, "already stopping");
-        assert!(*setup.runner.stops.lock().unwrap()[0].borrow(), "the runner was asked to checkpoint and stop");
+        assert!(
+            setup.runner.stops.lock().unwrap()[0].borrow().is_some(),
+            "the runner was asked to checkpoint and stop"
+        );
         let reports = setup.runner.started.lock().unwrap()[0].1.clone();
         reports.send(Report::Checkpoint(4)).unwrap();
         reports.send(Report::Stopped).unwrap();
