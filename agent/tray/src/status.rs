@@ -1,7 +1,7 @@
 //! What the tray says, as pure functions of the agent's status (ADR 0033): the first line of the menu, the tooltip,
 //! the icon's colour and "Earned today". Each is tested for every state.
 
-use idleo_release::channel::{LinkState, Reason, State, Status, UpdatePhase};
+use idleo_release::channel::{LinkState, Prefetch, Reason, State, Status, UpdatePhase};
 use time::{OffsetDateTime, UtcOffset};
 
 /// The icon's colour.
@@ -73,9 +73,26 @@ pub fn line(status: Option<&Status>, offset: UtcOffset) -> String {
         State::Available => {}
     }
     if !status.runner_installed {
-        return "Linked · renters' jobs start when the job runner arrives in an update".to_owned();
+        return "Linked · getting the job runner ready".to_owned();
     }
-    "Ready for renters".to_owned()
+    match status.prefetch {
+        Some(Prefetch::Downloading { done_bytes, total_bytes, .. }) => {
+            let done = gigabytes(done_bytes);
+            if total_bytes > 0 {
+                format!("Getting ready for renters · {done} of {} GB", gigabytes(total_bytes))
+            } else {
+                format!("Getting ready for renters · {done} GB downloaded")
+            }
+        }
+        Some(Prefetch::WaitingForUnmetered) => "Waiting for an unmetered connection to download".to_owned(),
+        None => "Ready for renters".to_owned(),
+    }
+}
+
+/// Bytes as gigabytes with one decimal, decimal gigabytes like the disk sizes the owner sees ("2.1", "7.8").
+fn gigabytes(bytes: u64) -> String {
+    let tenths = (bytes + 50_000_000) / 100_000_000;
+    format!("{}.{}", tenths / 10, tenths % 10)
 }
 
 /// The tooltip: the same line, starting "Dev · " in a development build.
@@ -185,6 +202,7 @@ pub(crate) mod tests {
             dev_build: false,
             auto_pause: AutoPause::default(),
             app_url: Some("http://192.168.1.20:3000".to_owned()),
+            prefetch: None,
         }
     }
 
@@ -240,10 +258,37 @@ pub(crate) mod tests {
             ),
             (Status { server_reachable: false, ..ready() }, "Can't reach IdleO · trying again", Colour::Apricot),
             (
-                Status { runner_installed: false, ..ready() },
-                "Linked · renters' jobs start when the job runner arrives in an update",
+                Status {
+                    prefetch: Some(Prefetch::Downloading {
+                        done_bytes: 2_100_000_000,
+                        total_bytes: 7_800_000_000,
+                        image: 1,
+                        images: 2,
+                    }),
+                    ..ready()
+                },
+                "Getting ready for renters · 2.1 of 7.8 GB",
                 Colour::Green,
             ),
+            (
+                Status {
+                    prefetch: Some(Prefetch::Downloading {
+                        done_bytes: 2_140_000_000,
+                        total_bytes: 0,
+                        image: 1,
+                        images: 1,
+                    }),
+                    ..ready()
+                },
+                "Getting ready for renters · 2.1 GB downloaded",
+                Colour::Green,
+            ),
+            (
+                Status { prefetch: Some(Prefetch::WaitingForUnmetered), ..ready() },
+                "Waiting for an unmetered connection to download",
+                Colour::Green,
+            ),
+            (Status { runner_installed: false, ..ready() }, "Linked · getting the job runner ready", Colour::Green),
             (
                 Status { link_state: LinkState::Removed, ..ready() },
                 "This laptop was removed from IdleO · uninstall the app",

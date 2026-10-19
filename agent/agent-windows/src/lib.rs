@@ -7,6 +7,7 @@
 //!   signed-in owner, applied atomically at creation, for `host.key`.
 //! - `session`: the owner's SID, whether a game or full-screen app is open (`SHQueryUserNotificationState`), the power
 //!   line (`GetSystemPowerStatus`), and whether firmware virtualization is on.
+//! - `network`: whether the internet connection is metered (the `WinRT` `NetworkInformation` API, which needs no `unsafe`).
 //! - [`registry`]: `HKEY_CURRENT_USER` only: the Run, RunOnce and Uninstall entries.
 //! - `shell`: the Start-menu shortcut, a message box, the uninstaller's task dialogs, and the local channel's named pipe
 //!   whose access list allows only the owner and SYSTEM.
@@ -21,6 +22,9 @@ mod windows;
 mod session;
 
 #[cfg(windows)]
+mod network;
+
+#[cfg(windows)]
 #[allow(unsafe_code)] // See the crate docs.
 pub mod registry;
 
@@ -28,6 +32,8 @@ pub mod registry;
 #[allow(unsafe_code)] // See the crate docs.
 mod shell;
 
+#[cfg(windows)]
+pub use crate::network::connection_is_metered;
 #[cfg(windows)]
 pub use crate::session::{ac_line_status, current_user_sid, user_notification_state, virtualization_enabled};
 #[cfg(windows)]

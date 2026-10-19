@@ -108,6 +108,10 @@ pub trait SessionRunner: Send + Sync {
         false
     }
 
+    /// An offer was accepted: get ready for its `StartSession`, which comes in a moment (the container runner starts a
+    /// stopped distribution, so the job's first line isn't waiting on a cold start).
+    fn warm(&self) {}
+
     /// The control plane renewed an attempt's lease: it may run `ttl` more from now.
     fn renew(&self, _session_id: Uuid, _attempt: i32, _ttl: Duration) {}
 

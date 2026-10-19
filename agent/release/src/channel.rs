@@ -146,6 +146,25 @@ pub enum UpdatePhase {
     Installing,
 }
 
+/// Where the download of job images stands, while there's one to do (ADR 0035).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum Prefetch {
+    /// Downloading the images renters' jobs run in, one at a time.
+    Downloading {
+        /// Bytes downloaded so far of the image being fetched.
+        done_bytes: u64,
+        /// Its size in bytes; 0 while that isn't known.
+        total_bytes: u64,
+        /// Which image this is, from 1.
+        image: u32,
+        /// How many there are to fetch in all.
+        images: u32,
+    },
+    /// Not downloading, because the connection is metered: the owner's data allowance is theirs.
+    WaitingForUnmetered,
+}
+
 /// Everything the tray shows, pushed on every change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)] // Facts the tray reads, each its own, not mode flags.
@@ -180,6 +199,9 @@ pub struct Status {
     pub auto_pause: AutoPause,
     /// The web app, where the tray's Open dashboard goes; none if the agent's config doesn't say.
     pub app_url: Option<String>,
+    /// The job images being downloaded in the background, if any.
+    #[serde(default)]
+    pub prefetch: Option<Prefetch>,
 }
 
 /// One self-test check, for the tray.
@@ -447,6 +469,7 @@ mod tests {
             dev_build: true,
             auto_pause: AutoPause::default(),
             app_url: Some("http://192.168.1.20:3000".to_owned()),
+            prefetch: None,
         }
     }
 

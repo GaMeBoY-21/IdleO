@@ -219,6 +219,7 @@ mod tests {
             dev_build: true,
             auto_pause: AutoPause::default(),
             app_url: None,
+            prefetch: None,
         }
     }
 

@@ -215,6 +215,64 @@ impl ContainerRunner {
     }
 }
 
+/// The distribution as care (care.rs) sees it: the runner downloads images, and, on a laptop, `wsl --terminate` stops it.
+pub struct RunnerDistribution {
+    runner: Arc<ContainerRunner>,
+    /// What stops the distribution when it's idle; none where it isn't ours to stop (the development stand-in).
+    stop: Option<Arc<dyn Fn() + Send + Sync>>,
+}
+
+impl RunnerDistribution {
+    /// Care's view of `runner`'s distribution.
+    #[must_use]
+    pub fn new(runner: Arc<ContainerRunner>, stop: Option<Arc<dyn Fn() + Send + Sync>>) -> Self {
+        Self { runner, stop }
+    }
+
+    /// Stops the distribution named `distro`, one of ours, the way `wsl --terminate` does.
+    ///
+    /// # Errors
+    /// If it isn't one of ours.
+    pub fn terminate(distro: &str) -> Result<Arc<dyn Fn() + Send + Sync>, String> {
+        if !distro.starts_with(idleo_release::wsl::DISTRO_PREFIX)
+            || distro.len() <= idleo_release::wsl::DISTRO_PREFIX.len()
+        {
+            return Err(format!("{distro} isn't one of our distributions"));
+        }
+        let distro = distro.to_owned();
+        Ok(Arc::new(move || {
+            let wsl = idleo_release::wsl::Wsl::new(idleo_release::wsl::SystemRunner);
+            if let Err(error) = wsl.terminate(&distro) {
+                tracing::warn!(%error, "the distribution couldn't be stopped");
+            }
+        }))
+    }
+}
+
+impl crate::care::Distribution for RunnerDistribution {
+    fn awake(&self) -> bool {
+        self.runner.is_awake()
+    }
+
+    fn pull<'a>(
+        &'a self,
+        image: &'a str,
+        progress: &'a (dyn Fn(u64, u64) + Send + Sync),
+    ) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>> {
+        Box::pin(async move { self.runner.pull(image, progress).await.map_err(|failure| failure.message) })
+    }
+
+    fn cancel_pulls(&self) {
+        self.runner.link().notify(Request::CancelPulls);
+    }
+
+    fn stop(&self) {
+        if let Some(stop) = &self.stop {
+            stop();
+        }
+    }
+}
+
 /// What has been told to the supervisor, so a repeated fact isn't told twice.
 #[derive(Default)]
 struct Told {
@@ -433,6 +491,16 @@ impl SessionRunner for ContainerRunner {
 
     fn owns_logs(&self) -> bool {
         true
+    }
+
+    fn warm(&self) {
+        // The runner's first answer after a cold start comes when its distribution is up; asking is what starts it.
+        let link = self.link.clone();
+        tokio::spawn(async move {
+            let _ = link.request(Request::Hello).await;
+        });
+        // And nothing is downloaded while a session starts.
+        self.link.notify(Request::CancelPulls);
     }
 
     fn stages_inputs(&self) -> bool {

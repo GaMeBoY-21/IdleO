@@ -52,6 +52,8 @@ pub struct Registry {
     tick: Duration,
     entries: Mutex<BTreeMap<(String, i32), Arc<Entry>>>,
     events: broadcast::Sender<String>,
+    /// Goes up when downloads are to stop.
+    pulls: watch::Sender<u64>,
 }
 
 /// One attempt as the runner holds it.
@@ -208,7 +210,15 @@ impl Registry {
         tick: Duration,
     ) -> Arc<Self> {
         let (events, _) = broadcast::channel(4096);
-        Arc::new(Self { machine, storage, clock, tick, entries: Mutex::new(BTreeMap::new()), events })
+        Arc::new(Self {
+            machine,
+            storage,
+            clock,
+            tick,
+            entries: Mutex::new(BTreeMap::new()),
+            events,
+            pulls: watch::channel(0).0,
+        })
     }
 
     /// Every event from now on, as lines, for a connection to forward.
@@ -370,7 +380,12 @@ impl Registry {
         Ok(())
     }
 
-    /// Downloads an image, reporting progress as events with no session.
+    /// Stops every download under way.
+    pub fn cancel_pulls(&self) {
+        self.pulls.send_modify(|generation| *generation += 1);
+    }
+
+    /// Downloads an image, reporting progress as events with no session. A [`Registry::cancel_pulls`] ends it.
     ///
     /// # Errors
     /// If the image isn't pinned by digest or can't be pulled.
@@ -385,7 +400,14 @@ impl Registry {
                 Event::Pull { image: named.clone(), done_bytes: done, total_bytes: total },
             ));
         });
-        self.machine.ensure_image(image, progress).await.map_err(|why| Failure::new(code::IMAGE_PULL_FAILED, why))
+        let mut cancelled = self.pulls.subscribe();
+        cancelled.mark_unchanged();
+        tokio::select! {
+            result = self.machine.ensure_image(image, progress) => {
+                result.map_err(|why| Failure::new(code::IMAGE_PULL_FAILED, why))
+            }
+            _ = cancelled.changed() => Err(Failure::new(code::IMAGE_PULL_FAILED, "the download was stopped for a session that is starting")),
+        }
     }
 
     /// The self-test's checks.
@@ -408,6 +430,10 @@ impl Registry {
             Request::Lease { session, attempt, ttl_secs } => done(self.lease(&session, attempt, ttl_secs)),
             Request::Refresh(refresh) => done(self.refresh(&refresh)),
             Request::Pull { image } => done(self.pull(&image).await),
+            Request::CancelPulls => {
+                self.cancel_pulls();
+                Outcome::Ok(Answer::Done)
+            }
             Request::Forget { session, attempt } => done(self.forget(&session, attempt)),
             Request::SelfCheck { cuda_image } => {
                 Outcome::Ok(Answer::SelfCheck { checks: self.self_check(cuda_image.as_deref()).await })

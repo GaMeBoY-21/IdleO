@@ -939,6 +939,26 @@ fn ack(message_id: &str) -> OpenStreamRequest {
     }
 }
 
+/// A supervisor with nothing to run, for the tests of what only asks it whether anything is.
+#[cfg(test)]
+#[allow(clippy::missing_panics_doc, clippy::must_use_candidate)] // Test doubles.
+pub mod testing {
+    use super::*;
+    use crate::lease_clock::FakeLeaseClock;
+
+    /// An idle supervisor and the receiver of its reports.
+    pub fn idle_supervisor() -> (Shared, mpsc::UnboundedReceiver<Tagged>) {
+        new(
+            Arc::new(FakeLeaseClock::default()),
+            Arc::new(|_| 0),
+            None,
+            [],
+            std::env::temp_dir().join("idleo-idle-supervisor"),
+        )
+        .expect("a supervisor without a runner")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::future::Future;

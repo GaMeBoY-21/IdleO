@@ -425,6 +425,7 @@ impl TestServer {
     pub fn run_options(&self, data_dir: &Path, timing: Timing) -> (RunOptions, mpsc::UnboundedReceiver<Event>) {
         let (events, received) = mpsc::unbounded_channel();
         let options = RunOptions {
+            care: None,
             target: self.target.clone(),
             roots: self.pki().agent_roots(),
             data_dir: data_dir.to_owned(),
@@ -549,6 +550,7 @@ fn welcome_with_cap(interval: Duration, temp_cap_c: i32) -> OpenStreamResponse {
                 max_concurrent_sessions: 1,
             }),
             minimum_agent_version: "0.1.0".to_owned(),
+            prefetch_images: Vec::new(),
         })),
     }
 }

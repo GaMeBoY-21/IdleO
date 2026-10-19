@@ -22,7 +22,7 @@ use crate::lease_clock::{LeaseClock, SystemLeaseClock};
 use crate::local::SelfTestFn;
 use crate::owner::SystemOwner;
 use crate::runner::SessionRunner;
-use crate::runner::container::ContainerRunner;
+use crate::runner::container::{ContainerRunner, RunnerDistribution};
 use crate::runner::dev::DevRunner;
 use crate::self_test::{self, Environment};
 use crate::speed::StorageSpeed;
@@ -509,6 +509,22 @@ async fn run_command(
             let _ = stop.send(true);
         }
     });
+    // Keeping the distribution ready and light (ADR 0035): job images downloaded before they're needed, the distribution
+    // stopped when it has been idle for a while. On a laptop `wsl --terminate` stops it; the Mac's stand-in is left running.
+    let care = containers.clone().map(|runner| {
+        let distro = if cfg!(windows) { Updater::current_distro(&Layout::for_user()) } else { None };
+        let stop = distro
+            .as_deref()
+            .and_then(|version| RunnerDistribution::terminate(&idleo_release::manifest::distro_name(version)).ok());
+        crate::care::Care {
+            distribution: Arc::new(RunnerDistribution::new(runner, stop)),
+            metered: Arc::new(crate::care::SystemMetered),
+            data_dir: config.data_dir.clone(),
+            distro_version: distro.unwrap_or_else(|| "development".to_owned()),
+            largest_gpu_vram_mb: 0,
+            timing: crate::care::Timing::default(),
+        }
+    });
     let options = RunOptions {
         target,
         roots,
@@ -520,6 +536,7 @@ async fn run_command(
         self_test: Some(self_test),
         lease_clock,
         runner,
+        care,
         timing: Timing { welcome_timeout: config.welcome_timeout, ..Timing::default() },
         events: None,
     };

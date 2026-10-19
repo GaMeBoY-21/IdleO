@@ -10,6 +10,7 @@
 pub mod app;
 pub mod availability;
 pub mod backoff;
+pub mod care;
 pub mod config;
 pub mod connection;
 pub mod disk;

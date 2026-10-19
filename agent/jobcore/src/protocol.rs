@@ -158,6 +158,9 @@ pub enum Request {
         /// The image, pinned by digest.
         image: String,
     },
+    /// Stop every download under way: a session is starting, and nothing is downloaded while one runs. What finished stays;
+    /// the next pull carries on from there.
+    CancelPulls,
     /// Delete everything left of an ended attempt (its record, scratch disk and container), once the agent has what it
     /// reported.
     Forget {
@@ -640,6 +643,7 @@ mod tests {
             Frame::request(4, Request::Stop { session: "s".to_owned(), attempt: 1, grace_secs: 120 }),
             Frame::request(5, Request::Lease { session: "s".to_owned(), attempt: 1, ttl_secs: 120 }),
             Frame::request(6, Request::Pull { image: "r/i@sha256:1".to_owned() }),
+            Frame::request(9, Request::CancelPulls),
             Frame::request(7, Request::Forget { session: "s".to_owned(), attempt: 1 }),
             Frame::request(8, Request::SelfCheck { cuda_image: None }),
             Frame::reply(1, Outcome::Ok(Answer::Done)),

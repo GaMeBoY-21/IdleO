@@ -121,6 +121,9 @@ pub struct RunOptions {
     pub lease_clock: Arc<dyn LeaseClock>,
     /// What runs sessions; `None` for an agent that can't run any yet, which declines offers.
     pub runner: Option<Arc<dyn SessionRunner>>,
+    /// Keeping the runner's distribution ready (job images downloaded beforehand) and light (stopped when idle); only with a
+    /// container runner (ADR 0035).
+    pub care: Option<crate::care::Care>,
     /// Intervals and limits.
     pub timing: Timing,
     /// Receives an [`Event`] at each step, for tests and diagnostics.
@@ -242,7 +245,7 @@ enum Outcome {
 ///
 /// # Errors
 /// If the identity is missing or unsafe, or the GPUs can't be read at start.
-pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Result<(), RunError> {
+pub async fn run(mut options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Result<(), RunError> {
     state::load(&options.data_dir).map_err(RunError::State)?;
     let gpus = read_gpus(&options.gpus).await.map_err(RunError::Gpu)?;
     tracing::info!(gpus = gpus.len(), version = AGENT_VERSION, "agent starting");
@@ -293,6 +296,10 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
             poll: Duration::from_secs(1),
         })))
     });
+    let caring = options.care.take().map(|mut care| {
+        care.largest_gpu_vram_mb = gpus.iter().map(|gpu| gpu.vram_mb).max().unwrap_or(0);
+        AbortOnDrop(tokio::spawn(care.run(Arc::clone(&options.host), sessions.clone())))
+    });
     let updating = options.updater.clone().map(|updater| {
         AbortOnDrop(tokio::spawn(install_when_idle(updater, Arc::clone(&options.host), sessions.clone())))
     });
@@ -305,7 +312,7 @@ pub async fn run(options: RunOptions, mut shutdown: watch::Receiver<bool>) -> Re
         welcomed_once: false,
     };
     let result = manager.run(&mut shutdown).await;
-    drop((sampler, watching, serving, updating));
+    drop((sampler, watching, serving, updating, caring));
     drop(supervising);
     result
 }
@@ -427,6 +434,7 @@ impl Manager {
         tracing::info!(%host_id, heartbeat_interval = ?interval, "connected");
         self.emit(Event::Welcomed { heartbeat_interval: interval });
         self.options.host.set_reachable(true);
+        self.options.host.set_prefetch_images(policy.prefetch_images.clone());
         self.after_welcome();
 
         let mut heartbeats = tokio::time::interval_at(welcomed_at + interval, interval);
@@ -525,6 +533,10 @@ impl Manager {
                         if let Some(reply) = self.answer(offer, received_at, facts) {
                             if let Some(AgentBody::OfferReply(answer)) = &reply.body {
                                 self.options.host.offer_answered(answer.accepted);
+                                if answer.accepted && let Some(runner) = &self.options.runner {
+                                    // A stopped distribution takes seconds to come up: start it as the offer is taken.
+                                    runner.warm();
+                                }
                             }
                             unacked.insert(reply.message_id.clone(), (reply.clone(), Instant::now()));
                             let _ = outbound.send(reply).await;
@@ -770,11 +782,13 @@ fn hello(
 }
 
 /// The rules `Welcome` sets for this connection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Policy {
     heartbeat_interval: Duration,
     gpu_temp_cap_c: i32,
     max_concurrent_sessions: i32,
+    /// The job images worth downloading beforehand, with the GPU memory each needs (ADR 0035).
+    prefetch_images: Vec<(String, i32)>,
 }
 
 /// Checks `Welcome` against ADR 0007 and returns its policy.
@@ -782,7 +796,9 @@ fn check_welcome(message: OpenStreamResponse) -> Result<Policy, String> {
     if message.message_id.is_empty() {
         return Err("the message has no message_id".to_owned());
     }
-    let Some(ServerBody::Welcome(Welcome { policy: Some(policy), minimum_agent_version })) = message.body else {
+    let Some(ServerBody::Welcome(Welcome { policy: Some(policy), minimum_agent_version, prefetch_images })) =
+        message.body
+    else {
         return Err("the first message isn't a Welcome with a policy".to_owned());
     };
     let interval = policy
@@ -810,6 +826,11 @@ fn check_welcome(message: OpenStreamResponse) -> Result<Policy, String> {
         heartbeat_interval: interval,
         gpu_temp_cap_c: policy.gpu_temp_cap_c,
         max_concurrent_sessions: policy.max_concurrent_sessions,
+        prefetch_images: prefetch_images
+            .into_iter()
+            .filter(|image| !image.image.is_empty() && image.image.contains("@sha256:"))
+            .map(|image| (image.image, image.min_vram_mb))
+            .collect(),
     })
 }
 
@@ -959,6 +980,14 @@ mod tests {
                     max_concurrent_sessions: 1,
                 }),
                 minimum_agent_version: minimum.to_owned(),
+                prefetch_images: vec![
+                    agent_proto::v1::PrefetchImage {
+                        image: format!("registry.example/job@sha256:{}", "ab".repeat(32)),
+                        min_vram_mb: 4096,
+                    },
+                    agent_proto::v1::PrefetchImage { image: "not-pinned".to_owned(), min_vram_mb: 1 },
+                    agent_proto::v1::PrefetchImage::default(),
+                ],
             })),
         }
     }
@@ -968,7 +997,13 @@ mod tests {
         let five = prost_types::Duration { seconds: 5, nanos: 0 };
         assert_eq!(
             check_welcome(welcome(Some(five), "0.1.0")),
-            Ok(Policy { heartbeat_interval: Duration::from_secs(5), gpu_temp_cap_c: 85, max_concurrent_sessions: 1 })
+            Ok(Policy {
+                heartbeat_interval: Duration::from_secs(5),
+                gpu_temp_cap_c: 85,
+                max_concurrent_sessions: 1,
+                // Only a pinned image is worth fetching; the other two entries are dropped.
+                prefetch_images: vec![(format!("registry.example/job@sha256:{}", "ab".repeat(32)), 4096)],
+            })
         );
     }
 

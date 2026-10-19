@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::{HostState, HostStatus, OpenStreamRequest};
-use idleo_release::channel::{self, AutoPause, LinkState, Status, UpdatePhase};
+use idleo_release::channel::{self, AutoPause, LinkState, Prefetch, Status, UpdatePhase};
 use time::OffsetDateTime;
 use tokio::sync::{Notify, watch};
 use tokio::time::Instant;
@@ -73,6 +73,10 @@ struct Inner {
     leaving: Leaving,
     /// When an offer was last accepted, for "not mid-offer".
     accepted_at: Option<Instant>,
+    /// The job images the control plane said are worth having (its latest Welcome), with the GPU memory each needs.
+    prefetch_images: Vec<(String, i32)>,
+    /// Where downloading them stands, for the tray.
+    prefetch: Option<Prefetch>,
     /// Waiting for the control plane's speed-check grant.
     speed: Option<tokio::sync::oneshot::Sender<agent_proto::v1::SpeedTestGrant>>,
 }
@@ -120,6 +124,8 @@ impl Host {
             leaving: Leaving::No,
             accepted_at: None,
             speed: None,
+            prefetch_images: Vec::new(),
+            prefetch: None,
         };
         let (status, _) =
             watch::channel(Self::status_of(&inner, runner_installed, app_url.as_deref(), OffsetDateTime::now_utc()));
@@ -133,6 +139,25 @@ impl Host {
             runner_installed: std::sync::atomic::AtomicBool::new(runner_installed),
             app_url,
         })
+    }
+
+    /// The job images the control plane's Welcome said are worth having, as (image, GPU memory in MB the least demanding
+    /// template needs).
+    pub fn set_prefetch_images(&self, images: Vec<(String, i32)>) {
+        self.lock().prefetch_images = images;
+    }
+
+    /// The images to consider downloading, as last told.
+    #[must_use]
+    pub fn prefetch_images(&self) -> Vec<(String, i32)> {
+        self.lock().prefetch_images.clone()
+    }
+
+    /// Where downloading job images stands, for the tray.
+    pub fn set_prefetch(&self, prefetch: Option<Prefetch>) {
+        let mut inner = self.lock();
+        inner.prefetch = prefetch;
+        self.publish(&inner);
     }
 
     /// Whether the job runner is there and ready: the tray's "jobs start when the job runner arrives" line goes when it is.
@@ -196,6 +221,7 @@ impl Host {
             dev_build: idleo_release::keys::DEV_BUILD,
             auto_pause: inner.availability.settings(),
             app_url: app_url.map(str::to_owned),
+            prefetch: inner.prefetch,
         }
     }
 
@@ -431,6 +457,41 @@ pub async fn watch(host: Arc<Host>, sessions: crate::supervisor::Shared, every: 
                 tracing::info!(stopping, "the owner is using the machine: renters' jobs save their progress and stop");
             }
         }
+    }
+}
+
+/// Hosts for the tests of what's built on one.
+#[cfg(test)]
+#[allow(clippy::missing_panics_doc, clippy::must_use_candidate)] // Test doubles.
+pub mod testing {
+    use super::*;
+    use crate::owner::Sample;
+
+    struct Quiet;
+
+    impl MachineInputs for Quiet {
+        fn sample(&self) -> Sample {
+            Sample::QUIET
+        }
+    }
+
+    /// A host that's linked, listed, reachable, available and has its job runner: ready for work.
+    pub fn ready_host() -> Arc<Host> {
+        let dir = Box::leak(Box::new(tempfile::tempdir().unwrap()));
+        let host = Host::new(Arc::new(Quiet), dir.path().to_owned(), true);
+        host.set_reachable(true);
+        set_available(&host, true);
+        host
+    }
+
+    /// The owner resumes hosting, or pauses it.
+    pub fn set_available(host: &Host, available: bool) {
+        host.on_host_status(&HostStatus {
+            state: if available { HostState::Active } else { HostState::Paused }.into(),
+            paused_until: None,
+            earned_today_paise: 0,
+            earning_now_paise: None,
+        });
     }
 }
 
