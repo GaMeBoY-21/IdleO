@@ -157,7 +157,7 @@ test.describe("a session", () => {
     await expect(page.getByRole("heading", { name: "Finding your GPU" })).toBeVisible();
     await expect(page.getByText("Usually under a minute.", { exact: false })).toBeVisible();
     if (info.project.name.includes("phone")) {
-      await expect(page.getByText("dataset.jsonl uploaded")).toBeVisible();
+      await expect(page.getByText("File to echo · 46 MB")).toBeVisible();
     } else {
       await expect(
         page.getByRole("region", { name: "Your request" }).getByText("dataset.jsonl"),

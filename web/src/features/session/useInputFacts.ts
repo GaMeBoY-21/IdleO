@@ -24,8 +24,10 @@ export function useInputFacts(
     enabled: enabled && ids.length > 0,
     queryFn: () => Promise.all(ids.map((id) => client.query({ ...uploadInfo(id), staleTime: 60_000 }))),
   });
+  // The answers come back in the order of `ids`.
   return given.map((input) => {
-    const upload = uploads.data?.find((found) => found.upload.id === input.uploadId)?.upload;
+    const at = input.uploadId === null ? -1 : ids.indexOf(input.uploadId);
+    const upload = at < 0 ? undefined : uploads.data?.[at]?.upload;
     return {
       name: input.name,
       label: template?.inputs.find((candidate) => candidate.name === input.name)?.label ?? input.name,

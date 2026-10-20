@@ -1117,8 +1117,14 @@ if $web_only; then
   measuring="${E2E_LIGHTHOUSE_MEASURE:-}"
   if [[ -z "$measuring" ]]; then
     E2E_WEB_USER="$web_user" VISUAL_BASELINE_DIR="$baseline" web_test --project='screens-*' --project=journey \
-      --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 ||
-      fail "the web app's browser tests failed; see private/e2e/web-playwright.log and web/playwright-report"
+      --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 || {
+      # private/e2e/ is wiped by the next run: keep this one's log and the failing tests' output.
+      kept="$root/private/logs/web-playwright-$(date '+%Y%m%d-%H%M%S')"
+      mkdir -p "$kept"
+      cp "$out/web-playwright.log" "$kept/" 2>/dev/null || true
+      cp -R web/test-results "$kept/test-results" 2>/dev/null || true
+      fail "the web app's browser tests failed; see private/logs/${kept##*/}/web-playwright.log and web/playwright-report"
+    }
     summary+=("web: $(grep -Eo '[0-9]+ passed' "$out/web-playwright.log" | tail -1) (every screen and state, light and dark, 390 and 1280 px; axe; layout shift; Firebase screens; journey) in $(seconds_since "$checks_started") s: PASS")
   fi
   # Every Lighthouse run's log and reports are kept, whether the budgets held or not: private/e2e/ is wiped by the next run.
