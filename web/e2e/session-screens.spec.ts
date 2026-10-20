@@ -60,7 +60,9 @@ test.describe("a session", () => {
     await expect(page.getByText(/Live, updated/)).toBeVisible();
     if (info.project.name.includes("laptop")) {
       await expect(page.getByText("GPU found")).toBeVisible();
-      await expect(page.getByText("46 MB")).toBeVisible();
+      // The running fine-tune holds a model and its data, each 46 MB here (one answer for every upload): the route says what
+      // they come to together, where it once said the first one's size.
+      await expect(page.getByText("92 MB · 2 files")).toBeVisible();
       await expect(page.getByTestId("log-panel")).toContainText("loading the model in 4-bit");
     } else {
       await expect(page.getByRole("button", { name: /^Logs/ })).toHaveAttribute("aria-expanded", "false");
