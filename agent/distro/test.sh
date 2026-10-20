@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks the sealed Linux image (agent/distro/README.md): it builds; the wsl.conf inside is the repository's; no sshd,
 # compiler or sudo; the `idleo` user exists and has no privileges; containerd and the NVIDIA container toolkit are at the
-# versions the Dockerfile pins; the runner is the placeholder; the compressed tarball is under 400 MB; and a second build
+# versions the Dockerfile pins, with nerdctl, the CNI plugins and nftables; the runner is the real one and its rules file and
+# systemd units are the repository's; the compressed tarball is under 400 MB; and a second build
 # from the same inputs has the same package list. scripts/check-all.sh runs it (`--no-distro` leaves it out).
 #
 #   agent/distro/test.sh            everything, including a second build from scratch (a few minutes)
@@ -66,10 +67,41 @@ fi
   pass "the NVIDIA container toolkit is $toolkit_pin, and nvidia-ctk runs" ||
   fail "the NVIDIA container toolkit is $toolkit_pin" "found $(in_image nvidia-ctk --version 2>&1 | head -2 | tr '\n' ' ')"
 
-# The runner is the placeholder, and says so.
-runner="$(in_image /usr/local/bin/idleo-runner 2>&1 || true)"
-[[ "$runner" == *"not installed yet"* ]] && pass "the runner is the placeholder, which says it isn't installed" ||
-  fail "the runner is the placeholder" "$runner"
+# The container tools the runner drives, and the runner itself (ADR 0035).
+nerdctl_pin="$(pinned NERDCTL_VERSION)"
+cni_pin="$(pinned CNI_VERSION)"
+nft_pin="$(pinned NFTABLES_VERSION)"
+in_image nerdctl --version 2>&1 | grep -q "nerdctl version $nerdctl_pin" && pass "nerdctl is $nerdctl_pin" ||
+  fail "nerdctl is $nerdctl_pin" "$(in_image nerdctl --version 2>&1 | head -2)"
+[[ "$(in_image sh -c 'ls /opt/cni/bin' | tr '\n' ' ')" == "bridge host-local loopback " ]] &&
+  pass "the CNI plugins are the three a session network needs (bridge, host-local, loopback), $cni_pin" ||
+  fail "the CNI plugins are the three a session network needs" "$(in_image sh -c 'ls /opt/cni/bin' | tr '\n' ' ')"
+[[ "$(in_image dpkg-query -W -f='${Version}' nftables)" == "$nft_pin" ]] && pass "nftables is $nft_pin" || fail "nftables is $nft_pin"
+if in_image sh -c 'command -v docker dockerd' >/dev/null 2>&1; then fail "there is no Docker in the image"; else pass "there is no Docker in the image"; fi
+hello="$(in_image /usr/local/bin/idleo-runner --version 2>&1 || true)"
+[[ "$hello" == idleo-runner* && "$hello" != *"not installed yet"* ]] && pass "the runner is the real one ($hello)" || fail "the runner is the real one" "$hello"
+for unit in idleo-sandbox.service idleo-runner.service; do
+  if diff <(in_image cat "/etc/systemd/system/$unit") "agent/distro/$unit" >/dev/null; then
+    pass "$unit is agent/distro/$unit"
+  else
+    fail "$unit is agent/distro/$unit"
+  fi
+  in_image systemd-analyze verify "/etc/systemd/system/$unit" >/dev/null 2>"$out/verify-$unit.txt" ||
+    fail "$unit passes systemd-analyze verify" "$(head -3 "$out/verify-$unit.txt")"
+done
+diff <(in_image cat /usr/local/share/idleo/sandbox.nft) agent/distro/sandbox.nft >/dev/null &&
+  pass "the sandbox's rules in the image are agent/distro/sandbox.nft" || fail "the sandbox's rules in the image are agent/distro/sandbox.nft"
+# The rules file is valid nftables (a syntax check, which changes nothing), with its hash filled in as the runner does it.
+if in_image sh -c 'sed "s/@HASH@/0/" /usr/local/share/idleo/sandbox.nft | nft -c -f -' >"$out/nft-check.txt" 2>&1; then
+  pass "the rules file passes nft's own check"
+else
+  # nft's check needs the kernel's nf_tables, which a container on a Mac's VM may not have: that's the runner's own check at boot.
+  if grep -q "Operation not permitted\|No such file\|not supported" "$out/nft-check.txt"; then
+    echo "SKIP  nft -c (this machine's kernel can't): $(head -1 "$out/nft-check.txt")"
+  else
+    fail "the rules file passes nft's own check" "$(head -3 "$out/nft-check.txt")"
+  fi
+fi
 
 # The proof script is there, executable, and is the repository's file.
 if diff <(in_image cat /usr/local/share/idleo/verify-lockdown.sh) agent/distro/verify-lockdown.sh >/dev/null &&

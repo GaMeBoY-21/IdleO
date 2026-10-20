@@ -26,7 +26,28 @@ free.
 | If "Something didn't pass" | A development build also has a small **Keep it for troubleshooting** button. See "If something didn't pass" below. |
 | "We opened your browser. Approve this laptop there." | The laptop's browser opens a page it can't sign in on: ignore it. On the Mac, the approval page has opened by itself (`start.sh` prints "a laptop asks to be linked"). Check the name and price, then **Approve and start earning** (click 3). |
 | Back on the laptop | "You're set." and "We check every new laptop before it goes live." Close it. The tray icon is there (apricot: waiting for our checks). |
-| On the Mac, activate it | Admin console → Hosts → the laptop → **Approve**, or `activate-host` (docs/runbooks/hosts.md). The self-test's checks are on that page. The tray turns green: "Ready for renters" (or, until the real job runner arrives, "Linked · renters' jobs start when the job runner arrives in an update"). |
+| On the Mac, activate it | Admin console → Hosts → the laptop → **Approve**, or `activate-host` (docs/runbooks/hosts.md). The self-test's checks are on that page. The tray turns green: "Ready for renters" once the job runner in the Linux space answers (until then it says "Linked · renters' jobs start when the job runner arrives in an update"). |
+
+## Run a real job
+
+This needs the job image on the Mac's registry, so start the stack with `./start.sh --lan --real-runner` instead (the first time it
+builds the CUDA image, about 6 GB, which takes a while; the fake laptops take no jobs). The Windows app's setup then points
+the laptop's Linux space at the Mac's registry (a development build only), and its self-test also does the following. When
+the laptop is idle and not on a metered connection it downloads the job image by itself (the tray says "Getting ready for
+renters · N GB downloaded").
+
+| Do | You should see |
+| --- | --- |
+| On the Mac, `scripts/install-report.sh`, after the laptop's setup | The self-test lists `runner` passed, `network_lockdown` passed ("the home network is unreachable and the internet is reachable"), and, once the image has downloaded, `gpu_in_container` and `cuda_matmul` passed. |
+| Sign in at http://localhost:3000 as nikki@example.com, **Run your code**, upload `agent/images/pytorch/tests/project/`, Command `SESSION_PARAM_STEPS=120 SESSION_PARAM_PAUSE=1 python main.py`, GPU memory 8 GB | The session starts on the laptop. The first time, if the image isn't there yet, the session waits for the download (minutes); after that the first log line comes within a few seconds. `step 1/120 …`, a `checkpoint` every 5 steps. |
+| While it runs, on the laptop, touch the mouse | Within 2 seconds the tray goes grey. The job saves a checkpoint and stops, "owner returned", and the session carries on on another laptop if there is one. |
+| Run it again and, on the laptop, open Task Manager | `vmmem` (the Linux space's memory) is there while the job runs. 5 minutes after the job ends it's gone: the Linux space shuts itself down. |
+| **Fine-tune your model** with a small model folder you have (a few hundred MB) and a JSONL of examples | Logs show the model loading on the GPU, the loss falling and the adapter saved; "You get" lists `adapter_model.safetensors`. |
+| In the job, run `curl -m 5 http://192.168.1.1` (use your router's address) or `ping` it, from a Run-your-code command | It times out. `curl -m 5 https://example.com` works. This is the home-network block; the report counts any other answer as a failure. |
+
+If a job fails to start, the session's ending says why in plain words (for instance "Couldn't download the job files"), and
+`scripts/install-report.sh` and the admin console's host page show the runner's self-test checks. The runner's own log is
+`wsl -d IdleO-<version> -u root -- journalctl -u idleo-runner` (a development build only).
 
 ## Auto-pause
 
