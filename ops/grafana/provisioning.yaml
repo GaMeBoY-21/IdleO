@@ -1,0 +1,10 @@
+# Loads ops/grafana/dashboards into development's Grafana (compose.yaml's observability service, ADR 0036), in a folder
+# of their own; editing one in the browser is lost on restart, so change the JSON here.
+apiVersion: 1
+providers:
+  - name: IdleO
+    folder: IdleO
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /otel-lgtm/idleo-dashboards

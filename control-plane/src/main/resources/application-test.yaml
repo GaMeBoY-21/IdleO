@@ -4,6 +4,21 @@ springdoc:
   api-docs:
     enabled: true
 
+# Nothing leaves through OTLP in tests (ADR 0036); the meters are read in memory.
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  tracing:
+    export:
+      otlp:
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false
+
 # Web origins as a YAML list, as the local profile writes them, for the CORS test (ADR 0018).
 web:
   allowed-origins:

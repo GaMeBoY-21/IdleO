@@ -42,7 +42,9 @@ import org.springframework.stereotype.Component;
  *       jar and is read from there, so the values are never copied);
  *   <li>{@code identity.invite-only} false, which lets anyone in without a code (ADR 0024);
  *   <li>a renter limit above production's ({@link #PRODUCTION_LIMITS}, ADR 0025), as the end-to-end harness and the
- *       tests lift them.
+ *       tests lift them;
+ *   <li>no OTLP endpoint for metrics, traces or logs, one that is plain HTTP or on this machine, or any of the three
+ *       exports turned off ({@link #OTLP_ENDPOINTS}, ADR 0036).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -65,6 +67,15 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "sessions.limits.new-per-hour", 10,
             "sessions.limits.new-per-hour-first-day", 2,
             "sessions.limits.at-once", 3);
+
+    /**
+     * Where metrics, traces and logs go (ADR 0036), each with the switch that turns its export off: production sends
+     * all three, over HTTPS, to an endpoint that isn't this machine.
+     */
+    static final Map<String, String> OTLP_ENDPOINTS = new TreeMap<>(Map.of(
+            "management.otlp.metrics.export.url", "management.otlp.metrics.export.enabled",
+            "management.opentelemetry.tracing.export.otlp.endpoint", "management.tracing.export.otlp.enabled",
+            "management.opentelemetry.logging.export.otlp.endpoint", "management.logging.export.otlp.enabled"));
 
     /** The keys whose committed test values production must never use. */
     static final List<String> SECRET_KEYS = List.of("identity.admin.totp-key", "identity.invite-code-key");
@@ -152,6 +163,17 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         }
         if (!binder.bind("identity.invite-only", Boolean.class).orElse(true)) {
             problems.add("identity.invite-only is false");
+        }
+        for (var signal : OTLP_ENDPOINTS.entrySet()) {
+            var url = binder.bind(signal.getKey(), String.class).orElse("");
+            if (url.isBlank() || url.contains("${")) {
+                problems.add(signal.getKey() + " is missing");
+            } else if (isDevelopmentIssuer(url)) {
+                problems.add(signal.getKey() + " " + url + " is plain HTTP or on this machine");
+            }
+            if (!binder.bind(signal.getValue(), Boolean.class).orElse(true)) {
+                problems.add(signal.getValue() + " is false");
+            }
         }
         new TreeMap<>(PRODUCTION_LIMITS).forEach((name, ceiling) -> {
             var value = binder.bind(name, Integer.class);

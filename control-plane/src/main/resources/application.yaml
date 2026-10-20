@@ -78,10 +78,34 @@ server:
     include-exception: false
 
 management:
+  # Only health is served over HTTP; metrics, traces and logs leave through OTLP (ADR 0036), never a public endpoint.
   endpoints:
     web:
       exposure:
         include: health
+  # Every signal names the release it came from (IDLEO_RELEASE, the deployed build's version), where it runs, and the
+  # instance, so two instances' meters are two series, never one written twice (IDLEO_INSTANCE, else the host name).
+  opentelemetry:
+    resource-attributes:
+      service.version: ${IDLEO_RELEASE:development}
+      service.instance.id: ${IDLEO_INSTANCE:${HOSTNAME:local}}
+      deployment.environment.name: ${IDLEO_ENVIRONMENT:local}
+  otlp:
+    metrics:
+      export:
+        # Seconds, so a duration is http_server_requests_seconds wherever it lands. Once a minute: Grafana Cloud's
+        # free tier counts data points a minute per series.
+        base-time-unit: seconds
+        step: 1m
+  metrics:
+    distribution:
+      # Buckets for the timers an alert or a dashboard takes a percentile of: requests by route (the route template,
+      # never the raw path with ids), agent calls, and booking to a GPU found and to the first log line.
+      percentiles-histogram:
+        http.server.requests: true
+        grpc.server: true
+        sessions.time-to-gpu: true
+        sessions.time-to-first-log: true
   endpoint:
     health:
       probes:
@@ -139,6 +163,10 @@ logging:
   structured:
     format:
       console: ecs
+    ecs:
+      service:
+        version: ${IDLEO_RELEASE:development}
+        environment: ${IDLEO_ENVIRONMENT:local}
 
 hosts:
   # Linking a host by approval (ADR 0032): the web app's /link/<id>/ page is where its owner approves, the same web app

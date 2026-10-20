@@ -1,0 +1,20 @@
+# Development's alerts go to Mailpit (compose.yaml's mail service) as email, where scripts/ops/alert-drill.sh reads
+# them (ADR 0036). Production routes the same alerts in Grafana Cloud (docs/runbooks/monitoring.md).
+global:
+  smtp_smarthost: mail:1025
+  smtp_from: IdleO alerts <alerts@idleo.test>
+  smtp_require_tls: false
+route:
+  receiver: mailpit
+  group_by: [alertname]
+  # Sent as soon as an alert fires, so the drill measures the rule, not the wait.
+  group_wait: 5s
+  group_interval: 1m
+  repeat_interval: 4h
+receivers:
+  - name: mailpit
+    email_configs:
+      - to: on-call@idleo.test
+        send_resolved: true
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}: {{ .CommonAnnotations.summary }}'

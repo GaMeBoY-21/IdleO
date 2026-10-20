@@ -1,0 +1,2 @@
+# Logback's OTLP appender, added right after Spring Boot sets up logging (OpenTelemetryLogs, ADR 0036).
+org.springframework.context.ApplicationListener=com.idleo.controlplane.OpenTelemetryLogs$Attach

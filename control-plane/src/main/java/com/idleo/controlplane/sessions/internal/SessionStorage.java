@@ -106,9 +106,10 @@ class SessionStorage {
             if (refused.statusCode() >= 500) {
                 throw refused;
             }
+            // Never the key: an upload's carries the renter's file name (ADR 0036).
             log.info(
-                    "Storage refused to complete multipart upload of {}: {}",
-                    key,
+                    "Storage refused to complete multipart upload {}: {}",
+                    multipartId,
                     refused.awsErrorDetails() == null
                             ? refused.statusCode()
                             : refused.awsErrorDetails().errorCode());

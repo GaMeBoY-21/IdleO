@@ -176,10 +176,10 @@ class UploadParts {
             files.completed(file, now);
             uploads.removeStored(upload);
             store.finish(upload.id(), UploadStore.Status.FAILED, null, now);
+            // Never the file's name: it's the renter's (ADR 0036).
             log.info(
-                    "Upload {}: {} came to {} bytes, not the {} declared; failed",
+                    "Upload {}: a file came to {} bytes, not the {} declared; failed",
                     upload.id(),
-                    file.path(),
                     stored,
                     file.sizeBytes());
             return ApiProblem.of(

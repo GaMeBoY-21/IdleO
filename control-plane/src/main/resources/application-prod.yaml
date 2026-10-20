@@ -19,6 +19,30 @@ spring:
       mail.smtp.starttls.enable: true
       mail.smtp.starttls.required: true
 
+# Metrics, traces and logs (ADR 0036, docs/runbooks/monitoring.md): any OTLP endpoint over HTTPS, Grafana Cloud's by
+# default. OTLP_ENDPOINT is its base (…/otlp), OTLP_AUTHORIZATION the whole Authorization header's value. The prod
+# profile refuses to start without them (ProductionSettingsGuard).
+management:
+  otlp:
+    metrics:
+      export:
+        url: ${OTLP_ENDPOINT}/v1/metrics
+        headers:
+          Authorization: ${OTLP_AUTHORIZATION}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_ENDPOINT}/v1/traces
+          headers:
+            Authorization: ${OTLP_AUTHORIZATION}
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTLP_ENDPOINT}/v1/logs
+          headers:
+            Authorization: ${OTLP_AUTHORIZATION}
+
 # Cloudflare R2 (ADR 0016, docs/runbooks/object-storage.md).
 sessions:
   storage:

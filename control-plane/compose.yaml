@@ -67,5 +67,37 @@ services:
       - "127.0.0.1:${LOCAL_MAIL_SMTP_PORT:-1025}:1025"
       - "127.0.0.1:${LOCAL_MAIL_WEB_PORT:-8025}:8025"
 
+  observability:
+    # Metrics, traces and logs in development (ADR 0036): Grafana, Prometheus, Loki and Tempo in one container, behind
+    # an OpenTelemetry collector on 4317 and 4318, which the local profile finds by this image and sends to. Prometheus
+    # evaluates ops/alerts and tells alertmanager; Grafana shows ops/grafana's dashboards. Only ./start.sh runs it
+    # (profile observability); the end-to-end stack leaves it out.
+    image: grafana/otel-lgtm:0.35.0@sha256:2de1094c593c671cbfca878a28ffcd7e46ff5e32f2ce966c0cf33003f6cf4266
+    profiles: [observability]
+    environment:
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ../ops/prometheus/development.yaml:/otel-lgtm/prometheus.yaml:ro
+      - ../ops/alerts:/otel-lgtm/alerts:ro
+      - ../ops/grafana/provisioning.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/idleo.yaml:ro
+      - ../ops/grafana/dashboards:/otel-lgtm/idleo-dashboards:ro
+    ports:
+      # Grafana on a fixed port, printed by ./start.sh (LOCAL_GRAFANA_PORT moves it); Prometheus's API for the alert
+      # test (LOCAL_PROMETHEUS_PORT); the collector's ports anywhere free.
+      - "127.0.0.1:${LOCAL_GRAFANA_PORT:-3300}:3000"
+      - "127.0.0.1:${LOCAL_PROMETHEUS_PORT:-9190}:9090"
+      - "127.0.0.1::4317"
+      - "127.0.0.1::4318"
+  alertmanager:
+    # Sends development's alerts to Mailpit as email (ops/alertmanager/development.yaml), where the alert test reads
+    # them. Production's go to Grafana Cloud's own (docs/runbooks/monitoring.md).
+    image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    profiles: [observability]
+    command: ["--config.file=/etc/alertmanager/alertmanager.yaml", "--storage.path=/alertmanager"]
+    volumes:
+      - ../ops/alertmanager/development.yaml:/etc/alertmanager/alertmanager.yaml:ro
+    ports:
+      - "127.0.0.1:${LOCAL_ALERTMANAGER_PORT:-9193}:9093"
+
 volumes:
   registry-data:

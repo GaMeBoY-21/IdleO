@@ -14,6 +14,13 @@ spring:
       # Locally, never stop a stack that's already running for someone else.
       lifecycle-management: start-only
 
+# A command runs for seconds: its meters would be a series of their own that ends at once. Its logs still go out.
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
 logging:
   level:
     root: warn

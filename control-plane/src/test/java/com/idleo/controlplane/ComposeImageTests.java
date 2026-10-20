@@ -21,5 +21,8 @@ class ComposeImageTests {
         assertThat(compose).containsPattern("image: axllent/mailpit:v[0-9.]+@sha256:[0-9a-f]{64}");
         // So is the development image registry (ADR 0035).
         assertThat(compose).containsPattern("image: registry:2@sha256:[0-9a-f]{64}");
+        // And the observability stack and its alert sender (ADR 0036).
+        assertThat(compose).containsPattern("image: grafana/otel-lgtm:[0-9.]+@sha256:[0-9a-f]{64}");
+        assertThat(compose).containsPattern("image: prom/alertmanager:v[0-9.]+@sha256:[0-9a-f]{64}");
     }
 }

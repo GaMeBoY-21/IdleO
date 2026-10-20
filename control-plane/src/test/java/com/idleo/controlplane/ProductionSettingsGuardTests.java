@@ -14,6 +14,8 @@ class ProductionSettingsGuardTests {
     /** A key production might have: random, and in no file of this repository but this test. */
     private static final String PRODUCTION_KEY = "q0Rz4mL8YkV2wN6cT1pH9sJ3uE5bA7dG0fK2xC4vB8M=";
 
+    private static final String OTLP = "https://otlp.example.invalid/otlp";
+
     private final ApplicationContextRunner runner =
             new ApplicationContextRunner().withUserConfiguration(ProductionSettingsGuard.class);
 
@@ -26,7 +28,10 @@ class ProductionSettingsGuardTests {
                         "hosts.link.web-app-url=https://app.example.invalid",
                         "notifications.email.from=IdleO <notifications@example.invalid>",
                         "spring.mail.host=smtp.example.invalid",
-                        "identity.invite-code-key=" + PRODUCTION_KEY)
+                        "identity.invite-code-key=" + PRODUCTION_KEY,
+                        "management.otlp.metrics.export.url=" + OTLP + "/v1/metrics",
+                        "management.opentelemetry.tracing.export.otlp.endpoint=" + OTLP + "/v1/traces",
+                        "management.opentelemetry.logging.export.otlp.endpoint=" + OTLP + "/v1/logs")
                 .withPropertyValues(properties);
     }
 
@@ -217,5 +222,23 @@ class ProductionSettingsGuardTests {
                 (name, ceiling) -> assertThat(Integer.parseInt(String.valueOf(shipped.getProperty(name))))
                         .as(name)
                         .isEqualTo(ceiling));
+    }
+
+    @Test
+    void prodRefusesToStartWithoutSomewhereToSendMetricsTracesAndLogs() {
+        ProductionSettingsGuard.OTLP_ENDPOINTS.forEach((endpoint, enabled) -> {
+            for (var setting : new String[][] {
+                {endpoint + "=", endpoint + " is missing"},
+                // As application-prod.yaml reads it with OTLP_ENDPOINT unset.
+                {endpoint + "=${OTLP_ENDPOINT}/v1/x", endpoint + " is missing"},
+                {endpoint + "=http://otlp.example.invalid/v1/x", endpoint + " http://otlp.example.invalid/v1/x"},
+                {endpoint + "=http://localhost:4318/v1/x", endpoint + " http://localhost:4318/v1/x"},
+                {enabled + "=false", enabled + " is false"}
+            }) {
+                prod("identity.issuers[0].issuer-uri=" + GOOGLE, setting[0])
+                        .run(context ->
+                                assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+            }
+        });
     }
 }

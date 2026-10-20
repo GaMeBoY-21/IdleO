@@ -1,0 +1,26 @@
+# Development's Prometheus, inside compose.yaml's observability container (grafana/otel-lgtm, ADR 0036): the image's
+# own settings for metrics that arrive through OTLP, plus our alert rules (ops/alerts), evaluated every 15 s and sent
+# to compose.yaml's alertmanager. Production's rules are the same files, loaded into Grafana Cloud
+# (docs/runbooks/monitoring.md).
+global:
+  scrape_native_histograms: true
+  evaluation_interval: 15s
+otlp:
+  keep_identifying_resource_attributes: true
+  # The resource attributes that become labels on every series.
+  promote_resource_attributes:
+    - service.instance.id
+    - service.name
+    - service.namespace
+    - service.version
+    - deployment.environment.name
+    - host.name
+storage:
+  tsdb:
+    out_of_order_time_window: 10m
+rule_files:
+  - /otel-lgtm/alerts/*.yaml
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]

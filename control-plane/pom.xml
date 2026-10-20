@@ -28,6 +28,10 @@
         <bouncycastle.version>1.86</bouncycastle.version>
         <!-- springdoc 3.1 is built on Spring Boot 4.1 (its parent pom: spring-boot-starter-parent 4.1.0). -->
         <springdoc.version>3.1.1</springdoc.version>
+        <!-- Built on opentelemetry-bom 1.62.0, the SDK Spring Boot 4.1.1 manages. -->
+        <!-- Off unless a run skips the tests; the log scan's enforcer rule reads it. -->
+        <skipTests>false</skipTests>
+        <opentelemetry-logback-appender.version>2.28.0-alpha</opentelemetry-logback-appender.version>
     </properties>
 
     <dependencyManagement>
@@ -82,6 +86,19 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Metrics, traces and logs out through OTLP (ADR 0036): Spring Boot's own OpenTelemetry support, Micrometer's
+             OTLP registry and the tracing bridge. Logback reaches the OpenTelemetry SDK through its appender, which
+             Spring Boot leaves to the application (logback-spring.xml, OpenTelemetryLogs); its version is the
+             instrumentation release built on the SDK Spring Boot manages (1.62.0). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-logback-appender-1.0</artifactId>
+            <version>${opentelemetry-logback-appender.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -276,6 +293,32 @@
                                         <exclude>com.google.firebase</exclude>
                                     </excludes>
                                 </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <!-- The whole suite's log held no personal data or secret (LogScan, ADR 0036), and the scan
+                             ran. -->
+                        <id>log-scan</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipTests}</skip>
+                            <rules>
+                                <requireFilesExist>
+                                    <files>
+                                        <file>${project.build.directory}/log-scan/scanned.txt</file>
+                                    </files>
+                                    <message>The log scan never ran: LogScan wasn't attached to any test context.</message>
+                                </requireFilesExist>
+                                <requireFilesDontExist>
+                                    <files>
+                                        <file>${project.build.directory}/log-scan/violations.txt</file>
+                                    </files>
+                                    <message>Personal data or a secret was logged: see target/log-scan/violations.txt.</message>
+                                </requireFilesDontExist>
                             </rules>
                         </configuration>
                     </execution>

@@ -1,0 +1,2 @@
+# Every test application context's log is read for personal data and secrets (LogScan, ADR 0036).
+org.springframework.context.ApplicationListener=com.idleo.controlplane.LogScan

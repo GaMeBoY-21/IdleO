@@ -16,6 +16,26 @@ logging:
       # Human-readable logs on a developer's machine.
       console: ""
 
+# Metrics, traces and logs go to compose.yaml's observability service (grafana/otel-lgtm, ADR 0036), which Spring Boot
+# finds by its image, only when it runs: ./start.sh starts it (compose profile observability) and sets
+# LOCAL_OBSERVABILITY; the end-to-end stack leaves it out, and with nothing to send to sends nothing. Every trace is
+# kept here; production keeps a tenth.
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: ${LOCAL_OBSERVABILITY:false}
+  tracing:
+    export:
+      otlp:
+        enabled: ${LOCAL_OBSERVABILITY:false}
+    sampling:
+      probability: 1.0
+  logging:
+    export:
+      otlp:
+        enabled: ${LOCAL_OBSERVABILITY:false}
+
 # The development sign-in server from compose.yaml (ADR 0013). To test against
 # a real Identity Platform project instead, set IDENTITY_ISSUERS_0_ISSUERURI and
 # IDENTITY_ISSUERS_0_AUDIENCE, which replace this list.
