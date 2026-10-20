@@ -6,7 +6,7 @@ import { Money } from "@/components/ui/Money";
 import { StateChip } from "@/components/ui/StateChip";
 import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
-import { ending } from "@/lib/labels";
+import { ending } from "@/lib/endings";
 import { bookFrom } from "@/lib/sessions";
 import { useAfterPaint } from "@/lib/after-first-screen";
 import { formatDuration } from "@/lib/time";

@@ -2,7 +2,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { creditKind, ending, ENDINGS } from "./labels";
+import { ending, ENDINGS } from "./endings";
+import { creditKind } from "./labels";
 
 const root = new URL("../../../", import.meta.url).pathname;
 
