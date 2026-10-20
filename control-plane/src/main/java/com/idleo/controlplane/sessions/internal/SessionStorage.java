@@ -142,6 +142,13 @@ class SessionStorage {
         }
     }
 
+    /** {@code length} bytes of an object from {@code from}: a range request, for reading the end of a large file. */
+    byte[] readRange(String key, long from, int length) {
+        return s3.getObjectAsBytes(request ->
+                        request.bucket(properties.bucket()).key(key).range("bytes=" + from + "-" + (from + length - 1)))
+                .asByteArray();
+    }
+
     /** Reads an object whole; empty if it isn't there. For small objects, such as log chunks. */
     Optional<byte[]> read(String key) {
         try {

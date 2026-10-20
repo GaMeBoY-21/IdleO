@@ -41,6 +41,7 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/session-not-running` | 409 | Session isn't running | Only a RUNNING session can be stopped: cancel one that hasn't started; one that has ended can't be stopped. |
 | `/problems/outputs-not-ready` | 409 | Outputs not ready | Outputs can be downloaded once the session is COMPLETED. |
 | `/problems/input-not-accepted` | 400 | Template takes no such input | The input doesn't take this kind: an upload where it takes only a link, or a link where it takes only an upload. |
+| `/problems/input-not-usable` | 422 | That isn't what this input needs | The upload is ready, but its files aren't what the template needs for this input (a folder without config.json for a model, a file of the wrong kind), or a zip that can't be read. The detail says what to upload instead. |
 | `/problems/input-required` | 400 | Input required | An input the template needs is missing: give it an upload or a link. |
 | `/problems/input-too-large` | 400 | Input too large | The upload is larger than the input takes. |
 | `/problems/upload-not-ready` | 409 | Upload not ready | The upload can't be used as an input until it's ready, and can't be completed or get fresh part links once it's no longer pending: it may have failed, expired or been deleted. |

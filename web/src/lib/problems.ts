@@ -52,6 +52,8 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "This template doesn't take that kind of input. Choose the other kind, or leave it out.",
   "input-required":
     "This needs every input marked as needed. Upload it, pick it from My files, or give a link.",
+  "input-not-usable":
+    "That isn't what this input needs. The words under the field say what to upload instead.",
   "input-too-large": "That's larger than this input takes. Choose a smaller one.",
   "upload-not-ready":
     "That upload isn't finished, or has expired. Wait for it to finish, or upload it again.",

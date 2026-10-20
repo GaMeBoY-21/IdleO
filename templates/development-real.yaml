@@ -46,6 +46,13 @@ templates:
         accepts: [upload, link]
         required: true
         max_size_gb: 40
+        # Checked when it's booked, for an upload (a link is checked by the job): a Hugging Face model's folder, or a zip of one.
+        must_contain:
+          - any_of: [config.json]
+            max_depth: 2
+            message: This folder has no config.json, so it isn't a Hugging Face model. Upload the model's folder, the one with config.json and the weights.
+          - any_of: ["*.safetensors", "*.bin"]
+            message: This folder has no weights file (.safetensors or .bin). Upload the model's folder, the one with config.json and the weights.
       - name: data
         label: Your training data
         help: A JSONL file, one example a line.
@@ -53,6 +60,8 @@ templates:
         accepts: [upload, link]
         required: true
         max_size_gb: 10
+        accepts_extensions: [.jsonl, .json]
+        not_accepted: This file isn't JSONL. Use a .jsonl file with one example per line.
     questions:
       - preset: thoroughness
         label: How thorough?

@@ -286,6 +286,14 @@ class InputNotAccepted(IdleoError):
     title = "Template takes no such input"
 
 
+class InputNotUsable(IdleoError):
+    """That isn't what this input needs (HTTP 422)."""
+
+    slug = "input-not-usable"
+    status = 422
+    title = "That isn't what this input needs"
+
+
 class InputRequired(IdleoError):
     """Input required (HTTP 400)."""
 
@@ -530,6 +538,7 @@ __all__ = [
     "SessionNotRunning",
     "OutputsNotReady",
     "InputNotAccepted",
+    "InputNotUsable",
     "InputRequired",
     "InputTooLarge",
     "UploadNotReady",
@@ -594,6 +603,7 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "session-not-running": SessionNotRunning,
     "outputs-not-ready": OutputsNotReady,
     "input-not-accepted": InputNotAccepted,
+    "input-not-usable": InputNotUsable,
     "input-required": InputRequired,
     "input-too-large": InputTooLarge,
     "upload-not-ready": UploadNotReady,

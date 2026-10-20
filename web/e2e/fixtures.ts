@@ -121,6 +121,29 @@ function question(param: string, label: string, help: string | null = null): Tem
 }
 
 /** How long the fine-tune's presets take, and the epochs each sets. */
+/** The rules a fine-tune puts on its model folder and its data file: the catalog's (src/features/book/content-rules.test.ts checks they match). */
+export const MODEL_RULES = [
+  {
+    anyOf: ["config.json"],
+    maxDepth: 2,
+    message:
+      "This folder has no config.json, so it isn't a Hugging Face model. Upload the model's folder, the one with config.json and the weights.",
+  },
+  {
+    anyOf: ["*.safetensors", "*.bin"],
+    maxDepth: null,
+    message:
+      "This folder has no weights file (.safetensors or .bin). Upload the model's folder, the one with config.json and the weights.",
+  },
+];
+export const DATA_RULES = [
+  {
+    anyOf: ["*.jsonl", "*.json"],
+    maxDepth: null,
+    message: "This file isn't JSONL. Use a .jsonl file with one example per line.",
+  },
+];
+
 const THOROUGHNESS = [
   { id: "quick", label: "Quick", minutes: 15, sets: { epochs: 1 } },
   { id: "standard", label: "Standard", minutes: 45, sets: { epochs: 3 } },
@@ -211,6 +234,7 @@ export const templateList: Template[] = [
         link: true,
         required: true,
         maxSizeBytes: 40 * GIB,
+        mustContain: MODEL_RULES,
       },
       {
         name: "data",
@@ -221,6 +245,7 @@ export const templateList: Template[] = [
         link: true,
         required: true,
         maxSizeBytes: 10 * GIB,
+        mustContain: DATA_RULES,
       },
     ],
     questions: [
@@ -274,6 +299,7 @@ export const templateList: Template[] = [
         link: false,
         required: true,
         maxSizeBytes: 10 * GIB,
+        mustContain: [],
       },
       {
         name: "data",
@@ -284,6 +310,7 @@ export const templateList: Template[] = [
         link: false,
         required: false,
         maxSizeBytes: 40 * GIB,
+        mustContain: [],
       },
     ],
     questions: [
@@ -348,6 +375,7 @@ export const templateList: Template[] = [
         link: true,
         required: true,
         maxSizeBytes: 512 * 1024 ** 2,
+        mustContain: [],
       },
     ],
     questions: [question("greeting", "Greeting", "Written back in the output, once per repeat.")],

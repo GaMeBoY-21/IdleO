@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** The template catalog is refused whole if anything in it is wrong (ADR 0015). */
@@ -208,7 +209,15 @@ class TemplateCatalogTests {
         assertThat(template.inputs())
                 .containsExactly(
                         new Template.Input(
-                                "model", "Your model", null, Template.InputKind.FOLDER, true, true, true, 40L << 30),
+                                "model",
+                                "Your model",
+                                null,
+                                Template.InputKind.FOLDER,
+                                true,
+                                true,
+                                true,
+                                40L << 30,
+                                List.of()),
                         new Template.Input(
                                 "data",
                                 "Training data",
@@ -217,7 +226,8 @@ class TemplateCatalogTests {
                                 false,
                                 true,
                                 false,
-                                null));
+                                null,
+                                List.of()));
         var preset = template.preset("thoroughness").orElseThrow();
         assertThat(preset.defaultOption()).isEqualTo("thorough");
         assertThat(preset.option("quick").orElseThrow().sets())
@@ -263,6 +273,39 @@ class TemplateCatalogTests {
                         echoWith("accepts: [link]", "accepts: [link]\n        max_size_gb: 1"),
                         "only for an input that takes an upload"),
                 java.util.Map.entry(echoWith("- name: data", "- name: model"), "input model appears twice"),
+                java.util.Map.entry(
+                        echoWith(
+                                "max_size_gb: 40",
+                                "max_size_gb: 40\n        accepts_extensions: [.jsonl]\n        not_accepted: no"),
+                        "accepts_extensions is for a file that takes an upload"),
+                java.util.Map.entry(
+                        echoWith(
+                                "accepts: [link]",
+                                "accepts: [upload]\n        max_size_gb: 1\n        must_contain:\n          - any_of: [a]\n            message: x"),
+                        "must_contain is for a folder that takes an upload"),
+                java.util.Map.entry(
+                        echoWith(
+                                "max_size_gb: 40",
+                                "max_size_gb: 40\n        must_contain:\n          - any_of: []\n            message: x"),
+                        "any_of lists file names"),
+                java.util.Map.entry(
+                        echoWith(
+                                "max_size_gb: 40",
+                                "max_size_gb: 40\n        must_contain:\n          - any_of: [config.json]"),
+                        "message"),
+                java.util.Map.entry(
+                        echoWith(
+                                "max_size_gb: 40",
+                                "max_size_gb: 40\n        must_contain:\n          - any_of: [config.json]\n            message: x\n            max_depth: 0"),
+                        "max_depth must be"),
+                java.util.Map.entry(
+                        echoWith(
+                                "accepts: [link]",
+                                "accepts: [upload]\n        max_size_gb: 1\n        accepts_extensions: [jsonl]\n        not_accepted: x"),
+                        "extensions such as .jsonl"),
+                java.util.Map.entry(
+                        echoWith("accepts: [link]", "accepts: [link]\n        not_accepted: x"),
+                        "not_accepted goes with accepts_extensions"),
                 java.util.Map.entry(echoWith("sets: { repeat: 5 }", "sets: { epochs: 5 }"), "sets epochs, which isn't"),
                 java.util.Map.entry(
                         echoWith("sets: { repeat: 5 }", "sets: { greeting: hi }"), "advanced parameters only"),
@@ -280,6 +323,39 @@ class TemplateCatalogTests {
                 java.util.Map.entry(echoWith("        default: 1\n", "        required: true\n"), "never required"));
         cases.forEach((block, message) ->
                 assertThatThrownBy(() -> parse(withBlocks(block))).as(block).hasMessageContaining(message));
+    }
+
+    @Test
+    void anInputsContentRulesAreRead() {
+        var block = withBlocks(ECHO_PARAMS)
+                .replace(
+                        "max_size_gb: 40",
+                        "max_size_gb: 40\n        must_contain:\n          - any_of: [config.json]\n            max_depth: 2\n            message: No config.\n          - any_of: [\"*.safetensors\", \"*.bin\"]\n            message: No weights.")
+                .replace(
+                        "accepts: [link]",
+                        "accepts: [upload]\n        max_size_gb: 1\n        accepts_extensions: [.jsonl, .json]\n        not_accepted: Not JSONL.");
+        var template = parse(block).get("smoke");
+
+        assertThat(template.input("model").orElseThrow().mustContain())
+                .containsExactly(
+                        new Template.ContentRule(List.of("config.json"), 2, "No config."),
+                        new Template.ContentRule(List.of("*.safetensors", "*.bin"), null, "No weights."));
+        assertThat(template.input("data").orElseThrow().mustContain())
+                .containsExactly(new Template.ContentRule(List.of("*.jsonl", "*.json"), null, "Not JSONL."));
+    }
+
+    @Test
+    void aRuleLooksForFileNamesByDepthAndSuffixInAnyCase() {
+        var config = new Template.ContentRule(List.of("config.json"), 2, "x");
+        assertThat(config.matches("config.json")).isTrue();
+        assertThat(config.matches("llm/Config.JSON")).isTrue();
+        assertThat(config.matches("a/b/config.json")).as("too deep").isFalse();
+        assertThat(config.matches("my-config.json")).isFalse();
+        var weights = new Template.ContentRule(List.of("*.safetensors", "*.bin"), null, "x");
+        assertThat(weights.matches("a/b/c/model-0001.SafeTensors")).isTrue();
+        assertThat(weights.matches("pytorch_model.bin")).isTrue();
+        assertThat(weights.matches("notes.binary")).isFalse();
+        assertThat(weights.matches("weights.safetensors.txt")).isFalse();
     }
 
     @Test

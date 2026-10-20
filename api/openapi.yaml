@@ -4555,6 +4555,23 @@ components:
       required:
       - parts
       - path
+    ContentRuleView:
+      type: object
+      properties:
+        anyOf:
+          type: array
+          items:
+            type: string
+        maxDepth:
+          type:
+          - integer
+          - "null"
+          format: int32
+        message:
+          type: string
+      required:
+      - anyOf
+      - message
     CreateApiKeyRequest:
       type: object
       properties:
@@ -5760,6 +5777,7 @@ components:
           - /problems/session-not-running
           - /problems/outputs-not-ready
           - /problems/input-not-accepted
+          - /problems/input-not-usable
           - /problems/input-required
           - /problems/input-too-large
           - /problems/upload-not-ready
@@ -6359,6 +6377,10 @@ components:
           - integer
           - "null"
           format: int64
+        mustContain:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentRuleView"
         name:
           type: string
         required:
@@ -6369,6 +6391,7 @@ components:
       - kind
       - label
       - link
+      - mustContain
       - name
       - required
       - upload

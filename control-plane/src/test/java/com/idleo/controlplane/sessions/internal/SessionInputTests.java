@@ -302,7 +302,11 @@ class SessionInputTests {
     void eachNamedInputReachesTheJobInItsOwnFolderOrAsItsOwnLink() throws Exception {
         var host = bookings.host();
         var renter = bookings.renter();
-        var model = TestUploads.ready(mvc, renter, "model.safetensors", "weights");
+        var model = TestUploads.readyFolder(
+                mvc,
+                renter,
+                "model",
+                Map.of("config.json", new byte[] {'{', '}'}, "model.safetensors", "weights".getBytes()));
 
         book(
                         renter,
@@ -322,10 +326,9 @@ class SessionInputTests {
                 .containsEntry("SESSION_INPUT_DATA_URL", "https://example.com/train.jsonl");
         host.reply(offer.getOfferId(), true, TestBookings.ACCEPT);
         var start = host.awaitStart(TestBookings.WAIT).getStartSession();
-        assertThat(start.getInputsList()).singleElement().satisfies(input -> {
-            assertThat(input.getSlot()).isEqualTo("model");
-            assertThat(input.getName()).isEqualTo("model.safetensors");
-        });
+        assertThat(start.getInputsList())
+                .extracting(input -> input.getSlot() + ":" + input.getName())
+                .containsExactlyInAnyOrder("model:config.json", "model:model.safetensors");
         assertThat(start.getCredentials().getReadGrant().getPrefixesList()).containsExactly("uploads/" + model + "/");
     }
 
@@ -389,7 +392,8 @@ class SessionInputTests {
     @Test
     void theGpuMemoryComesFromTheSizeOfTheRentersModel() throws Exception {
         var renter = bookings.renter();
-        var model = TestUploads.ready(mvc, renter, "model.safetensors", "weights");
+        var model = TestUploads.readyFolder(
+                mvc, renter, "model", Map.of("config.json", new byte[] {'{', '}'}, "model.safetensors", new byte[8]));
         // As if it were 14.2 GiB: 2,048 + 700 x 14.2 = 11,988 MB, a 12 GB GPU.
         jdbc.update("update sessions.uploads set size_bytes = ? where id = ?", (long) (14.2 * (1L << 30)), model);
         var inputs =

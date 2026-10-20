@@ -211,6 +211,13 @@ public enum Problem {
             "Template takes no such input",
             "The input doesn't take this kind: an upload where it takes only a link, or a link where it takes only "
                     + "an upload."),
+    INPUT_NOT_USABLE(
+            "input-not-usable",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "That isn't what this input needs",
+            "The upload is ready, but its files aren't what the template needs for this input (a folder without "
+                    + "config.json for a model, a file of the wrong kind), or a zip that can't be read. The detail says "
+                    + "what to upload instead."),
     INPUT_REQUIRED(
             "input-required",
             HttpStatus.BAD_REQUEST,

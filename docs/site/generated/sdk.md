@@ -251,6 +251,7 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `SessionNotRunning` | `session-not-running` | 409 | 1 |
 | `OutputsNotReady` | `outputs-not-ready` | 409 | 1 |
 | `InputNotAccepted` | `input-not-accepted` | 400 | 1 |
+| `InputNotUsable` | `input-not-usable` | 422 | 1 |
 | `InputRequired` | `input-required` | 400 | 1 |
 | `InputTooLarge` | `input-too-large` | 400 | 1 |
 | `UploadNotReady` | `upload-not-ready` | 409 | 1 |

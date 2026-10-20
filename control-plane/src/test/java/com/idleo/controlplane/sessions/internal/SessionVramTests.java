@@ -34,7 +34,7 @@ class SessionVramTests {
                 Duration.ofMinutes(5),
                 List.of(),
                 List.of(new Template.Input(
-                        "model", "Your model", null, Template.InputKind.FOLDER, true, true, true, 40 * GIB)),
+                        "model", "Your model", null, Template.InputKind.FOLDER, true, true, true, 40 * GIB, List.of())),
                 List.of(),
                 List.of(),
                 null,

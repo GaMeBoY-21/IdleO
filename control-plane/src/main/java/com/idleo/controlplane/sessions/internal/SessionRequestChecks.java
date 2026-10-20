@@ -34,10 +34,14 @@ class SessionRequestChecks implements SessionRequests {
 
     private final TemplateCatalog catalog;
     private final UploadStore uploads;
+    private final UploadFileStore files;
+    private final SessionStorage storage;
 
-    SessionRequestChecks(TemplateCatalog catalog, UploadStore uploads) {
+    SessionRequestChecks(TemplateCatalog catalog, UploadStore uploads, UploadFileStore files, SessionStorage storage) {
         this.catalog = catalog;
         this.uploads = uploads;
+        this.files = files;
+        this.storage = storage;
     }
 
     @Override
@@ -148,6 +152,7 @@ class SessionRequestChecks implements SessionRequests {
                     input.label() + " takes one file; upload " + uploadId + " has " + upload.fileCount() + ".",
                     List.of(new FieldError(field, "takes one file, not a folder.")));
         }
+        content(upload, input, field);
         long limit = input.maxSizeBytes() == null ? Long.MAX_VALUE : input.maxSizeBytes();
         if (upload.sizeBytes() > limit) {
             throw ApiProblem.of(
@@ -157,6 +162,34 @@ class SessionRequestChecks implements SessionRequests {
                     List.of(new FieldError(field, "is larger than this input takes.")));
         }
         return upload;
+    }
+
+    /**
+     * What the upload holds against the input's rules ({@code input-not-usable}): its files' paths, or, for a folder
+     * input given one zip, the names in the zip's directory, read by range from storage.
+     */
+    private void content(UploadStore.Upload upload, Template.Input input, String field) {
+        if (input.mustContain().isEmpty()) {
+            return;
+        }
+        var held = files.files(upload.id());
+        var paths = held.stream().map(UploadFileStore.UploadFile::storedPath).toList();
+        if (InputContent.isZip(input, paths)) {
+            var zip = held.get(0);
+            try {
+                paths = ZipDirectory.names(
+                        (from, length) -> storage.readRange(zip.objectKey(), from, length), zip.sizeBytes());
+            } catch (ZipDirectory.Unreadable | software.amazon.awssdk.core.exception.SdkException unreadable) {
+                throw notUsable(field, InputContent.UNREADABLE_ZIP);
+            }
+        }
+        InputContent.problem(input, paths).ifPresent(words -> {
+            throw notUsable(field, words);
+        });
+    }
+
+    private static ApiProblem notUsable(String field, String words) {
+        return ApiProblem.of(Problem.INPUT_NOT_USABLE, words, List.of(new FieldError(field, words)));
     }
 
     private static ApiProblem notAccepted(String field, String why) {

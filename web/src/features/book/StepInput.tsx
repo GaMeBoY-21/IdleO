@@ -68,7 +68,7 @@ export function StepInput({
           inputMode="url"
           autoComplete="off"
           placeholder="https://"
-          hint="The GPU downloads it itself. It must start with https://"
+          hint={`The GPU downloads it itself. It must start with https://${input.mustContain.length > 0 ? " We'll check it when your session starts." : ""}`}
           error={refused ?? (missing ? "Enter a link, or choose another way." : undefined)}
           {...form.register(`inputs.${input.name}.url`)}
         />

@@ -17,6 +17,7 @@ import {
   type DroppedEntry,
 } from "./chosen-files";
 import { uploadLine } from "./upload-line";
+import { inspect } from "./content-rules";
 import type { InputUpload } from "./useUploads";
 
 type TemplateInput = components["schemas"]["TemplateInput"];
@@ -69,10 +70,22 @@ export function FilePicker({
       return;
     }
     const why = refusal(input, chosen);
-    setRefused(why);
-    if (why === null) {
-      onChoose(chosen);
+    if (why !== null) {
+      setRefused(why);
+      return;
     }
+    if (input.mustContain.length === 0) {
+      setRefused(null);
+      onChoose(chosen);
+      return;
+    }
+    // What the template needs in it (a model's config.json and weights): said before a byte is sent, in the catalog's words.
+    void inspect(input, chosen).then((words) => {
+      setRefused(words);
+      if (words === null) {
+        onChoose(chosen);
+      }
+    });
   };
   const drop = (event: DragEvent) => {
     event.preventDefault();

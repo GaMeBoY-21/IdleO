@@ -66,6 +66,9 @@ final class TemplateViews {
      *
      * @param kind a folder of files (a model, a project), or exactly one file
      * @param maxSizeBytes the largest upload it takes; null when it takes only a link
+     * @param mustContain what an upload's files must show, each rule with the words the renter reads when it isn't so; the
+     *     server checks them when the session is booked or quoted ({@code input-not-usable}), and the booking screen
+     *     applies the same rules as soon as the files are chosen. A link is never checked at booking
      */
     record TemplateInput(
             String name,
@@ -77,7 +80,8 @@ final class TemplateViews {
             boolean upload,
             boolean link,
             boolean required,
-            @Nullable Long maxSizeBytes) {
+            @Nullable Long maxSizeBytes,
+            List<ContentRuleView> mustContain) {
 
         static TemplateInput of(Template.Input input) {
             return new TemplateInput(
@@ -88,7 +92,23 @@ final class TemplateViews {
                     input.upload(),
                     input.link(),
                     input.required(),
-                    input.maxSizeBytes());
+                    input.maxSizeBytes(),
+                    input.mustContain().stream().map(ContentRuleView::of).toList());
+        }
+    }
+
+    /**
+     * Some file an upload must hold.
+     *
+     * @param anyOf the file names it looks for: an exact name ({@code config.json}) or {@code *.suffix}, in any case
+     * @param maxDepth at most this many path segments deep ({@code config.json} at the top, or under one folder, is 2);
+     *     null for anywhere
+     * @param message the renter's words when no file matches
+     */
+    record ContentRuleView(List<String> anyOf, @Nullable Integer maxDepth, String message) {
+
+        static ContentRuleView of(Template.ContentRule rule) {
+            return new ContentRuleView(rule.anyOf(), rule.maxDepth(), rule.message());
         }
     }
 

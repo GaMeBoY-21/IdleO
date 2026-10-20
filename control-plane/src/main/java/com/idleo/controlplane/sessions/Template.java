@@ -135,6 +135,8 @@ public record Template(
      * @param upload it takes an upload
      * @param link it takes a link
      * @param maxSizeBytes the largest upload it takes; null when it takes only a link
+     * @param mustContain what an upload's files must show, checked when it's booked: {@code must_contain} of a folder, or
+     *     the {@code accepts_extensions} of a file as one rule; empty for none
      */
     public record Input(
             String name,
@@ -144,7 +146,40 @@ public record Template(
             boolean upload,
             boolean link,
             boolean required,
-            @Nullable Long maxSizeBytes) {}
+            @Nullable Long maxSizeBytes,
+            List<ContentRule> mustContain) {
+
+        public Input {
+            mustContain = List.copyOf(mustContain);
+        }
+    }
+
+    /**
+     * One thing an upload's files must show, in the renter's words: some file whose name is one of {@code anyOf} (an
+     * exact name such as {@code config.json}, or {@code *.suffix}, in any case), at most {@code maxDepth} path segments deep
+     * when that is set ({@code config.json} at the top, or under one folder, is depth 2).
+     *
+     * @param message what the renter reads when it isn't so, in plain words that say what to do
+     */
+    public record ContentRule(List<String> anyOf, @Nullable Integer maxDepth, String message) {
+
+        public ContentRule {
+            anyOf = List.copyOf(anyOf);
+        }
+
+        /** Whether a file at {@code path} (relative, with forward slashes) is one this rule looks for. */
+        public boolean matches(String path) {
+            var segments = path.split("/");
+            if (maxDepth != null && segments.length > maxDepth) {
+                return false;
+            }
+            var name = segments[segments.length - 1].toLowerCase(java.util.Locale.ROOT);
+            return anyOf.stream().anyMatch(pattern -> {
+                var wanted = pattern.toLowerCase(java.util.Locale.ROOT);
+                return wanted.startsWith("*") ? name.endsWith(wanted.substring(1)) : name.equals(wanted);
+            });
+        }
+    }
 
     /** One plain question the booking screen asks, after the inputs. */
     public sealed interface Question {

@@ -141,7 +141,10 @@ export function ServiceForm({
     advanced || fieldsOf(form.formState.errors).some((field) => inAdvanced(template, field));
   const quoteError = quote.kind === "error" ? quote.error : null;
   useEffect(() => {
-    if (quoteError instanceof ApiError && quoteError.type === "/problems/validation-failed") {
+    if (
+      quoteError instanceof ApiError &&
+      ["/problems/validation-failed", "/problems/input-not-usable"].includes(quoteError.type ?? "")
+    ) {
       markRefused(quoteError.errors);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per refusal

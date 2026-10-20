@@ -34,6 +34,7 @@
   { "slug": "session-not-running", "status": 409, "title": "Session isn't running" },
   { "slug": "outputs-not-ready", "status": 409, "title": "Outputs not ready" },
   { "slug": "input-not-accepted", "status": 400, "title": "Template takes no such input" },
+  { "slug": "input-not-usable", "status": 422, "title": "That isn't what this input needs" },
   { "slug": "input-required", "status": 400, "title": "Input required" },
   { "slug": "input-too-large", "status": 400, "title": "Input too large" },
   { "slug": "upload-not-ready", "status": 409, "title": "Upload not ready" },

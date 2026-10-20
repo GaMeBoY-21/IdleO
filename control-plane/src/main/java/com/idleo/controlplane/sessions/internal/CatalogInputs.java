@@ -24,8 +24,18 @@ final class CatalogInputs {
     /** A gigabyte as uploads count it: 2^30 bytes. */
     static final long GIB = 1L << 30;
 
-    private static final Set<String> FIELDS =
-            Set.of("name", "label", "help", "kind", "accepts", "required", "max_size_gb");
+    private static final Set<String> FIELDS = Set.of(
+            "name",
+            "label",
+            "help",
+            "kind",
+            "accepts",
+            "required",
+            "max_size_gb",
+            "must_contain",
+            "accepts_extensions",
+            "not_accepted");
+    private static final Set<String> RULE_FIELDS = Set.of("any_of", "max_depth", "message");
     private static final List<String> SOURCES = List.of("upload", "link");
 
     private CatalogInputs() {}
@@ -101,6 +111,48 @@ final class CatalogInputs {
                 upload,
                 accepts.contains("link"),
                 flag(fields, "required", where),
-                maxSizeBytes);
+                maxSizeBytes,
+                rules(fields, kind, upload, where));
+    }
+
+    /**
+     * {@code must_contain} (a folder's rules) or {@code accepts_extensions} with its {@code not_accepted} words (a
+     * file's), as the rules an upload is checked against when it's booked. A link is never checked here: the job checks it.
+     */
+    private static List<Template.ContentRule> rules(
+            Map<?, ?> fields, Template.InputKind kind, boolean upload, String where) {
+        var rules = new ArrayList<Template.ContentRule>();
+        if (fields.containsKey("must_contain")) {
+            if (kind != Template.InputKind.FOLDER || !upload) {
+                throw new IllegalStateException(where + ": must_contain is for a folder that takes an upload.");
+            }
+            for (var rule : CatalogFields.maps(fields, "must_contain", where)) {
+                known(rule, RULE_FIELDS, where + ", must_contain");
+                var anyOf = CatalogFields.strings(rule, "any_of", where + ", must_contain");
+                if (anyOf.isEmpty() || anyOf.stream().anyMatch(name -> name.isBlank() || name.contains("/"))) {
+                    throw new IllegalStateException(
+                            where + ", must_contain: any_of lists file names, such as config.json or *.safetensors.");
+                }
+                Integer depth = null;
+                if (rule.containsKey("max_depth")) {
+                    depth = CatalogFields.positive(rule, "max_depth", where + ", must_contain");
+                }
+                rules.add(new Template.ContentRule(anyOf, depth, text(rule, "message", where + ", must_contain")));
+            }
+        }
+        if (fields.containsKey("accepts_extensions")) {
+            if (kind != Template.InputKind.FILE || !upload) {
+                throw new IllegalStateException(where + ": accepts_extensions is for a file that takes an upload.");
+            }
+            var extensions = CatalogFields.strings(fields, "accepts_extensions", where);
+            if (extensions.isEmpty() || extensions.stream().anyMatch(ext -> !ext.matches("\\.[A-Za-z0-9]{1,16}"))) {
+                throw new IllegalStateException(where + ": accepts_extensions lists extensions such as .jsonl.");
+            }
+            rules.add(new Template.ContentRule(
+                    extensions.stream().map(ext -> "*" + ext).toList(), null, text(fields, "not_accepted", where)));
+        } else if (fields.containsKey("not_accepted")) {
+            throw new IllegalStateException(where + ": not_accepted goes with accepts_extensions.");
+        }
+        return rules;
     }
 }

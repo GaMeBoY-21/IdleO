@@ -409,6 +409,27 @@ test.describe("on a laptop", () => {
       .toBe("deleted");
   });
 
+  test("a PDF as the model is refused with the reason, before anything is sent and before Request a GPU", async ({
+    page,
+  }) => {
+    await startAt(page, "/book/?service=fine-tune");
+    let uploadOpened = false;
+    page.on("request", (r) => {
+      uploadOpened ||= r.url().endsWith("/v1/uploads") && r.method() === "POST";
+    });
+    await page.getByTestId("model-file").setInputFiles(fileOf("paper.pdf", 1));
+    const yourModel = page.getByRole("region", { name: "1. Your model" });
+    await expect(yourModel.getByRole("alert")).toHaveText(
+      "This folder has no config.json, so it isn't a Hugging Face model. Upload the model's folder, the one with config.json and the weights.",
+    );
+    await page.getByTestId("data-file").setInputFiles(fileOf("notes.pdf", 1));
+    await expect(page.getByRole("region", { name: "2. Your training data" }).getByRole("alert")).toHaveText(
+      "This file isn't JSONL. Use a .jsonl file with one example per line.",
+    );
+    expect(uploadOpened).toBe(false);
+    await expectAccessible(page);
+  });
+
   test("the stream drops: the screen says so, keeps polling, and the stream comes back", streamDropJourney);
 });
 

@@ -55,6 +55,15 @@ class ApproveLinkRequest(BaseModel):
     name: Annotated[str, Field(max_length=100, min_length=0)]
 
 
+class ContentRuleView(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    any_of: Annotated[list[str], Field(alias="anyOf")]
+    max_depth: Annotated[int | None, Field(alias="maxDepth")] = None
+    message: str
+
+
 class CreateApiKeyRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -526,6 +535,7 @@ class Type(Enum):
     field_problems_session_not_running = "/problems/session-not-running"
     field_problems_outputs_not_ready = "/problems/outputs-not-ready"
     field_problems_input_not_accepted = "/problems/input-not-accepted"
+    field_problems_input_not_usable = "/problems/input-not-usable"
     field_problems_input_required = "/problems/input-required"
     field_problems_input_too_large = "/problems/input-too-large"
     field_problems_upload_not_ready = "/problems/upload-not-ready"
@@ -854,6 +864,7 @@ class TemplateInput(BaseModel):
     label: str
     link: bool
     max_size_bytes: Annotated[int | None, Field(alias="maxSizeBytes")] = None
+    must_contain: Annotated[list[ContentRuleView], Field(alias="mustContain")]
     name: str
     required: bool
     upload: bool
