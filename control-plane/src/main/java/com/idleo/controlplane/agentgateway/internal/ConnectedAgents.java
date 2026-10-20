@@ -1,6 +1,10 @@
 package com.idleo.controlplane.agentgateway.internal;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
@@ -30,6 +34,16 @@ class ConnectedAgents {
     @Nullable
     AgentStream get(UUID hostId) {
         return streams.get(hostId);
+    }
+
+    /** The longest any open stream here has gone without a Hello or a valid heartbeat; zero with none. */
+    Duration longestSilence(Instant now) {
+        return streams.values().stream()
+                .map(AgentStream::lastHeardAt)
+                .filter(Objects::nonNull)
+                .map(heard -> Duration.between(heard, now))
+                .max(Comparator.naturalOrder())
+                .orElse(Duration.ZERO);
     }
 
     java.util.Set<UUID> hostIds() {

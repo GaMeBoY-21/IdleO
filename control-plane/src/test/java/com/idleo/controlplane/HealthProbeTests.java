@@ -1,9 +1,11 @@
 package com.idleo.controlplane;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
@@ -13,6 +15,9 @@ class HealthProbeTests {
 
     @Autowired
     MockMvc mvc;
+
+    @Autowired
+    MeterRegistry meters;
 
     @Test
     void livenessIsOpenAndUp() throws Exception {
@@ -26,6 +31,18 @@ class HealthProbeTests {
         mvc.perform(get("/actuator/health/readiness"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void eachReadinessComponentIsAlsoAMeter() {
+        for (var component : ReadinessMetrics.COMPONENTS) {
+            assertThat(meters.get("health.ready")
+                            .tag("component", component)
+                            .gauge()
+                            .value())
+                    .as(component)
+                    .isEqualTo(1);
+        }
     }
 
     @Test

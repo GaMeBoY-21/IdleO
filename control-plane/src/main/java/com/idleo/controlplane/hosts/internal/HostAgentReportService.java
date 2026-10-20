@@ -32,8 +32,11 @@ class HostAgentReportService implements HostAgentReports {
     private final HostActivation activation;
     private final HostLinkProperties settings;
     private final JsonMapper json = JsonMapper.builder().build();
+    private final HostMetrics metrics;
 
-    HostAgentReportService(JdbcClient jdbc, Clock clock, HostActivation activation, HostLinkProperties settings) {
+    HostAgentReportService(
+            JdbcClient jdbc, Clock clock, HostActivation activation, HostLinkProperties settings, HostMetrics metrics) {
+        this.metrics = metrics;
         this.jdbc = jdbc;
         this.clock = clock;
         this.activation = activation;
@@ -58,6 +61,7 @@ class HostAgentReportService implements HostAgentReports {
                 .param("checks", json.writeValueAsString(selfTest.checks()))
                 .param("now", now)
                 .update();
+        metrics.selfTest(selfTest);
         if (!selfTest.passed() || !settings.autoActivate()) {
             return;
         }
@@ -89,6 +93,7 @@ class HostAgentReportService implements HostAgentReports {
                 .param("detail", detail)
                 .param("now", Timestamp.from(Instant.now(clock)))
                 .update();
+        metrics.updateResult(version, outcome);
     }
 
     @Override

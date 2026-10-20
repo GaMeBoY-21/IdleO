@@ -16,6 +16,7 @@ import com.idleo.controlplane.sessions.SessionNeverRan;
 import com.idleo.controlplane.sessions.SessionOutcomes;
 import com.idleo.controlplane.sessions.SessionOutcomes.Outcome;
 import com.idleo.controlplane.sessions.SessionSettled;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -54,6 +55,15 @@ class NotificationDeliveryTests {
 
     @Autowired
     RecordingEmailSender mail;
+
+    @Autowired
+    MeterRegistry meters;
+
+    private double emails(String outcome) {
+        var counter =
+                meters.find("notifications.emails").tag("outcome", outcome).counter();
+        return counter == null ? 0 : counter.count();
+    }
 
     private TestUsers.TestUser renter;
     private String renterEmail;
@@ -330,6 +340,8 @@ class NotificationDeliveryTests {
     @Test
     void aMailServerThatRefusesLosesNothingAndTheRetrySendsItOnce() {
         var id = session("COMPLETED", null, null, true);
+        var sentBefore = emails("sent");
+        var failedBefore = emails("failed");
         mail.refuseNext(1);
 
         assertThatThrownBy(() -> listeners.on(new SessionSettled(id)))
@@ -345,6 +357,8 @@ class NotificationDeliveryTests {
         assertThat(inbox(renter.id())).hasSize(1);
         assertThat(mail.sent()).hasSize(1);
         assertThat(inbox(renter.id()).getFirst().get("email_sent_at")).isNotNull();
+        assertThat(emails("failed") - failedBefore).isEqualTo(1);
+        assertThat(emails("sent") - sentBefore).isEqualTo(1);
     }
 
     @Test

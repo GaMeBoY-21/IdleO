@@ -1,5 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AfterCommit;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.billing.HostEarningsChanged;
@@ -40,13 +41,16 @@ class Ledger {
     private final IdGenerator ids;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final BillingMetrics metrics;
 
     Ledger(
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
             Clock clock,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            BillingMetrics metrics) {
+        this.metrics = metrics;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
@@ -214,6 +218,7 @@ class Ledger {
         if (!hosts.isEmpty()) {
             events.publishEvent(new HostEarningsChanged(hosts));
         }
+        AfterCommit.run(() -> metrics.posted(transaction));
         return new Posting(transaction.txnId(), true, now);
     }
 

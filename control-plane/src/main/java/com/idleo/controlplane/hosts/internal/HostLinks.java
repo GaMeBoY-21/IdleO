@@ -129,6 +129,7 @@ class HostLinks {
     private final HostInstalls installs;
     private final IdGenerator ids;
     private final HostLinkProperties properties;
+    private final HostMetrics metrics;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
     private final SecureRandom random = new SecureRandom();
@@ -143,7 +144,9 @@ class HostLinks {
             HostInstalls installs,
             IdGenerator ids,
             HostLinkProperties properties,
-            Clock clock) {
+            Clock clock,
+            HostMetrics metrics) {
+        this.metrics = metrics;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.hosts = hosts;
@@ -184,6 +187,7 @@ class HostLinks {
                 .param("expiresAt", Timestamp.from(expiresAt))
                 .param("installId", installId)
                 .update();
+        metrics.linkStarted();
         return new Started(id, pollToken, expiresAt);
     }
 
@@ -248,6 +252,7 @@ class HostLinks {
             if (row.installId() != null) {
                 installs.approved(row.installId());
             }
+            metrics.linkApproved();
             return new Approval.Approved(row.link(now).withHost(host.id()), host.id());
         }));
     }
@@ -283,6 +288,7 @@ class HostLinks {
                     "the person said this isn't their machine",
                     null,
                     Map.of("machineName", row.machine().name())));
+            metrics.linkDenied();
             return new Denial.Done(new Link(id, row.machine(), State.DENIED, row.expiresAt(), null));
         }));
     }

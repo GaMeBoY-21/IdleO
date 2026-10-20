@@ -445,6 +445,11 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         }
     }
 
+    /** When the stream's last Hello or valid heartbeat came; null before Hello. */
+    synchronized @Nullable Instant lastHeardAt() {
+        return lastHeardAt;
+    }
+
     /** Whether the stream is open and its last Hello or valid heartbeat came after {@code instant}. */
     synchronized boolean heardFromAfter(Instant instant) {
         return state == State.OPEN && lastHeardAt != null && lastHeardAt.isAfter(instant);

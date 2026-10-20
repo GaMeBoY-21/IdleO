@@ -72,6 +72,25 @@ class AgentGatewayTests {
     }
 
     @Test
+    void theQuietestStreamsSilenceIsMeasuredOnTheControlPlanesClock() throws Exception {
+        var agent = TestAgent.enrol(mvc, grpcPort);
+        var stream = TestAgent.open(track(agent.channel(grpcPort)));
+        stream.send(TestAgent.hello("1.2.3", TestAgent.GPU_A));
+        stream.next(WAIT);
+
+        var gauge = meters.get("agents.heartbeat.age.max").gauge();
+        assertThat(gauge.value()).isLessThan(5);
+        clock.advance(Duration.ofSeconds(40));
+        assertThat(gauge.value()).isGreaterThanOrEqualTo(40);
+        stream.send(TestAgent.heartbeat(TestAgent.GPU_A, 60, 90));
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        while (gauge.value() >= 40 && System.nanoTime() < deadline) {
+            Thread.sleep(50);
+        }
+        assertThat(gauge.value()).as("a heartbeat resets it").isLessThan(5);
+    }
+
+    @Test
     void anEnrolledAgentConnectsSaysHelloGetsWelcomeAndHeartbeatsKeepItsPresenceAlive() throws Exception {
         var agent = TestAgent.enrol(mvc, grpcPort);
         var stream = TestAgent.open(track(agent.channel(grpcPort)));

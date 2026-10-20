@@ -11,6 +11,7 @@ import gpu.agent.v1.Session.SessionError;
 import gpu.agent.v1.Session.SessionState;
 import gpu.agent.v1.Session.SessionStatus;
 import gpu.agent.v1.Session.StartSession;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -42,6 +43,9 @@ class SessionProgressTests {
 
     @Autowired
     org.springframework.data.redis.core.StringRedisTemplate redis;
+
+    @Autowired
+    MeterRegistry meters;
 
     @LocalGrpcServerPort
     int grpcPort;
@@ -131,16 +135,32 @@ class SessionProgressTests {
                 .getContentAsString());
     }
 
+    private double count(String name, String... tags) {
+        var counter = meters.find(name).tags(tags).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    private long timed(String name) {
+        return meters.get(name).timer().count();
+    }
+
     @Test
     void aJobRunsCheckpointsAndCompletesOnceItsOutputsAreInStorage() throws Exception {
+        var startedBefore = count("sessions.started");
+        var completedBefore = count("sessions.ended", "state", "COMPLETED", "reason", "outputs_complete");
+        var toGpuBefore = timed("sessions.time-to-gpu");
+        var toFirstLogBefore = timed("sessions.time-to-first-log");
         var started = started();
 
         report(started, status(SessionState.SESSION_STATE_PREPARING, 1));
         assertThat(bookings.session(started.renter(), started.id()).get("state").asString())
                 .isEqualTo("PROVISIONING");
-        report(started, status(SessionState.SESSION_STATE_RUNNING, 1));
+        report(started, status(SessionState.SESSION_STATE_RUNNING, 1).setLatestLogSeq(1));
         var running = bookings.session(started.renter(), started.id());
         assertThat(running.get("state").asString()).isEqualTo("RUNNING");
+        assertThat(count("sessions.started") - startedBefore).isEqualTo(1);
+        assertThat(timed("sessions.time-to-gpu") - toGpuBefore).isEqualTo(1);
+        assertThat(timed("sessions.time-to-first-log") - toFirstLogBefore).isEqualTo(1);
         assertThat(running.get("startedAt").isNull()).isFalse();
         assertThat(running.get("settled").asBoolean()).isFalse();
         assertThat(running.get("endedAt").isNull()).isTrue();
@@ -170,6 +190,8 @@ class SessionProgressTests {
                 status(SessionState.SESSION_STATE_SUCCEEDED, 1).setExitCode(0).setLatestCheckpointSeq(1));
 
         var completed = bookings.awaitState(started.renter(), started.id(), "COMPLETED");
+        assertThat(count("sessions.ended", "state", "COMPLETED", "reason", "outputs_complete") - completedBefore)
+                .isEqualTo(1);
         assertThat(completed.get("events").findValuesAsString("state"))
                 .containsSubsequence("PROVISIONING", "RUNNING", "FINISHING", "COMPLETED");
         assertThat(completed.get("endedAt").asString())

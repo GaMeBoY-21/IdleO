@@ -51,6 +51,7 @@ class SessionProgress implements SessionStatuses {
     private final TransactionTemplate transactions;
     private final Checkpoints checkpoints;
     private final SessionLogs logs;
+    private final SessionMetrics metrics;
     private final Duration outputsWait;
 
     SessionProgress(
@@ -64,7 +65,9 @@ class SessionProgress implements SessionStatuses {
             PlatformTransactionManager transactionManager,
             Checkpoints checkpoints,
             SessionLogs logs,
+            SessionMetrics metrics,
             @Value("${sessions.outputs-wait}") Duration outputsWait) {
+        this.metrics = metrics;
         this.store = store;
         this.stops = stops;
         this.events = events;
@@ -187,6 +190,9 @@ class SessionProgress implements SessionStatuses {
                         .update()
                 == 1) {
             events.publishEvent(new SessionStarted(session.id()));
+            metrics.started();
+        } else {
+            metrics.resumed();
         }
         jdbc.sql("""
                         update sessions.attempts set running_at = coalesce(running_at, :now)

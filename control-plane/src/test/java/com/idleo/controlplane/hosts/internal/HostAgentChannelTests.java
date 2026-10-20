@@ -324,7 +324,11 @@ class HostAgentChannelTests {
 
             // After the pilot: the same report activates it, through the admin console's Approve, audited.
             var after = new HostAgentReportService(
-                    jdbcClient, clock, activation, new HostLinkProperties(linkProperties.link(), true));
+                    jdbcClient,
+                    clock,
+                    activation,
+                    new HostLinkProperties(linkProperties.link(), true),
+                    context.getBean(HostMetrics.class));
             after.recordSelfTest(host.id(), new HostAgentReports.SelfTest(false, "0.1.0", List.of()));
             assertThat(hostStatus(host.id())).isEqualTo("pending");
             after.recordSelfTest(host.id(), passed);

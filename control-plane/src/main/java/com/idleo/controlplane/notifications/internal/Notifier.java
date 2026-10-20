@@ -1,6 +1,7 @@
 package com.idleo.controlplane.notifications.internal;
 
 import com.idleo.controlplane.identity.UserDirectory;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +14,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Tells one person one thing (ADR 0026): checks their choices, keeps the message for their list, and emails it.
  * An event delivered again, as the durable event registry may after a failure, finds its message already made, and
  * the email is handed to the mail server at most once: it is claimed in its own transaction before it is sent, and
- * the claim goes back only if the mail server refuses it, so the retry sends it.
+ * the claim goes back only if the mail server refuses it, so the retry sends it. Each hand-over counts in
+ * {@code notifications.emails} by {@code outcome} ({@code sent}, {@code failed}), which the email alert reads.
  */
 @Component
 class Notifier {
@@ -26,6 +28,7 @@ class Notifier {
     private final EmailContent content;
     private final EmailSender sender;
     private final TransactionTemplate own;
+    private final MeterRegistry registry;
 
     Notifier(
             NotificationPreferences preferences,
@@ -33,7 +36,9 @@ class Notifier {
             UserDirectory users,
             EmailContent content,
             EmailSender sender,
-            PlatformTransactionManager transactions) {
+            PlatformTransactionManager transactions,
+            MeterRegistry registry) {
+        this.registry = registry;
         this.preferences = preferences;
         this.store = store;
         this.users = users;
@@ -73,9 +78,11 @@ class Notifier {
             sender.send(content.of(to.get(), kind, stored.message()));
         } catch (RuntimeException refused) {
             own.executeWithoutResult(status -> store.releaseEmail(stored.id()));
+            registry.counter("notifications.emails", "outcome", "failed").increment();
             throw refused;
         }
         own.executeWithoutResult(status -> store.markEmailSent(stored.id()));
+        registry.counter("notifications.emails", "outcome", "sent").increment();
         log.info("Emailed message {} ({})", stored.id(), kind.slug());
     }
 }

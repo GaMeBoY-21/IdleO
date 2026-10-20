@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -40,8 +41,16 @@ class SessionStore {
     private final Clock clock;
     private final ApplicationEventPublisher events;
     private final SessionHints hints;
+    private final SessionMetrics metrics;
 
-    SessionStore(JdbcClient jdbc, IdGenerator ids, Clock clock, ApplicationEventPublisher events, SessionHints hints) {
+    SessionStore(
+            JdbcClient jdbc,
+            IdGenerator ids,
+            Clock clock,
+            ApplicationEventPublisher events,
+            SessionHints hints,
+            SessionMetrics metrics) {
+        this.metrics = metrics;
         this.jdbc = jdbc;
         this.ids = ids;
         this.clock = clock;
@@ -197,9 +206,10 @@ class SessionStore {
                 int version,
                 int attempt,
                 UUID renterId,
+                Instant createdAt,
                 @Nullable Instant startedAt) {}
         var current = jdbc.sql("""
-                        select state, version, attempt, renter_id, started_at from sessions.sessions
+                        select state, version, attempt, renter_id, created_at, started_at from sessions.sessions
                         where id = :id for update
                         """)
                 .param("id", sessionId)
@@ -208,6 +218,7 @@ class SessionStore {
                         rs.getInt("version"),
                         rs.getInt("attempt"),
                         rs.getObject("renter_id", UUID.class),
+                        rs.getTimestamp("created_at").toInstant(),
                         rs.getTimestamp("started_at") == null
                                 ? null
                                 : rs.getTimestamp("started_at").toInstant()))
@@ -249,6 +260,11 @@ class SessionStore {
                 .update();
         event(sessionId, from, to.get(), reason, now);
         hints.changed(sessionId);
+        if (to.get().isFinal) {
+            metrics.ended(to.get(), reason);
+        } else if (to.get() == SessionState.PROVISIONING && current.get().attempt() == 1) {
+            metrics.gpuFound(Duration.between(current.get().createdAt(), now));
+        }
         // Metering follows the attempts and closes a session's usage once it ends (ADR 0017).
         if (to.get() == SessionState.HOST_LOST) {
             events.publishEvent(new AttemptLost(sessionId, current.get().attempt()));

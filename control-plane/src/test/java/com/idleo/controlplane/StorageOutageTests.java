@@ -1,9 +1,11 @@
 package com.idleo.controlplane;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +37,9 @@ class StorageOutageTests {
     @Autowired
     MutableClock clock;
 
+    @Autowired
+    MeterRegistry meters;
+
     @Test
     void readinessGoesDownWithStorageWhileLivenessStaysUp() throws Exception {
         mvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk());
@@ -52,5 +57,12 @@ class StorageOutageTests {
         mvc.perform(get("/actuator/health/liveness"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
+        assertThat(meters.get("health.ready")
+                        .tag("component", "storage")
+                        .gauge()
+                        .value())
+                .isZero();
+        assertThat(meters.get("health.ready").tag("component", "db").gauge().value())
+                .isEqualTo(1);
     }
 }
