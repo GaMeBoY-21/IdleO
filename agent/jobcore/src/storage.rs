@@ -225,13 +225,12 @@ pub fn http_client_resolving(names: &[(&str, std::net::SocketAddr)]) -> Result<r
         .and_then(BuilderVerifierExt::with_platform_verifier)
         .map_err(|e| format!("storage TLS couldn't be set up: {e}"))?
         .with_no_client_auth();
-    let mut builder = reqwest::Client::builder().use_preconfigured_tls(tls).connect_timeout(CONNECT_TIMEOUT).timeout(REQUEST_TIMEOUT);
+    let mut builder =
+        reqwest::Client::builder().use_preconfigured_tls(tls).connect_timeout(CONNECT_TIMEOUT).timeout(REQUEST_TIMEOUT);
     for (name, address) in names {
         builder = builder.resolve(name, *address);
     }
-    builder
-        .build()
-        .map_err(|e| format!("the storage client couldn't be built: {e}"))
+    builder.build().map_err(|e| format!("the storage client couldn't be built: {e}"))
 }
 
 /// S3-compatible storage through one grant, which `RefreshCredentials` can replace while the job runs.
