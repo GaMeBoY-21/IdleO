@@ -930,10 +930,10 @@ impl<S: System> Engine<'_, S> {
                 format!("mkdir -p /etc/idleo && printf 'registry=%s\\n' '{registry}' > /etc/idleo/development");
             match wsl.exec(&name, "sh", &["-c", &script]) {
                 Ok(output) if output.ok() => {
-                    self.log.line(&format!("told the runner the development registry is {registry}"))
+                    self.log.line(&format!("told the runner the development registry is {registry}"));
                 }
                 Ok(output) => {
-                    self.log.line(&format!("the development registry couldn't be written: {}", output.text().trim()))
+                    self.log.line(&format!("the development registry couldn't be written: {}", output.text().trim()));
                 }
                 Err(e) => self.log.line(&format!("the development registry couldn't be written: {e}")),
             }

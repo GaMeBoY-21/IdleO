@@ -55,5 +55,8 @@ ENV HOME=/work \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     TOKENIZERS_PARALLELISM=false \
     PATH=/opt/idleo/venv/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# The base image's entrypoint prints NVIDIA's licence banner in front of every job's log and only checks forward-compatibility
+# libraries we don't use: jobs run as given.
+ENTRYPOINT []
 USER 10001:10001
 WORKDIR /work
