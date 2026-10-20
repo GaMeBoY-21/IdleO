@@ -19,10 +19,10 @@ mkdir -p "$out"
 log="$out/hostile-tests.log"
 
 registry_digest="registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373"
-if ! curl -fsS http://localhost:5000/v2/ >/dev/null 2>&1; then
+if ! curl -fsS http://127.0.0.1:5000/v2/ >/dev/null 2>&1; then
   docker rm -f idleo-dev-registry >/dev/null 2>&1 || true
   docker run -d --name idleo-dev-registry -p 127.0.0.1:5000:5000 "$registry_digest" >/dev/null
-  for _ in $(seq 1 30); do curl -fsS http://localhost:5000/v2/ >/dev/null 2>&1 && break; sleep 1; done
+  for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:5000/v2/ >/dev/null 2>&1 && break; sleep 1; done
 fi
 
 $fresh && "$root/scripts/dev-distro.sh" down >/dev/null
