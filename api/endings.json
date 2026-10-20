@@ -91,6 +91,46 @@
     "invalid_error_code": {
       "sentence": "The job failed, and the host didn't say why.",
       "next": "Check its log for the last lines it wrote, fix the cause, and run it again."
+    },
+    "image_pull_failed": {
+      "sentence": "The job's software couldn't be downloaded on the host.",
+      "next": "This was a problem on our side or the host's connection, not yours. Run it again; you weren't charged for the attempt that failed to start."
+    },
+    "invalid_input": {
+      "sentence": "The job couldn't use what it was given.",
+      "next": "Read the last lines of its log, which say what is wrong with your input, fix it, and run it again."
+    },
+    "sandbox_not_ready": {
+      "sentence": "The host's safe space wasn't ready to run it.",
+      "next": "This was a problem on the host, not yours. Run it again; another host will be tried."
+    },
+    "out_of_memory": {
+      "sentence": "The job ran out of memory.",
+      "next": "Choose more GPU memory, or a smaller model or batch size, and run it again."
+    },
+    "scratch_full": {
+      "sentence": "The job filled its scratch disk.",
+      "next": "Write less to disk, or delete temporary files as it goes, and run it again."
+    },
+    "timed_out": {
+      "sentence": "The job reached the longest time you allowed.",
+      "next": "Run it again with a longer time if it needs it; it can start from its last checkpoint if it saved one."
+    },
+    "lease_expired": {
+      "sentence": "The job was stopped because its host lost touch with us.",
+      "next": "Minutes lost with a host weren't charged. Run it again; it starts from its last checkpoint if it saved one."
+    },
+    "runner_failed": {
+      "sentence": "The host's job runner failed.",
+      "next": "This was a problem on the host, not yours. Run it again; another host will be tried."
+    },
+    "bad_request": {
+      "sentence": "The host couldn't understand the start of the job.",
+      "next": "This was a problem on our side, not yours. Run it again; if it keeps happening, tell us."
+    },
+    "unsupported_version": {
+      "sentence": "The host's software is out of date for this job.",
+      "next": "This was a problem on the host, not yours. Run it again; another host will be tried."
     }
   },
   "exit": {

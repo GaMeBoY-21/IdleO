@@ -211,15 +211,25 @@ fn valid_prefix(prefix: &str) -> bool {
 /// # Errors
 /// If the operating system's trust store can't be loaded.
 pub fn http_client() -> Result<reqwest::Client, String> {
+    http_client_resolving(&[])
+}
+
+/// [`http_client`], with some names answered by the given addresses instead of by DNS (the port in an address is ignored; the
+/// URL's is used). For a development distribution on a Mac, where the stack's `localhost` is the host's, not the distribution's.
+///
+/// # Errors
+/// If the operating system's trust store can't be loaded.
+pub fn http_client_resolving(names: &[(&str, std::net::SocketAddr)]) -> Result<reqwest::Client, String> {
     let tls = rustls::ClientConfig::builder_with_provider(crate::tls::provider())
         .with_safe_default_protocol_versions()
         .and_then(BuilderVerifierExt::with_platform_verifier)
         .map_err(|e| format!("storage TLS couldn't be set up: {e}"))?
         .with_no_client_auth();
-    reqwest::Client::builder()
-        .use_preconfigured_tls(tls)
-        .connect_timeout(CONNECT_TIMEOUT)
-        .timeout(REQUEST_TIMEOUT)
+    let mut builder = reqwest::Client::builder().use_preconfigured_tls(tls).connect_timeout(CONNECT_TIMEOUT).timeout(REQUEST_TIMEOUT);
+    for (name, address) in names {
+        builder = builder.resolve(name, *address);
+    }
+    builder
         .build()
         .map_err(|e| format!("the storage client couldn't be built: {e}"))
 }

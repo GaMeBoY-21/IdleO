@@ -24,6 +24,8 @@ function sources(dir: string, extension: string): string[] {
 function endingCodes(): Set<string> {
   const java = sources(join(root, "control-plane/src/main/java"), ".java").join("\n");
   const rust = sources(join(root, "agent/agent/src"), ".rs").join("\n");
+  // The failure codes the job runner reports (ADR 0035), which the agent passes through as the error code.
+  const runner = readFileSync(join(root, "agent/jobcore/src/protocol.rs"), "utf8");
   const patterns: [string, RegExp][] = [
     [java, /error_code = '([a-z_]+)'/g],
     [java, /\bend\([\w.()]+, "([a-z_]+)"\)/g],
@@ -33,6 +35,7 @@ function endingCodes(): Set<string> {
     [java, /stop\(sessionId, "([a-z_]+)", StopReason/g],
     [java, /SessionEvent\.(?:START_FAILED|OUTPUTS_MISSING|LOST_REPEATEDLY|CANCEL), "([a-z_]+)"/g],
     [java, /code\.isEmpty\(\) \? "([a-z_]+)" : "([a-z_]+)"/g],
+    [runner, /pub const [A-Z_]+: &str = "([a-z_]+)";/g],
     [rust, /code: "([a-z_]+)"/g],
     [rust, /let code = if [^{]+\{ "([a-z_]+)" \} else \{ "([a-z_]+)" \}/g],
   ];
