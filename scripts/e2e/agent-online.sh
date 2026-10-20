@@ -1115,7 +1115,8 @@ if $web_only; then
   # session), E2E_LIGHTHOUSE_RUNS times each (default 5), throttled that way; nothing is asserted, and the numbers are in
   # private/logs/lighthouse-<date-time>/measure-<method>.json.
   measuring="${E2E_LIGHTHOUSE_MEASURE:-}"
-  if [[ -z "$measuring" ]]; then
+  # E2E_LIGHTHOUSE_ONLY=1 checks the budgets without the screens and journeys first (a change to the Lighthouse run itself).
+  if [[ -z "$measuring" && "${E2E_LIGHTHOUSE_ONLY:-}" != 1 ]]; then
     E2E_WEB_USER="$web_user" VISUAL_BASELINE_DIR="$baseline" web_test --project='screens-*' --project=journey \
       --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 || {
       # private/e2e/ is wiped by the next run: keep this one's log and the failing tests' output.
