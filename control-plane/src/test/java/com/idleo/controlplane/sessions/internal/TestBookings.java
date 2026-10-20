@@ -94,8 +94,28 @@ final class TestBookings implements AutoCloseable {
         var host = host();
         var renter = renter();
         var sessionId = book(renter);
-        host.reply(host.awaitOffer(WAIT).getOfferId(), true, ACCEPT);
+        host.reply(offerFor(host, sessionId), true, ACCEPT);
         return new Booked(host, renter, sessionId);
+    }
+
+    /**
+     * The offer of this session on this host. A new host is offered whatever session is waiting for one, and an earlier test's
+     * session that lost its host waits for the next (a session that already ran isn't ended for want of a host), so the first offer
+     * a new host hears may be that one's: it's declined, and the one this test booked comes after.
+     */
+    private String offerFor(ConnectedHost host, UUID sessionId) throws InterruptedException {
+        while (true) {
+            var offerId = host.awaitOffer(WAIT).getOfferId();
+            var ours = jdbc.queryForObject(
+                    "select session_id = ? from scheduling.offers where id = ?",
+                    Boolean.class,
+                    sessionId,
+                    UUID.fromString(offerId));
+            if (Boolean.TRUE.equals(ours)) {
+                return offerId;
+            }
+            host.reply(offerId, false, OfferDeclineReason.OFFER_DECLINE_REASON_INSUFFICIENT_RESOURCES);
+        }
     }
 
     JsonNode session(TestUser renter, UUID id) throws Exception {
