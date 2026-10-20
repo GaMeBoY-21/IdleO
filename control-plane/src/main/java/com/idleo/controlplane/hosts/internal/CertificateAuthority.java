@@ -118,6 +118,10 @@ class CertificateAuthority {
         return intermediate;
     }
 
+    X509CertificateHolder root() {
+        return root;
+    }
+
     /** At least 64 random bits (here 127), positive and non-zero, as RFC 5280 and the CA/B rules ask. */
     private BigInteger newSerial() {
         BigInteger serial;

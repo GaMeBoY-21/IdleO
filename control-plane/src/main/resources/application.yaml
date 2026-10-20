@@ -87,10 +87,14 @@ management:
       probes:
         enabled: true
       group:
-        # Readiness needs the database; liveness doesn't, so a database blip
-        # takes the instance out of rotation without restarting it.
+        # Readiness needs what serving a request needs: the database, the sessions' object storage (sessions'
+        # StorageHealthIndicator) and a CA inside its validity (hosts' CertificateAuthorityHealth). Liveness needs none
+        # of them, so a blip takes the instance out of rotation without restarting it. Valkey is never in readiness:
+        # it holds only what may expire, and requests go on without it (ADR 0011).
         readiness:
-          include: readinessState, db
+          include: readinessState, db, storage, ca
+        liveness:
+          include: livenessState
 
 # The renter's request limit (technical design "Limits", ADR 0025): requests a minute for each person (or each
 # address without a sign-in), counted in Valkey; reads of a session's logs a minute, counted apart so a live log view
