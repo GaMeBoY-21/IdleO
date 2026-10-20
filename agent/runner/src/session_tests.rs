@@ -447,3 +447,30 @@ async fn a_job_that_says_its_input_is_wrong_ends_invalid_input_with_its_line_and
         }
     }
 }
+
+/// What finished sessions left behind is said in the next session's log in a development distribution (hostile test 12 reads it
+/// through the real path), and in no other.
+#[tokio::test]
+async fn a_development_distribution_tells_each_sessions_log_what_the_sessions_before_it_left() {
+    for (development, left, wanted) in [
+        (true, Vec::new(), Some("idleo-runner (development): nothing is left from finished sessions")),
+        (
+            true,
+            vec!["1 process".to_owned(), "2 mounts".to_owned()],
+            Some("idleo-runner (development): left from finished sessions: 1 process, 2 mounts"),
+        ),
+        (false, vec!["1 process".to_owned()], None),
+    ] {
+        let rig = rig();
+        rig.machine.development.store(development, Ordering::SeqCst);
+        *rig.machine.leftover.lock().unwrap() = left;
+        rig.registry.start(start(1)).unwrap();
+        rig.machine.container().await.finish(0);
+        assert_eq!(rig.ended(1).await, Ended::Succeeded);
+        let log = rig.log_text(1);
+        match wanted {
+            Some(line) => assert!(log.contains(line), "{log}"),
+            None => assert!(!log.contains("finished sessions"), "a release distribution says nothing: {log}"),
+        }
+    }
+}

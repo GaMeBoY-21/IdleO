@@ -8,7 +8,7 @@
 //! **Scratch disks.** `<state>/scratch/<key>.img`, a sparse ext4 image of `scratch_mb`, loop-mounted at `<state>/mnt/<key>`
 //! with `nosuid,nodev`; deleted at the end. A job can't fill the machine's disk, only its own.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Stdio;
@@ -25,6 +25,7 @@ use crate::container::{self, NAMESPACE, Plan};
 use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, Stream};
 use crate::sandbox;
 
+mod leftovers;
 mod selfcheck;
 
 /// How many session networks there are: the number of sessions that can run at once on one machine.
@@ -52,6 +53,8 @@ pub struct Paths {
     pub state: PathBuf,
     /// CNI network configs.
     pub cni_config: PathBuf,
+    /// Where the CNI plugins keep what they've handed out: host-local IPAM's address leases, a folder for each network.
+    pub cni_state: PathBuf,
     /// containerd's content store, whose growth is a pull's progress.
     pub content: PathBuf,
 }
@@ -61,6 +64,7 @@ impl Default for Paths {
         Self {
             state: PathBuf::from("/var/lib/idleo"),
             cni_config: PathBuf::from("/etc/cni/net.d"),
+            cni_state: PathBuf::from("/var/lib/cni/networks"),
             content: PathBuf::from("/var/lib/containerd/io.containerd.content.v1.content"),
         }
     }
@@ -76,6 +80,10 @@ pub struct Nerdctl {
     /// The containers whose exit containerd has reported, read from the same stream, in order, as the OOM events: once a
     /// container is in here, every OOM event about it has been read already.
     exits: Arc<Mutex<std::collections::HashSet<String>>>,
+    /// What sessions running now hold, so what finished ones left can be told from it ([`Nerdctl::what_is_left`]): the ids of
+    /// their containers and the keys of their scratch disks. (Session networks are `slots`.)
+    held_containers: Arc<Mutex<HashSet<String>>>,
+    held_scratch: Arc<Mutex<HashSet<String>>>,
 }
 
 struct Finished {
@@ -143,7 +151,14 @@ impl Nerdctl {
     /// A runner's machine over `paths`.
     #[must_use]
     pub fn new(paths: Paths) -> Self {
-        Self { paths, slots: Arc::default(), ooms: Arc::default(), exits: Arc::default() }
+        Self {
+            paths,
+            slots: Arc::default(),
+            ooms: Arc::default(),
+            exits: Arc::default(),
+            held_containers: Arc::default(),
+            held_scratch: Arc::default(),
+        }
     }
 
     /// Whether this is a development distribution.
@@ -519,6 +534,7 @@ impl Machine for Nerdctl {
 
     fn make_scratch<'a>(&'a self, key: &'a str, scratch_mb: u32) -> Fut<'a, Result<Scratch, String>> {
         Box::pin(async move {
+            self.held_scratch.lock().unwrap_or_else(PoisonError::into_inner).insert(key.to_owned());
             let (image, root) = self.scratch_paths(key);
             let made = async {
                 for folder in [image.parent().unwrap_or(Path::new("/")), root.as_path()] {
@@ -596,6 +612,7 @@ impl Machine for Nerdctl {
                 Err(why) => {
                     let (image, root) = self.scratch_paths(key);
                     teardown_scratch(&image, &root).await;
+                    self.held_scratch.lock().unwrap_or_else(PoisonError::into_inner).remove(key);
                     Err(why)
                 }
             }
@@ -610,6 +627,7 @@ impl Machine for Nerdctl {
         Box::pin(async move {
             let (image, root) = self.scratch_paths(&scratch.key);
             teardown_scratch(&image, &root).await;
+            self.held_scratch.lock().unwrap_or_else(PoisonError::into_inner).remove(&scratch.key);
         })
     }
 
@@ -625,13 +643,17 @@ impl Machine for Nerdctl {
             .map_err(|refused| refused.0)?;
             let started = Self::launch(&plan, &args).await;
             match started {
-                Ok(running) => Ok(Arc::new(NerdctlContainer {
-                    running,
-                    slot,
-                    slots: Arc::clone(&self.slots),
-                    ooms: Arc::clone(&self.ooms),
-                    exits: Arc::clone(&self.exits),
-                }) as Arc<dyn Container>),
+                Ok(running) => {
+                    self.held_containers.lock().unwrap_or_else(PoisonError::into_inner).insert(running.id.clone());
+                    Ok(Arc::new(NerdctlContainer {
+                        running,
+                        slot,
+                        slots: Arc::clone(&self.slots),
+                        ooms: Arc::clone(&self.ooms),
+                        exits: Arc::clone(&self.exits),
+                        held: Arc::clone(&self.held_containers),
+                    }) as Arc<dyn Container>)
+                }
                 Err(why) => {
                     self.release_slot(slot);
                     Err(why)
@@ -642,6 +664,14 @@ impl Machine for Nerdctl {
 
     fn self_check<'a>(&'a self, cuda_image: Option<&'a str>, quick: bool) -> Fut<'a, Vec<Check>> {
         Box::pin(self.checks(cuda_image, quick))
+    }
+
+    fn leftovers(&self) -> Fut<'_, Vec<String>> {
+        Box::pin(self.what_is_left())
+    }
+
+    fn development(&self) -> bool {
+        Self::development()
     }
 
     fn clean_up_leftovers(&self) -> Fut<'_, ()> {
@@ -701,6 +731,7 @@ struct NerdctlContainer {
     slots: Arc<Mutex<BTreeSet<u8>>>,
     ooms: Arc<Mutex<std::collections::HashSet<String>>>,
     exits: Arc<Mutex<std::collections::HashSet<String>>>,
+    held: Arc<Mutex<HashSet<String>>>,
 }
 
 /// How long to wait for containerd's own report of an exit before deciding without it: it comes within milliseconds when
@@ -782,6 +813,7 @@ impl Container for NerdctlContainer {
             }
             let _ = nerdctl(&["rm", "--force", &self.running.id]).await;
             // The verdict was read before this; what was kept for it isn't needed any more.
+            self.held.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.exits.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.ooms.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.slots.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.slot);

@@ -42,12 +42,24 @@ impl Nerdctl {
                 Err(why) => check("sandbox_rules", CheckStatus::Failed, why),
             },
             self.scratch_check().await,
+            self.leftovers_check().await,
         ];
         if !quick {
             checks.push(self.network_check().await);
             checks.push(self.cuda_check(cuda_image).await);
         }
         checks
+    }
+
+    /// Nothing is left from finished sessions: no container, process, mount, loop device, scratch file or session network that no
+    /// session running now holds. In the quick check too: it reads the distribution and starts nothing.
+    async fn leftovers_check(&self) -> Check {
+        let left = self.what_is_left().await;
+        if left.is_empty() {
+            check("leftovers", CheckStatus::Passed, "nothing is left from finished sessions")
+        } else {
+            check("leftovers", CheckStatus::Failed, format!("left from finished sessions: {}", left.join(", ")))
+        }
     }
 
     async fn scratch_check(&self) -> Check {

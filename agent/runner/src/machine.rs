@@ -84,6 +84,17 @@ pub trait Machine: Send + Sync + 'static {
     fn start_container(&self, plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, String>>;
     /// The checks of a self-check.
     fn self_check<'a>(&'a self, cuda_image: Option<&'a str>, quick: bool) -> Fut<'a, Vec<Check>>;
+    /// What finished sessions have left behind in this distribution, one phrase for each kind of thing ("1 process", "2 mounts"):
+    /// containers, processes, mounts, loop devices, scratch files and what a session attached to its network (interfaces, address
+    /// leases) that no session running now holds. Empty
+    /// when nothing is. A runner that found its own leftovers is a runner with a leak.
+    fn leftovers(&self) -> Fut<'_, Vec<String>> {
+        Box::pin(async { Vec::new() })
+    }
+    /// Whether this is a development distribution, where the runner tells each session's log what was left from the ones before.
+    fn development(&self) -> bool {
+        false
+    }
     /// Sessions' leftovers from a runner that died: containers and scratch disks nobody holds. Run once at start-up.
     fn clean_up_leftovers(&self) -> Fut<'_, ()>;
 }

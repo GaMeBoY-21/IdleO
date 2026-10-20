@@ -495,6 +495,16 @@ impl Registry {
         if let Err(why) = self.machine.check_sandbox().await {
             return failed(code::SANDBOX_NOT_READY, why);
         }
+        if self.machine.development() {
+            // What the sessions before this one left in the distribution (nothing, if the runner cleans up after them), said in this
+            // one's log, so a test that runs a session and then another can read it through the real path (hostile test 12).
+            let left = self.machine.leftovers().await;
+            log.line(if left.is_empty() {
+                "idleo-runner (development): nothing is left from finished sessions".to_owned()
+            } else {
+                format!("idleo-runner (development): left from finished sessions: {}", left.join(", "))
+            });
+        }
         if let Err(refused) = container::check_image(&start.spec.image) {
             return failed(code::IMAGE_PULL_FAILED, refused.0);
         }

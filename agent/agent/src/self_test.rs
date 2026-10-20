@@ -8,8 +8,9 @@
 //! 2. `lockdown_config`: its `/etc/wsl.conf` is `agent/distro/wsl.conf`, byte for byte.
 //! 3. `gpu_visible`: `nvidia-smi` inside it lists the GPU NVML sees on Windows.
 //! 4. `container_runtime`: containerd answers.
-//! 5. `runner`: the job runner (ADR 0035) answers, the sandbox's network rules are loaded, and a scratch disk can be
-//!    made and removed.
+//! 5. `runner`: the job runner (ADR 0035) answers, the sandbox's network rules are loaded, a scratch disk can be made and
+//!    removed, and nothing is left behind by sessions that have finished (`leftovers`: no container, process, mount, loop
+//!    device, scratch file or session network that no running session holds).
 //! 6. `gpu_in_container`: the GPU-check image prints the GPU's name and memory from inside a container, and, once the
 //!    job image is on the laptop, a real CUDA calculation (a matrix multiply through `PyTorch`, checked against the CPU's
 //!    answer) runs in it; before it's downloaded that part is "skipped: image not downloaded yet", not a failure.
@@ -239,7 +240,7 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
             (false, format!("the job runner {} couldn't run its checks: {why}", answer.runner_version))
         }
         (Some(Ok(answer)), _) => {
-            let failed: Vec<String> = ["sandbox_rules", "scratch_disk"]
+            let failed: Vec<String> = ["sandbox_rules", "scratch_disk", "leftovers"]
                 .iter()
                 .filter_map(|name| found(name).filter(|check| check.status != jobcore::protocol::CheckStatus::Passed))
                 .map(|check| format!("{}: {}", check.name, check.detail))
@@ -248,7 +249,7 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
                 (
                     true,
                     format!(
-                        "answers (version {}), the sandbox's rules are loaded, a scratch disk can be made and removed",
+                        "answers (version {}), the sandbox's rules are loaded, a scratch disk can be made and removed, nothing is left from finished sessions",
                         answer.runner_version
                     ),
                 )
@@ -402,6 +403,7 @@ mod tests {
                 checks: vec![
                     check("sandbox_rules", CheckStatus::Passed, "loaded"),
                     check("scratch_disk", CheckStatus::Passed, "made, written and removed"),
+                    check("leftovers", CheckStatus::Passed, "nothing is left from finished sessions"),
                     check(
                         "network_lockdown",
                         CheckStatus::Passed,
@@ -433,7 +435,7 @@ mod tests {
                 Ok(self
                     .checks
                     .iter()
-                    .filter(|c| !quick || matches!(c.name.as_str(), "sandbox_rules" | "scratch_disk"))
+                    .filter(|c| !quick || matches!(c.name.as_str(), "sandbox_rules" | "scratch_disk" | "leftovers"))
                     .cloned()
                     .collect())
             })
@@ -557,6 +559,18 @@ mod tests {
         let no_disk = FakeRunner::healthy().with(check("scratch_disk", CheckStatus::Failed, "mkfs failed"));
         let report = run(&with_runner(&fake, 120, no_disk), true, None).await;
         assert!(report.checks.iter().any(|c| c.name == "runner" && !c.passed && c.detail.contains("mkfs failed")));
+        assert!(!report.passed);
+
+        let leaking = FakeRunner::healthy().with(check(
+            "leftovers",
+            CheckStatus::Failed,
+            "left from finished sessions: 1 process",
+        ));
+        let report = run(&with_runner(&fake, 120, leaking), true, None).await;
+        assert!(
+            report.checks.iter().any(|c| c.name == "runner" && !c.passed && c.detail.contains("1 process")),
+            "a runner that leaks fails the self-test"
+        );
         assert!(!report.passed);
     }
 

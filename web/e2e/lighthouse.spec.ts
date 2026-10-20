@@ -33,6 +33,13 @@ const THROTTLING = process.env.LIGHTHOUSE_THROTTLING === "devtools" ? "devtools"
  * .lighthouseci/measure-<throttling>.json.
  */
 const ONLY = process.env.LIGHTHOUSE_PAGES?.split(",").filter(Boolean) ?? null;
+/**
+ * Chrome's own throttling, beside the simulated method the budgets are held to, on each asserted mobile screen: the median of
+ * DEVTOOLS_RUNS (three: a first run on a cold browser is often 0.5 s slower). Report-only: it isn't the budget (2.0 s, simulated;
+ * real throttling puts every screen at about 2.15 s), but it must stay under this ceiling, so a drift shows before it is a problem.
+ */
+const DEVTOOLS_CEILING_MS = 2_500;
+const DEVTOOLS_RUNS = Number(process.env.LIGHTHOUSE_DEVTOOLS_RUNS ?? 3);
 /** Runs per screen on the mobile profile; the median is asserted. */
 const RUNS = Number(process.env.LIGHTHOUSE_RUNS ?? 3);
 
@@ -49,7 +56,10 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
   });
   try {
     const page = context.pages()[0] ?? (await context.newPage());
-    const summary: Record<string, Measured & { lcpRunsMs: number[]; inpMs?: number }> = {};
+    const summary: Record<
+      string,
+      Measured & { lcpRunsMs: number[]; inpMs?: number; devtoolsLcpMs?: number; devtoolsRunsMs?: number[] }
+    > = {};
     // Signed out first (Lighthouse resets storage for it), then signed in, with storage kept, for the rest. The
     // session screen shows a long run this user booked (the script gave it credit), live through all three runs;
     // it's stopped once measured, so the one host is free for the session opened by a link.
@@ -133,7 +143,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.
         const asserted = formFactor === "mobile" && name !== "session-link";
         const runs: Measured[] = [];
-        for (let run = 1; run <= (asserted ? RUNS : 1); run++) {
+        const coldStart = async () => {
           if (signedIn) {
             // This tab only signs in and books; left open on a screen it keeps polling (the bell asks for notifications
             // every 30 s), and each poll saves its own few figures over the ones the measured page kept for the next
@@ -144,6 +154,9 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
             await cdp.send("Network.clearBrowserCache");
             await cdp.detach();
           }
+        };
+        for (let run = 1; run <= (asserted ? RUNS : 1); run++) {
+          await coldStart();
           const result = await lighthouse(
             `${WEB}${path}`,
             {
@@ -185,6 +198,29 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
           performance: median(runs.map((r) => r.performance)),
           lcpRunsMs: runs.map((r) => r.lcpMs),
         };
+        if (asserted && !ONLY && THROTTLING === "simulate" && DEVTOOLS_RUNS > 0) {
+          // Not in .lighthouseci/: lhci asserts every report there against the simulated budget.
+          const devtools: number[] = [];
+          for (let run = 1; run <= DEVTOOLS_RUNS; run++) {
+            await coldStart();
+            const real = await lighthouse(`${WEB}${path}`, {
+              port: PORT,
+              output: "json",
+              logLevel: "error",
+              onlyCategories: ["performance"],
+              disableStorageReset: signedIn,
+              throttlingMethod: "devtools",
+            });
+            if (!real) {
+              throw new Error(`Lighthouse returned nothing for ${name} with Chrome's throttling`);
+            }
+            mkdirSync(".lighthouseci-devtools", { recursive: true });
+            writeFileSync(`.lighthouseci-devtools/${name}-${run}.json`, real.report as string);
+            devtools.push(Math.round(real.lhr.audits["largest-contentful-paint"]?.numericValue ?? -1));
+          }
+          summary[`${name} (${formFactor})`]!.devtoolsLcpMs = median(devtools);
+          summary[`${name} (${formFactor})`]!.devtoolsRunsMs = devtools;
+        }
       }
     }
     mkdirSync(".lighthouseci", { recursive: true });
@@ -199,6 +235,14 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
     summary["machine (mobile)"]!.inpMs = await hostingInp(page);
     writeFileSync(".lighthouseci/summary.json", `${JSON.stringify(summary, null, 2)}\n`);
     console.table(summary);
+    for (const [name, found] of Object.entries(summary)) {
+      if (found.devtoolsLcpMs !== undefined) {
+        expect(
+          found.devtoolsLcpMs,
+          `${name}: largest contentful paint with Chrome's own throttling (report-only, ceiling ${DEVTOOLS_CEILING_MS} ms), runs ${found.devtoolsRunsMs?.join(" ")}`,
+        ).toBeLessThanOrEqual(DEVTOOLS_CEILING_MS);
+      }
+    }
     for (const name of ["home", "book", "session", "machine"]) {
       expect(
         summary[`${name} (mobile)`]!.inpMs,

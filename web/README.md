@@ -109,6 +109,8 @@ Lighthouse measures sign-in, Home, Book (at the fine-tune's screen, where the qu
 
 ### Measuring Lighthouse
 
+Every full Lighthouse run (`pnpm lighthouse`, the browser suite) also records Chrome's own throttling on each asserted mobile screen, the median of three runs, next to the simulated figure: report-only (the budget is the simulated 2.0 s), but it must stay under 2.5 s, so a drift shows before it is a problem. Those reports are in `.lighthouseci-devtools/`, not `.lighthouseci/`, which `lhci assert` holds to the budget.
+
 Lighthouse's default, `throttlingMethod: "simulate"`, loads the page unthrottled and works out what a slow phone would have seen. `devtools` loads it through Chrome's own throttling (a 150 ms round trip, 1.6 Mbit/s, the CPU slowed 4×), so the numbers are what the browser really painted. `E2E_LIGHTHOUSE_MEASURE=simulate|devtools scripts/e2e/agent-online.sh --web` measures instead of asserting: only Lighthouse runs, five times on each of Home, Hosting, Add a machine, Link, Book and the live session (`E2E_LIGHTHOUSE_PAGES`, `E2E_LIGHTHOUSE_RUNS` change that), and every run's LCP is in `measure-<method>.json`. Whatever Lighthouse ran, its log and every report are kept in `private/logs/lighthouse-<date-time>/` (`mobile/`, `desktop/`, `web-lighthouse.log`), whether the budgets held or not.
 
 What the two say, on the same build and stack (Oct 20, five runs each, mobile, LCP in ms):

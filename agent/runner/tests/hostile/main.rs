@@ -15,7 +15,9 @@ use std::time::{Duration, Instant};
 use idleo_runner::sandbox;
 use jobcore::fakes3::FakeS3;
 use jobcore::link::{Link, RunnerEvent};
-use jobcore::protocol::{AgentNotes, Answer, Ended, Event, GrantWire, Grants, InputFile, Request, Spec, Start, code};
+use jobcore::protocol::{
+    AgentNotes, Answer, CheckStatus, Ended, Event, GrantWire, Grants, InputFile, Request, Spec, Start, code,
+};
 use tokio::sync::broadcast::Receiver;
 
 /// What the attack ended with, and what it printed.
@@ -434,11 +436,22 @@ hostile!(
         let scratch = h.inside(&["sh", "-c", "find /var/lib/idleo/mnt /var/lib/idleo/scratch -mindepth 1 2>/dev/null; losetup -a | grep idleo || true"]);
         let started = run.log.contains("STARTED-BACKGROUND");
         h.assert_healthy(&pid).await;
+        // And the runner's own check, which the laptop's self-test runs: nothing is left that no running session holds.
+        let leftovers = match h.link.request(Request::SelfCheck { cuda_image: None, quick: true }).await {
+            Ok(Answer::SelfCheck { checks }) => checks.into_iter().find(|check| check.name == "leftovers"),
+            other => panic!("the self-check didn't answer: {other:?}"),
+        };
+        let clean = leftovers.as_ref().is_some_and(|check| check.status == CheckStatus::Passed);
         report(
             12,
             "outlive the session",
-            started && survivors.trim().is_empty() && scratch.trim().is_empty(),
-            &format!("started: {started}; processes left: {:?}; scratch left: {:?}", survivors.trim(), scratch.trim()),
+            started && survivors.trim().is_empty() && scratch.trim().is_empty() && clean,
+            &format!(
+                "started: {started}; processes left: {:?}; scratch left: {:?}; the runner's leftovers check: {}",
+                survivors.trim(),
+                scratch.trim(),
+                leftovers.map_or_else(|| "missing".to_owned(), |check| format!("{:?} {}", check.status, check.detail))
+            ),
         );
     })
 );
@@ -552,4 +565,45 @@ async fn rules_changed_by_hand_are_found_and_loaded_again() {
         assert_eq!(chain(), original, "{what}: the rules aren't the file's again");
         println!("RULES-CHECK {what}: found, the rules loaded again, and they're the file's");
     }
+}
+
+async fn leftovers_check(h: &Harness) -> jobcore::protocol::Check {
+    match h.link.request(Request::SelfCheck { cuda_image: None, quick: true }).await {
+        Ok(Answer::SelfCheck { checks }) => {
+            checks.into_iter().find(|check| check.name == "leftovers").expect("the self-check has a leftovers check")
+        }
+        other => panic!("the self-check didn't answer: {other:?}"),
+    }
+}
+
+/// Not an attack: the runner's `leftovers` check, which the laptop's self-test runs and a development runner says in each session's
+/// log, finds what a session could leave (a scratch file, a mount, a network address lease) and passes once it's gone.
+#[tokio::test]
+#[ignore = "needs the development distribution: agent/runner/tests/hostile/run.sh"]
+async fn the_leftovers_check_finds_what_is_left_and_passes_once_it_is_gone() {
+    let h = Harness::new().await;
+    let clean = leftovers_check(&h).await;
+    assert_eq!(clean.status, CheckStatus::Passed, "{}", clean.detail);
+
+    h.inside(&[
+        "sh",
+        "-c",
+        "mkdir -p /var/lib/idleo/scratch /var/lib/idleo/mnt/stray && touch /var/lib/idleo/scratch/stray.img \
+         && mount -t tmpfs tmpfs /var/lib/idleo/mnt/stray && mkdir -p /var/lib/cni/networks/idleo-slot-30 \
+         && touch /var/lib/cni/networks/idleo-slot-30/10.30.30.30",
+    ]);
+    let left = leftovers_check(&h).await;
+    h.inside(&[
+        "sh",
+        "-c",
+        "rm -f /var/lib/cni/networks/idleo-slot-30/10.30.30.30; umount /var/lib/idleo/mnt/stray; \
+         rm -rf /var/lib/idleo/mnt/stray /var/lib/idleo/scratch/stray.img",
+    ]);
+    assert_eq!(left.status, CheckStatus::Failed, "{}", left.detail);
+    for found in ["1 mount", "2 scratch files", "1 network address lease"] {
+        assert!(left.detail.contains(found), "{found} not in: {}", left.detail);
+    }
+    let again = leftovers_check(&h).await;
+    assert_eq!(again.status, CheckStatus::Passed, "{}", again.detail);
+    println!("LEFTOVERS-CHECK found [{}]; clean again: {}", left.detail, again.detail);
 }

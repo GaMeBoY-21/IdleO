@@ -121,6 +121,7 @@ jobs:
           path: |
             web/.lighthouseci
             web/.lighthouseci-desktop
+            web/.lighthouseci-devtools
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 30

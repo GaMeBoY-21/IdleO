@@ -11,7 +11,7 @@
 #      starts attempt 2, which resumes from the checkpoint the first one left.
 #   4. A tiny CPU fine-tune of a tiny model made inside the image, booked from the CLI with its model and examples, the
 #      adapter downloaded.
-#   5. The 14 hostile tests (agent/runner/tests/hostile/laptop.py) through this same path: 12 PASS, 2 N/A, 0 FAIL.
+#   5. The 14 hostile tests (agent/runner/tests/hostile/laptop.py) through this same path: 13 PASS, 1 N/A, 0 FAIL.
 # It prints how long each took to its first log line, from the control plane's events and the runner's own timings.
 #
 #   scripts/e2e/real-runner.sh
@@ -260,13 +260,13 @@ PY
 summary+=("4 tiny CPU fine-tune through the CLI: completed in $(seconds_since "$started") s, adapter $(wc -c <"$work/out4/adapter_model.safetensors" | tr -d ' ') bytes: PASS")
 
 # 5. The 14 hostile tests through the real path (ADR 0035, agent/runner/tests/hostile/run.sh --host): the stack, the agent and
-#    the runner in the distribution, as on a laptop. Twelve must PASS and two (11, 12) say N/A with their reason; a FAIL fails this.
+#    the runner in the distribution, as on a laptop. Thirteen must PASS and one (11) says N/A with its reason; a FAIL fails this.
 started="$(now_ms)"
 IDLEO_API_KEY="$key" IDLEO_API_URL="$api" python3 agent/runner/tests/hostile/laptop.py --host "$host" --cli "$idleo" \
   >"$work/hostile.txt" 2>"$out/hostile.err" || { cat "$work/hostile.txt" >&2; fail "the hostile tests through the real path failed; see private/real-runner/hostile.err"; }
 cp "$work/hostile.txt" "$out/hostile-table.txt"
-grep -q "14 rows, 12 PASS, 2 N/A, 0 FAIL" "$work/hostile.txt" || fail "the hostile tests' table isn't 12 PASS, 2 N/A: $(tail -3 "$work/hostile.txt")"
-summary+=("5 the 14 hostile tests through the real path: 12 PASS, 2 N/A (11, 12, with their reasons), 0 FAIL, $(seconds_since "$started") s: PASS")
+grep -q "14 rows, 13 PASS, 1 N/A, 0 FAIL" "$work/hostile.txt" || fail "the hostile tests' table isn't 13 PASS, 1 N/A: $(tail -3 "$work/hostile.txt")"
+summary+=("5 the 14 hostile tests through the real path: 13 PASS, 1 N/A (11, with its reason), 0 FAIL, $(seconds_since "$started") s: PASS")
 
 # What the first lines of each cost: the control plane's REQUESTED to RUNNING, and the runner's own breakdown.
 for entry in "stop:$s1" "adopted:$s2" "resumed:$s3" "fine-tune:$s4"; do

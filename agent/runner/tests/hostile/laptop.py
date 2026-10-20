@@ -37,7 +37,6 @@ TESTS = [
 ]
 NOT_HERE = {
     11: "needs two sessions at once and the other one's address inside the Linux distribution; only the Mac's run (run.sh with no --host) proves it",
-    12: "needs the Linux distribution's own process list and scratch disks after the session; only the Mac's run (run.sh with no --host) proves it",
 }
 TEMPLATE = "hostile-test"
 HELLO = b"hello from the renter\n"
@@ -163,8 +162,28 @@ def main():
     sys.exit(1 if fails or passes + fails + nas != 14 else 0)
 
 
+LEFT = "idleo-runner (development): left from finished sessions: "
+NOTHING_LEFT = "idleo-runner (development): nothing is left from finished sessions"
+
+
+def judge_outlive(stack, ended, log):
+    """Row 12: the attack starts a background process and ends; the next session's log says what the runner found left."""
+    if ended["state"] != "COMPLETED" or "STARTED-BACKGROUND" not in log:
+        return "FAIL", f"the attack didn't run as it should (ended {ended['state']}): {log[-200:]!r}"
+    after, after_log = stack.attack("write_root")
+    if after["state"] != "COMPLETED":
+        return "FAIL", f"the session after it ended {after['state']}: {after_log[-200:]!r}"
+    if LEFT in after_log:
+        return "FAIL", "left behind: " + after_log.split(LEFT, 1)[1].splitlines()[0]
+    if NOTHING_LEFT not in after_log:
+        return "FAIL", "the runner didn't say what was left: it isn't a development runner (no /etc/idleo/development), so this can't be proved from here"
+    return "PASS", "a background process was started; the next session's runner found no container, process, mount, loop device, scratch file or session network left"
+
+
 def judge(stack, number, attack, ended, log):
     state, code = ended["state"], ended.get("errorCode")
+    if number == 12:
+        return judge_outlive(stack, ended, log)
     seen = verdict(log, attack)
     if number == 8:  # the container dies of memory, and the session says so
         return ("PASS", f"ended {state} with {code}") if state == "FAILED" and code == "out_of_memory" else ("FAIL", f"ended {state} with {code}; log tail: {log[-200:]!r}")

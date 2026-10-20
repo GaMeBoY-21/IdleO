@@ -132,3 +132,20 @@ development image to that registry and, with `--release`, the CUDA image to GHCR
   stream carries both the OOM event and the container's exit event, in order: the runner reads the exit from the same stream, and
   once it has, every OOM event before it has been read. The counter read every 10 ms while the job runs stays as a second source, and
   a stream that isn't delivering costs up to 500 ms before the decision is made without it.
+
+## Addendum (2026-10-20): what a finished session leaves is checked, and row 12 reads it through the real path
+
+- **`leftovers`, a check of the runner's `self_check`** (also in its quick form, which the agent runs at every connection, and in the
+  agent's `runner` self-test check, which fails with its words): no container, no process in a container's cgroup, no mount, loop
+  device, scratch file or folder, no session network interface and no address lease that no running session holds. It reads the
+  distribution itself and tells what a running session holds (its container, scratch disk and network slot, tracked by the runner)
+  from what is left. A session's bridge is not one: the 32 bridges are prepared once and reused, like the 32 CNI configs, an empty one
+  is not a session's, and the image has no `ip` to take it down (and shouldn't); what a session attaches to it, a container's virtual
+  interface and host-local IPAM's lease file, is checked.
+- **A development distribution says it in each session's log**: before a session's job starts the runner writes one line, "idleo-runner
+  (development): nothing is left from finished sessions", or "...: left from finished sessions: 1 process, 2 mounts". There is no
+  channel from the Mac to a laptop's runner except sessions (the owner's API can't ask the agent for a self-test), so the real-path
+  hostile test (`run.sh --host`) reads it where it can: the attack for row 12 starts a background process and ends, a following session
+  runs, and that session's log says what the runner found. Release distributions say nothing: the marker file
+  (`/etc/idleo/development`) is what turns it on. A laptop whose runner isn't a development one fails row 12 ("this can't be proved from
+  here"), never passes it.

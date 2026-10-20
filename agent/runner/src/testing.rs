@@ -139,6 +139,8 @@ pub struct FakeMachine {
     pub image: Mutex<Result<(), String>>,
     pub scratch_free: AtomicU64,
     pub development: AtomicBool,
+    /// What `leftovers` says is left from finished sessions.
+    pub leftover: Mutex<Vec<String>>,
     pub containers: Mutex<Vec<Arc<FakeContainer>>>,
     pub scratches_made: Mutex<Vec<Scratch>>,
     pub scratches_removed: Mutex<Vec<String>>,
@@ -154,6 +156,7 @@ impl FakeMachine {
             image: Mutex::new(Ok(())),
             scratch_free: AtomicU64::new(10 * 1024 * 1024 * 1024),
             development: AtomicBool::new(false),
+            leftover: Mutex::new(Vec::new()),
             containers: Mutex::new(Vec::new()),
             scratches_made: Mutex::new(Vec::new()),
             scratches_removed: Mutex::new(Vec::new()),
@@ -255,6 +258,15 @@ impl Machine for FakeMachine {
 
     fn self_check<'a>(&'a self, _cuda_image: Option<&'a str>, _quick: bool) -> Fut<'a, Vec<Check>> {
         Box::pin(async { Vec::new() })
+    }
+
+    fn leftovers(&self) -> Fut<'_, Vec<String>> {
+        let left = self.leftover.lock().unwrap().clone();
+        Box::pin(async move { left })
+    }
+
+    fn development(&self) -> bool {
+        self.development.load(Ordering::SeqCst)
     }
 
     fn clean_up_leftovers(&self) -> Fut<'_, ()> {
