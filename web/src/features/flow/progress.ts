@@ -1,18 +1,19 @@
 import type { Session } from "@/api/queries";
-import { formatBytes } from "@/lib/bytes";
 import { aboutRuntime } from "@/lib/catalog";
 import { formatDuration } from "@/lib/time";
 import type { Stop } from "./Route";
-import { sessionInput } from "@/lib/inputs";
+import { inputsTotal, sessionInputs, type InputFact } from "@/lib/inputs";
 
 const FINDING = new Set(["REQUESTED", "MATCHED"]);
 const RUNNING = new Set(["PROVISIONING", "RUNNING", "HOST_LOST", "FINISHING"]);
 
-/** What the route knows besides the session: its upload's size, once read, and the template's typical runtime. */
+/**
+ * What the route knows besides the session: each of its inputs, with its upload's size once read (src/lib/inputs.ts),
+ * and the template's typical runtime.
+ */
 export interface ProgressExtras {
-  uploadBytes?: number | null;
-  /** How many files the upload holds, once read. */
-  uploadFiles?: number | null;
+  /** Every input, in the session's order; the route says what they come to together. */
+  inputs?: InputFact[];
   typicalRuntimeSeconds?: number | null;
   /** For "in about 26 min"; from the app's clock. */
   now: number;
@@ -48,22 +49,17 @@ export function progressStops(session: Session, extras: ProgressExtras): Stop[] 
   const completed = session.state === "COMPLETED";
   const saved = session.checkpoints.length;
   const found = foundIn(session);
-  const input = sessionInput(session);
-  const data: Stop[] = input
-    ? [
-        {
-          title: "Uploaded",
-          detail: input.url
-            ? "From your link"
-            : extras.uploadBytes == null
-              ? "Ready"
-              : extras.uploadFiles == null
-                ? formatBytes(extras.uploadBytes)
-                : `${formatBytes(extras.uploadBytes)} · ${extras.uploadFiles} ${extras.uploadFiles === 1 ? "file" : "files"}`,
-          state: "done",
-        },
-      ]
-    : [];
+  const given = sessionInputs(session);
+  const data: Stop[] =
+    given.length > 0
+      ? [
+          {
+            title: "Uploaded",
+            detail: (extras.inputs && inputsTotal(extras.inputs)) ?? "Ready",
+            state: "done",
+          },
+        ]
+      : [];
   return [
     ...data,
     finding

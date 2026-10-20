@@ -902,6 +902,41 @@ export const found = build({
   maxPrice: 18,
   input: { uploadId: UPLOAD_ID },
 }).session;
+/** A fine-tune whose GPU is found, booked with its model folder and its examples: two uploads of very different size. */
+export const foundWithTwoInputs = build({
+  n: 204,
+  template: "qlora-finetune",
+  state: "PROVISIONING",
+  bookedAgoMs: 26_000,
+  price: 14,
+  maxPrice: 18,
+  model: { uploadId: MODEL_ID },
+  input: { uploadId: UPLOAD_ID },
+}).session;
+export const MODEL_FOLDER_BYTES = 4.2 * 1024 ** 3;
+export const MODEL_FOLDER_FILES = 9;
+export const EXAMPLES_BYTES = 68 * 1024;
+/** GET /v1/uploads/{id} for each of that session's inputs, by id. */
+export const twoInputUploads: Record<string, ReturnType<typeof newUpload>> = {
+  [MODEL_ID]: (() => {
+    const folder = uploadOf(
+      {
+        name: "my-llm",
+        files: Array.from({ length: MODEL_FOLDER_FILES }, (_, i) => ({
+          path: i === 0 ? "config.json" : `model-0000${i}-of-00008.safetensors`,
+          sizeBytes: i === 0 ? 1024 : Math.round((MODEL_FOLDER_BYTES - 1024) / (MODEL_FOLDER_FILES - 1)),
+        })),
+      },
+      "ready",
+    );
+    return { ...folder, upload: { ...folder.upload, id: MODEL_ID } };
+  })(),
+  [UPLOAD_ID]: (() => {
+    const examples = newUpload("train.jsonl", EXAMPLES_BYTES, "ready");
+    return examples;
+  })(),
+};
+
 export const movedLive = build({
   n: 202,
   template: "qlora-finetune",

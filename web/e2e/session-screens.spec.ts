@@ -69,6 +69,40 @@ test.describe("a session", () => {
     await capture(page, info, "session-running");
   });
 
+  test("with a model folder and its examples: each input by its label, and one total", async ({
+    page,
+  }, info) => {
+    await fakeApi(
+      page,
+      api(data.foundWithTwoInputs, {
+        "/v1/uploads/[^/]+": (_call, request) => ({
+          json: data.twoInputUploads[new URL(request.url()).pathname.split("/").pop()!] ?? data.sessionUpload,
+        }),
+      }),
+    );
+    await signIn(page, "asha", open(data.foundWithTwoInputs));
+    if (info.project.name.includes("laptop")) {
+      // Your request: a line for each input, with its own size; the route's Uploaded step, both together.
+      const request = page.getByRole("region", { name: "Your request" });
+      await expect(request).toContainText("Your model");
+      await expect(request).toContainText("my-llm · 4.2 GB · 9 files");
+      await expect(request).toContainText("Your training data");
+      await expect(request).toContainText("train.jsonl · 68 KB");
+      await expect(page.getByRole("listitem").filter({ hasText: "Uploaded" })).toContainText(
+        "4.2 GB · 10 files",
+      );
+    } else {
+      await expect(
+        page.getByRole("listitem").filter({ hasText: "Your model · 4.2 GB · 9 files" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("listitem").filter({ hasText: "Your training data · 68 KB" }),
+      ).toBeVisible();
+    }
+    await expectAccessible(page);
+    await capture(page, info, "session-two-inputs");
+  });
+
   test("running, with the logs open on a phone", async ({ page }, info) => {
     test.skip(info.project.name.includes("laptop"), "the logs are open on a laptop already");
     await fakeApi(page, api(data.running));

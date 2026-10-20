@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useSearch } from "wouter";
-import { useTemplates, useUploadInfo } from "@/api/queries";
+import { useTemplates } from "@/api/queries";
 import { useLiveSession } from "@/api/useLiveSession";
 import { FlowHeader } from "@/components/shell/AppShell";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -17,8 +17,8 @@ import { useLogSignals } from "./laptop/useLogSignals";
 import { laptopTiles, useLaptopTiles } from "./laptop/registry";
 import { FRAME } from "@/components/shell/Layout";
 import { Finding } from "./Finding";
+import { useInputFacts } from "./useInputFacts";
 import { Running } from "./Running";
-import { sessionInput } from "@/lib/inputs";
 
 const FINDING = new Set(["REQUESTED", "MATCHED", "PROVISIONING"]);
 const STARTED = new Set(["RUNNING", "HOST_LOST", "FINISHING"]);
@@ -41,9 +41,13 @@ export function SessionDetail() {
   const laptop = useWide();
   const signals = useLogSignals(id ?? "");
   const painted = useAfterPaint(session.data !== undefined);
-  const uploadId = (session.data && sessionInput(session.data)?.uploadId) ?? null;
-  const upload = useUploadInfo(uploadId, painted);
   const tiles = useLaptopTiles(laptop);
+  // Every input, with its upload's size once read: asked after the first paint, before any early return below.
+  const inputs = useInputFacts(
+    session.data,
+    templates.data?.templates.find((candidate) => candidate.id === session.data?.templateId),
+    painted,
+  );
 
   const frame = (content: ReactNode) =>
     laptop ? (
@@ -106,26 +110,17 @@ export function SessionDetail() {
       session={current}
       signals={signals}
       typicalRuntimeSeconds={template?.typicalRuntimeSeconds}
-      uploadBytes={upload.data?.upload.sizeBytes}
-      uploadFiles={upload.data?.upload.fileCount}
+      inputs={inputs}
     />
   );
   const serviceName = serviceOf(catalog, current.templateId)?.name ?? templateName;
   const view = FINDING.has(current.state) ? (
     <Finding
       session={current}
-      data={{ filename: upload.data?.upload.name ?? null }}
+      inputs={inputs}
       laptop={laptop}
       steps={steps}
-      request={
-        YourRequestTile && (
-          <YourRequestTile
-            session={current}
-            template={template}
-            filename={upload.data?.upload.name ?? null}
-          />
-        )
-      }
+      request={YourRequestTile && <YourRequestTile session={current} template={template} inputs={inputs} />}
     />
   ) : STARTED.has(current.state) ? (
     <Running

@@ -4,15 +4,10 @@ import type { Session } from "@/api/queries";
 import { Tile, TileLabel } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { gigabytes, gpuName, withArticle } from "@/lib/gpu";
-import { sessionInput } from "@/lib/inputs";
+import { inputLine, type InputFact } from "@/lib/inputs";
 import { CancelAction } from "./Actions";
 import { RailColumns } from "@/components/shell/Layout";
 import { Banners } from "./Banners";
-
-/** What the screen knows of the session's data: its upload's name, once read. */
-export interface DataName {
-  filename: string | null;
-}
 
 /**
  * While we find its GPU (`REQUESTED`, `MATCHED`) and once one is found (`PROVISIONING`), like a ride app finding a
@@ -22,13 +17,14 @@ export interface DataName {
  */
 export function Finding({
   session,
-  data,
+  inputs,
   laptop,
   steps,
   request,
 }: {
   session: Session;
-  data: DataName;
+  /** Every input, with its upload's size once read. */
+  inputs: InputFact[];
   laptop: boolean;
   /** The steps tile and the request tile, the laptop's right column. */
   steps: ReactNode;
@@ -61,15 +57,11 @@ export function Finding({
     <Tile className="flex flex-col gap-3">
       <TileLabel>What you asked for</TileLabel>
       <ul className="flex w-full flex-col gap-2 text-left">
-        {sessionInput(session) && (
-          <Row done>
-            {sessionInput(session)?.url
-              ? "Your data's link is ready"
-              : data.filename
-                ? `${data.filename} uploaded`
-                : "Your data is uploaded"}
+        {inputs.map((input) => (
+          <Row key={input.name} done>
+            {`${input.label} · ${inputLine(input)}`}
           </Row>
-        )}
+        ))}
         {found && <Row done>{`Found ${withArticle(gpuName(found.model))}`}</Row>}
         <Row done={false}>Nothing is charged until it runs</Row>
       </ul>

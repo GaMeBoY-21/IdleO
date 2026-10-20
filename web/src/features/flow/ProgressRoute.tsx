@@ -1,5 +1,6 @@
 import type { Session } from "@/api/queries";
 import { useNow } from "@/lib/clock";
+import type { InputFact } from "@/lib/inputs";
 import { progressStops } from "./progress";
 import { Route } from "./Route";
 
@@ -10,19 +11,15 @@ import { Route } from "./Route";
 export function ProgressRoute({
   session,
   typicalRuntimeSeconds,
-  uploadBytes,
+  inputs,
   across = false,
 }: {
   session: Session;
   typicalRuntimeSeconds: number | null | undefined;
-  uploadBytes?: number | null;
+  /** Every input, with its upload's size once read. */
+  inputs?: InputFact[];
   across?: boolean;
 }) {
   const now = useNow("half-minute");
-  return (
-    <Route
-      across={across}
-      stops={progressStops(session, { now, typicalRuntimeSeconds, uploadBytes: uploadBytes ?? null })}
-    />
-  );
+  return <Route across={across} stops={progressStops(session, { now, typicalRuntimeSeconds, inputs })} />;
 }

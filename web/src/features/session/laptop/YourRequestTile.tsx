@@ -3,6 +3,7 @@ import type { Session, Template } from "@/api/queries";
 import { Money } from "@/components/ui/Money";
 import { Tile } from "@/components/ui/Tile";
 import { aboutRuntime } from "@/lib/catalog";
+import { inputLine, type InputFact } from "@/lib/inputs";
 
 /**
  * "Your request", the white tile on the finding screen (web/DESIGN.md "The session screen"): what was asked for, as the
@@ -12,16 +13,17 @@ import { aboutRuntime } from "@/lib/catalog";
 export function YourRequestTile({
   session,
   template,
-  filename,
+  inputs: given,
 }: {
   session: Session;
   template: Template | undefined;
-  /** The first input's upload name, once read. */
-  filename: string | null;
+  /** Every input, with its upload's size once read. */
+  inputs: InputFact[];
 }) {
-  const inputs = Object.entries(session.inputs).map(([name, input], index) => ({
-    label: template?.inputs.find((candidate) => candidate.name === name)?.label ?? name,
-    value: input.url ? "Your link" : index === 0 && filename ? breakable(filename) : "Uploaded",
+  const inputs = given.map((input) => ({
+    label: input.label,
+    value:
+      input.filename && !input.link ? breakable(`${input.filename} · ${inputLine(input)}`) : inputLine(input),
   }));
   const presets = Object.entries(session.presets).flatMap(([name, id]) => {
     const question = template?.questions.find((candidate) => candidate.name === name);

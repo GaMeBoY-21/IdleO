@@ -4,6 +4,7 @@ import type { Stop } from "@/features/flow/Route";
 import { progressStops } from "@/features/flow/progress";
 import { useNow } from "@/lib/clock";
 import { cn } from "@/lib/cn";
+import type { InputFact } from "@/lib/inputs";
 import type { LogSignals } from "@/lib/log-signals";
 
 /**
@@ -16,21 +17,19 @@ export function StepsTile({
   session,
   signals,
   typicalRuntimeSeconds,
-  uploadBytes,
-  uploadFiles,
+  inputs,
 }: {
   session: Session;
   signals: LogSignals;
   typicalRuntimeSeconds: number | null | undefined;
-  uploadBytes: number | null | undefined;
-  uploadFiles: number | null | undefined;
+  /** Every input, with its upload's size once read. */
+  inputs: InputFact[];
 }) {
   const now = useNow("half-minute");
   const stops = progressStops(session, {
     now,
     typicalRuntimeSeconds,
-    uploadBytes: uploadBytes ?? null,
-    uploadFiles: uploadFiles ?? null,
+    inputs,
   });
   const elapsed = session.startedAt ? (now - Date.parse(session.startedAt)) / 1000 : null;
   const percent = (stop: Stop): number | null => {

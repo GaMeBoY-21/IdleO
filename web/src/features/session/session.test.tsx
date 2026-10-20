@@ -21,12 +21,45 @@ describe("a session's title", () => {
 
 describe("a session's route", () => {
   it("is at finding its GPU, with its data done", () => {
-    expect(titles(progressStops(data.finding, { now, uploadBytes: 48_213_504 }))).toEqual([
+    const inputs = [
+      { name: "data", label: "Your data", link: false, filename: "d.jsonl", bytes: 48_213_504, files: 1 },
+    ];
+    expect(titles(progressStops(data.finding, { now, inputs }))).toEqual([
       "Uploaded · 46 MB · done",
       "Finding your GPU · Usually under a minute · current",
       "Running · It saves checkpoints as it runs · next",
       "Outputs · When it's done · end",
     ]);
+  });
+
+  it("says what every upload comes to together: a fine-tune's 4.2 GB model and its 68 KB examples", () => {
+    const session = data.foundWithTwoInputs;
+    expect(Object.keys(session.inputs)).toEqual(["model", "data"]);
+    const inputs = [
+      {
+        name: "model",
+        label: "Your model",
+        link: false,
+        filename: "my-llm",
+        bytes: data.MODEL_FOLDER_BYTES,
+        files: data.MODEL_FOLDER_FILES,
+      },
+      {
+        name: "data",
+        label: "Your training data",
+        link: false,
+        filename: "train.jsonl",
+        bytes: data.EXAMPLES_BYTES,
+        files: 1,
+      },
+    ];
+    expect(progressStops(session, { now, inputs })[0]!.detail).toBe("4.2 GB · 10 files");
+    // Until the uploads are read, no size is guessed from the first one.
+    expect(
+      progressStops(session, { now, inputs: inputs.map((i) => ({ ...i, bytes: null, files: null })) })[0]!
+        .detail,
+    ).toBe("Ready");
+    expect(progressStops(session, { now })[0]!.detail).toBe("Ready");
   });
 
   it("says how long finding its host took, its checkpoints, and when its outputs are due", () => {
