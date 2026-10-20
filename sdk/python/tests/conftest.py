@@ -31,8 +31,24 @@ def template(**over: Any) -> dict[str, Any]:
         "maxRuntimeCapSeconds": 900,
         "minVramMb": 6144,
         "inputs": [
-            {"name": "model", "label": "Your model", "kind": "folder", "link": True, "upload": True, "required": True},
-            {"name": "data", "label": "Data", "kind": "file", "link": True, "upload": True, "required": True},
+            {
+                "name": "model",
+                "label": "Your model",
+                "kind": "folder",
+                "link": True,
+                "upload": True,
+                "required": True,
+                "mustContain": [],
+            },
+            {
+                "name": "data",
+                "label": "Data",
+                "kind": "file",
+                "link": True,
+                "upload": True,
+                "required": True,
+                "mustContain": [],
+            },
         ],
         "params": [
             {"name": "epochs", "label": "E", "type": "integer", "group": "advanced", "choices": [], "required": False},

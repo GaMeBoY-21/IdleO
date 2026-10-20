@@ -209,7 +209,7 @@ mod tests {
     use super::*;
 
     fn input(name: &str, kind: &str, upload: bool, link: bool, required: bool) -> TemplateInput {
-        serde_json::from_value(serde_json::json!({"name": name, "kind": kind, "label": name, "upload": upload, "link": link, "required": required})).unwrap()
+        serde_json::from_value(serde_json::json!({"name": name, "kind": kind, "label": name, "upload": upload, "link": link, "required": required, "mustContain": []})).unwrap()
     }
 
     fn param(name: &str, kind: &str) -> TemplateParam {
