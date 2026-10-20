@@ -7,6 +7,10 @@
 #       (registry.idleo.test:5000/idleo/pytorch). Writes private/local/development-real.yaml: templates/development-real.yaml
 #       with the placeholder digest replaced by the one just pushed. ./start.sh --real-runner runs the stack with it.
 #
+#   scripts/images/publish.sh --dev --cuda
+#       The image that ships (linux/amd64, CUDA 12.8), built here and pushed to the same local registry, for a Windows laptop to
+#       pull (./start.sh --lan --real-runner), with the production arguments: the real fine-tune, on its GPU. Slow the first time.
+#
 #   scripts/images/publish.sh --release --registry ghcr.io/OWNER/idleo-pytorch [--tag 0.1.0]
 #       The image that ships (linux/amd64, CUDA 12.8) to a public registry, with the credentials you logged in with
 #       (`docker login ghcr.io`); this script never asks for or stores a token. Then it updates templates/catalog.yaml to that
@@ -19,12 +23,14 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
 mode=""
+cuda=false
 registry=""
 tag="$(date -u +%Y%m%d-%H%M%S)"
 while (($# > 0)); do
   case "$1" in
     --dev) mode=dev ;;
     --release) mode=release ;;
+    --cuda) cuda=true ;;
     --registry) registry="$2"; shift ;;
     --tag) tag="$2"; shift ;;
     *) echo "publish: unknown option $1" >&2; exit 2 ;;
@@ -37,12 +43,32 @@ docker info >/dev/null 2>&1 || { echo "publish: Docker isn't running" >&2; exit 
 here=agent/images/pytorch
 placeholder="sha256:$(printf '0%.0s' $(seq 1 64))"
 
+if [[ "$mode" == dev && "$cuda" == true ]]; then
+  [[ -n "$(docker ps -q --filter publish=5000)" ]] || { echo "publish: no registry is running on port 5000 (./start.sh, or compose's registry)" >&2; exit 1; }
+  echo "publish: building the image that ships (linux/amd64, CUDA 12.8) for the local registry"
+  docker buildx build --platform linux/amd64 --provenance=false --load -t localhost:5000/idleo/pytorch:dev-cuda "$here" >/dev/null
+  digest="$(docker push localhost:5000/idleo/pytorch:dev-cuda 2>&1 | sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' | tail -1)"
+  [[ -n "$digest" ]] || { echo "publish: the push gave no digest" >&2; exit 1; }
+  mkdir -p private/local
+  # The development catalog with this image, and the arguments the image ships with: `args: [...] # dev: [...] in production`.
+  python3 - "$digest" "$placeholder" <<'PY'
+import re, sys
+digest, placeholder = sys.argv[1:]
+text = open("templates/development-real.yaml").read().replace(placeholder, digest)
+text = re.sub(r"^(\s*args:) .* # dev: (.*) in production$", lambda m: f"{m.group(1)} {m.group(2)}", text, flags=re.M)
+open("private/local/development-real.yaml", "w").write(text)
+PY
+  echo "publish: registry.idleo.test:5000/idleo/pytorch@$digest"
+  echo "publish: private/local/development-real.yaml written, with the production arguments"
+  exit 0
+fi
 if [[ "$mode" == dev ]]; then
   registry_digest="registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373"
-  if ! curl -fsS http://localhost:5000/v2/ >/dev/null 2>&1; then
+  # 127.0.0.1, not localhost: macOS's AirPlay Receiver holds *:5000, and localhost may mean it.
+  if ! curl -fsS http://127.0.0.1:5000/v2/ >/dev/null 2>&1; then
     docker rm -f idleo-dev-registry >/dev/null 2>&1 || true
     docker run -d --name idleo-dev-registry -p 127.0.0.1:5000:5000 "$registry_digest" >/dev/null
-    for _ in $(seq 1 30); do curl -fsS http://localhost:5000/v2/ >/dev/null 2>&1 && break; sleep 1; done
+    for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:5000/v2/ >/dev/null 2>&1 && break; sleep 1; done
   fi
   echo "publish: building the development image (linux/arm64, CPU PyTorch)"
   docker buildx build --provenance=false --load \

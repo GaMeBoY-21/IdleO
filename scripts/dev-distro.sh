@@ -25,7 +25,8 @@
 #
 # The development registry (control-plane/compose.yaml's `registry`) is reached by its logical name, registry.idleo.test:5000,
 # which the runner maps to the real address from the marker's `registry=` line; --registry says which (default
-# host.docker.internal:5000, the registry compose publishes on this Mac).
+# host.docker.internal:5000, the registry compose publishes on this Mac). The marker also sends the runner's storage requests
+# for `localhost` (the stack's address for object storage) to host.docker.internal, which is this Mac from inside.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -66,7 +67,7 @@ case "$cmd" in
         "${mounts[@]}" --entrypoint /lib/systemd/systemd "$image" >/dev/null
     fi
     # The development marker, with where the logical registry name points; only root in the distribution can write it.
-    inside bash -c "mkdir -p /etc/idleo && printf 'registry=%s\n' '$registry' >/etc/idleo/development"
+    inside bash -c "mkdir -p /etc/idleo && printf 'registry=%s\nlocalhost=host.docker.internal\n' '$registry' >/etc/idleo/development"
     started=$SECONDS
     for _ in $(seq 1 180); do
       answers && break

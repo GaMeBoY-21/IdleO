@@ -77,6 +77,22 @@ stack_start_control_plane() {
   set +m
 }
 
+# Starts compose.yaml's services (all, or the ones named) before the control plane does, with the settings the control plane
+# will start with, for a caller that needs one first (the registry, to push an image whose digest the catalog pins). The
+# control plane's own compose support then finds them running and starts nothing; had only the registry been started, it
+# would think the stack up and find no database.
+stack_compose_up() {
+  (
+    export COMPOSE_PROJECT_NAME="$compose_project" LOCAL_SIGN_IN_PORT="$sign_in_port" LOCAL_STORAGE_PORT="$storage_port"
+    export LOCAL_MAIL_SMTP_PORT="$mail_smtp_port" LOCAL_MAIL_WEB_PORT="$mail_web_port"
+    export WEB_ALLOWED_ORIGINS="http://localhost:$web_port${site_port:+,http://localhost:$site_port}"
+    if declare -F stack_control_plane_settings >/dev/null; then
+      stack_control_plane_settings
+    fi
+    docker compose -f "$root/control-plane/compose.yaml" up -d "$@"
+  )
+}
+
 # Waits until the control plane is ready, for at most $1 seconds.
 stack_await_control_plane() {
   local deadline=$((SECONDS + $1))
@@ -150,11 +166,12 @@ stack_enrol_agent() {
 
 # Runs agent $1 with a fake GPU and the development runner, in the background; its pid goes to $state/agent-$1.pid.
 # The rest of the arguments are the agent's --fake-gpu options (model, memory, free disk). With stack_runner set (a real
-# runner's `--container-runner docker:<container>`, ./start.sh --real-runner) the jobs run in real containers instead.
+# runner's `--container-runner docker:<container>`, ./start.sh --real-runner) the jobs run in real containers instead, and
+# set to nothing the agent has no runner and declines offers.
 stack_run_agent() {
   local n="$1"
   shift
-  IDLEO_LOG=info "$agent" --config "$state/agent-$n.toml" run --fake-gpu "$@" ${stack_runner:---dev-runner} >>"$out/agent-$n.log" 2>&1 &
+  IDLEO_LOG=info "$agent" --config "$state/agent-$n.toml" run --fake-gpu "$@" ${stack_runner---dev-runner} >>"$out/agent-$n.log" 2>&1 &
   echo $! >"$state/agent-$n.pid"
 }
 agent_running() { [[ -f "$state/agent-$1.pid" ]] && kill -0 "$(cat "$state/agent-$1.pid")" 2>/dev/null; }

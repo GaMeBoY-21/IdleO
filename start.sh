@@ -16,7 +16,9 @@
 #                               of a development distribution (scripts/dev-distro.sh) and the job image from the local
 #                               registry (scripts/images/publish.sh --dev), under the real templates
 #                               (templates/development-real.yaml: Fine-tune your model, Run your code). CPU-only, and arm64,
-#                               on a Mac; a stack has the simulated jobs or the real ones, not both
+#                               on a Mac; a stack has the simulated jobs or the real ones, not both. With --lan, the Windows
+#                               laptop runs them instead, with the CUDA image (publish.sh --dev --cuda), and the fake laptops
+#                               take no offers
 #   ./start.sh --fresh          wipe the local database and storage first (it asks)
 #   ./start.sh --stop           stop what another ./start.sh started
 #   ./start.sh --status         what's running
@@ -201,24 +203,7 @@ if $lan; then
   "$root/scripts/release/dev-key.sh" >>"$out/release.log" 2>&1 || fail "the development release key couldn't be made; see logs/release.log"
 fi
 
-# --real-runner: the development distribution, the registry and the job image come first, since the catalog names the image's digest.
-if $real_runner; then
-  command -v docker >/dev/null || fail "--real-runner needs Docker"
-  docker image inspect "idleo-distro-dev:$(tr -d '[:space:]' <"$root/agent/distro/VERSION")" >/dev/null 2>&1 || {
-    log "building the development distribution, once (logs/dev-distro-build.log)"
-    "$root/scripts/build-distro.sh" --dev >"$out/dev-distro-build.log" 2>&1 || fail "the development distribution didn't build; see logs/dev-distro-build.log"
-  }
-  # The registry, from the stack's own compose project, so the control plane's compose finds it running.
-  COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/control-plane/compose.yaml" up -d registry >>"$out/dev-distro.log" 2>&1 ||
-    fail "the registry didn't start; see logs/dev-distro.log"
-  log "building and pushing the job image (logs/job-image.log)"
-  "$root/scripts/images/publish.sh" --dev >"$out/job-image.log" 2>&1 || fail "the job image didn't build; see logs/job-image.log"
-  "$root/scripts/dev-distro.sh" up >>"$out/dev-distro.log" 2>&1 || fail "the development distribution didn't start; see logs/dev-distro.log"
-  stack_runner="--container-runner docker:${IDLEO_DEV_DISTRO:-idleo-dev-distro}"
-fi
-
 # The control plane, and meanwhile what can be built beside it.
-log "starting the control plane (logs/control-plane.log)"
 stack_control_plane_settings() {
   # Anyone signing in locally is let in: no invite step on this machine.
   export IDENTITY_INVITE_ONLY=false
@@ -235,9 +220,35 @@ stack_control_plane_settings() {
     # laptop (the app's download, a session's files) and by this Mac alike, so presigned links work from both.
     WEB_ALLOWED_ORIGINS="$WEB_ALLOWED_ORIGINS,http://$lan_ip:$web_port,http://$lan_ip:$site_port"
     export SESSIONS_STORAGE_ENDPOINT="http://$lan_ip:$storage_port" LOCAL_STORAGE_BIND=0.0.0.0
+    # With --real-runner the laptop pulls the job image from this Mac's registry.
+    export LOCAL_REGISTRY_BIND=0.0.0.0
     export HOSTS_LINK_WEB_APP_URL="http://$lan_ip:$web_port"
   fi
 }
+# --real-runner: the registry and the job image come first, since the catalog names the image's digest. On a Mac the jobs run in
+# a development distribution (arm64, CPU); with --lan, the Windows laptop runs them, in the CUDA image, and no fake laptop takes
+# an offer.
+if $real_runner; then
+  command -v docker >/dev/null || fail "--real-runner needs Docker"
+  # Every service, not just the registry: the control plane's own start then finds them running and starts nothing more.
+  stack_compose_up >>"$out/dev-distro.log" 2>&1 || fail "compose's services didn't start; see logs/dev-distro.log"
+  if $lan; then
+    log "building and pushing the job image for the laptop (linux/amd64, CUDA; logs/job-image.log, minutes the first time)"
+    "$root/scripts/images/publish.sh" --dev --cuda >"$out/job-image.log" 2>&1 || fail "the job image didn't build; see logs/job-image.log"
+    stack_runner=""
+  else
+    docker image inspect "idleo-distro-dev:$(tr -d '[:space:]' <"$root/agent/distro/VERSION")" >/dev/null 2>&1 || {
+      log "building the development distribution, once (logs/dev-distro-build.log)"
+      "$root/scripts/build-distro.sh" --dev >"$out/dev-distro-build.log" 2>&1 || fail "the development distribution didn't build; see logs/dev-distro-build.log"
+    }
+    log "building and pushing the job image (logs/job-image.log)"
+    "$root/scripts/images/publish.sh" --dev >"$out/job-image.log" 2>&1 || fail "the job image didn't build; see logs/job-image.log"
+    "$root/scripts/dev-distro.sh" up >>"$out/dev-distro.log" 2>&1 || fail "the development distribution didn't start; see logs/dev-distro.log"
+    stack_runner="--container-runner docker:${IDLEO_DEV_DISTRO:-idleo-dev-distro}"
+  fi
+fi
+
+log "starting the control plane (logs/control-plane.log)"
 stack_start_control_plane
 echo "$control_plane_pid" >"$state/control-plane.pid"
 
@@ -406,6 +417,8 @@ IDLEO_SETUP_SITE_URL=http://$lan_ip:$site_port
 IDLEO_SETUP_CONTROL_PLANE=$lan_ip:$grpc_port
 IDLEO_SETUP_CA_ROOT=$root/private/dev-ca/root.pem
 SETUP
+  # --real-runner: where the laptop's development distribution pulls the job image from (ADR 0035).
+  if $real_runner; then printf 'IDLEO_SETUP_REGISTRY=%s:5000\n' "$lan_ip" >>"$release_settings"; fi
   # The release this stack serves, once the feed has been read (it is read at start and every 10 s).
   served_version() {
     local deadline=$((SECONDS + 15)) version=""
