@@ -22,7 +22,7 @@ export function useInputFacts(
   const uploads = useQuery({
     queryKey: ["session-uploads", ids],
     enabled: enabled && ids.length > 0,
-    queryFn: () => Promise.all(ids.map((id) => client.fetchQuery({ ...uploadInfo(id), staleTime: 60_000 }))),
+    queryFn: () => Promise.all(ids.map((id) => client.query({ ...uploadInfo(id), staleTime: 60_000 }))),
   });
   return given.map((input) => {
     const upload = uploads.data?.find((found) => found.upload.id === input.uploadId)?.upload;

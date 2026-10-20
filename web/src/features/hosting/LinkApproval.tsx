@@ -39,7 +39,7 @@ const MAX_NAME = 100;
 export function LinkApproval({ id }: { id: string }) {
   useTitle("Link this laptop");
   // The page is drawn whole first, bars where the values go; the link is asked for after that paint.
-  const painted = useAfterPaint(true, { largestPaintSettled: true });
+  const painted = useAfterPaint();
   const link = useHostLink(id, painted);
 
   const left = <Machine link={link.data} />;

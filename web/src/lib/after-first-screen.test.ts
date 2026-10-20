@@ -49,32 +49,9 @@ describe("afterPaint", () => {
     expect(work).toHaveBeenCalledTimes(1);
   });
 
-  it("with largestPaintSettled, waits for the largest paint and for it to hold still", async () => {
-    const work = vi.fn();
-    afterPaint(work, { largestPaintSettled: true });
-    await vi.advanceTimersByTimeAsync(500);
-    expect(work, "no largest paint reported yet").not.toHaveBeenCalled();
-    FakeObserver.watching.get("largest-contentful-paint")!([{ name: "" }]);
-    await vi.advanceTimersByTimeAsync(100);
-    FakeObserver.watching.get("largest-contentful-paint")!([{ name: "" }]);
-    await vi.advanceTimersByTimeAsync(100);
-    expect(work, "a larger paint restarted the wait").not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(100);
-    expect(work).toHaveBeenCalledTimes(1);
-  });
-
-  it("with largestPaintSettled, gives up after a second when nothing is reported", async () => {
-    const work = vi.fn();
-    afterPaint(work, { largestPaintSettled: true });
-    await vi.advanceTimersByTimeAsync(990);
-    expect(work).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(60);
-    expect(work).toHaveBeenCalledTimes(1);
-  });
-
   it("is cancelled by its cancel", async () => {
     const work = vi.fn();
-    const cancel = afterPaint(work, { largestPaintSettled: true });
+    const cancel = afterPaint(work);
     cancel();
     await vi.advanceTimersByTimeAsync(2_000);
     expect(work).not.toHaveBeenCalled();

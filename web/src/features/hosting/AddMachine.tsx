@@ -39,7 +39,7 @@ const BUTTON =
 function DownloadButton() {
   // The page paints with the button's skeleton first; the answer is asked for after that paint, so the request is not
   // on the way to the page's largest paint (Lighthouse counts each round trip before it).
-  const painted = useAfterPaint(true, { largestPaintSettled: true });
+  const painted = useAfterPaint();
   const release = useLatestRelease(painted);
   if (release.isPending) {
     return (

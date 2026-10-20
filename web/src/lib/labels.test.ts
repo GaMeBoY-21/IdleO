@@ -37,6 +37,8 @@ function endingCodes(): Set<string> {
     [java, /code\.isEmpty\(\) \? "([a-z_]+)" : "([a-z_]+)"/g],
     [runner, /pub const [A-Z_]+: &str = "([a-z_]+)";/g],
     [rust, /code: "([a-z_]+)"/g],
+    // The supervisor's own limits, as (code, words) pairs: `Some(("max_runtime_exceeded", "ran past max_runtime"))`.
+    [rust, /Some\(\("([a-z_]+)", "/g],
     [rust, /let code = if [^{]+\{ "([a-z_]+)" \} else \{ "([a-z_]+)" \}/g],
   ];
   const codes = new Set<string>();
@@ -73,7 +75,10 @@ describe("the renter's words", () => {
         "storage_failed",
       ]),
     );
-    const missing = [...codes].filter((code) => !(code in ENDINGS));
+    // Never a session's ending: the agent stopping its own old attempt when a newer one starts on the same host, which the
+    // control plane has already moved past (it ignores a stale attempt's report).
+    const internal = new Set(["superseded"]);
+    const missing = [...codes].filter((code) => !(code in ENDINGS) && !internal.has(code));
     expect(missing, "codes without words in src/lib/labels.ts ENDINGS").toEqual([]);
     for (const words of Object.values(ENDINGS)) {
       expect(words.sentence).toMatch(/^[A-Z].*\.$/);

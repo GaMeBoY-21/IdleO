@@ -63,55 +63,17 @@ function firstContentPresented(): Promise<void> {
   });
 }
 
-/** How long the largest contentful paint has to stay unchanged to count as settled. */
-const LARGEST_PAINT_SETTLED_MS = 150;
-
-/**
- * The page's largest contentful paint has been reported and no larger one has followed for 150 ms (or a second has
- * passed, or the browser can't say). A pre-rendered page has painted already when its code runs, so "painted" is true
- * at once, and what it asks for then lands next to the paint of what the code draws: Lighthouse counts every request
- * that finished before the largest paint as one more round trip on the way to it (Add a machine and the link page: 1.95 s
- * to 2.26 s, by whether the request finished a millisecond ahead of the paint or behind it).
- */
-function largestPaintSettled(): Promise<void> {
-  if (
-    typeof PerformanceObserver === "undefined" ||
-    !PerformanceObserver.supportedEntryTypes.includes("largest-contentful-paint")
-  ) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    let settle = 0;
-    const done = () => {
-      observer.disconnect();
-      clearTimeout(settle);
-      clearTimeout(limit);
-      resolve();
-    };
-    const observer = new PerformanceObserver(() => {
-      clearTimeout(settle);
-      settle = window.setTimeout(done, LARGEST_PAINT_SETTLED_MS);
-    });
-    const limit = window.setTimeout(done, 1_000);
-    observer.observe({ type: "largest-contentful-paint", buffered: true });
-  });
-}
-
 /**
  * Runs `work` once what's on screen now has painted: its text drawn in the app's font, the page's first contentful
  * paint presented, and two frames after that. Returns a cancel. The font matters: until it's there, for a first
  * frame or two, text isn't drawn at all, so two frames after the content mounts can still be before its text has
  * painted.
  */
-export function afterPaint(work: () => void, options: { largestPaintSettled?: boolean } = {}): () => void {
+export function afterPaint(work: () => void): () => void {
   let cancelled = false;
   let frame = 0;
   let timer = 0;
-  const waits = [fontLoaded(), firstContentPresented()];
-  if (options.largestPaintSettled) {
-    waits.push(largestPaintSettled());
-  }
-  void Promise.all(waits).then(() => {
+  void Promise.all([fontLoaded(), firstContentPresented()]).then(() => {
     if (cancelled) {
       return;
     }
@@ -132,21 +94,13 @@ export function afterPaint(work: () => void, options: { largestPaintSettled?: bo
  * False until `ready` (the screen's main content is there) and that content has painted (afterPaint), then true.
  * For requests a screen doesn't need to paint its main content (a session's stream and logs, the price hints,
  * Book's form): started after the paint, they never hold it back (ADR 0018: what would compete with the first
- * screen waits). `largestPaintSettled` also waits for the largest paint to have been reported and to hold still: for a
- * pre-rendered screen whose request would otherwise land beside that paint (Add a machine, the link approval).
+ * screen waits).
  */
-export function useAfterPaint(ready = true, options: { largestPaintSettled?: boolean } = {}): boolean {
+export function useAfterPaint(ready = true): boolean {
   const [painted, setPainted] = useState(false);
-  const settled = options.largestPaintSettled === true;
   // A transition: what this unlocks (Book's whole form) is drawn in slices of a few milliseconds, which the browser
   // can interleave with input, rather than in one long task that counts against total blocking time.
-  useEffect(
-    () =>
-      ready
-        ? afterPaint(() => startTransition(() => setPainted(true)), { largestPaintSettled: settled })
-        : undefined,
-    [ready, settled],
-  );
+  useEffect(() => (ready ? afterPaint(() => startTransition(() => setPainted(true))) : undefined), [ready]);
   return painted;
 }
 

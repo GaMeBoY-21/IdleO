@@ -131,6 +131,10 @@
     "unsupported_version": {
       "sentence": "The host's software is out of date for this job.",
       "next": "This was a problem on the host, not yours. Run it again; another host will be tried."
+    },
+    "max_runtime_exceeded": {
+      "sentence": "The job reached the longest time you allowed.",
+      "next": "Run it again with a longer time if it needs it; it can start from its last checkpoint if it saved one."
     }
   },
   "exit": {

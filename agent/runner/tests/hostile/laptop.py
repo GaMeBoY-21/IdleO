@@ -169,7 +169,9 @@ def judge(stack, number, attack, ended, log):
     if number == 8:  # the container dies of memory, and the session says so
         return ("PASS", f"ended {state} with {code}") if state == "FAILED" and code == "out_of_memory" else ("FAIL", f"ended {state} with {code}; log tail: {log[-200:]!r}")
     if number == 14:
-        return ("PASS", f"ended {state} with {code}") if state == "FAILED" and code == "timed_out" else ("FAIL", f"ended {state} with {code}")
+        # The control plane's own limit ends it at the booking's maximum runtime (`max_runtime_exceeded`); the runner's, `timed_out`.
+        stopped = state == "FAILED" and code in ("max_runtime_exceeded", "timed_out")
+        return ("PASS", f"ended {state} with {code}") if stopped else ("FAIL", f"ended {state} with {code}")
     if number == 9:
         wrote = next((line for line in log.splitlines() if line.startswith("RESULT fill_disk HELD wrote ")), "")
         if state == "FAILED" and code == "scratch_full" and wrote:

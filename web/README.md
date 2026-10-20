@@ -122,7 +122,11 @@ What the two say, on the same build and stack (Oct 20, five runs each, mobile, L
 | Link | 1955 1951 1957 1952 1951 | 1952 | 2283 2166 2147 2168 2154 | 2166 |
 | Session | 2406 2101 2101 2101 2101 | 2101 (a file too many, see below) | 2798 2187 2183 2173 2180 | 2183 |
 
+The session screen's 2101 was a regression of this round's own, found by this measurement: showing every input's size had made the session route load `useQueries` (react-query's hook, used only by Book's draft) as a file of its own, one more round trip on a slow connection. One `useQuery` over all of a session's uploads (`features/session/useInputFacts.ts`) puts it back at 1951 to 1952 on all five runs. A new hook or helper on a route is a file to check for (`ls dist/assets` and which chunks the route preloads), whatever it does.
+
 Both are steady apart from a first, slower run on a page (a cold browser); the median of three, as `lhci` asserts, hides it. Real throttling puts every screen at about 2.15 s, 150 to 200 ms above what the simulation says and above the 2.0 s budget. Which of the two is the real phone isn't settled by this table: the budget was set, and the screens tuned, against the simulation (a 1.95 s plateau), so `simulate` stays the method the budget is held to, and the devtools numbers are the open question in the report.
+
+The wait for the largest paint (`afterPaint`'s `largestPaintSettled`, used by Add a machine and the link approval, to keep their one request off the way to the page's largest paint) is gone: on the same build, five runs each, LCP with it was 1951 1955 1952 1959 1954 (Add a machine, median 1954) and 1803 1803 1952 1956 1954 (Link, 1952); without it 1954 1806 1955 1956 1952 (1954) and 1955 1957 1952 1956 1802 (1955). The same, so real people no longer wait for it (about 150 ms of settling after the largest paint, up to a second).
 
 - each page's first frame is pre-rendered and adopted, not redrawn;
 - each page preloads only its own screen's code, and the frame's shared modules come in one file (`vite.config.ts`), since every extra file is another request the first screen waits on;
