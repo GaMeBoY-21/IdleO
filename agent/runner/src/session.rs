@@ -673,18 +673,7 @@ impl Registry {
                 }
             }
         };
-        let mut oom = container.oom_killed().await;
-        if !oom && exited.code == 137 && cause.is_none() && !killed {
-            // Killed, and not by us: the kernel's verdict reaches containerd's event stream a moment after the exit, so give it
-            // a moment before calling this a bare exit code 137.
-            for _ in 0..10 {
-                tokio::time::sleep(Duration::from_millis(200)).await;
-                if container.oom_killed().await {
-                    oom = true;
-                    break;
-                }
-            }
-        }
+        let oom = container.oom_killed().await;
         container.remove().await;
         if let Some(pump) = pump {
             let _ = tokio::time::timeout(DRAIN, pump).await;

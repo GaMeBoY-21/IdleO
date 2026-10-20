@@ -4,6 +4,12 @@
 #
 #   agent/runner/tests/hostile/run.sh            use the running distribution and registry (start them if they aren't)
 #   agent/runner/tests/hostile/run.sh --fresh    remove the distribution first, so it starts cold
+#   agent/runner/tests/hostile/run.sh --host ID  the same 14, through the real path on a linked host: the stack, the agent, the
+#                                                job runner in its Linux distribution (the Windows laptop on laptop day), by
+#                                                booking the development-only hostile-test template as the key's owner
+#                                                (IDLEO_API_KEY, IDLEO_API_URL; ./start.sh --lan --real-runner publishes the
+#                                                template's image) and reading each session back; two it can't prove from there
+#                                                are N/A with the reason. A single FAIL stops the laptop day.
 #
 # It needs Docker, the sealed image (scripts/build-distro.sh) and the internet (HTTPS to a public address is the positive
 # control that makes a "blocked" mean something).
@@ -14,6 +20,11 @@ root="$(pwd)"
 source "$root/scripts/lib/toolchains.sh"
 fresh=false
 [[ "${1:-}" == "--fresh" ]] && fresh=true
+if [[ "${1:-}" == "--host" ]]; then
+  [[ -n "${2:-}" ]] || { echo "hostile: --host needs the host's id" >&2; exit 2; }
+  [[ -x "$root/cli/target/release/idleo" ]] || (cd "$root/cli" && cargo build --release --locked --quiet)
+  exec python3 "$root/agent/runner/tests/hostile/laptop.py" --host "$2" "${@:3}"
+fi
 out="$root/private/logs"
 mkdir -p "$out"
 log="$out/hostile-tests.log"

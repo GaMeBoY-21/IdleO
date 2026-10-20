@@ -105,3 +105,30 @@ development image to that registry and, with `--release`, the CUDA image to GHCR
   borrowed laptop arrives (Phase 0); the numbers in the report are from the Mac's stand-in.
 - Open question: a job that needs more than HTTPS (for instance git over SSH) is refused; wider egress on request, as
   the plan allows, is not built.
+
+## Addendum (2026-10-20): checks before the laptop day
+
+- **The rules are checked by content, not by a comment.** Before every start the runner reads both tables back with `nft -j list
+  table` and compares them with what its own copy of the rules file makes: the file is loaded in a network namespace of its own
+  (`unshare --net`), where it changes nothing, and read back the same way, once per runner process, so the two are in the same form
+  whatever `nft` does to what it's given. nft's version, the kernel's handles and the one set that depends on the network (the
+  gateway and the VM's own addresses, refreshed before every start) are left out; every other set, chain, hook and rule counts, in
+  order. A difference loads the rules again, once (one `nft` transaction, so there is no moment without them), and checks again;
+  only a match starts the job, else `sandbox_not_ready`. A rule changed by hand under the same comment is found: the test is to change
+  one in the development distribution.
+- **More ranges are blocked**: 192.0.0.0/24 (IETF protocol assignments), 198.18.0.0/15 (benchmarking, which some routers, hotspots
+  and VPNs use) and the documentation ranges 192.0.2.0/24, 198.51.100.0/24 and 203.0.113.0/24, in the rules and in what the hostile
+  test and the self-test try.
+- **The hostile tests run through the real path too** (`run.sh --host`): a hidden, development-only template, `hostile-test`, in
+  `templates/development-real.yaml` (not `development.yaml`, whose jobs the development runner only simulates), runs the hostile image
+  with one attack named by a parameter; the driver books it as the host's owner, with the owner's other hosts paused so the scheduler
+  can only choose the chosen one, and reads each session's end and the attack's own verdict line. What that path can't see is N/A
+  with the reason, never PASS: row 11 (two sessions at once, and the other's address inside the VM) and row 12 (the VM's own processes
+  and scratch disks after the session). Rows 4 and 9 say what they could not check from there (the gateway and the VM's own addresses:
+  the self-test's `network_lockdown` probes them; the host's free disk: Windows' disk image grows). The same 14 run on amd64 in a
+  GitHub workflow by hand and weekly (`.github/workflows/hostile.yml`), where the distribution is built for linux/amd64 natively.
+- **A kill for memory is told apart without a fixed wait.** The container's cgroup is gone the instant its process exits (measured:
+  `memory.events` absent at the first look), so its `oom_kill` counter can't be read after the exit as first hoped. containerd's event
+  stream carries both the OOM event and the container's exit event, in order: the runner reads the exit from the same stream, and
+  once it has, every OOM event before it has been read. The counter read every 10 ms while the job runs stays as a second source, and
+  a stream that isn't delivering costs up to 500 ms before the decision is made without it.

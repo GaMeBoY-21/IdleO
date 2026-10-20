@@ -2,14 +2,17 @@
 //! rules and the runner that checks them can never be of different versions.
 //!
 //! `idleo-runner load-rules` loads the file with `@HASH@` replaced by the SHA-256 of its text, and before every
-//! container start the runner reads the loaded tables back and refuses to run a job unless they carry the hash of its own
-//! copy ([`verify`]). Which addresses a job can't reach that depend on the laptop's network, its default gateway and this
+//! container start the runner reads the loaded tables back (`nft -j list table`) and refuses to run a job unless they
+//! hold exactly what its own copy of the file makes ([`verify`], by content: a rule changed by hand under an unchanged
+//! comment is found). It then loads the rules once more and checks again, and only if they still differ does the job not
+//! start. Which addresses a job can't reach that depend on the laptop's network, its default gateway and this
 //! distribution's own addresses, go into a set the runner refreshes before every start ([`extra_blocked_script`]).
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::net::Ipv4Addr;
 
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 /// The rules file's text, with `@HASH@` still in it.
@@ -33,28 +36,79 @@ pub fn rendered() -> String {
     RULES.replace("@HASH@", &hash())
 }
 
-/// Checks the loaded tables against this runner's rules: each must exist and carry this version's hash, and the inet table
-/// must still have the chain that holds the drops.
+/// The tables as this runner's rules make them, in the form [`normalize`] gives: what the loaded ones must equal.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Expected {
+    pub inet: Value,
+    pub nat: Value,
+}
+
+/// A table as `nft -j list table` reports it, made comparable: the metainfo (nft's version) and every `handle` (the
+/// kernel's numbering of what was added when) are left out, and so are the members of the one set that depends on the
+/// laptop's network and is refreshed before every start ([`extra_blocked_script`]). Everything else is kept, in order:
+/// every set and its members, every chain and its type, hook and priority, every rule and what it matches and does.
+///
+/// # Errors
+/// If the text isn't what `nft -j` prints.
+pub fn normalize(listing: &str) -> Result<Value, String> {
+    fn strip(value: &mut Value) {
+        match value {
+            Value::Object(map) => {
+                map.remove("handle");
+                if map.get("name").and_then(Value::as_str) == Some("blocked_extra_v4") && map.contains_key("type") {
+                    map.remove("elem");
+                }
+                map.values_mut().for_each(strip);
+            }
+            Value::Array(items) => items.iter_mut().for_each(strip),
+            _ => {}
+        }
+    }
+    let parsed: Value = serde_json::from_str(listing).map_err(|e| format!("nft's listing isn't JSON: {e}"))?;
+    let mut items =
+        parsed.get("nftables").and_then(Value::as_array).cloned().ok_or("nft's listing has no \"nftables\" list")?;
+    items.retain(|item| item.get("metainfo").is_none());
+    let mut items = Value::Array(items);
+    // A set is `{"set": {..., "name": ..., "elem": [...]}}`: strip looks inside each wrapper.
+    strip(&mut items);
+    Ok(items)
+}
+
+/// How two normalized tables first differ, in a line; `None` when they're the same.
+fn difference(table: &str, expected: &Value, loaded: &Value) -> Option<String> {
+    if expected == loaded {
+        return None;
+    }
+    let (want, have) = (expected.as_array()?, loaded.as_array()?);
+    let shorten = |value: Option<&Value>| {
+        let text = value.map_or_else(|| "nothing".to_owned(), ToString::to_string);
+        if text.len() > 240 { format!("{}…", text.chars().take(240).collect::<String>()) } else { text }
+    };
+    let at = (0..want.len().max(have.len())).find(|&index| want.get(index) != have.get(index)).unwrap_or(0);
+    Some(format!(
+        "the network rules in table {table} differ from this runner's at item {at} of {}: expected {}, found {}",
+        want.len(),
+        shorten(want.get(at)),
+        shorten(have.get(at))
+    ))
+}
+
+/// Checks the loaded tables, by what they contain and not by a comment they carry, against the tables this runner's rules
+/// make: each must exist and be exactly them, apart from the addresses [`normalize`] leaves out.
 ///
 /// # Errors
 /// What's wrong, in a line.
-pub fn verify(inet_listing: &str, nat_listing: &str) -> Result<(), String> {
-    let tag = format!("comment \"idleo-sandbox {}\"", hash());
-    for (name, listing) in [("inet idleo", inet_listing), ("ip idleo_nat", nat_listing)] {
+pub fn verify(expected: &Expected, inet_listing: &str, nat_listing: &str) -> Result<(), String> {
+    for (name, want, listing) in
+        [("inet idleo", &expected.inet, inet_listing), ("ip idleo_nat", &expected.nat, nat_listing)]
+    {
         if listing.trim().is_empty() {
             return Err(format!("the network rules aren't loaded (no table {name})"));
         }
-        if !listing.contains(&tag) {
-            return Err(format!("the network rules in table {name} aren't this runner's version"));
+        let loaded = normalize(listing).map_err(|why| format!("table {name}: {why}"))?;
+        if let Some(why) = difference(name, want, &loaded) {
+            return Err(why);
         }
-    }
-    for needed in ["chain session", "chain forward", "chain input", "set blocked_v4"] {
-        if !inet_listing.contains(needed) {
-            return Err(format!("the network rules are incomplete (no {needed})"));
-        }
-    }
-    if !nat_listing.contains("masquerade") {
-        return Err("the network rules are incomplete (no masquerade)".to_owned());
     }
     Ok(())
 }
@@ -103,17 +157,6 @@ pub fn extra_blocked_script(addresses: &BTreeSet<Ipv4Addr>) -> String {
 mod tests {
     use super::*;
 
-    /// What `nft list table` would print, as far as `verify` reads it.
-    fn loaded(table: &str) -> String {
-        let kept = |line: &&str| {
-            line.contains("comment")
-                || line.trim_start().starts_with("chain ")
-                || line.contains("set blocked_v4")
-                || line.contains("masquerade")
-        };
-        format!("table {table} {{\n{}\n}}", rendered().lines().filter(kept).collect::<Vec<_>>().join("\n"))
-    }
-
     #[test]
     fn the_rules_are_built_in_and_the_hash_names_their_text() {
         assert!(RULES.contains("@HASH@"));
@@ -124,8 +167,19 @@ mod tests {
 
     #[test]
     fn the_rules_block_every_home_network_range_and_allow_only_dns_and_the_web() {
-        for range in ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10", "224.0.0.0/4"]
-        {
+        for range in [
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16",
+            "169.254.0.0/16",
+            "100.64.0.0/10",
+            "224.0.0.0/4",
+            "192.0.0.0/24",
+            "198.18.0.0/15",
+            "192.0.2.0/24",
+            "198.51.100.0/24",
+            "203.0.113.0/24",
+        ] {
             assert!(RULES.contains(range), "{range} must be blocked");
         }
         let session = RULES.split("chain session {").nth(1).unwrap().split("\n    }").next().unwrap();
@@ -150,17 +204,53 @@ mod tests {
         assert!(RULES.contains("oifname \"idl*\" ct state new drop"), "nothing starts a connection to a job");
     }
 
+    /// `nft -j list table inet idleo`, as far as `normalize` reads it: nft's version, the kernel's handles, a set with its
+    /// members and a chain of rules.
+    fn listing(handle: u32, accepted_port: u16, extra: &str, comment: &str) -> String {
+        format!(
+            r#"{{"nftables": [
+              {{"metainfo": {{"version": "1.0.9", "release_name": "Old Doc Yak #3", "json_schema_version": 1}}}},
+              {{"table": {{"family": "inet", "name": "idleo", "handle": {handle}, "comment": "{comment}"}}}},
+              {{"set": {{"family": "inet", "name": "blocked_v4", "table": "idleo", "type": "ipv4_addr", "handle": 1,
+                        "flags": ["interval"], "elem": [{{"prefix": {{"addr": "10.0.0.0", "len": 8}}}}]}}}},
+              {{"set": {{"family": "inet", "name": "blocked_extra_v4", "table": "idleo", "type": "ipv4_addr", "handle": 2,
+                        "flags": ["interval"], "elem": [{extra}]}}}},
+              {{"chain": {{"family": "inet", "table": "idleo", "name": "session", "handle": 3}}}},
+              {{"rule": {{"family": "inet", "table": "idleo", "chain": "session", "handle": {handle},
+                         "expr": [{{"match": {{"op": "==", "left": {{"payload": {{"protocol": "tcp", "field": "dport"}}}},
+                                              "right": {accepted_port}}}}}, {{"accept": null}}]}}}}
+            ]}}"#
+        )
+    }
+
+    fn expected() -> Expected {
+        let table = normalize(&listing(7, 443, "", "c")).unwrap();
+        Expected { inet: table.clone(), nat: table }
+    }
+
     #[test]
-    fn rules_of_this_version_pass_and_anything_else_is_refused() {
-        assert_eq!(verify(&loaded("inet idleo"), &loaded("ip idleo_nat")), Ok(()));
-        assert!(verify("", &loaded("ip idleo_nat")).unwrap_err().contains("aren't loaded"));
-        assert!(verify(&loaded("inet idleo"), "").unwrap_err().contains("aren't loaded"));
-        let older = loaded("inet idleo").replace(&hash(), &"0".repeat(64));
-        assert!(verify(&older, &loaded("ip idleo_nat")).unwrap_err().contains("version"));
-        let gutted = loaded("inet idleo").replace("chain session", "chain other");
-        assert!(verify(&gutted, &loaded("ip idleo_nat")).unwrap_err().contains("incomplete"));
-        let no_nat = loaded("ip idleo_nat").replace("masquerade", "");
-        assert!(verify(&loaded("inet idleo"), &no_nat).unwrap_err().contains("masquerade"));
+    fn a_listing_is_compared_without_nfts_version_the_kernels_handles_or_the_networks_addresses() {
+        let loaded = listing(91, 443, r#"{"prefix": {"addr": "192.168.1.1", "len": 32}}"#, "c");
+        assert_eq!(verify(&expected(), &loaded, &loaded), Ok(()));
+    }
+
+    #[test]
+    fn the_loaded_rules_are_checked_by_what_they_do_and_anything_else_is_refused() {
+        let same = listing(7, 443, "", "c");
+        assert!(verify(&expected(), "", &same).unwrap_err().contains("aren't loaded (no table inet idleo)"));
+        assert!(verify(&expected(), &same, " \n").unwrap_err().contains("(no table ip idleo_nat)"));
+        assert!(verify(&expected(), "not json", &same).unwrap_err().contains("isn't JSON"));
+        // The comment is the same and one rule was changed by hand: 443 became 25.
+        let changed = verify(&expected(), &listing(7, 25, "", "c"), &same).unwrap_err();
+        assert!(changed.contains("table inet idleo differ"), "{changed}");
+        assert!(changed.contains("\"right\":443") && changed.contains("\"right\":25"), "{changed}");
+        // A comment changed, a rule gone, a rule added, a set member gone.
+        assert!(verify(&expected(), &listing(7, 443, "", "other"), &same).is_err());
+        let fewer = same.replace(r#"{"rule""#, r#"{"nothing""#);
+        assert!(verify(&expected(), &fewer, &same).is_err());
+        let blocked_member_gone =
+            same.replace(r#""elem": [{"prefix": {"addr": "10.0.0.0", "len": 8}}]"#, r#""elem": []"#);
+        assert!(verify(&expected(), &blocked_member_gone, &same).is_err());
     }
 
     #[test]

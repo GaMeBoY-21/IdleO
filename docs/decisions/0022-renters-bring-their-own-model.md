@@ -70,3 +70,27 @@ The rest of booking wasn't built for the rule either:
 - Hosts that don't report free disk get no sessions; every supported agent release reports it.
 - `V20` and `V21` drop the columns they copy from in the same migration, which is safe only because no real data exists yet. Once it does, a migration adds first and removes in a later release (CLAUDE.md).
 - Open question: secret tokens for gated Hugging Face models (later, through `Credentials`); until then a link must be public.
+
+## Addendum (2026-10-20): the model is checked when the session is booked
+
+A PDF could be booked as the "model" of a fine-tune: the job failed on the GPU, after the renter had waited and a host was held. The
+catalog now says what an upload must hold, so booking says so first.
+
+- **In the catalog, per input.** A folder input takes `must_contain`: a list of rules, each `any_of` (file names: an exact name such
+  as `config.json`, or `*.suffix`, in any case), an optional `max_depth` (`config.json` at the top or under one folder is 2) and the
+  `message` the renter reads when no file matches. A file input takes `accepts_extensions` (`.jsonl`, `.json`) and `not_accepted`,
+  the words for a file of another kind. Fine-tune's model needs a `config.json` and a `*.safetensors` or `*.bin`; its data a `.jsonl`
+  or `.json`. The control plane refuses to start on a catalog that gets this wrong, as it does the other fields.
+- **One check, `InputContent`, for booking and quoting.** The upload's stored file list is checked in the rules' order; the first
+  that isn't met is `input-not-usable` (422, its own problem type: `input-not-accepted` already means an upload where only a link
+  is taken, with status 400, and a slug's status never changes), naming the input (`inputs.model`) and carrying the rule's words.
+- **A zip** (a folder input given one file ending `.zip`) is checked by the names in its central directory, read from storage by
+  range (the end of the file, where the directory's place is written, then the directory itself, zip64 too), never the whole file.
+  A zip that can't be read, or whose directory is over 8 MiB, is `input-not-usable` with words of its own: "We couldn't read that
+  zip. Check that it opens on your computer, then upload it again."
+- **The booking screen says it before a byte is sent**, not after the upload: the same rules arrive in `GET /v1/templates`
+  (`mustContain` on each input), and `content-rules.ts` applies them to the chosen files (a zip's directory is read in the browser the
+  same way) and shows the catalog's words under the field. The rules and the words are the catalog's alone; the two evaluators
+  (Java, TypeScript) are tested against each other's cases, and a test reads the catalogs to hold the web fixtures to them. From My
+  files there's no file list in the browser, so the server's refusal comes with the quote, before Book.
+- **A link** can't be checked at booking and isn't: the job checks it (`invalid_input`), and the form says so under the field.

@@ -1,0 +1,57 @@
+name: hostile
+
+# The 14 hostile tests (ADR 0035) on the architecture laptops have. On a Mac they only ever run against an arm64 copy of the
+# distribution, because amd64 containers can't run containers under Rosetta; a GitHub runner is amd64, so here the sealed Linux
+# image is built for linux/amd64, natively, run as the stand-in "laptop" (scripts/dev-distro.sh: systemd as PID 1 in a privileged
+# container, our runner, our nftables rules, real containers), and the hostile job is run against it 14 ways. Every attempt
+# must fail. Not on every push: by hand, and weekly. (Written while Actions are off for billing: it hasn't run yet.)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+# A newer run of this workflow on the same ref cancels this one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  hostile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install the pinned toolchain
+        working-directory: agent
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: agent
+      # linux/amd64 here, natively: build-distro.sh --dev builds for the machine it runs on, from the same recipe as the image
+      # the installer ships (agent/distro/Dockerfile), plus the development marker that dev-distro.sh writes.
+      - name: Build the Linux distribution for this machine (amd64)
+        run: scripts/build-distro.sh --dev
+      - name: Say what machine this is
+        run: |
+          echo "architecture: $(uname -m)"
+          docker image inspect --format 'distribution image: {{.Architecture}}' "idleo-distro-dev:$(tr -d '[:space:]' < agent/distro/VERSION)"
+      # Starts the distribution and a local registry, builds and pushes the hostile image, and runs the 14 tests against it,
+      # printing their table. A single FAIL (or fewer than 14 rows) fails the job.
+      - name: The 14 hostile tests
+        run: agent/runner/tests/hostile/run.sh
+      - name: What the runner and the tests logged
+        if: always()
+        run: |
+          mkdir -p logs
+          scripts/dev-distro.sh exec -- journalctl -u idleo-runner --no-pager > logs/runner.log || true
+          cp private/logs/hostile-tests.log logs/ || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: hostile-logs
+          path: logs/

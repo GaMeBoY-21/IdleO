@@ -191,7 +191,7 @@ def raw_net():
 
 def reach_private():
     extra = [t for t in os.environ.get("SESSION_PARAM_TARGETS", "").split(",") if t]
-    hosts = ["10.0.0.1", "10.255.255.254", "172.16.0.1", "172.31.255.254", "192.168.0.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "224.0.0.1", "255.255.255.255"] + extra
+    hosts = ["10.0.0.1", "10.255.255.254", "172.16.0.1", "172.31.255.254", "192.168.0.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "224.0.0.1", "255.255.255.255", "192.0.0.1", "192.0.0.254", "198.18.0.1", "198.19.255.254", "192.0.2.1", "198.51.100.1", "203.0.113.1"] + extra
     gw = gateway()
     if gw:
         hosts.append(gw)
@@ -475,7 +475,8 @@ def run_forever():
 ATTACKS = {f.__name__: f for f in (write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever)}
 
 if __name__ == "__main__":
-    name = sys.argv[1] if len(sys.argv) > 1 else ""
+    # `hostile.py <attack>`, or, as the development-only `hostile-test` template runs it, the Attack parameter.
+    name = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("SESSION_PARAM_ATTACK", "")
     if name not in ATTACKS:
         print(f"unknown attack {name!r}; one of {sorted(ATTACKS)}", file=sys.stderr)
         sys.exit(2)

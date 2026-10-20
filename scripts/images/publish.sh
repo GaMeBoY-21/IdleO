@@ -42,6 +42,17 @@ command -v docker >/dev/null || { echo "publish: Docker isn't installed" >&2; ex
 docker info >/dev/null 2>&1 || { echo "publish: Docker isn't running" >&2; exit 1; }
 here=agent/images/pytorch
 placeholder="sha256:$(printf '0%.0s' $(seq 1 64))"
+hostile_placeholder="sha256:$(printf '1%.0s' $(seq 1 64))"
+
+# The hostile image (agent/runner/tests/hostile/, development only: never published anywhere but the local registry), for the
+# development-only hostile-test template, built for the platform of the job image beside it: $1 is buildx's platform option.
+publish_hostile() {
+  docker buildx build $1 --provenance=false --load -t localhost:5000/idleo/hostile:test agent/runner/tests/hostile >/dev/null
+  local digest
+  digest="$(docker push localhost:5000/idleo/hostile:test 2>&1 | sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' | tail -1)"
+  [[ -n "$digest" ]] || { echo "publish: the hostile image's push gave no digest" >&2; exit 1; }
+  printf '%s' "$digest"
+}
 
 if [[ "$mode" == dev && "$cuda" == true ]]; then
   [[ -n "$(docker ps -q --filter publish=5000)" ]] || { echo "publish: no registry is running on port 5000 (./start.sh, or compose's registry)" >&2; exit 1; }
@@ -49,16 +60,18 @@ if [[ "$mode" == dev && "$cuda" == true ]]; then
   docker buildx build --platform linux/amd64 --provenance=false --load -t localhost:5000/idleo/pytorch:dev-cuda "$here" >/dev/null
   digest="$(docker push localhost:5000/idleo/pytorch:dev-cuda 2>&1 | sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' | tail -1)"
   [[ -n "$digest" ]] || { echo "publish: the push gave no digest" >&2; exit 1; }
+  hostile="$(publish_hostile "--platform linux/amd64")"
   mkdir -p private/local
   # The development catalog with this image, and the arguments the image ships with: `args: [...] # dev: [...] in production`.
-  python3 - "$digest" "$placeholder" <<'PY'
+  python3 - "$digest" "$placeholder" "$hostile" "$hostile_placeholder" <<'PY'
 import re, sys
-digest, placeholder = sys.argv[1:]
-text = open("templates/development-real.yaml").read().replace(placeholder, digest)
+digest, placeholder, hostile, hostile_placeholder = sys.argv[1:]
+text = open("templates/development-real.yaml").read().replace(placeholder, digest).replace(hostile_placeholder, hostile)
 text = re.sub(r"^(\s*args:) .* # dev: (.*) in production$", lambda m: f"{m.group(1)} {m.group(2)}", text, flags=re.M)
 open("private/local/development-real.yaml", "w").write(text)
 PY
   echo "publish: registry.idleo.test:5000/idleo/pytorch@$digest"
+  echo "publish: registry.idleo.test:5000/idleo/hostile@$hostile"
   echo "publish: private/local/development-real.yaml written, with the production arguments"
   exit 0
 fi
@@ -77,10 +90,13 @@ if [[ "$mode" == dev ]]; then
     -t localhost:5000/idleo/pytorch:dev "$here" >/dev/null
   digest="$(docker push localhost:5000/idleo/pytorch:dev 2>&1 | sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' | tail -1)"
   [[ -n "$digest" ]] || { echo "publish: the push gave no digest" >&2; exit 1; }
+  hostile="$(publish_hostile "")"
   mkdir -p private/local
-  sed "s/registry.idleo.test:5000\/idleo\/pytorch@$placeholder/registry.idleo.test:5000\/idleo\/pytorch@$digest/" \
+  sed -e "s/registry.idleo.test:5000\/idleo\/pytorch@$placeholder/registry.idleo.test:5000\/idleo\/pytorch@$digest/" \
+    -e "s/registry.idleo.test:5000\/idleo\/hostile@$hostile_placeholder/registry.idleo.test:5000\/idleo\/hostile@$hostile/" \
     templates/development-real.yaml >private/local/development-real.yaml
   echo "publish: registry.idleo.test:5000/idleo/pytorch@$digest"
+  echo "publish: registry.idleo.test:5000/idleo/hostile@$hostile"
   echo "publish: private/local/development-real.yaml written (SESSIONS_TEMPLATES_CATALOG=file:private/local/development-real.yaml)"
   exit 0
 fi

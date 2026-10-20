@@ -1110,13 +1110,39 @@ if $web_only; then
   else
     summary+=("visual comparison: off (VISUAL_COMPARE=1 turns it on); axe, layout shift and the overflow check run")
   fi
-  E2E_WEB_USER="$web_user" VISUAL_BASELINE_DIR="$baseline" web_test --project='screens-*' --project=journey \
-    --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 ||
-    fail "the web app's browser tests failed; see private/e2e/web-playwright.log and web/playwright-report"
-  summary+=("web: $(grep -Eo '[0-9]+ passed' "$out/web-playwright.log" | tail -1) (every screen and state, light and dark, 390 and 1280 px; axe; layout shift; Firebase screens; journey) in $(seconds_since "$checks_started") s: PASS")
-  (cd web && rm -rf .lighthouseci .lighthouseci-desktop && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" \
-    API_URL="$api" SIGN_IN_URL="$sign_in" pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || fail "a Lighthouse budget failed; see private/e2e/web-lighthouse.log"
-  while IFS= read -r line; do summary+=("lighthouse $line"); done < <(python3 - <<'PY'
+  # E2E_LIGHTHOUSE_MEASURE=simulate|devtools measures instead of checking (web/README.md "Measuring Lighthouse"): only
+  # Lighthouse runs, on the screens in E2E_LIGHTHOUSE_PAGES (default: Home, Hosting, Add a machine, Link, Book and the live
+  # session), E2E_LIGHTHOUSE_RUNS times each (default 5), throttled that way; nothing is asserted, and the numbers are in
+  # private/logs/lighthouse-<date-time>/measure-<method>.json.
+  measuring="${E2E_LIGHTHOUSE_MEASURE:-}"
+  if [[ -z "$measuring" ]]; then
+    E2E_WEB_USER="$web_user" VISUAL_BASELINE_DIR="$baseline" web_test --project='screens-*' --project=journey \
+      --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 ||
+      fail "the web app's browser tests failed; see private/e2e/web-playwright.log and web/playwright-report"
+    summary+=("web: $(grep -Eo '[0-9]+ passed' "$out/web-playwright.log" | tail -1) (every screen and state, light and dark, 390 and 1280 px; axe; layout shift; Firebase screens; journey) in $(seconds_since "$checks_started") s: PASS")
+  fi
+  # Every Lighthouse run's log and reports are kept, whether the budgets held or not: private/e2e/ is wiped by the next run.
+  lighthouse_kept="$root/private/logs/lighthouse-$(date '+%Y%m%d-%H%M%S')"
+  lighthouse_failed=false
+  if [[ -n "$measuring" ]]; then
+    (cd web && rm -rf .lighthouseci .lighthouseci-desktop && LIGHTHOUSE_THROTTLING="$measuring" \
+      LIGHTHOUSE_PAGES="${E2E_LIGHTHOUSE_PAGES:-home,hosting,add,link,book,session}" LIGHTHOUSE_RUNS="${E2E_LIGHTHOUSE_RUNS:-5}" \
+      E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" \
+      pnpm exec playwright test --project=lighthouse --grep "the budgets hold on sign-in") >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
+  else
+    (cd web && rm -rf .lighthouseci .lighthouseci-desktop && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" \
+      API_URL="$api" SIGN_IN_URL="$sign_in" pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
+  fi
+  mkdir -p "$lighthouse_kept"
+  cp "$out/web-lighthouse.log" "$lighthouse_kept/" 2>/dev/null || true
+  cp -R web/.lighthouseci "$lighthouse_kept/mobile" 2>/dev/null || true
+  cp -R web/.lighthouseci-desktop "$lighthouse_kept/desktop" 2>/dev/null || true
+  summary+=("lighthouse logs and reports kept in private/logs/${lighthouse_kept##*/}/")
+  $lighthouse_failed && fail "a Lighthouse budget failed; see private/logs/${lighthouse_kept##*/}/web-lighthouse.log"
+  if [[ -n "$measuring" ]]; then
+    summary+=("lighthouse measured, $measuring throttling: private/logs/${lighthouse_kept##*/}/mobile/measure-$measuring.json")
+  else
+    while IFS= read -r line; do summary+=("lighthouse $line"); done < <(python3 - <<'PY'
 import json
 for page, m in json.load(open("web/.lighthouseci/summary.json")).items():
     inp = ", INP %d ms" % m["inpMs"] if "inpMs" in m else ""
@@ -1125,19 +1151,22 @@ for page, m in json.load(open("web/.lighthouseci/summary.json")).items():
     print("%s: %s, TBT %d ms, CLS %s, accessibility %d%s" % (page, lcp, m["tbtMs"], m["cls"], m["accessibility"], inp))
 PY
 )
-  summary+=("lighthouse budgets (mobile, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS")
-  # The public pages (ADR 0029), signed out, on their own stricter budgets.
-  while IFS= read -r line; do summary+=("lighthouse public $line"); done < <(python3 - <<'PY'
+    summary+=("lighthouse budgets (mobile, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS")
+    # The public pages (ADR 0029), signed out, on their own stricter budgets.
+    while IFS= read -r line; do summary+=("lighthouse public $line"); done < <(python3 - <<'PY'
 import json
 for page, m in json.load(open("web/.lighthouseci/public-summary.json")).items():
     print("%s: LCP %d ms (median of %s), TBT %d ms, CLS %s, accessibility %d" % (page, m["lcpMs"], ", ".join(map(str, m["lcpRunsMs"])), m["tbtMs"], m["cls"], m["accessibility"]))
 PY
 )
-  summary+=("lighthouse public pages (mobile, the median of 3 runs: LCP <= 1500 ms, TBT <= 100 ms, CLS 0, accessibility 100, SEO 100): PASS")
-  first_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/first-load.ts | tail -1)" || fail "the first-load JavaScript budget failed"
-  summary+=("${first_load# }: PASS")
-  site_load="$(cd web && node scripts/site-size.ts | tail -1)" || fail "the public pages' first-load budget failed"
-  summary+=("${site_load# }: PASS")
+    summary+=("lighthouse public pages (mobile, the median of 3 runs: LCP <= 1500 ms, TBT <= 100 ms, CLS 0, accessibility 100, SEO 100): PASS")
+  fi
+  if [[ -z "$measuring" ]]; then
+    first_load="$(cd web && IDLEO_DIST=dist-firebase node scripts/first-load.ts | tail -1)" || fail "the first-load JavaScript budget failed"
+    summary+=("${first_load# }: PASS")
+    site_load="$(cd web && node scripts/site-size.ts | tail -1)" || fail "the public pages' first-load budget failed"
+    summary+=("${site_load# }: PASS")
+  fi
 fi
 
 if ! $web_only; then

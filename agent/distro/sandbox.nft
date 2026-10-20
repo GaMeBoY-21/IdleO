@@ -1,13 +1,15 @@
 # What a job's container may reach (ADR 0035; docs/plan/technical-design.md "Sandbox configuration"): the one rules file.
 #
 # `idleo-runner load-rules` (run by idleo-sandbox.service before idleo-runner starts) loads it, with @HASH@ replaced by the
-# SHA-256 of this text, and the runner re-checks the table's comment against its own copy of the text before every
-# container start: it never runs a job without these rules.
+# SHA-256 of this text, and the runner reads the loaded tables back before every container start and compares what they
+# hold, rule by rule, with what its own copy of this text makes (a rule changed by hand is found); if they differ it loads
+# them again once, and checks again: it never runs a job without exactly these rules.
 #
 # Each session has its own bridge, named idl<N> and numbered from 172.30.<N>.0/24. The rules work by destination, so they
 # hold whatever WSL's networking mode is.
 #
-#  - Nothing a job starts may reach a private, link-local, carrier-grade NAT, loopback, multicast or reserved address,
+#  - Nothing a job starts may reach a private, link-local, carrier-grade NAT, loopback, multicast, reserved, benchmarking
+#    (198.18.0.0/15: some routers, hotspots and VPNs use it), IETF-protocol or documentation address,
 #    the default gateway (in WSL's NAT mode that is Windows itself) or one of this distribution's own addresses, and
 #    nothing reaches this machine at all, its own bridge's address included.
 #  - The only way out is DNS to the public resolvers named below, and TCP 80 and 443 to public addresses. Replies to
@@ -31,7 +33,12 @@ table inet idleo {
             127.0.0.0/8,
             169.254.0.0/16,
             172.16.0.0/12,
+            192.0.0.0/24,
+            192.0.2.0/24,
             192.168.0.0/16,
+            198.18.0.0/15,
+            198.51.100.0/24,
+            203.0.113.0/24,
             224.0.0.0/4,
             240.0.0.0/4
         }

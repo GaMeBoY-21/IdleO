@@ -530,11 +530,16 @@ class TemplateCatalogTests {
         try (var in = Files.newInputStream(Path.of("../templates/development.yaml"))) {
             simulated = TemplateCatalog.read(in);
         }
-        assertThat(real.services().values())
+        // The production services, and the hidden one the hostile test runs under (development only, never in
+        // catalog.yaml).
+        assertThat(real.services().values().stream()
+                        .filter(service -> !service.hidden())
+                        .toList())
                 .containsExactlyInAnyOrderElementsOf(production.services().values().stream()
                         .filter(service -> !service.hidden())
                         .toList());
-        assertThat(real.templates()).containsOnlyKeys("fine-tune-qlora", "run-your-code");
+        assertThat(real.services().get("developer-tests").hidden()).isTrue();
+        assertThat(real.templates()).containsOnlyKeys("fine-tune-qlora", "run-your-code", "hostile-test");
         var pairs = java.util.Map.of("fine-tune-qlora", "fine-tune-simulated", "run-your-code", "run-code-simulated");
         pairs.forEach((realId, simulatedId) -> {
             var a = real.templates().get(realId);
@@ -551,6 +556,28 @@ class TemplateCatalogTests {
             assertThat(a.memoryMb()).isEqualTo(12288);
             assertThat(a.pidsLimit()).isEqualTo(512);
         });
+    }
+
+    /** The hostile test's Attack parameter offers exactly the attacks hostile.py has: the 14 of ADR 0035, in its order. */
+    @Test
+    void theHostileTestTemplateOffersExactlyTheAttacksTheHostileJobHas() throws Exception {
+        TemplateCatalog.Parsed real;
+        try (var in = Files.newInputStream(Path.of("../templates/development-real.yaml"))) {
+            real = TemplateCatalog.read(in);
+        }
+        var hostile = real.templates().get("hostile-test");
+        assertThat(hostile.service()).isEqualTo("developer-tests");
+        assertThat(hostile.image()).startsWith("registry.idleo.test:5000/idleo/hostile@sha256:");
+        var script = Files.readString(Path.of("../agent/runner/tests/hostile/hostile.py"));
+        var attacks = java.util.regex.Pattern.compile("ATTACKS = \\{f\\.__name__: f for f in \\(([^)]*)\\)\\}")
+                .matcher(script);
+        assertThat(attacks.find()).isTrue();
+        assertThat(hostile.params().get(0).choices())
+                .containsExactlyElementsOf(
+                        java.util.Arrays.stream(attacks.group(1).split(","))
+                                .map(String::trim)
+                                .toList());
+        assertThat(hostile.params().get(0).choices()).hasSize(14);
     }
 
     @Test

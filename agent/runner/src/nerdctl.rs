@@ -73,6 +73,9 @@ pub struct Nerdctl {
     /// The containers containerd has said the kernel killed for memory (its `/tasks/oom` events), by id: see
     /// [`Nerdctl::watch_oom_events`].
     ooms: Arc<Mutex<std::collections::HashSet<String>>>,
+    /// The containers whose exit containerd has reported, read from the same stream, in order, as the OOM events: once a
+    /// container is in here, every OOM event about it has been read already.
+    exits: Arc<Mutex<std::collections::HashSet<String>>>,
 }
 
 struct Finished {
@@ -140,7 +143,7 @@ impl Nerdctl {
     /// A runner's machine over `paths`.
     #[must_use]
     pub fn new(paths: Paths) -> Self {
-        Self { paths, slots: Arc::default(), ooms: Arc::default() }
+        Self { paths, slots: Arc::default(), ooms: Arc::default(), exits: Arc::default() }
     }
 
     /// Whether this is a development distribution.
@@ -184,6 +187,7 @@ impl Nerdctl {
     /// counters) are gone, which is why the runner can say `out_of_memory` rather than a bare exit code 137.
     pub fn watch_oom_events(&self) {
         let ooms = Arc::clone(&self.ooms);
+        let exits = Arc::clone(&self.exits);
         tokio::spawn(async move {
             loop {
                 let spawned = Command::new("ctr")
@@ -199,6 +203,8 @@ impl Nerdctl {
                         while let Ok(Some(line)) = lines.next_line().await {
                             if let Some(id) = oom_event_container(&line) {
                                 ooms.lock().unwrap_or_else(PoisonError::into_inner).insert(id);
+                            } else if let Some(id) = exit_event_container(&line) {
+                                exits.lock().unwrap_or_else(PoisonError::into_inner).insert(id);
                             }
                         }
                     }
@@ -361,11 +367,48 @@ impl Nerdctl {
         if out.ok { Ok(()) } else { Err(out.why("loading the network rules")) }
     }
 
-    /// The rules as loaded, checked against this runner's, with the addresses that depend on the network refreshed.
+    /// The tables this runner's rules make, worked out once: the rules file is loaded in a network namespace of its own,
+    /// where it changes nothing, and read back the way the loaded ones are, so the two are in the same form whatever
+    /// `nft` does to what it's given.
+    async fn expected_rules() -> Result<&'static sandbox::Expected, String> {
+        static EXPECTED: tokio::sync::OnceCell<Result<sandbox::Expected, String>> = tokio::sync::OnceCell::const_new();
+        EXPECTED
+            .get_or_init(|| async {
+                let listing = |family: &'static str, table: &'static str| async move {
+                    let script = format!("nft -f - && nft -j list table {family} {table}");
+                    let out =
+                        run("unshare", &["--net", "sh", "-c", &script], Some(&sandbox::rendered()), COMMAND_TIMEOUT)
+                            .await?;
+                    if out.ok {
+                        sandbox::normalize(&out.stdout)
+                    } else {
+                        Err(out.why("working out what the network rules should be"))
+                    }
+                };
+                Ok(sandbox::Expected { inet: listing("inet", "idleo").await?, nat: listing("ip", "idleo_nat").await? })
+            })
+            .await
+            .as_ref()
+            .map_err(Clone::clone)
+    }
+
+    /// The loaded rules, by what they contain, against this runner's.
+    async fn rules_match() -> Result<(), String> {
+        let expected = Self::expected_rules().await?;
+        let inet = run("nft", &["-j", "list", "table", "inet", "idleo"], None, COMMAND_TIMEOUT).await?;
+        let nat = run("nft", &["-j", "list", "table", "ip", "idleo_nat"], None, COMMAND_TIMEOUT).await?;
+        sandbox::verify(expected, if inet.ok { &inet.stdout } else { "" }, if nat.ok { &nat.stdout } else { "" })
+    }
+
+    /// The rules as loaded, checked against this runner's, with the addresses that depend on the network refreshed. Rules that
+    /// aren't exactly this runner's (changed by hand, half loaded, an older version) are loaded again once, which is one
+    /// `nft` transaction with no moment between them, and checked again; a job starts only if they match then.
     async fn sandbox_ready(&self) -> Result<(), String> {
-        let inet = run("nft", &["list", "table", "inet", "idleo"], None, COMMAND_TIMEOUT).await?;
-        let nat = run("nft", &["list", "table", "ip", "idleo_nat"], None, COMMAND_TIMEOUT).await?;
-        sandbox::verify(if inet.ok { &inet.stdout } else { "" }, if nat.ok { &nat.stdout } else { "" })?;
+        if let Err(first) = Self::rules_match().await {
+            tracing::warn!(%first, "the network rules aren't this runner's; loading them again");
+            Self::load_rules().await?;
+            Self::rules_match().await.map_err(|second| format!("{first}; after loading them again: {second}"))?;
+        }
         let mut blocked = sandbox::own_addresses(&std::fs::read_to_string("/proc/net/fib_trie").unwrap_or_default());
         blocked.extend(sandbox::default_gateway(&std::fs::read_to_string("/proc/net/route").unwrap_or_default()));
         let update = run("nft", &["-f", "-"], Some(&sandbox::extra_blocked_script(&blocked)), COMMAND_TIMEOUT).await?;
@@ -587,6 +630,7 @@ impl Machine for Nerdctl {
                     slot,
                     slots: Arc::clone(&self.slots),
                     ooms: Arc::clone(&self.ooms),
+                    exits: Arc::clone(&self.exits),
                 }) as Arc<dyn Container>),
                 Err(why) => {
                     self.release_slot(slot);
@@ -656,7 +700,16 @@ struct NerdctlContainer {
     slot: u8,
     slots: Arc<Mutex<BTreeSet<u8>>>,
     ooms: Arc<Mutex<std::collections::HashSet<String>>>,
+    exits: Arc<Mutex<std::collections::HashSet<String>>>,
 }
+
+/// How long to wait for containerd's own report of an exit before deciding without it: it comes within milliseconds when
+/// its event stream is up, and only a stream that isn't up makes this wait.
+const EXIT_EVENT_LIMIT: Duration = Duration::from_millis(500);
+
+/// How long a job that was killed (exit code 137) waits for containerd's OOM event, which the kernel's count has already made
+/// certain: milliseconds when it comes, and only a kill that wasn't for memory ever waits all of it.
+const OOM_EVENT_LIMIT: Duration = Duration::from_millis(250);
 
 impl Container for NerdctlContainer {
     fn take_output(&self) -> Option<Output> {
@@ -685,16 +738,40 @@ impl Container for NerdctlContainer {
         })
     }
 
+    /// Whether the kernel killed the container for memory. The cgroup's own `memory.events` is gone the instant the container
+    /// exits (measured: absent at the first look after the process ends), so it can't be read after the exit. The verdict is
+    /// kept three ways: the counter read every 10 ms while the job runs, containerd's `/tasks/oom` event, and, to settle the race
+    /// between the exit and the event, containerd's own `/tasks/exit` event for the container, read from the same stream: the
+    /// kernel counts the kill before it makes it, so the OOM event comes first, a millisecond or so ahead of the exit, though
+    /// not always in the order the stream delivers them (measured: one run in ten). Once the exit event has been read, a job that
+    /// didn't die of SIGKILL (exit code 137) is known not to have been killed for memory; one that did waits up to
+    /// [`OOM_EVENT_LIMIT`] for the OOM event, which is what an ordinary kill of a container (not ours: those are known) hardly ever
+    /// costs. A stream that isn't delivering costs up to [`EXIT_EVENT_LIMIT`], and then the counter and what's been seen decide.
     fn oom_killed(&self) -> Fut<'_, bool> {
         Box::pin(async move {
-            let now = self
-                .running
-                .cgroup_events
-                .as_ref()
-                .and_then(|path| std::fs::read_to_string(path).ok())
-                .is_some_and(|text| oom_kills(&text) > 0);
-            now || self.running.oom.load(Ordering::SeqCst)
-                || self.ooms.lock().unwrap_or_else(PoisonError::into_inner).contains(&self.running.id)
+            let id = &self.running.id;
+            let seen_exit = || self.exits.lock().unwrap_or_else(PoisonError::into_inner).contains(id);
+            let known = || {
+                self.running.oom.load(Ordering::SeqCst)
+                    || self.ooms.lock().unwrap_or_else(PoisonError::into_inner).contains(id)
+                    || self
+                        .running
+                        .cgroup_events
+                        .as_ref()
+                        .and_then(|path| std::fs::read_to_string(path).ok())
+                        .is_some_and(|text| oom_kills(&text) > 0)
+            };
+            let deadline = tokio::time::Instant::now() + EXIT_EVENT_LIMIT;
+            while !seen_exit() && tokio::time::Instant::now() < deadline {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            // SIGKILL is what the kernel's OOM killer sends, and the only exit that can have been one.
+            let killed = self.running.exit.borrow().as_ref().is_some_and(|exit| exit.code == 137);
+            let deadline = tokio::time::Instant::now() + OOM_EVENT_LIMIT;
+            while killed && !known() && tokio::time::Instant::now() < deadline {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            known()
         })
     }
 
@@ -704,6 +781,9 @@ impl Container for NerdctlContainer {
                 return;
             }
             let _ = nerdctl(&["rm", "--force", &self.running.id]).await;
+            // The verdict was read before this; what was kept for it isn't needed any more.
+            self.exits.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
+            self.ooms.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.slots.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.slot);
         })
     }
@@ -717,6 +797,13 @@ fn oom_event_container(line: &str) -> Option<String> {
     Some(id.to_owned())
 }
 
+/// The container id in a `ctr events` line about a task's exit: `… /tasks/exit {"container_id":"…","id":"…","pid":…}`.
+fn exit_event_container(line: &str) -> Option<String> {
+    let (_, rest) = line.split_once(" /tasks/exit ")?;
+    let id = rest.split_once("\"container_id\":\"")?.1.split('"').next()?;
+    (!id.is_empty()).then(|| id.to_owned())
+}
+
 /// The `oom_kill` counter of a cgroup's `memory.events`: how many times the kernel killed something in it for memory.
 fn oom_kills(events: &str) -> u64 {
     events.lines().find_map(|line| line.strip_prefix("oom_kill ")?.trim().parse().ok()).unwrap_or(0)
@@ -725,6 +812,14 @@ fn oom_kills(events: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_exit_event_names_its_container() {
+        let line = r#"2026-10-19 19:22:12.481491666 +0000 UTC idleo /tasks/exit {"container_id":"4f3dbfc6","id":"4f3dbfc6","pid":812,"exit_status":137}"#;
+        assert_eq!(exit_event_container(line).as_deref(), Some("4f3dbfc6"));
+        assert_eq!(exit_event_container(r#"2026-10-19 idleo /tasks/oom {"container_id":"4f3dbfc6"}"#), None);
+        assert_eq!(exit_event_container(r#"2026-10-19 idleo /tasks/exit {"container_id":""}"#), None);
+    }
 
     #[test]
     fn an_oom_event_names_its_container() {

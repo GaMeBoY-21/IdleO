@@ -20,6 +20,12 @@ services:
     tagline: your folder, our GPU
     running_label: Running your code
     icon: code
+  - id: developer-tests
+    name: Test jobs
+    tagline: jobs for trying the platform
+    running_label: Running a test job
+    icon: flask
+    hidden: true
 
 templates:
   # BEGIN real-templates
@@ -145,3 +151,41 @@ templates:
     default_budget: 10000
     you_get: whatever your code writes to outputs/
   # END real-templates
+
+  # The hostile tests through the real path (ADR 0035, agent/runner/tests/hostile/run.sh --host): a job that tries to break out of
+  # its sandbox, one attack at a time, named by the Attack parameter. Hidden, development only, never in catalog.yaml. Its image's
+  # digest is a placeholder that scripts/images/publish.sh replaces in the stack's copy of this file.
+  - id: hostile-test
+    service: developer-tests
+    name: Hostile test (development only)
+    description: A job that attacks its own sandbox. Every attack must fail.
+    image: registry.idleo.test:5000/idleo/hostile@sha256:1111111111111111111111111111111111111111111111111111111111111111
+    args: []
+    min_vram_mb: 1024
+    default_max_runtime: 5m
+    max_runtime_cap: 10m
+    memory_mb: 512
+    cpu_millicores: 1000
+    pids_limit: 64
+    scratch_mb: 64
+    checkpoint_interval: 1h
+    inputs:
+      - name: data
+        label: A file to read
+        help: Attack 13 tries to write into this read-only input.
+        kind: file
+        accepts: [upload]
+        max_size_gb: 1
+    params:
+      - name: attack
+        label: Attack
+        help: Which attack to try.
+        type: choice
+        group: basic
+        default: write_root
+        choices: [write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever]
+    questions:
+      - param: attack
+    budget_chips: [100]
+    default_budget: 100
+    you_get: the attack's own verdict, in its log

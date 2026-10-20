@@ -21,8 +21,20 @@ const PORT = 9333;
 const WEB = process.env.WEB_URL ?? "http://localhost:3000";
 const user = process.env.E2E_LIGHTHOUSE_USER ?? `lighthouse-${Date.now()}`;
 const signInServer = process.env.SIGN_IN_URL ?? "http://localhost:8099/idleo-local";
+/**
+ * How the page load is throttled. `simulate` is Lighthouse's default: it loads the page unthrottled and works out what a
+ * slow phone would have seen. `devtools` loads it through Chrome's own network and CPU throttling, so the numbers follow
+ * what the browser really painted. LIGHTHOUSE_THROTTLING picks one; see "Lighthouse measures what users see" in web/README.md.
+ */
+const THROTTLING = process.env.LIGHTHOUSE_THROTTLING === "devtools" ? "devtools" : "simulate";
+/**
+ * Measuring, not asserting: LIGHTHOUSE_PAGES names the screens (home,hosting,add,link,book,session) and LIGHTHOUSE_RUNS how
+ * many runs each gets. Only the mobile profile runs, and the interaction checks are left out; every run's numbers go to
+ * .lighthouseci/measure-<throttling>.json.
+ */
+const ONLY = process.env.LIGHTHOUSE_PAGES?.split(",").filter(Boolean) ?? null;
 /** Runs per screen on the mobile profile; the median is asserted. */
-const RUNS = 3;
+const RUNS = Number(process.env.LIGHTHOUSE_RUNS ?? 3);
 
 type Measured = { lcpMs: number; tbtMs: number; cls: number; accessibility: number; performance: number };
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) / 2)]!;
@@ -114,7 +126,10 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         add: "/hosting/add/",
         link: `/link/${linkId}/`,
       }[name];
-      for (const formFactor of ["mobile", "desktop"] as const) {
+      if (ONLY && !ONLY.includes(name)) {
+        continue;
+      }
+      for (const formFactor of ONLY ? (["mobile"] as const) : (["mobile", "desktop"] as const)) {
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.
         const asserted = formFactor === "mobile" && name !== "session-link";
         const runs: Measured[] = [];
@@ -137,6 +152,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
               logLevel: "error",
               onlyCategories: ["performance", "accessibility", "best-practices"],
               disableStorageReset: signedIn,
+              throttlingMethod: THROTTLING,
             },
             formFactor === "desktop" ? desktopConfig : undefined,
           );
@@ -171,11 +187,16 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         };
       }
     }
+    mkdirSync(".lighthouseci", { recursive: true });
+    if (ONLY) {
+      writeFileSync(`.lighthouseci/measure-${THROTTLING}.json`, `${JSON.stringify(summary, null, 2)}\n`);
+      console.table(summary);
+      return;
+    }
     summary["home (mobile)"]!.inpMs = await interactionToNextPaint(page);
     summary["book (mobile)"]!.inpMs = await typingInp(page);
     summary["session (mobile)"]!.inpMs = logsInpMs;
     summary["machine (mobile)"]!.inpMs = await hostingInp(page);
-    mkdirSync(".lighthouseci", { recursive: true });
     writeFileSync(".lighthouseci/summary.json", `${JSON.stringify(summary, null, 2)}\n`);
     console.table(summary);
     for (const name of ["home", "book", "session", "machine"]) {

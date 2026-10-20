@@ -107,7 +107,23 @@ The 10 MiB log test held its interactions to 100 ms until Oct 9, stricter than t
 
 Lighthouse measures sign-in, Home, Book (at the fine-tune's screen, where the questions are) and the session screen (a long run, live) three times each on the mobile profile, each from a cold cache, and `lhci` asserts the median of the three: one run alone carries the machine's noise. The desktop profile runs once per screen, for the record. It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020). Every run's report, JSON and HTML, is in `.lighthouseci/` (`reports/` for the HTML) and `.lighthouseci-desktop/`, and CI keeps them as the `lighthouse` artifact of every run, passed or failed.
 
-What keeps them, learnt by measuring (ADR 0018):
+### Measuring Lighthouse
+
+Lighthouse's default, `throttlingMethod: "simulate"`, loads the page unthrottled and works out what a slow phone would have seen. `devtools` loads it through Chrome's own throttling (a 150 ms round trip, 1.6 Mbit/s, the CPU slowed 4×), so the numbers are what the browser really painted. `E2E_LIGHTHOUSE_MEASURE=simulate|devtools scripts/e2e/agent-online.sh --web` measures instead of asserting: only Lighthouse runs, five times on each of Home, Hosting, Add a machine, Link, Book and the live session (`E2E_LIGHTHOUSE_PAGES`, `E2E_LIGHTHOUSE_RUNS` change that), and every run's LCP is in `measure-<method>.json`. Whatever Lighthouse ran, its log and every report are kept in `private/logs/lighthouse-<date-time>/` (`mobile/`, `desktop/`, `web-lighthouse.log`), whether the budgets held or not.
+
+What the two say, on the same build and stack (Oct 20, five runs each, mobile, LCP in ms):
+
+| Screen | simulate: runs | median | devtools: runs | median |
+| --- | --- | --- | --- | --- |
+| Home | 2258 1956 1951 1805 1951 | 1951 | 2834 2147 2128 2128 2125 | 2128 |
+| Book | 1951 1954 1952 1953 1953 | 1953 | 2161 2147 2154 2144 2239 | 2154 |
+| Hosting | 2261 1955 1955 1955 1955 | 1955 | 2792 2150 2154 2143 2149 | 2150 |
+| Add a machine | 1952 1802 1954 1955 1952 | 1952 | 2140 2150 2143 2172 2141 | 2143 |
+| Link | 1955 1951 1957 1952 1951 | 1952 | 2283 2166 2147 2168 2154 | 2166 |
+| Session | 2406 2101 2101 2101 2101 | 2101 (a file too many, see below) | 2798 2187 2183 2173 2180 | 2183 |
+
+Both are steady apart from a first, slower run on a page (a cold browser); the median of three, as `lhci` asserts, hides it. Real throttling puts every screen at about 2.15 s, 150 to 200 ms above what the simulation says and above the 2.0 s budget. Which of the two is the real phone isn't settled by this table: the budget was set, and the screens tuned, against the simulation (a 1.95 s plateau), so `simulate` stays the method the budget is held to, and the devtools numbers are the open question in the report.
+
 - each page's first frame is pre-rendered and adopted, not redrawn;
 - each page preloads only its own screen's code, and the frame's shared modules come in one file (`vite.config.ts`), since every extra file is another request the first screen waits on;
 - the screen a page opens on is loaded before the first render, so React's Suspense never holds its paint back;

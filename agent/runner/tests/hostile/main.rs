@@ -507,3 +507,49 @@ async fn timing_start_to_first_log_line() {
         );
     }
 }
+
+async fn rules_loaded(h: &Harness) -> bool {
+    matches!(h.link.request(Request::Hello).await, Ok(Answer::Hello(hello)) if hello.rules_loaded)
+}
+
+/// Not an attack: someone with a shell in the distribution changes the sandbox's rules by hand, leaving the comment that names
+/// their version as it was. The runner reads the loaded tables back and compares them with what its own rules make, so each of
+/// these is found, the rules are loaded again once, and the runner answers that they're loaded; and the rules are what the file
+/// says again, not what was left.
+#[tokio::test]
+#[ignore = "needs the development distribution: agent/runner/tests/hostile/run.sh"]
+async fn rules_changed_by_hand_are_found_and_loaded_again() {
+    let h = Harness::new().await;
+    // The rules that matter, as they're loaded: the session chain and the set of blocked ranges.
+    let chain = || {
+        format!(
+            "{}{}",
+            h.inside(&["nft", "list", "chain", "inet", "idleo", "session"]),
+            h.inside(&["nft", "list", "set", "inet", "idleo", "blocked_v4"])
+        )
+    };
+    let original = chain();
+    assert!(original.contains("tcp dport { 80, 443 } accept"), "the rules aren't the ones this test knows: {original}");
+    // Each change is made, the runner is asked, and the rules must be the file's again.
+    let tamperings: [(&str, Vec<String>); 4] = [
+        (
+            "a rule's port added",
+            vec!["sh".into(), "-c".into(), "h=$(nft -a list chain inet idleo session | sed -n 's/.*tcp dport { 80, 443 } accept # handle //p'); nft replace rule inet idleo session handle $h tcp dport { 80, 443, 25 } accept".into()],
+        ),
+        (
+            "the final drop deleted",
+            vec!["sh".into(), "-c".into(), "h=$(nft -a list chain inet idleo session | awk '/^\\t\\tdrop # handle/ {print $NF}' | tail -1); nft delete rule inet idleo session handle $h".into()],
+        ),
+        ("a blocked range removed", vec!["nft".into(), "delete".into(), "element".into(), "inet".into(), "idleo".into(), "blocked_v4".into(), "{ 192.168.0.0/16 }".into()]),
+        ("the whole table deleted", vec!["nft".into(), "delete".into(), "table".into(), "inet".into(), "idleo".into()]),
+    ];
+    for (what, command) in tamperings {
+        let args: Vec<&str> = command.iter().map(String::as_str).collect();
+        let done = h.inside(&args);
+        let changed = chain();
+        assert_ne!(changed, original, "{what}: the change wasn't made ({done})");
+        assert!(rules_loaded(&h).await, "{what}: the runner didn't load the rules again and say they're loaded");
+        assert_eq!(chain(), original, "{what}: the rules aren't the file's again");
+        println!("RULES-CHECK {what}: found, the rules loaded again, and they're the file's");
+    }
+}
