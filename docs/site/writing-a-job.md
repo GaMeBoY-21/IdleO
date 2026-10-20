@@ -1,6 +1,6 @@
 ---
 title: Writing a job
-description: What your code sees when {{product}} runs it, and what to leave behind: inputs, parameters, outputs, checkpoints, stopping and failing.
+description: What your code sees when {{product}} runs it, and what to leave behind, from inputs and parameters to checkpoints, stopping and failing.
 order: 8
 path: /docs/writing-a-job/
 ---

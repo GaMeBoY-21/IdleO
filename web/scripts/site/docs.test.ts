@@ -20,6 +20,7 @@ describe("the docs generators", () => {
       "/docs/api/",
       "/docs/hosting/",
       "/docs/faq/",
+      "/docs/writing-a-job/",
     ]);
     for (const doc of context.docs) {
       expect(doc.html.length, doc.path).toBeGreaterThan(500);
