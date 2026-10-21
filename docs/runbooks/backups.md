@@ -7,11 +7,11 @@ The database holds every balance and every earning. It is backed up continuously
 | What | How | How often | Kept |
 | --- | --- | --- | --- |
 | PostgreSQL, whole | A full backup (`wal-g backup-push`) | Nightly at 02:00 India time (`ops/backup/systemd/idleo-backup.timer`) | 30 days |
-| PostgreSQL, every change | Each WAL segment as it fills, and at least once a minute (`archive_timeout = 60`) | Continuously | 30 days, as far back as the oldest full backup kept |
+| PostgreSQL, every change | Each WAL segment as it fills, and at least every 30 seconds (`archive_timeout = 30`) while anything is written | Continuously | 30 days, as far back as the oldest full backup kept |
 | Object storage (uploads, checkpoints, outputs, logs, releases) | Nothing: it is R2's, which keeps its own copies | | As the lifecycle rules say (technical design, "Data stores") |
 | Valkey | **Not backed up.** It holds only what may expire: presence, request counters and hints (ADR 0011). Lost, it fills again within a minute; nothing is lost that matters | | |
 
-Together the full backups and the WAL allow **point-in-time recovery**: the database as it was at any second of the last 30 days, up to about a minute before a loss.
+Together the full backups and the WAL allow **point-in-time recovery**: the database as it was at any second of the last 30 days, up to about 30 seconds before a loss.
 
 ## Where it lives
 
@@ -80,19 +80,19 @@ ops/backup/drill.sh            # one run, about 5 minutes
 ops/backup/drill.sh --runs 3   # three, each on a fresh stack
 ```
 
-`scripts/check-all.sh` runs it once (`--no-drill` leaves it out). The loss comes a random 0 to 59 seconds after archiving last caught up, as a real one would land anywhere in archiving's minute.
+`scripts/check-all.sh` runs it once (`--no-drill` leaves it out). The loss comes a random 0 to 59 seconds after T's WAL was archived, as a real one would land anywhere in archiving's cycle.
 
-Measured on the development Mac, 2026-10-20, three runs in a row, each on a fresh stack (63 tables, about 35 MB of data):
+Measured on the development Mac, 2026-10-21, with `archive_timeout = 30`, three runs in a row, each on a fresh stack (63 tables, about 35 MB of data):
 
 | Run | Loss came | Data lost | Restore to T | Full backup | WAL archived |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 13 s after archiving caught up | 16.9 s | 2.9 s | 6.5 MB | 0.4 MB |
-| 2 | 5 s after | 7.8 s | 2.8 s | 6.5 MB | 0.4 MB |
-| 3 | 20 s after | 22.3 s | 2.8 s | 6.5 MB | 0.4 MB |
+| 1 | 40 s after T's WAL was archived | 6.8 s | 2.7 s | 6.5 MB | 0.5 MB |
+| 2 | 34 s after | 1.0 s | 2.7 s | 6.5 MB | 0.5 MB |
+| 3 | 7 s after | 4.3 s | 2.7 s | 6.5 MB | 0.5 MB |
 
-Every run restored to T with every table's checksum equal to T's, the session booked after T absent, the money check passing, and the money check failing on a changed wallet. (Three earlier runs, lost right after archiving caught up, lost 0.7, 3.1 and 1.8 s.)
+Every run restored to T with every table's checksum equal to T's, the session booked after T absent, the money check passing, and the money check failing on a changed wallet. Two more runs the same day, in a batch stopped by a parsing bug since fixed, lost 24.0 and 22.7 s. With `archive_timeout = 60` (2026-10-20) the three runs lost 16.9, 7.8 and 22.3 s.
 
-**What a loss costs:** the seconds since the last archived WAL segment, at most about a minute (`archive_timeout = 60`) plus the time to upload one segment: inside the technical design's 5 minutes. **A restore** takes about 3 s at today's size; it grows with the data and the WAL since the last full backup, so rehearse it monthly and note the time.
+**What a loss costs:** the seconds since the last archived WAL segment, at most about 30 seconds (`archive_timeout = 30`) plus the time to upload one segment: well inside the technical design's 5 minutes. **A restore** takes about 3 s at today's size; it grows with the data and the WAL since the last full backup, so rehearse it monthly and note the time.
 
 **Rehearse in production every month**, on the first working day: restore last night's backup into a new database on a spare droplet (`restore.sh --to latest`), run `verify-ledger.sh`, note the restore time and the newest row's time, and delete the droplet. Write the numbers in the operations log. Also restore once whenever the backup key or WAL-G changes.
 

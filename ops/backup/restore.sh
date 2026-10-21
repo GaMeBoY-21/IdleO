@@ -57,14 +57,18 @@ walg_env=(-e WALG_S3_PREFIX -e AWS_ENDPOINT -e AWS_REGION -e AWS_ACCESS_KEY_ID -
 listing="$(docker run --rm "${walg_env[@]}" --entrypoint wal-g "$image" backup-list --detail --json 2>/dev/null)" ||
   { echo "restore: can't list the backups at $WALG_S3_PREFIX; check the storage settings" >&2; exit 1; }
 backup="$(TARGET="$target" python3 -c '
-import datetime, json, os, sys
+import datetime, json, os, re, sys
+def moment(text):
+    # Python before 3.11 takes only 3 or 6 digits after the second; WAL-G drops trailing zeros.
+    text = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], text.replace("Z", "+00:00"))
+    return datetime.datetime.fromisoformat(text)
 target = os.environ["TARGET"]
-cutoff = None if target == "latest" else datetime.datetime.fromisoformat(target.replace("Z", "+00:00"))
+cutoff = None if target == "latest" else moment(target)
 if cutoff is not None and cutoff.tzinfo is None:
     sys.exit("restore: give the time with its zone, for example 2026-10-20T14:05:00+05:30")
 best = None
 for b in json.loads(sys.stdin.read() or "[]"):
-    finished = datetime.datetime.fromisoformat(b["finish_time"].replace("Z", "+00:00"))
+    finished = moment(b["finish_time"])
     if (cutoff is None or finished <= cutoff) and (best is None or finished > best[0]):
         best = (finished, b["backup_name"])
 print(best[1] if best else "")

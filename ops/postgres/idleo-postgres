@@ -1,7 +1,7 @@
 #!/bin/bash
 # The image's entrypoint (ADR 0036): PostgreSQL's own, with WAL archiving through WAL-G when backups are configured
 # (WALG_S3_PREFIX set), and without when they aren't (the tests' and the end-to-end stacks'). Archiving switches to a
-# new WAL segment at least once a minute, so at most about a minute of committed work is ever only on this disk.
+# new WAL segment at least every 30 seconds, so at most about 30 seconds of committed work is ever only on this disk.
 #
 # A new volume is initialised first without archiving: the official entrypoint's initialisation stops its temporary
 # server at the end, and a stop waits for every WAL segment to be archived, so storage that isn't there yet would hold
@@ -22,4 +22,4 @@ if [[ ! -s "${PGDATA:?}/PG_VERSION" ]]; then
   gosu postgres pg_ctl -D "$PGDATA" -m fast -w stop >/dev/null
   wait "$initialising" || true
 fi
-exec docker-entrypoint.sh postgres -c archive_mode=on -c archive_command='archive-wal %p' -c archive_timeout=60 "$@"
+exec docker-entrypoint.sh postgres -c archive_mode=on -c archive_command='archive-wal %p' -c archive_timeout=30 "$@"
