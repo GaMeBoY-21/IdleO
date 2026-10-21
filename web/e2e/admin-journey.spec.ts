@@ -267,6 +267,22 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
     report.hostLine = { amountPaise: -1 };
   });
 
+  // The privacy journey's message (ADR 0037): open in Tickets by its number, answered, emailed to the person.
+  const ticketNumber = process.env.E2E_TICKET_NUMBER;
+  if (ticketNumber) {
+    await test.step(`ticket #${ticketNumber} is answered from Tickets`, async () => {
+      await go(page, "Tickets");
+      await page.getByRole("link", { name: `#${ticketNumber}` }).click();
+      await expect(page.getByText("Please tell me what you hold about me.")).toBeVisible();
+      await expect(page.getByText("Never asked for").or(page.getByText("cancelled"))).toBeVisible();
+      await page
+        .getByLabel(/^Emailed to /)
+        .fill("We've had a look at your request: your file is in Account, Your data.");
+      await page.getByRole("button", { name: "Send the answer" }).click();
+      await expect(page.getByText("We wrote", { exact: false }).first()).toBeVisible();
+    });
+  }
+
   if (process.env.E2E_ADMIN_REPORT) {
     writeFileSync(process.env.E2E_ADMIN_REPORT, JSON.stringify(report, null, 2));
   }

@@ -7,13 +7,13 @@ The console at `/admin/` runs the pilot from a browser (ADR 0027): hosts, users,
 Only an operator command can, after the person has signed in to the web app at least once with a verified email:
 
 ```
-OPERATOR=<you> java -jar control-plane.jar --spring.profiles.active=prod,ops grant-admin nikki@example.com --reason "runs the pilot"
+OPERATOR=<handle> java -jar control-plane.jar --spring.profiles.active=prod,ops grant-admin nikki@example.com --reason "runs the pilot"
 ```
 
 Locally, against the `scripts/e2e/agent-online.sh --keep-running` stack:
 
 ```
-COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<you> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="grant-admin nikki@example.com --reason 'local admin'"
+COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<handle> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="grant-admin nikki@example.com --reason 'local admin'"
 ```
 
 - It's refused (exit 3) for an email nobody has signed in with, an account that isn't active, or an email two accounts share; it names their ids.
@@ -52,8 +52,8 @@ Both are in the audit log (`admin.grant`, `admin.revoke`), with your `OPERATOR` 
 Only an operator can undo it, and the admin sets up afresh:
 
 ```
-OPERATOR=<you> ... revoke-admin nikki@example.com --reason "locked out by wrong codes"
-OPERATOR=<you> ... grant-admin nikki@example.com --reason "back after a lockout"
+OPERATOR=<handle> ... revoke-admin nikki@example.com --reason "locked out by wrong codes"
+OPERATOR=<handle> ... grant-admin nikki@example.com --reason "back after a lockout"
 ```
 
 **Lost phone:**

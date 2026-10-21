@@ -11,7 +11,7 @@ Access stays by invitation until the paid pilot. `identity.invite-only` (the env
 Run the control plane's operator command, in the same way as `grant-credits` (docs/runbooks/granting-credits.md):
 
 ```
-OPERATOR=<you> java -jar control-plane.jar --spring.profiles.active=prod,ops create-invites --count 5 --note "hackathon" [--expires 30d]
+OPERATOR=<handle> java -jar control-plane.jar --spring.profiles.active=prod,ops create-invites --count 5 --note "hackathon" [--expires 30d]
 ```
 
 - `--count`: 1 to 200 codes.
@@ -21,7 +21,7 @@ OPERATOR=<you> java -jar control-plane.jar --spring.profiles.active=prod,ops cre
 Locally, against the `scripts/e2e/agent-online.sh --keep-running` stack:
 
 ```
-COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<you> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="create-invites --count 1 --note local"
+COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<handle> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="create-invites --count 1 --note local"
 ```
 
 It prints each code once, like `IDLE-7K2Q-9XMD`:

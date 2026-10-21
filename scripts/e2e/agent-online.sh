@@ -1341,6 +1341,32 @@ scenario="account"
 scenario_account_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-account.txt"
 
+# A person's own data in a browser (web/e2e/privacy-journey.spec.ts, ADR 0037): Your data's file made by the job,
+# emailed and downloaded; a message to support acknowledged with its number; and deleting the account asked for after
+# a fresh sign-in, confirmed from its email and cancelled from the next one's link. The database then holds each step:
+# a ready export, the request cancelled, its three security log rows, and the ticket the admin journey answers.
+scenario_privacy_web() {
+  local report="$out/privacy-journey.json" states events
+  E2E_WEB_USER="$web_user" E2E_MAIL_API="$mail_api" E2E_PRIVACY_REPORT="$report" SKIP_VISUAL=1 \
+    web_test --project=privacy-journey --reporter=line >>"$out/privacy-journey.log" 2>&1 ||
+    fail "the privacy journeys failed; see private/e2e/privacy-journey.log"
+  ticket_number="$(json_get .ticketNumber <"$report")"
+  states="$(sql "select (select string_agg(distinct state, ',') from privacy.exports where user_id = '$web_user_id')
+      || ' ' || (select state from privacy.deletion_requests where user_id = '$web_user_id' order by requested_at desc limit 1)")"
+  [[ "$states" == "ready cancelled" ]] || fail "the export and the deletion aren't ready and cancelled: $states"
+  events="$(sql "select string_agg(kind, ',' order by kind) from (select distinct kind from identity.security_events
+      where user_id = '$web_user_id' and kind in ('export_requested', 'deletion_requested', 'deletion_confirmed', 'deletion_cancelled')) k")"
+  [[ "$events" == "deletion_cancelled,deletion_confirmed,deletion_requested,export_requested" ]] ||
+    fail "the security log lacks the export and deletion steps: $events"
+  [[ "$(sql "select topic || ':' || status from support.tickets where number = $ticket_number")" == privacy:open ]] ||
+    fail "ticket #$ticket_number isn't an open privacy request"
+  note "privacy journeys: $(grep -Eo '[0-9]+ passed' "$out/privacy-journey.log" | tail -1) (the file of everything made, emailed and downloaded; message #$ticket_number acknowledged by email; deletion confirmed from its email and cancelled from the next; the security log holds each step): PASS"
+}
+scenario="privacy"
+: >"$out/summary-privacy.txt"
+scenario_privacy_web
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-privacy.txt"
+
 # The renter CLI (cli/, ADR 0025) against this stack, as a person would use it: sign in (approved in the "browser" with
 # the account's own token, as the web page would), run the simulated fine-tune with a model folder and examples,
 # follow it to the end, read its logs, download the adapter, list and revoke keys, and sign out.
@@ -1602,6 +1628,7 @@ scenario_admin_web() {
 
   E2E_ADMIN_USER="$admin_user" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
     E2E_HOST_OWNER="$user" E2E_RUNNING_SINCE="$running_since" E2E_ADMIN_REPORT="$report" SKIP_VISUAL=1 \
+    E2E_TICKET_NUMBER="${ticket_number:-}" \
     web_test --project=admin-journey --reporter=line >>"$out/admin-journey.log" 2>&1 ||
     fail "the admin journeys failed; see private/e2e/admin-journey.log"
   note "admin journeys: $(grep -Eo '[0-9]+ passed' "$out/admin-journey.log" | tail -1) (a second factor enrolled from its QR code's secret and the dashboard reached, a pending host activated, ₹1.25 granted and found in the audit log, a running session force-stopped, rated and reported by its renter, and the report refunded): PASS"
@@ -1623,6 +1650,15 @@ scenario_admin_web() {
     fail "the admin journey's audit rows aren't one per action: $rows"
   [[ "$(sql "select count(*) from identity.audit_log where action = 'admin.grant' and target_id = '$admin_id' and actor_name = 'e2e-script'")" == 1 ]] ||
     fail "grant-admin wrote no audit row"
+  # The privacy journey's message, answered from Tickets: one audit row, and the answer emailed with its number.
+  if [[ -n "${ticket_number:-}" ]]; then
+    [[ "$(sql "select count(*) from identity.audit_log a join support.tickets t on t.id::text = a.target_id
+        where a.action = 'ticket.answer' and t.number = $ticket_number and a.actor_user_id = '$admin_id'")" == 1 ]] ||
+      fail "answering ticket #$ticket_number wrote no audit row"
+    await_email "$web_user@example.com" "We've had a look" 60 >/dev/null ||
+      fail "the answer to ticket #$ticket_number wasn't emailed"
+    note "ticket #$ticket_number answered in the admin console: one audit row, the answer emailed to the person: PASS"
+  fi
   note "admin journey audit rows: grant-admin by the operator, then one row each by the admin ($rows), each with its reason: PASS"
 
   # The stopped run settles like any stop: COMPLETED, its minutes charged, its hold released.

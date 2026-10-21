@@ -55,6 +55,8 @@ The prod profile refuses to start without each of these (`ProductionSettingsGuar
 | Metrics, traces and logs, to Grafana Cloud's OTLP endpoint | `OTLP_ENDPOINT`, `OTLP_AUTHORIZATION`; and `IDLEO_RELEASE` (the build), `IDLEO_ENVIRONMENT` (`production`), `IDLEO_INSTANCE` (a stable name for each instance, so a redeploy keeps its series) | monitoring.md |
 | The backups, as the control plane watches them | `BACKUPS_STORAGE_ENDPOINT`, `_BUCKET`, `_PREFIX`, `_REGION`, `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` (an R2 token that may only read the bucket) | backups.md |
 | Email through Resend, and its bounce webhook | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `NOTIFICATIONS_EMAIL_FROM` (on our domain), `NOTIFICATIONS_EMAIL_WEBHOOK_SECRET` | email.md |
+| Deleting an account at the sign-in provider (ADR 0037) | `IDENTITY_PROVIDER_ADMIN_CREDENTIALS`: the service account's JSON key, or `file:` and its path | identity-provider-setup.md, "12. A service account for erasing accounts" |
+| The grievance officer on Contact and Privacy (ADR 0037), LEGAL(confirm) | `LEGAL_GRIEVANCE_NAME`, `LEGAL_GRIEVANCE_EMAIL`, `LEGAL_GRIEVANCE_POSTAL_ADDRESS` (development's placeholders are refused) | breach.md |
 | Real visits' errors, named by file and line | `VITALS_SOURCE_MAPS`: a folder holding the deployed web builds' `dist-sourcemaps/` and `dist-website-sourcemaps/` (never served) | monitoring.md |
 
 And beside the control plane:

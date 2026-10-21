@@ -32,10 +32,10 @@ In Phase 1 an active host is available whenever it's online and idle. There are 
 ## The commands
 
 ```
-OPERATOR=<you> <control plane> --spring.profiles.active=<prod or local>,ops \
+OPERATOR=<handle> <control plane> --spring.profiles.active=<prod or local>,ops \
   activate-host --host <host id> --reason "<why>"
 
-OPERATOR=<you> <control plane> --spring.profiles.active=<prod or local>,ops \
+OPERATOR=<handle> <control plane> --spring.profiles.active=<prod or local>,ops \
   suspend-host --host <host id> --reason "<why>"
 ```
 

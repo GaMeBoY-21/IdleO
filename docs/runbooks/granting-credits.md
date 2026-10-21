@@ -12,10 +12,10 @@ There are no admins or roles yet, so whoever can run the control plane with prod
 ## The commands
 
 ```
-OPERATOR=<you> <control plane> --spring.profiles.active=<prod or local>,ops \
+OPERATOR=<handle> <control plane> --spring.profiles.active=<prod or local>,ops \
   grant-credits --user <user id> --paise <n> --reason "<why>" --key <idempotency key>
 
-OPERATOR=<you> <control plane> --spring.profiles.active=<prod or local>,ops \
+OPERATOR=<handle> <control plane> --spring.profiles.active=<prod or local>,ops \
   reverse-grant --grant <grant id> --reason "<why>"
 ```
 
@@ -84,7 +84,7 @@ The prod profile refuses to start with any development setting (ADR 0013), so a 
 3. **The next morning:** the nightly reconciliation (02:30 IST) reports `billing.reconciliation.mismatches` as 0, and has updated `billing.reconciliation.last_success`. To check at once instead, run the same check as an operator command; it changes nothing:
 
    ```
-   OPERATOR=<you> java -jar control-plane.jar --spring.profiles.active=prod,ops reconcile-wallets
+   OPERATOR=<handle> java -jar control-plane.jar --spring.profiles.active=prod,ops reconcile-wallets
    ```
 
    It prints the ledger's debit and credit totals and any mismatch (its kind, the user id, the cached and expected paise), then exits 0 for none, 4 for any, or 3 if another instance is running the check.

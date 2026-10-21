@@ -121,3 +121,18 @@ Access is by invite while the app is invite-only: a first sign-in lands on a cod
 | `Firebase: Error (auth/operation-not-allowed)` | That provider isn't enabled. Check section 4. |
 | The email link says it has expired or was already used | Links work once. Ask for a new one; open it in the same browser you asked from. |
 | `run-local: ... Check those two lines in control-plane/.env` | `scripts/run-local.sh --real-sign-in` found the issuer or audience missing, left as the example, or not matching. Fix the line it names. |
+
+## 12. A service account for erasing accounts
+
+When a person's account is erased (ADR 0037), the control plane deletes their Identity Platform account too, through the Identity Toolkit admin API. It needs a service account allowed to do that, and nothing more.
+
+1. In the Google Cloud console, **IAM & Admin → Service Accounts → Create service account**: name it `idleo-erasure`.
+2. Grant it one role: **Identity Platform → Identity Toolkit Admin** (`roles/identitytoolkit.admin`). No other role.
+3. Open it, **Keys → Add key → Create new key → JSON**. The browser downloads the key once.
+4. Put the whole file in the secret store as `IDENTITY_PROVIDER_ADMIN_CREDENTIALS` (or put it on the server, readable only by the control plane's user, and set the variable to `file:/path/to/key.json`). Delete the downloaded copy. Never commit it, never paste it into a ticket.
+5. The prod profile refuses to start without it. Locally the development sign-in server keeps no accounts, so nothing is needed: an erasure only records that it would have deleted one.
+
+To check it: erase a test account on staging (Account, Your data, Delete my account; staging's wait can be shortened with `LEGAL_ERASURE_WAITING_PERIOD`) and look it up in Identity Platform's **Users**: it's gone. If the erasure log says "the provider refused to delete the account: 403", the role is missing.
+
+Rotate it yearly: add a new key, update the secret, restart, delete the old key.
+
