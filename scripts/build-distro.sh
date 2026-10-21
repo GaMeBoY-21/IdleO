@@ -10,8 +10,8 @@
 #                                        in Docker as idleo-distro-dev:<version>: no tarball. amd64 under Rosetta can't run a
 #                                        container inside itself, so a Mac tests the sandbox in the same recipe built natively.
 #
-# The version is agent/distro/VERSION, the one place it is written. The image is also left in Docker as
-# idleo-distro:<version>, which agent/distro/test.sh inspects.
+# The version is agent/distro/VERSION, the one place it is written, and the Ubuntu archive's moment agent/distro/SNAPSHOT.
+# The image is also left in Docker as idleo-distro:<version>, which agent/distro/test.sh inspects.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -19,6 +19,10 @@ root="$(pwd)"
 distro="$root/agent/distro"
 version="$(tr -d '[:space:]' <"$distro/VERSION")"
 [[ -n "$version" ]] || { echo "build-distro: agent/distro/VERSION is empty" >&2; exit 2; }
+# The Ubuntu archive's moment the packages come from (agent/distro/SNAPSHOT; scripts/bump-distro-snapshot.sh moves it).
+snapshot="$(tr -d '[:space:]' <"$distro/SNAPSHOT")"
+[[ "$snapshot" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] ||
+  { echo "build-distro: agent/distro/SNAPSHOT must be a snapshot.ubuntu.com moment, like 20261020T000000Z" >&2; exit 2; }
 cache=()
 dev=false
 out="$root/dist/distro"
@@ -64,6 +68,7 @@ docker buildx build --platform "$platform" ${cache[@]+"${cache[@]}"} -f "$distro
 docker save "$gpu_check" -o "$context/gpu-check.tar"
 
 docker buildx build --platform "$platform" ${cache[@]+"${cache[@]}"} --build-arg "IDLEO_DISTRO_VERSION=$version" \
+  --build-arg "UBUNTU_SNAPSHOT=$snapshot" \
   --tag "$image" --load "$context"
 
 if $dev; then

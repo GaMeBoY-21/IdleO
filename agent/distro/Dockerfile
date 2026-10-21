@@ -9,8 +9,11 @@
 # under Rosetta can't run a container inside itself (runc's seccomp filter and read-only mounts need syscalls Rosetta doesn't
 # translate), so the sandbox could not be tested there at all. Only the architecture's own downloads differ.
 # The base is pinned by digest, the packages by version, and the NVIDIA repository's key by fingerprint, so a build
-# that can't get exactly these fails instead of changing quietly. To move one forward, change the pin, build, and run
-# agent/distro/test.sh.
+# that can't get exactly these fails instead of changing quietly. Every other Ubuntu package comes from the archive as it
+# stood at one moment (snapshot.ubuntu.com, APT::Snapshot; arm64's ports.ubuntu.com is served from the same /ubuntu/
+# snapshot, which apt doesn't know by itself), agent/distro/SNAPSHOT, which build-distro.sh passes in, so two
+# builds a month apart install the same packages; scripts/bump-distro-snapshot.sh moves it forward, a deliberate rebuild
+# for the month's security updates. To move a pin forward, change it, build, and run agent/distro/test.sh.
 
 # ubuntu:24.04 (the multi-architecture index), 2026-09-30.
 
@@ -33,6 +36,11 @@ COPY --from=runner /out/idleo-runner /idleo-runner
 FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS fetch
 # containerd's own client, and the containers' network plugins (github.com/containerd/nerdctl, containernetworking/plugins).
 ARG TARGETARCH
+# The Ubuntu archive's moment (agent/distro/SNAPSHOT), for this stage's own downloads too. The snapshot server is HTTPS
+# only and the base has no CA bundle yet, so apt borrows the pinned builder image's for these downloads alone; what it
+# fetches is checked against Ubuntu's signing key in the base, as always.
+ARG UBUNTU_SNAPSHOT
+COPY --from=runner /etc/ssl/certs/ca-certificates.crt /tmp/bootstrap-ca.crt
 ARG NERDCTL_VERSION=2.4.1
 ARG NERDCTL_SHA256_amd64=f6bbf02fd8a299cbcbc71a0bad113c1b63b3f33689bbb7d51b0fa98c6d361d5e
 ARG NERDCTL_SHA256_arm64=2b60e7311589342abec39ffd2c172bef51da31ccc1278a89ec3aa04d1d3040bb
@@ -45,7 +53,12 @@ RUN set -eux; \
       arm64) nerdctl_sha="${NERDCTL_SHA256_arm64}"; cni_sha="${CNI_SHA256_arm64}" ;; \
       *) echo "no pinned downloads for ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
-    apt-get update; \
+    test -n "${UBUNTU_SNAPSHOT}"; \
+    printf '%s\n' "APT::Snapshot \"${UBUNTU_SNAPSHOT}\";" \
+        'Acquire::Snapshots::URI::Host::ports.ubuntu.com "https://snapshot.ubuntu.com/ubuntu/@SNAPSHOTID@/";' \
+        > /etc/apt/apt.conf.d/50idleo-snapshot; \
+    echo 'Acquire::https::CAInfo "/tmp/bootstrap-ca.crt"; Acquire::Retries "10"; Acquire::Retries::Delay::Maximum "30"; APT::Update::Error-Mode "any";' > /etc/apt/apt.conf.d/49idleo-bootstrap-ca; \
+    for try in 1 2 3 4 5; do apt-get update && break; [ "$try" -lt 5 ] && sleep 30; done; \
     apt-get install -y --no-install-recommends ca-certificates curl; \
     mkdir -p /out/cni /tmp/nerdctl /tmp/cni; \
     curl -fsSL -o /tmp/nerdctl.tgz "https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/nerdctl-${NERDCTL_VERSION}-linux-${TARGETARCH}.tar.gz"; \
@@ -67,12 +80,25 @@ ARG NFTABLES_VERSION=1.0.9-1ubuntu0.1
 # The fingerprint of NVIDIA's repository signing key (public): the build refuses any other.
 ARG NVIDIA_REPOSITORY_SIGNER=C95B321B61E88C1809C4F759DDCAE044F796ECB0
 ARG IDLEO_DISTRO_VERSION
+# The Ubuntu archive's moment every Ubuntu package comes from (agent/distro/SNAPSHOT); kept in the image as
+# /etc/idleo-distro-snapshot. NVIDIA's repository has no snapshots: its packages are pinned by version above.
+ARG UBUNTU_SNAPSHOT
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# The snapshot server is HTTPS only and the base has no CA bundle until Ubuntu's ca-certificates is installed, so apt
+# borrows the pinned builder image's for this layer; it's removed at the end of it, leaving only the snapshot's own.
+COPY --from=runner /etc/ssl/certs/ca-certificates.crt /tmp/bootstrap-ca.crt
+
 # The tools used to add NVIDIA's repository are removed again in the same layer.
 RUN set -eux; \
-    apt-get update; \
+    test -n "${UBUNTU_SNAPSHOT}"; \
+    printf '%s\n' "APT::Snapshot \"${UBUNTU_SNAPSHOT}\";" \
+        'Acquire::Snapshots::URI::Host::ports.ubuntu.com "https://snapshot.ubuntu.com/ubuntu/@SNAPSHOTID@/";' \
+        > /etc/apt/apt.conf.d/50idleo-snapshot; \
+    echo 'Acquire::https::CAInfo "/tmp/bootstrap-ca.crt"; Acquire::Retries "10"; Acquire::Retries::Delay::Maximum "30"; APT::Update::Error-Mode "any";' > /etc/apt/apt.conf.d/49idleo-bootstrap-ca; \
+    printf '%s\n' "${UBUNTU_SNAPSHOT}" > /etc/idleo-distro-snapshot; \
+    for try in 1 2 3 4 5; do apt-get update && break; [ "$try" -lt 5 ] && sleep 30; done; \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
     curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -o /tmp/nvidia.asc; \
     test "$(gpg --show-keys --with-colons /tmp/nvidia.asc | awk -F: '/^fpr/ {print $10; exit}')" = "${NVIDIA_REPOSITORY_SIGNER}"; \
@@ -89,6 +115,7 @@ RUN set -eux; \
         "libnvidia-container1=${NVIDIA_TOOLKIT_VERSION}" \
         "nftables=${NFTABLES_VERSION}"; \
     apt-get purge -y --auto-remove curl gnupg; \
+    rm -f /etc/apt/apt.conf.d/49idleo-bootstrap-ca /tmp/bootstrap-ca.crt; \
     rm -rf /tmp/nvidia.asc /var/lib/apt/lists/* /var/cache/apt/* /var/log/apt /var/log/dpkg.log /var/log/alternatives.log \
         /usr/share/doc /usr/share/man /usr/share/info /usr/share/lintian /root/.gnupg
 

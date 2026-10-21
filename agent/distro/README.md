@@ -30,6 +30,15 @@ scripts/build-distro.sh --no-cache  # everything again
 - **Always for `linux/amd64`** (`docker buildx build --platform linux/amd64`): the laptops are x86-64, and the Mac that builds
   this is Apple Silicon, so on a Mac the build runs under emulation and takes a few minutes.
 - The version is `agent/distro/VERSION`, the one place it is written.
+- Every Ubuntu package comes from the archive as it stood at one moment, `agent/distro/SNAPSHOT` (snapshot.ubuntu.com,
+  through apt's `APT::Snapshot`; written into the image as `/etc/idleo-distro-snapshot`). The snapshot server is HTTPS
+  only and the base has no CA bundle until it installs Ubuntu's, so apt borrows the pinned builder image's for that one
+  layer; every index is still checked against Ubuntu's signing key. While snapshot.ubuntu.com is down a build fails,
+  which is the point: nothing changes quietly.
+- **Security updates are a deliberate rebuild, monthly:** `scripts/bump-distro-snapshot.sh [moment]` moves `SNAPSHOT`
+  (to today, 00:00 UTC, by default), moves the version-pinned Ubuntu packages (systemd, containerd, runc, nftables) to
+  that snapshot's and bumps `VERSION` a patch; then build, run `agent/distro/test.sh` and the hostile tests on the new
+  image, commit the three files and release.
 - The GPU-check image is built first (also `linux/amd64`), `docker save`d and copied in.
 - The root filesystem is `docker export`ed and gzipped without a timestamp. The manifest has the version, the base
   digest, every package with its version, the size, the SHA-256 and the build date.
@@ -46,7 +55,8 @@ service that imports it; the compressed
 tarball is under 400 MB; and two builds from the same inputs have the same package list. `scripts/check-all.sh` runs it
 as the `distro` suite, which downloads a few hundred MB, so there is no CI job for it yet and `--no-distro` leaves it out.
 
-**Reproducibility:** the package list is reproducible, because everything is pinned. The tarball is not yet
+**Reproducibility:** the package list is reproducible, because everything is pinned: the base by digest, the archive by
+snapshot, the named packages by version (test.sh builds twice, once with `--no-cache`, and compares). The tarball is not yet
 byte-for-byte reproducible (file times and the order of some metadata differ between builds); that isn't asked for yet.
 
 ## How the Windows app uses it (ADR 0034)
