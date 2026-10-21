@@ -140,7 +140,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(9);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(11);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),

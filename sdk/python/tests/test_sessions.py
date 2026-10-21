@@ -187,6 +187,13 @@ def test_me_credit_and_availability_read_the_api(fake, tmp_path):
                 "unreadNotifications": 0,
                 "emailUndeliverable": False,
                 "email": "a@example.com",
+                "notices": {
+                    "accepted": True,
+                    "ageConfirmed": True,
+                    "minimumAge": 18,
+                    "termsVersion": "2026-10-draft",
+                    "privacyVersion": "2026-10-draft",
+                },
             },
         ),
     )

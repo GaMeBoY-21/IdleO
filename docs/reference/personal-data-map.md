@@ -182,7 +182,7 @@ Only state that may expire; never anything financial (ADR 0013).
 
 ## Retention rules
 
-Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an advisory lock, counted (`retention.deleted` by `rule`) and watched (`retention.last_success` by `rule`; the alert `RetentionJobStopped` fires when one hasn't succeeded for a day and a half). Periods live under `retention:` and `legal:` in application.yaml.
+Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an advisory lock, counted (`retention.deleted` by `rule`) and watched (`retention.age` by `rule`, the seconds since it last succeeded; the alert `RetentionStopped` fires when one hasn't succeeded for a day and a half). Periods live under `retention:` and `legal:` in application.yaml.
 
 | Rule | Deletes | Period | Setting |
 | --- | --- | --- | --- |

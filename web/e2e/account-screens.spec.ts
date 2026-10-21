@@ -438,6 +438,8 @@ test.describe("the account", () => {
       "API keys",
       "My files",
       "Reports",
+      "Your data",
+      "Help",
     ]);
     await expect(sections.getByRole("link", { name: "Profile and notifications" })).toHaveAttribute(
       "aria-current",
@@ -573,7 +575,7 @@ test.describe("the account", () => {
     await page.getByRole("switch", { name: "Low credit: email" }).click();
     await expect(page.getByText("Saved.")).toBeVisible();
     await expect(page.getByRole("switch", { name: "Low credit: email" })).not.toBeChecked();
-    expect(sent!.items).toHaveLength(13);
+    expect(sent!.items).toHaveLength(data.notificationChoices().items.length);
     expect(sent!.items.find((item) => item.kind === "low-credit")).toEqual({
       kind: "low-credit",
       email: false,

@@ -22,7 +22,13 @@ import tools.jackson.databind.json.JsonMapper;
 class NotificationChoicesTests {
 
     private static final List<String> LOCKED = List.of(
-            "stopped-for-credit", "host-lost", "machine-offline", "payout", "top-up-confirmed", "new-device-sign-in");
+            "stopped-for-credit",
+            "host-lost",
+            "machine-offline",
+            "payout",
+            "top-up-confirmed",
+            "new-device-sign-in",
+            "account-and-data");
 
     @Autowired
     MockMvc mvc;
@@ -67,7 +73,7 @@ class NotificationChoicesTests {
     void everyKindIsOnByDefaultAndTheMoneyAndSafetyKindsAreLocked() throws Exception {
         var items = json.readTree(current()).get("items");
 
-        assertThat(items).hasSize(13);
+        assertThat(items).hasSize(14);
         var locked = new java.util.ArrayList<String>();
         for (var item : items) {
             assertThat(item.get("email").asBoolean()).isTrue();
