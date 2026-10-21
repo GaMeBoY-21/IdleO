@@ -244,11 +244,7 @@ class HostLinks {
                     id.toString(),
                     "the owner approved linking this machine",
                     null,
-                    Map.of(
-                            "hostId",
-                            host.id().toString(),
-                            "machineName",
-                            row.machine().name())));
+                    Map.of("hostId", host.id().toString())));
             if (row.installId() != null) {
                 installs.approved(row.installId());
             }
@@ -287,7 +283,7 @@ class HostLinks {
                     id.toString(),
                     "the person said this isn't their machine",
                     null,
-                    Map.of("machineName", row.machine().name())));
+                    null));
             metrics.linkDenied();
             return new Denial.Done(new Link(id, row.machine(), State.DENIED, row.expiresAt(), null));
         }));

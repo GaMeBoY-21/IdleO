@@ -3,8 +3,12 @@ package com.idleo.controlplane.identity.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.idleo.controlplane.ContactDetails;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.identity.AuditTrail;
+import com.idleo.controlplane.identity.CurrentUser;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -99,5 +103,81 @@ class AuditLogTests {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new AuditTrail.Actor(AuditTrail.Actor.Kind.ADMIN, null, "someone"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void refusesAnEntryWithAnEmailOrAnIpAddressAnywhereInIt() {
+        var target = UUID.randomUUID().toString();
+        for (var entry : List.of(
+                new AuditTrail.Entry(
+                        AuditTrail.Actor.operator("asha@example.com"),
+                        "host.activate",
+                        "host",
+                        target,
+                        "why",
+                        null,
+                        null),
+                new AuditTrail.Entry(
+                        AuditTrail.Actor.system("tests"),
+                        "host.activate",
+                        "host",
+                        target,
+                        "asked by a@b.in",
+                        null,
+                        null),
+                new AuditTrail.Entry(
+                        AuditTrail.Actor.system("tests"),
+                        "host.activate",
+                        "host",
+                        target,
+                        "from 203.0.113.7",
+                        null,
+                        null),
+                new AuditTrail.Entry(
+                        AuditTrail.Actor.system("tests"),
+                        "host.activate",
+                        "host",
+                        target,
+                        "why",
+                        null,
+                        Map.of("address", "2001:db8::1")))) {
+            assertThatThrownBy(() -> transactions.executeWithoutResult(status -> audit.record(entry)))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from identity.audit_log where target_id = ?", Integer.class, target))
+                .isZero();
+    }
+
+    @Test
+    void namesAnAdminByTheirIdAndNeverByTheirEmail() {
+        var actor = audit.admin(new CurrentUser(UUID.fromString("01900000-0000-7000-8000-000000000001")));
+        assertThat(actor.name()).isEqualTo("01900000-0000-7000-8000-000000000001");
+        assertThat(actor.label()).isEqualTo("admin 01900000-0000-7000-8000-000000000001");
+    }
+
+    /**
+     * Every row any test has written by now (they share one database): none holds an email, an IP address, or any
+     * account's email or name, in any column.
+     */
+    @Test
+    void holdsNoRowNamingAPerson() {
+        recordOne();
+        var people = jdbc.queryForList("""
+                select lower(value) from (
+                    select email as value from identity.users
+                    union select display_name from identity.users
+                ) known where value is not null and length(value) >= 4
+                """, String.class);
+        var rows = jdbc.queryForList("""
+                select concat_ws(' ', actor_name, target_id, reason, before::text, after::text)
+                from identity.audit_log
+                """, String.class);
+        assertThat(rows).isNotEmpty();
+        for (var row : rows) {
+            assertThat(ContactDetails.found(row)).as(row).isFalse();
+            var text = row.toLowerCase(Locale.ROOT);
+            assertThat(people).as(row).noneMatch(text::contains);
+        }
     }
 }

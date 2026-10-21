@@ -84,7 +84,7 @@ class AdminMoneyTests {
                 mvc.perform(admin.as(grantRequest(renter.id(), 50_000, key))).andExpect(status().isCreated()));
         assertThat(granted.get("amountPaise").asLong()).isEqualTo(50_000);
         assertThat(granted.get("walletBalancePaise").asLong()).isEqualTo(50_000);
-        assertThat(granted.get("grantedBy").asString()).startsWith("admin renter-");
+        assertThat(granted.get("grantedBy").asString()).isEqualTo("admin " + admin.id());
         mvc.perform(admin.as(grantRequest(renter.id(), 50_000, key)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(granted.get("id").asString()));
@@ -254,7 +254,7 @@ class AdminMoneyTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"checking after a manual grant\"}"))
                 .andExpect(status().isOk()));
-        assertThat(run.get("trigger").asString()).startsWith("admin renter-");
+        assertThat(run.get("trigger").asString()).isEqualTo("admin " + admin.id());
         assertThat(audited("reconciliation.run", run.get("id").asString())).isOne();
         mvc.perform(admin.as(get("/admin/v1/ledger"))).andExpect(status().isBadRequest());
         mvc.perform(admin.as(get("/admin/v1/ledger").param("account", "nonsense")))

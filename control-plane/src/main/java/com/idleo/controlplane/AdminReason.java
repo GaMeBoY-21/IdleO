@@ -5,10 +5,12 @@ import jakarta.validation.constraints.Size;
 
 /**
  * Why an admin is doing something (ADR 0027): every admin action takes one, at least 5 characters once the spaces
- * around it are removed, and it goes into the audit log beside the change.
+ * around it are removed, and it goes into the audit log beside the change, so it holds no email or IP address (ADR
+ * 0037).
  */
 public record AdminReason(
-        @NotBlank @Size(min = 5, max = 500) String reason) {
+        @NotBlank @Size(min = 5, max = 500) @NoContactDetails
+        String reason) {
 
     public AdminReason {
         reason = reason == null ? null : reason.strip();

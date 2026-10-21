@@ -34,7 +34,8 @@ class AuditLogController {
 
     /**
      * One action: who did it ({@code actorKind} {@code admin}, {@code operator}, {@code owner} or {@code system}), what
-     * ({@code host.activate}), to what, why, and what changed.
+     * ({@code host.activate}), to what, why, and what changed. The log keeps an admin or an owner by id only (ADR
+     * 0037); {@code actorName} is their email as the account has it now, or the id once the account is erased.
      */
     record AuditEntry(
             UUID id,
@@ -68,19 +69,22 @@ class AuditLogController {
             @RequestParam(required = false) @Nullable Integer limit) {
         int size = AdminPages.limit(limit);
         var entries = jdbc.sql("""
-                        select * from identity.audit_log
+                        select a.*, coalesce(u.email, a.actor_name) as shown_name
+                        from identity.audit_log a
+                        left join identity.users u on u.id = a.actor_user_id
                         where (cast(:actor as text) is null
-                               or actor_name ilike '%' || cast(:actor as text) || '%'
-                               or actor_user_id::text = cast(:actor as text))
-                          and (cast(:action as text) is null or action = cast(:action as text)
+                               or a.actor_name ilike '%' || cast(:actor as text) || '%'
+                               or u.email ilike '%' || cast(:actor as text) || '%'
+                               or a.actor_user_id::text = cast(:actor as text))
+                          and (cast(:action as text) is null or a.action = cast(:action as text)
                                or (right(cast(:action as text), 1) = '.'
-                                   and starts_with(action, cast(:action as text))))
-                          and (cast(:targetType as text) is null or target_type = cast(:targetType as text))
-                          and (cast(:targetId as text) is null or target_id = cast(:targetId as text))
-                          and (cast(:from as timestamptz) is null or created_at >= cast(:from as timestamptz))
-                          and (cast(:to as timestamptz) is null or created_at < cast(:to as timestamptz))
-                          and (cast(:after as uuid) is null or id < cast(:after as uuid))
-                        order by id desc
+                                   and starts_with(a.action, cast(:action as text))))
+                          and (cast(:targetType as text) is null or a.target_type = cast(:targetType as text))
+                          and (cast(:targetId as text) is null or a.target_id = cast(:targetId as text))
+                          and (cast(:from as timestamptz) is null or a.created_at >= cast(:from as timestamptz))
+                          and (cast(:to as timestamptz) is null or a.created_at < cast(:to as timestamptz))
+                          and (cast(:after as uuid) is null or a.id < cast(:after as uuid))
+                        order by a.id desc
                         limit :limit
                         """)
                 .param("actor", blankToNull(actor))
@@ -95,7 +99,7 @@ class AuditLogController {
                         rs.getObject("id", UUID.class),
                         rs.getString("actor_kind"),
                         rs.getObject("actor_user_id", UUID.class),
-                        rs.getString("actor_name"),
+                        rs.getString("shown_name"),
                         rs.getString("action"),
                         rs.getString("target_type"),
                         rs.getString("target_id"),

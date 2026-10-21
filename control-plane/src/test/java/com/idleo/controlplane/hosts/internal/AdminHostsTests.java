@@ -129,7 +129,7 @@ class AdminHostsTests {
             assertThat(audited("host.activate", host.id())).isOne();
             var history = active.get("statusHistory").get(0);
             assertThat(history.get("to").asString()).isEqualTo("active");
-            assertThat(history.get("changedBy").asString()).startsWith("admin renter-");
+            assertThat(history.get("changedBy").asString()).isEqualTo("admin " + admin.id());
 
             var suspended =
                     read(reason(post("/admin/v1/hosts/" + host.id() + "/suspend"), "overheating reports"), admin);

@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.ContactDetails;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
@@ -17,7 +18,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The only writer of {@code identity.audit_log} (ADR 0027). Rows are only ever added: triggers refuse any change,
- * and the application's database user has no right to update, delete or truncate the table.
+ * and the application's database user has no right to update, delete or truncate the table. An entry names people by
+ * id only (ADR 0037): one holding an email or an IP address anywhere is refused, and the action with it.
  */
 @Component
 class AuditLog implements AuditTrail {
@@ -36,13 +38,7 @@ class AuditLog implements AuditTrail {
 
     @Override
     public Actor admin(CurrentUser user) {
-        var email = jdbc.sql("select email from identity.users where id = :id")
-                .param("id", user.id())
-                .query(String.class)
-                .optional()
-                .filter(value -> !value.isBlank())
-                .orElse(user.id().toString());
-        return new Actor(Actor.Kind.ADMIN, user.id(), email);
+        return new Actor(Actor.Kind.ADMIN, user.id(), user.id().toString());
     }
 
     @Override
@@ -52,6 +48,15 @@ class AuditLog implements AuditTrail {
             throw new IllegalArgumentException("an audited action has a reason");
         }
         var actor = entry.actor();
+        var before = toJson(entry.before());
+        var after = toJson(entry.after());
+        if (ContactDetails.found(actor.name())
+                || ContactDetails.found(entry.reason())
+                || ContactDetails.found(entry.targetId())
+                || ContactDetails.found(before)
+                || ContactDetails.found(after)) {
+            throw new IllegalArgumentException("an audit entry names people by id only, never by email or address");
+        }
         jdbc.sql("""
                         insert into identity.audit_log
                             (id, actor_kind, actor_user_id, actor_name, action, target_type, target_id, reason,
@@ -67,8 +72,8 @@ class AuditLog implements AuditTrail {
                 .param("targetType", entry.targetType())
                 .param("targetId", entry.targetId())
                 .param("reason", entry.reason().strip())
-                .param("before", toJson(entry.before()))
-                .param("after", toJson(entry.after()))
+                .param("before", before)
+                .param("after", after)
                 .param("now", Timestamp.from(Instant.now(clock).truncatedTo(ChronoUnit.MICROS)))
                 .update();
     }

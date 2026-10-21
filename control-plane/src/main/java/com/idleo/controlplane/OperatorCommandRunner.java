@@ -2,6 +2,7 @@ package com.idleo.controlplane;
 
 import java.io.PrintStream;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -23,6 +24,9 @@ class OperatorCommandRunner implements ApplicationRunner, ExitCodeGenerator {
     static final int USAGE = 2;
     static final int REFUSED = 3;
     static final int CHECK_FAILED = 4;
+
+    /** Who's running a command, as the audit log names them: a handle such as {@code nikki} (ADR 0037). */
+    static final Pattern OPERATOR_HANDLE = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{1,39}");
 
     private final List<OperatorCommand> commands;
     private final Environment environment;
@@ -61,6 +65,11 @@ class OperatorCommandRunner implements ApplicationRunner, ExitCodeGenerator {
             var operator = environment.getProperty("OPERATOR", "").strip();
             if (operator.isEmpty()) {
                 throw new OperatorCommand.Usage("set OPERATOR to who you are; it's recorded with every change");
+            }
+            if (!OPERATOR_HANDLE.matcher(operator).matches()) {
+                throw new OperatorCommand.Usage(
+                        "OPERATOR is a short handle (letters, digits, '.', '_' or '-'), never an email or a full name:"
+                                + " the audit log keeps people by id only");
             }
             command.run(args, operator, out);
             exitCode = OK;

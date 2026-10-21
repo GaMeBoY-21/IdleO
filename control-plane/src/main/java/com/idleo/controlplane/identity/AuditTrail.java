@@ -14,8 +14,9 @@ public interface AuditTrail {
 
     /**
      * Who did it: an admin in the console, an operator running a command, a host's owner, or the system itself (an
-     * agent's enrolment, say). {@code userId} is set for an admin and an owner; {@code name} is how the log shows
-     * them: the admin's email, the operator's name from {@code OPERATOR}, or what the system was doing.
+     * agent's enrolment, say). {@code userId} is set for an admin and an owner; {@code name} is how the log names
+     * them, never by an email or a person's name (ADR 0037): an admin or an owner by their user id, an operator by
+     * the handle in {@code OPERATOR}, or what the system was doing.
      */
     record Actor(Kind kind, @Nullable UUID userId, String name) {
 
@@ -54,7 +55,7 @@ public interface AuditTrail {
 
         /**
          * How the action's own records name who did it ({@code granted_by}, {@code changed_by}): an operator by their
-         * name alone, as before the console existed; an admin as {@code admin <email>}.
+         * handle alone, as before the console existed; an admin as {@code admin <user id>}.
          */
         public String label() {
             return kind == Kind.ADMIN ? "admin " + name : name;

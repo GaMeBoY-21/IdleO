@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.IdempotentRequests;
+import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -58,7 +59,10 @@ class AdminInvitesController {
      */
     record AdminInviteRequest(
             @Min(1) @Max(InviteService.MAX_COUNT) int count,
-            @NotBlank @Size(min = 5, max = 200) String note,
+
+            @NotBlank @Size(min = 5, max = 200) @NoContactDetails
+            String note,
+
             @Min(1) @Max(365) @Nullable Integer expiresInDays) {}
 
     /** The new codes, shown only now; each works once. */
