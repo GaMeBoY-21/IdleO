@@ -115,7 +115,7 @@ stack_await_sign_in() {
 # A token from the development sign-in server for the user $1 (their address is $1@example.com).
 stack_token() {
   curl -sf -X POST "$sign_in/token" \
-    -d grant_type=client_credentials -d "client_id=$1" -d client_secret=unused -d scope=openid |
+    -d grant_type=client_credentials -d "client_id=$1" -d client_secret=unused -d scope=openid -d "auth_time=$(date +%s)" |
     json_field access_token
 }
 

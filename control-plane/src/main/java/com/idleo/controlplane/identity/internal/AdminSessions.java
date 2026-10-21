@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.identity.SecurityLog;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -38,11 +39,13 @@ class AdminSessions {
     private final JdbcClient jdbc;
     private final IdGenerator ids;
     private final Clock clock;
+    private final SecurityLog security;
     private final Duration ttl;
     private final Duration max;
     private final SecureRandom random = new SecureRandom();
 
-    AdminSessions(JdbcClient jdbc, IdGenerator ids, Clock clock, AdminProperties properties) {
+    AdminSessions(JdbcClient jdbc, IdGenerator ids, Clock clock, AdminProperties properties, SecurityLog security) {
+        this.security = security;
         this.jdbc = jdbc;
         this.ids = ids;
         this.clock = clock;
@@ -74,6 +77,7 @@ class AdminSessions {
                 .param("expiresAt", Timestamp.from(expiresAt))
                 .param("endsBy", Timestamp.from(now.plus(max)))
                 .update();
+        security.record(SecurityLog.Kind.ADMIN_SESSION_STARTED, userId);
         return new Issued(token, expiresAt);
     }
 

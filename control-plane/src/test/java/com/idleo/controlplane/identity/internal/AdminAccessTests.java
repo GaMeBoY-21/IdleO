@@ -35,6 +35,9 @@ import tools.jackson.databind.json.JsonMapper;
 class AdminAccessTests {
 
     @Autowired
+    com.idleo.controlplane.identity.SecurityLog security;
+
+    @Autowired
     MockMvc mvc;
 
     @Autowired
@@ -328,7 +331,8 @@ class AdminAccessTests {
                 org.springframework.jdbc.core.simple.JdbcClient.create(jdbc),
                 ids,
                 own,
-                new AdminProperties("unused", Duration.ofMinutes(30), Duration.ofHours(8), "IdleO"));
+                new AdminProperties("unused", Duration.ofMinutes(30), Duration.ofHours(8), "IdleO"),
+                security);
         var issued = transactions.execute(status -> sessions.start(admin.id(), identity));
         for (int i = 0; i < 19; i++) {
             own.advance(Duration.ofMinutes(25));

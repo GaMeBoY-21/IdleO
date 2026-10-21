@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.identity.SecurityLog;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
@@ -65,6 +66,7 @@ class CliLogins {
     private final IdGenerator ids;
     private final IdentityProperties properties;
     private final Clock clock;
+    private final SecurityLog security;
     private final SecureRandom random = new SecureRandom();
 
     CliLogins(
@@ -73,7 +75,9 @@ class CliLogins {
             ApiKeyStore keys,
             IdGenerator ids,
             IdentityProperties properties,
-            Clock clock) {
+            Clock clock,
+            SecurityLog security) {
+        this.security = security;
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.keys = keys;
@@ -149,6 +153,7 @@ class CliLogins {
                     .param("now", Timestamp.from(now))
                     .param("id", id)
                     .update();
+            security.record(SecurityLog.Kind.CLI_SIGN_IN_APPROVED, userId);
             return new Approval.Approved(login.pending());
         });
     }

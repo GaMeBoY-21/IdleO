@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +33,7 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
     private final ArrayList<String> signInMethods;
     private final @Nullable KeyCredential key;
     private final @Nullable UUID identityId;
+    private final @Nullable Instant authTime;
 
     private IdentityAuthenticationToken(
             @Nullable CurrentUser user,
@@ -39,7 +41,8 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
             boolean waiting,
             List<String> signInMethods,
             @Nullable KeyCredential key,
-            @Nullable UUID identityId) {
+            @Nullable UUID identityId,
+            @Nullable Instant authTime) {
         super(List.of());
         this.user = user;
         this.denial = denial;
@@ -47,29 +50,38 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
         this.signInMethods = new ArrayList<>(signInMethods);
         this.key = key;
         this.identityId = identityId;
+        this.authTime = authTime;
         setAuthenticated(true);
     }
 
     /**
      * An active user, signed in with these methods ({@code google} or {@code email-link}), through our sign-in
-     * identity {@code identityId} (the token's issuer and subject).
+     * identity {@code identityId} (the token's issuer and subject), at {@code authTime} (the token's {@code
+     * auth_time}).
      */
-    static IdentityAuthenticationToken allowed(CurrentUser user, List<String> signInMethods, UUID identityId) {
-        return new IdentityAuthenticationToken(user, null, false, signInMethods, null, identityId);
+    static IdentityAuthenticationToken allowed(
+            CurrentUser user, List<String> signInMethods, UUID identityId, @Nullable Instant authTime) {
+        return new IdentityAuthenticationToken(user, null, false, signInMethods, null, identityId, authTime);
     }
 
     /** A user who hasn't entered an invite code yet: they may only reach their own account. */
-    static IdentityAuthenticationToken waiting(CurrentUser user, List<String> signInMethods, UUID identityId) {
-        return new IdentityAuthenticationToken(user, null, true, signInMethods, null, identityId);
+    static IdentityAuthenticationToken waiting(
+            CurrentUser user, List<String> signInMethods, UUID identityId, @Nullable Instant authTime) {
+        return new IdentityAuthenticationToken(user, null, true, signInMethods, null, identityId, authTime);
     }
 
     /** A user calling with an API key; {@code waiting} as for their tokens. */
     static IdentityAuthenticationToken withKey(CurrentUser user, boolean waiting, KeyCredential key) {
-        return new IdentityAuthenticationToken(user, null, waiting, List.of(), key, null);
+        return new IdentityAuthenticationToken(user, null, waiting, List.of(), key, null, null);
     }
 
     static IdentityAuthenticationToken denied(Problem problem, String reason) {
-        return new IdentityAuthenticationToken(null, new Denial(problem, reason), false, List.of(), null, null);
+        return new IdentityAuthenticationToken(null, new Denial(problem, reason), false, List.of(), null, null, null);
+    }
+
+    /** When the person signed in at the provider ({@code auth_time}); empty for an API key or a token without it. */
+    Optional<Instant> authTime() {
+        return Optional.ofNullable(authTime);
     }
 
     /** The sign-in identity (issuer and subject) of an ID token; empty for an API key or a denial. */

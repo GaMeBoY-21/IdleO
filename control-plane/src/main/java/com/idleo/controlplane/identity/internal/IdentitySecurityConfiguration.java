@@ -1,15 +1,21 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.ClientAccessDeniedException;
+import com.idleo.controlplane.identity.SecurityLog;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
@@ -22,6 +28,8 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication
 class IdentitySecurityConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(IdentitySecurityConfiguration.class);
 
     /**
      * The calls that need no sign-in: starting a CLI sign-in and polling it (ADR 0025), whose poll token is its own
@@ -53,13 +61,38 @@ class IdentitySecurityConfiguration {
 
     /**
      * The one place a bearer value is decided (ADR 0025): one starting {@code idleo_} is checked as an API key,
-     * anything else as an ID token, with one decoder per trusted issuer, each with its own audience.
+     * anything else as an ID token, with one decoder per trusted issuer, each with its own audience. A value that
+     * doesn't verify goes in the security log (ADR 0037) before its 401.
      */
     @Bean
     AuthenticationManagerResolver<HttpServletRequest> bearerAuthenticationManagerResolver(
-            IdTokenAuthentication idTokens, ApiKeyAuthentication apiKeys) {
+            IdTokenAuthentication idTokens, ApiKeyAuthentication apiKeys, SecurityLog security) {
         var tokens = idTokens.resolver();
-        return request -> isApiKey(request) ? apiKeys : tokens.resolve(request);
+        return request -> {
+            var key = isApiKey(request);
+            AuthenticationManager manager = key ? apiKeys : tokens.resolve(request);
+            return authentication -> {
+                try {
+                    return manager.authenticate(authentication);
+                } catch (AuthenticationException failed) {
+                    recordFailure(security, key, failed);
+                    throw failed;
+                }
+            };
+        };
+    }
+
+    /** A failed sign-in, by how it failed; never in the way of the 401 it becomes. */
+    private static void recordFailure(SecurityLog security, boolean key, AuthenticationException failed) {
+        var expired =
+                String.valueOf(failed.getMessage()).toLowerCase(Locale.ROOT).contains("expired");
+        try {
+            security.record(SecurityLog.Kind.SIGN_IN_FAILED, null, key ? "api_key" : expired ? "expired" : "invalid");
+        } catch (RuntimeException unrecorded) {
+            log.warn(
+                    "A failed sign-in couldn't be recorded: {}",
+                    unrecorded.getClass().getSimpleName());
+        }
     }
 
     static boolean isApiKey(HttpServletRequest request) {

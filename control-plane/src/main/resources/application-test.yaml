@@ -112,3 +112,8 @@ events:
 metering:
   tick-every: 200ms
   review-after: 3s
+
+# Retention rules run only when a test applies them (ADR 0037).
+retention:
+  first-run-after: 3650d
+  every: 3650d

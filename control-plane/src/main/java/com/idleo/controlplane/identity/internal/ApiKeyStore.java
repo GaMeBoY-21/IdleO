@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.identity.SecurityLog;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -76,9 +77,11 @@ class ApiKeyStore {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final SecurityLog security;
     private final SecureRandom random = new SecureRandom();
 
-    ApiKeyStore(JdbcClient jdbc, TransactionTemplate transactions, IdGenerator ids, Clock clock) {
+    ApiKeyStore(JdbcClient jdbc, TransactionTemplate transactions, IdGenerator ids, Clock clock, SecurityLog security) {
+        this.security = security;
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.ids = ids;
@@ -122,6 +125,7 @@ class ApiKeyStore {
                     .param("via", key.createdVia())
                     .param("now", Timestamp.from(key.createdAt()))
                     .update();
+            security.record(SecurityLog.Kind.API_KEY_CREATED, userId, via.dbValue);
             return Optional.of(new Created(key, secret));
         });
     }
@@ -150,10 +154,17 @@ class ApiKeyStore {
     /** Revokes one of the person's keys; false when they have no such key. Revoking it again changes nothing. */
     boolean revoke(UUID userId, UUID keyId) {
         var now = Timestamp.from(Instant.now(clock));
-        jdbc.sql("""
+        int revoked = jdbc.sql("""
                         update identity.api_keys set revoked_at = :now
                         where id = :id and user_id = :user and revoked_at is null
-                        """).param("now", now).param("id", keyId).param("user", userId).update();
+                        """)
+                .param("now", now)
+                .param("id", keyId)
+                .param("user", userId)
+                .update();
+        if (revoked == 1) {
+            security.record(SecurityLog.Kind.API_KEY_REVOKED, userId);
+        }
         return jdbc.sql("select count(*) from identity.api_keys where id = :id and user_id = :user")
                         .param("id", keyId)
                         .param("user", userId)

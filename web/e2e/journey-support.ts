@@ -24,7 +24,13 @@ export const laptop = {
 /** The same invented user, as the script's operator tooling signs in. */
 export async function token(request: APIRequestContext, who = user): Promise<string> {
   const response = await request.post(`${signInServer}/token`, {
-    form: { grant_type: "client_credentials", client_id: who, client_secret: "unused", scope: "openid" },
+    form: {
+      grant_type: "client_credentials",
+      client_id: who,
+      client_secret: "unused",
+      scope: "openid",
+      auth_time: String(Math.floor(Date.now() / 1000)),
+    },
   });
   return ((await response.json()) as { access_token: string }).access_token;
 }

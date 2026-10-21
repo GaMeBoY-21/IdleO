@@ -18,7 +18,7 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 | Table | Columns (personal in bold) | Why | Kept | On erasure |
 | --- | --- | --- | --- | --- |
 | `identity.users` | id, status, **email**, email_verified, **display_name**, created_at, updated_at, version | The account: who to write to and what to call them | The account's life | Cleared, status `erased`; the row stays as a tombstone so ledger ids still resolve to "an erased account" |
-| `identity.external_identities` | id, user_id, **issuer**, **subject**, created_at, last_sign_in_at | Which sign-in provider account is this person | The account's life | Deleted |
+| `identity.external_identities` | id, user_id, **issuer**, **subject**, created_at, last_sign_in_at, signed_in_at | Which sign-in provider account is this person; `signed_in_at` is the newest token's `auth_time` | The account's life | Deleted |
 | `identity.api_keys` | id, user_id, **name**, scope, key_hash, display_prefix, created_via, created_at, last_used_at, revoked_at | The CLI's and scripts' keys (ADR 0025); the name is the person's label | The account's life (revoked keys too, so a leaked one stays recognisable) | Revoked first, then deleted |
 | `identity.cli_logins` | id, user_code_hash, poll_token_hash, **device_name**, created_at, expires_at, approved_by, approved_at, redeemed_at, api_key_id | A device sign-in in progress (10 minutes) | `rule: cli-logins` | Deleted |
 | `identity.invite_codes` | id, code_hash, **note**, created_by, created_at, expires_at, used_by, used_at | Access by invitation (ADR 0024); the note is the admin's label for whom | Unused: `rule: invite-codes`; used: the account's life | The note of the code they used is cleared; codes they made as an admin stay, by id |
@@ -28,6 +28,7 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 | `identity.admin_recovery_codes` | id, user_id, code_hash, created_at, used_at | The admin's one-time codes, hashed | While an admin | Deleted |
 | `identity.admin_code_attempts` | id, user_id, succeeded, attempted_at | Locks the console after 5 wrong codes in 15 minutes | `rule: admin-code-attempts` | Deleted |
 | `identity.idempotency_keys` | user_id, idempotency_key, request_hash, state, response_status, response_location, **response_body**, locked_at, created_at, expires_at | Repeating a create request returns the same answer | `rule: idempotency-keys` | Deleted |
+| `identity.security_events` | id, user_id, kind, detail, **address**, at | The security log (ADR 0037): sign-ins, refused and failed sign-ins, API key and device sign-in events, admin console sign-ins and wrong codes, email changes, export and deletion requests. The only place an IP address is kept; shown only in the admin console | `rule: security-events`, `legal.retention.security-events` (a year, LEGAL(confirm)) | Kept: the opaque id, the kind and the address, until the rule deletes it |
 | `identity.audit_log` | id, actor_kind, actor_user_id, actor_name, action, target_type, target_id, **reason**, before, after, created_at | Every privileged action (ADR 0027), append-only by trigger. It holds ids only: no IP, email or name (`AuditLog` refuses an entry with an email or an address in it; a test reads every row). The reason is an admin's free text | `legal.retention.audit-log`, 8 years, LEGAL(confirm); not deleted yet (ADR 0037) | Kept: ids only. The erasure itself is audited by id |
 
 ### hosts
@@ -164,4 +165,4 @@ Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an
 
 | Rule | Deletes | Period | Setting |
 | --- | --- | --- | --- |
-| (filled in as the jobs are built) | | | |
+| `security-events` | `identity.security_events` rows older than the period | 365 days, LEGAL(confirm) | `legal.retention.security-events` |

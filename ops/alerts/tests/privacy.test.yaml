@@ -1,0 +1,32 @@
+# promtool test rules: the privacy alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../privacy.yaml
+evaluation_interval: 1m
+tests:
+  # Two instances: one ran the rule an hour ago, the other never got its lock; then neither runs it for two days.
+  - interval: 4m
+    input_series:
+      - series: 'retention_age_seconds{job="control-plane", instance="a", rule="uploads"}'
+        values: '3600+240x600'
+      - series: 'retention_age_seconds{job="control-plane", instance="b", rule="uploads"}'
+        values: '90000+240x600'
+    alert_rule_test:
+      - eval_time: 30h
+        alertname: RetentionStopped
+        exp_alerts: []
+      - eval_time: 38h
+        alertname: RetentionStopped
+        exp_alerts:
+          - exp_labels: {severity: digest, rule: uploads}
+            exp_annotations:
+              summary: 'A retention rule (uploads) has stopped deleting what is due.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#retention-stopped
+  # Runs every day: never fires.
+  - interval: 4m
+    input_series:
+      - series: 'retention_age_seconds{job="control-plane", instance="a", rule="checkpoints"}'
+        values: '0+240x359 0+240x359 0+240x359'
+    alert_rule_test:
+      - eval_time: 70h
+        alertname: RetentionStopped
+        exp_alerts: []

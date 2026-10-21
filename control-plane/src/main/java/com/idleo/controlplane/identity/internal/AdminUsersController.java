@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -124,6 +125,44 @@ class AdminUsersController {
         find(id);
         refusing(() -> suspensions.unsuspend(id, request.reason(), audit.admin(admin)));
         return find(id);
+    }
+
+    /** One entry of a person's security log (ADR 0037): the only place an admin sees an address. */
+    record SecurityEvent(
+            String kind, @Nullable String detail, @Nullable String address, Instant at) {}
+
+    record SecurityEventPage(
+            List<SecurityEvent> events, @Nullable String nextCursor) {}
+
+    /** The person's security log, newest first: sign-ins, failures they can be tied to, key and account events. */
+    @GetMapping("/{id}/security-events")
+    SecurityEventPage securityEvents(
+            @PathVariable UUID id,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        find(id);
+        int size = AdminPages.limit(limit);
+        var rows = jdbc.sql("""
+                        select id, kind, detail, host(address) as address, at from identity.security_events
+                        where user_id = :user and (cast(:after as uuid) is null or id < cast(:after as uuid))
+                        order by id desc
+                        limit :limit
+                        """)
+                .param("user", id)
+                .param("after", AdminPages.after(cursor))
+                .param("limit", size + 1)
+                .query((rs, n) -> Map.entry(
+                        rs.getObject("id", UUID.class),
+                        new SecurityEvent(
+                                rs.getString("kind"),
+                                rs.getString("detail"),
+                                rs.getString("address"),
+                                rs.getTimestamp("at").toInstant())))
+                .list();
+        var page = rows.size() > size ? rows.subList(0, size) : rows;
+        return new SecurityEventPage(
+                page.stream().map(Map.Entry::getValue).toList(),
+                rows.size() > size ? AdminPages.cursorAfter(page.getLast().getKey()) : null);
     }
 
     private AdminUser find(UUID id) {

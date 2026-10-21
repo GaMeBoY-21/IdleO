@@ -36,8 +36,13 @@ export function createOidcAdapter(): AuthAdapter {
     userStore: new IndexedDbStore(),
   });
 
+  // auth_time is when this sign-in happened, as Identity Platform's tokens carry it; the development server copies it
+  // into the token (control-plane/local-sign-in.json), so deleting an account can ask for a fresh sign-in locally too.
   const redirect = (localPart: string) =>
-    manager.signinRedirect({ login_hint: localPart, extraTokenParams: { login_hint: localPart } });
+    manager.signinRedirect({
+      login_hint: localPart,
+      extraTokenParams: { login_hint: localPart, auth_time: String(Math.floor(Date.now() / 1000)) },
+    });
 
   return {
     watch(onChange) {

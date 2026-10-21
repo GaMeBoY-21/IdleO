@@ -34,7 +34,7 @@ for line in "Web app" "Website" "Link demo" "Mailpit" "Grafana" "Admin console" 
 done
 
 token="$(curl -sf -X POST "$sign_in/token" -d grant_type=client_credentials -d client_id=nikki \
-  -d client_secret=unused -d scope=openid | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')"
+  -d client_secret=unused -d scope=openid -d "auth_time=$(date +%s)" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')"
 [[ -n "$token" ]] || fail "no token for nikki"
 session="$(curl -sf -X POST "$api/v1/sessions" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
   -H "Idempotency-Key: start-check-$(date +%s)" \

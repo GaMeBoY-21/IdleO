@@ -1,0 +1,16 @@
+# Personal data (ADR 0037, docs/reference/personal-data-map.md): every retention rule keeps running. Same format and rules
+# as platform.yaml.
+groups:
+  - name: privacy
+    rules:
+      - alert: RetentionStopped
+        # No instance has applied a retention rule for a day and a half (each runs daily): what the map says is
+        # deleted after a period is being kept longer.
+        expr: |
+          min by (rule) (retention_age_seconds{job="control-plane"}) > 36 * 3600
+        for: 10m
+        labels:
+          severity: digest
+        annotations:
+          summary: 'A retention rule ({{ $labels.rule }}) has stopped deleting what is due.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#retention-stopped

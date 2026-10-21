@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
@@ -57,12 +59,23 @@ final class IdTokenValidators {
     }
 
     private static boolean authTimeNotInTheFuture(Object authTime, Clock clock) {
-        if (authTime instanceof Instant instant) {
-            return notInTheFuture(instant, clock);
-        }
-        if (authTime instanceof Number seconds) {
-            return notInTheFuture(Instant.ofEpochSecond(seconds.longValue()), clock);
-        }
-        return false;
+        var instant = authTime(authTime);
+        return instant != null && notInTheFuture(instant, clock);
     }
+
+    /**
+     * The {@code auth_time} claim as a time, or null when it isn't one: Identity Platform sends a number of seconds,
+     * the development sign-in server a string of digits (control-plane/local-sign-in.json).
+     */
+    static @Nullable Instant authTime(@Nullable Object claim) {
+        return switch (claim) {
+            case Number seconds -> Instant.ofEpochSecond(seconds.longValue());
+            case Instant instant -> instant;
+            case String digits
+            when EPOCH_SECONDS.matcher(digits).matches() -> Instant.ofEpochSecond(Long.parseLong(digits));
+            case null, default -> null;
+        };
+    }
+
+    private static final Pattern EPOCH_SECONDS = Pattern.compile("[0-9]{1,12}");
 }

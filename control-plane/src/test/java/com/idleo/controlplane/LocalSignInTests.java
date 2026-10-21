@@ -36,6 +36,9 @@ class LocalSignInTests {
     @Autowired
     MutableClock clock;
 
+    @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
     /** Its tokens carry the real time; other tests move the shared clock. */
     @BeforeEach
     void resetClock() {
@@ -46,7 +49,8 @@ class LocalSignInTests {
         var request = HttpRequest.newBuilder(URI.create(localSignIn.issuer() + "/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(
-                        "grant_type=client_credentials&client_id=" + clientId + "&client_secret=unused&scope=openid"))
+                        "grant_type=client_credentials&client_id=" + clientId + "&client_secret=unused&scope=openid"
+                                + "&auth_time=" + clock.instant().getEpochSecond()))
                 .build();
         try (var http = HttpClient.newHttpClient()) {
             var response = http.send(request, HttpResponse.BodyHandlers.ofString());
@@ -98,6 +102,7 @@ class LocalSignInTests {
                             .POST(HttpRequest.BodyPublishers.ofString(
                                     "grant_type=authorization_code&client_id=idleo-local"
                                             + "&code=" + code + "&code_verifier=" + verifier + "&login_hint=" + user
+                                            + "&auth_time=" + clock.instant().getEpochSecond()
                                             + "&redirect_uri="
                                             + java.net.URLEncoder.encode(
                                                     redirect, java.nio.charset.StandardCharsets.UTF_8)))
@@ -134,5 +139,30 @@ class LocalSignInTests {
         assertThat(ProductionSettingsGuard.problems(environment))
                 .contains("agentgateway.allow-development-hosts is true")
                 .anyMatch(problem -> problem.startsWith("identity issuer " + localSignIn.issuer()));
+    }
+
+    /**
+     * Deleting an account asks for a sign-in within the last 10 minutes (ADR 0037), read from the token's {@code
+     * auth_time}: the development server sets it, as Identity Platform does, so a local sign-in counts as fresh and
+     * goes in the security log once.
+     */
+    @Test
+    void aDevelopmentSignInCarriesItsSignInTimeAndIsLoggedOnce() throws Exception {
+        var clientId = "local-" + UUID.randomUUID();
+        var token = token(clientId);
+        var claims = JsonMapper.builder()
+                .build()
+                .readTree(java.util.Base64.getUrlDecoder().decode(token.split("\\.")[1]));
+        assertThat(claims.get("auth_time").asString())
+                .isEqualTo(String.valueOf(clock.instant().getEpochSecond()));
+
+        mvc.perform(get("/v1/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        mvc.perform(get("/v1/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject("""
+                        select count(*) from identity.security_events s join identity.users u on u.id = s.user_id
+                        where u.email = ? and s.kind = 'sign_in'
+                        """, Integer.class, clientId + "@example.com"))
+                .isOne();
     }
 }

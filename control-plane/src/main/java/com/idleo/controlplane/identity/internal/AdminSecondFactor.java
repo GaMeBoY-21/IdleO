@@ -4,6 +4,7 @@ import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.SecurityLog;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -54,6 +55,7 @@ class AdminSecondFactor {
     private final AuditTrail audit;
     private final IdGenerator ids;
     private final Clock clock;
+    private final SecurityLog security;
     private final String issuer;
     private final SecureRandom random = new SecureRandom();
 
@@ -66,7 +68,9 @@ class AdminSecondFactor {
             IdGenerator ids,
             Clock clock,
             AdminProperties properties,
-            CodeHashes hashes) {
+            CodeHashes hashes,
+            SecurityLog security) {
+        this.security = security;
         this.hashes = hashes;
         this.jdbc = jdbc;
         this.transactions = transactions;
@@ -183,6 +187,7 @@ class AdminSecondFactor {
                     .param("now", Timestamp.from(now))
                     .update();
             if (!accepted) {
+                security.record(SecurityLog.Kind.ADMIN_CODE_FAILED, userId);
                 return new Outcome.Wrong(lockIfTooMany(userId, now));
             }
             var codes = confirming ? confirmEnrolment(userId, now) : List.<String>of();

@@ -137,3 +137,11 @@ Two alerts share this section.
 **Check first:** Platform health, "Real visitors": since a release, or always? TTFB high too means the server or the network; TTFB fine means the page itself.
 
 **Do:** measure the route on Lighthouse's mobile profile (`E2E_LIGHTHOUSE_MEASURE=simulate scripts/e2e/agent-online.sh --web`, web/README.md "Measuring Lighthouse") and compare with the budgets in CLAUDE.md. Never loosen a budget without Nikki's say.
+
+## Retention stopped
+
+**Means:** one retention rule (the alert's `rule`) hasn't run on any instance for a day and a half. Each runs once a day and deletes what the personal data map (docs/reference/personal-data-map.md) says is kept only for a while: uploads, checkpoints, outputs, logs, exports, the security log and the rest. Nothing is lost while it's stopped; things are kept longer than we promise.
+
+**Check first:** Loki, `{service_name="control-plane"} |= "Retention rule"`: a failing rule logs `Retention rule <name> failed` with the error each day. `retention_failures_total` by rule counts them. If there's no line at all, no instance has been up for long enough, or scheduling is off.
+
+**Do:** fix what the error says (most often storage unreachable, docs/runbooks/object-storage.md, or a database timeout on a large first run). The rule catches up by itself at its next run, or restart one instance to run every rule two minutes after it starts.

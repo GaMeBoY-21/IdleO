@@ -7,7 +7,9 @@ enum UserStatus {
     /** Signed in but not yet activated with an invite code. */
     WAITING,
     ACTIVE,
-    SUSPENDED;
+    SUSPENDED,
+    /** Deleted at the person's request (ADR 0037): a tombstone with no email or name, which nothing can sign in as. */
+    ERASED;
 
     String dbValue() {
         return name().toLowerCase(Locale.ROOT);

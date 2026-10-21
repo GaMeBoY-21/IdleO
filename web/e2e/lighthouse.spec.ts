@@ -256,7 +256,13 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
 
 async function renterToken(request: APIRequestContext): Promise<string> {
   const tokenResponse = await request.post(`${signInServer}/token`, {
-    form: { grant_type: "client_credentials", client_id: user, client_secret: "unused", scope: "openid" },
+    form: {
+      grant_type: "client_credentials",
+      client_id: user,
+      client_secret: "unused",
+      scope: "openid",
+      auth_time: String(Math.floor(Date.now() / 1000)),
+    },
   });
   return ((await tokenResponse.json()) as { access_token: string }).access_token;
 }

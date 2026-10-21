@@ -1220,6 +1220,45 @@ paths:
         idToken: []
       tags:
       - adminUsers
+  /admin/v1/users/{id}/security-events:
+    get:
+      operationId: adminUsersSecurityEvents
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityEventPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminUsers
   /admin/v1/users/{id}/suspend:
     post:
       operationId: adminUsersSuspend
@@ -5971,6 +6010,38 @@ components:
           minItems: 0
       required:
       - items
+    SecurityEvent:
+      type: object
+      properties:
+        address:
+          type:
+          - string
+          - "null"
+        at:
+          type: string
+          format: date-time
+        detail:
+          type:
+          - string
+          - "null"
+        kind:
+          type: string
+      required:
+      - at
+      - kind
+    SecurityEventPage:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityEvent"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - events
     ServiceResponse:
       type: object
       properties:

@@ -24,7 +24,8 @@
                   "${clientId}@example.com"
                 ]
               }
-            }
+            },
+            "auth_time": "${auth_time}"
           }
         },
         {
@@ -46,7 +47,8 @@
                   "${login_hint}@example.com"
                 ]
               }
-            }
+            },
+            "auth_time": "${auth_time}"
           }
         }
       ]

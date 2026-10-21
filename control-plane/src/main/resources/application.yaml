@@ -373,3 +373,28 @@ agentgateway:
   # Accept a Hello from a Mac or with fake GPUs (ADR 0013). Only the local and
   # test profiles turn it on; the application refuses to start with it in prod.
   allow-development-hosts: false
+
+# Retention (ADR 0037, docs/reference/personal-data-map.md): every rule there is a RetentionRule bean, run shortly after
+# start and then every day, one instance at a time each. The periods that are the product's own choice are below;
+# the ones the law sets are under legal.retention.
+retention:
+  first-run-after: 2m
+  every: 24h
+
+# Everything the law decides, in one place (ADR 0037). Each value marked LEGAL(confirm) is a proposal a lawyer must
+# confirm before launch; the report of the privacy work lists them with the question to ask. Nothing else in the code
+# or the pages repeats them.
+legal:
+  retention:
+    # The security log (sign-ins, failures, key and admin events, deletion and export requests, with addresses):
+    # at least a year. LEGAL(confirm)
+    security-events: 365d
+    # Money records (the ledger, charges, earnings, settlements), keyed by opaque ids: 8 years. Not deleted yet: the
+    # ledger is append-only, and how to delete after the period is a later decision (ADR 0037). LEGAL(confirm)
+    money-records: 2922d
+    # The admin audit log, ids only: as long as the money records it explains. Not deleted yet (ADR 0037).
+    # LEGAL(confirm)
+    audit-log: 2922d
+    # Database backups, which can hold an erased person until they age out (ops/backup/, docs/runbooks/backups.md);
+    # the privacy notice must say so. Changing it means changing the backup scripts too. LEGAL(confirm)
+    backups: 30d

@@ -648,7 +648,7 @@ if $keep_running; then
   printf '\nThe API, as %s (the token lasts an hour):\n\n' "$account"
   printf "  curl -s -H 'Authorization: Bearer %s' %s/v1/me\n\n" "$account_token" "$api"
   printf 'A new token:\n\n'
-  printf "  curl -s -X POST %s/token -d grant_type=client_credentials -d client_id=%s -d client_secret=unused -d scope=openid\n\n" "$sign_in" "$account"
+  printf "  curl -s -X POST %s/token -d grant_type=client_credentials -d client_id=%s -d client_secret=unused -d scope=openid -d auth_time=\$(date +%%s)\n\n" "$sign_in" "$account"
   printf 'Logs: private/e2e/ (control-plane.log, agent-N.log, web-serve.log). Ctrl-C stops everything.\n'
   wait "$control_plane_pid" || true
   exit 0
