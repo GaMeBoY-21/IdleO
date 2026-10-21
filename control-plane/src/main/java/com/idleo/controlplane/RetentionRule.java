@@ -1,6 +1,7 @@
 package com.idleo.controlplane;
 
 import java.time.Instant;
+import java.util.function.ToLongFunction;
 
 /**
  * One retention rule of the personal data map (docs/reference/personal-data-map.md, ADR 0037): something kept for a
@@ -15,4 +16,19 @@ public interface RetentionRule {
 
     /** Deletes what is due at {@code now}; how many rows or objects it deleted. */
     long apply(Instant now);
+
+    /** A rule from its name and what it does. */
+    static RetentionRule of(String name, ToLongFunction<Instant> apply) {
+        return new RetentionRule() {
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public long apply(Instant now) {
+                return apply.applyAsLong(now);
+            }
+        };
+    }
 }

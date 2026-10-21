@@ -99,4 +99,36 @@ class PersonalDataMapTests {
             }
         }
     }
+
+    @Autowired
+    RetentionJobs retention;
+
+    @Autowired
+    MutableClock clock;
+
+    /** Every rule the map names has its job, every job is in the map, and each runs twice over without error. */
+    @Test
+    void everyRetentionRuleInTheMapHasItsJobAndEachIsIdempotent() throws IOException {
+        var named = new TreeSet<String>();
+        var rule = Pattern.compile("`rule: ([a-z-]+)`|^\\| `([a-z-]+)` \\| ");
+        var text = Files.readString(MAP);
+        var inTable = text.substring(text.indexOf("## Retention rules"));
+        var mentioned = Pattern.compile("`rule: ([a-z-]+)`").matcher(text);
+        while (mentioned.find()) {
+            named.add(mentioned.group(1));
+        }
+        var rows = Pattern.compile("(?m)^\\| `([a-z-]+)` \\| ").matcher(inTable);
+        var listed = new TreeSet<String>();
+        while (rows.find()) {
+            listed.add(rows.group(1));
+        }
+        assertThat(listed).as("the map's retention rules table").containsAll(named);
+        assertThat(retention.rules().keySet()).as("the rules' jobs").containsExactlyInAnyOrderElementsOf(listed);
+        for (var job : retention.rules().values()) {
+            var now = clock.instant();
+            job.apply(now);
+            assertThat(job.apply(now)).as("%s, run again at once", job.name()).isZero();
+        }
+        assertThat(rule).isNotNull();
+    }
 }

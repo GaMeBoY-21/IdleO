@@ -18,7 +18,6 @@ import org.springframework.validation.annotation.Validated;
  * @param maxUploadSize the largest upload, all its files together
  * @param maxFiles the most files in one upload
  * @param quota the most a renter may have in pending and ready uploads together
- * @param expirySweepEvery how often expired uploads are looked for
  */
 @ConfigurationProperties("sessions.uploads")
 @Validated
@@ -29,5 +28,4 @@ record UploadProperties(
         @NotNull Duration readyTtl,
         @NotNull DataSize maxUploadSize,
         @Positive int maxFiles,
-        @NotNull DataSize quota,
-        @NotNull Duration expirySweepEvery) {}
+        @NotNull DataSize quota) {}

@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 /** The shared kernel's beans. Every module takes "now" from this one clock, never from the system. */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(LegalSettings.class)
+@EnableConfigurationProperties({LegalSettings.class, RetentionPeriods.class})
 class SharedKernelConfiguration {
 
     @Bean

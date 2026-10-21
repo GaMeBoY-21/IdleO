@@ -7,7 +7,7 @@ How to read it:
 - **Personal** columns are in bold: they name, describe or can reach a person (an email, a name, a file name, free text a person or an admin wrote, an address, a hardware id). A plain id (a UUIDv7) is pseudonymous: it points at a person only through `identity.users`, which erasure empties.
 - **Whose** finds one person's rows (`:user` their id, `:sessions` the sessions they booked, `:hosts` their machines, `:uploads` their uploads, `:installs` their machines' setup installs, `:address_hash` their address's SHA-256); `PersonalDataMapTests` runs it for two people, before and after an export and an erasure.
 - **Export** is where those rows are in "Download my data" (`account.json`'s `apiKeys` is `account: apiKeys`), or `—` when they say nothing about the person that another file doesn't already (a hold, a minute's witnesses) or are only security material (hashed codes, sealed secrets).
-- **Kept** names the retention rule that deletes it (`rule: name`, one job each, see "Retention rules" at the end), or says what keeps it.
+- **Kept** names the retention rule that deletes it (written `rule:` and its name, one job each, see "Retention rules" at the end), or says what keeps it.
 - **On erasure** starts with what the erasure job (ADR 0037) does, which the test checks: *Deleted* (no row of theirs is left), *Cleared* (rows may stay, keyed by the opaque id, with every personal column empty: null, `''` or `{}`), or *Kept* (nothing personal in it beyond the opaque id, or kept for a reason the line gives).
 - Periods marked LEGAL(confirm) are a lawyer's to confirm; they are set in one place, the `legal:` block of `control-plane/src/main/resources/application.yaml`.
 
@@ -61,7 +61,7 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 
 | Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
 | --- | --- | --- | --- | --- | --- | --- |
-| `sessions.sessions` | id, renter_id, host_id, type, state, attempt, template_id, image_digest, vram_needed_mb, max_price_paise_per_min, price_paise_per_min, max_spend_paise, max_runtime_seconds, lease_expires_at, idempotency_key, request_hash, state_changed_at, version, created_at, started_at, error_code, **params**, **presets** | `renter_id = :user` | sessions: sessions | A session: what ran, on which host, at what price; the parameters are the renter's | A money record: `legal.retention.money-records` | Cleared: parameters and presets emptied, the request's key and hash replaced; kept as a money record |
+| `sessions.sessions` | id, renter_id, host_id, type, state, attempt, template_id, image_digest, vram_needed_mb, max_price_paise_per_min, price_paise_per_min, max_spend_paise, max_runtime_seconds, lease_expires_at, idempotency_key, request_hash, state_changed_at, version, created_at, started_at, error_code, **params**, **presets**, checkpoints_deleted_at, files_deleted_at | `renter_id = :user` | sessions: sessions | A session: what ran, on which host, at what price; the parameters are the renter's | A money record: `legal.retention.money-records` | Cleared: parameters and presets emptied, the request's key and hash replaced; kept as a money record |
 | `sessions.attempts` | session_id, attempt, host_id, **gpu_uuids**, command_id, minute_index_base, resume_from_attempt, resume_from_seq, start_delivered_at, created_at, running_at, ended_at, price_paise_per_min, stop_requested_at, stop_reason, stop_deadline, grants_minted_at, refresh_queued_at, latest_log_seq | `session_id in (:sessions)` | — | Each attempt's host and times, the basis of a charge | A money record | Kept: no personal data but the GPUs' uuids, emptied when their machines' owner is erased |
 | `sessions.session_events` | id, session_id, from_state, to_state, reason, at | `session_id in (:sessions)` | sessions: timeline | The session's timeline | A money record | Kept |
 | `sessions.lease_coverage` | id, session_id, attempt, covered_from, covered_until | `session_id in (:sessions)` | — | The control plane's witness of each minute (ADR 0017) | A money record | Kept |
@@ -157,8 +157,8 @@ Only state that may expire; never anything financial (ADR 0013).
 | What | Personal | Kept |
 | --- | --- | --- |
 | The control plane's logs (structured JSON, to Grafana Cloud's Loki) | Ids only: `LogScan` fails the build when a test's logs hold an email, a token, a file path or name, or an IP | 14 days (monitoring.md) |
-| Metrics (Prometheus) | Labels are codes only: no user, host, session or file in any label (`MetricLabelsTests`) | 14 days |
-| Traces (Tempo) | Span attributes: the HTTP method, route template and status; the URL path, which holds ids; no query string, header, body or IP (`TraceAttributesTests`) | 14 days |
+| Metrics (Prometheus) | Labels are codes only: no user, host, session or file in any label (`TelemetryPrivacyTests`) | 14 days |
+| Traces (Tempo) | Span attributes: the HTTP method, route template and status; the URL path, which holds ids; no query string, header, body or IP (`TelemetryPrivacyTests`) | 14 days |
 | Browser vitals and errors (`/v1/vitals`) | Route and release as codes; an error's message with anything shaped like an email, a token or a path removed | As logs and metrics |
 | The agent's logs on a host | The agent's own lines, ids only | On the host, rotated |
 | The job's logs on a host | Uploaded to `logs/` above; the scratch disk is deleted at session end | Session end |
@@ -181,3 +181,21 @@ Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an
 | --- | --- | --- | --- |
 | `security-events` | `identity.security_events` rows older than the period | 365 days, LEGAL(confirm) | `legal.retention.security-events` |
 | `exports` | A made export's zip under `exports/`, and the row marked expired | 7 days after it's ready | `privacy.export-keep` |
+| `uploads` | An unfinished upload, and a finished one no session has used for the period, with its files; never one a live session uses | A day unfinished; 30 days after last used | `sessions.uploads.pending-ttl`, `ready-ttl` |
+| `checkpoints` | A session's checkpoints in storage, and their rows | 7 days after the session ends | `retention.periods.checkpoints` |
+| `outputs` | Everything else of a session in storage: outputs and logs | 30 days after the session ends | `retention.periods.outputs` |
+| `cli-logins` | Device sign-ins (their device names) | 7 days after they expire | `retention.periods.cli-logins` |
+| `invite-codes` | Invite codes never used (their notes) | 30 days after they expire | `retention.periods.invite-codes` |
+| `activation-attempts` | Tries at an invite code | A day | `retention.periods.activation-attempts` |
+| `admin-code-attempts` | Tries at the admin console's code | A day | `retention.periods.admin-code-attempts` |
+| `admin-sessions` | Ended admin console sessions | A day after they end | `retention.periods.admin-sessions` |
+| `host-links` | Links to add a machine (Windows' computer name) | 7 days after they expire | `retention.periods.host-links` |
+| `install-events` | Setup's measurements | A year | `retention.periods.install-events` |
+| `agent-commands` | Messages to agents once delivered or given up on (a StartSession's parameters and input links) | 30 days | `retention.periods.agent-commands` |
+| `offers` | How each session was matched (a GPU's uuid) | A year | `retention.periods.offers` |
+| `notifications` | What each person was told, once any email of it is sent | A year | `retention.periods.notifications` |
+| `event-publications` | Durable events between modules, once delivered | 7 days | `retention.periods.event-publications` |
+| `idempotency-keys` | Every module's finished Idempotency-Key records (their response bodies) | When each expires (a day) | `IdempotentRequests` |
+| `reconciliation-runs` | The nightly wallet check's results but the latest (mismatches name a person by id) | A year | `retention.periods.reconciliation-runs` |
+
+Not deleted yet, by decision (ADR 0037): money records and the audit log (`legal.retention.money-records` and `legal.retention.audit-log`, 8 years, LEGAL(confirm)): both are append-only by design, and the first of them reaches its period in 2034; how to delete them then, keeping the ledger balanced and the log trustworthy, is a later decision. Backups delete themselves after `legal.retention.backups` (`ops/backup/`). Valkey's keys expire on their own.

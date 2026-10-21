@@ -1,11 +1,11 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.RetentionRule;
 import java.time.Instant;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -13,11 +13,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Expires uploads (ADR 0019, ADR 0022): a pending one is aborted a day after it was opened, and a ready one is deleted
  * 30 days after a session last used it (30 days after it was completed, if none has), but never while a session that
- * hasn't ended uses it; that one goes at a later sweep, once its session has ended. Every file of it goes. One
- * instance at a time, under an advisory lock, like the wallet check.
+ * hasn't ended uses it; that one goes at a later run, once its session has ended. Every file of it goes. It is the
+ * {@code uploads} retention rule (ADR 0037), run daily with the others, and one instance at a time, under an advisory
+ * lock, like the wallet check.
  */
 @Component
-class UploadExpiry {
+class UploadExpiry implements RetentionRule {
 
     /** The advisory lock key: "uplexpir" in ASCII. */
     static final long LOCK_KEY = 0x75706c6578706972L;
@@ -38,13 +39,14 @@ class UploadExpiry {
         this.uploads = uploads;
     }
 
-    @Scheduled(fixedDelayString = "${sessions.uploads.expiry-sweep-every}")
-    void sweep() {
-        try {
-            expire(uploads.now());
-        } catch (RuntimeException e) {
-            log.warn("The upload expiry sweep failed; it runs again shortly", e);
-        }
+    @Override
+    public String name() {
+        return "uploads";
+    }
+
+    @Override
+    public long apply(Instant now) {
+        return expire(now);
     }
 
     /** Expires what's due at {@code now}; how many it expired. */

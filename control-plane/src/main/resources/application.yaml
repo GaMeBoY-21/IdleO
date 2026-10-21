@@ -271,7 +271,7 @@ sessions:
   # MiB); links last link-ttl. An unfinished upload is aborted after
   # pending-ttl, a finished one deleted ready-ttl after a session last used it
   # (or after it completed, if none has), never while a session that hasn't
-  # ended uses it. An upload is at most max-upload-size, all its files
+  # ended uses it: the uploads retention rule, run daily (retention:). An upload is at most max-upload-size, all its files
   # together; a renter holds at most quota in pending and ready uploads
   # (technical design "Limits").
   uploads:
@@ -282,7 +282,6 @@ sessions:
     max-upload-size: 40GB
     max-files: 1000
     quota: 60GB
-    expiry-sweep-every: 10m
   # A session accepted by its host but not RUNNING within this fails with
   # start_timeout, its hold released (ADR 0015).
   provisioning-timeout: 3m
@@ -380,6 +379,29 @@ agentgateway:
 retention:
   first-run-after: 2m
   every: 24h
+  # Each rule's period, the product's own choice (the law's are under legal:). Counted from when the thing ended: a
+  # link's expiry, a session's end, a command's creation.
+  periods:
+    # Device sign-ins, invite codes never used, and links to add a machine, once they've expired.
+    cli-logins: 7d
+    invite-codes: 30d
+    host-links: 7d
+    # Tries at an invite code and at the admin console's code; ended admin console sessions.
+    activation-attempts: 1d
+    admin-code-attempts: 1d
+    admin-sessions: 1d
+    # A session's checkpoints, and then everything else of it in storage (outputs and logs), after it ends.
+    checkpoints: 7d
+    outputs: 30d
+    # Messages to agents (a StartSession holds the renter's parameters), once delivered or given up on.
+    agent-commands: 30d
+    # How each session was matched; setup's measurements; what each person was told; durable events once delivered;
+    # the nightly wallet check's results.
+    offers: 365d
+    install-events: 365d
+    notifications: 365d
+    event-publications: 7d
+    reconciliation-runs: 365d
 
 # A person's own data (ADR 0037): an export is made by a job looking every export-sweep-every, kept export-keep (its
 # links to files work as long), and asked for once every export-every; deleting an account is confirmed by an email
