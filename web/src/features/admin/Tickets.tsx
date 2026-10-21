@@ -8,7 +8,7 @@ import { problemMessage } from "@/lib/problems";
 import { ticketNumber } from "@/lib/support";
 import { formatDateTime, formatDay } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
-import { ADMIN, adminApi, adminData } from "./api";
+import { ADMIN, adminApi, adminData, type TicketStatus } from "./api";
 import {
   AdminPage,
   BackLink,
@@ -43,6 +43,8 @@ const STATUS: Record<string, string> = {
   waiting: "Waiting on the person",
   resolved: "Resolved",
 };
+const STATUSES: TicketStatus[] = ["open", "waiting", "resolved"];
+const asStatus = (value: string): TicketStatus => STATUSES.find((status) => status === value) ?? "open";
 
 /**
  * Tickets (ADR 0037): messages to support, open ones first, by due date with the overdue highlighted. One opens with
@@ -148,10 +150,10 @@ function TicketRecord({ id }: { id: string }) {
     queryFn: () => adminData(adminApi.GET("/admin/v1/tickets/{id}", { params: { path: { id } } })),
   });
   const [answer, setAnswer] = useState("");
-  const [after, setAfter] = useState("waiting");
+  const [after, setAfter] = useState<TicketStatus>("waiting");
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [changing, setChanging] = useState<string | null>(null);
+  const [changing, setChanging] = useState<TicketStatus | null>(null);
   const [exporting, setExporting] = useState(false);
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN, "ticket", id] });
 
@@ -213,13 +215,11 @@ function TicketRecord({ id }: { id: string }) {
                 ]}
               />
               <div className="flex flex-wrap gap-3">
-                {["open", "waiting", "resolved"]
-                  .filter((status) => status !== ticket.status)
-                  .map((status) => (
-                    <Button key={status} variant="secondary" onClick={() => setChanging(status)}>
-                      Mark {STATUS[status]?.toLowerCase()}
-                    </Button>
-                  ))}
+                {STATUSES.filter((status) => status !== ticket.status).map((status) => (
+                  <Button key={status} variant="secondary" onClick={() => setChanging(status)}>
+                    Mark {STATUS[status]?.toLowerCase()}
+                  </Button>
+                ))}
               </div>
             </Section>
             {(ticket.topic === "privacy" || ticket.topic === "grievance") && ticket.userId && (
@@ -279,7 +279,7 @@ function TicketRecord({ id }: { id: string }) {
                 <SmallSelect
                   label="Then"
                   value={after}
-                  onChange={setAfter}
+                  onChange={(value) => setAfter(asStatus(value))}
                   options={[
                     ["waiting", "Waiting on the person"],
                     ["resolved", "Resolved"],

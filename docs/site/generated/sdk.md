@@ -232,6 +232,7 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `DeletionAlreadyRequested` | `deletion-already-requested` | 409 | 1 |
 | `DeletionLinkInvalid` | `deletion-link-invalid` | 400 | 1 |
 | `NoDeletionPending` | `no-deletion-pending` | 409 | 1 |
+| `MessageLooksAutomated` | `message-looks-automated` | 422 | 1 |
 | `TooManyAttempts` | `too-many-attempts` | 429 | 1 |
 | `BrowserSignInRequired` | `browser-sign-in-required` | 403 | 5 |
 | `ApiKeyReadOnly` | `api-key-read-only` | 403 | 1 |

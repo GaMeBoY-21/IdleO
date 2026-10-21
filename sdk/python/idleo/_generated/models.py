@@ -9,15 +9,7 @@ from enum import Enum
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import (
-    AnyUrl,
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    EmailStr,
-    Field,
-    RootModel,
-)
+from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
 
 
 class AcceptNoticesRequest(BaseModel):
@@ -493,7 +485,7 @@ class NewTicket(BaseModel):
     elapsed_ms: Annotated[int, Field(alias="elapsedMs", ge=0)]
     host_id: Annotated[UUID | None, Field(alias="hostId")] = None
     message: Annotated[str, Field(max_length=5000, min_length=0)]
-    reply_to: Annotated[EmailStr, Field(alias="replyTo", max_length=254, min_length=0)]
+    reply_to: Annotated[str, Field(alias="replyTo", max_length=254, min_length=0)]
     session_id: Annotated[UUID | None, Field(alias="sessionId")] = None
     topic: Annotated[str, Field(min_length=1)]
     website: Annotated[str | None, Field(max_length=200, min_length=0)] = None

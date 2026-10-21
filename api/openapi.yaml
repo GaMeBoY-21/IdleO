@@ -3674,8 +3674,11 @@ components:
           minLength: 0
         status:
           type: string
+          enum:
+          - open
+          - waiting
+          - resolved
           minLength: 1
-          pattern: open|waiting|resolved
       required:
       - message
       - status
@@ -4493,8 +4496,11 @@ components:
           minLength: 5
         status:
           type: string
+          enum:
+          - open
+          - waiting
+          - resolved
           minLength: 1
-          pattern: open|waiting|resolved
       required:
       - reason
       - status
@@ -6576,7 +6582,6 @@ components:
           minLength: 0
         replyTo:
           type: string
-          format: email
           maxLength: 254
           minLength: 0
         sessionId:

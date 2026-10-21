@@ -4,7 +4,6 @@ import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -45,7 +44,7 @@ class SupportController {
     record NewTicket(
             @NotBlank String topic,
             @NotBlank @Size(max = 5000) String message,
-            @NotBlank @Email @Size(max = 254) String replyTo,
+            @NotBlank @Size(max = 254) String replyTo,
             @Nullable UUID sessionId,
             @Nullable UUID hostId,
             @Nullable @Size(max = 200) String website,

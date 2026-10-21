@@ -62,6 +62,7 @@ export type AdminLedgerEntry = Schemas["AdminLedgerEntry"];
 export type AdminReconciliationRun = Schemas["AdminReconciliationRun"];
 export type AdminInvite = Schemas["AdminInvite"];
 export type AuditEntry = Schemas["AuditEntry"];
+export type TicketStatus = Schemas["AdminAnswer"]["status"];
 
 let onNotFound: () => void = () => undefined;
 

@@ -83,6 +83,33 @@ class ApiContractTests {
                         .isLessThanOrEqualTo(1));
     }
 
+    /**
+     * The clients are generated from the contract: the CLI's generator needs a regular-expression crate for a
+     * {@code pattern} and the SDK's an email library for {@code format: email}, neither of which they carry. A value
+     * from a fixed list says so with {@code allowableValues}, and the service checks the rest.
+     */
+    @Test
+    void theContractUsesOnlyWhatTheGeneratedClientsRead() throws Exception {
+        var formats = java.util.regex.Pattern.compile("^\\s+format: (\\S+)$");
+        assertThat(generated().lines())
+                .as("no pattern, and only these formats")
+                .noneMatch(line -> line.strip().startsWith("pattern:"))
+                .allMatch(line -> {
+                    var format = formats.matcher(line);
+                    return !format.matches()
+                            || java.util.Set.of(
+                                            "uuid",
+                                            "date-time",
+                                            "date",
+                                            "int32",
+                                            "int64",
+                                            "double",
+                                            "uri",
+                                            "uri-reference")
+                                    .contains(format.group(1));
+                });
+    }
+
     @Test
     void theContractDescribesOnlyTheApiWithItsHeadersAndProblemDetails() throws Exception {
         var contract = generated();

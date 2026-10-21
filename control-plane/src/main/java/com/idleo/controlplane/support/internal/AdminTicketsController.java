@@ -5,9 +5,9 @@ import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Clock;
 import java.time.Instant;
@@ -88,7 +88,7 @@ class AdminTicketsController {
     record AdminAnswer(
             @NotBlank @Size(max = 5000) String message,
 
-            @NotBlank @Pattern(regexp = "open|waiting|resolved")
+            @NotBlank @Schema(allowableValues = {"open", "waiting", "resolved"})
             String status) {}
 
     /**
@@ -140,7 +140,7 @@ class AdminTicketsController {
 
     /** A status and the reason for it (5 to 500 characters, no contact details, as every admin reason). */
     record AdminReasonedStatus(
-            @NotBlank @Pattern(regexp = "open|waiting|resolved")
+            @NotBlank @Schema(allowableValues = {"open", "waiting", "resolved"})
             String status,
 
             @NotBlank @Size(min = 5, max = 500) @com.idleo.controlplane.NoContactDetails

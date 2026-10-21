@@ -1,6 +1,7 @@
 package com.idleo.controlplane.support.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.ContactDetails;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.Problem;
@@ -127,6 +128,9 @@ class Tickets {
         }
         if (!TOPICS.containsKey(request.topic())) {
             throw ApiProblem.invalid("topic", "Choose one of the topics.");
+        }
+        if (!ContactDetails.isEmailAddress(request.replyTo())) {
+            throw ApiProblem.invalid("replyTo", "Give an email address we can answer.");
         }
         if (request.sessionId() != null
                 && (userId == null
