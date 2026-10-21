@@ -202,6 +202,9 @@ export const spacing = {
   /** "Finding your GPU": the ring, and the grey disc around it. */
   "finding-ring": 88,
   finding: 168,
+  /** Delete my account's "We must keep": its four lines, wrapped, on a phone and on a laptop (the periods arrive). */
+  kept: 192,
+  "kept-wide": 136,
 } as const;
 
 /**

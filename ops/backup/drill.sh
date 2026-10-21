@@ -7,7 +7,8 @@
 #   3. a moment T, taken with every table locked so nothing commits across it, and each table's checksum at T;
 #   4. more activity, then the database lost: killed (SIGKILL, as a dead disk or droplet) and its volume deleted;
 #   5. a restore to T (ops/backup/restore.sh) into a new database: every table's checksum equals T's, so every ledger
-#      entry, reservation, session and audit row up to T is there and nothing after it is; the money check
+#      entry, reservation, session and audit row up to T is there and nothing after it is; a person who asked to be
+#      deleted after T, and was, is erased again by reapply-erasures (ADR 0037); the money check
 #      (ops/backup/verify-ledger.sh) passes on it, and fails once a wallet is changed behind the ledger's back;
 #   6. a restore to the last archived WAL, which says how much was lost: a ticker commits a row every second, and the
 #      newest row restored against the moment of the loss is the data lost.
@@ -140,6 +141,8 @@ for run in $(seq 1 "$runs"); do
     export SESSIONS_LIMITS_NEW_PER_HOUR=1000 SESSIONS_LIMITS_NEW_PER_HOUR_FIRST_DAY=1000 SESSIONS_LIMITS_AT_ONCE=1000
     export SESSIONS_LEASES_TTL=10s SESSIONS_LEASES_RENEW_EVERY=3s SESSIONS_LEASES_TRANSIT_ALLOWANCE=2s
     export SESSIONS_LEASES_LAPSE_SWEEP_EVERY=1s METERING_TICK_EVERY=1s METERING_REVIEW_AFTER=20s
+    # A deletion's wait, and the job that erases, in seconds instead of days (ADR 0037).
+    export LEGAL_ERASURE_WAITING_PERIOD=3s PRIVACY_ERASURE_SWEEP_EVERY=1s
     # The database archives to this stack's MinIO, encrypted with the development key; the control plane watches it.
     export LOCAL_BACKUP_PREFIX="s3://idleo-backups/$prefix"
     export LOCAL_BACKUP_PUBLIC_KEY="$root/private/backup-dev/backup.pub.asc"
@@ -187,6 +190,9 @@ SQL
   done
   ops activate-host --host "$host_id" --reason "'Restore drill host'" || fail "activate-host failed"
   grant 5000 before-backup
+  # Someone who will ask to be deleted after T.
+  erasee="drill-erasee-$run"
+  erasee_id="$(curl -sf "$api/v1/me" -H "Authorization: Bearer $(stack_token "$erasee")" | json_get .id)"
   session_for 1 >/dev/null
   log "run $run: activity made; taking a full backup"
 
@@ -212,8 +218,23 @@ SQL
   [[ -n "$target" && -s "$state/checksums-at-t" ]] || fail "couldn't take T's checksums"
   log "run $run: T is $target, $(wc -l <"$state/checksums-at-t" | tr -d ' ') tables checksummed"
 
-  # 4. More activity after T, then the loss.
+  # 4. More activity after T, then the loss. The person asks to be deleted, confirms from the email, and is erased.
   grant 2000 after-t
+  erasee_token="$(stack_token "$erasee")"
+  curl -sf -o /dev/null -X POST "$api/v1/me/deletion" -H "Authorization: Bearer $erasee_token" ||
+    fail "the deletion couldn't be asked for"
+  confirm_link="$(await_email "$erasee@example.com" "account/delete/confirm" | json_get .text |
+    sed -n 's/.*request=\([0-9a-f-]*\)&token=\([A-Za-z0-9_-]*\).*/\1 \2/p' | head -1)" || fail "no confirmation email"
+  read -r erase_request erase_token <<<"$confirm_link"
+  curl -sf -o /dev/null -X POST "$api/v1/me/deletion/confirm" -H "Authorization: Bearer $erasee_token" \
+    -H 'Content-Type: application/json' -d "{\"requestId\": \"$erase_request\", \"token\": \"$erase_token\"}" ||
+    fail "the deletion couldn't be confirmed"
+  deadline=$((SECONDS + 90))
+  until [[ "$(psql_in "$database" -c "select state from privacy.deletion_requests where id = '$erase_request'")" == erased ]]; do
+    ((SECONDS < deadline)) || fail "the account wasn't erased in time; see logs/drill/control-plane.log"
+    sleep 1
+  done
+  log "run $run: $erasee erased after T"
   late_session="$(session_for 3)"
   # T can be restored to once the WAL segment holding it is archived: within a minute (archive_timeout).
   deadline=$((SECONDS + 150))
@@ -238,7 +259,7 @@ SQL
   export WALG_S3_PREFIX="s3://idleo-backups/$prefix" AWS_ENDPOINT=http://storage:9000 AWS_REGION=us-east-1
   export AWS_ACCESS_KEY_ID=local-storage-root AWS_SECRET_ACCESS_KEY=local-only-not-a-secret
   to_t="$("$root/ops/backup/restore.sh" --to "$target" --name "drill-t-$run" --network "${compose_project}_default" \
-    --port 55441)" || fail "the restore to T failed"
+    --port 55441 --no-reapply)" || fail "the restore to T failed"
   restore_seconds="$(sed -n 's/.* in \([0-9.]*\) s$/\1/p' <<<"$to_t")"
   restored="idleo-restore-drill-t-$run"
   checksums_sql "$restored" | psql_in "$restored" >"$state/checksums-restored"
@@ -248,6 +269,17 @@ SQL
   fi
   [[ "$(psql_in "$restored" -c "select count(*) from sessions.sessions where id = '$late_session'")" == 0 ]] ||
     fail "a session booked after T came back"
+  # The person erased after T is back at T, with their email; reapply-erasures erases them again, as restore.sh does
+  # by default, from the erased list kept in storage.
+  [[ "$(psql_in "$restored" -c "select email from identity.users where id = '$erasee_id'")" == "$erasee@example.com" ]] ||
+    fail "the person erased after T isn't in the database at T"
+  LOCAL_STORAGE_PORT="$storage_port" LOCAL_SIGN_IN_PORT="$sign_in_port" OPERATOR="$operator_name" \
+    "$root/ops/backup/reapply-erasures.sh" --port 55441 >>"$out/reapply.log" 2>&1 ||
+    fail "reapply-erasures failed; see logs/drill/reapply.log"
+  [[ "$(psql_in "$restored" -c "select status || ':' || coalesce(email, '') from identity.users where id = '$erasee_id'")" == "erased:" &&
+    "$(psql_in "$restored" -c "select count(*) from identity.external_identities where user_id = '$erasee_id'")" == 0 &&
+    "$(psql_in "$restored" -c "select count(*) from privacy.erased_users where user_id = '$erasee_id'")" == 1 ]] ||
+    fail "the restored database still holds the person erased after T"
   "$root/ops/backup/verify-ledger.sh" --container "$restored" >"$state/verify-ledger.log" ||
     fail "the money check failed on the restored database: $(cat "$state/verify-ledger.log")"
   # The money check must catch a wallet changed behind the ledger's back.
@@ -256,11 +288,11 @@ SQL
   if "$root/ops/backup/verify-ledger.sh" --container "$restored" >"$state/verify-ledger-tampered.log" 2>&1; then
     fail "the money check passed a wallet that doesn't match its ledger"
   fi
-  log "run $run: restored to T in $restore_seconds s; all $(wc -l <"$state/checksums-at-t" | tr -d ' ') tables match, the session after T is absent, the money check passes (and catches a changed wallet)"
+  log "run $run: restored to T in $restore_seconds s; all $(wc -l <"$state/checksums-at-t" | tr -d ' ') tables match, the session after T is absent, the person erased after T is erased again, the money check passes (and catches a changed wallet)"
 
   # 6. Restore to the last archived WAL: what was lost is the time from the newest tick restored to the loss.
   "$root/ops/backup/restore.sh" --to latest --name "drill-latest-$run" --network "${compose_project}_default" \
-    --port 55442 >"$state/restore-latest.log" || fail "the restore to the last archived WAL failed"
+    --port 55442 --no-reapply >"$state/restore-latest.log" || fail "the restore to the last archived WAL failed"
   newest_tick="$(psql_in "idleo-restore-drill-latest-$run" -c "select extract(epoch from max(at)) from drill.ticks")"
   data_lost="$(perl -e 'printf "%.1f", $ARGV[0] - $ARGV[1]' "$lost_at" "$newest_tick")"
 

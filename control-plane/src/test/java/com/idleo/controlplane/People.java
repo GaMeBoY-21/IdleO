@@ -36,7 +36,14 @@ public final class People {
     private People() {}
 
     /** One made person: how to call as them, their marker and address, and their ids for the map's conditions. */
-    public record Made(TestUsers.TestUser user, String marker, String email, PersonalDataMap.Person ids) {}
+    public record Made(
+            TestUsers.TestUser user, String subject, String marker, String email, PersonalDataMap.Person ids) {
+
+        /** A bearer header for them, signed in at the provider at {@code signedIn}. */
+        public String signedInAt(Instant signedIn) {
+            return TestUsers.bearer(subject, email, signedIn, Duration.ofDays(30));
+        }
+    }
 
     public static S3Client storage(Environment environment) {
         return S3Client.builder()
@@ -52,7 +59,8 @@ public final class People {
     public static Made make(MockMvc mvc, JdbcTemplate jdbc, Environment environment, MutableClock clock, String marker)
             throws Exception {
         var email = marker + "@example.com";
-        var user = TestUsers.signUpWithEmailLasting(mvc, email, Duration.ofDays(30));
+        var subject = UUID.randomUUID().toString();
+        var user = TestUsers.signUpAs(mvc, subject, email, Duration.ofDays(30));
         var me = user.id();
         var now = clock.instant();
         var bucket = environment.getRequiredProperty("sessions.storage.bucket");
@@ -385,6 +393,7 @@ public final class People {
 
         return new Made(
                 user,
+                subject,
                 marker,
                 email,
                 new PersonalDataMap.Person(

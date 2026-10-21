@@ -32,6 +32,7 @@ class ProductionSettingsGuardTests {
                         "spring.mail.password=" + PRODUCTION_KEY,
                         "notifications.email.webhook-secret=whsec_" + PRODUCTION_KEY,
                         "identity.invite-code-key=" + PRODUCTION_KEY,
+                        "identity.provider-admin.credentials=file:/run/secrets/identity-provider-admin.json",
                         "management.otlp.metrics.export.url=" + OTLP + "/v1/metrics",
                         "management.opentelemetry.tracing.export.otlp.endpoint=" + OTLP + "/v1/traces",
                         "management.opentelemetry.logging.export.otlp.endpoint=" + OTLP + "/v1/logs",
@@ -195,6 +196,15 @@ class ProductionSettingsGuardTests {
         }
         prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.admin.totp-key=" + PRODUCTION_KEY)
                 .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void prodRefusesToStartWithoutTheSignInProvidersServiceAccount() {
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.provider-admin.credentials=")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("identity.provider-admin.credentials is missing"));
     }
 
     @Test

@@ -84,3 +84,28 @@ ALTER TABLE identity.invite_codes ALTER COLUMN note DROP NOT NULL;
 
 REVOKE UPDATE, DELETE, TRUNCATE ON privacy.erased_users FROM PUBLIC;
 REVOKE UPDATE, DELETE, TRUNCATE ON privacy.erased_users FROM CURRENT_USER;
+
+-- A report is resolved once and then never changed (ADR 0028), but for one thing (ADR 0037): erasing its renter's
+-- account clears their words (the details) and ours to them (the resolution's reason becomes empty), and nothing else.
+CREATE OR REPLACE FUNCTION trust.guard_dispute() RETURNS trigger
+    LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' AND OLD.state = 'open' AND NEW.state <> 'open' AND NEW.id = OLD.id
+            AND NEW.session_id = OLD.session_id AND NEW.renter_id = OLD.renter_id AND NEW.reason = OLD.reason
+            AND NEW.details IS NOT DISTINCT FROM OLD.details AND NEW.created_at = OLD.created_at THEN
+        RETURN NEW;
+    END IF;
+    IF TG_OP = 'UPDATE' AND OLD.state <> 'open' AND NEW.details IS NULL
+            AND NEW.resolution_reason IS NOT DISTINCT FROM (CASE WHEN OLD.resolution_reason IS NULL THEN NULL ELSE '' END)
+            AND (NEW.id, NEW.session_id, NEW.renter_id, NEW.reason, NEW.state, NEW.created_at)
+                IS NOT DISTINCT FROM (OLD.id, OLD.session_id, OLD.renter_id, OLD.reason, OLD.state, OLD.created_at)
+            AND (NEW.resolved_by, NEW.resolved_at, NEW.refund_paise, NEW.commission_refund_paise,
+                 NEW.host_refund_paise, NEW.refund_txn)
+                IS NOT DISTINCT FROM (OLD.resolved_by, OLD.resolved_at, OLD.refund_paise, OLD.commission_refund_paise,
+                                      OLD.host_refund_paise, OLD.refund_txn) THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'trust.disputes only allows resolving an open report once, and clearing its words on erasure'
+        USING ERRCODE = 'restrict_violation';
+END;
+$$;

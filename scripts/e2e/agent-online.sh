@@ -242,33 +242,8 @@ await_closed() {
     sleep 0.5
   done
 }
-# Email (ADR 0026): what Mailpit has kept, read through its API.
-mail_api="http://localhost:$mail_web_port/api/v1"
 # Money as the control plane writes it, for amounts under ₹1,000: 9 paise is ₹0.09.
 rupees() { printf '₹%d.%02d' $(($1 / 100)) $(($1 % 100)); }
-# Waits up to $3 s (60) for an email to $1 whose text holds $2, and prints it as JSON: subject, text, html.
-await_email() {
-  local deadline=$((SECONDS + ${3:-60})) found
-  while ((SECONDS < deadline)); do
-    found="$(python3 - "$mail_api" "$1" "$2" <<'PY' 2>/dev/null || true
-import json, sys, urllib.request
-api, to, needle = sys.argv[1:4]
-def get(path):
-    return json.load(urllib.request.urlopen(api + path, timeout=10))
-for m in get("/messages?limit=500")["messages"]:
-    if any(t["Address"].lower() == to.lower() for t in m["To"]):
-        full = get("/message/" + m["ID"])
-        if needle in full["Text"]:
-            print(json.dumps({"subject": full["Subject"], "text": full["Text"], "html": full["HTML"]}))
-            break
-PY
-)"
-    if [[ -n "$found" ]]; then printf '%s' "$found"; return 0; fi
-    sleep 1
-  done
-  printf 'e2e: FAIL: no email to %s holding "%s" within %s s\n' "$1" "$2" "${3:-60}" >&2
-  return 1
-}
 # How many emails to $1 hold $2.
 count_emails() {
   python3 - "$mail_api" "$1" "$2" <<'PY'

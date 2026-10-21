@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import createClient from "openapi-fetch";
+import { config } from "@/config";
 import { api, data } from "./client";
-import type { components } from "./schema.gen";
+import type { components, paths } from "./schema.gen";
 
 export type YourData = components["schemas"]["YourData"];
 export type DataExport = components["schemas"]["Export"];
@@ -42,5 +44,54 @@ export function useRequestExport() {
 export function useDownloadExport() {
   return useMutation({
     mutationFn: (id: string) => data(api.GET("/v1/me/exports/{id}/download", { params: { path: { id } } })),
+  });
+}
+
+export type DeletionStanding = components["schemas"]["DeletionStanding"];
+
+export const deletionKeys = { standing: ["deletion"] as const };
+
+/** Where the person's deletion stands: their latest request, what stops it, what they'd lose, the wait. */
+export function useDeletion(enabled = true) {
+  return useQuery({
+    queryKey: deletionKeys.standing,
+    enabled,
+    queryFn: () => data(api.GET("/v1/me/deletion")),
+  });
+}
+
+/** Each change answers where it stands now, which is what the page then shows. */
+function useDeletionChange<V>(change: (value: V) => Promise<DeletionStanding>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: change,
+    onSuccess: (standing) => client.setQueryData(deletionKeys.standing, standing),
+  });
+}
+
+/** Asks to delete the account: the confirmation link is emailed. Needs a sign-in in the last 10 minutes. */
+export const useRequestDeletion = () => useDeletionChange(() => data(api.POST("/v1/me/deletion")));
+
+/** Confirms with the emailed link's request and token: the wait begins. */
+export const useConfirmDeletion = () =>
+  useDeletionChange((link: { requestId: string; token: string }) =>
+    data(api.POST("/v1/me/deletion/confirm", { body: link })),
+  );
+
+/** Cancels the waiting deletion, signed in. */
+export const useCancelDeletion = () => useDeletionChange(() => data(api.DELETE("/v1/me/deletion")));
+
+/** The cancel link from an email works signed out: its token is the proof, so no sign-in is asked for. */
+const signedOut = createClient<paths>({ baseUrl: config.apiUrl });
+
+export function useCancelByLink() {
+  return useMutation({
+    mutationFn: ({ requestId, token }: { requestId: string; token: string }) =>
+      data(
+        signedOut.POST("/v1/deletion-requests/{id}/cancel", {
+          params: { path: { id: requestId } },
+          body: { token },
+        }),
+      ),
   });
 }

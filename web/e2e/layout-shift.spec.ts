@@ -59,6 +59,12 @@ const screens = [
   },
   { name: "notifications", path: "/notifications/", ready: () => "Your credit is running low" },
   {
+    name: "deleting the account",
+    path: "/account/delete/",
+    ready: () => "You give up",
+    routes: { "/v1/me/deletion": { json: privacy.deletionNone() } } as Record<string, Answer>,
+  },
+  {
     name: "your data",
     path: "/account/data/",
     ready: () => "Kept until",

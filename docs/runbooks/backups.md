@@ -56,6 +56,8 @@ WALG_PGP_KEY_PASSPHRASE='…' ops/backup/restore.sh --key /path/to/backup.key.as
 
 It picks the newest full backup finished before the target, fetches it, replays the WAL to the target and promotes. It prints the container, its port and how long it took.
 
+**It then erases again everyone on the erased list** (ADR 0037): `ops/backup/reapply-erasures.sh`, the control plane's `reapply-erasures` operator command pointed at the restored database. The list is `privacy.erased_users` and, outside the database, the `erasures/` objects in the sessions' bucket, so someone erased after the moment restored to is erased again too. In production give it the jar and load the server's environment first, as for any operator command: `restore.sh … --jar /srv/idleo/control-plane.jar`. A restore that can't do this fails, and its database must not be used until it has. `--no-reapply` leaves the database as the backup had it, only to compare it with the moment restored to (the drill does, then runs it). Our backups keep an erased person for up to `legal.retention.backups` (30 days, LEGAL(confirm)); the privacy notice says so.
+
 **Then, before anyone uses it, run the money check:**
 
 ```sh

@@ -135,6 +135,7 @@ One bucket for sessions (`sessions.storage.bucket`), one for releases, one for b
 | `outputs/` (in an attempt) | What the job gave back | The renter's results | `rule: outputs`, 30 days after the session ends | Deleted and verified |
 | `logs/` (in an attempt) | The job's own output | Whatever the job printed | `rule: outputs`, with the outputs | Deleted and verified |
 | `exports/` + `{id}/data.zip` | A person's "Download my data" zip | Everything above | `rule: exports`, 7 days after it's ready | Deleted and verified |
+| `erasures/` + `{user}` | The erased list outside the database (ADR 0037): one object a person, holding only when; a restore re-applies every one | No: an opaque id | As long as `privacy.erased_users` | It is the erasure's record |
 | `speedtest/` + `{host}/probe` | A host's upload speed test (no person) | No | Overwritten each test | Deleted with the host |
 | `web/` | Not a storage prefix: source paths in the web app's source maps, read to name a browser error's line | No | Per release | Nothing |
 | `basebackups_005/` (backups bucket) | WAL-G's full backups; `wal_005/` its WAL | Everything in the database | 30 days (`ops/backup/`), LEGAL(confirm) | Stays up to 30 days; a restore re-applies every erasure (`privacy.erased_users`) |

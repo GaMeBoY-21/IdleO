@@ -58,6 +58,13 @@ const screens = {
   "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
   "/account/reports/": screen(() => import("@/features/account/Reports").then((m) => m.Reports)),
   "/account/data/": screen(() => import("@/features/account/YourData").then((m) => m.YourData)),
+  "/account/delete/": screen(() => import("@/features/account/DeleteAccount").then((m) => m.DeleteAccount)),
+  "/account/delete/confirm/": screen(() =>
+    import("@/features/deletion/ConfirmDeletion").then((m) => m.ConfirmDeletion),
+  ),
+  "/account/delete/cancel/": screen(() =>
+    import("@/features/deletion/CancelDeletion").then((m) => m.CancelDeletion),
+  ),
   "/notifications/": screen(() =>
     import("@/features/notifications/Notifications").then((m) => m.Notifications),
   ),
@@ -99,11 +106,14 @@ const Account = screens["/account/"].Screen;
 const ApiKeys = screens["/account/keys/"].Screen;
 const Reports = screens["/account/reports/"].Screen;
 const YourData = screens["/account/data/"].Screen;
+const DeleteAccount = screens["/account/delete/"].Screen;
+const ConfirmDeletion = screens["/account/delete/confirm/"].Screen;
+const CancelDeletion = screens["/account/delete/cancel/"].Screen;
 const Notifications = screens["/notifications/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/|delete\/)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -153,6 +163,7 @@ function SignedInArea() {
             <Route path="/account/keys/" component={ApiKeys} />
             <Route path="/account/reports/" component={Reports} />
             <Route path="/account/data/" component={YourData} />
+            <Route path="/account/delete/" component={DeleteAccount} />
             <Route path="/notifications/" component={Notifications} />
             <Route path="/hosting/" component={Hosting} />
             <Route path="/hosting/machine/" component={Machine} />
@@ -195,6 +206,16 @@ export function App() {
       <Route path="/welcome/">
         <SignedOutScreen>
           <Welcome />
+        </SignedOutScreen>
+      </Route>
+      <Route path="/account/delete/confirm/">
+        <SignedOutScreen>
+          <ConfirmDeletion />
+        </SignedOutScreen>
+      </Route>
+      <Route path="/account/delete/cancel/">
+        <SignedOutScreen>
+          <CancelDeletion />
         </SignedOutScreen>
       </Route>
       <Route path="/agree/">

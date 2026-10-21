@@ -69,5 +69,9 @@ notifications:
 # (ADR 0024): 32 bytes in base64 each, from the secret store. Without either, the application doesn't start.
 identity:
   invite-code-key: ${IDENTITY_INVITE_CODE_KEY}
+  # The sign-in provider's service account (its JSON key, or file: and a path), which erasing an account deletes the
+  # person's sign-in identity with (ADR 0037, docs/runbooks/identity-provider-setup.md).
+  provider-admin:
+    credentials: ${IDENTITY_PROVIDER_ADMIN_CREDENTIALS:}
   admin:
     totp-key: ${IDENTITY_ADMIN_TOTP_KEY}

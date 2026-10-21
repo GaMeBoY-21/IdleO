@@ -64,6 +64,30 @@ class ApproveLinkRequest(BaseModel):
     name: Annotated[str, Field(max_length=100, min_length=0)]
 
 
+class Blocker(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int | None, Field(alias="amountPaise")] = None
+    code: str
+    message: str
+
+
+class CancelDeletion(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    token: Annotated[str, Field(max_length=100, min_length=0)]
+
+
+class ConfirmDeletion(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    request_id: Annotated[UUID, Field(alias="requestId")]
+    token: Annotated[str, Field(max_length=100, min_length=0)]
+
+
 class ContentRuleView(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -147,6 +171,29 @@ class DataItem(BaseModel):
     earliest: AwareDatetime | None = None
     label: str
     latest: AwareDatetime | None = None
+
+
+class DeletionCancelled(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    state: str
+
+
+class DeletionRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    cancelled_at: Annotated[AwareDatetime | None, Field(alias="cancelledAt")] = None
+    confirmed_at: Annotated[AwareDatetime | None, Field(alias="confirmedAt")] = None
+    delete_after: Annotated[AwareDatetime | None, Field(alias="deleteAfter")] = None
+    erased_at: Annotated[AwareDatetime | None, Field(alias="erasedAt")] = None
+    id: UUID
+    legal_order: Annotated[bool, Field(alias="legalOrder")]
+    requested_at: Annotated[AwareDatetime, Field(alias="requestedAt")]
+    state: str
+    step: int
+    user_id: Annotated[UUID, Field(alias="userId")]
 
 
 class DisputeResponse(BaseModel):
@@ -351,6 +398,15 @@ class InstallEventsRequest(BaseModel):
     events: Annotated[list[InstallEvent], Field(max_length=20, min_length=0)]
 
 
+class KeptFor(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    backups_days: Annotated[int, Field(alias="backupsDays")]
+    money_records_days: Annotated[int, Field(alias="moneyRecordsDays")]
+    security_log_days: Annotated[int, Field(alias="securityLogDays")]
+
+
 class KindChoice(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -402,6 +458,15 @@ class LogChunk(BaseModel):
     attempt: int
     seq: int
     text: str
+
+
+class Loss(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int, Field(alias="amountPaise")]
+    code: str
+    message: str
 
 
 class NoticeStanding(BaseModel):
@@ -1120,6 +1185,18 @@ class DataGroup(BaseModel):
     )
     group: str
     items: list[DataItem]
+
+
+class DeletionStanding(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    blockers: list[Blocker]
+    fresh_sign_in: Annotated[bool, Field(alias="freshSignIn")]
+    kept_for: Annotated[KeptFor, Field(alias="keptFor")]
+    losses: list[Loss]
+    request: DeletionRequest | None = None
+    waiting_days: Annotated[int, Field(alias="waitingDays")]
 
 
 class DisputePage(BaseModel):

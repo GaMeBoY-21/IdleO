@@ -154,6 +154,115 @@ test.describe("your data", () => {
   });
 });
 
+test.describe("deleting the account", () => {
+  test("says what's erased and kept, what's given up, and sends the link", async ({ page }, info) => {
+    let asked = 0;
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me/deletion": (call, request) => {
+          if (request.method() === "POST") {
+            asked++;
+            return { json: privacy.deletionAwaiting(), status: 202 };
+          }
+          return { json: privacy.deletionNone() };
+        },
+      }),
+    );
+    await signIn(page, "asha", "/account/delete/");
+    await expect(page.getByRole("heading", { level: 1, name: "Delete my account" })).toBeVisible();
+    await expect(page.getByText("for 8 years, under a number that no longer leads to you")).toBeVisible();
+    await expect(page.getByText(/You give up ₹500\.00 of free credit/)).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "delete-account");
+    await page.getByRole("button", { name: "Delete my account", exact: true }).click();
+    await expect(page.getByText("Check your email: we sent you a link to confirm.")).toBeVisible();
+    expect(asked).toBe(1);
+  });
+
+  test("lists what has to end first, and asks for a fresh sign-in", async ({ page }, info) => {
+    await fakeApi(page, signedIn({ "/v1/me/deletion": { json: privacy.deletionBlocked() } }));
+    await signIn(page, "asha", "/account/delete/");
+    await expect(page.getByText("You have a session that hasn't ended.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete my account", exact: true })).toBeDisabled();
+    await expectAccessible(page);
+    await capture(page, info, "delete-account-blocked");
+  });
+
+  test("an old sign-in signs in again first", async ({ page }) => {
+    await fakeApi(page, signedIn({ "/v1/me/deletion": { json: privacy.deletionNone(false) } }));
+    await signIn(page, "asha", "/account/delete/");
+    await expect(page.getByRole("button", { name: "Sign in again to continue" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete my account", exact: true })).toHaveCount(0);
+  });
+
+  test("a scheduled deletion says when, and is cancelled with one click", async ({ page }, info) => {
+    let cancelled = false;
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me/deletion": (call, request) => {
+          if (request.method() === "DELETE") {
+            cancelled = true;
+          }
+          return { json: cancelled ? privacy.deletionCancelled() : privacy.deletionScheduled() };
+        },
+      }),
+    );
+    await signIn(page, "asha", "/account/delete/");
+    await expect(page.getByText(/^Your account will be deleted on /)).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "delete-account-scheduled");
+    await page.getByRole("button", { name: "Don't delete my account" }).click();
+    await expect(page.getByRole("button", { name: "Delete my account", exact: true })).toBeVisible();
+    expect(cancelled).toBe(true);
+  });
+
+  test("the email's confirm link asks for one deliberate press", async ({ page }, info) => {
+    let confirmed = false;
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me/deletion/confirm": () => {
+          confirmed = true;
+          return { json: privacy.deletionScheduled() };
+        },
+        "/v1/me/deletion": () => ({
+          json: confirmed ? privacy.deletionScheduled() : privacy.deletionAwaiting(),
+        }),
+      }),
+    );
+    await signIn(
+      page,
+      "asha",
+      "/account/delete/confirm/?request=01a11300-0000-7000-8000-0000000d0001&token=abc",
+    );
+    await expect(page.getByRole("heading", { name: "Confirm deleting your account" })).toBeVisible();
+    expect(confirmed).toBe(false);
+    await expectAccessible(page);
+    await capture(page, info, "delete-confirm");
+    await page.getByRole("button", { name: "Confirm: delete my account" }).click();
+    await expect(page.getByRole("heading", { name: "Your account will be deleted" })).toBeVisible();
+    expect(confirmed).toBe(true);
+  });
+
+  test("the email's cancel link works signed out, on opening", async ({ page }, info) => {
+    let cancelled = 0;
+    await fakeApi(page, {
+      "/v1/deletion-requests/[^/]+/cancel": (call, request) => {
+        cancelled++;
+        expect(request.headers()["authorization"]).toBeUndefined();
+        return { json: { state: "cancelled" } };
+      },
+    });
+    await page.goto("/account/delete/cancel/?request=01a11300-0000-7000-8000-0000000d0001&token=abc");
+    await expect(page.getByRole("heading", { name: "Your account stays" })).toBeVisible();
+    expect(cancelled).toBe(1);
+    await expectAccessible(page);
+    await capture(page, info, "delete-cancelled");
+  });
+});
+
 test.describe("the invite step", () => {
   test("shows one field, typed in groups", async ({ page }, info) => {
     await fakeApi(page, waiting());

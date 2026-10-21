@@ -13,6 +13,8 @@
 api="http://localhost:$http_port"
 sign_in="http://localhost:$sign_in_port/idleo-local"
 agent="$root/agent/target/release/idleo-agent"
+# Email (ADR 0026): what the stack's Mailpit has kept, read through its API.
+mail_api="http://localhost:${mail_web_port:-8025}/api/v1"
 # Where logs are, as messages name it: relative to the repository.
 logs_dir="${out#"$root"/}"
 # Agents' configs, keys and pids; beside the logs unless the caller keeps them apart.
@@ -195,3 +197,27 @@ agent_running() { [[ -f "$state/agent-$1.pid" ]] && kill -0 "$(cat "$state/agent
 # Real sign-in, shared with control-plane/scripts/run-local.sh.
 # shellcheck source=scripts/lib/real-sign-in.sh
 . "$root/scripts/lib/real-sign-in.sh"
+
+# Waits up to $3 s (60) for an email to $1 whose text holds $2, and prints it as JSON: subject, text, html.
+await_email() {
+  local deadline=$((SECONDS + ${3:-60})) found
+  while ((SECONDS < deadline)); do
+    found="$(python3 - "$mail_api" "$1" "$2" <<'PY' 2>/dev/null || true
+import json, sys, urllib.request
+api, to, needle = sys.argv[1:4]
+def get(path):
+    return json.load(urllib.request.urlopen(api + path, timeout=10))
+for m in get("/messages?limit=500")["messages"]:
+    if any(t["Address"].lower() == to.lower() for t in m["To"]):
+        full = get("/message/" + m["ID"])
+        if needle in full["Text"]:
+            print(json.dumps({"subject": full["Subject"], "text": full["Text"], "html": full["HTML"]}))
+            break
+PY
+)"
+    if [[ -n "$found" ]]; then printf '%s' "$found"; return 0; fi
+    sleep 1
+  done
+  printf 'FAIL: no email to %s holding "%s" within %s s\n' "$1" "$2" "${3:-60}" >&2
+  return 1
+}

@@ -56,7 +56,9 @@ class IdentitySecurityConfiguration {
                 paths.matcher(HttpMethod.POST, "/v1/email-events/resend"),
                 // What real visits meet, sent by the pages with navigator.sendBeacon, which carries no token (ADR
                 // 0036).
-                paths.matcher(HttpMethod.POST, "/v1/vitals"));
+                paths.matcher(HttpMethod.POST, "/v1/vitals"),
+                // Cancelling a scheduled deletion from its email's link (ADR 0037): the link's token is its proof.
+                paths.matcher(HttpMethod.POST, "/v1/deletion-requests/{id}/cancel"));
     }
 
     /**

@@ -37,6 +37,9 @@ final class StorageLayout {
         return "exports/" + exportId + "/";
     }
 
+    /** The erased list's folder (ADR 0037): one object a person, named by their opaque id. */
+    static final String ERASURES = "erasures/";
+
     static String sessionPrefix(UUID sessionId) {
         return "sessions/" + sessionId + "/";
     }

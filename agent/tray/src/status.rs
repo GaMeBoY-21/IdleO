@@ -35,7 +35,7 @@ impl Colour {
 pub fn line(status: Option<&Status>, offset: UtcOffset) -> String {
     let Some(status) = status else { return "Starting…".to_owned() };
     if status.link_state == LinkState::Removed {
-        return "This laptop was removed from IdleO · uninstall the app".to_owned();
+        return "This laptop was removed from your account · uninstall the app".to_owned();
     }
     if status.link_state == LinkState::Suspended {
         return "Hosting is suspended · contact IdleO".to_owned();
@@ -291,7 +291,7 @@ pub(crate) mod tests {
             (Status { runner_installed: false, ..ready() }, "Linked · getting the job runner ready", Colour::Green),
             (
                 Status { link_state: LinkState::Removed, ..ready() },
-                "This laptop was removed from IdleO · uninstall the app",
+                "This laptop was removed from your account · uninstall the app",
                 Colour::Red,
             ),
         ];

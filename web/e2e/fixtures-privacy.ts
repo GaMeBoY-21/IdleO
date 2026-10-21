@@ -46,3 +46,65 @@ export const exportBeingMade = () => ({ exports: [exportOf("requested")] });
 export const exportReady = () => ({
   exports: [exportOf("ready", { readyAt: ago(0.005), expiresAt: ahead(7), sizeBytes: 48_213 })],
 });
+
+/** The legal periods as the server is configured with them (control-plane application.yaml's legal:). */
+const KEPT_FOR = { moneyRecordsDays: 2922, securityLogDays: 365, backupsDays: 30 };
+
+const request = (state: string, extra: Record<string, unknown> = {}) => ({
+  id: "01a11300-0000-7000-8000-0000000d0001",
+  userId: "01a11300-0000-7000-8000-00000000000a",
+  state,
+  legalOrder: false,
+  requestedAt: ago(0.01),
+  confirmedAt: null,
+  deleteAfter: null,
+  cancelledAt: null,
+  step: 0,
+  erasedAt: null,
+  ...extra,
+});
+
+/** Asha's ₹500 of free credit, which deleting gives up. */
+const FORFEIT = {
+  code: "credit-forfeited",
+  message: "Your ₹500.00 of free credit can't be paid out, so it's forfeited.",
+  amountPaise: 50_000,
+};
+
+export const deletionNone = (freshSignIn = true) => ({
+  request: null,
+  blockers: [],
+  losses: [FORFEIT],
+  waitingDays: 7,
+  keptFor: KEPT_FOR,
+  freshSignIn,
+});
+
+export const deletionBlocked = () => ({
+  ...deletionNone(),
+  blockers: [
+    {
+      code: "session-running",
+      message: "You have a session that hasn't ended. Stop it, or wait for it to finish.",
+      amountPaise: null,
+    },
+    {
+      code: "open-report",
+      message:
+        "You have a report we haven't answered yet. We'll answer it soon; you can delete your account after that.",
+      amountPaise: null,
+    },
+  ],
+});
+
+export const deletionAwaiting = () => ({ ...deletionNone(), request: request("awaiting_confirmation") });
+
+export const deletionScheduled = () => ({
+  ...deletionNone(),
+  request: request("scheduled", { confirmedAt: ago(0.005), deleteAfter: ahead(7) }),
+});
+
+export const deletionCancelled = () => ({
+  ...deletionNone(),
+  request: request("cancelled", { confirmedAt: ago(0.005), cancelledAt: ago(0) }),
+});

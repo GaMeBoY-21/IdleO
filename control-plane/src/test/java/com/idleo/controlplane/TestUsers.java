@@ -43,6 +43,25 @@ public final class TestUsers {
                 TestIssuers.get().token(claims -> claims.claim("email", email).expirationTime(expires)));
     }
 
+    /** A user signed in as {@code subject} at the provider, whose token outlives {@code lifetime}. */
+    public static TestUser signUpAs(MockMvc mvc, String subject, String email, Duration lifetime) throws Exception {
+        return signUp(mvc, bearer(subject, email, Instant.now(), lifetime).substring("Bearer ".length()));
+    }
+
+    /**
+     * A bearer header for the person signed in as {@code subject}, as if they signed in at the provider at {@code
+     * signedIn} (the token's {@code auth_time}), for tests of what needs a recent sign-in.
+     */
+    public static String bearer(String subject, String email, Instant signedIn, Duration lifetime) {
+        var expires = Date.from(Instant.now().plus(lifetime));
+        return "Bearer "
+                + TestIssuers.get()
+                        .token(claims -> claims.subject(subject)
+                                .claim("email", email)
+                                .claim("auth_time", signedIn.getEpochSecond())
+                                .expirationTime(expires));
+    }
+
     private static TestUser signUp(MockMvc mvc, String token) throws Exception {
         var bearer = "Bearer " + token;
         var body = mvc.perform(get("/v1/me").header("Authorization", bearer))

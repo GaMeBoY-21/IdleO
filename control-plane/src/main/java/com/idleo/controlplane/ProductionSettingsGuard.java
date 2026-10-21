@@ -42,6 +42,8 @@ import org.springframework.stereotype.Component;
  *       {@code identity.admin.totp-key} set to the tests' committed value (application-test.yaml, which ships in the
  *       jar and is read from there, so the values are never copied);
  *   <li>{@code identity.invite-only} false, which lets anyone in without a code (ADR 0024);
+ *   <li>no {@code identity.provider-admin.credentials}, the sign-in provider's service account that erasing an account
+ *       deletes its sign-in identity with (ADR 0037);
  *   <li>a renter limit above production's ({@link #PRODUCTION_LIMITS}, ADR 0025), as the end-to-end harness and the
  *       tests lift them;
  *   <li>no OTLP endpoint for metrics, traces or logs, one that is plain HTTP or on this machine, or any of the three
@@ -137,6 +139,12 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             if (isDevelopmentIssuer(issuer.issuerUri())) {
                 problems.add("identity issuer " + issuer.issuerUri() + " is plain HTTP or on this machine");
             }
+        }
+        // Erasing an account deletes it at the sign-in provider too (ADR 0037): never without the means to.
+        if (binder.bind("identity.provider-admin.credentials", String.class)
+                .orElse("")
+                .isBlank()) {
+            problems.add("identity.provider-admin.credentials is missing");
         }
         var webApp = binder.bind("identity.web-app-url", String.class).orElse("");
         if (isDevelopmentIssuer(webApp)) {

@@ -1220,6 +1220,68 @@ paths:
         idToken: []
       tags:
       - adminUsers
+  /admin/v1/users/{id}/deletion:
+    get:
+      operationId: adminDeletionsGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDeletion"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDeletions
+  /admin/v1/users/{id}/deletion/legal-order:
+    post:
+      operationId: adminDeletionsLegalOrder
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDeletion"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDeletions
   /admin/v1/users/{id}/security-events:
     get:
       operationId: adminUsersSecurityEvents
@@ -1562,6 +1624,37 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - cliLogin
+  /v1/deletion-requests/{id}/cancel:
+    post:
+      operationId: deletionCancelByLink
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelDeletion"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionCancelled"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - deletion
   /v1/disputes:
     get:
       operationId: disputeList
@@ -2333,6 +2426,82 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - yourData
+  /v1/me/deletion:
+    delete:
+      operationId: deletionCancel
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionStanding"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - deletion
+    get:
+      operationId: deletionGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionStanding"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - deletion
+    post:
+      operationId: deletionRequest
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionStanding"
+          description: Accepted
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - deletion
+  /v1/me/deletion/confirm:
+    post:
+      operationId: deletionConfirm
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmDeletion"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionStanding"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - deletion
   /v1/me/exports:
     get:
       operationId: yourDataList
@@ -3292,6 +3461,19 @@ components:
       - sessionsRunning
       - sessionsToday
       - settlementBacklog
+    AdminDeletion:
+      type: object
+      properties:
+        blockers:
+          type: array
+          items:
+            type: string
+        request:
+          oneOf:
+          - $ref: "#/components/schemas/DeletionRequest"
+          - type: "null"
+      required:
+      - blockers
     AdminDispute:
       type: object
       properties:
@@ -4689,6 +4871,30 @@ components:
             $ref: "#/components/schemas/GpuAvailability"
       required:
       - gpus
+    Blocker:
+      type: object
+      properties:
+        amountPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        code:
+          type: string
+        message:
+          type: string
+      required:
+      - code
+      - message
+    CancelDeletion:
+      type: object
+      properties:
+        token:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - token
     CompleteUploadRequest:
       type: object
       properties:
@@ -4715,6 +4921,19 @@ components:
       required:
       - parts
       - path
+    ConfirmDeletion:
+      type: object
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        token:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - requestId
+      - token
     ContentRuleView:
       type: object
       properties:
@@ -4919,6 +5138,87 @@ components:
       required:
       - count
       - label
+    DeletionCancelled:
+      type: object
+      properties:
+        state:
+          type: string
+      required:
+      - state
+    DeletionRequest:
+      type: object
+      properties:
+        cancelledAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        confirmedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        deleteAfter:
+          type:
+          - string
+          - "null"
+          format: date-time
+        erasedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        legalOrder:
+          type: boolean
+        requestedAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+        step:
+          type: integer
+          format: int32
+        userId:
+          type: string
+          format: uuid
+      required:
+      - id
+      - legalOrder
+      - requestedAt
+      - state
+      - step
+      - userId
+    DeletionStanding:
+      type: object
+      properties:
+        blockers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Blocker"
+        freshSignIn:
+          type: boolean
+        keptFor:
+          $ref: "#/components/schemas/KeptFor"
+        losses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Loss"
+        request:
+          oneOf:
+          - $ref: "#/components/schemas/DeletionRequest"
+          - type: "null"
+        waitingDays:
+          type: integer
+          format: int64
+      required:
+      - blockers
+      - freshSignIn
+      - keptFor
+      - losses
+      - waitingDays
     DisputePage:
       type: object
       properties:
@@ -5553,6 +5853,22 @@ components:
       - listed
       - opened
       - recent
+    KeptFor:
+      type: object
+      properties:
+        backupsDays:
+          type: integer
+          format: int64
+        moneyRecordsDays:
+          type: integer
+          format: int64
+        securityLogDays:
+          type: integer
+          format: int64
+      required:
+      - backupsDays
+      - moneyRecordsDays
+      - securityLogDays
     KindChoice:
       type: object
       properties:
@@ -5686,6 +6002,20 @@ components:
       - attempt
       - seq
       - text
+    Loss:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        code:
+          type: string
+        message:
+          type: string
+      required:
+      - amountPaise
+      - code
+      - message
     MeResponse:
       type: object
       properties:

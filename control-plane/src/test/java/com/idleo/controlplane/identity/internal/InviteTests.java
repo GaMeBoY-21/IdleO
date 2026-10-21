@@ -142,7 +142,11 @@ class InviteTests {
                         "GET /v1/me/data",
                         "GET /v1/me/exports",
                         "POST /v1/me/exports",
-                        "GET /v1/me/exports/{id}/download");
+                        "GET /v1/me/exports/{id}/download",
+                        "GET /v1/me/deletion",
+                        "POST /v1/me/deletion",
+                        "POST /v1/me/deletion/confirm",
+                        "DELETE /v1/me/deletion");
 
         // A spelling that routes to their own account is their own account; one that routes elsewhere is not.
         mvc.perform(get(java.net.URI.create("/v1/m%65")).header("Authorization", bearer))

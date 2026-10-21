@@ -197,6 +197,13 @@ class SessionStorage {
         return deleted;
     }
 
+    /** Writes a small object from memory. */
+    void write(String key, byte[] content) {
+        s3.putObject(
+                request -> request.bucket(properties.bucket()).key(key),
+                software.amazon.awssdk.core.sync.RequestBody.fromBytes(content));
+    }
+
     /** Writes a file from disk to {@code key}. */
     void put(String key, java.nio.file.Path file, String contentType) {
         s3.putObject(

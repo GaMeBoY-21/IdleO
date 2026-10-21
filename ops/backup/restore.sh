@@ -9,7 +9,12 @@
 #
 # Options: --name NAME (the container and volume, idleo-restore-<NAME>; default the time now), --port PORT (on this
 # machine; default 55432), --key FILE (the backup key's private half; default private/backup-dev/backup.key.asc,
-# development's), --network NETWORK (a Docker network the storage is on, for a local MinIO).
+# development's), --network NETWORK (a Docker network the storage is on, for a local MinIO), --jar FILE (the control
+# plane's jar, in production), --no-reapply (leave erased accounts as the backup had them, only to compare it with the
+# moment restored to, as the drill does).
+#
+# Once it's up, every account on the erased list is erased again (ops/backup/reapply-erasures.sh, ADR 0037): a backup
+# never brings back someone who asked to be deleted.
 #
 # Reads the backups' location from the environment, as the database's container has it: WALG_S3_PREFIX, AWS_ENDPOINT,
 # AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (a key that may read the bucket), and AWS_S3_FORCE_PATH_STYLE;
@@ -24,6 +29,8 @@ name="$(date -u +%Y%m%dt%H%M%S)"
 port=55432
 key="$root/private/backup-dev/backup.key.asc"
 network=""
+jar=""
+reapply=true
 while (($#)); do
   case "$1" in
     --to) target="$2"; shift 2 ;;
@@ -31,7 +38,9 @@ while (($#)); do
     --port) port="$2"; shift 2 ;;
     --key) key="$2"; shift 2 ;;
     --network) network="$2"; shift 2 ;;
-    -h | --help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --jar) jar="$2"; shift 2 ;;
+    --no-reapply) reapply=false; shift ;;
+    -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "restore: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
@@ -117,5 +126,11 @@ until docker exec "$container" psql -U "${PGUSER:-controlplane}" -d "${PGDATABAS
   sleep 1
 done
 took_ms=$(($(perl -MTime::HiRes=time -e 'printf "%d", time * 1000') - started_ms))
+if $reapply; then
+  reapply_args=(--port "$port")
+  [[ -n "$jar" ]] && reapply_args+=(--jar "$jar")
+  "$root/ops/backup/reapply-erasures.sh" "${reapply_args[@]}" >&2 ||
+    { echo "restore: erasing the erased list again failed; don't use $container until it has run" >&2; exit 1; }
+fi
 printf 'restore: %s is ready on 127.0.0.1:%s, from %s to %s, in %d.%03d s\n' \
   "$container" "$port" "$backup" "$target" $((took_ms / 1000)) $((took_ms % 1000))

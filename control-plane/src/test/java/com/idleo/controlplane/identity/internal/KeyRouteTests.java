@@ -138,7 +138,13 @@ class KeyRouteTests {
                         "DELETE /v1/hosts/{id}",
                         "PUT /v1/hosts/{id}/listing",
                         "POST /v1/hosts/{id}/enrolment-code",
-                        "PUT /v1/me/notifications");
+                        "PUT /v1/me/notifications",
+                        // The Terms, and the person's own data and account (ADR 0037).
+                        "POST /v1/me/notices",
+                        "POST /v1/me/exports",
+                        "POST /v1/me/deletion",
+                        "POST /v1/me/deletion/confirm",
+                        "DELETE /v1/me/deletion");
     }
 
     @Test

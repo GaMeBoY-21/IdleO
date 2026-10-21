@@ -235,8 +235,10 @@ class SessionsPersonalData implements PersonalData {
                         .map(HostOwners.OwnedHost::id)
                         .toList();
                 if (!hosts.isEmpty()) {
-                    jdbc.sql("update sessions.attempts set gpu_uuids = '{}' where host_id in (:hosts)"
-                                    + " and cardinality(gpu_uuids) > 0")
+                    // At least one is required: each becomes "erased".
+                    jdbc.sql("update sessions.attempts"
+                                    + " set gpu_uuids = array_fill('erased'::text, array[cardinality(gpu_uuids)])"
+                                    + " where host_id in (:hosts) and not ('erased' = all(gpu_uuids))")
                             .param("hosts", hosts)
                             .update();
                 }
