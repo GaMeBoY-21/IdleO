@@ -5,6 +5,7 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.EmailDeliverability;
+import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import com.idleo.controlplane.identity.UnreadNotifications;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;

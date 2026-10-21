@@ -35,6 +35,14 @@ public final class TestUsers {
         return signUp(mvc, TestIssuers.get().token(claims -> claims.expirationTime(expires)));
     }
 
+    /** A user with this address whose token outlives {@code lifetime}. */
+    public static TestUser signUpWithEmailLasting(MockMvc mvc, String email, Duration lifetime) throws Exception {
+        var expires = Date.from(Instant.now().plus(lifetime));
+        return signUp(
+                mvc,
+                TestIssuers.get().token(claims -> claims.claim("email", email).expirationTime(expires)));
+    }
+
     private static TestUser signUp(MockMvc mvc, String token) throws Exception {
         var bearer = "Bearer " + token;
         var body = mvc.perform(get("/v1/me").header("Authorization", bearer))

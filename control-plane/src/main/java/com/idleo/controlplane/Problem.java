@@ -64,6 +64,41 @@ public enum Problem {
             "Age not confirmed",
             "An account is only for people of the minimum age in `notices.minimumAge`; confirm it with the first "
                     + "acceptance."),
+    FRESH_SIGN_IN_REQUIRED(
+            "fresh-sign-in-required",
+            HttpStatus.FORBIDDEN,
+            "Sign in again first",
+            "This needs a sign-in in the last 10 minutes, in a browser. Sign out, sign in again, and retry."),
+    EXPORT_IN_PROGRESS(
+            "export-in-progress",
+            HttpStatus.CONFLICT,
+            "An export is being made",
+            "Your last export isn't ready yet. One is made at a time; it's emailed when it is."),
+    EXPORT_TOO_SOON(
+            "export-too-soon",
+            HttpStatus.TOO_MANY_REQUESTS,
+            "One export a day",
+            "An export can be asked for once a day. `Retry-After` says when the next one can be."),
+    DELETION_BLOCKED(
+            "deletion-blocked",
+            HttpStatus.CONFLICT,
+            "The account can't be deleted yet",
+            "Something has to end first. `blockers` lists each, with what to do."),
+    DELETION_ALREADY_REQUESTED(
+            "deletion-already-requested",
+            HttpStatus.CONFLICT,
+            "Deletion already asked for",
+            "This account's deletion is already waiting for its email confirmation, or scheduled."),
+    DELETION_LINK_INVALID(
+            "deletion-link-invalid",
+            HttpStatus.BAD_REQUEST,
+            "That link doesn't work",
+            "The link isn't one that can be used: it's wrong, used already or expired. The response never says which."),
+    NO_DELETION_PENDING(
+            "no-deletion-pending",
+            HttpStatus.CONFLICT,
+            "No deletion to cancel",
+            "The account isn't waiting to be deleted, or its erasure has already begun."),
     TOO_MANY_ATTEMPTS(
             "too-many-attempts",
             HttpStatus.TOO_MANY_REQUESTS,

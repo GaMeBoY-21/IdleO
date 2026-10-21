@@ -85,6 +85,7 @@ export const notificationChoices = (): { items: Notification[] } => ({
     choice("payout", "Payout sent or failed", "Payouts are your money."),
     choice("top-up-confirmed", "Top-up confirmed", "Top-ups are your money."),
     choice("new-device-sign-in", "New device sign-in", "It protects your account."),
+    choice("account-and-data", "Your account and data", "It's about your account and your data."),
   ],
 });
 

@@ -6,6 +6,7 @@
 const dateTime = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
 const time = new Intl.DateTimeFormat("en-IN", { timeStyle: "short" });
 const dayMonth = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
+const date = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" });
 
 const dayKey = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
 
@@ -26,6 +27,8 @@ export function dayHeading(value: string, now: number): string {
 
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 export const formatTime = (value: string | number) => time.format(new Date(value));
+/** A day, written out: 21 Oct 2026. */
+export const formatDay = (value: string | number) => date.format(new Date(value));
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;

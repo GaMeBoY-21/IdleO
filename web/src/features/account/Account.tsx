@@ -61,6 +61,19 @@ export function Account() {
                 strokeWidth={1.75}
               />
             </Link>
+            <Link href="/account/data/" className={`${ROW} hover:bg-ground md:hidden`}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-option font-semibold">Your data</p>
+                <p className="text-small text-text-muted">
+                  What we hold, download it, or delete your account
+                </p>
+              </div>
+              <ChevronRight
+                aria-hidden="true"
+                className="size-5 shrink-0 text-text-muted"
+                strokeWidth={1.75}
+              />
+            </Link>
             <Link href="/account/reports/" className={`${ROW} hover:bg-ground md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">Reports</p>

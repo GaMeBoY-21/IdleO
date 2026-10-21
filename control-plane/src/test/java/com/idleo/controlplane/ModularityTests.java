@@ -11,7 +11,7 @@ class ModularityTests {
     private static final ApplicationModules MODULES = ApplicationModules.of(ControlPlaneApplication.class);
 
     @Test
-    void hasTheElevenModulesFromTheTechnicalDesign() {
+    void hasTheModulesFromTheTechnicalDesign() {
         assertThat(MODULES.stream().map(module -> module.getIdentifier().toString()))
                 .containsExactlyInAnyOrder(
                         "identity",
@@ -24,7 +24,8 @@ class ModularityTests {
                         "billing",
                         "payouts",
                         "trust",
-                        "notifications");
+                        "notifications",
+                        "privacy");
     }
 
     @Test

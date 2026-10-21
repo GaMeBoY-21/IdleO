@@ -32,6 +32,11 @@ final class StorageLayout {
         return speedTestPrefix(hostId) + "probe";
     }
 
+    /** A person's data export (ADR 0037): one zip, deleted after seven days. */
+    static String exportPrefix(UUID exportId) {
+        return "exports/" + exportId + "/";
+    }
+
     static String sessionPrefix(UUID sessionId) {
         return "sessions/" + sessionId + "/";
     }

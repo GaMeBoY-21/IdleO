@@ -381,6 +381,17 @@ retention:
   first-run-after: 2m
   every: 24h
 
+# A person's own data (ADR 0037): an export is made by a job looking every export-sweep-every, kept export-keep (its
+# links to files work as long), and asked for once every export-every; deleting an account is confirmed by an email
+# link that works confirm-link-ttl, reminded reminder-before, and erased by a job looking every erasure-sweep-every.
+privacy:
+  export-keep: 7d
+  export-every: 24h
+  export-sweep-every: 15s
+  confirm-link-ttl: 24h
+  reminder-before: 24h
+  erasure-sweep-every: 1m
+
 # Everything the law decides, in one place (ADR 0037). Each value marked LEGAL(confirm) is a proposal a lawyer must
 # confirm before launch; the report of the privacy work lists them with the question to ask. Nothing else in the code
 # or the pages repeats them.
@@ -398,6 +409,10 @@ legal:
     # Database backups, which can hold an erased person until they age out (ops/backup/, docs/runbooks/backups.md);
     # the privacy notice must say so. Changing it means changing the backup scripts too. LEGAL(confirm)
     backups: 30d
+  # How long a person has, after confirming that their account should be deleted, to change their mind; nothing, not
+  # even an admin, shortens it but a legal order (audited). LEGAL(confirm)
+  erasure:
+    waiting-period: 7d
   # The Terms and the privacy notice in force (their text is the lawyer's; the pages say "Being drafted." until then).
   # A person accepts both, once, before anything else; changing a version here makes the app ask everyone once more
   # on their next visit. LEGAL(confirm)

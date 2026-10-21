@@ -30,7 +30,7 @@ class AdminRatingsController {
     /** One rating: the session, who gave it, the host it's for, the stars and what they wrote. */
     record AdminRating(
             UUID sessionId,
-            UUID renterId,
+            @Nullable UUID renterId,
             UUID hostId,
             int stars,
             @Nullable String comment,

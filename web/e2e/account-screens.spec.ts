@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
+import * as privacy from "./fixtures-privacy";
 import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type Answer } from "./support";
 
 /**
@@ -94,6 +95,65 @@ test.describe("the Terms and privacy step", () => {
   });
 });
 
+test.describe("your data", () => {
+  test("shows what we hold by kind, and makes the file in the background", async ({ page }, info) => {
+    let asked = 0;
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me/data": { json: privacy.yourData() },
+        "/v1/me/exports": (call, request) => {
+          if (request.method() === "POST") {
+            asked++;
+            return { json: privacy.exportBeingMade().exports[0], status: 202 };
+          }
+          return { json: asked === 0 ? privacy.noExports() : privacy.exportBeingMade() };
+        },
+      }),
+    );
+    await signIn(page, "asha", "/account/data/");
+    await expect(page.getByRole("heading", { level: 1, name: "Your data" })).toBeVisible();
+    await expect(page.getByText("6 sessions,")).toBeVisible();
+    await expect(page.getByText("Nothing made yet.")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "your-data");
+    await page.getByRole("button", { name: "Make my file" }).click();
+    await expect(page.getByText("Being made. We'll email you when it's ready.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Make my file" })).toBeDisabled();
+    expect(asked).toBe(1);
+  });
+
+  test("a ready file downloads, and a second one the same day is refused in words", async ({
+    page,
+  }, info) => {
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me/data": { json: privacy.yourData() },
+        "/v1/me/exports": { json: privacy.exportReady() },
+      }),
+    );
+    await signIn(page, "asha", "/account/data/");
+    await expect(page.getByText(/^Ready, .* Kept until /)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Download" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "your-data-ready");
+  });
+
+  test("says what went wrong and tries again", async ({ page }) => {
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me/data": { status: 500 },
+        "/v1/me/exports": { status: 429, problem: "export-too-soon" },
+      }),
+    );
+    await signIn(page, "asha", "/account/data/");
+    await expect(page.getByRole("button", { name: "Try again" }).first()).toBeVisible();
+    await expectAccessible(page);
+  });
+});
+
 test.describe("the invite step", () => {
   test("shows one field, typed in groups", async ({ page }, info) => {
     await fakeApi(page, waiting());
@@ -175,7 +235,7 @@ test.describe("the account", () => {
     // On a laptop the rail names the person too, so the first of them.
     await expect(page.getByText("asha@example.com", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Google", { exact: true })).toBeVisible();
-    await expect(page.getByRole("switch")).toHaveCount(26);
+    await expect(page.getByRole("switch")).toHaveCount(28);
     for (const title of ["Host lost", "Payout sent or failed"]) {
       await expect(page.getByRole("switch", { name: `${title}: email` })).toBeDisabled();
     }
@@ -239,7 +299,7 @@ test.describe("the account", () => {
     await page.unrouteAll({ behavior: "ignoreErrors" });
     await fakeApi(page, signedIn());
     await page.getByRole("button", { name: "Try again" }).click();
-    await expect(page.getByRole("switch")).toHaveCount(26);
+    await expect(page.getByRole("switch")).toHaveCount(28);
   });
 
   test("with no kinds to choose", async ({ page }, info) => {
@@ -259,12 +319,12 @@ test.describe("the account", () => {
       }),
     );
     await signIn(page, "asha", "/account/");
-    await expect(page.getByRole("switch")).toHaveCount(26);
+    await expect(page.getByRole("switch")).toHaveCount(28);
     // The choices are fresh for 30 s; coming back to the tab later reads them again, and that read fails.
     await page.clock.setFixedTime(new Date(data.NOW.getTime() + 10 * 60_000));
     await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
     await expect(page.getByText(/Couldn't refresh/)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("switch")).toHaveCount(26);
+    await expect(page.getByRole("switch")).toHaveCount(28);
     await expectAccessible(page);
     await capture(page, info, "account-stale");
   });

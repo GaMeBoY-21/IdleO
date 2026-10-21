@@ -78,6 +78,62 @@ class AgeNotConfirmed(IdleoError):
     title = "Age not confirmed"
 
 
+class FreshSignInRequired(IdleoError):
+    """Sign in again first (HTTP 403)."""
+
+    slug = "fresh-sign-in-required"
+    status = 403
+    title = "Sign in again first"
+
+
+class ExportInProgress(IdleoError):
+    """An export is being made (HTTP 409)."""
+
+    slug = "export-in-progress"
+    status = 409
+    title = "An export is being made"
+
+
+class ExportTooSoon(IdleoError):
+    """One export a day (HTTP 429)."""
+
+    slug = "export-too-soon"
+    status = 429
+    title = "One export a day"
+
+
+class DeletionBlocked(IdleoError):
+    """The account can't be deleted yet (HTTP 409)."""
+
+    slug = "deletion-blocked"
+    status = 409
+    title = "The account can't be deleted yet"
+
+
+class DeletionAlreadyRequested(IdleoError):
+    """Deletion already asked for (HTTP 409)."""
+
+    slug = "deletion-already-requested"
+    status = 409
+    title = "Deletion already asked for"
+
+
+class DeletionLinkInvalid(IdleoError):
+    """That link doesn't work (HTTP 400)."""
+
+    slug = "deletion-link-invalid"
+    status = 400
+    title = "That link doesn't work"
+
+
+class NoDeletionPending(IdleoError):
+    """No deletion to cancel (HTTP 409)."""
+
+    slug = "no-deletion-pending"
+    status = 409
+    title = "No deletion to cancel"
+
+
 class TooManyAttempts(IdleoError):
     """Too many attempts (HTTP 429)."""
 
@@ -536,6 +592,13 @@ __all__ = [
     "InviteInvalid",
     "NoticesChanged",
     "AgeNotConfirmed",
+    "FreshSignInRequired",
+    "ExportInProgress",
+    "ExportTooSoon",
+    "DeletionBlocked",
+    "DeletionAlreadyRequested",
+    "DeletionLinkInvalid",
+    "NoDeletionPending",
     "TooManyAttempts",
     "BrowserSignInRequired",
     "ApiKeyReadOnly",
@@ -604,6 +667,13 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "invite-invalid": InviteInvalid,
     "notices-changed": NoticesChanged,
     "age-not-confirmed": AgeNotConfirmed,
+    "fresh-sign-in-required": FreshSignInRequired,
+    "export-in-progress": ExportInProgress,
+    "export-too-soon": ExportTooSoon,
+    "deletion-blocked": DeletionBlocked,
+    "deletion-already-requested": DeletionAlreadyRequested,
+    "deletion-link-invalid": DeletionLinkInvalid,
+    "no-deletion-pending": NoDeletionPending,
     "too-many-attempts": TooManyAttempts,
     "browser-sign-in-required": BrowserSignInRequired,
     "api-key-read-only": ApiKeyReadOnly,

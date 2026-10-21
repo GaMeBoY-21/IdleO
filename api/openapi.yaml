@@ -2315,6 +2315,84 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - me
+  /v1/me/data:
+    get:
+      operationId: yourDataData
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YourData"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - yourData
+  /v1/me/exports:
+    get:
+      operationId: yourDataList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - yourData
+    post:
+      operationId: yourDataRequest
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Export"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - yourData
+  /v1/me/exports/{id}/download:
+    get:
+      operationId: yourDataDownload
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportDownload"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - yourData
   /v1/me/notices:
     post:
       operationId: meAcceptNotices
@@ -3668,7 +3746,9 @@ components:
           type: string
           format: uuid
         note:
-          type: string
+          type:
+          - string
+          - "null"
         usedAt:
           type:
           - string
@@ -3687,7 +3767,6 @@ components:
       - createdAt
       - createdBy
       - id
-      - note
     AdminInvitePage:
       type: object
       properties:
@@ -3805,7 +3884,9 @@ components:
           type: string
           format: date-time
         renterId:
-          type: string
+          type:
+          - string
+          - "null"
           format: uuid
         sessionId:
           type: string
@@ -3817,7 +3898,6 @@ components:
       - changedAt
       - hostId
       - ratedAt
-      - renterId
       - sessionId
       - stars
     AdminRatingPage:
@@ -4806,6 +4886,39 @@ components:
       - runningLabel
       - serviceName
       - startedAt
+    DataGroup:
+      type: object
+      properties:
+        group:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataItem"
+      required:
+      - group
+      - items
+    DataItem:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int64
+        earliest:
+          type:
+          - string
+          - "null"
+          format: date-time
+        label:
+          type: string
+        latest:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - count
+      - label
     DisputePage:
       type: object
       properties:
@@ -4986,6 +5099,56 @@ components:
       - at
       - reason
       - state
+    Export:
+      type: object
+      properties:
+        expiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        readyAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        requestedAt:
+          type: string
+          format: date-time
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        state:
+          type: string
+      required:
+      - id
+      - requestedAt
+      - state
+    ExportDownload:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+      required:
+      - expiresAt
+      - url
+    ExportList:
+      type: object
+      properties:
+        exports:
+          type: array
+          items:
+            $ref: "#/components/schemas/Export"
+      required:
+      - exports
     FailureDetail:
       type: object
       properties:
@@ -5857,6 +6020,13 @@ components:
           - /problems/invite-invalid
           - /problems/notices-changed
           - /problems/age-not-confirmed
+          - /problems/fresh-sign-in-required
+          - /problems/export-in-progress
+          - /problems/export-too-soon
+          - /problems/deletion-blocked
+          - /problems/deletion-already-requested
+          - /problems/deletion-link-invalid
+          - /problems/no-deletion-pending
           - /problems/too-many-attempts
           - /problems/browser-sign-in-required
           - /problems/api-key-read-only
@@ -6946,6 +7116,15 @@ components:
       - availablePaise
       - balancePaise
       - reservedPaise
+    YourData:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataGroup"
+      required:
+      - groups
   securitySchemes:
     adminSession:
       description: "An admin session from POST /admin/v1/session (ADR 0027), sent\

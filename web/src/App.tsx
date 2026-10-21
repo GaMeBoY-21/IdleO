@@ -57,6 +57,7 @@ const screens = {
   "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
   "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
   "/account/reports/": screen(() => import("@/features/account/Reports").then((m) => m.Reports)),
+  "/account/data/": screen(() => import("@/features/account/YourData").then((m) => m.YourData)),
   "/notifications/": screen(() =>
     import("@/features/notifications/Notifications").then((m) => m.Notifications),
   ),
@@ -97,11 +98,12 @@ const Agree = screens["/agree/"].Screen;
 const Account = screens["/account/"].Screen;
 const ApiKeys = screens["/account/keys/"].Screen;
 const Reports = screens["/account/reports/"].Screen;
+const YourData = screens["/account/data/"].Screen;
 const Notifications = screens["/notifications/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -150,6 +152,7 @@ function SignedInArea() {
             <Route path="/account/" component={Account} />
             <Route path="/account/keys/" component={ApiKeys} />
             <Route path="/account/reports/" component={Reports} />
+            <Route path="/account/data/" component={YourData} />
             <Route path="/notifications/" component={Notifications} />
             <Route path="/hosting/" component={Hosting} />
             <Route path="/hosting/machine/" component={Machine} />

@@ -134,7 +134,7 @@ export function Invites() {
             <Table caption="Invite codes" columns={["For", "Made by", "Made", "Lapses", "Used by"]}>
               {rows.map((invite) => (
                 <Row key={invite.id}>
-                  <Cell>{invite.note}</Cell>
+                  <Cell>{invite.note ?? "Erased account"}</Cell>
                   <Cell>{invite.createdBy}</Cell>
                   <Cell>
                     <RelativeTime value={invite.createdAt} />

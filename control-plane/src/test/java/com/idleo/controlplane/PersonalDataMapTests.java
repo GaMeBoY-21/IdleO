@@ -6,14 +6,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,10 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @ControlPlaneTest
 class PersonalDataMapTests {
 
-    static final Path MAP = Path.of("../docs/reference/personal-data-map.md");
-
-    /** A map row: | `schema.table` | columns | … */
-    private static final Pattern TABLE_ROW = Pattern.compile("^\\| `([a-z_]+\\.[a-z_]+)` \\| ([^|]+) \\|");
+    static final Path MAP = PersonalDataMap.FILE;
 
     /** A storage row: | `prefix/` … */
     private static final Pattern PREFIX_ROW = Pattern.compile("^\\| `([a-z0-9_-]+/)`");
@@ -41,8 +34,13 @@ class PersonalDataMapTests {
     JdbcTemplate jdbc;
 
     @Test
-    void listsEveryTableWithEveryColumn() throws IOException {
-        var mapped = mappedTables();
+    void listsEveryTableWithEveryColumn() {
+        var mapped = new java.util.HashMap<String, List<String>>();
+        for (var table : PersonalDataMap.tables()) {
+            assertThat(mapped.put(table.name(), table.columns()))
+                    .as("%s listed once", table.name())
+                    .isNull();
+        }
         var actual = new TreeMap<String, List<String>>();
         jdbc.query("""
                 select c.table_schema || '.' || c.table_name as name, c.column_name
@@ -88,40 +86,17 @@ class PersonalDataMapTests {
         assertThat(mapped).as("prefixes in docs/reference/personal-data-map.md").containsAll(literals);
     }
 
-    /** The map's tables and their columns, as written, with the bold marks taken off. */
-    static Map<String, List<String>> mappedTables() throws IOException {
-        var tables = new LinkedHashMap<String, List<String>>();
-        for (var line : Files.readAllLines(MAP)) {
-            var row = TABLE_ROW.matcher(line);
-            if (row.find()) {
-                var columns = Pattern.compile(",")
-                        .splitAsStream(row.group(2))
-                        .map(column -> column.replace("*", "").strip())
-                        .toList();
-                assertThat(tables.put(row.group(1), columns))
-                        .as("%s listed once", row.group(1))
-                        .isNull();
+    @Test
+    void saysForEveryTableWhatErasureDoesAndFindsAPersonWhereItCan() {
+        for (var table : PersonalDataMap.tables()) {
+            if (table.erasure() != PersonalDataMap.Erasure.KEPT) {
+                assertThat(table.whose())
+                        .as("%s is deleted or cleared, so the map says how to find a person's rows", table.name())
+                        .isNotNull();
+            }
+            if (table.exportGroup() != null) {
+                assertThat(PersonalData.GROUPS).as(table.name()).contains(table.exportGroup());
             }
         }
-        return tables;
-    }
-
-    /** The map's personal columns (bold), by table. */
-    static Map<String, Set<String>> personalColumns() throws IOException {
-        var personal = new TreeMap<String, Set<String>>();
-        for (var line : Files.readAllLines(MAP)) {
-            var row = TABLE_ROW.matcher(line);
-            if (row.find()) {
-                personal.put(
-                        row.group(1),
-                        Pattern.compile(",")
-                                .splitAsStream(row.group(2))
-                                .map(String::strip)
-                                .filter(column -> column.startsWith("**"))
-                                .map(column -> column.replace("*", ""))
-                                .collect(Collectors.toCollection(TreeSet::new)));
-            }
-        }
-        return personal;
     }
 }

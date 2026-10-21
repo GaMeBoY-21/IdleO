@@ -13,6 +13,7 @@ const SECTIONS = [
   { href: "/account/keys/", label: "API keys" },
   { href: "/files/", label: "My files" },
   { href: "/account/reports/", label: "Reports" },
+  { href: "/account/data/", label: "Your data" },
 ] as const;
 
 /** Account's laptop frame: the 320 px rail (the person, the sections, appearance, Sign out) and the screen beside it. */

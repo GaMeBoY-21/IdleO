@@ -20,11 +20,28 @@ class EmailContent {
 
     /** The email for one stored notification: its id names the email ({@code Message-ID}) however often it's tried. */
     EmailSender.Email of(String to, NotificationKind kind, Message message, UUID notificationId) {
-        var link = properties.absolute(message.link());
-        var account = properties.absolute("/account/");
         var why = kind.locked()
                 ? "You get this because it's about your money or your safety, so it's always sent."
                 : "You get this because emails about \"" + kind.title() + "\" are switched on.";
+        return email(to, message, notificationId, why, !kind.locked());
+    }
+
+    /**
+     * An email kept nowhere (ADR 0037): a link that is itself a secret, or the last word to an account that's gone.
+     * {@code messageId} names it however often it's tried.
+     */
+    EmailSender.Email direct(String to, Message message, UUID messageId) {
+        return email(
+                to,
+                message,
+                messageId,
+                "You get this because of something you asked us to do with your account.",
+                false);
+    }
+
+    private EmailSender.Email email(String to, Message message, UUID id, String why, boolean unsubscribe) {
+        var link = properties.absolute(message.link());
+        var account = properties.absolute("/account/");
         var text = message.title() + "\n\n" + message.body() + "\n\nOpen it: " + link + "\n\n--\n" + why
                 + "\nChange what we email you in Account: " + account + "\n";
         var html = """
@@ -52,7 +69,7 @@ class EmailContent {
                 message.title(),
                 text,
                 html,
-                "<" + notificationId + "@" + properties.senderDomain() + ">",
-                kind.locked() ? null : account);
+                "<" + id + "@" + properties.senderDomain() + ">",
+                unsubscribe ? account : null);
     }
 }

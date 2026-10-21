@@ -33,7 +33,8 @@ class FlywayMigrationTests {
                         "billing",
                         "payouts",
                         "trust",
-                        "notifications");
+                        "notifications",
+                        "privacy");
     }
 
     @Test

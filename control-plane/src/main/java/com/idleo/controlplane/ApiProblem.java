@@ -63,6 +63,11 @@ public final class ApiProblem extends RuntimeException {
         return new ApiProblem(problem, detail, properties);
     }
 
+    /** The error {@code problem} with one more member, such as {@code blockers}, for the client to show. */
+    public static ApiProblem of(Problem problem, String detail, String member, Object value) {
+        return new ApiProblem(problem, detail, Map.of(member, value));
+    }
+
     /** A {@link Problem#VALIDATION_FAILED} naming each invalid field. */
     public static ApiProblem invalid(String detail, List<FieldError> errors) {
         return of(Problem.VALIDATION_FAILED, detail, errors);

@@ -93,6 +93,12 @@ class HostLifecycle {
      */
     @Transactional
     Optional<Host> remove(UUID owner, UUID hostId) {
+        return remove(owner, hostId, "removed by its owner");
+    }
+
+    /** As {@link #remove(UUID, UUID)}, with the reason its history and certificate revocation give. */
+    @Transactional
+    Optional<Host> remove(UUID owner, UUID hostId, String reason) {
         var host = lock(owner, hostId);
         if (host.isEmpty()) {
             return Optional.empty();
@@ -107,15 +113,16 @@ class HostLifecycle {
                             updated_at = :now, version = version + 1
                         where id = :hostId
                         """).param("now", now).param("hostId", hostId).update();
-        certificates.revoke(hostId, "removed by its owner", AuditTrail.Actor.owner(owner));
+        certificates.revoke(hostId, reason, AuditTrail.Actor.owner(owner));
         jdbc.sql("delete from hosts.enrolment_codes where host_id = :hostId")
                 .param("hostId", hostId)
                 .update();
         jdbc.sql("""
                         insert into hosts.status_changes (id, host_id, from_status, to_status, reason, changed_by, created_at)
-                        values (:id, :hostId, :from, 'removed', 'removed by its owner', :by, :now)
+                        values (:id, :hostId, :from, 'removed', :reason, :by, :now)
                         """)
                 .param("id", ids.newId())
+                .param("reason", reason)
                 .param("hostId", hostId)
                 .param("from", host.get().status())
                 .param("by", "owner " + owner)

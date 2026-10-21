@@ -139,6 +139,16 @@ class CurrentSession(BaseModel):
     started_at: Annotated[AwareDatetime, Field(alias="startedAt")]
 
 
+class DataItem(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    count: int
+    earliest: AwareDatetime | None = None
+    label: str
+    latest: AwareDatetime | None = None
+
+
 class DisputeResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -212,6 +222,33 @@ class EventResponse(BaseModel):
     at: AwareDatetime
     reason: str
     state: str
+
+
+class Export(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    expires_at: Annotated[AwareDatetime | None, Field(alias="expiresAt")] = None
+    id: UUID
+    ready_at: Annotated[AwareDatetime | None, Field(alias="readyAt")] = None
+    requested_at: Annotated[AwareDatetime, Field(alias="requestedAt")]
+    size_bytes: Annotated[int | None, Field(alias="sizeBytes")] = None
+    state: str
+
+
+class ExportDownload(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    expires_at: Annotated[AwareDatetime, Field(alias="expiresAt")]
+    url: str
+
+
+class ExportList(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    exports: list[Export]
 
 
 class GpuInfo(BaseModel):
@@ -516,6 +553,13 @@ class Type(Enum):
     field_problems_invite_invalid = "/problems/invite-invalid"
     field_problems_notices_changed = "/problems/notices-changed"
     field_problems_age_not_confirmed = "/problems/age-not-confirmed"
+    field_problems_fresh_sign_in_required = "/problems/fresh-sign-in-required"
+    field_problems_export_in_progress = "/problems/export-in-progress"
+    field_problems_export_too_soon = "/problems/export-too-soon"
+    field_problems_deletion_blocked = "/problems/deletion-blocked"
+    field_problems_deletion_already_requested = "/problems/deletion-already-requested"
+    field_problems_deletion_link_invalid = "/problems/deletion-link-invalid"
+    field_problems_no_deletion_pending = "/problems/no-deletion-pending"
     field_problems_too_many_attempts = "/problems/too-many-attempts"
     field_problems_browser_sign_in_required = "/problems/browser-sign-in-required"
     field_problems_api_key_read_only = "/problems/api-key-read-only"
@@ -1070,6 +1114,14 @@ class CreateUploadRequest(BaseModel):
     name: Annotated[str, Field(min_length=1)]
 
 
+class DataGroup(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    group: str
+    items: list[DataItem]
+
+
 class DisputePage(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1233,6 +1285,13 @@ class UploadList(BaseModel):
     )
     next_cursor: Annotated[str | None, Field(alias="nextCursor")] = None
     uploads: list[UploadResponse]
+
+
+class YourData(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    groups: list[DataGroup]
 
 
 class Availability(BaseModel):

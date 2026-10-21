@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.ClientAccessDeniedException;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

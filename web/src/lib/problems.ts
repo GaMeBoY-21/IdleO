@@ -22,6 +22,15 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "invite-required": "Enter your invite code to get started.",
   "invite-invalid":
     "That code isn't one we can accept. Check it and try again, or ask the person who invited you.",
+  "fresh-sign-in-required": "For your safety, sign out and sign in again, then try this within 10 minutes.",
+  "export-in-progress": "Your file is still being made. We'll email you when it's ready.",
+  "export-too-soon": "You can make one file a day. Try again tomorrow.",
+  "deletion-blocked": "Your account can't be deleted yet. The list below says what has to end first.",
+  "deletion-already-requested":
+    "You've already asked to delete your account. Check your email to confirm it.",
+  "deletion-link-invalid":
+    "That link doesn't work: it was used already, it's more than a day old, or it's not the latest. Ask again.",
+  "no-deletion-pending": "Your account isn't waiting to be deleted, so there's nothing to cancel.",
   "notices-changed":
     "The Terms or privacy notice changed while you were reading. Reload to see the new ones.",
   "age-not-confirmed": "Confirm that you're 18 or older to carry on.",

@@ -44,4 +44,10 @@ public interface AgentCommands {
 
     /** Stops delivery of the host's commands of {@code type} that haven't been delivered, or acked. */
     void withdrawFor(UUID hostId, String type);
+
+    /**
+     * Deletes every command for the session, whatever its state (ADR 0037): a StartSession carries the renter's
+     * parameters and input links, so erasing their account takes it. Called only for a session that has ended.
+     */
+    void forget(UUID sessionId);
 }

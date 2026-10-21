@@ -225,6 +225,13 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `InviteInvalid` | `invite-invalid` | 400 | 1 |
 | `NoticesChanged` | `notices-changed` | 409 | 1 |
 | `AgeNotConfirmed` | `age-not-confirmed` | 422 | 1 |
+| `FreshSignInRequired` | `fresh-sign-in-required` | 403 | 1 |
+| `ExportInProgress` | `export-in-progress` | 409 | 1 |
+| `ExportTooSoon` | `export-too-soon` | 429 | 1 |
+| `DeletionBlocked` | `deletion-blocked` | 409 | 1 |
+| `DeletionAlreadyRequested` | `deletion-already-requested` | 409 | 1 |
+| `DeletionLinkInvalid` | `deletion-link-invalid` | 400 | 1 |
+| `NoDeletionPending` | `no-deletion-pending` | 409 | 1 |
 | `TooManyAttempts` | `too-many-attempts` | 429 | 1 |
 | `BrowserSignInRequired` | `browser-sign-in-required` | 403 | 5 |
 | `ApiKeyReadOnly` | `api-key-read-only` | 403 | 1 |

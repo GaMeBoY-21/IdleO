@@ -16,7 +16,9 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties("legal")
 @Validated
 public record LegalSettings(
-        @NotNull @Valid Retention retention, @NotNull @Valid Notices notices) {
+        @NotNull @Valid Retention retention,
+        @NotNull @Valid Erasure erasure,
+        @NotNull @Valid Notices notices) {
 
     /** How long the records the law sets a period for are kept. */
     public record Retention(
@@ -24,6 +26,9 @@ public record LegalSettings(
             @NotNull Duration moneyRecords,
             @NotNull Duration auditLog,
             @NotNull Duration backups) {}
+
+    /** How long a confirmed deletion waits, for the person to change their mind. */
+    public record Erasure(@NotNull Duration waitingPeriod) {}
 
     /** The Terms and privacy notice in force, by version, and the age a person must confirm. */
     public record Notices(

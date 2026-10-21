@@ -77,6 +77,14 @@ class AgentCommandService implements AgentCommands {
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
+    public void forget(UUID sessionId) {
+        jdbc.sql("delete from agentgateway.agent_commands where session_id = :sessionId")
+                .param("sessionId", sessionId)
+                .update();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public UUID replace(UUID hostId, String type, OpenStreamResponse.Builder message) {
         withdrawFor(hostId, type);
         return enqueue(hostId, null, type, message, null, true);

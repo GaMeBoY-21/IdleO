@@ -11,6 +11,7 @@ import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.identity.AuditTrail;
+import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import java.time.Duration;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -131,7 +132,17 @@ class InviteTests {
                                 .forEach(pattern -> open.add(method.name() + " " + pattern)));
             }
         });
-        assertThat(open).containsExactlyInAnyOrder("GET /v1/me", "PATCH /v1/me", "POST /v1/me/activate");
+        assertThat(open)
+                .containsExactlyInAnyOrder(
+                        "GET /v1/me",
+                        "PATCH /v1/me",
+                        "POST /v1/me/activate",
+                        // The Terms, and the person's own data (ADR 0037): theirs whether or not they have a code.
+                        "POST /v1/me/notices",
+                        "GET /v1/me/data",
+                        "GET /v1/me/exports",
+                        "POST /v1/me/exports",
+                        "GET /v1/me/exports/{id}/download");
 
         // A spelling that routes to their own account is their own account; one that routes elsewhere is not.
         mvc.perform(get(java.net.URI.create("/v1/m%65")).header("Authorization", bearer))

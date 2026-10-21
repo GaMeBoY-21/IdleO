@@ -71,7 +71,7 @@ class AdminInvitesController {
     /** A code, without the code: its note, who made it and when, when it lapses, and who used it. */
     record AdminInvite(
             UUID id,
-            String note,
+            @Nullable String note,
             String createdBy,
             Instant createdAt,
             @Nullable Instant expiresAt,

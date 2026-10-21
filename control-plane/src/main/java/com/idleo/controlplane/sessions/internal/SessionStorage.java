@@ -168,11 +168,57 @@ class SessionStorage {
         s3.deleteObject(request -> request.bucket(properties.bucket()).key(key));
     }
 
+    /**
+     * Deletes everything under {@code prefix}, a thousand keys to a request, and lists it again (ADR 0037): how many it
+     * deleted, or an exception when anything is still there, so erasure and retention try again.
+     */
+    long deletePrefix(String prefix) {
+        long deleted = 0;
+        for (int round = 0; round < 3; round++) {
+            var keys = list(prefix).stream().map(StoredObject::key).toList();
+            if (keys.isEmpty()) {
+                return deleted;
+            }
+            for (int from = 0; from < keys.size(); from += 1000) {
+                var batch = keys.subList(from, Math.min(keys.size(), from + 1000));
+                s3.deleteObjects(request -> request.bucket(properties.bucket())
+                        .delete(delete -> delete.quiet(true)
+                                .objects(batch.stream()
+                                        .map(key -> software.amazon.awssdk.services.s3.model.ObjectIdentifier.builder()
+                                                .key(key)
+                                                .build())
+                                        .toList())));
+                deleted += batch.size();
+            }
+        }
+        if (!list(prefix).isEmpty()) {
+            throw new IllegalStateException("objects are still under a prefix after deleting it");
+        }
+        return deleted;
+    }
+
+    /** Writes a file from disk to {@code key}. */
+    void put(String key, java.nio.file.Path file, String contentType) {
+        s3.putObject(
+                request -> request.bucket(properties.bucket()).key(key).contentType(contentType),
+                software.amazon.awssdk.core.sync.RequestBody.fromFile(file));
+    }
+
     /** Writes an empty object: an uploaded file of zero bytes, which has no parts to send (ADR 0022). */
     void writeEmpty(String key) {
         s3.putObject(
                 request -> request.bucket(properties.bucket()).key(key),
                 software.amazon.awssdk.core.sync.RequestBody.empty());
+    }
+
+    /** A link that downloads {@code key} for {@code ttl}, saved on the person's disk as {@code fileName}. */
+    URL downloadLink(String key, String fileName, Duration ttl) {
+        return presigner
+                .presignGetObject(request -> request.signatureDuration(ttl)
+                        .getObjectRequest(get -> get.bucket(properties.bucket())
+                                .key(key)
+                                .responseContentDisposition("attachment; filename=\"" + fileName + "\"")))
+                .url();
     }
 
     URL downloadLink(String key, Duration ttl) {

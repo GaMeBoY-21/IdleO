@@ -1,6 +1,7 @@
 import { expect, test, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import * as hosting from "./fixtures-hosting";
+import * as privacy from "./fixtures-privacy";
 import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
 import { fakeApi, recordLayoutShifts, signIn, type Answer } from "./support";
@@ -57,6 +58,15 @@ const screens = [
     } as Record<string, Answer>,
   },
   { name: "notifications", path: "/notifications/", ready: () => "Your credit is running low" },
+  {
+    name: "your data",
+    path: "/account/data/",
+    ready: () => "Kept until",
+    routes: {
+      "/v1/me/data": { json: privacy.yourData() },
+      "/v1/me/exports": { json: privacy.exportReady() },
+    } as Record<string, Answer>,
+  },
   { name: "a CLI sign-in to approve", path: "/cli-login/?code=WDJB-MJHT", ready: () => "Approve" },
   { name: "adding a machine", path: "/hosting/add/", ready: () => "Windows app: coming soon" },
   { name: "linking a laptop", path: `/link/${hosting.LINK_ID}/`, ready: () => "Approve and start earning" },
