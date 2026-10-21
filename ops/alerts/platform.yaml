@@ -1,0 +1,91 @@
+# The control plane's own health (ADR 0036). Prometheus rule format: development's Prometheus reads this file
+# (ops/prometheus/development.yaml) and Grafana Cloud's ruler takes it unchanged (docs/runbooks/monitoring.md).
+# Every alert has a one-line summary and the section of docs/runbooks/alerts.md that says what to do;
+# ops/alerts/tests/ proves each fires when it should and not before (scripts/checks/ops.sh).
+groups:
+  - name: platform
+    rules:
+      - alert: ControlPlaneSilent
+        # No meter from any instance for 3 minutes: the control plane is down, or can't reach the collector. Meters
+        # are sent once a minute, so one late batch never fires it.
+        expr: absent_over_time(jvm_memory_used_bytes{job="control-plane"}[3m])
+        labels:
+          severity: page
+        annotations:
+          summary: The control plane has sent nothing for 3 minutes; it may be down.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#control-plane-silent
+
+      - alert: ApiErrors
+        # 5xx above 2% of API requests for 5 minutes, once there are at least 10 in the window. Health probes don't
+        # count.
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{job="control-plane", uri!~"/actuator.*", status=~"5.."}[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{job="control-plane", uri!~"/actuator.*"}[5m]))
+          ) > 0.02
+          and
+          sum(increase(http_server_requests_seconds_count{job="control-plane", uri!~"/actuator.*"}[5m])) >= 10
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'More than 2% of API requests are failing with a server error ({{ $value | humanizePercentage }}).'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#api-errors
+
+      - alert: SlowApi
+        # The 95th percentile above 1 s for 10 minutes. A session's event stream stays open by design, so it's left
+        # out, as are health probes.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket{job="control-plane", uri!~"/actuator.*|/v1/sessions/\\{id\\}/events"}[10m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'API requests are slow: the 95th percentile is {{ $value | humanizeDuration }}.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#slow-api
+
+      - alert: DiskFilling
+        # The server's disk, as each instance sees it (the database shares the droplet's disk).
+        expr: max by (instance) (1 - disk_free_bytes{job="control-plane"} / disk_total_bytes{job="control-plane"}) > 0.8
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'The server''s disk is {{ $value | humanizePercentage }} full.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#disk
+
+      - alert: DatabasePoolBusy
+        # More than 80% of the connection pool in use for 5 minutes.
+        expr: max by (instance) (hikaricp_connections_active{job="control-plane"} / hikaricp_connections_max{job="control-plane"}) > 0.8
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'The database connection pool is {{ $value | humanizePercentage }} in use.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
+
+      - alert: DatabaseUnreachable
+        # Readiness's database check failing for a minute on any instance.
+        expr: min by (instance) (health_ready{job="control-plane", component="db"}) == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: The control plane can't reach the database.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
+
+      - alert: CertificateExpiring
+        # The agents' CA (root or intermediate) or a server certificate the control plane serves expires within 14
+        # days.
+        expr: |
+          min by (certificate) (hosts_ca_certificate_expiry_seconds{job="control-plane"}) < 14 * 86400
+          or
+          min by (bundle, certificate) (ssl_chain_expiry_seconds{job="control-plane"}) < 14 * 86400
+        labels:
+          severity: page
+        annotations:
+          summary: 'A certificate expires in {{ $value | humanizeDuration }}.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#certificates

@@ -1,0 +1,144 @@
+# promtool test rules: each platform alert fires when it should and not before (scripts/checks/ops.sh).
+rule_files:
+  - ../platform.yaml
+evaluation_interval: 15s
+tests:
+  # Meters stop at 10m: silent from 13m, not at 12m.
+  - interval: 1m
+    input_series:
+      - series: 'jvm_memory_used_bytes{job="control-plane", area="heap"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ControlPlaneSilent
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: ControlPlaneSilent
+        exp_alerts:
+          - exp_labels: {severity: page, job: control-plane}
+            exp_annotations:
+              summary: The control plane has sent nothing for 3 minutes; it may be down.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#control-plane-silent
+
+  # 100 requests a minute; 5 of them 5xx from 10m (about 4.8%), and one a minute before (1%).
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="control-plane", uri="/v1/sessions", status="200"}'
+        values: '0+99x30'
+      - series: 'http_server_requests_seconds_count{job="control-plane", uri="/v1/sessions", status="500"}'
+        values: '0+1x10 10+5x20'
+      - series: 'http_server_requests_seconds_count{job="control-plane", uri="/actuator/health/{*path}", status="503"}'
+        values: '0+100x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: ApiErrors
+        exp_alerts: []
+      - eval_time: 22m
+        alertname: ApiErrors
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'More than 2% of API requests are failing with a server error (4.808%).'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#api-errors
+
+  # A few errors in a quiet night aren't a rate.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="control-plane", uri="/v1/me", status="500"}'
+        values: '0+0.2x30'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: ApiErrors
+        exp_alerts: []
+
+  # Every request takes 2 s from 0m: slow from 10m of it (the window) plus 10m (for).
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_bucket{job="control-plane", uri="/v1/sessions", le="1.0"}'
+        values: '0x40'
+      - series: 'http_server_requests_seconds_bucket{job="control-plane", uri="/v1/sessions", le="2.5"}'
+        values: '0+60x40'
+      - series: 'http_server_requests_seconds_bucket{job="control-plane", uri="/v1/sessions", le="+Inf"}'
+        values: '0+60x40'
+      - series: 'http_server_requests_seconds_bucket{job="control-plane", uri="/v1/sessions/{id}/events", le="+Inf"}'
+        values: '0+600x40'
+      - series: 'http_server_requests_seconds_bucket{job="control-plane", uri="/v1/sessions/{id}/events", le="1.0"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: SlowApi
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: SlowApi
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'API requests are slow: the 95th percentile is 2.425s.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#slow-api
+
+  - interval: 1m
+    input_series:
+      - series: 'disk_free_bytes{job="control-plane", instance="cp-1", path="/"}'
+        values: '30x5 15x20'
+      - series: 'disk_total_bytes{job="control-plane", instance="cp-1", path="/"}'
+        values: '100x25'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: DiskFilling
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: DiskFilling
+        exp_alerts:
+          - exp_labels: {severity: page, instance: cp-1}
+            exp_annotations:
+              summary: 'The server''s disk is 85% full.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#disk
+
+  - interval: 1m
+    input_series:
+      - series: 'hikaricp_connections_active{job="control-plane", instance="cp-1", pool="HikariPool-1"}'
+        values: '3x5 9x10'
+      - series: 'hikaricp_connections_max{job="control-plane", instance="cp-1", pool="HikariPool-1"}'
+        values: '10x15'
+      - series: 'health_ready{job="control-plane", instance="cp-1", component="db"}'
+        values: '1x5 0x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: DatabasePoolBusy
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: DatabasePoolBusy
+        exp_alerts:
+          - exp_labels: {severity: page, instance: cp-1}
+            exp_annotations:
+              summary: 'The database connection pool is 90% in use.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
+      - eval_time: 5m
+        alertname: DatabaseUnreachable
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: DatabaseUnreachable
+        exp_alerts:
+          - exp_labels: {severity: page, instance: cp-1}
+            exp_annotations:
+              summary: The control plane can't reach the database.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
+
+  # 20 days left, then 13.
+  - interval: 1m
+    input_series:
+      - series: 'hosts_ca_certificate_expiry_seconds{job="control-plane", certificate="intermediate"}'
+        values: '1728000x5 1123200x5'
+      - series: 'ssl_chain_expiry_seconds{job="control-plane", bundle="agent-grpc", certificate="ab12", chain="ssl", source="keystore"}'
+        values: '31536000x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CertificateExpiring
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: CertificateExpiring
+        exp_alerts:
+          - exp_labels: {severity: page, certificate: intermediate}
+            exp_annotations:
+              summary: 'A certificate expires in 13d 0h 0m 0s.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#certificates

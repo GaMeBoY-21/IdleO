@@ -1,0 +1,21 @@
+# The database's backups (ADR 0036, docs/runbooks/backups.md). The control plane reads the backup bucket and the
+# database's archiver, so a backup that never reached storage is a backup that didn't happen. Same format and rules
+# as platform.yaml.
+groups:
+  - name: backups
+    rules:
+      - alert: NoBackup
+        # No full backup finished in 26 hours (it runs nightly), WAL archiving more than 10 minutes behind, or the
+        # backups can't be read at all.
+        expr: |
+          max(backups_full_age_seconds{job="control-plane"}) > 26 * 3600
+          or
+          max(backups_wal_lag_seconds{job="control-plane"}) > 600
+          or
+          min(backups_readable{job="control-plane"}) == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: The database isn't being backed up as it should be.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#no-backup

@@ -1,0 +1,18 @@
+# The hosts' agents and their releases (ADR 0036). Same format and rules as platform.yaml.
+groups:
+  - name: fleet
+    rules:
+      - alert: ReleaseRollingBack
+        # Of the hosts that reported on an agent version, more than 10% rolled it back. Every instance reports the
+        # same figures from the database, so each is taken once (max).
+        expr: |
+          (
+            max by (version) (agents_update_results{job="control-plane", outcome="rolled_back"})
+            /
+            sum by (version) (max by (version, outcome) (agents_update_results{job="control-plane"}))
+          ) > 0.1
+        labels:
+          severity: page
+        annotations:
+          summary: 'Agent {{ $labels.version }} was rolled back on {{ $value | humanizePercentage }} of the hosts that tried it.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#releases

@@ -1,0 +1,42 @@
+# The marketplace: sessions, email and the hosts' connections (ADR 0036). Same format and rules as platform.yaml.
+groups:
+  - name: marketplace
+    rules:
+      - alert: SessionsFailing
+        # More than 20% of the sessions that ended in the last hour failed, once at least 5 ended.
+        expr: |
+          (
+            sum(increase(sessions_ended_total{job="control-plane", state="FAILED"}[1h]))
+            /
+            sum(increase(sessions_ended_total{job="control-plane"}[1h]))
+          ) > 0.2
+          and
+          sum(increase(sessions_ended_total{job="control-plane"}[1h])) >= 5
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of the sessions that ended in the last hour failed.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#sessions-failing
+
+      - alert: EmailFailing
+        # The mail provider refused more than 5 emails in 15 minutes.
+        expr: sum(increase(notifications_emails_total{job="control-plane", outcome="failed"}[15m])) > 5
+        labels:
+          severity: page
+        annotations:
+          summary: 'The mail provider refused about {{ printf "%.0f" $value }} emails in the last 15 minutes.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#email-failing
+
+      - alert: AgentsDropped
+        # More than half the connected agents went within 5 minutes, from at least 4: one home connection is the
+        # host's business, half the fleet at once is ours (the control plane, its network or the load balancer).
+        expr: |
+          sum(agents_connected{job="control-plane"})
+            < 0.5 * max_over_time(sum(agents_connected{job="control-plane"})[5m:30s])
+          and
+          max_over_time(sum(agents_connected{job="control-plane"})[5m:30s]) >= 4
+        labels:
+          severity: page
+        annotations:
+          summary: 'More than half the connected agents dropped in 5 minutes; {{ $value }} are left.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#agents-dropped

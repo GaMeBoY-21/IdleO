@@ -1,0 +1,28 @@
+# Production's alert routing (ADR 0036), loaded into Grafana Cloud's Alertmanager by scripts/ops/load-alerts.sh, which
+# fills each ${…} from the environment and never writes the result to disk (docs/runbooks/monitoring.md). Pages go to
+# the on-call address at once and again every 4 hours while they last; digests once a day. Mail goes through the same
+# provider as the product's email (Resend's SMTP relay by default), from the alerts address on our domain.
+global:
+  smtp_smarthost: ${ALERTS_SMTP_HOST}:587
+  smtp_auth_username: ${ALERTS_SMTP_USERNAME}
+  smtp_auth_password: ${ALERTS_SMTP_PASSWORD}
+  smtp_from: IdleO alerts <${ALERTS_FROM}>
+  smtp_require_tls: true
+route:
+  receiver: on-call
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="digest"']
+      receiver: on-call
+      group_wait: 10m
+      repeat_interval: 24h
+receivers:
+  - name: on-call
+    email_configs:
+      - to: ${ALERTS_TO}
+        send_resolved: true
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}: {{ .CommonAnnotations.summary }}'

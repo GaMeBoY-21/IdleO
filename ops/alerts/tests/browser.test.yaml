@@ -1,0 +1,49 @@
+# promtool test rules: the browser alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../browser.yaml
+evaluation_interval: 1m
+tests:
+  # Release 2026.10.20 throws an error a minute; the one before, one every 5 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'browser_errors_total{job="control-plane", app="app", release="2026.10.20", route="/book/"}'
+        values: '0+1x20'
+      - series: 'browser_errors_total{job="control-plane", app="app", release="2026.10.13", route="/book/"}'
+        values: '0+0.2x20'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: BrowserErrors
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: BrowserErrors
+        exp_alerts:
+          - exp_labels: {severity: page, app: app, release: 2026.10.20}
+            exp_annotations:
+              summary: 'app release 2026.10.20 threw about 15 JavaScript errors in 15 minutes.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#browser-errors
+
+  # A day of phone visits to /session/ painting at about 3 s, 30 visits a day; laptops at 1 s.
+  - interval: 1h
+    input_series:
+      - series: 'browser_vitals_lcp_seconds_bucket{job="control-plane", app="app", route="/session/", device="phone", le="2.5"}'
+        values: '0x30'
+      - series: 'browser_vitals_lcp_seconds_bucket{job="control-plane", app="app", route="/session/", device="phone", le="4.0"}'
+        values: '0+2x30'
+      - series: 'browser_vitals_lcp_seconds_bucket{job="control-plane", app="app", route="/session/", device="phone", le="+Inf"}'
+        values: '0+2x30'
+      - series: 'browser_vitals_lcp_seconds_count{job="control-plane", app="app", route="/session/", device="phone"}'
+        values: '0+2x30'
+      - series: 'browser_vitals_lcp_seconds_bucket{job="control-plane", app="app", route="/session/", device="laptop", le="2.5"}'
+        values: '0+2x30'
+      - series: 'browser_vitals_lcp_seconds_bucket{job="control-plane", app="app", route="/session/", device="laptop", le="+Inf"}'
+        values: '0+2x30'
+      - series: 'browser_vitals_lcp_seconds_count{job="control-plane", app="app", route="/session/", device="laptop"}'
+        values: '0+2x30'
+    alert_rule_test:
+      - eval_time: 26h
+        alertname: SlowPage
+        exp_alerts:
+          - exp_labels: {severity: digest, app: app, route: /session/, device: phone}
+            exp_annotations:
+              summary: 'app /session/ on a phone: 75% of visits paint within 3.625s, over 2.5 s.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#slow-page

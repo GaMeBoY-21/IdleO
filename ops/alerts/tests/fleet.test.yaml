@@ -1,0 +1,28 @@
+# promtool test rules: the releases alert (scripts/checks/ops.sh).
+rule_files:
+  - ../fleet.yaml
+evaluation_interval: 15s
+tests:
+  # 1.4.0: 1 rolled back of 20 (5%), quiet. 1.5.0: 3 of 20 (15%), fires. Two instances report the same figures.
+  - interval: 1m
+    input_series:
+      - series: 'agents_update_results{job="control-plane", instance="cp-1", version="1.4.0", outcome="installed"}'
+        values: '19x5'
+      - series: 'agents_update_results{job="control-plane", instance="cp-1", version="1.4.0", outcome="rolled_back"}'
+        values: '1x5'
+      - series: 'agents_update_results{job="control-plane", instance="cp-1", version="1.5.0", outcome="installed"}'
+        values: '17x5'
+      - series: 'agents_update_results{job="control-plane", instance="cp-1", version="1.5.0", outcome="rolled_back"}'
+        values: '3x5'
+      - series: 'agents_update_results{job="control-plane", instance="cp-2", version="1.5.0", outcome="installed"}'
+        values: '17x5'
+      - series: 'agents_update_results{job="control-plane", instance="cp-2", version="1.5.0", outcome="rolled_back"}'
+        values: '3x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ReleaseRollingBack
+        exp_alerts:
+          - exp_labels: {severity: page, version: 1.5.0}
+            exp_annotations:
+              summary: 'Agent 1.5.0 was rolled back on 15% of the hosts that tried it.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#releases

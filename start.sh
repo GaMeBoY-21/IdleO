@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The whole system on this machine, for local development only: the containers (PostgreSQL, Valkey, object storage,
-# the development sign-in server, Mailpit), the control plane on the local profile, two laptops' fake GPUs, the web
+# the development sign-in server, Mailpit, and Grafana with its Prometheus, Loki and Tempo and the alerts' sender), the
+# control plane on the local profile, two laptops' fake GPUs, the web
 # app's dev server and the public site. It never touches production settings or real money.
 #
 #   ./start.sh                  start everything, and open the website (Ctrl-C stops it all)
@@ -59,6 +60,9 @@ sign_in_port=8099
 storage_port=9100
 mail_smtp_port=1025
 mail_web_port=8025
+grafana_port=3300
+prometheus_port=9190
+alertmanager_port=9193
 web_port=3000
 site_port=3002
 compose_project=idleo-local
@@ -77,7 +81,8 @@ laptops=("RTX 4060 Laptop|8188|12" "RTX 4080 Laptop|12282|18")
 accounts=("nikki|50000" "nikki-low|100" "nikki-broke|0")
 owner=nikki
 
-compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/control-plane/compose.yaml" "$@"; }
+# Every service, the observability ones too (compose profile observability), so stopping and wiping reach them all.
+compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/control-plane/compose.yaml" --profile observability "$@"; }
 
 # Everything this script starts, by its pid file; the control plane's is a process group.
 stop_all() {
@@ -156,7 +161,8 @@ if ! rustup toolchain list | grep -q "^$rust_want"; then
   (cd "$root/agent" && rustup toolchain install) >>"$out/rust-install.log" 2>&1 ||
     fail "Rust $rust_want couldn't be installed; see logs/rust-install.log"
 fi
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$site_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$site_port" \
+  "$grafana_port" "$prometheus_port" "$alertmanager_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use. Stop what holds it (lsof -iTCP:$port -sTCP:LISTEN shows it), or ./start.sh --stop if it's an earlier start."
   fi
@@ -198,6 +204,9 @@ started=$SECONDS
 # With --lan, the gRPC port's certificate also names the LAN address, which the laptop's agent connects to.
 "$root/control-plane/scripts/dev-ca.sh" ${lan_ip:+--server-ip "$lan_ip"} >>"$out/dev-ca.log" 2>&1 || fail "the development CA couldn't be made; see logs/dev-ca.log"
 
+# The development backup key (ADR 0036): the database encrypts its backups with its public half.
+"$root/ops/backup/dev-key.sh" >>"$out/backup.log" 2>&1 || fail "the development backup key couldn't be made; see logs/backup.log"
+
 # The development release key (ADR 0034), which the control plane trusts and the Windows app is built with.
 if $lan; then
   "$root/scripts/release/dev-key.sh" >>"$out/release.log" 2>&1 || fail "the development release key couldn't be made; see logs/release.log"
@@ -207,6 +216,15 @@ fi
 stack_control_plane_settings() {
   # Anyone signing in locally is let in: no invite step on this machine.
   export IDENTITY_INVITE_ONLY=false
+  # Metrics, traces and logs to development's Grafana, and alerts to Mailpit (ADR 0036, docs/runbooks/monitoring.md).
+  export COMPOSE_PROFILES=observability SPRING_DOCKER_COMPOSE_PROFILES_ACTIVE=observability LOCAL_OBSERVABILITY=true
+  export LOCAL_GRAFANA_PORT="$grafana_port" LOCAL_PROMETHEUS_PORT="$prometheus_port"
+  export LOCAL_ALERTMANAGER_PORT="$alertmanager_port"
+  # The database archives its WAL to this MinIO, encrypted, and the control plane watches the backups (ADR 0036).
+  export LOCAL_BACKUP_PREFIX="s3://idleo-backups/local" LOCAL_BACKUP_PUBLIC_KEY="$root/private/backup-dev/backup.pub.asc"
+  export BACKUPS_STORAGE_ENDPOINT="http://localhost:$storage_port" BACKUPS_STORAGE_BUCKET=idleo-backups
+  export BACKUPS_STORAGE_PREFIX=local BACKUPS_STORAGE_REGION=us-east-1
+  export BACKUPS_STORAGE_ACCESS_KEY_ID=local-storage-root BACKUPS_STORAGE_SECRET_ACCESS_KEY=local-only-not-a-secret
   # The development catalog, whose simulated services the fake GPUs' development runner can run; with --real-runner, the
   # real ones, with the digest of the image just pushed (private/local/development-real.yaml).
   export SESSIONS_TEMPLATES_CATALOG="file:$root/templates/development.yaml"
@@ -372,6 +390,17 @@ await "the API" "$api/actuator/health/readiness"
 await "the sign-in server" "$sign_in/.well-known/openid-configuration"
 await "object storage" "http://localhost:$storage_port/minio/health/live"
 await "Mailpit" "http://localhost:$mail_web_port/api/v1/info"
+await "Grafana" "http://localhost:$grafana_port/api/health"
+# A full backup when there's none from the last day, as the nightly one would have taken (docs/runbooks/backups.md).
+if ! docker exec -u postgres "$compose_project-postgres-1" wal-g backup-list --detail --json 2>/dev/null | python3 -c '
+import datetime, json, sys
+newest = max((b["finish_time"] for b in json.load(sys.stdin)), default=None)
+now = datetime.datetime.now(datetime.timezone.utc)
+sys.exit(0 if newest and now - datetime.datetime.fromisoformat(newest.replace("Z", "+00:00")) < datetime.timedelta(hours=24) else 1)'; then
+  log "taking a full backup of the database (logs/backup.log)"
+  IDLEO_DATABASE_CONTAINER="$compose_project-postgres-1" "$root/ops/backup/backup-now.sh" >>"$out/backup.log" 2>&1 ||
+    fail "the first full backup failed; see logs/backup.log"
+fi
 await "the web app" "http://localhost:$web_port/"
 await "the website" "http://localhost:$site_port/"
 for i in 1 2; do
@@ -465,6 +494,8 @@ Everything is up, in $((SECONDS - started)) s.
   Website        http://localhost:$site_port/   (the public pages; its "Get started" and "Log in" lead to the app)
   Web app        http://localhost:$web_port
   Email          http://localhost:$mail_web_port   (Mailpit: every email the stack sends, none delivered)
+  Monitoring     http://localhost:$grafana_port   (Grafana: Platform health, Marketplace and Fleet; alerts arrive in Mailpit)
+  Backups        archived to MinIO, encrypted; ops/backup/backup-now.sh, restore.sh (docs/runbooks/backups.md)
   Admin console  http://localhost:$web_port/admin/   (needs the admin role: docs/runbooks/admin.md)
   API            $api
 

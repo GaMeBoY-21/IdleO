@@ -1,0 +1,61 @@
+# promtool test rules: the backups alert (scripts/checks/ops.sh).
+rule_files:
+  - ../backups.yaml
+evaluation_interval: 15s
+tests:
+  # The last full backup is 25 hours old, then 27.
+  - interval: 1m
+    input_series:
+      - series: 'backups_full_age_seconds{job="control-plane"}'
+        values: '90000x5 97200x5'
+      - series: 'backups_wal_lag_seconds{job="control-plane"}'
+        values: '30x10'
+      - series: 'backups_readable{job="control-plane"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: NoBackup
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: NoBackup
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: The database isn't being backed up as it should be.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#no-backup
+  # Archiving falls behind: 9 minutes is fine, 11 isn't.
+  - interval: 1m
+    input_series:
+      - series: 'backups_full_age_seconds{job="control-plane"}'
+        values: '3600x10'
+      - series: 'backups_wal_lag_seconds{job="control-plane"}'
+        values: '540x5 660x5'
+      - series: 'backups_readable{job="control-plane"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: NoBackup
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: NoBackup
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: The database isn't being backed up as it should be.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#no-backup
+  # The bucket can't be read at all.
+  - interval: 1m
+    input_series:
+      - series: 'backups_readable{job="control-plane"}'
+        values: '1x3 0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: NoBackup
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: NoBackup
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: The database isn't being backed up as it should be.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#no-backup

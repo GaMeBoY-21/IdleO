@@ -1,0 +1,76 @@
+# promtool test rules: each marketplace alert fires when it should and not before (scripts/checks/ops.sh).
+rule_files:
+  - ../marketplace.yaml
+evaluation_interval: 15s
+tests:
+  # 10 sessions end in the hour, 3 of them failed (30%): fires. Four, two failed: too few to say.
+  - interval: 5m
+    input_series:
+      - series: 'sessions_ended_total{job="control-plane", state="COMPLETED", reason="outputs_complete"}'
+        values: '0 1 2 3 4 5 6 7 7 7 7 7 7'
+      - series: 'sessions_ended_total{job="control-plane", state="FAILED", reason="job_failed"}'
+        values: '0 0 0 0 0 1 2 3 3 3 3 3 3'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: SessionsFailing
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '31.43% of the sessions that ended in the last hour failed.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#sessions-failing
+  - interval: 5m
+    input_series:
+      - series: 'sessions_ended_total{job="control-plane", state="COMPLETED", reason="outputs_complete"}'
+        values: '0 1 2 2 2 2 2 2 2 2 2 2 2'
+      - series: 'sessions_ended_total{job="control-plane", state="FAILED", reason="job_failed"}'
+        values: '0 0 1 2 2 2 2 2 2 2 2 2 2'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: SessionsFailing
+        exp_alerts: []
+
+  # 4 refused in 15 minutes is a blip; 8 is a problem.
+  - interval: 1m
+    input_series:
+      - series: 'notifications_emails_total{job="control-plane", outcome="failed"}'
+        values: '0x5 1 2 3 4 4 4 4 4 4 4 4 4 4 4 4 5 6 7 8 9 10 11 12'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: EmailFailing
+        exp_alerts: []
+      - eval_time: 28m
+        alertname: EmailFailing
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'The mail provider refused about 9 emails in the last 15 minutes.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#email-failing
+
+  # Two instances with 10 agents between them; one loses all 6 of its own at 10m.
+  - interval: 30s
+    input_series:
+      - series: 'agents_connected{job="control-plane", instance="cp-1"}'
+        values: '6x20 0x20'
+      - series: 'agents_connected{job="control-plane", instance="cp-2"}'
+        values: '4x40'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: AgentsDropped
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: AgentsDropped
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'More than half the connected agents dropped in 5 minutes; 4 are left.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#agents-dropped
+
+  # Two of three agents going is a home network, not us: too few to tell.
+  - interval: 30s
+    input_series:
+      - series: 'agents_connected{job="control-plane", instance="cp-1"}'
+        values: '3x20 1x20'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: AgentsDropped
+        exp_alerts: []

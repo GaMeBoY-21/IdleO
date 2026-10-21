@@ -29,7 +29,7 @@ until grep -q "^start: ready" "$out/start-check.log"; do
   sleep 2
 done
 ready_in=$((SECONDS - started))
-for line in "Web app" "Website" "Link demo" "Mailpit" "Admin console" "nikki-low@example.com" "logs/"; do
+for line in "Web app" "Website" "Link demo" "Mailpit" "Grafana" "Admin console" "nikki-low@example.com" "logs/"; do
   grep -q "$line" "$out/start-check.log" || fail "the ready block doesn't mention $line"
 done
 
@@ -63,6 +63,17 @@ sys.exit(0 if host["online"] and host["status"] == "pending" else 1)'; do
   sleep 1
 done
 
+# Monitoring (ADR 0036): the three dashboards are loaded, and the control plane's meters reach Prometheus (sent once a
+# minute, so the first may take that long).
+dashboards="$(curl -sf "http://localhost:3300/api/search?tag=idleo" | python3 -c 'import json, sys; print(len(json.load(sys.stdin)))')"
+[[ "$dashboards" == 3 ]] || fail "Grafana has $dashboards of the 3 dashboards"
+deadline=$((SECONDS + 150))
+until curl -sf "http://localhost:9190/api/v1/query" --data-urlencode 'query=count(jvm_memory_used_bytes{service_name="control-plane"})' |
+  python3 -c 'import json, sys; sys.exit(0 if json.load(sys.stdin)["data"]["result"] else 1)'; do
+  ((SECONDS < deadline)) || fail "the control plane's meters didn't reach Prometheus"
+  sleep 5
+done
+
 stop_started=$SECONDS
 ./start.sh --stop >>"$out/start-check.log" 2>&1
 deadline=$((SECONDS + 60))
@@ -76,7 +87,7 @@ leftovers=""
 [[ -z "$(docker ps -q --filter label=com.docker.compose.project=idleo-local)" ]] || leftovers+=" containers"
 pgrep -f "private/local/agent-[0-9].toml" >/dev/null && leftovers+=" agents"
 pgrep -f "dist-website-local" >/dev/null && leftovers+=" website"
-for port in 8080 9443 3000 3002; do
+for port in 8080 9443 3000 3002 3300; do
   (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && leftovers+=" port-$port"
 done
 [[ -z "$leftovers" ]] || fail "still running after ./start.sh --stop:$leftovers"

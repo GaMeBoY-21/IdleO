@@ -1,0 +1,29 @@
+# What real visitors meet in the app and the website (ADR 0036), from POST /v1/vitals. Same format and rules as
+# platform.yaml.
+groups:
+  - name: browser
+    rules:
+      - alert: BrowserErrors
+        # More than 10 JavaScript errors in 15 minutes from one release of the app or the website: something it
+        # shipped breaks for visitors.
+        expr: sum by (app, release) (increase(browser_errors_total{job="control-plane"}[15m])) > 10
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.app }} release {{ $labels.release }} threw about {{ printf "%.0f" $value }} JavaScript errors in 15 minutes.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#browser-errors
+
+      - alert: SlowPage
+        # A route's 75th-percentile largest contentful paint above 2.5 s over a day, from at least 20 visits.
+        expr: |
+          histogram_quantile(0.75,
+            sum by (le, app, route, device) (increase(browser_vitals_lcp_seconds_bucket{job="control-plane"}[1d]))
+          ) > 2.5
+          and
+          sum by (app, route, device) (increase(browser_vitals_lcp_seconds_count{job="control-plane"}[1d])) >= 20
+        for: 1h
+        labels:
+          severity: digest
+        annotations:
+          summary: '{{ $labels.app }} {{ $labels.route }} on a {{ $labels.device }}: 75% of visits paint within {{ $value | humanizeDuration }}, over 2.5 s.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#slow-page
