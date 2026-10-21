@@ -57,6 +57,9 @@ class NotificationDeliveryTests {
     RecordingEmailSender mail;
 
     @Autowired
+    EmailSuppressions suppressions;
+
+    @Autowired
     MeterRegistry meters;
 
     private double emails(String outcome) {
@@ -335,6 +338,30 @@ class NotificationDeliveryTests {
 
         assertThat(inbox(renter.id())).isEmpty();
         assertThat(mail.sent()).isEmpty();
+    }
+
+    @Test
+    void anAddressThatBouncedGetsNoEmailButKeepsItsMessageInTheApp() {
+        suppressions.record(renterEmail, EmailSuppressions.Reason.BOUNCED, "msg_delivery_test");
+        var suppressedBefore = emails("suppressed");
+        var id = session("COMPLETED", null, null, true);
+
+        listeners.on(new SessionSettled(id));
+
+        assertThat(mail.sent()).isEmpty();
+        assertThat(inbox(renter.id())).hasSize(1);
+        assertThat(emails("suppressed") - suppressedBefore).isEqualTo(1);
+    }
+
+    @Test
+    void anAddressThatComplainedStillGetsWhatIsAboutItsMoney() throws Exception {
+        suppressions.record(renterEmail, EmailSuppressions.Reason.COMPLAINED, "msg_delivery_test");
+
+        listeners.on(new SessionSettled(session("COMPLETED", null, null, true)));
+        assertThat(mail.sent()).as("switchable: not emailed").isEmpty();
+
+        listeners.on(new SessionSettled(session("COMPLETED", null, "credit_exhausted", true)));
+        assertThat(mail.sent()).as("money: emailed").hasSize(1);
     }
 
     @Test

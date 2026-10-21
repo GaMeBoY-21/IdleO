@@ -44,7 +44,11 @@ export function Account() {
         {me.data ? (
           <div className="flex flex-col divide-y divide-divider">
             <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
-            <Fact label="Email" value={me.data.email ?? "No email on file"} />
+            <Fact
+              label="Email"
+              value={me.data.email ?? "No email on file"}
+              note={me.data.emailUndeliverable ? UNDELIVERABLE : undefined}
+            />
             {methods !== "" && <Fact label="Signed in with" value={methods} />}
             <Link href="/account/keys/" className={`${ROW} hover:bg-ground md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -147,7 +151,10 @@ export function Account() {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+/** What Account says once mail to the person's address hard-bounced (ADR 0036); it goes when the address changes. */
+export const UNDELIVERABLE = "We couldn't email you: check your address";
+
+export function Fact({ label, value, note }: { label: string; value: string; note?: string | undefined }) {
   return (
     <div className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -155,6 +162,7 @@ function Fact({ label, value }: { label: string; value: string }) {
         <p className="truncate text-option font-semibold" title={value}>
           {value}
         </p>
+        {note !== undefined && <p className="text-small font-semibold text-warning">{note}</p>}
       </div>
     </div>
   );

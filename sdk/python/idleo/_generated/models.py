@@ -365,6 +365,7 @@ class MeResponse(BaseModel):
     created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
     display_name: Annotated[str | None, Field(alias="displayName")] = None
     email: str | None = None
+    email_undeliverable: Annotated[bool, Field(alias="emailUndeliverable")]
     id: UUID
     sign_in_methods: Annotated[list[str], Field(alias="signInMethods")]
     status: str

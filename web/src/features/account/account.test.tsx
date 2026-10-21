@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as data from "../../../e2e/fixtures";
+import { Fact, UNDELIVERABLE } from "./Account";
 import { NameRow, nameProblem } from "./NameRow";
 import { NotificationChoices } from "./NotificationChoices";
 
@@ -74,6 +75,18 @@ describe("the notification choices", () => {
     render(<NotificationChoices items={data.notificationChoices().items} />);
     await userEvent.click(screen.getByRole("switch", { name: "Low credit: in the app" }));
     expect(screen.getByRole("switch", { name: "Low credit: in the app" })).toBeChecked();
+  });
+});
+
+describe("an address mail can't reach", () => {
+  it("asks the person to check it, under the address itself", () => {
+    render(<Fact label="Email" value="asha@example.com" note={UNDELIVERABLE} />);
+    expect(screen.getByText("We couldn't email you: check your address")).toBeInTheDocument();
+  });
+
+  it("says nothing while mail reaches it", () => {
+    render(<Fact label="Email" value="asha@example.com" />);
+    expect(screen.queryByText(UNDELIVERABLE)).not.toBeInTheDocument();
   });
 });
 

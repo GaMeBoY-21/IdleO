@@ -38,6 +38,9 @@ spring:
 notifications:
   email:
     provider: recording
+    # A signing secret for the email provider's webhook, tests only (EmailEventsApiTests sign with it);
+    # ProductionSettingsGuard refuses it.
+    webhook-secret: whsec_dGVzdHMtb25seS1lbWFpbC13ZWJob29rLXNlY3JldA==
 
 # Tests that aren't about invites sign people in without an invite code (ADR 0024). The admin console's TOTP key and
 # the codes' HMAC key are fixed ones for tests only (ADR 0027, ADR 0024); production's come from the environment, and
@@ -64,6 +67,7 @@ limits:
   log-reads-per-minute: 100000
   cli-logins-per-hour: 100000
   host-links-per-hour: 100000
+  vitals-per-minute: 100000
 
 sessions:
   limits:

@@ -15,7 +15,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * An event delivered again, as the durable event registry may after a failure, finds its message already made, and
  * the email is handed to the mail server at most once: it is claimed in its own transaction before it is sent, and
  * the claim goes back only if the mail server refuses it, so the retry sends it. Each hand-over counts in
- * {@code notifications.emails} by {@code outcome} ({@code sent}, {@code failed}), which the email alert reads.
+ * {@code notifications.emails} by {@code outcome} ({@code sent}, {@code failed}, or {@code suppressed} for an
+ * address the provider said not to send to), which the email alert reads.
  */
 @Component
 class Notifier {
@@ -29,6 +30,7 @@ class Notifier {
     private final EmailSender sender;
     private final TransactionTemplate own;
     private final MeterRegistry registry;
+    private final EmailSuppressions suppressions;
 
     Notifier(
             NotificationPreferences preferences,
@@ -37,8 +39,10 @@ class Notifier {
             EmailContent content,
             EmailSender sender,
             PlatformTransactionManager transactions,
-            MeterRegistry registry) {
+            MeterRegistry registry,
+            EmailSuppressions suppressions) {
         this.registry = registry;
+        this.suppressions = suppressions;
         this.preferences = preferences;
         this.store = store;
         this.users = users;
@@ -71,11 +75,16 @@ class Notifier {
         if (to.isEmpty()) {
             return;
         }
+        if (suppressions.blocks(to.get(), kind)) {
+            // It bounced, or the person reported our email as spam: kept in the app, never emailed (ADR 0036).
+            registry.counter("notifications.emails", "outcome", "suppressed").increment();
+            return;
+        }
         if (!Boolean.TRUE.equals(own.execute(status -> store.claimEmail(stored.id())))) {
             return;
         }
         try {
-            sender.send(content.of(to.get(), kind, stored.message()));
+            sender.send(content.of(to.get(), kind, stored.message(), stored.id()));
         } catch (RuntimeException refused) {
             own.executeWithoutResult(status -> store.releaseEmail(stored.id()));
             registry.counter("notifications.emails", "outcome", "failed").increment();

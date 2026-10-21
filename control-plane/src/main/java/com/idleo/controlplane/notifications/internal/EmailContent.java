@@ -1,5 +1,6 @@
 package com.idleo.controlplane.notifications.internal;
 
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
@@ -17,7 +18,8 @@ class EmailContent {
         this.properties = properties;
     }
 
-    EmailSender.Email of(String to, NotificationKind kind, Message message) {
+    /** The email for one stored notification: its id names the email ({@code Message-ID}) however often it's tried. */
+    EmailSender.Email of(String to, NotificationKind kind, Message message, UUID notificationId) {
         var link = properties.absolute(message.link());
         var account = properties.absolute("/account/");
         var why = kind.locked()
@@ -45,6 +47,12 @@ class EmailContent {
                         HtmlUtils.htmlEscape(link),
                         HtmlUtils.htmlEscape(why),
                         HtmlUtils.htmlEscape(account));
-        return new EmailSender.Email(to, message.title(), text, html);
+        return new EmailSender.Email(
+                to,
+                message.title(),
+                text,
+                html,
+                "<" + notificationId + "@" + properties.senderDomain() + ">",
+                kind.locked() ? null : account);
     }
 }

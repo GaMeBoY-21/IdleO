@@ -25,8 +25,8 @@ class IdentitySecurityConfiguration {
 
     /**
      * The calls that need no sign-in: starting a CLI sign-in and polling it (ADR 0025), whose poll token is its own
-     * credential, the public pages' availability (ADR 0029), and the Windows app's release and its setup program's
-     * measurements (ADR 0034).
+     * credential, the public pages' availability (ADR 0029), the Windows app's release and its setup program's
+     * measurements (ADR 0034), the email provider's signed webhook and real visits' vitals (ADR 0036).
      */
     @Bean
     RequestMatcher signedOutCalls() {
@@ -43,7 +43,12 @@ class IdentitySecurityConfiguration {
                 paths.matcher(HttpMethod.GET, "/v1/agent-releases/latest"),
                 paths.matcher(HttpMethod.GET, "/v1/agent-releases/latest/setup"),
                 // The setup app's measurements, under an install id it makes, before anyone has signed in.
-                paths.matcher(HttpMethod.POST, "/v1/host-installs/{installId}/events"));
+                paths.matcher(HttpMethod.POST, "/v1/host-installs/{installId}/events"),
+                // The email provider's bounces and complaints (ADR 0036): its signature is its proof.
+                paths.matcher(HttpMethod.POST, "/v1/email-events/resend"),
+                // What real visits meet, sent by the pages with navigator.sendBeacon, which carries no token (ADR
+                // 0036).
+                paths.matcher(HttpMethod.POST, "/v1/vitals"));
     }
 
     /**

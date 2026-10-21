@@ -99,13 +99,15 @@ management:
         step: 1m
   metrics:
     distribution:
-      # Buckets for the timers an alert or a dashboard takes a percentile of: requests by route (the route template,
-      # never the raw path with ids), agent calls, and booking to a GPU found and to the first log line.
-      percentiles-histogram:
-        http.server.requests: true
-        grpc.server: true
-        sessions.time-to-gpu: true
-        sessions.time-to-first-log: true
+      # A few fixed buckets for the timers an alert or a dashboard takes a percentile of, never Micrometer's 69: each
+      # bucket is a series per route and status, and Grafana Cloud's free tier holds 10,000 (docs/runbooks/
+      # monitoring.md). Requests by route (the route template, never the raw path with ids), around the slow-API
+      # alert's 1 s; agent calls; booking to a GPU found and to the first log line.
+      slo:
+        http.server.requests: 50ms, 100ms, 250ms, 500ms, 1s, 2500ms, 5s, 10s
+        grpc.server: 10ms, 50ms, 250ms, 1s, 5s, 30s
+        sessions.time-to-gpu: 5s, 15s, 30s, 1m, 2m, 5m, 10m
+        sessions.time-to-first-log: 15s, 30s, 1m, 2m, 5m, 10m, 20m
   endpoint:
     health:
       probes:
@@ -122,12 +124,14 @@ management:
 
 # The renter's request limit (technical design "Limits", ADR 0025): requests a minute for each person (or each
 # address without a sign-in), counted in Valkey; reads of a session's logs a minute, counted apart so a live log view
-# doesn't use up the rest; CLI sign-ins and host links started an hour from one address.
+# doesn't use up the rest; CLI sign-ins and host links started an hour from one address; batches of real visits'
+# vitals a minute from one address (ADR 0036).
 limits:
   requests-per-minute: 60
   log-reads-per-minute: 120
   cli-logins-per-hour: 10
   host-links-per-hour: 10
+  vitals-per-minute: 30
 
 # The web app, where a CLI sign-in is approved (ADR 0025): its /cli-login/ page is the link `idleo login` shows.
 # Production sets IDENTITY_WEB_APP_URL; the prod profile refuses plain HTTP or this machine (ProductionSettingsGuard).
@@ -141,6 +145,9 @@ notifications:
   web-app-url: ${NOTIFICATIONS_WEB_APP_URL:http://localhost:3000}
   email:
     from: ${NOTIFICATIONS_EMAIL_FROM:IdleO <notifications@localhost>}
+    # The provider's signing secret for its bounce and complaint webhook (Resend's whsec_…, ADR 0036); without one
+    # every call to POST /v1/email-events/resend is refused. Production must set it (ProductionSettingsGuard).
+    webhook-secret: ${NOTIFICATIONS_EMAIL_WEBHOOK_SECRET:}
 
 # The web app's origins, comma-separated (WEB_ALLOWED_ORIGINS), allowed to call /v1 with a bearer
 # token (ADR 0018). None by default; production refuses *, plain HTTP and localhost.
@@ -210,6 +217,23 @@ billing:
   reconciliation:
     cron: "0 30 2 * * *"
     zone: Asia/Kolkata
+
+# Real visits' vitals and JavaScript errors (ADR 0036, BrowserVitals): the folder the web builds' source maps are
+# deployed to (never served), so an error is named by our own file and line. Without one, the browser's place is kept.
+vitals:
+  source-maps: ${VITALS_SOURCE_MAPS:}
+
+# The database's backups (ADR 0036, docs/runbooks/backups.md): where WAL-G writes them, read with a key that may only
+# list them, so the control plane can say how old the newest full backup is (BackupWatch). Off with no endpoint; the
+# prod profile refuses to start without one.
+backups:
+  storage:
+    endpoint: ${BACKUPS_STORAGE_ENDPOINT:}
+    bucket: ${BACKUPS_STORAGE_BUCKET:}
+    prefix: ${BACKUPS_STORAGE_PREFIX:}
+    region: ${BACKUPS_STORAGE_REGION:auto}
+    access-key-id: ${BACKUPS_STORAGE_ACCESS_KEY_ID:}
+    secret-access-key: ${BACKUPS_STORAGE_SECRET_ACCESS_KEY:}
 
 # A host's shown rating is worked out once a day, never on each rating (ADR 0028).
 trust:

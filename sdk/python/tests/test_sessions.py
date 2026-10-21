@@ -185,6 +185,7 @@ def test_me_credit_and_availability_read_the_api(fake, tmp_path):
                 "createdAt": "2026-10-14T10:00:00Z",
                 "signInMethods": [],
                 "unreadNotifications": 0,
+                "emailUndeliverable": False,
                 "email": "a@example.com",
             },
         ),

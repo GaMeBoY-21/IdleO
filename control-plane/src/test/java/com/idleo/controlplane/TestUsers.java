@@ -24,6 +24,11 @@ public final class TestUsers {
         return signUp(mvc, TestIssuers.get().validToken());
     }
 
+    /** A user whose verified address is {@code email}, for tests about mail to a particular address. */
+    public static TestUser signUpWithEmail(MockMvc mvc, String email) throws Exception {
+        return signUp(mvc, TestIssuers.get().token(claims -> claims.claim("email", email)));
+    }
+
     /** A user whose token outlives {@code lifetime}, for tests that move the clock forward. */
     public static TestUser signUpLasting(MockMvc mvc, Duration lifetime) throws Exception {
         var expires = Date.from(Instant.now().plus(lifetime));

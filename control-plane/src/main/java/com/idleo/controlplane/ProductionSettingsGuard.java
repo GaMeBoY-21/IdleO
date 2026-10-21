@@ -34,7 +34,8 @@ import org.springframework.stereotype.Component;
  *   <li>a {@code hosts.link.web-app-url}, where a host link is approved, that is plain HTTP or on this machine (ADR 0032);
  *   <li>a {@code notifications.web-app-url}, where an email's links go, that is plain HTTP or on this machine; a
  *       {@code notifications.email.from} on this machine; a mail server ({@code spring.mail.host}) on this machine,
- *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026);
+ *       such as the local mail catcher; or an email provider other than {@code smtp} (ADR 0026); a sender that isn't on
+ *       the web app's domain, no SMTP credentials, or no signing secret for the provider's webhook (ADR 0036);
  *   <li>{@code springdoc.api-docs.enabled}: the API contract is generated in tests and committed, never served
  *       (ADR 0018);
  *   <li>no {@code identity.invite-code-key}, the HMAC key for invite and recovery codes (ADR 0024), or either it or
@@ -44,7 +45,9 @@ import org.springframework.stereotype.Component;
  *   <li>a renter limit above production's ({@link #PRODUCTION_LIMITS}, ADR 0025), as the end-to-end harness and the
  *       tests lift them;
  *   <li>no OTLP endpoint for metrics, traces or logs, one that is plain HTTP or on this machine, or any of the three
- *       exports turned off ({@link #OTLP_ENDPOINTS}, ADR 0036).
+ *       exports turned off ({@link #OTLP_ENDPOINTS}, ADR 0036);
+ *   <li>no backup storage to watch ({@code backups.storage.*}), one that is plain HTTP or on this machine, or
+ *       {@code backups.create-bucket}, development's (ADR 0036).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -64,6 +67,7 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "limits.log-reads-per-minute", 120,
             "limits.cli-logins-per-hour", 10,
             "limits.host-links-per-hour", 10,
+            "limits.vitals-per-minute", 30,
             "sessions.limits.new-per-hour", 10,
             "sessions.limits.new-per-hour-first-day", 2,
             "sessions.limits.at-once", 3);
@@ -77,8 +81,16 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "management.opentelemetry.tracing.export.otlp.endpoint", "management.tracing.export.otlp.enabled",
             "management.opentelemetry.logging.export.otlp.endpoint", "management.logging.export.otlp.enabled"));
 
+    /** Where the database's backups are (ADR 0036), besides the endpoint: all needed to watch them. */
+    static final List<String> BACKUP_SETTINGS = List.of(
+            "backups.storage.bucket",
+            "backups.storage.prefix",
+            "backups.storage.access-key-id",
+            "backups.storage.secret-access-key");
+
     /** The keys whose committed test values production must never use. */
-    static final List<String> SECRET_KEYS = List.of("identity.admin.totp-key", "identity.invite-code-key");
+    static final List<String> SECRET_KEYS =
+            List.of("identity.admin.totp-key", "identity.invite-code-key", "notifications.email.webhook-secret");
 
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
@@ -142,6 +154,21 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         if (from.toLowerCase(Locale.ROOT).contains("localhost")) {
             problems.add("notifications.email.from " + from + " is on this machine");
         }
+        if (!from.isBlank() && !isOurDomain(from, emailLinks)) {
+            // Never the address itself: the log takes no email address, ours included.
+            problems.add("notifications.email.from isn't on the web app's domain");
+        }
+        if (!binder.bind("notifications.email.webhook-secret", String.class)
+                .orElse("")
+                .strip()
+                .startsWith("whsec_")) {
+            problems.add("notifications.email.webhook-secret is missing");
+        }
+        for (var credential : List.of("spring.mail.username", "spring.mail.password")) {
+            if (binder.bind(credential, String.class).orElse("").isBlank()) {
+                problems.add(credential + " is missing");
+            }
+        }
         var mailHost = binder.bind("spring.mail.host", String.class).orElse("");
         if (mailHost.isBlank() || LOCAL_HOSTS.contains(mailHost.strip().toLowerCase(Locale.ROOT))) {
             problems.add("spring.mail.host is " + (mailHost.isBlank() ? "missing" : mailHost + ", on this machine"));
@@ -175,6 +202,21 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
                 problems.add(signal.getValue() + " is false");
             }
         }
+        var backupEndpoint =
+                binder.bind("backups.storage.endpoint", String.class).orElse("");
+        if (backupEndpoint.isBlank()) {
+            problems.add("backups.storage.endpoint is missing");
+        } else if (isDevelopmentIssuer(backupEndpoint)) {
+            problems.add("backups.storage.endpoint " + backupEndpoint + " is plain HTTP or on this machine");
+        }
+        for (var setting : BACKUP_SETTINGS) {
+            if (binder.bind(setting, String.class).orElse("").isBlank()) {
+                problems.add(setting + " is missing");
+            }
+        }
+        if (binder.bind("backups.create-bucket", Boolean.class).orElse(false)) {
+            problems.add("backups.create-bucket is true");
+        }
         new TreeMap<>(PRODUCTION_LIMITS).forEach((name, ceiling) -> {
             var value = binder.bind(name, Integer.class);
             if (value.isBound() && value.get() > ceiling) {
@@ -204,6 +246,26 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             throw new UncheckedIOException("application-test.yaml can't be read", e);
         }
         return values;
+    }
+
+    /**
+     * Whether the sender's address is on the web app's domain or one under it: {@code notifications@mail.idleo.in} for
+     * {@code https://app.idleo.in}, whose domain is {@code idleo.in}. A provider sends only from a domain whose DNS we
+     * control (docs/runbooks/email.md).
+     */
+    static boolean isOurDomain(String from, String webAppUrl) {
+        try {
+            var host = URI.create(webAppUrl.strip()).getHost();
+            if (host == null || !host.contains(".")) {
+                return false;
+            }
+            var site = host.toLowerCase(Locale.ROOT).substring(host.indexOf('.') + 1);
+            var address = from.contains("<") ? from.substring(from.indexOf('<') + 1, from.lastIndexOf('>')) : from;
+            var domain = address.substring(address.lastIndexOf('@') + 1).strip().toLowerCase(Locale.ROOT);
+            return site.contains(".") ? domain.equals(site) || domain.endsWith("." + site) : domain.equals(host);
+        } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            return false;
+        }
     }
 
     private static boolean isDevelopmentOrigin(String origin) {

@@ -3,6 +3,7 @@ package com.idleo.controlplane.notifications.internal;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +13,13 @@ import org.springframework.stereotype.Component;
 public class RecordingEmailSender implements EmailSender {
 
     /** An email as the tests read it. */
-    public record Sent(String to, String subject, String text, String html) {}
+    public record Sent(
+            String to,
+            String subject,
+            String text,
+            String html,
+            String messageId,
+            @Nullable String unsubscribe) {}
 
     private final List<Sent> sent = new CopyOnWriteArrayList<>();
     private final AtomicInteger refusals = new AtomicInteger();
@@ -22,7 +29,8 @@ public class RecordingEmailSender implements EmailSender {
         if (refusals.getAndUpdate(left -> Math.max(0, left - 1)) > 0) {
             throw new EmailFailedException("refused for the test", new RuntimeException("no"));
         }
-        sent.add(new Sent(email.to(), email.subject(), email.text(), email.html()));
+        sent.add(new Sent(
+                email.to(), email.subject(), email.text(), email.html(), email.messageId(), email.unsubscribe()));
     }
 
     public List<Sent> sent() {

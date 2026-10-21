@@ -3,6 +3,7 @@ package com.idleo.controlplane.identity.internal;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.EmailDeliverability;
 import com.idleo.controlplane.identity.UnreadNotifications;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -42,17 +43,34 @@ class MeController {
     private final InviteService invites;
     private final Clock clock;
     private final UnreadNotifications unread;
+    private final EmailDeliverability deliverability;
 
-    MeController(UserRepository users, InviteService invites, Clock clock, UnreadNotifications unread) {
+    MeController(
+            UserRepository users,
+            InviteService invites,
+            Clock clock,
+            UnreadNotifications unread,
+            EmailDeliverability deliverability) {
         this.users = users;
         this.invites = invites;
         this.clock = clock;
         this.unread = unread;
+        this.deliverability = deliverability;
+    }
+
+    private MeResponse response(User user, Authentication authentication) {
+        return MeResponse.of(
+                user,
+                authentication,
+                unread.countFor(user.id()),
+                user.email() != null && deliverability.undeliverable(user.email()));
     }
 
     /**
      * The account. {@code status} is {@code waiting} (no invite code yet), {@code active} or {@code
-     * suspended}; {@code signInMethods} says how this token signed in: {@code google} or {@code email-link}.
+     * suspended}; {@code signInMethods} says how this token signed in: {@code google} or {@code email-link};
+     * {@code emailUndeliverable} is true once mail to {@code email} hard-bounced, so the app asks the person to check
+     * their address (ADR 0036).
      */
     record MeResponse(
             UUID id,
@@ -61,9 +79,11 @@ class MeController {
             String status,
             List<String> signInMethods,
             Instant createdAt,
-            int unreadNotifications) {
+            int unreadNotifications,
+            boolean emailUndeliverable) {
 
-        static MeResponse of(User user, Authentication authentication, int unreadNotifications) {
+        static MeResponse of(
+                User user, Authentication authentication, int unreadNotifications, boolean emailUndeliverable) {
             return new MeResponse(
                     user.id(),
                     user.email(),
@@ -71,7 +91,8 @@ class MeController {
                     user.userStatus().dbValue(),
                     authentication instanceof IdentityAuthenticationToken token ? token.signInMethods() : List.of(),
                     user.createdAt(),
-                    unreadNotifications);
+                    unreadNotifications,
+                    emailUndeliverable);
         }
     }
 
@@ -98,9 +119,7 @@ class MeController {
             content = @Content(schema = @Schema(implementation = MeResponse.class)))
     ResponseEntity<MeResponse> get(@AuthenticationPrincipal CurrentUser currentUser, Authentication authentication) {
         var user = load(currentUser);
-        return ResponseEntity.ok()
-                .eTag(etag(user))
-                .body(MeResponse.of(user, authentication, unread.countFor(user.id())));
+        return ResponseEntity.ok().eTag(etag(user)).body(response(user, authentication));
     }
 
     @OpenToWaitingUsers
@@ -128,9 +147,7 @@ class MeController {
         }
         try {
             var saved = users.save(user.withDisplayName(request.displayName(), Instant.now(clock)));
-            return ResponseEntity.ok()
-                    .eTag(etag(saved))
-                    .body(MeResponse.of(saved, authentication, unread.countFor(saved.id())));
+            return ResponseEntity.ok().eTag(etag(saved)).body(response(saved, authentication));
         } catch (OptimisticLockingFailureException concurrentChange) {
             throw stale();
         }
@@ -162,9 +179,7 @@ class MeController {
             case ACTIVATED, ALREADY_ACTIVE -> {}
         }
         var user = load(currentUser);
-        return ResponseEntity.ok()
-                .eTag(etag(user))
-                .body(MeResponse.of(user, authentication, unread.countFor(user.id())));
+        return ResponseEntity.ok().eTag(etag(user)).body(response(user, authentication));
     }
 
     private User load(CurrentUser currentUser) {

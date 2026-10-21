@@ -69,6 +69,10 @@ web:
     - http://localhost:3000
     - http://127.0.0.1:3000
 
+# ./start.sh backs the database up to this MinIO (ADR 0036) and sets BACKUPS_STORAGE_*; the bucket is made if it's missing.
+backups:
+  create-bucket: true
+
 # A Mac with the agent's fake GPUs can connect (ADR 0013).
 agentgateway:
   allow-development-hosts: true

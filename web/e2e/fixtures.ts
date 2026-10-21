@@ -36,6 +36,7 @@ export const me = (createdAt = "2026-09-01T10:00:00Z", status = "active") => ({
   signInMethods: ["google"],
   createdAt,
   unreadNotifications: 0,
+  emailUndeliverable: false,
 });
 
 /** An account that hasn't entered an invite code yet (ADR 0024). */

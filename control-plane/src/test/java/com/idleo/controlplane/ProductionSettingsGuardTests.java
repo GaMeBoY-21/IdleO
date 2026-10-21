@@ -28,10 +28,18 @@ class ProductionSettingsGuardTests {
                         "hosts.link.web-app-url=https://app.example.invalid",
                         "notifications.email.from=IdleO <notifications@example.invalid>",
                         "spring.mail.host=smtp.example.invalid",
+                        "spring.mail.username=resend",
+                        "spring.mail.password=" + PRODUCTION_KEY,
+                        "notifications.email.webhook-secret=whsec_" + PRODUCTION_KEY,
                         "identity.invite-code-key=" + PRODUCTION_KEY,
                         "management.otlp.metrics.export.url=" + OTLP + "/v1/metrics",
                         "management.opentelemetry.tracing.export.otlp.endpoint=" + OTLP + "/v1/traces",
-                        "management.opentelemetry.logging.export.otlp.endpoint=" + OTLP + "/v1/logs")
+                        "management.opentelemetry.logging.export.otlp.endpoint=" + OTLP + "/v1/logs",
+                        "backups.storage.endpoint=https://account.r2.example.invalid",
+                        "backups.storage.bucket=idleo-backups",
+                        "backups.storage.prefix=production",
+                        "backups.storage.access-key-id=reader",
+                        "backups.storage.secret-access-key=" + PRODUCTION_KEY)
                 .withPropertyValues(properties);
     }
 
@@ -240,5 +248,54 @@ class ProductionSettingsGuardTests {
                                 assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
             }
         });
+    }
+
+    @Test
+    void prodRefusesToStartWithoutBackupsToWatch() {
+        for (var setting : new String[][] {
+            {"backups.storage.endpoint=", "backups.storage.endpoint is missing"},
+            {"backups.storage.endpoint=http://localhost:9100", "backups.storage.endpoint http://localhost:9100"},
+            {"backups.create-bucket=true", "backups.create-bucket is true"}
+        }) {
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, setting[0])
+                    .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+        }
+        for (var setting : ProductionSettingsGuard.BACKUP_SETTINGS) {
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, setting + "=")
+                    .run(context ->
+                            assertThat(context).hasFailed().getFailure().hasMessageContaining(setting + " is missing"));
+        }
+    }
+
+    @Test
+    void prodRefusesASenderOffOurDomainAndEmailWithoutItsSecrets() {
+        for (var setting : new String[][] {
+            {"notifications.email.from=IdleO <alerts@gmail.com>", "isn't on the web app's domain"},
+            {"notifications.email.from=IdleO <x@notexample.invalid>", "isn't on the web app's domain"},
+            {"notifications.email.webhook-secret=", "notifications.email.webhook-secret is missing"},
+            {"notifications.email.webhook-secret=not-a-svix-secret", "notifications.email.webhook-secret is missing"},
+            {"spring.mail.username=", "spring.mail.username is missing"},
+            {"spring.mail.password=", "spring.mail.password is missing"}
+        }) {
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, setting[0])
+                    .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+        }
+        // A sending subdomain is ours too.
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "notifications.email.from=IdleO <n@mail.example.invalid>")
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void ourDomainIsTheWebAppsParentOrUnderIt() {
+        assertThat(ProductionSettingsGuard.isOurDomain("IdleO <n@idleo.in>", "https://app.idleo.in"))
+                .isTrue();
+        assertThat(ProductionSettingsGuard.isOurDomain("n@mail.idleo.in", "https://app.idleo.in/"))
+                .isTrue();
+        assertThat(ProductionSettingsGuard.isOurDomain("n@idleo.in.evil.com", "https://app.idleo.in"))
+                .isFalse();
+        assertThat(ProductionSettingsGuard.isOurDomain("n@xidleo.in", "https://app.idleo.in"))
+                .isFalse();
+        assertThat(ProductionSettingsGuard.isOurDomain("n@resend.dev", "https://app.idleo.in"))
+                .isFalse();
     }
 }
