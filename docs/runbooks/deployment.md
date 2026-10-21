@@ -61,5 +61,14 @@ And beside the control plane:
 
 - **The database runs `ops/postgres/`'s image** (PostgreSQL with WAL-G), with `WALG_S3_PREFIX`, `AWS_ENDPOINT`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (an R2 token with read and write on the backup bucket, which must exist first) and `WALG_PGP_KEY_PATH` (the backup key's public half, mounted read-only). Its nightly backup is `ops/backup/systemd/idleo-backup.timer` (backups.md).
 - **The application's database user gets `pg_monitor`** (`GRANT pg_monitor TO <application user>`), so the backup watch can see WAL waiting to be archived. Without it the no-backup alert fires, which is how you'd notice.
-- **Only `/actuator/health/liveness` and `/readiness` are reachable from outside.** The load balancer waits for readiness (database, storage, CA) before sending traffic; the external uptime check reads liveness.
+- **Only `/actuator/health/liveness` and `/readiness` are reachable from outside.** The load balancer waits for readiness (the database and the CA; object storage isn't part of it, ADR 0036) before sending traffic; the external uptime check reads liveness.
 - **The web builds are made with `IDLEO_RELEASE`** set to the same release, so a JavaScript error names it, and their `*-sourcemaps/` folders go to `VITALS_SOURCE_MAPS`, never to the site's host.
+
+## The database is ours (ADR 0036)
+
+Production runs **our own PostgreSQL**, `ops/postgres/`'s image with WAL-G, on our server, not a managed database (decided 2026-10-21). That means:
+
+- **Its disk is ours to watch:** the disk alert covers it (alerts.md, "Disk"); give the database its own volume, so a full root disk can't stop it.
+- **Backups and restores are ours:** WAL archived at least every 30 seconds and a full backup nightly (backups.md); rehearse a restore monthly.
+- **Upgrades are ours:** a PostgreSQL minor release is a new pinned digest in `ops/postgres/Dockerfile` (and the tests' image, which a test keeps identical), rolled out by restarting the container; a major release is a restore into the new version, rehearsed first with the drill.
+- **No standby yet:** a lost server is a restore onto a new one (backups.md, "Restoring"), under 4 hours by the technical design's target. A standby with failover is for when the pilot needs it.

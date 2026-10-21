@@ -41,12 +41,17 @@ ruler (`mimirtool`) take unchanged, each unit-tested with `promtool test rules`,
 of docs/runbooks/alerts.md. Rules read only the labels Grafana Cloud keeps (`job`, `instance`). An outside uptime check
 (UptimeRobot's free plan) covers the server being gone, which our own alerts can't see.
 
-**Readiness** checks the database, the sessions' object storage and the agents' CA. **Valkey is not in readiness**,
-although the brief asked for it: CLAUDE.md's rule is that Valkey holds only what may expire and is never in readiness,
-and the application already runs without it; its latency is a meter and a dashboard panel instead.
+**Readiness** checks the database and the agents' CA. **Valkey is not in readiness**, although the brief asked for it:
+CLAUDE.md's rule is that Valkey holds only what may expire and is never in readiness, and the application already runs
+without it; its latency is a meter and a dashboard panel instead. **Nor is object storage**, decided after the first
+version of this record put it there: an R2 outage would take every instance out of rotation, and with them lease
+renewals, stopping every running job within two minutes, when only uploads, outputs and logs need storage. Storage that
+can't be reached is the meter `storage.reachable`, the alert StorageUnreachable after 5 minutes, and a 503
+`storage-unavailable` (with Retry-After) from every call that needs files, which the app shows in plain words.
 
 **Backups with WAL-G** in the PostgreSQL image we run (`ops/postgres/`: the tests' image pinned by digest, WAL-G 3.0.9 by
-checksum): every WAL segment archived (at least once a minute), a full backup nightly, 30 days kept, to R2 (MinIO
+checksum): every WAL segment archived (at least every 30 seconds while anything is written, `archive_timeout = 30`, so
+a loss costs at most about 30 seconds), a full backup nightly, 30 days kept, to R2 (MinIO
 locally). Encrypted with OpenPGP, WAL-G's built-in asymmetric choice: the server holds only the public half, so it can
 write backups and never read them; the private half is offline. (WAL-G's libsodium option is symmetric: the server would
 hold the key that reads every backup.) A new volume is initialised without archiving, so storage that isn't there yet
@@ -74,9 +79,10 @@ the control plane reads them (`vitals.source-maps`) to name an error's file and 
 - **Grafana-managed alert rules** instead of Prometheus rules: their provisioning file isn't what Grafana Cloud's API
   takes, and they can't be unit-tested with `promtool`.
 - **DigitalOcean's managed PostgreSQL** (the plan's choice, docs/plan/execution-plan.md "Budget and costs"): it gives
-  point-in-time recovery itself, but no WAL archive we hold or can encrypt to our own key. Open question: whether
-  production runs our own PostgreSQL with this image, or the managed one with its own backups plus a nightly logical copy to
-  R2. The brief asked for WAL-G in our image; the deployment round decides where the database lives.
+  point-in-time recovery itself, but no WAL archive we hold or can encrypt to our own key, and a restore we can't
+  rehearse with our own drill. **Decided (Nikki, 2026-10-21): production runs our own PostgreSQL**, this image with
+  WAL-G, on our own server; the plan's managed database line becomes a droplet's disk, and the standby and failover it
+  promised are ours to build when the pilot needs them.
 - **One-click unsubscribe (RFC 8058)**: needs a signed token per person and kind and an endpoint that changes choices
   without a sign-in. Our emails are transactional, and Gmail's and Yahoo's one-click rule is for bulk senders; a link to
   Account is honest and simple. Revisit if a provider asks for it.
