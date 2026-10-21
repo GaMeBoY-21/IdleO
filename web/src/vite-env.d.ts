@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_PROJECT_ID?: string;
   /** The public website's address, written in by vite.config.ts from IDLEO_SITE_URL (ADR 0029). */
   readonly IDLEO_SITE_URL?: string;
+  /** The release this build is, from IDLEO_RELEASE, which real visits' vitals and errors name (ADR 0036). */
+  readonly IDLEO_RELEASE?: string;
 }
 
 interface ImportMeta {

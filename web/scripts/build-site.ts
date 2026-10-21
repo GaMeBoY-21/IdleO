@@ -3,7 +3,7 @@
 // style sheet and, on the two pages with something live, one small script. Nothing of the app is on them. Also writes
 // the 404 page, sitemap.xml, robots.txt, the headers a host should send, and the redirect from the old landing page.
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { siteSettingsProblems } from "../src/build-settings.ts";
 import { brand } from "../src/brand/brand.ts";
@@ -52,7 +52,11 @@ function script(source: string): { entry: string; preload: string[] } {
   return { entry: chunk.file, preload };
 }
 
-const ISLANDS = { pricing: "src/site/islands/pricing.ts", earn: "src/site/islands/earn.ts" } as const;
+const ISLANDS = {
+  pricing: "src/site/islands/pricing.ts",
+  earn: "src/site/islands/earn.ts",
+  vitals: "src/site/islands/vitals.ts",
+} as const;
 
 const sha = (body: string) => `sha256-${createHash("sha256").update(body, "utf8").digest("base64")}`;
 // The one inline script is the theme's (src/design/theme.ts), which the app's pages carry too, so a chosen theme never
@@ -66,7 +70,8 @@ const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;
 
 function document(page: PageDef, body: string): string {
   const url = `${siteUrl}${page.path}`;
-  const loaded = page.islands.map((island) => script(ISLANDS[island]));
+  // Every page reports what real visits meet (ADR 0036), after it has loaded; Pricing and Earn have their own script too.
+  const loaded = [...page.islands, "vitals" as const].map((island) => script(ISLANDS[island]));
   const preloads = [...new Set(loaded.flatMap((one) => one.preload))];
   return `<!doctype html>
 <html lang="en-IN">
@@ -93,7 +98,7 @@ function document(page: PageDef, body: string): string {
     <link rel="stylesheet" href="/${stylesheet}" />
 ${preloads.map((file) => `    <link rel="modulepreload" href="/${file}" />`).join("\n")}
   </head>
-  <body>
+  <body data-api="${escape(env.VITE_API_URL ?? "")}">
 ${body}
 ${loaded.map((one) => `    <script type="module" src="/${one.entry}"></script>`).join("\n")}
   </body>
@@ -114,6 +119,16 @@ const { pages, renderPage, notFoundPage } = (await import(
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 cpSync(`${siteDist}site-assets`, `${dist}site-assets`, { recursive: true });
+// Source maps are never served (ADR 0036): they go to <dist>-sourcemaps/, which the control plane reads to name a
+// JavaScript error's file and line.
+const maps = here(`${process.env.IDLEO_WEBSITE_DIST ?? "dist-website"}-sourcemaps/site-assets/`);
+rmSync(maps, { recursive: true, force: true });
+mkdirSync(maps, { recursive: true });
+for (const file of readdirSync(`${dist}site-assets`)) {
+  if (file.endsWith(".map")) {
+    renameSync(`${dist}site-assets/${file}`, `${maps}${file}`);
+  }
+}
 // The font and the icon are the app's own files, shared by both builds.
 cpSync(here("public"), dist, { recursive: true });
 const all = pages(context);
@@ -138,6 +153,10 @@ writeFileSync(
 );
 writeFileSync(`${dist}redirects.json`, `${JSON.stringify({ [OLD_LANDING]: LANDING }, null, 2)}\n`);
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
+const leftMaps = readdirSync(dist, { recursive: true }).filter((file) => String(file).endsWith(".map"));
+if (leftMaps.length > 0) {
+  throw new Error(`source maps left in the website, which would be served: ${leftMaps.join(", ")}`);
+}
 
 writeFileSync(
   `${dist}sitemap.xml`,

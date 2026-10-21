@@ -79,7 +79,7 @@ test("a 10 MiB log streams in without slowing the screen", async ({ page, browse
       type: "event",
       durationThreshold: 16,
       buffered: true,
-    } as PerformanceObserverInit);
+    });
   });
 
   // Found once: CSS and text, never a role lookup over the whole page.

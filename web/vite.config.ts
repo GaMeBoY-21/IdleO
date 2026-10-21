@@ -55,13 +55,17 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_AUTH": JSON.stringify(env.VITE_AUTH),
       // Where the app's links to the website (Terms, Privacy, "← idleo") lead.
       "import.meta.env.IDLEO_SITE_URL": JSON.stringify(env.IDLEO_SITE_URL ?? ""),
+      // The release real visits' vitals and errors name (ADR 0036).
+      "import.meta.env.IDLEO_RELEASE": JSON.stringify(process.env.IDLEO_RELEASE ?? "development"),
     },
     build: {
       // IDLEO_DIST: a second build side by side, as the end-to-end test makes for the Firebase screens.
       outDir: process.env.IDLEO_DIST ?? "dist",
       target: "es2022",
       manifest: true,
-      sourcemap: process.env.IDLEO_SOURCEMAP === "1",
+      // Source maps are made for every build but never served: scripts/postbuild.ts moves them out of dist into
+      // dist-sourcemaps/, which the control plane reads to name a JavaScript error's file and line (ADR 0036).
+      sourcemap: process.env.IDLEO_SOURCEMAP === "1" ? true : "hidden",
       rollupOptions: { output: { manualChunks: shellChunk } },
     },
     server: { port: 3000, strictPort: true },

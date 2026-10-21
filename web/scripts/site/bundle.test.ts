@@ -24,14 +24,24 @@ const files = (directory: string): string[] =>
   );
 
 /** What a script of the public site may import from the app: money, the host's share, the class names, the brand. */
-const SHARED = ["@/lib/money", "@/lib/hosting", "@/lib/cn", "@/brand/brand", "@/brand/Wordmark"];
+const SHARED = [
+  "@/lib/money",
+  "@/lib/hosting",
+  "@/lib/cn",
+  "@/brand/brand",
+  "@/brand/Wordmark",
+  // What real visits meet, reported by every page after it has loaded (ADR 0036).
+  "@/telemetry/early-errors",
+  "@/telemetry/report",
+  "@/telemetry/privacy",
+];
 
 describe("the public site's bundle", () => {
   it("builds", () => {
     expect(build.status, build.stderr).toBe(0);
   });
 
-  it("holds none of the app: no React, query cache, router, sign-in, or any call but the public availability and the Windows app's release", () => {
+  it("holds none of the app: no React, query cache, router, sign-in, or any call but the public availability, the Windows app's release and the vitals", () => {
     const scripts = files(out).filter((file) => file.endsWith(".js"));
     expect(scripts.length).toBeGreaterThanOrEqual(3);
     for (const script of scripts) {
@@ -51,9 +61,10 @@ describe("the public site's bundle", () => {
         expect(code, `${relative(out, script)} has ${marker}`).not.toContain(marker);
       }
       for (const call of code.matchAll(/\/v1\/[\w/-]*/g)) {
-        expect(["/v1/public/availability", "/v1/agent-releases/latest"], relative(out, script)).toContain(
-          call[0],
-        );
+        expect(
+          ["/v1/public/availability", "/v1/agent-releases/latest", "/v1/vitals"],
+          relative(out, script),
+        ).toContain(call[0]);
       }
     }
   });

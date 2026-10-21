@@ -32,7 +32,8 @@ class RequestLimitsTests {
 
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-12T10:00:20Z"), ZoneOffset.UTC);
-    private final RequestLimits limits = new RequestLimits(redis, new RequestLimitsProperties(60, 10, 10, 120), clock);
+    private final RequestLimits limits =
+            new RequestLimits(redis, new RequestLimitsProperties(60, 10, 10, 120, 30), clock);
 
     RequestLimitsTests() {
         when(redis.opsForValue()).thenReturn(counters);
@@ -86,5 +87,21 @@ class RequestLimitsTests {
                         ApiProblem.class,
                         problem -> assertThat(problem.problem()).isEqualTo(Problem.RATE_LIMITED));
         verify(counters).increment(org.mockito.ArgumentMatchers.contains("requests:ip:10.2.2.2"));
+    }
+
+    @Test
+    void vitalsAreCountedPerAddressApartFromEverythingElse() {
+        when(counters.increment(anyString())).thenReturn(31L);
+        var request = new MockHttpServletRequest("POST", "/v1/vitals");
+        request.setRemoteAddr("10.3.3.3");
+        request.setAttribute(
+                org.springframework.web.servlet.HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/v1/vitals");
+
+        assertThatThrownBy(() -> limits.preHandle(request, new MockHttpServletResponse(), ""))
+                .isInstanceOfSatisfying(
+                        ApiProblem.class,
+                        problem -> assertThat(problem.detail()).contains("More than 30 requests in a minute"));
+        verify(counters).increment(org.mockito.ArgumentMatchers.contains("vitals:ip:10.3.3.3"));
+        verify(counters, never()).increment(org.mockito.ArgumentMatchers.contains("requests:"));
     }
 }

@@ -3,7 +3,7 @@
 // (so any static host serves deep links) with that screen's first frame pre-rendered and its own code preloaded,
 // and writes dist/headers.json, the headers a host should send.
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { SCREENS, SIGNED_IN_SCREENS } from "../src/screens.ts";
 import { contentSecurityPolicy, securityHeaders } from "../src/security/headers.ts";
@@ -76,6 +76,24 @@ writeFileSync(`${dist}404.html`, await withFrame(html, "/not-a-screen/"));
 // a rewrite where the host has the rule (scripts/serve.ts reads this file; docs/runbooks/deployment.md names the rule).
 writeFileSync(`${dist}rewrites.json`, `${JSON.stringify({ "/link/": "/link/index.html" }, null, 2)}\n`);
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
+// Source maps are never served (ADR 0036): every one leaves the build for <dist>-sourcemaps/, which the control plane
+// reads to name a JavaScript error's file and line. A build made to debug with them (IDLEO_SOURCEMAP=1) keeps them.
+const maps = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}-sourcemaps/`, import.meta.url));
+let moved = 0;
+if (process.env.IDLEO_SOURCEMAP !== "1") {
+  rmSync(maps, { recursive: true, force: true });
+  mkdirSync(`${maps}assets`, { recursive: true });
+  for (const file of readdirSync(`${dist}assets`)) {
+    if (file.endsWith(".map")) {
+      renameSync(`${dist}assets/${file}`, `${maps}assets/${file}`);
+      moved += 1;
+    }
+  }
+  const left = readdirSync(dist, { recursive: true }).filter((file) => String(file).endsWith(".map"));
+  if (left.length > 0) {
+    throw new Error(`source maps left in the build, which would be served: ${left.join(", ")}`);
+  }
+}
 console.log(
-  `postbuild: ${Object.keys(SCREENS).length} screens, ${hashes.length} inline script hash(es), CSP: ${csp}`,
+  `postbuild: ${Object.keys(SCREENS).length} screens, ${hashes.length} inline script hash(es), ${moved} source maps kept apart, CSP: ${csp}`,
 );

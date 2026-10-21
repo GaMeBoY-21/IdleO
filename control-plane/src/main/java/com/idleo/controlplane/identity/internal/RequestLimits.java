@@ -26,7 +26,8 @@ import org.springframework.web.servlet.HandlerMapping;
  *
  * <p>A session's event stream is one request however long it stays open. Every read of a session's logs counts, with
  * a cursor or without, against a limit of its own, {@code limits.log-reads-per-minute} (120), so following a live log
- * never uses up the person's other requests, and nothing is free.
+ * never uses up the person's other requests, and nothing is free. Real visits' vitals ({@code POST /v1/vitals}) count
+ * per address against {@code limits.vitals-per-minute} (30), apart from everything else (ADR 0036).
  *
  * <p>Which call a request is comes from the route it reached ({@link HandlerMapping#BEST_MATCHING_PATTERN_ATTRIBUTE}),
  * never from the spelling of its path, so a percent-encoded path is counted like the plain one.
@@ -40,6 +41,7 @@ class RequestLimits implements HandlerInterceptor {
     private static final String LOGS = "/v1/sessions/{id}/logs";
     private static final String CLI_LOGINS = "/v1/cli-logins";
     private static final String HOST_LINKS = "/v1/host-links";
+    private static final String VITALS = "/v1/vitals";
     private static final Duration MINUTE = Duration.ofMinutes(1);
     private static final Duration HOUR = Duration.ofHours(1);
 
@@ -66,6 +68,8 @@ class RequestLimits implements HandlerInterceptor {
         var who = who(request);
         if (route.equals(LOGS)) {
             check("log-reads:" + who, MINUTE, limits.logReadsPerMinute(), now);
+        } else if (route.equals(VITALS)) {
+            check("vitals:ip:" + request.getRemoteAddr(), MINUTE, limits.vitalsPerMinute(), now);
         } else {
             check("requests:" + who, MINUTE, limits.requestsPerMinute(), now);
         }

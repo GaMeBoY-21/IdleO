@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-ssr/
+dist-sourcemaps/
+dist-*-sourcemaps/
 dist-site/
 dist-site-ssr/
 dist-firebase/
@@ -19,4 +21,5 @@ visual-baseline/
 dist-local/
 dist-site-local/
 dist-website/
+dist-website-sourcemaps/
 dist-website-local/

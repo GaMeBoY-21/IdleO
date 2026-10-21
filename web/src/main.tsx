@@ -6,7 +6,19 @@ import { App, preloadScreen } from "@/App";
 import { authStore } from "@/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SignedOutCacheReset } from "@/components/shell/SignedOutCacheReset";
+import { config } from "@/config";
+import { afterFirstScreen } from "@/lib/after-first-screen";
+import { holdEarlyErrors } from "@/telemetry/early-errors";
 import "./styles.css";
+
+// JavaScript errors from the start, and what real visits meet, reported once the first screen has loaded, so the
+// reporting never slows the page it measures (ADR 0036).
+holdEarlyErrors();
+afterFirstScreen(() => {
+  void import("@/telemetry/report").then(({ startReporting }) =>
+    startReporting({ api: config.apiUrl, app: "app", release: config.release }),
+  );
+});
 
 const queryClient = createQueryClient();
 // The sign-in adapter isn't needed to paint the first screen, so it loads just after it; anything that needs a
