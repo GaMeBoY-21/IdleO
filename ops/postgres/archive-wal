@@ -1,0 +1,4 @@
+#!/bin/bash
+# PostgreSQL's archive_command: one WAL segment to backup storage, encrypted, through WAL-G. A non-zero exit makes
+# PostgreSQL keep the segment and try again, so nothing is skipped while storage is unreachable.
+exec wal-g wal-push "$1"

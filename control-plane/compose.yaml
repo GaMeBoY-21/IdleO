@@ -1,13 +1,30 @@
 # Local development only: Spring Boot starts this with the local profile.
-# The images match the Testcontainers images (a test keeps them identical) and
+# The images match the Testcontainers images (a test keeps them identical; PostgreSQL's through ops/postgres) and
 # DigitalOcean's managed PostgreSQL and Valkey major versions (ADRs 0008, 0011).
 services:
   postgres:
-    image: postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    # PostgreSQL with WAL-G (ops/postgres, ADR 0036): the tests' image (a test keeps the Dockerfile's FROM identical),
+    # archiving to this MinIO when LOCAL_BACKUP_PREFIX is set (./start.sh sets it; the end-to-end stack doesn't),
+    # encrypted with the development backup key's public half (ops/backup/dev-key.sh).
+    build: ../ops/postgres
+    # Built on every start (from cache, seconds), so a change to ops/postgres is never left behind in an old image.
+    pull_policy: build
+    image: idleo-postgres:development
+    labels:
+      org.springframework.boot.service-connection: postgres
     environment:
       POSTGRES_DB: controlplane
       POSTGRES_USER: controlplane
       POSTGRES_PASSWORD: local-only-not-a-secret
+      WALG_S3_PREFIX: ${LOCAL_BACKUP_PREFIX:-}
+      AWS_ENDPOINT: http://storage:9000
+      AWS_REGION: us-east-1
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: local-storage-root
+      AWS_SECRET_ACCESS_KEY: local-only-not-a-secret
+      WALG_PGP_KEY_PATH: /run/backup.pub.asc
+    volumes:
+      - ${LOCAL_BACKUP_PUBLIC_KEY:-/dev/null}:/run/backup.pub.asc:ro
     ports:
       # A random host port, reachable from this machine only.
       - "127.0.0.1::5432"
@@ -78,7 +95,8 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
     volumes:
       - ../ops/prometheus/development.yaml:/otel-lgtm/prometheus.yaml:ro
-      - ../ops/alerts:/otel-lgtm/alerts:ro
+      # The rules; scripts/ops/alert-drill.sh points LOCAL_ALERTS_DIR at a copy with shorter windows, test-only.
+      - ${LOCAL_ALERTS_DIR:-../ops/alerts}:/otel-lgtm/alerts:ro
       - ../ops/grafana/provisioning.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/idleo.yaml:ro
       - ../ops/grafana/dashboards:/otel-lgtm/idleo-dashboards:ro
     ports:

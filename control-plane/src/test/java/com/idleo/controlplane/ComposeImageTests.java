@@ -13,7 +13,12 @@ class ComposeImageTests {
     void localComposeUsesTheSamePinnedImagesAsTheTests() throws IOException {
         var compose = Files.readString(Path.of("compose.yaml"));
 
-        assertThat(compose).contains("image: " + TestcontainersConfiguration.POSTGRES_IMAGE);
+        // PostgreSQL is built from ops/postgres (WAL-G beside it, ADR 0036), on the tests' image.
+        assertThat(compose).contains("build: ../ops/postgres");
+        var postgres = Files.readString(Path.of("../ops/postgres/Dockerfile"));
+        assertThat(postgres.lines().filter(line -> line.startsWith("FROM ")))
+                .isNotEmpty()
+                .allSatisfy(line -> assertThat(line).startsWith("FROM " + TestcontainersConfiguration.POSTGRES_IMAGE));
         assertThat(compose).contains("image: " + TestcontainersConfiguration.VALKEY_IMAGE);
         assertThat(compose).contains("image: " + LocalSignInContainer.IMAGE);
         assertThat(compose).contains("image: " + TestStorageConfiguration.MINIO_IMAGE);

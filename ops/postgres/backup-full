@@ -1,0 +1,12 @@
+#!/bin/bash
+# A full backup now, then backups older than 30 days deleted, keeping every one a point in the last 30 days needs
+# (ADR 0036). Run nightly by ops/backup/systemd/idleo-backup.timer in production, and by hand with
+# ops/backup/backup-now.sh. Runs inside the database's container, as postgres.
+set -euo pipefail
+: "${WALG_S3_PREFIX:?backups are not configured: WALG_S3_PREFIX is empty}"
+# As the database's own superuser, over its socket.
+export PGUSER="${PGUSER:-${POSTGRES_USER:-postgres}}" PGDATABASE="${PGDATABASE:-${POSTGRES_DB:-postgres}}"
+export PGHOST="${PGHOST:-/var/run/postgresql}"
+wal-g backup-push "$PGDATA"
+cutoff="$(date -u -d '-30 days' +%Y-%m-%dT%H:%M:%SZ)"
+wal-g delete before FIND_FULL "$cutoff" --confirm
