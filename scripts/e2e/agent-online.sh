@@ -448,11 +448,12 @@ token="$(stack_token "$user")"
 [[ -n "$token" ]] || fail "no token from the development sign-in server"
 
 # 3a. Invite codes (docs/runbooks/invites.md): one for each account the run makes, and two spare for the web
-#     journey that signs in as a new person and enters one.
+#     journey that signs in as a new person and enters one; the admin's (8) and the privacy journey's (10) are
+#     taken by index.
 log "making invite codes for the run's accounts"
-ops create-invites --count 10 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 10))
-((${#invite_codes[@]} == 10)) || fail "create-invites didn't print 10 codes; see private/e2e/ops.log"
+ops create-invites --count 11 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 11))
+((${#invite_codes[@]} == 11)) || fail "create-invites didn't print 11 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -1342,25 +1343,36 @@ scenario_account_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-account.txt"
 
 # A person's own data in a browser (web/e2e/privacy-journey.spec.ts, ADR 0037): Your data's file made by the job,
-# emailed and downloaded; a message to support acknowledged with its number; and deleting the account asked for after
-# a fresh sign-in, confirmed from its email and cancelled from the next one's link. The database then holds each step:
-# a ready export, the request cancelled, its three security log rows, and the ticket the admin journey answers.
+# emailed and downloaded; a message to support acknowledged with its number; the web journeys' renter, who owns a
+# machine with unpaid earnings by now, told why they can't delete yet; and a person of its own with nothing in the way
+# asking after a fresh sign-in, confirming from the email and cancelling from the next one's link. The database then
+# holds each step: a ready export, the request cancelled, the security log's rows, and the ticket the admin journey
+# answers.
 scenario_privacy_web() {
-  local report="$out/privacy-journey.json" states events
-  E2E_WEB_USER="$web_user" E2E_MAIL_API="$mail_api" E2E_PRIVACY_REPORT="$report" SKIP_VISUAL=1 \
-    web_test --project=privacy-journey --reporter=line >>"$out/privacy-journey.log" 2>&1 ||
+  local report="$out/privacy-journey.json" privacy_user="$user-privacy" privacy_token privacy_user_id states events
+  privacy_token="$(stack_token "$privacy_user")"
+  [[ -n "$privacy_token" ]] || fail "no token for the privacy journey's person"
+  # The codes before 10 are the run's accounts', the account journey's and the admin's.
+  invite_next=10
+  activate_user "$privacy_token"
+  privacy_user_id="$(token="$privacy_token" api_get /v1/me | json_get .id)"
+  E2E_WEB_USER="$web_user" E2E_PRIVACY_USER="$privacy_user" E2E_MAIL_API="$mail_api" E2E_PRIVACY_REPORT="$report" \
+    SKIP_VISUAL=1 web_test --project=privacy-journey --reporter=line >>"$out/privacy-journey.log" 2>&1 ||
     fail "the privacy journeys failed; see private/e2e/privacy-journey.log"
   ticket_number="$(json_get .ticketNumber <"$report")"
   states="$(sql "select (select string_agg(distinct state, ',') from privacy.exports where user_id = '$web_user_id')
-      || ' ' || (select state from privacy.deletion_requests where user_id = '$web_user_id' order by requested_at desc limit 1)")"
-  [[ "$states" == "ready cancelled" ]] || fail "the export and the deletion aren't ready and cancelled: $states"
+      || ' ' || (select state from privacy.deletion_requests where user_id = '$privacy_user_id' order by requested_at desc limit 1)
+      || ' ' || (select count(*) from privacy.deletion_requests where user_id = '$web_user_id')")"
+  [[ "$states" == "ready cancelled 0" ]] ||
+    fail "the export isn't ready, the deletion not cancelled, or the host's was accepted: $states"
   events="$(sql "select string_agg(kind, ',' order by kind) from (select distinct kind from identity.security_events
-      where user_id = '$web_user_id' and kind in ('export_requested', 'deletion_requested', 'deletion_confirmed', 'deletion_cancelled')) k")"
+      where user_id in ('$web_user_id', '$privacy_user_id')
+        and kind in ('export_requested', 'deletion_requested', 'deletion_confirmed', 'deletion_cancelled')) k")"
   [[ "$events" == "deletion_cancelled,deletion_confirmed,deletion_requested,export_requested" ]] ||
     fail "the security log lacks the export and deletion steps: $events"
   [[ "$(sql "select topic || ':' || status from support.tickets where number = $ticket_number")" == privacy:open ]] ||
     fail "ticket #$ticket_number isn't an open privacy request"
-  note "privacy journeys: $(grep -Eo '[0-9]+ passed' "$out/privacy-journey.log" | tail -1) (the file of everything made, emailed and downloaded; message #$ticket_number acknowledged by email; deletion confirmed from its email and cancelled from the next; the security log holds each step): PASS"
+  note "privacy journeys: $(grep -Eo '[0-9]+ passed' "$out/privacy-journey.log" | tail -1) (the file of everything made, emailed and downloaded; message #$ticket_number acknowledged by email; a host with unpaid earnings told why they can't delete yet; deletion confirmed from its email and cancelled from the next; the security log holds each step): PASS"
 }
 scenario="privacy"
 : >"$out/summary-privacy.txt"
