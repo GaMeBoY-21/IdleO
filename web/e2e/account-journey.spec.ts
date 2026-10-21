@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { API, expectAccessible, signIn, watchConsole } from "./support";
 
 /**
- * Access by invitation and the account, on the real stack (ADR 0024, scripts/e2e/agent-online.sh): a new person signs in
- * and is asked for an invite code, a code that doesn't work is said not to, the one the script made lets them in, a
+ * Access by invitation and the account, on the real stack (ADR 0024, scripts/e2e/agent-online.sh): a new person signs in,
+ * agrees to the Terms and privacy notice with their age (ADR 0037), is asked for an invite code, a code that doesn't work is said not to, the one the script made lets them in, a
  * code is used once, and Account saves a name and a choice that are still there after a reload, shows the locked kinds
  * locked, and signs out. The two new people are invented @example.com users, signed in through the local sign-in
  * server; the code comes from the script (E2E_INVITE_CODE), made with the operator's create-invites.
@@ -17,6 +17,12 @@ async function firstSignIn(page: Page, who: string) {
   await page.goto("/sign-in/");
   await page.getByLabel("Email", { exact: true }).fill(`${who}@example.com`);
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+  // The Terms and privacy notice first, with the age, before anything else; the server keeps the answer.
+  await page.waitForURL("**/agree/**");
+  await expect(page.getByRole("heading", { name: "Before you start" })).toBeVisible();
+  await page.getByLabel("I agree to the Terms and the Privacy notice").check();
+  await page.getByLabel("I'm 18 or older").check();
+  await page.getByRole("button", { name: "Agree and continue" }).click();
   await page.waitForURL("**/invite/**");
   await expect(page.getByRole("heading", { name: "Enter your invite code" })).toBeVisible();
 }

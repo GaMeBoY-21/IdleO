@@ -398,3 +398,11 @@ legal:
     # Database backups, which can hold an erased person until they age out (ops/backup/, docs/runbooks/backups.md);
     # the privacy notice must say so. Changing it means changing the backup scripts too. LEGAL(confirm)
     backups: 30d
+  # The Terms and the privacy notice in force (their text is the lawyer's; the pages say "Being drafted." until then).
+  # A person accepts both, once, before anything else; changing a version here makes the app ask everyone once more
+  # on their next visit. LEGAL(confirm)
+  notices:
+    terms-version: 2026-10-draft
+    privacy-version: 2026-10-draft
+    # Who may have an account: the person confirms they are this old, once, with their first acceptance. LEGAL(confirm)
+    minimum-age: 18

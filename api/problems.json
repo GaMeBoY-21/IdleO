@@ -6,6 +6,8 @@
   { "slug": "email-not-verified", "status": 403, "title": "Email not verified" },
   { "slug": "invite-required", "status": 403, "title": "Invite code required" },
   { "slug": "invite-invalid", "status": 400, "title": "Invite code not accepted" },
+  { "slug": "notices-changed", "status": 409, "title": "The Terms or privacy notice changed" },
+  { "slug": "age-not-confirmed", "status": 422, "title": "Age not confirmed" },
   { "slug": "too-many-attempts", "status": 429, "title": "Too many attempts" },
   { "slug": "browser-sign-in-required", "status": 403, "title": "Sign in with a browser for this" },
   { "slug": "api-key-read-only", "status": 403, "title": "This key can only read" },

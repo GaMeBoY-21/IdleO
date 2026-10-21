@@ -7,6 +7,7 @@ import {
   useQueryClient,
   type InfiniteData,
 } from "@tanstack/react-query";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { api, data } from "./client";
 import { ApiError } from "./errors";
 import { sendToInviteStep } from "./invite-required";
@@ -136,6 +137,11 @@ const meQuery = () => ({ queryKey: keys.me, queryFn: () => data(api.GET("/v1/me"
 
 export function useMe() {
   return useQuery(meQuery());
+}
+
+/** The account, asked for only once the screen has painted: for what can wait, like the Terms step's check. */
+export function useMeAfterPaint() {
+  return useQuery({ ...meQuery(), enabled: useAfterPaint() });
 }
 
 /** The account only as far as it's already known (restored or fetched by a screen): it never asks for it. */

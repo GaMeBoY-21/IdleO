@@ -13,6 +13,8 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/email-not-verified` | 403 | Email not verified | The sign-in's email address isn't verified yet. |
 | `/problems/invite-required` | 403 | Invite code required | Access is by invitation. Until the account is activated with an invite code, only reading and changing the account itself and activating it are allowed. |
 | `/problems/invite-invalid` | 400 | Invite code not accepted | The code isn't one that can be used: it's wrong, already used or expired. The response never says which. |
+| `/problems/notices-changed` | 409 | The Terms or privacy notice changed | The versions accepted aren't the ones in force any more. Read GET /v1/me's `notices` and accept those. |
+| `/problems/age-not-confirmed` | 422 | Age not confirmed | An account is only for people of the minimum age in `notices.minimumAge`; confirm it with the first acceptance. |
 | `/problems/too-many-attempts` | 429 | Too many attempts | Too many invite codes were tried in the last hour. Wait, then try again. |
 | `/problems/browser-sign-in-required` | 403 | Sign in with a browser for this | API keys can't manage keys, approve a CLI sign-in, add, remove or price a machine, issue its enrolment code or change notification choices. Do it in the web app, signed in. |
 | `/problems/api-key-read-only` | 403 | This key can only read | A read key can only make GET requests (and revoke itself). Use a full key to change anything. |

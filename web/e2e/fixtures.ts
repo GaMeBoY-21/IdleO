@@ -37,6 +37,22 @@ export const me = (createdAt = "2026-09-01T10:00:00Z", status = "active") => ({
   createdAt,
   unreadNotifications: 0,
   emailUndeliverable: false,
+  notices: NOTICES_ACCEPTED,
+});
+
+/** The Terms and privacy notice in force (ADR 0037), as the server reports them for someone who agreed. */
+export const NOTICES_ACCEPTED = {
+  termsVersion: "2026-10-draft",
+  privacyVersion: "2026-10-draft",
+  accepted: true,
+  ageConfirmed: true,
+  minimumAge: 18,
+};
+
+/** A first sign-in: nothing agreed yet. */
+export const meNew = () => ({
+  ...me("2026-10-07T06:30:00Z", "waiting"),
+  notices: { ...NOTICES_ACCEPTED, accepted: false, ageConfirmed: false },
 });
 
 /** An account that hasn't entered an invite code yet (ADR 0024). */

@@ -62,6 +62,22 @@ class InviteInvalid(IdleoError):
     title = "Invite code not accepted"
 
 
+class NoticesChanged(IdleoError):
+    """The Terms or privacy notice changed (HTTP 409)."""
+
+    slug = "notices-changed"
+    status = 409
+    title = "The Terms or privacy notice changed"
+
+
+class AgeNotConfirmed(IdleoError):
+    """Age not confirmed (HTTP 422)."""
+
+    slug = "age-not-confirmed"
+    status = 422
+    title = "Age not confirmed"
+
+
 class TooManyAttempts(IdleoError):
     """Too many attempts (HTTP 429)."""
 
@@ -518,6 +534,8 @@ __all__ = [
     "EmailNotVerified",
     "InviteRequired",
     "InviteInvalid",
+    "NoticesChanged",
+    "AgeNotConfirmed",
     "TooManyAttempts",
     "BrowserSignInRequired",
     "ApiKeyReadOnly",
@@ -584,6 +602,8 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "email-not-verified": EmailNotVerified,
     "invite-required": InviteRequired,
     "invite-invalid": InviteInvalid,
+    "notices-changed": NoticesChanged,
+    "age-not-confirmed": AgeNotConfirmed,
     "too-many-attempts": TooManyAttempts,
     "browser-sign-in-required": BrowserSignInRequired,
     "api-key-read-only": ApiKeyReadOnly,

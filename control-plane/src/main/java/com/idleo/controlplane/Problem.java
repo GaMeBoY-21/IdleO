@@ -53,6 +53,17 @@ public enum Problem {
             HttpStatus.BAD_REQUEST,
             "Invite code not accepted",
             "The code isn't one that can be used: it's wrong, already used or expired. The response never says which."),
+    NOTICES_CHANGED(
+            "notices-changed",
+            HttpStatus.CONFLICT,
+            "The Terms or privacy notice changed",
+            "The versions accepted aren't the ones in force any more. Read GET /v1/me's `notices` and accept those."),
+    AGE_NOT_CONFIRMED(
+            "age-not-confirmed",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "Age not confirmed",
+            "An account is only for people of the minimum age in `notices.minimumAge`; confirm it with the first "
+                    + "acceptance."),
     TOO_MANY_ATTEMPTS(
             "too-many-attempts",
             HttpStatus.TOO_MANY_REQUESTS,

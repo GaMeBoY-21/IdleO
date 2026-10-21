@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.EmailDeliverability;
 import com.idleo.controlplane.identity.UnreadNotifications;
@@ -44,13 +45,16 @@ class MeController {
     private final Clock clock;
     private final UnreadNotifications unread;
     private final EmailDeliverability deliverability;
+    private final NoticeAcceptances notices;
 
     MeController(
             UserRepository users,
             InviteService invites,
             Clock clock,
             UnreadNotifications unread,
-            EmailDeliverability deliverability) {
+            EmailDeliverability deliverability,
+            NoticeAcceptances notices) {
+        this.notices = notices;
         this.users = users;
         this.invites = invites;
         this.clock = clock;
@@ -63,8 +67,36 @@ class MeController {
                 user,
                 authentication,
                 unread.countFor(user.id()),
-                user.email() != null && deliverability.undeliverable(user.email()));
+                user.email() != null && deliverability.undeliverable(user.email()),
+                NoticeStanding.of(notices.standing(user.id())));
     }
+
+    /**
+     * The Terms and privacy notice in force (ADR 0037): their versions, whether this person has accepted both, whether
+     * they have confirmed they're at least {@code minimumAge}. The app asks for both before anything else while {@code
+     * accepted} is false.
+     */
+    record NoticeStanding(
+            String termsVersion, String privacyVersion, boolean accepted, boolean ageConfirmed, int minimumAge) {
+
+        static NoticeStanding of(NoticeAcceptances.Standing standing) {
+            return new NoticeStanding(
+                    standing.termsVersion(),
+                    standing.privacyVersion(),
+                    standing.accepted(),
+                    standing.ageConfirmed(),
+                    standing.minimumAge());
+        }
+    }
+
+    /**
+     * Accepting the versions read; {@code ageConfirmed} is "I'm at least the minimum age", required with the first
+     * acceptance and ignored after.
+     */
+    record AcceptNoticesRequest(
+            @NotBlank @Size(max = 40) String termsVersion,
+            @NotBlank @Size(max = 40) String privacyVersion,
+            boolean ageConfirmed) {}
 
     /**
      * The account. {@code status} is {@code waiting} (no invite code yet), {@code active} or {@code
@@ -80,10 +112,15 @@ class MeController {
             List<String> signInMethods,
             Instant createdAt,
             int unreadNotifications,
-            boolean emailUndeliverable) {
+            boolean emailUndeliverable,
+            NoticeStanding notices) {
 
         static MeResponse of(
-                User user, Authentication authentication, int unreadNotifications, boolean emailUndeliverable) {
+                User user,
+                Authentication authentication,
+                int unreadNotifications,
+                boolean emailUndeliverable,
+                NoticeStanding notices) {
             return new MeResponse(
                     user.id(),
                     user.email(),
@@ -92,7 +129,8 @@ class MeController {
                     authentication instanceof IdentityAuthenticationToken token ? token.signInMethods() : List.of(),
                     user.createdAt(),
                     unreadNotifications,
-                    emailUndeliverable);
+                    emailUndeliverable,
+                    notices);
         }
     }
 
@@ -180,6 +218,35 @@ class MeController {
         }
         var user = load(currentUser);
         return ResponseEntity.ok().eTag(etag(user)).body(response(user, authentication));
+    }
+
+    /**
+     * Accepts the Terms and privacy notice in force (ADR 0037), with the person's word that they're at least the
+     * minimum age the first time. 409 {@code notices-changed} when the versions read aren't the ones in force; 422
+     * {@code age-not-confirmed} without that word the first time. Accepting again changes nothing. Only in a browser:
+     * a key can't agree for a person.
+     */
+    @OpenToWaitingUsers
+    @BrowserSignInOnly
+    @PostMapping("/notices")
+    @ApiResponse(
+            responseCode = "200",
+            description = "The account, with its notices accepted",
+            content = @Content(schema = @Schema(implementation = MeResponse.class)))
+    MeResponse acceptNotices(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            Authentication authentication,
+            @Valid @RequestBody AcceptNoticesRequest request) {
+        switch (notices.accept(
+                currentUser.id(), request.termsVersion(), request.privacyVersion(), request.ageConfirmed())) {
+            case CHANGED ->
+                throw ApiProblem.of(
+                        Problem.NOTICES_CHANGED, "The Terms or privacy notice changed since you read them.");
+            case AGE_NOT_CONFIRMED ->
+                throw ApiProblem.of(Problem.AGE_NOT_CONFIRMED, "Confirm that you're at least the minimum age.");
+            case ACCEPTED -> {}
+        }
+        return response(load(currentUser), authentication);
     }
 
     private User load(CurrentUser currentUser) {

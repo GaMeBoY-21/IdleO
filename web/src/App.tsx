@@ -1,9 +1,11 @@
 import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from "react";
-import { Route, Switch, useLocation } from "wouter";
+import { Route, Switch, useLocation, useSearch } from "wouter";
+import { useMeAfterPaint } from "@/api/queries";
 import { AppShell, ShellSkeleton } from "@/components/shell/AppShell";
 import { RequireAuth } from "@/components/shell/RequireAuth";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Home } from "@/features/home/Home";
+import { agreeStep } from "@/features/after-sign-in";
 import { CliLogin } from "@/features/cli-login/CliLogin";
 import { Invite } from "@/features/invite/Invite";
 import { SignIn } from "@/features/sign-in/SignIn";
@@ -51,6 +53,7 @@ const screens = {
   "/link/": screen(() => import("@/features/hosting/LinkApproval").then((m) => m.LinkApprovalScreen)),
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
+  "/agree/": screen(() => import("@/features/agree/Agree").then((m) => m.Agree)),
   "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
   "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
   "/account/reports/": screen(() => import("@/features/account/Reports").then((m) => m.Reports)),
@@ -90,6 +93,7 @@ const AddMachine = screens["/hosting/add/"].Screen;
 const LinkApproval = screens["/link/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
+const Agree = screens["/agree/"].Screen;
 const Account = screens["/account/"].Screen;
 const ApiKeys = screens["/account/keys/"].Screen;
 const Reports = screens["/account/reports/"].Screen;
@@ -113,9 +117,27 @@ function SignedOutScreen({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The Terms or privacy notice changed since this person agreed (ADR 0037): they're asked once, before anything else,
+ * as soon as the account says so: at once from what the screen already has, else once the screen has painted.
+ */
+function NoticesGate() {
+  const me = useMeAfterPaint();
+  const [path, navigate] = useLocation();
+  const search = useSearch();
+  const pending = me.data !== undefined && !me.data.notices.accepted;
+  useEffect(() => {
+    if (pending) {
+      navigate(agreeStep(`${path}${search ? `?${search}` : ""}`), { replace: true });
+    }
+  }, [pending, path, search, navigate]);
+  return null;
+}
+
 function SignedInArea() {
   return (
     <RequireAuth fallback={<ShellSkeleton />}>
+      <NoticesGate />
       <AppShell>
         <Suspense fallback={<Skeleton className="h-16 w-full" />}>
           <Switch>
@@ -170,6 +192,11 @@ export function App() {
       <Route path="/welcome/">
         <SignedOutScreen>
           <Welcome />
+        </SignedOutScreen>
+      </Route>
+      <Route path="/agree/">
+        <SignedOutScreen>
+          <Agree />
         </SignedOutScreen>
       </Route>
       {/* In the first load, not their own chunks: small, and drawn whole on the server, so a page opened on one

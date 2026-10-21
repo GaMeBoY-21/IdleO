@@ -2315,6 +2315,30 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - me
+  /v1/me/notices:
+    post:
+      operationId: meAcceptNotices
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptNoticesRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+          description: "The account, with its notices accepted"
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - me
   /v1/me/notifications:
     get:
       operationId: notificationsGet
@@ -3047,6 +3071,23 @@ paths:
       - wallet
 components:
   schemas:
+    AcceptNoticesRequest:
+      type: object
+      properties:
+        ageConfirmed:
+          type: boolean
+        privacyVersion:
+          type: string
+          maxLength: 40
+          minLength: 0
+        termsVersion:
+          type: string
+          maxLength: 40
+          minLength: 0
+      required:
+      - ageConfirmed
+      - privacyVersion
+      - termsVersion
     ActivateRequest:
       type: object
       properties:
@@ -5501,6 +5542,8 @@ components:
         id:
           type: string
           format: uuid
+        notices:
+          $ref: "#/components/schemas/NoticeStanding"
         signInMethods:
           type: array
           items:
@@ -5514,9 +5557,30 @@ components:
       - createdAt
       - emailUndeliverable
       - id
+      - notices
       - signInMethods
       - status
       - unreadNotifications
+    NoticeStanding:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+        ageConfirmed:
+          type: boolean
+        minimumAge:
+          type: integer
+          format: int32
+        privacyVersion:
+          type: string
+        termsVersion:
+          type: string
+      required:
+      - accepted
+      - ageConfirmed
+      - minimumAge
+      - privacyVersion
+      - termsVersion
     NotificationChoices:
       type: object
       properties:
@@ -5791,6 +5855,8 @@ components:
           - /problems/email-not-verified
           - /problems/invite-required
           - /problems/invite-invalid
+          - /problems/notices-changed
+          - /problems/age-not-confirmed
           - /problems/too-many-attempts
           - /problems/browser-sign-in-required
           - /problems/api-key-read-only

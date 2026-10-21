@@ -35,6 +35,65 @@ async function signInWaiting(page: Page) {
   await expect(page.getByRole("heading", { name: "Enter your invite code" })).toBeVisible();
 }
 
+test.describe("the Terms and privacy step", () => {
+  test("a first sign-in agrees, with its age, before the invite step", async ({ page }, info) => {
+    let accepted = false;
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me": () => ({
+          json: accepted ? data.meWaiting() : data.meNew(),
+          etag: '"0"',
+        }),
+        "/v1/me/notices": () => {
+          accepted = true;
+          return { json: data.meWaiting() };
+        },
+      }),
+    );
+    await page.goto("/sign-in/");
+    await page.getByLabel("Email", { exact: true }).fill("asha-new@example.com");
+    await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+    await page.waitForURL("**/agree/**");
+    await expect(page.getByRole("heading", { name: "Before you start" })).toBeVisible();
+    await page.getByRole("button", { name: "Agree and continue" }).click();
+    await expect(page.getByText("Tick both boxes to carry on")).toBeVisible();
+    expect(accepted).toBe(false);
+    await expectAccessible(page);
+    await capture(page, info, "agree-first");
+    await page.getByLabel("I agree to the Terms and the Privacy notice").check();
+    await page.getByLabel("I'm 18 or older").check();
+    await page.getByRole("button", { name: "Agree and continue" }).click();
+    await page.waitForURL("**/invite/**");
+    expect(accepted).toBe(true);
+  });
+
+  test("a changed notice is asked for once on the next visit, without the age", async ({ page }, info) => {
+    let accepted = false;
+    const changed = { ...data.me(), notices: { ...data.NOTICES_ACCEPTED, accepted: false } };
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/me": () => ({ json: accepted ? data.me() : changed, etag: '"3"' }),
+        "/v1/me/notices": () => {
+          accepted = true;
+          return { json: data.me() };
+        },
+      }),
+    );
+    await signIn(page, "asha", "/files/");
+    await page.waitForURL("**/agree/**");
+    await expect(page.getByText("Our Terms or Privacy notice changed since you last agreed.")).toBeVisible();
+    await expect(page.getByLabel("I'm 18 or older")).toHaveCount(0);
+    await expectAccessible(page);
+    await capture(page, info, "agree-changed");
+    await page.getByLabel("I agree to the Terms and the Privacy notice").check();
+    await page.getByRole("button", { name: "Agree and continue" }).click();
+    await page.waitForURL("**/files/");
+    expect(accepted).toBe(true);
+  });
+});
+
 test.describe("the invite step", () => {
   test("shows one field, typed in groups", async ({ page }, info) => {
     await fakeApi(page, waiting());

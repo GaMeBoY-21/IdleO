@@ -22,6 +22,9 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "invite-required": "Enter your invite code to get started.",
   "invite-invalid":
     "That code isn't one we can accept. Check it and try again, or ask the person who invited you.",
+  "notices-changed":
+    "The Terms or privacy notice changed while you were reading. Reload to see the new ones.",
+  "age-not-confirmed": "Confirm that you're 18 or older to carry on.",
   "too-many-attempts": "Too many codes were tried. Wait an hour, then try again.",
   "notification-locked":
     "Messages about your money and your safety always stay on, so they can't be turned off.",

@@ -112,11 +112,27 @@ stack_await_sign_in() {
   done
 }
 
-# A token from the development sign-in server for the user $1 (their address is $1@example.com).
+# A token from the development sign-in server for the user $1 (their address is $1@example.com). The account is
+# made, and agrees to the Terms and privacy notice in force as a person would on their first visit (ADR 0037), so the
+# app doesn't stop the scripts' people at that step; a journey that's about that step signs in someone new instead.
 stack_token() {
-  curl -sf -X POST "$sign_in/token" \
+  local token
+  token="$(curl -sf -X POST "$sign_in/token" \
     -d grant_type=client_credentials -d "client_id=$1" -d client_secret=unused -d scope=openid -d "auth_time=$(date +%s)" |
-    json_field access_token
+    json_field access_token)"
+  stack_agree "$token"
+  printf '%s\n' "$token"
+}
+
+# Agrees, as the person behind token $1, to the Terms and privacy notice in force, with their age.
+stack_agree() {
+  local notices
+  notices="$(curl -sf "$api/v1/me" -H "Authorization: Bearer $1" |
+    python3 -c 'import json, sys; n = json.load(sys.stdin)["notices"]
+print(json.dumps({"termsVersion": n["termsVersion"], "privacyVersion": n["privacyVersion"], "ageConfirmed": True}))')" ||
+    return 0
+  curl -sf -o /dev/null -X POST "$api/v1/me/notices" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
+    -d "$notices" || true
 }
 
 # Registers a host named $2 for the owner whose token is $1, once for the Idempotency-Key $3; prints its id.

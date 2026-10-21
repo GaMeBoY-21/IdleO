@@ -12,6 +12,15 @@ from uuid import UUID
 from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
 
 
+class AcceptNoticesRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    age_confirmed: Annotated[bool, Field(alias="ageConfirmed")]
+    privacy_version: Annotated[str, Field(alias="privacyVersion", max_length=40, min_length=0)]
+    terms_version: Annotated[str, Field(alias="termsVersion", max_length=40, min_length=0)]
+
+
 class ActivateRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -358,18 +367,15 @@ class LogChunk(BaseModel):
     text: str
 
 
-class MeResponse(BaseModel):
+class NoticeStanding(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
-    display_name: Annotated[str | None, Field(alias="displayName")] = None
-    email: str | None = None
-    email_undeliverable: Annotated[bool, Field(alias="emailUndeliverable")]
-    id: UUID
-    sign_in_methods: Annotated[list[str], Field(alias="signInMethods")]
-    status: str
-    unread_notifications: Annotated[int, Field(alias="unreadNotifications")]
+    accepted: bool
+    age_confirmed: Annotated[bool, Field(alias="ageConfirmed")]
+    minimum_age: Annotated[int, Field(alias="minimumAge")]
+    privacy_version: Annotated[str, Field(alias="privacyVersion")]
+    terms_version: Annotated[str, Field(alias="termsVersion")]
 
 
 class NotificationItem(BaseModel):
@@ -508,6 +514,8 @@ class Type(Enum):
     field_problems_email_not_verified = "/problems/email-not-verified"
     field_problems_invite_required = "/problems/invite-required"
     field_problems_invite_invalid = "/problems/invite-invalid"
+    field_problems_notices_changed = "/problems/notices-changed"
+    field_problems_age_not_confirmed = "/problems/age-not-confirmed"
     field_problems_too_many_attempts = "/problems/too-many-attempts"
     field_problems_browser_sign_in_required = "/problems/browser-sign-in-required"
     field_problems_api_key_read_only = "/problems/api-key-read-only"
@@ -1132,6 +1140,21 @@ class LatestRelease(BaseModel):
     signature: str
     urls: ReleaseUrls
     version: str
+
+
+class MeResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
+    display_name: Annotated[str | None, Field(alias="displayName")] = None
+    email: str | None = None
+    email_undeliverable: Annotated[bool, Field(alias="emailUndeliverable")]
+    id: UUID
+    notices: NoticeStanding
+    sign_in_methods: Annotated[list[str], Field(alias="signInMethods")]
+    status: str
+    unread_notifications: Annotated[int, Field(alias="unreadNotifications")]
 
 
 class NotificationChoices(BaseModel):

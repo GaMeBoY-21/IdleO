@@ -223,6 +223,8 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `EmailNotVerified` | `email-not-verified` | 403 | 1 |
 | `InviteRequired` | `invite-required` | 403 | 5 |
 | `InviteInvalid` | `invite-invalid` | 400 | 1 |
+| `NoticesChanged` | `notices-changed` | 409 | 1 |
+| `AgeNotConfirmed` | `age-not-confirmed` | 422 | 1 |
 | `TooManyAttempts` | `too-many-attempts` | 429 | 1 |
 | `BrowserSignInRequired` | `browser-sign-in-required` | 403 | 5 |
 | `ApiKeyReadOnly` | `api-key-read-only` | 403 | 1 |

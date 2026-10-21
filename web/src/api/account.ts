@@ -55,6 +55,16 @@ export function useRenameMe() {
 }
 
 /** Spends an invite code; the activated account is what the server answers. */
+/** Agrees to the Terms and privacy notice in force (ADR 0037); the answer is the account, now with them accepted. */
+export function useAcceptNotices() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { termsVersion: string; privacyVersion: string; ageConfirmed: boolean }) =>
+      data(api.POST("/v1/me/notices", { body })),
+    onSuccess: (me) => client.setQueryData(keys.me, me),
+  });
+}
+
 export function useActivate() {
   const client = useQueryClient();
   return useMutation({
