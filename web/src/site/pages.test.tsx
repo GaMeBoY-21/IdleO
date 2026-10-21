@@ -71,9 +71,9 @@ describe("the public pages", () => {
     }
   });
 
-  it("only the pricing and earn pages have anything live", () => {
+  it("only pricing, earn, contact and privacy have anything live", () => {
     const live = all.filter(({ page }) => page.islands.length > 0).map(({ page }) => page.path);
-    expect(live.sort()).toEqual(["/earn/", "/pricing/"]);
+    expect(live.sort()).toEqual(["/contact/", "/earn/", "/pricing/", "/privacy/"]);
   });
 
   it("never say we supply models, images or transcription, and name no made-up person or number", () => {
@@ -107,10 +107,17 @@ describe("the public pages", () => {
     expect(gpus.match(/typical/gi)?.length).toBeGreaterThanOrEqual(16);
   });
 
-  it("leave terms, privacy and contact as placeholders", () => {
-    for (const path of ["/terms/", "/privacy/", "/contact/"]) {
+  it("leave terms and privacy as placeholders, and contact as a form with the grievance officer", () => {
+    for (const path of ["/terms/", "/privacy/"]) {
       const html = all.find(({ page }) => page.path === path)!.html;
       expect(text(html)).toContain("Being drafted.");
+    }
+    const contact = all.find(({ page }) => page.path === "/contact/")!.html;
+    expect(contact).toContain('name="topic"');
+    expect(contact).toContain('name="website"');
+    for (const path of ["/contact/", "/privacy/"]) {
+      // The officer's details come from the control plane, never from the page.
+      expect(all.find(({ page }) => page.path === path)!.html).toContain("data-grievance");
     }
   });
 

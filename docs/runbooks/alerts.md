@@ -145,3 +145,11 @@ Two alerts share this section.
 **Check first:** Loki, `{service_name="control-plane"} |= "Retention rule"`: a failing rule logs `Retention rule <name> failed` with the error each day. `retention_failures_total` by rule counts them. If there's no line at all, no instance has been up for long enough, or scheduling is off.
 
 **Do:** fix what the error says (most often storage unreachable, docs/runbooks/object-storage.md, or a database timeout on a large first run). The rule catches up by itself at its next run, or restart one instance to run every rule two minutes after it starts.
+
+## Privacy request due
+
+**Means:** a ticket on the topic "A privacy request" or "A grievance" isn't resolved, and its due date is within 7 days or has passed. The due date is `legal.support.response-due` (30 days, LEGAL(confirm)) after it arrived; the law allows no more than 90.
+
+**Check first:** the admin console's Tickets, which lists open tickets by due date, overdue first, highlighted. `support_tickets_overdue` says how many are past due.
+
+**Do:** answer it. A request to see or download one's data: the ticket's "Start an export" (the person gets it by email). A request to delete: tell them Account, Your data, Delete my account, or what stops it (the ticket shows where their deletion stands); never skip the wait unless a legal order says so. A correction we can't make in the app (an email address): make it, and say so. Then resolve the ticket with the answer.

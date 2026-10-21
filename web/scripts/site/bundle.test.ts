@@ -34,6 +34,8 @@ const SHARED = [
   "@/telemetry/early-errors",
   "@/telemetry/report",
   "@/telemetry/privacy",
+  // The limits on a message to support, the same as the app's form (ADR 0037).
+  "@/lib/support",
 ];
 
 describe("the public site's bundle", () => {
@@ -62,7 +64,14 @@ describe("the public site's bundle", () => {
       }
       for (const call of code.matchAll(/\/v1\/[\w/-]*/g)) {
         expect(
-          ["/v1/public/availability", "/v1/agent-releases/latest", "/v1/vitals"],
+          [
+            "/v1/public/availability",
+            "/v1/agent-releases/latest",
+            "/v1/vitals",
+            // Contact and Privacy (ADR 0037): the grievance officer and the topics, and the Contact form's message.
+            "/v1/public/contact",
+            "/v1/support/tickets",
+          ],
           relative(out, script),
         ).toContain(call[0]);
       }

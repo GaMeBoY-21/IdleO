@@ -30,3 +30,19 @@ tests:
       - eval_time: 70h
         alertname: RetentionStopped
         exp_alerts: []
+  # A grievance comes due: nothing while none is, the alert once one is for ten minutes.
+  - interval: 1m
+    input_series:
+      - series: 'support_tickets_due_soon{job="control-plane", instance="a"}'
+        values: '0x10 1x20'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: PrivacyRequestDue
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: PrivacyRequestDue
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'A privacy request or grievance is due within 7 days, or overdue.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#privacy-request-due

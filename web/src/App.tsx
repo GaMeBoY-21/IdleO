@@ -58,6 +58,8 @@ const screens = {
   "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
   "/account/reports/": screen(() => import("@/features/account/Reports").then((m) => m.Reports)),
   "/account/data/": screen(() => import("@/features/account/YourData").then((m) => m.YourData)),
+  "/account/help/": screen(() => import("@/features/help/Help").then((m) => m.Help)),
+  "/account/help/ticket/": screen(() => import("@/features/help/HelpTicket").then((m) => m.HelpTicket)),
   "/account/delete/": screen(() => import("@/features/account/DeleteAccount").then((m) => m.DeleteAccount)),
   "/account/delete/confirm/": screen(() =>
     import("@/features/deletion/ConfirmDeletion").then((m) => m.ConfirmDeletion),
@@ -107,13 +109,15 @@ const ApiKeys = screens["/account/keys/"].Screen;
 const Reports = screens["/account/reports/"].Screen;
 const YourData = screens["/account/data/"].Screen;
 const DeleteAccount = screens["/account/delete/"].Screen;
+const Help = screens["/account/help/"].Screen;
+const HelpTicket = screens["/account/help/ticket/"].Screen;
 const ConfirmDeletion = screens["/account/delete/confirm/"].Screen;
 const CancelDeletion = screens["/account/delete/cancel/"].Screen;
 const Notifications = screens["/notifications/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/|delete\/)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/|delete\/|help\/(ticket\/)?)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -164,6 +168,8 @@ function SignedInArea() {
             <Route path="/account/reports/" component={Reports} />
             <Route path="/account/data/" component={YourData} />
             <Route path="/account/delete/" component={DeleteAccount} />
+            <Route path="/account/help/" component={Help} />
+            <Route path="/account/help/ticket/" component={HelpTicket} />
             <Route path="/notifications/" component={Notifications} />
             <Route path="/hosting/" component={Hosting} />
             <Route path="/hosting/machine/" component={Machine} />

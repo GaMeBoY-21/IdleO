@@ -33,6 +33,9 @@ class ProductionSettingsGuardTests {
                         "notifications.email.webhook-secret=whsec_" + PRODUCTION_KEY,
                         "identity.invite-code-key=" + PRODUCTION_KEY,
                         "identity.provider-admin.credentials=file:/run/secrets/identity-provider-admin.json",
+                        "legal.grievance.name=Asha Rao",
+                        "legal.grievance.email=grievance@idleo.in",
+                        "legal.grievance.postal-address=A real address",
                         "management.otlp.metrics.export.url=" + OTLP + "/v1/metrics",
                         "management.opentelemetry.tracing.export.otlp.endpoint=" + OTLP + "/v1/traces",
                         "management.opentelemetry.logging.export.otlp.endpoint=" + OTLP + "/v1/logs",
@@ -205,6 +208,15 @@ class ProductionSettingsGuardTests {
                         .hasFailed()
                         .getFailure()
                         .hasMessageContaining("identity.provider-admin.credentials is missing"));
+    }
+
+    @Test
+    void prodRefusesTheGrievanceOfficersPlaceholder() {
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "legal.grievance.email=grievance@example.invalid")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("legal.grievance.email is missing or development's placeholder"));
     }
 
     @Test

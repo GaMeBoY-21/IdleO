@@ -2,6 +2,7 @@ import { expect, test, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import * as hosting from "./fixtures-hosting";
 import * as privacy from "./fixtures-privacy";
+import * as support from "./fixtures-support";
 import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
 import { fakeApi, recordLayoutShifts, signIn, type Answer } from "./support";
@@ -58,6 +59,16 @@ const screens = [
     } as Record<string, Answer>,
   },
   { name: "notifications", path: "/notifications/", ready: () => "Your credit is running low" },
+  {
+    name: "help",
+    path: "/account/help/",
+    ready: () => "#1042 · A privacy request",
+    routes: {
+      "/v1/public/contact": { json: support.contact() },
+      "/v1/support/tickets": { json: support.tickets() },
+      "/v1/hosts": { json: { hosts: [] } },
+    } as Record<string, Answer>,
+  },
   {
     name: "deleting the account",
     path: "/account/delete/",

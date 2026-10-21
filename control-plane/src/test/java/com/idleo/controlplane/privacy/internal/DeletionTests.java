@@ -121,7 +121,7 @@ class DeletionTests {
         mvc.perform(post("/v1/me/deletion").header("Authorization", "Bearer " + key))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.type").value("/problems/browser-sign-in-required"));
-        assertThat(mail.sent()).isEmpty();
+        assertThat(mail.sent()).noneMatch(sent -> sent.subject().startsWith("Confirm deleting"));
 
         mvc.perform(fresh(post("/v1/me/deletion"), asha))
                 .andExpect(status().isAccepted())
@@ -270,7 +270,7 @@ class DeletionTests {
                 .andExpect(jsonPath("$.blockers.length()").value(3))
                 .andExpect(jsonPath("$.blockers[?(@.code == 'host-busy')].message")
                         .value(org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("busy laptop"))));
-        assertThat(mail.sent()).isEmpty();
+        assertThat(mail.sent()).noneMatch(sent -> sent.subject().startsWith("Confirm deleting"));
     }
 
     @Test

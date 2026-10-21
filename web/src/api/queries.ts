@@ -149,9 +149,10 @@ export function useCachedMe() {
   return useQuery({ ...meQuery(), enabled: false });
 }
 
-export function useSessions() {
+export function useSessions(enabled = true) {
   return useQuery({
     queryKey: keys.sessions,
+    enabled,
     queryFn: () => data(api.GET("/v1/sessions")),
     refetchInterval: (query) => (query.state.data?.sessions.some(isChanging) ? SESSIONS_POLL_MS : false),
   });

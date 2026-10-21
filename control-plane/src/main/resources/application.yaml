@@ -133,6 +133,7 @@ limits:
   cli-logins-per-hour: 10
   host-links-per-hour: 10
   vitals-per-minute: 30
+  support-messages-per-hour: 5
 
 # The web app, where a CLI sign-in is approved (ADR 0025): its /cli-login/ page is the link `idleo login` shows.
 # Production sets IDENTITY_WEB_APP_URL; the prod profile refuses plain HTTP or this machine (ProductionSettingsGuard).
@@ -428,9 +429,22 @@ legal:
     # The admin audit log, ids only: as long as the money records it explains. Not deleted yet (ADR 0037).
     # LEGAL(confirm)
     audit-log: 2922d
+    # Support tickets, once resolved, with their messages: what a person asked and what we answered. LEGAL(confirm)
+    support-tickets: 365d
     # Database backups, which can hold an erased person until they age out (ops/backup/, docs/runbooks/backups.md);
     # the privacy notice must say so. Changing it means changing the backup scripts too. LEGAL(confirm)
     backups: 30d
+  # How soon we answer a privacy request or a grievance: its due date, shown to admins, who are alerted 7 days
+  # before. Never more than 90 days (the server refuses to start with more). LEGAL(confirm)
+  support:
+    response-due: 30d
+  # The grievance officer, on the Contact and Privacy pages. Production must set real ones (the prod profile reads
+  # LEGAL_GRIEVANCE_NAME, LEGAL_GRIEVANCE_EMAIL and LEGAL_GRIEVANCE_POSTAL_ADDRESS, and refuses to start without them or
+  # with these placeholders). LEGAL(confirm)
+  grievance:
+    name: Grievance Officer (development placeholder)
+    email: grievance@example.invalid
+    postal-address: "Not a real address: development only"
   # How long a person has, after confirming that their account should be deleted, to change their mind; nothing, not
   # even an admin, shortens it but a legal order (audited). LEGAL(confirm)
   erasure:

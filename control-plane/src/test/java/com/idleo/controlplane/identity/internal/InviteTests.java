@@ -146,7 +146,12 @@ class InviteTests {
                         "GET /v1/me/deletion",
                         "POST /v1/me/deletion",
                         "POST /v1/me/deletion/confirm",
-                        "DELETE /v1/me/deletion");
+                        "DELETE /v1/me/deletion",
+                        // Asking for help, and reading the answers (ADR 0037).
+                        "POST /v1/support/tickets",
+                        "GET /v1/support/tickets",
+                        "GET /v1/support/tickets/{id}",
+                        "POST /v1/support/tickets/{id}/messages");
 
         // A spelling that routes to their own account is their own account; one that routes elsewhere is not.
         mvc.perform(get(java.net.URI.create("/v1/m%65")).header("Authorization", bearer))

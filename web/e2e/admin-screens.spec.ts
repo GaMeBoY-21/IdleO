@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as admin from "./fixtures-admin";
+import * as support from "./fixtures-support";
 import * as trust from "./fixtures-trust";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
 
@@ -47,6 +48,9 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/ledger": { json: admin.ledger },
   "/admin/v1/invites": { json: admin.invites },
   "/admin/v1/audit": { json: admin.audit },
+  "/admin/v1/tickets": { json: support.adminTickets() },
+  [`/admin/v1/tickets/${support.PRIVACY_TICKET}`]: { json: support.adminThread() },
+  [`/admin/v1/users/${data.me().id}/deletion`]: { json: support.adminDeletion() },
   ...overrides,
 });
 
@@ -430,5 +434,65 @@ test.describe("the console", () => {
     await expect(page.getByRole("table", { name: "Audit log" })).toContainText("host.activate");
     await expectAccessible(page);
     await capture(page, info, "admin-audit");
+  });
+});
+
+test.describe("tickets and notices", () => {
+  test("lists tickets by due date with the overdue highlighted", async ({ page }, info) => {
+    await open(page, "/admin/tickets/");
+    await expect(page.getByRole("heading", { level: 1, name: "Tickets" })).toBeVisible();
+    await expect(page.getByText(/^Overdue since /)).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-tickets");
+  });
+
+  test("a privacy request is answered by email, and can start the person's export", async ({
+    page,
+  }, info) => {
+    let answered: Record<string, unknown> | null = null;
+    let exported = false;
+    await open(page, `/admin/tickets/?id=${support.PRIVACY_TICKET}`, {
+      [`/admin/v1/tickets/${support.PRIVACY_TICKET}/answer`]: (call, request) => {
+        answered = request.postDataJSON() as Record<string, unknown>;
+        return { json: support.adminThread() };
+      },
+      [`/admin/v1/users/${data.me().id}/exports`]: () => {
+        exported = true;
+        return { json: { id: "x", state: "requested", requestedAt: data.NOW.toISOString() } };
+      },
+    });
+    await expect(page.getByText("Please send me everything you hold about me.")).toBeVisible();
+    await expect(page.getByText("Never asked for")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-ticket");
+    await page.getByLabel(/^Emailed to /).fill("Your file is on its way.");
+    await page.getByRole("button", { name: "Send the answer" }).click();
+    await expect
+      .poll(() => answered)
+      .toMatchObject({ message: "Your file is on its way.", status: "waiting" });
+    await page.getByRole("button", { name: "Start an export" }).click();
+    await page.getByLabel("Reason").fill("privacy request #1042");
+    await page.getByRole("button", { name: "Start the export" }).click();
+    await expect.poll(() => exported).toBe(true);
+  });
+
+  test("a notice goes to the people chosen, after a reason", async ({ page }, info) => {
+    let sent: Record<string, unknown> | null = null;
+    await open(page, "/admin/notices/", {
+      "/admin/v1/notices": (call, request) => {
+        sent = request.postDataJSON() as Record<string, unknown>;
+        return { json: { noticeId: "n", sent: 1, withoutAddress: [] } };
+      },
+    });
+    await page.getByLabel("Account ids, one per line").fill(data.me().id);
+    await page.getByLabel("Subject").fill("About your account");
+    await page.getByLabel("The notice").fill("Here is what happened.");
+    await expectAccessible(page);
+    await capture(page, info, "admin-notices");
+    await page.getByRole("button", { name: "Email the notice" }).click();
+    await page.getByLabel("Reason").fill("incident 2026-10 notice");
+    await page.getByRole("button", { name: "Send it" }).click();
+    await expect(page.getByText("Emailed to 1.")).toBeVisible();
+    expect(sent).toMatchObject({ userIds: [data.me().id], subject: "About your account" });
   });
 });

@@ -42,6 +42,7 @@ import org.springframework.stereotype.Component;
  *       {@code identity.admin.totp-key} set to the tests' committed value (application-test.yaml, which ships in the
  *       jar and is read from there, so the values are never copied);
  *   <li>{@code identity.invite-only} false, which lets anyone in without a code (ADR 0024);
+ *   <li>no grievance officer ({@code legal.grievance.*}), or development's placeholder (ADR 0037);
  *   <li>no {@code identity.provider-admin.credentials}, the sign-in provider's service account that erasing an account
  *       deletes its sign-in identity with (ADR 0037);
  *   <li>a renter limit above production's ({@link #PRODUCTION_LIMITS}, ADR 0025), as the end-to-end harness and the
@@ -70,6 +71,7 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "limits.cli-logins-per-hour", 10,
             "limits.host-links-per-hour", 10,
             "limits.vitals-per-minute", 30,
+            "limits.support-messages-per-hour", 5,
             "sessions.limits.new-per-hour", 10,
             "sessions.limits.new-per-hour-first-day", 2,
             "sessions.limits.at-once", 3);
@@ -138,6 +140,13 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
                 .orElse(List.of())) {
             if (isDevelopmentIssuer(issuer.issuerUri())) {
                 problems.add("identity issuer " + issuer.issuerUri() + " is plain HTTP or on this machine");
+            }
+        }
+        // The grievance officer the pages name (ADR 0037): a real one, never development's placeholder.
+        for (var field : List.of("legal.grievance.name", "legal.grievance.email", "legal.grievance.postal-address")) {
+            var value = binder.bind(field, String.class).orElse("").toLowerCase(Locale.ROOT);
+            if (value.isBlank() || value.contains("example.invalid") || value.contains("development")) {
+                problems.add(field + " is missing or development's placeholder");
             }
         }
         // Erasing an account deletes it at the sign-in provider too (ADR 0037): never without the means to.

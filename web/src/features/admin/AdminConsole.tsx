@@ -7,6 +7,8 @@ import { ADMIN, adminApi, adminSession } from "./api";
 import { Audit } from "./Audit";
 import { Dashboard } from "./Dashboard";
 import { Disputes } from "./Disputes";
+import { Notices } from "./Notices";
+import { Tickets } from "./Tickets";
 import { Gate } from "./Gate";
 import { Hosts } from "./Hosts";
 import { Invites } from "./Invites";
@@ -26,8 +28,10 @@ export const ADMIN_SCREENS = [
   { href: "/admin/sessions/", label: "Sessions" },
   { href: "/admin/review/", label: "Review queue" },
   { href: "/admin/disputes/", label: "Disputes" },
+  { href: "/admin/tickets/", label: "Tickets" },
   { href: "/admin/money/", label: "Money" },
   { href: "/admin/invites/", label: "Invites" },
+  { href: "/admin/notices/", label: "Notices" },
   { href: "/admin/audit/", label: "Audit log" },
 ] as const;
 
@@ -42,6 +46,8 @@ export function AdminConsole() {
           <Route path="/admin/sessions/" component={Sessions} />
           <Route path="/admin/review/" component={Review} />
           <Route path="/admin/disputes/" component={Disputes} />
+          <Route path="/admin/tickets/" component={Tickets} />
+          <Route path="/admin/notices/" component={Notices} />
           <Route path="/admin/money/" component={Money} />
           <Route path="/admin/invites/" component={Invites} />
           <Route path="/admin/audit/" component={Audit} />

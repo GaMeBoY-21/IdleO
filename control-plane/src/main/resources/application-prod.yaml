@@ -67,6 +67,13 @@ notifications:
 
 # The admin console's TOTP key (ADR 0027, docs/runbooks/admin.md) and the HMAC key for invite and recovery codes
 # (ADR 0024): 32 bytes in base64 each, from the secret store. Without either, the application doesn't start.
+# The grievance officer named on the Contact and Privacy pages (ADR 0037): required; the placeholders refused.
+legal:
+  grievance:
+    name: ${LEGAL_GRIEVANCE_NAME:}
+    email: ${LEGAL_GRIEVANCE_EMAIL:}
+    postal-address: ${LEGAL_GRIEVANCE_POSTAL_ADDRESS:}
+
 identity:
   invite-code-key: ${IDENTITY_INVITE_CODE_KEY}
   # The sign-in provider's service account (its JSON key, or file: and a path), which erasing an account deletes the

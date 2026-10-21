@@ -94,6 +94,8 @@ class EmailContentTests {
                 sender.message(content.of("r@example.com", NotificationKind.SESSION_COMPLETED, message, NOTIFICATION));
         assertThat(optional.getMessageID()).isEqualTo("<" + NOTIFICATION + "@mail.example.invalid>");
         assertThat(optional.getHeader("List-Unsubscribe")).containsExactly("<https://app.example.invalid/account/>");
+        // Replies go nowhere: every email says to answer in the app (ADR 0037).
+        assertThat(optional.getHeader("Reply-To")).containsExactly("no-reply@mail.example.invalid");
         var raw = new java.io.ByteArrayOutputStream();
         optional.writeTo(raw);
         assertThat(raw.toString(java.nio.charset.StandardCharsets.UTF_8))

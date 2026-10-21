@@ -31,6 +31,7 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "deletion-link-invalid":
     "That link doesn't work: it was used already, it's more than a day old, or it's not the latest. Ask again.",
   "no-deletion-pending": "Your account isn't waiting to be deleted, so there's nothing to cancel.",
+  "message-looks-automated": "That was sent faster than a person writes. Wait a moment, then send it again.",
   "notices-changed":
     "The Terms or privacy notice changed while you were reading. Reload to see the new ones.",
   "age-not-confirmed": "Confirm that you're 18 or older to carry on.",

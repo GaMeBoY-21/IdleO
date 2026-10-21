@@ -134,6 +134,14 @@ class NoDeletionPending(IdleoError):
     title = "No deletion to cancel"
 
 
+class MessageLooksAutomated(IdleoError):
+    """That looked automated (HTTP 422)."""
+
+    slug = "message-looks-automated"
+    status = 422
+    title = "That looked automated"
+
+
 class TooManyAttempts(IdleoError):
     """Too many attempts (HTTP 429)."""
 
@@ -599,6 +607,7 @@ __all__ = [
     "DeletionAlreadyRequested",
     "DeletionLinkInvalid",
     "NoDeletionPending",
+    "MessageLooksAutomated",
     "TooManyAttempts",
     "BrowserSignInRequired",
     "ApiKeyReadOnly",
@@ -674,6 +683,7 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "deletion-already-requested": DeletionAlreadyRequested,
     "deletion-link-invalid": DeletionLinkInvalid,
     "no-deletion-pending": NoDeletionPending,
+    "message-looks-automated": MessageLooksAutomated,
     "too-many-attempts": TooManyAttempts,
     "browser-sign-in-required": BrowserSignInRequired,
     "api-key-read-only": ApiKeyReadOnly,

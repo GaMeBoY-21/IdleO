@@ -99,6 +99,12 @@ public enum Problem {
             HttpStatus.CONFLICT,
             "No deletion to cancel",
             "The account isn't waiting to be deleted, or its erasure has already begun."),
+    MESSAGE_LOOKS_AUTOMATED(
+            "message-looks-automated",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "That looked automated",
+            "The message was sent faster than a person writes, or a field people don't see was filled. Wait a moment, "
+                    + "then send it again."),
     TOO_MANY_ATTEMPTS(
             "too-many-attempts",
             HttpStatus.TOO_MANY_REQUESTS,

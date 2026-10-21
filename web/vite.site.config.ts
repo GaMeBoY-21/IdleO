@@ -29,6 +29,8 @@ export default defineConfig({
         site: "src/site/site.css",
         pricing: "src/site/islands/pricing.ts",
         earn: "src/site/islands/earn.ts",
+        contact: "src/site/islands/contact.ts",
+        grievance: "src/site/islands/grievance.ts",
         vitals: "src/site/islands/vitals.ts",
       },
     },

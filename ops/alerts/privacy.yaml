@@ -14,3 +14,14 @@ groups:
         annotations:
           summary: 'A retention rule ({{ $labels.rule }}) has stopped deleting what is due.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#retention-stopped
+      - alert: PrivacyRequestDue
+        # A privacy request or a grievance isn't resolved and its due date (legal.support.response-due after it
+        # arrived) is within 7 days, or past.
+        expr: |
+          max(support_tickets_due_soon{job="control-plane"}) > 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A privacy request or grievance is due within 7 days, or overdue.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#privacy-request-due

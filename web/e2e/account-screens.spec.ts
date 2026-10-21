@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as privacy from "./fixtures-privacy";
+import * as support from "./fixtures-support";
 import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type Answer } from "./support";
 
 /**
@@ -260,6 +261,67 @@ test.describe("deleting the account", () => {
     expect(cancelled).toBe(1);
     await expectAccessible(page);
     await capture(page, info, "delete-cancelled");
+  });
+});
+
+test.describe("help", () => {
+  test("lists the person's messages and sends a new one with how long the form was open", async ({
+    page,
+  }, info) => {
+    let sent: Record<string, unknown> | null = null;
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/public/contact": { json: support.contact() },
+        "/v1/hosts": { json: { hosts: [] } },
+        "/v1/support/tickets": (call, request) => {
+          if (request.method() === "POST") {
+            sent = request.postDataJSON() as Record<string, unknown>;
+            return { json: support.newTicket(), status: 202 };
+          }
+          return { json: support.tickets() };
+        },
+      }),
+    );
+    await signIn(page, "asha", "/account/help/");
+    await expect(page.getByRole("heading", { level: 1, name: "Help" })).toBeVisible();
+    await expect(page.getByText("#1042 · A privacy request")).toBeVisible();
+    await expect(page.getByLabel("Where we answer")).toHaveValue("asha@example.com");
+    await expectAccessible(page);
+    await capture(page, info, "help");
+    await page.getByLabel("What it's about").selectOption("money");
+    await page.getByLabel("Your message", { exact: true }).fill("Where did my ₹5 go?");
+    await page.clock.runFor(4000);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByText("Sent as #1043.")).toBeVisible();
+    expect(sent).toMatchObject({
+      topic: "money",
+      message: "Where did my ₹5 go?",
+      replyTo: "asha@example.com",
+    });
+  });
+
+  test("a message reads as a thread and is answered here, not by email", async ({ page }, info) => {
+    let replied = "";
+    await fakeApi(
+      page,
+      signedIn({
+        "/v1/public/contact": { json: support.contact() },
+        "/v1/support/tickets/[^/]+/messages": (call, request) => {
+          replied = (request.postDataJSON() as { message: string }).message;
+          return { json: support.thread() };
+        },
+        "/v1/support/tickets/[^/]+": { json: support.thread() },
+      }),
+    );
+    await signIn(page, "asha", `/account/help/ticket/?id=${support.MONEY_TICKET}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Message #1017" })).toBeVisible();
+    await expect(page.getByText("That was the hold for your running session")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "help-thread");
+    await page.getByLabel("Reply here, not by email").fill("Thank you, that makes sense.");
+    await page.getByRole("button", { name: "Send reply" }).click();
+    await expect.poll(() => replied).toBe("Thank you, that makes sense.");
   });
 });
 

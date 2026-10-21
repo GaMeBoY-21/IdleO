@@ -10,6 +10,7 @@ import { Gpus } from "./pages/Gpus";
 import { Landing } from "./pages/Landing";
 import { Placeholder } from "./pages/Placeholder";
 import { Pricing } from "./pages/Pricing";
+import { Contact, Grievance } from "./pages/Contact";
 import { CONTACT, EARN, GPUS, HELP_VIRTUALIZATION, LANDING, PRICING, PRIVACY, TERMS } from "./paths";
 import { Shell } from "./Shell";
 import { band, column, heading, link, muted } from "./ui";
@@ -67,24 +68,24 @@ export function pages(context: SiteContext): PageDef[] {
       title: `Privacy · ${brand.name}`,
       description: `The privacy notice for ${brand.name}, which is being drafted.`,
       body: (
-        <Placeholder
-          title="Privacy"
-          note="The privacy notice will be here before the first outside tester signs in."
-        />
+        <>
+          <Placeholder
+            title="Privacy"
+            note="The privacy notice will be here before the first outside tester signs in."
+          />
+          <section className={`${column} pb-12`}>
+            <Grievance apiUrl={context.apiUrl} className="max-w-prose" />
+          </section>
+        </>
       ),
-      islands: [],
+      islands: ["grievance"],
     },
     {
       path: CONTACT,
       title: `Contact · ${brand.name}`,
-      description: `How to reach ${brand.name}, which is being set up.`,
-      body: (
-        <Placeholder
-          title="Contact"
-          note="Contact details are being set up. Until then, ask the person who invited you."
-        />
-      ),
-      islands: [],
+      description: `Write to ${brand.name} about a session, money, hosting, your account or your data; and the grievance officer.`,
+      body: <Contact apiUrl={context.apiUrl} />,
+      islands: ["contact", "grievance"],
     },
   ] satisfies PageDef[];
   const docs = context.docs.map((page) => ({

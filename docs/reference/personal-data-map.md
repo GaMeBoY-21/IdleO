@@ -102,6 +102,13 @@ Money records are kept for `legal.retention.money-records` (8 years, LEGAL(confi
 | `privacy.cancel_links` | token_hash, request_id, created_at | — | — | One-click cancel links, hashed | With the request | Kept: hashes only |
 | `privacy.erased_users` | user_id, erased_at | — | — | Every account erased, by opaque id, append-only: a restore of the database erases them again | `legal.retention.backups` after the erasure at least; kept, as long as a backup could hold them | Kept: the opaque id is the record |
 
+### support
+
+| Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
+| --- | --- | --- | --- | --- | --- | --- |
+| `support.tickets` | id, number, user_id, topic, status, **reply_to**, session_id, host_id, created_at, updated_at, due_at, resolved_at | `user_id = :user` | messages: supportTickets | Messages to support (ADR 0037), from the Contact page or Account, Help; a privacy request or grievance has a due date. A signed-out sender has no user id, only the address | `rule: support-tickets`, a year after resolved, LEGAL(confirm) | Cleared: the address |
+| `support.messages` | id, ticket_id, author, admin_id, **body**, created_at | `ticket_id in (select id from support.tickets where user_id = :user)` | messages: supportTickets | What the person wrote and what we answered | With its ticket | Cleared: the words |
+
 ### trust, notifications
 
 | Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
@@ -196,6 +203,7 @@ Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an
 | `notifications` | What each person was told, once any email of it is sent | A year | `retention.periods.notifications` |
 | `event-publications` | Durable events between modules, once delivered | 7 days | `retention.periods.event-publications` |
 | `idempotency-keys` | Every module's finished Idempotency-Key records (their response bodies) | When each expires (a day) | `IdempotentRequests` |
+| `support-tickets` | Resolved support tickets, with their messages | A year after resolved, LEGAL(confirm) | `legal.retention.support-tickets` |
 | `reconciliation-runs` | The nightly wallet check's results but the latest (mismatches name a person by id) | A year | `retention.periods.reconciliation-runs` |
 
 Not deleted yet, by decision (ADR 0037): money records and the audit log (`legal.retention.money-records` and `legal.retention.audit-log`, 8 years, LEGAL(confirm)): both are append-only by design, and the first of them reaches its period in 2034; how to delete them then, keeping the ledger balanced and the log trustworthy, is a later decision. Backups delete themselves after `legal.retention.backups` (`ops/backup/`). Valkey's keys expire on their own.

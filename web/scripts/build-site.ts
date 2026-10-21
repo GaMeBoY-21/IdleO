@@ -55,6 +55,8 @@ function script(source: string): { entry: string; preload: string[] } {
 const ISLANDS = {
   pricing: "src/site/islands/pricing.ts",
   earn: "src/site/islands/earn.ts",
+  contact: "src/site/islands/contact.ts",
+  grievance: "src/site/islands/grievance.ts",
   vitals: "src/site/islands/vitals.ts",
 } as const;
 

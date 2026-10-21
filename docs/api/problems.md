@@ -22,6 +22,7 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/deletion-already-requested` | 409 | Deletion already asked for | This account's deletion is already waiting for its email confirmation, or scheduled. |
 | `/problems/deletion-link-invalid` | 400 | That link doesn't work | The link isn't one that can be used: it's wrong, used already or expired. The response never says which. |
 | `/problems/no-deletion-pending` | 409 | No deletion to cancel | The account isn't waiting to be deleted, or its erasure has already begun. |
+| `/problems/message-looks-automated` | 422 | That looked automated | The message was sent faster than a person writes, or a field people don't see was filled. Wait a moment, then send it again. |
 | `/problems/too-many-attempts` | 429 | Too many attempts | Too many invite codes were tried in the last hour. Wait, then try again. |
 | `/problems/browser-sign-in-required` | 403 | Sign in with a browser for this | API keys can't manage keys, approve a CLI sign-in, add, remove or price a machine, issue its enrolment code or change notification choices. Do it in the web app, signed in. |
 | `/problems/api-key-read-only` | 403 | This key can only read | A read key can only make GET requests (and revoke itself). Use a full key to change anything. |

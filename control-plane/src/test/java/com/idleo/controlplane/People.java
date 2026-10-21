@@ -367,6 +367,15 @@ public final class People {
                 ts(now),
                 ts(now));
 
+        // Support: a message, signed in, about their session.
+        mvc.perform(post("/v1/support/tickets")
+                        .header("Authorization", user.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"topic\":\"session\",\"message\":\"My session %s was slow\",\"replyTo\":\"%s\","
+                                        .formatted(marker, email)
+                                + "\"sessionId\":\"" + session + "\",\"elapsedMs\":5000}"))
+                .andExpect(status().isAccepted());
+
         // Notifications: a message, a choice, and a bounce for their address.
         jdbc.update(
                 "insert into notifications.notifications (id, user_id, kind, dedupe_key, title, body, link,"

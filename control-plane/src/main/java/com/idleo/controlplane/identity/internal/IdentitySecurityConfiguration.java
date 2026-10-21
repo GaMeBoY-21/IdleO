@@ -58,7 +58,10 @@ class IdentitySecurityConfiguration {
                 // 0036).
                 paths.matcher(HttpMethod.POST, "/v1/vitals"),
                 // Cancelling a scheduled deletion from its email's link (ADR 0037): the link's token is its proof.
-                paths.matcher(HttpMethod.POST, "/v1/deletion-requests/{id}/cancel"));
+                paths.matcher(HttpMethod.POST, "/v1/deletion-requests/{id}/cancel"),
+                // The Contact page, signed in or not (ADR 0037): limited per address, and refused when it's a machine.
+                paths.matcher(HttpMethod.POST, "/v1/support/tickets"),
+                paths.matcher(HttpMethod.GET, "/v1/public/contact"));
     }
 
     /**

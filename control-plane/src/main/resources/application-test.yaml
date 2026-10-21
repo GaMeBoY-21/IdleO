@@ -68,6 +68,7 @@ limits:
   cli-logins-per-hour: 100000
   host-links-per-hour: 100000
   vitals-per-minute: 100000
+  support-messages-per-hour: 100000
 
 sessions:
   limits:

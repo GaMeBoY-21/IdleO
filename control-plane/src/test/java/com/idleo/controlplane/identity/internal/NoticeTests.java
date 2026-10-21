@@ -108,7 +108,9 @@ class NoticeTests {
                 new LegalSettings(
                         legal.retention(),
                         legal.erasure(),
-                        new LegalSettings.Notices("2027-01", legal.notices().privacyVersion(), 18)));
+                        new LegalSettings.Notices("2027-01", legal.notices().privacyVersion(), 18),
+                        legal.support(),
+                        legal.grievance()));
         assertThat(changed.standing(user).accepted()).isFalse();
         assertThat(changed.standing(user).ageConfirmed()).isTrue();
         assertThat(changed.accept(user, "2027-01", legal.notices().privacyVersion(), false))

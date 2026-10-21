@@ -49,6 +49,8 @@ class SmtpEmailSender implements EmailSender {
         };
         var helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
         helper.setFrom(properties.email().from());
+        // Nobody reads replies: every email says to answer in the app (ADR 0037), and a reply goes nowhere.
+        helper.setReplyTo("no-reply@" + properties.senderDomain());
         helper.setTo(email.to());
         helper.setSubject(email.subject());
         helper.setText(email.text(), email.html());

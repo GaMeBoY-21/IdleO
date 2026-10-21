@@ -42,6 +42,8 @@ class RequestLimits implements HandlerInterceptor {
     private static final String CLI_LOGINS = "/v1/cli-logins";
     private static final String HOST_LINKS = "/v1/host-links";
     private static final String VITALS = "/v1/vitals";
+    private static final String SUPPORT_TICKETS = "/v1/support/tickets";
+    private static final String SUPPORT_REPLIES = "/v1/support/tickets/{id}/messages";
     private static final Duration MINUTE = Duration.ofMinutes(1);
     private static final Duration HOUR = Duration.ofHours(1);
 
@@ -75,6 +77,9 @@ class RequestLimits implements HandlerInterceptor {
         }
         if (request.getMethod().equals("POST") && route.equals(CLI_LOGINS)) {
             check("cli-logins:ip:" + request.getRemoteAddr(), HOUR, limits.cliLoginsPerHour(), now);
+        }
+        if (request.getMethod().equals("POST") && (route.equals(SUPPORT_TICKETS) || route.equals(SUPPORT_REPLIES))) {
+            check("support:" + who, HOUR, limits.supportMessagesPerHour(), now);
         }
         if (request.getMethod().equals("POST") && route.equals(HOST_LINKS)) {
             check("host-links:ip:" + request.getRemoteAddr(), HOUR, limits.hostLinksPerHour(), now);

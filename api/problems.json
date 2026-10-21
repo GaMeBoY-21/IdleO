@@ -15,6 +15,7 @@
   { "slug": "deletion-already-requested", "status": 409, "title": "Deletion already asked for" },
   { "slug": "deletion-link-invalid", "status": 400, "title": "That link doesn't work" },
   { "slug": "no-deletion-pending", "status": 409, "title": "No deletion to cancel" },
+  { "slug": "message-looks-automated", "status": 422, "title": "That looked automated" },
   { "slug": "too-many-attempts", "status": 429, "title": "Too many attempts" },
   { "slug": "browser-sign-in-required", "status": 403, "title": "Sign in with a browser for this" },
   { "slug": "api-key-read-only", "status": 403, "title": "This key can only read" },

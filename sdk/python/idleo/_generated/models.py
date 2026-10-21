@@ -9,7 +9,15 @@ from enum import Enum
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
+from pydantic import (
+    AnyUrl,
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    RootModel,
+)
 
 
 class AcceptNoticesRequest(BaseModel):
@@ -315,6 +323,15 @@ class GpuResponse(BaseModel):
     vram_mb: Annotated[int, Field(alias="vramMb")]
 
 
+class GrievanceOfficer(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    email: str
+    name: str
+    postal_address: Annotated[str, Field(alias="postalAddress")]
+
+
 class HistoryReference(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -467,6 +484,19 @@ class Loss(BaseModel):
     amount_paise: Annotated[int, Field(alias="amountPaise")]
     code: str
     message: str
+
+
+class NewTicket(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    elapsed_ms: Annotated[int, Field(alias="elapsedMs", ge=0)]
+    host_id: Annotated[UUID | None, Field(alias="hostId")] = None
+    message: Annotated[str, Field(max_length=5000, min_length=0)]
+    reply_to: Annotated[EmailStr, Field(alias="replyTo", max_length=254, min_length=0)]
+    session_id: Annotated[UUID | None, Field(alias="sessionId")] = None
+    topic: Annotated[str, Field(min_length=1)]
+    website: Annotated[str | None, Field(max_length=200, min_length=0)] = None
 
 
 class NoticeStanding(BaseModel):
@@ -625,6 +655,7 @@ class Type(Enum):
     field_problems_deletion_already_requested = "/problems/deletion-already-requested"
     field_problems_deletion_link_invalid = "/problems/deletion-link-invalid"
     field_problems_no_deletion_pending = "/problems/no-deletion-pending"
+    field_problems_message_looks_automated = "/problems/message-looks-automated"
     field_problems_too_many_attempts = "/problems/too-many-attempts"
     field_problems_browser_sign_in_required = "/problems/browser-sign-in-required"
     field_problems_api_key_read_only = "/problems/api-key-read-only"
@@ -781,6 +812,13 @@ class ReplaceRequest(BaseModel):
         populate_by_name=True,
     )
     items: Annotated[list[KindChoice], Field(max_length=50, min_length=0)]
+
+
+class Reply(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    message: Annotated[str, Field(max_length=5000, min_length=0)]
 
 
 class Icon(Enum):
@@ -969,6 +1007,37 @@ class StopRequest(BaseModel):
     checkpoint_first: Annotated[bool | None, Field(alias="checkpointFirst")] = None
 
 
+class SupportMessage(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    author: str
+    body: str
+    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
+
+
+class SupportTicket(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
+    due_at: Annotated[AwareDatetime | None, Field(alias="dueAt")] = None
+    host_id: Annotated[UUID | None, Field(alias="hostId")] = None
+    id: UUID
+    number: int
+    session_id: Annotated[UUID | None, Field(alias="sessionId")] = None
+    status: str
+    topic: str
+    updated_at: Annotated[AwareDatetime, Field(alias="updatedAt")]
+
+
+class SupportTickets(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    tickets: list[SupportTicket]
+
+
 class Kind(Enum):
     folder = "folder"
     file = "file"
@@ -1056,6 +1125,14 @@ class TicketRequest(BaseModel):
         populate_by_name=True,
     )
     poll_token: Annotated[str, Field(alias="pollToken", max_length=128, min_length=0)]
+
+
+class Topic(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: str
+    label: str
 
 
 class Unread(BaseModel):
@@ -1310,12 +1387,29 @@ class PublicAvailabilityAnswer(BaseModel):
     starting_credit_paise: Annotated[int | None, Field(alias="startingCreditPaise")] = None
 
 
+class PublicContact(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    grievance_officer: Annotated[GrievanceOfficer, Field(alias="grievanceOfficer")]
+    response_days: Annotated[int, Field(alias="responseDays")]
+    topics: list[Topic]
+
+
 class SessionList(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
     next_cursor: Annotated[str | None, Field(alias="nextCursor")] = None
     sessions: list[SessionResponse]
+
+
+class SupportThread(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    messages: list[SupportMessage]
+    ticket: SupportTicket
 
 
 class Telemetry(BaseModel):

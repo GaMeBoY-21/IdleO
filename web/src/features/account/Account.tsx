@@ -48,6 +48,11 @@ export function Account() {
               label="Email"
               value={me.data.email ?? "No email on file"}
               note={me.data.emailUndeliverable ? UNDELIVERABLE : undefined}
+              action={
+                <Link href="/account/help/" className="shrink-0 text-small underline">
+                  To change it, write to us
+                </Link>
+              }
             />
             {methods !== "" && <Fact label="Signed in with" value={methods} />}
             <Link href="/account/keys/" className={`${ROW} hover:bg-ground md:hidden`}>
@@ -67,6 +72,17 @@ export function Account() {
                 <p className="text-small text-text-muted">
                   What we hold, download it, or delete your account
                 </p>
+              </div>
+              <ChevronRight
+                aria-hidden="true"
+                className="size-5 shrink-0 text-text-muted"
+                strokeWidth={1.75}
+              />
+            </Link>
+            <Link href="/account/help/" className={`${ROW} hover:bg-ground md:hidden`}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-option font-semibold">Help</p>
+                <p className="text-small text-text-muted">Write to us, and read our answers</p>
               </div>
               <ChevronRight
                 aria-hidden="true"
@@ -167,7 +183,17 @@ export function Account() {
 /** What Account says once mail to the person's address hard-bounced (ADR 0036); it goes when the address changes. */
 export const UNDELIVERABLE = "We couldn't email you: check your address";
 
-export function Fact({ label, value, note }: { label: string; value: string; note?: string | undefined }) {
+export function Fact({
+  label,
+  value,
+  note,
+  action,
+}: {
+  label: string;
+  value: string;
+  note?: string | undefined;
+  action?: React.ReactNode;
+}) {
   return (
     <div className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -177,6 +203,7 @@ export function Fact({ label, value, note }: { label: string; value: string; not
         </p>
         {note !== undefined && <p className="text-small font-semibold text-warning">{note}</p>}
       </div>
+      {action}
     </div>
   );
 }

@@ -25,7 +25,8 @@ class ModularityTests {
                         "payouts",
                         "trust",
                         "notifications",
-                        "privacy");
+                        "privacy",
+                        "support");
     }
 
     @Test

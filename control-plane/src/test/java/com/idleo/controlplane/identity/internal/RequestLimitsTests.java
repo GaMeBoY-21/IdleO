@@ -33,7 +33,7 @@ class RequestLimitsTests {
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-12T10:00:20Z"), ZoneOffset.UTC);
     private final RequestLimits limits =
-            new RequestLimits(redis, new RequestLimitsProperties(60, 10, 10, 120, 30), clock);
+            new RequestLimits(redis, new RequestLimitsProperties(60, 10, 10, 120, 30, 5), clock);
 
     RequestLimitsTests() {
         when(redis.opsForValue()).thenReturn(counters);
@@ -103,5 +103,22 @@ class RequestLimitsTests {
                         problem -> assertThat(problem.detail()).contains("More than 30 requests in a minute"));
         verify(counters).increment(org.mockito.ArgumentMatchers.contains("vitals:ip:10.3.3.3"));
         verify(counters, never()).increment(org.mockito.ArgumentMatchers.contains("requests:"));
+    }
+
+    /** Messages to support (ADR 0037): 5 an hour from one address, a new ticket or a reply alike. */
+    @Test
+    void aSixthMessageToSupportInAnHourIsRefused() {
+        var request = new MockHttpServletRequest("POST", "/v1/support/tickets");
+        request.setAttribute(
+                org.springframework.web.servlet.HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/v1/support/tickets");
+        request.setRemoteAddr("10.1.1.2");
+        when(counters.increment(anyString()))
+                .thenAnswer(call -> call.getArgument(0, String.class).startsWith("limits:support:") ? 6L : 1L);
+
+        assertThatThrownBy(() -> limits.preHandle(request, new MockHttpServletResponse(), ""))
+                .isInstanceOfSatisfying(
+                        ApiProblem.class,
+                        problem -> assertThat(problem.problem()).isEqualTo(Problem.RATE_LIMITED));
+        verify(counters).increment(org.mockito.ArgumentMatchers.startsWith("limits:support:ip:10.1.1.2:"));
     }
 }

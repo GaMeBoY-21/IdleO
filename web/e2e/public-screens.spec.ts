@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { availability, nobodyOnline } from "./fixtures-public";
 import * as data from "./fixtures";
+import * as support from "./fixtures-support";
 import { capture, expectAccessible, fakeApi, recordLayoutShifts, watchConsole } from "./support";
 
 /**
@@ -40,12 +41,18 @@ test.afterEach(() => finish());
 
 for (const path of PAGES) {
   test(`${path} is accessible, readable at this width, and has its page's tags`, async ({ page }, info) => {
-    await fakeApi(page, { "/v1/public/availability": { json: availability(10_000) } });
+    await fakeApi(page, {
+      "/v1/public/availability": { json: availability(10_000) },
+      "/v1/public/contact": { json: support.contact() },
+    });
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     // The live figures have arrived, so axe sees the settled page.
     if (path === "/pricing/") {
       await expect(page.getByText("Prices as of")).toBeVisible();
+    }
+    if (path === "/contact/" || path === "/privacy/") {
+      await expect(page.getByText("grievance@example.invalid")).toBeVisible();
     }
     await expectAccessible(page);
     await capture(page, info, `public-${path.replaceAll("/", "-").replace(/^-|-$/g, "")}`);
@@ -320,5 +327,47 @@ test.describe("the way into the app", () => {
     expect((await request.get("/sign-in/")).status()).toBe(404);
     expect((await request.get(`${APP}/pricing/`)).status()).toBe(404);
     expect((await request.get(`${APP}/about/`)).status()).toBe(404);
+  });
+});
+
+test.describe("contact", () => {
+  test("sends a message signed out, with how long the page was open, and names the grievance officer", async ({
+    page,
+  }, info) => {
+    let sent: Record<string, unknown> | null = null;
+    await fakeApi(page, {
+      "/v1/public/contact": { json: support.contact() },
+      "/v1/support/tickets": (call, request) => {
+        sent = request.postDataJSON() as Record<string, unknown>;
+        expect(request.headers()["authorization"]).toBeUndefined();
+        return { json: support.newTicket(), status: 202 };
+      },
+    });
+    await page.goto("/contact/");
+    await expect(page.getByText("Grievance Officer (development placeholder)")).toBeVisible();
+    await expect(page.getByText("We answer a grievance within 30 days.")).toBeVisible();
+    await page.getByLabel("What it's about").selectOption("account");
+    await page.getByLabel("Your message").fill("Please change my email address.");
+    await page.getByLabel("Your email, for our answer").fill("asha@example.com");
+    await page.clock.runFor(5000);
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(page.getByText("Sent as #1043.")).toBeVisible();
+    expect(sent).toMatchObject({ topic: "account", replyTo: "asha@example.com", website: "" });
+    expect((sent as unknown as { elapsedMs: number }).elapsedMs).toBeGreaterThanOrEqual(3000);
+    await expectAccessible(page);
+    await capture(page, info, "public-contact-sent");
+  });
+
+  test("says plainly when the message isn't taken", async ({ page }) => {
+    await fakeApi(page, {
+      "/v1/public/contact": { json: support.contact() },
+      "/v1/support/tickets": { status: 422, problem: "message-looks-automated" },
+    });
+    await page.goto("/contact/");
+    await page.getByLabel("What it's about").selectOption("money");
+    await page.getByLabel("Your message").fill("Hello");
+    await page.getByLabel("Your email, for our answer").fill("asha@example.com");
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(page.getByText("That was sent faster than a person writes.")).toBeVisible();
   });
 });
