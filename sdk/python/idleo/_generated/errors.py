@@ -494,6 +494,14 @@ class ActionRefused(IdleoError):
     title = "Action refused"
 
 
+class StorageUnavailable(IdleoError):
+    """Storage unavailable (HTTP 503)."""
+
+    slug = "storage-unavailable"
+    status = 503
+    title = "Storage unavailable"
+
+
 class InternalError(IdleoError):
     """Internal error (HTTP 500)."""
 
@@ -564,6 +572,7 @@ __all__ = [
     "SecondFactorExists",
     "SecondFactorMissing",
     "ActionRefused",
+    "StorageUnavailable",
     "InternalError",
 ]
 
@@ -629,5 +638,6 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "second-factor-exists": SecondFactorExists,
     "second-factor-missing": SecondFactorMissing,
     "action-refused": ActionRefused,
+    "storage-unavailable": StorageUnavailable,
     "internal-error": InternalError,
 }

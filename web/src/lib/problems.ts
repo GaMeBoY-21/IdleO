@@ -85,6 +85,8 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "second-factor-exists": "Your authenticator is already set up. Sign in with a code from it.",
   "second-factor-missing": "Set up your authenticator first, then sign in with a code from it.",
   "action-refused": "That was refused, and nothing changed. The reason is shown below.",
+  "storage-unavailable":
+    "Our file storage can't be reached just now, so files can't be uploaded or read. Your sessions keep running. Try again in a minute.",
   "internal-error": "Something went wrong on our side. Try again in a moment.",
 };
 

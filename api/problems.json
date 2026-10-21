@@ -60,5 +60,6 @@
   { "slug": "second-factor-exists", "status": 409, "title": "Second factor already set up" },
   { "slug": "second-factor-missing", "status": 409, "title": "Second factor not set up" },
   { "slug": "action-refused", "status": 409, "title": "Action refused" },
+  { "slug": "storage-unavailable", "status": 503, "title": "Storage unavailable" },
   { "slug": "internal-error", "status": 500, "title": "Internal error" }
 ]

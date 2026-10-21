@@ -277,6 +277,7 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `SecondFactorExists` | `second-factor-exists` | 409 | 1 |
 | `SecondFactorMissing` | `second-factor-missing` | 409 | 1 |
 | `ActionRefused` | `action-refused` | 409 | 1 |
+| `StorageUnavailable` | `storage-unavailable` | 503 | 1 |
 | `InternalError` | `internal-error` | 500 | 1 |
 
 And the SDK's own: `NotSignedIn` (no key found; 5), `NetworkError` (7), `UsageError` (the arguments don't fit the template, found before anything is uploaded; 2), `ServerError`, `SessionNotCompleted` (carries the session) and `WaitTimeout`.

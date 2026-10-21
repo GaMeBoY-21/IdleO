@@ -5806,6 +5806,7 @@ components:
           - /problems/second-factor-exists
           - /problems/second-factor-missing
           - /problems/action-refused
+          - /problems/storage-unavailable
           - /problems/internal-error
       required:
       - status

@@ -27,6 +27,9 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 
 /**
  * Every error the control plane returns is an RFC 9457 problem detail ({@code application/problem+json}) whose
@@ -69,6 +72,24 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
             return detail(forClient.problem(), forClient.problem().status(), forClient.getMessage());
         }
         return detail(Problem.ACCESS_DENIED, Problem.ACCESS_DENIED.status(), "Access is denied.");
+    }
+
+    /**
+     * Object storage that can't be reached, or answers with its own server error (ADR 0036): a 503 the page shows in
+     * plain words, never a 500. Storage isn't part of readiness, so the instance keeps serving everything else; the
+     * storage-unreachable alert says so. Any other storage answer is a bug, as before.
+     */
+    @ExceptionHandler(SdkException.class)
+    ResponseEntity<ProblemDetail> storage(SdkException exception) {
+        boolean unreachable = exception instanceof SdkClientException
+                || (exception instanceof SdkServiceException service && service.statusCode() >= 500);
+        if (!unreachable) {
+            return ResponseEntity.internalServerError().body(unexpected(exception));
+        }
+        log.warn("Object storage can't be reached: {}", exception.getClass().getSimpleName());
+        return problem(ApiProblem.of(
+                        Problem.STORAGE_UNAVAILABLE, "File storage can't be reached just now. Try again in a minute.")
+                .retryAfter(java.time.Duration.ofSeconds(30)));
     }
 
     @ExceptionHandler(Exception.class)

@@ -10,13 +10,14 @@ import org.springframework.stereotype.Component;
 
 /**
  * What readiness checks, as meters (ADR 0036): {@code health.ready} is 1 while a component answers and 0 while it
- * doesn't, by {@code component}: the database ({@code db}), the sessions' object storage ({@code storage}) and the
- * agents' CA ({@code ca}). The database alert reads it; asked once a minute, when the meters are sent.
+ * doesn't, by {@code component}: the database ({@code db}) and the agents' CA ({@code ca}). The database alert reads
+ * it; asked once a minute, when the meters are sent. Object storage isn't part of readiness: sessions' own
+ * {@code storage.reachable} says whether it answers.
  */
 @Component
 class ReadinessMetrics {
 
-    static final List<String> COMPONENTS = List.of("db", "storage", "ca");
+    static final List<String> COMPONENTS = List.of("db", "ca");
 
     ReadinessMetrics(MeterRegistry registry, HealthContributorRegistry health) {
         for (var component : COMPONENTS) {

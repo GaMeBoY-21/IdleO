@@ -113,12 +113,13 @@ management:
       probes:
         enabled: true
       group:
-        # Readiness needs what serving a request needs: the database, the sessions' object storage (sessions'
-        # StorageHealthIndicator) and a CA inside its validity (hosts' CertificateAuthorityHealth). Liveness needs none
-        # of them, so a blip takes the instance out of rotation without restarting it. Valkey is never in readiness:
-        # it holds only what may expire, and requests go on without it (ADR 0011).
+        # Readiness needs what serving a request needs: the database and a CA inside its validity (hosts'
+        # CertificateAuthorityHealth). Liveness needs neither, so a blip takes the instance out of rotation without
+        # restarting it. Valkey is never in readiness: it holds only what may expire, and requests go on without it
+        # (ADR 0011). Nor is object storage (ADR 0036): without it uploads, outputs and logs fail with a plain 503, but
+        # sessions, leases and everything else go on, so it's a meter (storage.reachable) and an alert instead.
         readiness:
-          include: readinessState, db, storage, ca
+          include: readinessState, db, ca
         liveness:
           include: livenessState
 

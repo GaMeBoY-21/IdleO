@@ -715,8 +715,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Readiness",
-      "description": "1 while each part readiness checks answers. Alert DatabaseUnreachable when db is 0 for a minute.",
+      "title": "Readiness and storage",
+      "description": "1 while each answers. Readiness is the database and the CA (alert DatabaseUnreachable when db is 0 for a minute); storage isn't in readiness (alert StorageUnreachable after 5 minutes).",
       "id": 15,
       "datasource": {
         "type": "prometheus",
@@ -763,6 +763,15 @@
           "refId": "A",
           "expr": "min by (component) (health_ready{job=\"control-plane\"})",
           "legendFormat": "{{component}}"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "B",
+          "expr": "min(storage_reachable{job=\"control-plane\"})",
+          "legendFormat": "storage"
         }
       ]
     },

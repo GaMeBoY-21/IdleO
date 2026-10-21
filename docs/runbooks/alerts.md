@@ -28,7 +28,7 @@ Before reopening after any restore of the database: `ops/backup/verify-ledger.sh
 **Check first:** Platform health, "Server errors by route": one route or all of them? Then Loki, `{service_name="control-plane"} | json | log_level="ERROR"` (or `level="ERROR"`), for the exception.
 
 **Do:**
-- All routes, with "Readiness" showing `db` or `storage` at 0: it's that dependency; see [Database](#database), or R2's status page for storage.
+- All routes, with "Readiness and storage" showing `db` at 0: see [Database](#database). Storage's failures are 503s with their own alert: see [Storage unreachable](#storage-unreachable).
 - One route since a deployment: roll the deployment back, then fix.
 - 503s with Hikari "waiting" above zero: the pool is exhausted; see [Database](#database).
 
@@ -61,6 +61,14 @@ Two alerts share this section.
 **Do:**
 - Unreachable: is the container running and the disk not full? Restart PostgreSQL if it crashed; if its data is damaged, restore (docs/runbooks/backups.md) and run `ops/backup/verify-ledger.sh` before reopening.
 - Pool busy: a slow query or a burst. Find long-running queries (`select pid, now() - query_start, query from pg_stat_activity where state <> 'idle' order by 2 desc`), and end one with `pg_cancel_backend(pid)` only if it's safe. Raise the pool size only with the database's `max_connections` in mind.
+
+## Storage unreachable
+
+**Means:** the control plane hasn't reached the sessions' object storage (R2) for 5 minutes. It isn't part of readiness, so instances keep serving: sessions run on (their agents hold their own storage grants until those expire, within the hour), leases renew and money settles. But nothing can be uploaded, no output downloaded and no log read; those calls answer `storage-unavailable` (503), and the app says so in plain words. Checkpoints and outputs written meanwhile are found once storage is back.
+
+**Check first:** Cloudflare's status page for R2; Platform health, "Readiness and storage"; the control plane's log, `Object storage can't be reached`.
+
+**Do:** an R2 outage: nothing to do but wait, and say so to renters if it lasts. Our side: the storage key (`SESSIONS_STORAGE_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY`) rotated or revoked, or the bucket renamed (docs/runbooks/object-storage.md). Once it answers, the alert resolves within two minutes.
 
 ## Certificates
 

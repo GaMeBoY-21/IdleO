@@ -124,6 +124,23 @@ tests:
               summary: The control plane can't reach the database.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
 
+  # Storage stops answering at 5m: a blip of 4 minutes is quiet, 5 is an alert.
+  - interval: 1m
+    input_series:
+      - series: 'storage_reachable{job="control-plane", instance="cp-1"}'
+        values: '1x4 0x4 1x2 0x12'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: StorageUnreachable
+        exp_alerts: []
+      - eval_time: 22m
+        alertname: StorageUnreachable
+        exp_alerts:
+          - exp_labels: {severity: page, instance: cp-1}
+            exp_annotations:
+              summary: The control plane can't reach file storage; uploads, outputs and logs are failing.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#storage-unreachable
+
   # 20 days left, then 13.
   - interval: 1m
     input_series:

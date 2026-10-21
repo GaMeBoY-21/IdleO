@@ -357,6 +357,12 @@ public enum Problem {
                     + "certificate, say, or a reversal the wallet's available credit can't cover."),
 
     // Server.
+    STORAGE_UNAVAILABLE(
+            "storage-unavailable",
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Storage unavailable",
+            "Our file storage can't be reached just now, so uploads, outputs and logs can't be read or written. "
+                    + "Sessions keep running. Retry-After says when to try again."),
     INTERNAL_ERROR(
             "internal-error",
             HttpStatus.INTERNAL_SERVER_ERROR,

@@ -562,6 +562,7 @@ class Type(Enum):
     field_problems_second_factor_exists = "/problems/second-factor-exists"
     field_problems_second_factor_missing = "/problems/second-factor-missing"
     field_problems_action_refused = "/problems/action-refused"
+    field_problems_storage_unavailable = "/problems/storage-unavailable"
     field_problems_internal_error = "/problems/internal-error"
 
 

@@ -77,6 +77,17 @@ groups:
           summary: The control plane can't reach the database.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
 
+      - alert: StorageUnreachable
+        # The sessions' object storage hasn't answered for 5 minutes on any instance. Not in readiness: sessions run
+        # on, but nothing can be uploaded and no output or log read.
+        expr: min by (instance) (storage_reachable{job="control-plane"}) == 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: The control plane can't reach file storage; uploads, outputs and logs are failing.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#storage-unreachable
+
       - alert: CertificateExpiring
         # The agents' CA (root or intermediate) or a server certificate the control plane serves expires within 14
         # days.

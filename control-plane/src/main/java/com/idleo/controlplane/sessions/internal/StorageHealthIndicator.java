@@ -1,19 +1,23 @@
 package com.idleo.controlplane.sessions.internal;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
+import org.springframework.boot.health.contributor.Status;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.s3.S3Client;
 
 /**
- * Readiness's {@code storage} component: whether the session bucket answers with the control plane's own key. Without
- * it no session can start, no checkpoint or output be found, and no upload be opened, so an instance that can't reach
- * it takes no traffic. A readiness probe comes every few seconds from each load balancer, so storage is asked at most
- * once every {@link #RECHECK_EVERY} and the answer kept until then.
+ * Whether the sessions' bucket answers with the control plane's own key: the health component {@code storage}, and the
+ * meter {@code storage.reachable} (1 or 0), which the storage-unreachable alert reads (ADR 0036). It is not part of
+ * readiness: without storage no upload can be opened and no output or log read, and those calls answer a plain 503
+ * ({@code storage-unavailable}), but sessions, leases and everything else go on, so an instance keeps its traffic.
+ * Storage is asked at most once every {@link #RECHECK_EVERY} and the answer kept until then.
  */
 @Component
 class StorageHealthIndicator implements HealthIndicator {
@@ -28,10 +32,16 @@ class StorageHealthIndicator implements HealthIndicator {
 
     private volatile @Nullable Checked last;
 
-    StorageHealthIndicator(S3Client sessionS3, StorageProperties properties, Clock clock) {
+    StorageHealthIndicator(S3Client sessionS3, StorageProperties properties, Clock clock, MeterRegistry registry) {
         this.s3 = sessionS3;
         this.properties = properties;
         this.clock = clock;
+        Gauge.builder(
+                        "storage.reachable",
+                        this,
+                        indicator -> Status.UP.equals(indicator.health().getStatus()) ? 1 : 0)
+                .description("1 while the sessions' object storage answers, 0 while it doesn't")
+                .register(registry);
     }
 
     @Override
