@@ -9,9 +9,11 @@
 // still builds and lints there.
 #![cfg(unix)]
 
+pub mod abuse;
 pub mod attach;
 pub mod container;
 pub mod crypto;
+pub mod dns;
 pub mod fair;
 pub mod machine;
 pub mod nerdctl;

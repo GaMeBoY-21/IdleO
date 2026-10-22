@@ -12,8 +12,10 @@
 #    (198.18.0.0/15: some routers, hotspots and VPNs use it), IETF-protocol or documentation address,
 #    the default gateway (in WSL's NAT mode that is Windows itself) or one of this distribution's own addresses, and
 #    nothing reaches this machine at all, its own bridge's address included.
-#  - The only way out is DNS to the public resolvers named below, and TCP 80 and 443 to public addresses. Replies to
-#    allowed connections pass. Everything else is dropped.
+#  - The only way out is TCP 80 and 443 to public addresses. Replies to allowed connections pass. Everything else is dropped.
+#  - DNS has one place to go: port 53, UDP and TCP, of the session's own network's gateway address (172.30.<N>.1 on idl<N>),
+#    where the runner's forwarder for that session answers (ADR 0038): it asks the public resolvers for the job, and refuses
+#    mining pools' names. No other port of that address, and no other address of this machine, answers a job.
 #  - No IPv6, and nothing starts a connection to a job.
 
 table inet idleo
@@ -51,14 +53,49 @@ table inet idleo {
         flags interval
     }
 
-    # The only DNS servers a job may ask: public, never the gateway's.
-    set resolvers_v4 {
-        type ipv4_addr
-        elements = { 1.0.0.1, 1.1.1.1, 8.8.4.4, 8.8.8.8 }
+    # Where a job's DNS questions go: the gateway address of its own session network, and only from that network. A session
+    # asking another's gateway, or this machine by any other address, meets the drop below.
+    set session_dns_v4 {
+        type ifname . ipv4_addr
+        elements = {
+            "idl0" . 172.30.0.1,
+            "idl1" . 172.30.1.1,
+            "idl2" . 172.30.2.1,
+            "idl3" . 172.30.3.1,
+            "idl4" . 172.30.4.1,
+            "idl5" . 172.30.5.1,
+            "idl6" . 172.30.6.1,
+            "idl7" . 172.30.7.1,
+            "idl8" . 172.30.8.1,
+            "idl9" . 172.30.9.1,
+            "idl10" . 172.30.10.1,
+            "idl11" . 172.30.11.1,
+            "idl12" . 172.30.12.1,
+            "idl13" . 172.30.13.1,
+            "idl14" . 172.30.14.1,
+            "idl15" . 172.30.15.1,
+            "idl16" . 172.30.16.1,
+            "idl17" . 172.30.17.1,
+            "idl18" . 172.30.18.1,
+            "idl19" . 172.30.19.1,
+            "idl20" . 172.30.20.1,
+            "idl21" . 172.30.21.1,
+            "idl22" . 172.30.22.1,
+            "idl23" . 172.30.23.1,
+            "idl24" . 172.30.24.1,
+            "idl25" . 172.30.25.1,
+            "idl26" . 172.30.26.1,
+            "idl27" . 172.30.27.1,
+            "idl28" . 172.30.28.1,
+            "idl29" . 172.30.29.1,
+            "idl30" . 172.30.30.1,
+            "idl31" . 172.30.31.1
+        }
     }
 
     chain input {
         type filter hook input priority filter; policy accept;
+        iifname . ip daddr @session_dns_v4 meta l4proto { tcp, udp } th dport 53 accept
         iifname "idl*" drop
     }
 
@@ -73,8 +110,6 @@ table inet idleo {
         meta nfproto ipv6 drop
         ip daddr @blocked_v4 drop
         ip daddr @blocked_extra_v4 drop
-        ip daddr @resolvers_v4 udp dport 53 accept
-        ip daddr @resolvers_v4 tcp dport 53 accept
         tcp dport { 80, 443 } accept
         drop
     }

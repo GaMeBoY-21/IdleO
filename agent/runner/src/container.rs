@@ -11,6 +11,7 @@
 //! `SESSION_PARAM_*` and `SESSION_INPUT_*`, plus the variables of the job contract, and never a grant or a token.
 
 use std::collections::BTreeMap;
+use std::net::Ipv4Addr;
 use std::path::PathBuf;
 
 use jobcore::protocol::Spec;
@@ -21,8 +22,6 @@ pub const JOB_USER: &str = "10001:10001";
 pub const WORK: &str = "/work";
 /// The containerd namespace our containers live in, apart from anything else on the machine.
 pub const NAMESPACE: &str = "idleo";
-/// The public DNS servers a job is given: the only ones the sandbox's rules let it ask.
-pub const RESOLVERS: [&str; 2] = ["1.1.1.1", "8.8.8.8"];
 /// Where a job says its input was wrong, inside `/work` (the job contract's `SESSION_FAILURE_FILE`).
 pub const FAILURE_FILE: &str = "idleo-failure.json";
 /// The size of `/tmp`.
@@ -43,6 +42,9 @@ pub struct Plan {
     pub attempt: i32,
     /// The session network's name.
     pub network: String,
+    /// The name server the job is given: its network's gateway address, where the runner's forwarder for the session answers
+    /// (ADR 0038). The sandbox's rules let it ask nothing else.
+    pub dns: Ipv4Addr,
     /// What to run.
     pub spec: Spec,
     /// The scratch disk's folder that becomes `/work`.
@@ -161,9 +163,7 @@ fn create_arguments_unchecked(plan: &Plan) -> Result<Vec<String>, Refused> {
         &format!("idleo.attempt={}", plan.attempt),
     ]);
     add(&["--network", &plan.network]);
-    for resolver in RESOLVERS {
-        add(&["--dns", resolver]);
-    }
+    add(&["--dns", &plan.dns.to_string()]);
     add(&["--sysctl", "net.ipv6.conf.all.disable_ipv6=1", "--sysctl", "net.ipv6.conf.default.disable_ipv6=1"]);
     add(&["--user", JOB_USER, "--read-only"]);
     add(&["--tmpfs", &format!("/tmp:rw,nosuid,nodev,size={TMP_MIB}m")]);
@@ -208,6 +208,7 @@ mod tests {
             session: "s".to_owned(),
             attempt: 1,
             network: "idleo-slot-3".to_owned(),
+            dns: Ipv4Addr::new(172, 30, 3, 1),
             spec: Spec {
                 image: format!("registry.example/idleo/pytorch@sha256:{DIGEST}"),
                 args: vec!["/opt/idleo/run.sh".to_owned()],
@@ -256,8 +257,7 @@ mod tests {
             &["--shm-size", "2048m"],
             &["--ipc", "private"],
             &["--network", "idleo-slot-3"],
-            &["--dns", "1.1.1.1"],
-            &["--dns", "8.8.8.8"],
+            &["--dns", "172.30.3.1"],
             &["--sysctl", "net.ipv6.conf.all.disable_ipv6=1"],
             &["--tmpfs", "/tmp:rw,nosuid,nodev,size=1024m"],
             &["--pull", "never"],

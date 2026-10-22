@@ -110,6 +110,7 @@ impl Nerdctl {
             session: "selfcheck".to_owned(),
             attempt: 0,
             network: String::new(),
+            dns: Ipv4Addr::UNSPECIFIED,
             spec: Spec {
                 image: image.to_owned(),
                 args,

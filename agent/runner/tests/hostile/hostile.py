@@ -44,8 +44,22 @@ def connect(host, port, timeout=3.0, family=socket.AF_INET):
         s.close()
 
 
-def parallel_connect(targets, timeout=3.0):
-    """Connects to every (host, port) at once from one thread (a job has few processes to spare); returns {target: outcome}."""
+def parallel_connect(targets, timeout=0.9, chunk=36):
+    """Connects to every (host, port) from one thread (a job has few processes to spare), `chunk` at a time, each chunk given
+    `timeout` seconds, and returns {target: outcome}. A connection that nothing answers sends its SYN again after a second,
+    and the sandbox's limit on new connections (50 a second, a burst of 100) counts every SYN, so each connection gets less
+    than a second and each chunk the whole of it: 40 a second, each SYN sent once. A 'blocked' then means the rules blocked
+    it, never the limit (the harness checks that the limit dropped nothing)."""
+    outcomes = {}
+    targets = list(targets)
+    for start in range(0, len(targets), chunk):
+        began = time.monotonic()
+        outcomes.update(_connect_together(targets[start : start + chunk], timeout))
+        time.sleep(max(0.0, timeout - (time.monotonic() - began)))
+    return outcomes
+
+
+def _connect_together(targets, timeout):
     import select
 
     pending = {}
@@ -196,13 +210,66 @@ def reach_private():
     if gw:
         hosts.append(gw)
     targets = [(h, p) for h in hosts for p in (80, 443, 22)]
+    # The session's own gateway address answers DNS (the runner's forwarder, ADR 0038) and nothing else: every other TCP port
+    # on it is tried, the well-known ones and the ports of the services a machine like this might run.
+    sweep = [port for port in range(1, 1025) if port != 53] + [2375, 2376, 3306, 5000, 5432, 6379, 8000, 8080, 8443, 9000, 9090, 9100, 9200, 10250, 27017]
+    if gw:
+        targets += [(gw, port) for port in sweep]
     outcomes = parallel_connect(targets)
     through = [f"{h}:{p}={o}" for (h, p), o in outcomes.items() if o in ("open", "refused")]
     control = connect("1.1.1.1", 443, 6.0)
     print(f"CONTROL https {control}", flush=True)
     if control != "open":
         return result("reach_private", False, f"inconclusive: the internet isn't reachable on 443 here ({control}), so a block proves nothing")
-    return result("reach_private", not through, f"{len(targets)} connections to private, link-local, carrier-NAT, multicast, the gateway {gw} and this machine's addresses all blocked" if not through else f"reached {through}")
+    # UDP to the gateway: DNS answers (the control that makes silence mean something), nothing else does.
+    udp_through = []
+    if gw:
+        asked = b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x03com\x00\x00\x01\x00\x01"
+        for port in (53, 67, 69, 111, 123, 137, 161, 500, 514, 1900, 5353):
+            u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            u.settimeout(1.5)
+            try:
+                u.sendto(asked, (gw, port))
+                u.recvfrom(512)
+                udp_through.append(port)
+            except OSError:
+                pass
+            finally:
+                u.close()
+        print(f"CONTROL gateway-dns {'answered' if 53 in udp_through else 'silent'}", flush=True)
+        if 53 not in udp_through:
+            return result("reach_private", False, f"inconclusive: the gateway {gw} doesn't answer DNS on 53, so its other ports being silent proves nothing")
+    # DNS to anything else on this machine: its other addresses, and the gateways of other sessions' networks (the harness names
+    # them in TARGETS), asked all at once; none may answer, though this session's own gateway did.
+    elsewhere = sorted({host for host in extra if host != gw})
+    sockets = {}
+    for host in elsewhere:
+        u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        u.setblocking(False)
+        try:
+            u.sendto(asked, (host, 53))
+            sockets[u] = host
+        except OSError:
+            u.close()
+    import select
+
+    answered_elsewhere = []
+    deadline = time.monotonic() + 2.0
+    while sockets and time.monotonic() < deadline:
+        ready, _, _ = select.select(list(sockets), [], [], max(0.0, deadline - time.monotonic()))
+        for u in ready:
+            try:
+                u.recvfrom(512)
+                answered_elsewhere.append(sockets[u])
+            except OSError:
+                pass
+            sockets.pop(u, None)
+            u.close()
+    for u in sockets:
+        u.close()
+    other_udp = [port for port in udp_through if port != 53] + [f"{host}:53" for host in answered_elsewhere]
+    held = not through and not other_udp
+    return result("reach_private", held, f"{len(targets)} connections to private, link-local, carrier-NAT, multicast, this machine's addresses and every TCP port but 53 on the gateway {gw}, and its UDP ports but 53, and DNS on every other address of this machine, all blocked" if held else f"reached {through} {other_udp}")
 
 
 def reach_ports():
@@ -210,12 +277,13 @@ def reach_ports():
     for host in ("1.1.1.1", "8.8.8.8", "93.184.216.34", "142.250.80.46"):
         for port in (21, 22, 23, 25, 110, 143, 445, 587, 993, 1433, 3306, 3389, 5432, 6379, 8080, 8443, 9100):
             targets.append((host, port))
-    outcomes = parallel_connect(targets, 4.0)
+    outcomes = parallel_connect(targets)
     through = [f"{h}:{p}={o}" for (h, p), o in outcomes.items() if o in ("open", "refused")]
     control = connect("1.1.1.1", 443, 6.0)
     print(f"CONTROL https {control}", flush=True)
     udp_replies = []
-    for host, port in (("9.9.9.9", 53), ("1.1.1.1", 123), ("8.8.8.8", 123), ("1.1.1.1", 5353)):  # not DNS to a named resolver
+    # DNS straight to a resolver, public or named, is closed: it goes through the runner's forwarder at the gateway (ADR 0038).
+    for host, port in (("9.9.9.9", 53), ("1.1.1.1", 53), ("8.8.8.8", 53), ("1.1.1.1", 123), ("8.8.8.8", 123), ("1.1.1.1", 5353)):
         u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         u.settimeout(2)
         try:
@@ -226,21 +294,20 @@ def reach_ports():
             pass
         finally:
             u.close()
-    dns = None
-    u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    u.settimeout(5)
+    # The control: the name server this job was given (its gateway) does answer.
     try:
-        u.sendto(b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x03com\x00\x00\x01\x00\x01", ("1.1.1.1", 53))
-        dns = "answered" if u.recvfrom(512) else "silent"
-    except OSError:
+        name = next(line.split()[1] for line in open("/etc/resolv.conf") if line.startswith("nameserver"))
+        answer = socket.getaddrinfo("example.com", 80, socket.AF_INET)
+        dns = "answered" if answer else "silent"
+    except (OSError, StopIteration):
         dns = "silent"
-    finally:
-        u.close()
     print(f"CONTROL dns {dns}", flush=True)
     if control != "open":
         return result("reach_ports", False, f"inconclusive: 443 isn't reachable here ({control})")
+    if dns != "answered":
+        return result("reach_ports", False, "inconclusive: DNS through the runner's forwarder doesn't work, so blocking the rest proves nothing")
     held = not through and not udp_replies
-    return result("reach_ports", held, f"{len(targets)} TCP ports on 4 public hosts and 4 UDP services other than HTTPS and DNS to the named resolvers were all dropped" if held else f"reached {through} {udp_replies}")
+    return result("reach_ports", held, f"{len(targets)} TCP ports on 4 public hosts and 6 UDP services other than HTTPS and DNS through the forwarder were all dropped, direct DNS to 3 resolvers included" if held else f"reached {through} {udp_replies}")
 
 
 def ipv6():
@@ -567,7 +634,36 @@ def write_output():
     return 0
 
 
-ATTACKS = {f.__name__: f for f in (write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever, leave_marker, connection_flood, upload_flood, write_output)}
+def lookup_pools():
+    # Looks up each name in SESSION_PARAM_DOMAINS (comma separated) the way any program does, and says what came of each.
+    for domain in [d for d in os.environ.get("SESSION_PARAM_DOMAINS", "").split(",") if d]:
+        try:
+            socket.getaddrinfo(domain, 80, socket.AF_INET)
+            outcome = "resolved"
+        except socket.gaierror as e:
+            outcome = f"gaierror:{e.errno}"
+        print(f"LOOKUP {domain} {outcome}", flush=True)
+        time.sleep(0.5)
+    print("RESULT lookup_pools HELD all looked up", flush=True)
+    time.sleep(30)
+    return 0
+
+
+def run_named():
+    # Runs a copy of `sleep` under the name SESSION_PARAM_NAME: a program that is not what its name says, or is.
+    import shutil
+
+    name = os.environ.get("SESSION_PARAM_NAME", "idleo-testminer")
+    target = f"/work/{name}"
+    shutil.copy("/bin/sleep", target)
+    os.chmod(target, 0o755)
+    subprocess.Popen([target, "30"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print(f"RESULT run_named HELD started {name}", flush=True)
+    time.sleep(30)
+    return 0
+
+
+ATTACKS = {f.__name__: f for f in (write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever, leave_marker, connection_flood, upload_flood, write_output, lookup_pools, run_named)}
 
 if __name__ == "__main__":
     # `hostile.py <attack>`, or, as the development-only `hostile-test` template runs it, the Attack parameter.

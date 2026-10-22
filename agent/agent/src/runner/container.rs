@@ -326,6 +326,12 @@ impl Told {
                 let _ = reports.send(ending(ended));
                 return true;
             }
+            Event::Abuse { kind, detail, sha256, count, stopped } => {
+                let _ = reports.send(Report::Abuse { kind, detail, sha256, count, stopped });
+            }
+            Event::Behavior { net_out_bytes, net_in_bytes, printed_lines, conn_drops } => {
+                let _ = reports.send(Report::Behavior { net_out_bytes, net_in_bytes, printed_lines, conn_drops });
+            }
             Event::Pull { .. } => {}
         }
         false
@@ -829,6 +835,47 @@ mod tests {
         runner_side
             .wait_for("forget", |seen| seen.iter().any(|r| matches!(r, Request::Forget { attempt: 1, .. })))
             .await;
+    }
+
+    #[tokio::test]
+    async fn what_the_runner_saw_in_the_session_reaches_the_supervisor_as_it_was_said() {
+        let (runner_side, runner) = Scripted::runner();
+        let (job, _stop, _fence) = job();
+        let (reports, received) = mpsc::unbounded_channel();
+        let running = tokio::spawn(runner.run(job, reports));
+        runner_side.wait_for("the start", |seen| seen.iter().any(|r| matches!(r, Request::Start(_)))).await;
+        runner_side.event(Event::Behavior { net_out_bytes: 10, net_in_bytes: 20, printed_lines: 3, conn_drops: 4 });
+        runner_side.event(Event::Abuse {
+            kind: jobcore::protocol::AbuseKind::ProcessHash,
+            detail: "a listed build".to_owned(),
+            sha256: "a".repeat(64),
+            count: 0,
+            stopped: true,
+        });
+        runner_side.event(Event::Exited {
+            ended: Ended::Failed {
+                code: code::ABUSE_STOPPED.to_owned(),
+                message: "the job ran software that isn't allowed on IdleO".to_owned(),
+                exit_code: None,
+            },
+        });
+
+        let reports = drain(received, |report| matches!(report, Report::Failed { .. })).await;
+        assert!(reports.contains(&Report::Behavior {
+            net_out_bytes: 10,
+            net_in_bytes: 20,
+            printed_lines: 3,
+            conn_drops: 4
+        }));
+        assert!(reports.contains(&Report::Abuse {
+            kind: jobcore::protocol::AbuseKind::ProcessHash,
+            detail: "a listed build".to_owned(),
+            sha256: "a".repeat(64),
+            count: 0,
+            stopped: true,
+        }));
+        assert!(matches!(reports.last(), Some(Report::Failed { code, .. }) if code == "abuse_stopped"));
+        running.await.unwrap();
     }
 
     #[tokio::test]

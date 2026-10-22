@@ -12,7 +12,8 @@
 //! container starts, so nothing of the renter's is on the distribution's disk in the clear. A development distribution
 //! whose kernel has no dm-crypt makes plain disks and says so; a release one runs no job without it.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Stdio;
@@ -25,10 +26,12 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 use tokio::sync::{mpsc, watch};
 
+use crate::abuse::{Blocklist, ProcessSeen};
 use crate::container::{self, NAMESPACE, Plan};
 use crate::crypto;
+use crate::dns::{Forwarder, PoolLookup};
 use crate::fair;
-use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, StartError, Stream};
+use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, StartError, Stream, Traffic};
 use crate::sandbox;
 
 mod leftovers;
@@ -854,6 +857,9 @@ impl Machine for Nerdctl {
         Box::pin(async move {
             let slot = self.take_slot().ok_or("every session network is in use")?;
             plan.network = format!("idleo-slot-{slot}");
+            // The job's name server is its network's gateway address (`172.30.<N>.1`), where the runner's forwarder for the
+            // session answers (ADR 0038).
+            plan.dns = Ipv4Addr::new(172, 30, slot, 1);
             let args = if plan.entrypoint.is_some() {
                 container::create_arguments_trusted(&plan)
             } else {
@@ -868,12 +874,24 @@ impl Machine for Nerdctl {
                 self.release_slot(slot);
                 return Err(StartError::SandboxNotReady(why));
             }
+            let (lookups, refused) = mpsc::unbounded_channel();
+            let forwarder = match Forwarder::start(plan.dns, self.abuse_blocklist(), lookups) {
+                Ok(forwarder) => forwarder,
+                Err(why) => {
+                    self.release_slot(slot);
+                    Self::clear_fair_use(slot).await;
+                    return Err(StartError::SandboxNotReady(format!("the session's DNS can't start: {why}")));
+                }
+            };
             let started = self.launch(&plan, &args).await;
             match started {
                 Ok(running) => {
                     self.held_containers.lock().unwrap_or_else(PoisonError::into_inner).insert(running.id.clone());
                     Ok(Arc::new(NerdctlContainer {
                         running,
+                        forwarder,
+                        refused: Mutex::new(Some(refused)),
+                        hashes: Mutex::new(HashMap::new()),
                         slot,
                         slots: Arc::clone(&self.slots),
                         ooms: Arc::clone(&self.ooms),
@@ -900,6 +918,17 @@ impl Machine for Nerdctl {
 
     fn development(&self) -> bool {
         Self::development()
+    }
+
+    fn abuse_blocklist(&self) -> Arc<Blocklist> {
+        // A development distribution's marker may add test entries (read each time, so a test can change them); a release
+        // distribution has no marker and so only the list built into the runner.
+        let marker = if Self::development() {
+            std::fs::read_to_string(DEVELOPMENT_MARKER).unwrap_or_default()
+        } else {
+            String::new()
+        };
+        Arc::new(Blocklist::built_in().with_test_entries(&marker))
     }
 
     fn clean_up_leftovers(&self) -> Fut<'_, ()> {
@@ -1008,11 +1037,65 @@ struct Running {
 
 struct NerdctlContainer {
     running: Running,
+    /// This session's DNS (ADR 0038); stopped when the container is removed.
+    forwarder: Forwarder,
+    /// The pool lookups it refused, until taken.
+    refused: Mutex<Option<mpsc::UnboundedReceiver<PoolLookup>>>,
+    /// The SHA-256 of each executable seen, by device and inode, so a program is read once however often it starts.
+    hashes: Mutex<HashMap<(u64, u64), Option<String>>>,
     slot: u8,
     slots: Arc<Mutex<BTreeSet<u8>>>,
     ooms: Arc<Mutex<std::collections::HashSet<String>>>,
     exits: Arc<Mutex<std::collections::HashSet<String>>>,
     held: Arc<Mutex<HashSet<String>>>,
+}
+
+impl NerdctlContainer {
+    /// The SHA-256 of a process's executable, read from `/proc/<pid>/exe` (which is the file the process runs, wherever it is
+    /// in the container) once for each file; none for one over 256 MiB, which no miner's executable is, or that can't be read.
+    async fn executable_hash(&self, pid: u32) -> Option<String> {
+        const LARGEST: u64 = 256 * 1024 * 1024;
+        let path = format!("/proc/{pid}/exe");
+        let file = std::fs::File::open(&path).ok()?;
+        let meta = file.metadata().ok()?;
+        let key = (std::os::unix::fs::MetadataExt::dev(&meta), std::os::unix::fs::MetadataExt::ino(&meta));
+        if let Some(known) = self.hashes.lock().unwrap_or_else(PoisonError::into_inner).get(&key) {
+            return known.clone();
+        }
+        let hashed = if meta.len() > LARGEST {
+            None
+        } else {
+            tokio::task::spawn_blocking(move || {
+                use sha2::{Digest, Sha256};
+                use std::io::Read;
+                let mut file = file;
+                let mut hasher = Sha256::new();
+                let mut buffer = vec![0_u8; 256 * 1024];
+                loop {
+                    let read = file.read(&mut buffer).ok()?;
+                    if read == 0 {
+                        break;
+                    }
+                    hasher.update(&buffer[..read]);
+                }
+                Some(jobcore::storage::hex(&hasher.finalize()))
+            })
+            .await
+            .ok()
+            .flatten()
+        };
+        self.hashes.lock().unwrap_or_else(PoisonError::into_inner).insert(key, hashed.clone());
+        hashed
+    }
+}
+
+/// When a process started, in clock ticks since boot: field 22 of `/proc/<pid>/stat`, which follows the command's name in
+/// parentheses (itself free to hold spaces and parentheses, so the last `)` ends it). 0 when it can't be read.
+fn start_time(stat: &str) -> u64 {
+    stat.rsplit_once(')')
+        .and_then(|(_, rest)| rest.split_whitespace().nth(19))
+        .and_then(|field| field.parse().ok())
+        .unwrap_or(0)
 }
 
 /// How long to wait for containerd's own report of an exit before deciding without it: it comes within milliseconds when
@@ -1024,6 +1107,54 @@ const EXIT_EVENT_LIMIT: Duration = Duration::from_millis(500);
 const OOM_EVENT_LIMIT: Duration = Duration::from_millis(250);
 
 impl Container for NerdctlContainer {
+    fn processes(&self, with_hashes: bool) -> Fut<'_, Vec<ProcessSeen>> {
+        Box::pin(async move {
+            let Some(folder) = self.running.cgroup_events.as_ref().and_then(|events| events.parent()) else {
+                return Vec::new();
+            };
+            let pids = std::fs::read_to_string(folder.join("cgroup.procs")).unwrap_or_default();
+            let mut seen = Vec::new();
+            for pid in pids.lines().filter_map(|line| line.trim().parse::<u32>().ok()) {
+                let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).unwrap_or_default().trim().to_owned();
+                let exe_name = std::fs::read_link(format!("/proc/{pid}/exe"))
+                    .ok()
+                    .and_then(|path| path.file_name().map(|name| name.to_string_lossy().to_lowercase()))
+                    .unwrap_or_default();
+                let started = start_time(&std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap_or_default());
+                let sha256 = if with_hashes { self.executable_hash(pid).await } else { None };
+                seen.push(ProcessSeen { pid, started, comm, exe_name, sha256 });
+            }
+            seen
+        })
+    }
+
+    fn take_lookups(&self) -> Option<mpsc::UnboundedReceiver<PoolLookup>> {
+        self.refused.lock().unwrap_or_else(PoisonError::into_inner).take()
+    }
+
+    fn traffic(&self) -> Fut<'_, Traffic> {
+        Box::pin(async move {
+            let bridge = format!("/sys/class/net/{}{}/statistics", sandbox::BRIDGE_PREFIX, self.slot);
+            let read = |name: &str| {
+                std::fs::read_to_string(format!("{bridge}/{name}"))
+                    .ok()
+                    .and_then(|text| text.trim().parse::<u64>().ok())
+            };
+            let listing = run("nft", &["-j", "list", "counters", "table", "inet", fair::TABLE], None, COMMAND_TIMEOUT)
+                .await
+                .ok()
+                .filter(|out| out.ok)
+                .and_then(|out| fair::parse_counters(&out.stdout).ok())
+                .unwrap_or_default();
+            // The bridge receives what the container sends, and sends what it receives.
+            Traffic {
+                out_bytes: read("rx_bytes").unwrap_or(0),
+                in_bytes: read("tx_bytes").unwrap_or(0),
+                drops: fair::drops_of(&listing, self.slot),
+            }
+        })
+    }
+
     fn take_output(&self) -> Option<Output> {
         self.running.output.lock().unwrap_or_else(PoisonError::into_inner).take()
     }
@@ -1097,6 +1228,7 @@ impl Container for NerdctlContainer {
             self.held.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.exits.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.ooms.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
+            self.forwarder.stop();
             Nerdctl::clear_fair_use(self.slot).await;
             self.slots.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.slot);
         })
@@ -1133,6 +1265,14 @@ mod tests {
         assert_eq!(output_reserve_mib(256), 64);
         assert_eq!(output_reserve_mib(64), 16, "a small one a quarter of it, which ext4 allows");
         assert_eq!(output_reserve_mib(8), 4, "never under 4 MiB");
+    }
+
+    #[test]
+    fn a_process_start_time_is_field_22_after_the_commands_name_whatever_the_name_holds() {
+        let stat = "812 (py (thon) 3) S 1 812 812 0 -1 4194560 100 0 0 0 5 1 0 0 20 0 1 0 987654 12345678 900 18446744073709551615";
+        assert_eq!(start_time(stat), 987_654);
+        assert_eq!(start_time(""), 0);
+        assert_eq!(start_time("812 (x) S 1"), 0, "too short");
     }
 
     #[test]

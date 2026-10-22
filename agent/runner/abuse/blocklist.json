@@ -1,0 +1,146 @@
+{
+  "_about": "What the job runner (ADR 0038) looks for in a session. A process whose name is listed is FLAGGED for an admin to look at; one whose executable's SHA-256 is listed is STOPPED. A lookup of a listed pool domain (or any name below it) is answered NXDOMAIN and FLAGGED; a second in the same session STOPS it. Every entry names its source. Add to it with docs/runbooks/abuse.md; it ships inside the runner, so a new list is a new distribution.",
+  "version": "2026-10-22",
+  "names": [
+    {
+      "name": "xmrig",
+      "kind": "miner",
+      "source": "https://github.com/xmrig/xmrig"
+    },
+    {
+      "name": "ethminer",
+      "kind": "miner",
+      "source": "https://github.com/ethereum-mining/ethminer"
+    },
+    {
+      "name": "ccminer",
+      "kind": "miner",
+      "source": "https://github.com/tpruvot/ccminer"
+    },
+    {
+      "name": "minerd",
+      "kind": "miner",
+      "source": "https://github.com/pooler/cpuminer"
+    },
+    {
+      "name": "nbminer",
+      "kind": "miner",
+      "source": "https://github.com/NebuTech/NBMiner"
+    },
+    {
+      "name": "t-rex",
+      "kind": "miner",
+      "source": "https://github.com/trexminer/T-Rex"
+    },
+    {
+      "name": "lolminer",
+      "kind": "miner",
+      "source": "https://github.com/Lolliedieb/lolMiner-releases"
+    },
+    {
+      "name": "teamredminer",
+      "kind": "miner",
+      "source": "https://github.com/todxx/teamredminer"
+    },
+    {
+      "name": "srbminer-multi",
+      "kind": "miner",
+      "source": "https://github.com/doktor83/SRBMiner-Multi"
+    },
+    {
+      "name": "nanominer",
+      "kind": "miner",
+      "source": "https://github.com/nanopool/nanominer"
+    },
+    {
+      "name": "bzminer",
+      "kind": "miner",
+      "source": "https://github.com/bzminer/bzminer"
+    },
+    {
+      "name": "hashcat",
+      "kind": "password_cracker",
+      "source": "https://github.com/hashcat/hashcat"
+    },
+    {
+      "name": "hydra",
+      "kind": "password_cracker",
+      "source": "https://github.com/vanhauser-thc/thc-hydra"
+    }
+  ],
+  "hashes": [],
+  "pools": [
+    {
+      "domain": "nanopool.org",
+      "source": "https://nanopool.org"
+    },
+    {
+      "domain": "2miners.com",
+      "source": "https://2miners.com"
+    },
+    {
+      "domain": "ethermine.org",
+      "source": "https://ethermine.org"
+    },
+    {
+      "domain": "f2pool.com",
+      "source": "https://f2pool.com"
+    },
+    {
+      "domain": "moneroocean.stream",
+      "source": "https://moneroocean.stream"
+    },
+    {
+      "domain": "hashvault.pro",
+      "source": "https://hashvault.pro"
+    },
+    {
+      "domain": "herominers.com",
+      "source": "https://herominers.com"
+    },
+    {
+      "domain": "miningpoolhub.com",
+      "source": "https://miningpoolhub.com"
+    },
+    {
+      "domain": "woolypooly.com",
+      "source": "https://woolypooly.com"
+    },
+    {
+      "domain": "c3pool.com",
+      "source": "https://c3pool.com"
+    },
+    {
+      "domain": "xmrpool.eu",
+      "source": "https://xmrpool.eu"
+    },
+    {
+      "domain": "monerohash.com",
+      "source": "https://monerohash.com"
+    },
+    {
+      "domain": "kryptex.org",
+      "source": "https://kryptex.org"
+    },
+    {
+      "domain": "crazypool.org",
+      "source": "https://crazypool.org"
+    },
+    {
+      "domain": "k1pool.com",
+      "source": "https://k1pool.com"
+    },
+    {
+      "domain": "zpool.ca",
+      "source": "https://zpool.ca"
+    },
+    {
+      "domain": "hiveon.com",
+      "source": "https://hiveon.com"
+    },
+    {
+      "domain": "slushpool.com",
+      "source": "https://slushpool.com"
+    }
+  ]
+}

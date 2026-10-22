@@ -56,6 +56,9 @@ message OpenStreamRequest {
     // Asks for a grant for the self-test's speed check. Answered by
     // SpeedTestGrant.
     SpeedTestRequest speed_test_request = 20;
+    // The runner saw something in a session an admin should look at, or
+    // stopped it for that. Acked.
+    AbuseSignal abuse_signal = 21;
   }
 }
 
@@ -81,7 +84,7 @@ message OpenStreamResponse {
     // Install a newer agent build. Acked.
     UpdateAgent update_agent = 15;
     // Acknowledges an OfferReply, SessionStatus, UsageReport,
-    // SelfTestReport, SetPause, Leave or UpdateResult.
+    // SelfTestReport, SetPause, Leave, UpdateResult or AbuseSignal.
     Ack ack = 16;
     // Fresh storage credentials for a running attempt. Acked.
     RefreshCredentials refresh_credentials = 17;

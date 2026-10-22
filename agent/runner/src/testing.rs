@@ -13,8 +13,10 @@ use jobcore::storage::ObjectStore;
 use jobcore::storage::testing::{MemoryStore, Objects};
 use tokio::sync::{mpsc, watch};
 
+use crate::abuse::{Blocklist, ProcessSeen};
 use crate::container::Plan;
-use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, StartError, Stream};
+use crate::dns::PoolLookup;
+use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, StartError, Stream, Traffic};
 use crate::storage::{Opened, Storage};
 
 /// A clock that follows tokio's, so a test with paused time moves both together.
@@ -51,9 +53,41 @@ pub struct FakeContainer {
     output: Mutex<Option<Output>>,
     say: mpsc::Sender<(Stream, Vec<u8>)>,
     on_term: Mutex<OnTerm>,
+    /// The processes the container shows (ADR 0038), for the abuse watch.
+    processes: Mutex<Vec<ProcessSeen>>,
+    /// The mining-pool lookups its DNS refuses: send one here, as the forwarder would.
+    refuse: mpsc::UnboundedSender<PoolLookup>,
+    refused: Mutex<Option<mpsc::UnboundedReceiver<PoolLookup>>>,
+    /// What its network has carried and the fair-use limits have dropped, in all.
+    traffic: Mutex<Traffic>,
 }
 
 impl FakeContainer {
+    /// A process appears in the container.
+    pub fn show_process(&self, pid: u32, comm: &str, exe_name: &str, sha256: Option<&str>) {
+        self.processes.lock().unwrap().push(ProcessSeen {
+            pid,
+            started: u64::from(pid),
+            comm: comm.to_owned(),
+            exe_name: exe_name.to_owned(),
+            sha256: sha256.map(str::to_owned),
+        });
+    }
+
+    /// The job looks up a mining pool's domain and the forwarder refuses it.
+    pub fn refuse_lookup(&self, domain: &str) {
+        let _ = self.refuse.send(PoolLookup { domain: domain.to_owned() });
+    }
+
+    /// The network has carried this much in all, and the limits have dropped this many new connections.
+    pub fn carry(&self, out_bytes: u64, in_bytes: u64, dropped_connections: u64) {
+        *self.traffic.lock().unwrap() = Traffic {
+            out_bytes,
+            in_bytes,
+            drops: crate::fair::Drops { connections: dropped_connections, ..crate::fair::Drops::default() },
+        };
+    }
+
     /// The job exits with `code`.
     pub fn finish(&self, code: i32) {
         self.exit.send_replace(Some(Exit { code }));
@@ -70,6 +104,20 @@ impl FakeContainer {
 }
 
 impl Container for FakeContainer {
+    fn processes(&self, _with_hashes: bool) -> Fut<'_, Vec<ProcessSeen>> {
+        let processes = self.processes.lock().unwrap().clone();
+        Box::pin(async move { processes })
+    }
+
+    fn take_lookups(&self) -> Option<mpsc::UnboundedReceiver<PoolLookup>> {
+        self.refused.lock().unwrap().take()
+    }
+
+    fn traffic(&self) -> Fut<'_, Traffic> {
+        let traffic = *self.traffic.lock().unwrap();
+        Box::pin(async move { traffic })
+    }
+
     fn take_output(&self) -> Option<Output> {
         self.output.lock().unwrap().take()
     }
@@ -139,6 +187,8 @@ pub struct FakeMachine {
     pub image: Mutex<Result<(), String>>,
     /// What starting a container does: nothing wrong, or this failure.
     pub start: Mutex<Option<StartError>>,
+    /// The list of software and pools to look for; the one built into the runner unless a test sets its own.
+    pub blocklist: Mutex<Option<Arc<Blocklist>>>,
     pub scratch_free: AtomicU64,
     pub development: AtomicBool,
     /// What `leftovers` says is left from finished sessions.
@@ -157,6 +207,7 @@ impl FakeMachine {
             sandbox: Mutex::new(Ok(())),
             image: Mutex::new(Ok(())),
             start: Mutex::new(None),
+            blocklist: Mutex::new(None),
             scratch_free: AtomicU64::new(10 * 1024 * 1024 * 1024),
             development: AtomicBool::new(false),
             leftover: Mutex::new(Vec::new()),
@@ -248,7 +299,12 @@ impl Machine for FakeMachine {
                 hook(&plan);
             }
             let (say, output) = mpsc::channel(64);
+            let (refuse, refused) = mpsc::unbounded_channel();
             let container = Arc::new(FakeContainer {
+                processes: Mutex::new(Vec::new()),
+                refuse,
+                refused: Mutex::new(Some(refused)),
+                traffic: Mutex::new(Traffic::default()),
                 plan,
                 signals: Mutex::new(Vec::new()),
                 removed: AtomicBool::new(false),
@@ -261,6 +317,10 @@ impl Machine for FakeMachine {
             self.containers.lock().unwrap().push(Arc::clone(&container));
             Ok(container as Arc<dyn Container>)
         })
+    }
+
+    fn abuse_blocklist(&self) -> Arc<Blocklist> {
+        self.blocklist.lock().unwrap().clone().unwrap_or_else(|| Arc::new(Blocklist::built_in()))
     }
 
     fn self_check<'a>(&'a self, _cuda_image: Option<&'a str>, _quick: bool) -> Fut<'a, Vec<Check>> {

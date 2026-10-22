@@ -2,7 +2,7 @@
 //! `libnvidia-ml.so`).
 
 use nvml_wrapper::Nvml;
-use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
+use nvml_wrapper::enum_wrappers::device::{PcieUtilCounter, TemperatureSensor};
 
 use super::{GpuError, GpuInfo, GpuReading, GpuSource};
 
@@ -72,11 +72,19 @@ impl GpuSource for NvmlGpus {
                 let device = self.0.device_by_index(index).map_err(nvml_error("GPU"))?;
                 let temperature = device.temperature(TemperatureSensor::Gpu).map_err(nvml_error("temperature"))?;
                 let utilisation = device.utilization_rates().map_err(nvml_error("utilisation"))?;
+                let memory = device.memory_info().map_err(nvml_error("GPU memory"))?;
+                // PCIe traffic, both directions, for the review of abuse; many laptop GPUs don't report it, and none is 0.
+                let pcie = [PcieUtilCounter::Send, PcieUtilCounter::Receive]
+                    .into_iter()
+                    .map(|counter| device.pcie_throughput(counter).unwrap_or(0))
+                    .fold(0_u32, u32::saturating_add);
                 Ok(GpuReading {
                     uuid: device.uuid().map_err(nvml_error("GPU uuid"))?,
                     temp_c: i32::try_from(temperature).unwrap_or(i32::MAX),
                     util_pct: i32::try_from(utilisation.gpu).unwrap_or(100),
-                    vram_used_mb: megabytes(device.memory_info().map_err(nvml_error("GPU memory"))?.used),
+                    vram_used_mb: megabytes(memory.used),
+                    vram_total_mb: megabytes(memory.total),
+                    pcie_kb_per_s: i32::try_from(pcie).unwrap_or(i32::MAX),
                     // Laptop GPUs often don't report power; absent, never zero.
                     power_w: device.power_usage().ok().and_then(|milliwatts| i32::try_from(milliwatts / 1000).ok()),
                 })

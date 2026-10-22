@@ -53,6 +53,8 @@ impl FakeGpus {
                 temp_c: 45,
                 util_pct: 5,
                 vram_used_mb: 600,
+                vram_total_mb: gpu.vram_mb,
+                pcie_kb_per_s: 0,
                 power_w: Some(25),
             })
             .collect();

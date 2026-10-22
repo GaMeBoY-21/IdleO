@@ -257,7 +257,7 @@ mod tests {
         let clock: Arc<dyn crate::lease_clock::LeaseClock> = Arc::new(crate::lease_clock::SystemLeaseClock);
         let (sessions, _reports) = crate::supervisor::new(
             clock,
-            Arc::new(|_: &[String]| 0),
+            Arc::new(|_: &[String]| crate::telemetry::GpuUsage::util(0)),
             None,
             Vec::<String>::new(),
             dir.path().join("work"),
@@ -407,7 +407,7 @@ mod tests {
             let clock: Arc<dyn crate::lease_clock::LeaseClock> = Arc::new(crate::lease_clock::SystemLeaseClock);
             let (sessions, _reports) = crate::supervisor::new(
                 clock,
-                Arc::new(|_: &[String]| 0),
+                Arc::new(|_: &[String]| crate::telemetry::GpuUsage::util(0)),
                 None,
                 Vec::<String>::new(),
                 dir.path().join("work"),

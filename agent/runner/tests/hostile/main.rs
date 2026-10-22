@@ -197,6 +197,21 @@ impl Harness {
         self.finish(&session, events, Duration::from_secs(180)).await
     }
 
+    /// Runs a job that tries to reach things, and checks the connection-rate limit dropped none of what it tried: a connection
+    /// the limit dropped looks "blocked" whatever the sandbox's rules say, so an attack that outran the limit proves nothing
+    /// about the rules (ADR 0038). The attacks pace themselves under it.
+    async fn run_unthrottled(&self, job: &Job) -> Run {
+        let (session, events) = self.begin(job).await;
+        let slot = self.network_of(&session).await;
+        let run = self.finish(&session, events, Duration::from_secs(180)).await;
+        let dropped = self.fair_drops(slot).connections;
+        assert_eq!(
+            dropped, 0,
+            "the connection limit dropped {dropped} of the attack's connections: it proves nothing about the rules"
+        );
+        run
+    }
+
     fn inside(&self, args: &[&str]) -> String {
         inside(&self.distro, args)
     }
@@ -258,6 +273,40 @@ impl Harness {
     fn fair_drops(&self, slot: u8) -> fair::Drops {
         let listing = self.inside(&["nft", "-j", "list", "counters", "table", "inet", fair::TABLE]);
         fair::drops_of(&fair::parse_counters(&listing).expect("nft's listing of the counters"), slot)
+    }
+
+    /// Adds test entries to the development distribution's marker (`abuse-name=`, `abuse-pool=`, `abuse-sha256=` lines), which
+    /// the runner reads when a session starts; a release distribution has no marker, so no test entries.
+    fn list_for_tests(&self, lines: &[&str]) {
+        let text = lines.join("\n");
+        self.inside(&["sh", "-c", &format!("grep -v '^abuse-' /etc/idleo/development > /tmp/marker; printf '%s\\n' '{text}' >> /tmp/marker; cp /tmp/marker /etc/idleo/development")]);
+    }
+
+    /// Waits for a job to end, collecting what the runner said about abuse on the way: `(kind, detail, stopped)`.
+    async fn finish_collecting(
+        &self,
+        session: &str,
+        mut events: Receiver<RunnerEvent>,
+        within: Duration,
+    ) -> (Run, Vec<(jobcore::protocol::AbuseKind, String, bool)>) {
+        let deadline = Instant::now() + within;
+        let mut told = Vec::new();
+        let ended = loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            assert!(!left.is_zero(), "the job didn't end in {within:?}");
+            match tokio::time::timeout(left, events.recv()).await {
+                Ok(Ok(RunnerEvent { session: who, event: Event::Abuse { kind, detail, stopped, .. }, .. }))
+                    if who == session =>
+                {
+                    told.push((kind, detail, stopped));
+                }
+                Ok(Ok(RunnerEvent { session: who, event: Event::Exited { ended }, .. })) if who == session => {
+                    break ended;
+                }
+                Ok(_) | Err(_) => {}
+            }
+        };
+        (Run { ended, log: self.log(session) }, told)
     }
 
     /// Waits for a job to end, saying how long its outputs took to upload (from the runner's `uploading` to its end).
@@ -386,8 +435,9 @@ hostile!(
         }
         let mut job = Job::new("reach_private");
         job.env.insert("SESSION_PARAM_TARGETS".to_owned(), targets.join(","));
-        let run = h.run(&job).await;
-        expect_held(4, "reach private ranges, the gateway, this machine and other sessions' networks", "reach_private", &run, succeeded(&run));
+        job.max_runtime_secs = 170;
+        let run = h.run_unthrottled(&job).await;
+        expect_held(4, "reach private ranges, this machine, other sessions' networks and every port but DNS on the gateway", "reach_private", &run, succeeded(&run));
     })
 );
 
@@ -395,8 +445,8 @@ hostile!(
     /// 5. Reach anything except TCP 80/443 and DNS to the named resolvers (SMTP 25, SSH 22 to a public address).
     h05_reach_anything_but_the_web_and_dns,
     |h| Box::pin(async move {
-        let run = h.run(&Job::new("reach_ports")).await;
-        expect_held(5, "reach anything but TCP 80/443 and DNS to the named resolvers", "reach_ports", &run, succeeded(&run));
+        let run = h.run_unthrottled(&Job::new("reach_ports")).await;
+        expect_held(5, "reach anything but TCP 80/443 and DNS through the runner's forwarder", "reach_ports", &run, succeeded(&run));
         assert!(run.log.contains("CONTROL https open"), "the positive control: HTTPS to a public address works\n{}", run.log);
     })
 );
@@ -732,6 +782,123 @@ async fn nothing_of_a_session_is_written_outside_its_encrypted_disk() {
     );
     assert_eq!(on_disk, 0, "the marker is in the backing disk {on_disk} times");
     println!("WATCH nothing of the session was written outside its encrypted disk; links: {links:?}");
+}
+
+/// Not an attack: the runner's DNS (ADR 0038). A job looks up a name nobody should mind and then two mining pools: the first
+/// pool lookup is refused and told to an admin, the second stops the session, and the name nobody should mind is written down
+/// nowhere (not in the runner's log, not in a counter): lookups are the renter's private business.
+#[tokio::test]
+#[ignore = "needs the development distribution: agent/runner/tests/hostile/run.sh"]
+async fn a_second_lookup_of_a_mining_pool_stops_the_session_and_no_other_name_is_ever_written_down() {
+    use jobcore::protocol::AbuseKind;
+    let h = Harness::new().await;
+    h.list_for_tests(&["abuse-pool=pool.abuse-test.invalid"]);
+    let private = format!("idleo-private-{}.example.com", uuid::Uuid::now_v7().simple());
+    let mut job = Job::new("lookup_pools");
+    job.env.insert(
+        "SESSION_PARAM_DOMAINS".to_owned(),
+        format!("{private},a.pool.abuse-test.invalid,b.pool.abuse-test.invalid"),
+    );
+    let (session, events) = h.begin(&job).await;
+    let (run, told) = h.finish_collecting(&session, events, Duration::from_secs(90)).await;
+    assert!(
+        matches!(&run.ended, Ended::Failed { code, .. } if code == code::ABUSE_STOPPED),
+        "{:?}\n{}",
+        run.ended,
+        run.log
+    );
+    assert_eq!(
+        told,
+        [
+            (AbuseKind::PoolLookup, "pool.abuse-test.invalid".to_owned(), false),
+            (AbuseKind::PoolLookup, "pool.abuse-test.invalid".to_owned(), true)
+        ]
+    );
+    assert!(run.log.contains(&format!("LOOKUP {private} ")), "the ordinary name was looked up: {}", run.log);
+    assert!(run.log.contains("LOOKUP a.pool.abuse-test.invalid gaierror"), "the pool was refused: {}", run.log);
+    assert!(run.log.contains("stopped because it ran software that isn't allowed on IdleO"), "{}", run.log);
+    assert!(!run.log.contains("RESULT lookup_pools"), "the second pool lookup ended it before the end");
+    // Nobody wrote the ordinary name down: not the runner's log, not anything on the distribution.
+    let journal = h.inside(&["sh", "-c", "journalctl -u idleo-runner --no-pager -o cat"]);
+    assert!(!journal.contains(&private), "the runner's log holds a name the renter looked up");
+    let anywhere =
+        h.inside(&["sh", "-c", &format!("grep -rlaF '{private}' /var/log /var/lib/idleo /run 2>/dev/null | head -3")]);
+    assert_eq!(anywhere.trim(), "", "a name the renter looked up is written down at {anywhere}");
+    println!("WATCH dns: stopped on the second pool lookup; {private} written down nowhere");
+}
+
+/// Not an attack: a program called by a listed name is flagged and the job goes on; a program whose executable is a listed
+/// build is stopped whatever it is called.
+#[tokio::test]
+#[ignore = "needs the development distribution: agent/runner/tests/hostile/run.sh"]
+async fn a_listed_name_flags_and_a_listed_build_stops_whatever_it_is_called() {
+    use jobcore::protocol::AbuseKind;
+    let h = Harness::new().await;
+    // The image is in the distribution once a session has used it.
+    h.run(&Job::new("write_root")).await;
+    let sleep_hash = h
+        .inside(&[
+            "nerdctl",
+            "--namespace",
+            "idleo",
+            "run",
+            "--rm",
+            "--pull",
+            "never",
+            "--network",
+            "none",
+            "--entrypoint",
+            "sha256sum",
+            &h.image,
+            "/bin/sleep",
+        ])
+        .split_whitespace()
+        .find(|word| word.len() == 64 && word.bytes().all(|b| b.is_ascii_hexdigit()))
+        .expect("the image's sleep has a hash")
+        .to_owned();
+    h.list_for_tests(&["abuse-name=idleo-testminer", &format!("abuse-sha256={sleep_hash}")]);
+
+    // By name: told, not stopped. (Its executable is the same `sleep`, so the listed build would stop it: the name is listed
+    // alone in the first run, with the build's hash held back, to show a name alone stops no one.)
+    h.list_for_tests(&["abuse-name=idleo-testminer"]);
+    let mut named = Job::new("run_named");
+    named.env.insert("SESSION_PARAM_NAME".to_owned(), "idleo-testminer".to_owned());
+    let (session, mut events) = h.begin(&named).await;
+    let mut told = Vec::new();
+    let waited = Instant::now();
+    while told.is_empty() && waited.elapsed() < Duration::from_secs(40) {
+        if let Ok(Ok(RunnerEvent { session: who, event: Event::Abuse { kind, detail, stopped, .. }, .. })) =
+            tokio::time::timeout(Duration::from_millis(500), events.recv()).await
+            && who == session
+        {
+            told.push((kind, detail, stopped));
+        }
+    }
+    assert_eq!(told, [(AbuseKind::ProcessName, "idleo-testminer".to_owned(), false)]);
+    let still_running = h.link.request(Request::List).await;
+    assert!(
+        matches!(&still_running, Ok(Answer::List { sessions }) if sessions.iter().any(|s| s.session == session && s.ended.is_none())),
+        "a name alone stops no one: {still_running:?}"
+    );
+    let _ = h.link.request(Request::Stop { session: session.clone(), attempt: 1, grace_secs: 0 }).await;
+    let _ = h.finish(&session, events, Duration::from_secs(60)).await;
+
+    // By build: the same program under an innocent name, and its hash listed.
+    h.list_for_tests(&[&format!("abuse-sha256={sleep_hash}")]);
+    let mut innocent = Job::new("run_named");
+    innocent.env.insert("SESSION_PARAM_NAME".to_owned(), "train-model".to_owned());
+    let (session, events) = h.begin(&innocent).await;
+    let (run, told) = h.finish_collecting(&session, events, Duration::from_secs(60)).await;
+    assert!(
+        matches!(&run.ended, Ended::Failed { code, .. } if code == code::ABUSE_STOPPED),
+        "{:?}\n{}",
+        run.ended,
+        run.log
+    );
+    assert_eq!(told, [(AbuseKind::ProcessHash, "a test build".to_owned(), true)]);
+    println!(
+        "WATCH abuse: a listed name told and stopped no one; a listed build under another name stopped the session"
+    );
 }
 
 /// What a flood job printed: the number after `name=` in its verdict line.

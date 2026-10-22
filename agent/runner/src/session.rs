@@ -15,7 +15,9 @@
 //! The events are hints: the truth is [`Registry::list`], which also holds how an attempt ended until the agent says
 //! [`Registry::forget`], so an agent that restarts finds what happened while it was away.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
+use std::net::Ipv4Addr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
@@ -30,6 +32,7 @@ use jobcore::staging;
 use jobcore::storage::ObjectStore;
 use tokio::sync::{broadcast, watch};
 
+use crate::abuse;
 use crate::container::{self, Plan};
 use crate::machine::{Container, Machine, Progress, Scratch, StartError, Stream};
 use crate::storage::{Opened, Refresher, Storage};
@@ -126,6 +129,8 @@ enum Interrupt {
     Stop(u32),
     LeaseLapsed,
     TimedOut,
+    /// The runner stopped the job for software no renter may run here (ADR 0038).
+    Abuse,
 }
 
 /// Watches an attempt's stop, lease and time.
@@ -191,6 +196,7 @@ fn interrupted(interrupt: Interrupt) -> Ended {
         Interrupt::Stop(_) => Ended::Stopped,
         Interrupt::LeaseLapsed => failed(code::LEASE_EXPIRED, "the lease ran out before it was renewed"),
         Interrupt::TimedOut => failed(code::TIMED_OUT, "the job ran past its maximum runtime"),
+        Interrupt::Abuse => failed(code::ABUSE_STOPPED, "the job ran software that isn't allowed on IdleO"),
     }
 }
 
@@ -573,6 +579,7 @@ impl Registry {
             session: start.session.clone(),
             attempt: start.attempt,
             network: String::new(),
+            dns: Ipv4Addr::UNSPECIFIED,
             spec: start.spec.clone(),
             work: scratch.work.clone(),
             input: scratch.input.clone(),
@@ -603,7 +610,7 @@ impl Registry {
 
     /// The job runs: its output becomes the log, its checkpoints go up, and the stop, the lease and the time are enforced,
     /// until it exits; then its end is decided.
-    #[allow(clippy::too_many_arguments)] // One attempt's whole context, threaded down from `phases`.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // One attempt's whole context, and the loop that watches it: its signals, its stop, its lease and its minute, each in view.
     async fn watch_job(
         &self,
         emitter: &Emitter,
@@ -616,10 +623,13 @@ impl Registry {
     ) -> Ended {
         let begun = std::time::Instant::now();
         let session = start.session.clone();
+        // How many lines the job has printed, which the minute's behaviour says (ADR 0038): a count, never a word of them.
+        let printed = Arc::new(AtomicU64::new(0));
         let pump = container.take_output().map(|mut output| {
             let log = log.clone();
+            let printed = Arc::clone(&printed);
             tokio::spawn(async move {
-                let mut lines = Lines::default();
+                let mut lines = Lines::counting(printed);
                 let mut first = true;
                 while let Some((stream, bytes)) = output.recv().await {
                     if std::mem::take(&mut first) {
@@ -648,9 +658,60 @@ impl Registry {
         let mut cause: Option<Interrupt> = None;
         let mut kill_at: Option<Duration> = None;
         let mut killed = false;
+        // What the runner looks for while the job runs (ADR 0038): listed software among its processes, and lookups of a
+        // mining pool; and, every minute, what it did, for an admin who has to decide what the rest cannot.
+        let blocklist = self.machine.abuse_blocklist();
+        let mut lookups = container.take_lookups();
+        let mut judge = abuse::Judge::default();
+        let mut seen_processes: HashSet<(u32, u64)> = HashSet::new();
+        let mut look = tokio::time::interval(self.tick * 2);
+        let mut minute = tokio::time::interval(self.tick * 60);
+        minute.tick().await;
+        let mut before = container.traffic().await;
+        let mut printed_before = 0;
         let exited = loop {
             tokio::select! {
                 exited = &mut exit => break exited,
+                _ = look.tick(), if !killed => {
+                    for process in container.processes(blocklist.has_hashes()).await {
+                        if seen_processes.insert((process.pid, process.started))
+                            && let Some(finding) = blocklist.check(&process)
+                            && Self::act(&judge.process(&finding), emitter, log)
+                        {
+                            cause = Some(Interrupt::Abuse);
+                            container.signal("KILL").await;
+                            killed = true;
+                        }
+                    }
+                }
+                refused = async {
+                    match lookups.as_mut() {
+                        Some(refused) => refused.recv().await,
+                        None => std::future::pending().await,
+                    }
+                }, if !killed => {
+                    if let Some(lookup) = refused
+                        && Self::act(&judge.pool_lookup(&lookup.domain), emitter, log)
+                    {
+                        cause = Some(Interrupt::Abuse);
+                        container.signal("KILL").await;
+                        killed = true;
+                    }
+                }
+                _ = minute.tick(), if !killed => {
+                    let now = container.traffic().await;
+                    let lines = printed.load(Ordering::Relaxed);
+                    let dropped = now.drops.connections.saturating_sub(before.drops.connections);
+                    emitter.send(Event::Behavior {
+                        net_out_bytes: now.out_bytes.saturating_sub(before.out_bytes),
+                        net_in_bytes: now.in_bytes.saturating_sub(before.in_bytes),
+                        printed_lines: lines.saturating_sub(printed_before),
+                        conn_drops: dropped,
+                    });
+                    (before, printed_before) = (now, lines);
+                    // Dropped connections only ever tell an admin; they stop no one.
+                    Self::act(&judge.minute(dropped, now.drops.connections), emitter, log);
+                }
                 interrupt = async {
                     match cause {
                         None => watch.next().await,
@@ -670,7 +731,7 @@ impl Registry {
                                 kill_at = Some(self.clock.now() + Duration::from_secs(u64::from(grace)));
                             }
                         }
-                        Interrupt::LeaseLapsed | Interrupt::TimedOut => {
+                        Interrupt::LeaseLapsed | Interrupt::TimedOut | Interrupt::Abuse => {
                             cause = Some(interrupt);
                             container.signal("KILL").await;
                             killed = true;
@@ -697,6 +758,28 @@ impl Registry {
         self.conclude(emitter, start, attempt_store, scratch, log, &checkpoints, cause, exited.code, oom).await
     }
 
+    /// Tells the control plane what the judge made of a signal (an `Event::Abuse`), and says whether the session is to be
+    /// stopped for it. A stop also tells the renter, in their own log, in words that don't say how it was found.
+    fn act(verdict: &abuse::Verdict, emitter: &Emitter, log: &LogWriter) -> bool {
+        let (report, stopped) = match verdict {
+            abuse::Verdict::Nothing => return false,
+            abuse::Verdict::Flag(report) => (report, false),
+            abuse::Verdict::Stop(report) => (report, true),
+        };
+        emitter.send(Event::Abuse {
+            kind: report.kind,
+            detail: report.detail.clone(),
+            sha256: report.sha256.clone(),
+            count: report.count,
+            stopped,
+        });
+        if stopped {
+            tracing::warn!(session = %emitter.entry.session, kind = ?report.kind, detail = %report.detail, "a session was stopped for software that isn't allowed");
+            log.line("this session was stopped because it ran software that isn't allowed on IdleO");
+        }
+        stopped
+    }
+
     /// Decides how a job that has exited and been removed ended: what it finished is uploaded (the job is dead, so nothing
     /// changes under the upload), then, with no stop, lapse or time limit to blame, its exit code and the kernel's say.
     #[allow(clippy::too_many_arguments)] // The facts of one ended job, gathered by `watch_job`.
@@ -712,7 +795,8 @@ impl Registry {
         exit_code: i32,
         oom: bool,
     ) -> Ended {
-        let lapsed = matches!(cause, Some(Interrupt::LeaseLapsed));
+        // Nothing is saved from a lapsed lease or a session stopped for software no renter may run here.
+        let lapsed = matches!(cause, Some(Interrupt::LeaseLapsed | Interrupt::Abuse));
         if !lapsed {
             // The job is dead, so what it finished can no longer change under the upload.
             let mut checkpoints = checkpoints.lock().await;
@@ -727,6 +811,7 @@ impl Registry {
         }
         match cause {
             Some(Interrupt::LeaseLapsed) => return interrupted(Interrupt::LeaseLapsed),
+            Some(Interrupt::Abuse) => return interrupted(Interrupt::Abuse),
             Some(Interrupt::TimedOut) => return interrupted(Interrupt::TimedOut),
             Some(Interrupt::Stop(_)) => return Ended::Stopped,
             None => {}
@@ -842,13 +927,18 @@ async fn sweep_loop(
 }
 
 /// Turns a job's output chunks into whole lines, per stream, so stdout and stderr never mix inside a line.
-#[derive(Default)]
 struct Lines {
     stdout: Vec<u8>,
     stderr: Vec<u8>,
+    /// How many lines have been written, for the minute's behaviour.
+    printed: Arc<AtomicU64>,
 }
 
 impl Lines {
+    fn counting(printed: Arc<AtomicU64>) -> Self {
+        Self { stdout: Vec::new(), stderr: Vec::new(), printed }
+    }
+
     fn push(&mut self, stream: Stream, bytes: &[u8], log: &LogWriter) {
         let pending = match stream {
             Stream::Stdout => &mut self.stdout,
@@ -860,6 +950,7 @@ impl Lines {
         {
             let rest = pending.split_off(end + 1);
             let line = std::mem::replace(pending, rest);
+            self.printed.fetch_add(1, Ordering::Relaxed);
             log.write(line_with_newline(line));
         }
     }
@@ -867,6 +958,7 @@ impl Lines {
     fn finish(&mut self, log: &LogWriter) {
         for pending in [&mut self.stdout, &mut self.stderr] {
             if !pending.is_empty() {
+                self.printed.fetch_add(1, Ordering::Relaxed);
                 log.write(line_with_newline(std::mem::take(pending)));
             }
         }

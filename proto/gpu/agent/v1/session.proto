@@ -443,4 +443,63 @@ message UsageReport {
   int32 gpu_seconds = 4;
   // Average GPU utilisation over the minute, in percent.
   int32 avg_util_pct = 5;
+  // What the job did this minute, for the review of abuse (ADR 0038): never
+  // billed on, never shown to a host, and kept 90 days. Absent from an agent
+  // that doesn't send it, which is why `behaviour_reported` says whether the
+  // rest is a measurement or just zeroes.
+  bool behaviour_reported = 6;
+  // Average GPU memory in use over the minute, in percent of the GPU's.
+  int32 avg_memory_pct = 7;
+  // Average PCIe traffic between the GPU and the machine over the minute,
+  // both directions together, in KB/s. 0 where the GPU doesn't report it.
+  int32 avg_pcie_kb_per_s = 8;
+  // Bytes the job sent out over the minute.
+  int64 network_out_bytes = 9;
+  // Bytes the job received over the minute.
+  int64 network_in_bytes = 10;
+  // How many lines the job printed over the minute (a count; never a word).
+  int64 printed_lines = 11;
+  // How many of the job's new connections the fair-use limit dropped.
+  int64 connections_dropped = 12;
+}
+
+// Agent to control plane: its runner saw something in a session that an admin
+// should look at, or stopped the session for it (ADR 0038). Acked; the agent
+// sends it again until then. Nothing in it names a path, an address or
+// anything the job typed.
+message AbuseSignal {
+  // What the signal is.
+  enum Kind {
+    // Never sent. A receiver drops it.
+    KIND_UNSPECIFIED = 0;
+    // A process in the job has a name on the blocklist. Flag only.
+    KIND_PROCESS_NAME = 1;
+    // A process in the job is a build on the blocklist, by its SHA-256. The
+    // runner stopped the session.
+    KIND_PROCESS_HASH = 2;
+    // The job looked up a mining pool's domain on the blocklist. The first
+    // is a flag; the second in the same session stopped it.
+    KIND_POOL_LOOKUP = 3;
+    // The fair-use limit dropped the job's new connections for 5 minutes
+    // running. Flag only.
+    KIND_CONNECTION_DROPS = 4;
+  }
+  // The session the signal is about.
+  // Empty is invalid; the receiver drops the message.
+  string session_id = 1;
+  // The attempt that showed it.
+  // Zero is invalid; the receiver drops the message.
+  int32 attempt = 2;
+  // What the signal is.
+  // UNSPECIFIED is invalid; the receiver drops the message.
+  Kind kind = 3;
+  // The process's name or the pool's domain from the blocklist, at most 200
+  // characters; empty for connection drops.
+  string detail = 4;
+  // The executable's SHA-256, 64 lower-case hex digits, for KIND_PROCESS_HASH.
+  string sha256 = 5;
+  // For KIND_CONNECTION_DROPS, how many new connections were dropped in all.
+  int64 count = 6;
+  // The runner stopped the session because of this signal.
+  bool stopped = 7;
 }

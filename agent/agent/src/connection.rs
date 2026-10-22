@@ -253,7 +253,7 @@ pub async fn run(mut options: RunOptions, mut shutdown: watch::Receiver<bool>) -
     let readings = Arc::new(Readings::default());
     let utilisation: supervisor::Utilisation = {
         let readings = Arc::clone(&readings);
-        Arc::new(move |gpus: &[String]| readings.take_mean_utilisation(gpus))
+        Arc::new(move |gpus: &[String]| readings.take_usage(gpus))
     };
     let (sessions, reports) = supervisor::new(
         Arc::clone(&options.lease_clock),

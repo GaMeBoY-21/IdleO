@@ -33,8 +33,8 @@ use std::time::Duration;
 
 use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::{
-    Ack, InputRef, LeaseRenew, OpenStreamRequest, RefreshCredentials, RunningSession, SessionError, SessionState,
-    SessionStatus, StartSession, StopReason, StopSession, UsageReport,
+    AbuseSignal, Ack, InputRef, LeaseRenew, OpenStreamRequest, RefreshCredentials, RunningSession, SessionError,
+    SessionState, SessionStatus, StartSession, StopReason, StopSession, UsageReport, abuse_signal,
 };
 use tokio::sync::{Notify, mpsc, watch};
 use tokio::task::{AbortHandle, JoinHandle};
@@ -47,6 +47,7 @@ use crate::new_message_id;
 use crate::runner::{Adopted, Fence, Job, Report, SessionRunner};
 use crate::staging;
 use crate::storage::{Grant, ObjectStore, S3Store};
+use crate::telemetry::GpuUsage;
 
 /// What the supervisor learns from a runner task.
 #[derive(Debug)]
@@ -123,6 +124,17 @@ struct Attempt {
     pending_end: Option<PendingEnd>,
     /// The attempt's scratch folder: its staged input, wiped when it ends.
     folder: Option<PathBuf>,
+    /// What the runner has said the job did since the last usage report (ADR 0038); `None` for a runner that says nothing.
+    behaviour: Option<Behaviour>,
+}
+
+/// What a job did, summed over the minutes the runner reported since the last usage report.
+#[derive(Debug, Clone, Copy, Default)]
+struct Behaviour {
+    network_out_bytes: i64,
+    network_in_bytes: i64,
+    printed_lines: i64,
+    connections_dropped: i64,
 }
 
 /// A terminal status waiting for the logs to flush.
@@ -163,6 +175,7 @@ impl Attempt {
             sink: None,
             pending_end: None,
             folder: None,
+            behaviour: None,
         }
     }
 
@@ -180,8 +193,8 @@ struct Queued {
     sent_at: Option<Instant>,
 }
 
-/// Mean GPU utilisation of the given GPUs since the last call for them, in percent.
-pub type Utilisation = Arc<dyn Fn(&[String]) -> i32 + Send + Sync>;
+/// What the given GPUs did since the last call for them, as means (ADR 0038): utilisation and memory in percent, `PCIe` in KB/s.
+pub type Utilisation = Arc<dyn Fn(&[String]) -> GpuUsage + Send + Sync>;
 
 /// A live attempt's deadlines, read before acting on them: its session, lease end, runtime cap, and the
 /// grace end and reason of a stop under way.
@@ -436,6 +449,7 @@ impl Supervisor {
                 sink: sink.map(|sink| sink.abort_handle()),
                 pending_end: None,
                 folder: Some(folder),
+                behaviour: None,
             },
         );
         Ok(())
@@ -639,6 +653,7 @@ impl Supervisor {
                     sink: None,
                     pending_end: None,
                     folder: None,
+                    behaviour: None,
                 },
             );
         }
@@ -723,16 +738,63 @@ impl Supervisor {
     }
 
     fn queue_usage(&mut self, session_id: Uuid, minute_index: i32, gpu_seconds: i32) {
-        let Some(attempt) = self.attempts.get(&session_id) else { return };
+        let Some(attempt) = self.attempts.get_mut(&session_id) else { return };
+        let gpu = (self.utilisation)(&attempt.gpus);
+        // What the runner said the job did since the last report goes on this one, once (ADR 0038); a runner that said nothing
+        // sends the report as it always was.
+        let behaviour = attempt.behaviour.take();
         let report = UsageReport {
             session_id: session_id.to_string(),
             attempt: attempt.number,
             minute_index: Some(minute_index),
             gpu_seconds,
-            avg_util_pct: (self.utilisation)(&attempt.gpus),
+            avg_util_pct: gpu.util_pct,
+            behaviour_reported: behaviour.is_some(),
+            avg_memory_pct: gpu.memory_pct,
+            avg_pcie_kb_per_s: gpu.pcie_kb_per_s,
+            network_out_bytes: behaviour.map_or(0, |b| b.network_out_bytes),
+            network_in_bytes: behaviour.map_or(0, |b| b.network_in_bytes),
+            printed_lines: behaviour.map_or(0, |b| b.printed_lines),
+            connections_dropped: behaviour.map_or(0, |b| b.connections_dropped),
         };
         self.outbox.push(Queued {
             request: OpenStreamRequest { message_id: new_message_id(), body: Some(AgentBody::UsageReport(report)) },
+            session_id,
+            sent_at: None,
+        });
+        self.changed.notify_one();
+    }
+
+    /// An `AbuseSignal` for the control plane, kept in the outbox until it acks (ADR 0038). Nothing in it names a path or an
+    /// address.
+    fn queue_abuse(
+        &mut self,
+        session_id: Uuid,
+        kind: jobcore::protocol::AbuseKind,
+        detail: &str,
+        sha256: &str,
+        count: u64,
+        stopped: bool,
+    ) {
+        use jobcore::protocol::AbuseKind;
+        let Some(attempt) = self.attempts.get(&session_id) else { return };
+        let signal = AbuseSignal {
+            session_id: session_id.to_string(),
+            attempt: attempt.number,
+            kind: match kind {
+                AbuseKind::ProcessName => abuse_signal::Kind::ProcessName,
+                AbuseKind::ProcessHash => abuse_signal::Kind::ProcessHash,
+                AbuseKind::PoolLookup => abuse_signal::Kind::PoolLookup,
+                AbuseKind::ConnectionDrops => abuse_signal::Kind::ConnectionDrops,
+            }
+            .into(),
+            detail: detail.chars().take(200).collect(),
+            sha256: sha256.to_owned(),
+            count: i64::try_from(count).unwrap_or(i64::MAX),
+            stopped,
+        };
+        self.outbox.push(Queued {
+            request: OpenStreamRequest { message_id: new_message_id(), body: Some(AgentBody::AbuseSignal(signal)) },
             session_id,
             sent_at: None,
         });
@@ -776,6 +838,18 @@ impl Supervisor {
             Reported::Report(Report::Checkpoint(seq)) => {
                 attempt.latest_seq = attempt.latest_seq.max(seq);
                 self.queue_status(tagged.session_id, None, None);
+            }
+            Reported::Report(Report::Behavior { net_out_bytes, net_in_bytes, printed_lines, conn_drops }) => {
+                let total = attempt.behaviour.get_or_insert_with(Behaviour::default);
+                let add =
+                    |into: &mut i64, bytes: u64| *into = into.saturating_add(i64::try_from(bytes).unwrap_or(i64::MAX));
+                add(&mut total.network_out_bytes, net_out_bytes);
+                add(&mut total.network_in_bytes, net_in_bytes);
+                add(&mut total.printed_lines, printed_lines);
+                add(&mut total.connections_dropped, conn_drops);
+            }
+            Reported::Report(Report::Abuse { kind, detail, sha256, count, stopped }) => {
+                self.queue_abuse(tagged.session_id, kind, &detail, &sha256, count, stopped);
             }
             Reported::Report(Report::Succeeded) => self.end(tagged.session_id, SessionState::Succeeded, None, Some(0)),
             Reported::Report(Report::Stopped) => {
@@ -950,7 +1024,7 @@ pub mod testing {
     pub fn idle_supervisor() -> (Shared, mpsc::UnboundedReceiver<Tagged>) {
         new(
             Arc::new(FakeLeaseClock::default()),
-            Arc::new(|_| 0),
+            Arc::new(|_| crate::telemetry::GpuUsage::util(0)),
             None,
             [],
             std::env::temp_dir().join("idleo-idle-supervisor"),
@@ -1000,7 +1074,7 @@ mod tests {
         let work = tempfile::tempdir().unwrap();
         let (shared, received) = new(
             Arc::clone(&clock) as Arc<dyn LeaseClock>,
-            Arc::new(|_: &[String]| 42),
+            Arc::new(|_: &[String]| crate::telemetry::GpuUsage::util(42)),
             Some(Arc::clone(&runner) as Arc<dyn SessionRunner>),
             HashSet::from([GPU.to_owned()]),
             work.path().join("work"),
@@ -1309,6 +1383,101 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn what_the_runner_says_the_job_did_goes_on_the_next_usage_report_once() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        running(&mut setup, session, 0).await;
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        // Two minutes' news from the runner, then a third before the report goes out: summed, and said once.
+        for (out, inn, lines, dropped) in [(1_000, 5_000, 4, 0), (2_000, 6_000, 6, 30)] {
+            reports
+                .send(Report::Behavior {
+                    net_out_bytes: out,
+                    net_in_bytes: inn,
+                    printed_lines: lines,
+                    conn_drops: dropped,
+                })
+                .unwrap();
+            let tagged = setup.received.recv().await.unwrap();
+            setup.shared.lock().apply(tagged);
+        }
+        setup.clock.advance(Duration::from_secs(60));
+        setup.shared.lock().check_deadlines();
+        let first = usage(&setup.shared);
+        assert_eq!(first.len(), 1);
+        assert!(first[0].behaviour_reported);
+        assert_eq!(
+            (
+                first[0].network_out_bytes,
+                first[0].network_in_bytes,
+                first[0].printed_lines,
+                first[0].connections_dropped
+            ),
+            (3_000, 11_000, 10, 30)
+        );
+
+        // The next minute, with no news from the runner: reported as such, never as a quiet job.
+        renew_now(&setup, session);
+        setup.clock.advance(Duration::from_secs(60));
+        setup.shared.lock().check_deadlines();
+        let second = usage(&setup.shared);
+        assert_eq!(second.len(), 1, "the first was sent already");
+        assert!(!second[0].behaviour_reported, "a runner that said nothing leaves the report as it was");
+        assert_eq!((second[0].network_out_bytes, second[0].printed_lines), (0, 0));
+    }
+
+    #[tokio::test]
+    async fn an_abuse_signal_is_kept_for_the_control_plane_until_it_acks_it() {
+        let mut setup = setup();
+        let session = Uuid::now_v7();
+        running(&mut setup, session, 0).await;
+        let reports = setup.runner.started.lock().unwrap()[0].1.clone();
+        reports
+            .send(Report::Abuse {
+                kind: jobcore::protocol::AbuseKind::PoolLookup,
+                detail: "nanopool.org".to_owned(),
+                sha256: String::new(),
+                count: 0,
+                stopped: true,
+            })
+            .unwrap();
+        let tagged = setup.received.recv().await.unwrap();
+        setup.shared.lock().apply(tagged);
+
+        let signals = || -> Vec<(String, AbuseSignal)> {
+            setup
+                .shared
+                .lock()
+                .due(Instant::now(), Duration::from_secs(3600))
+                .into_iter()
+                .filter_map(|request| match request.body {
+                    Some(AgentBody::AbuseSignal(signal)) => Some((request.message_id, signal)),
+                    _ => None,
+                })
+                .collect()
+        };
+        let sent = signals();
+        assert_eq!(sent.len(), 1);
+        let (message_id, signal) = &sent[0];
+        assert_eq!((signal.attempt, signal.detail.as_str(), signal.stopped), (1, "nanopool.org", true));
+        assert_eq!(signal.kind(), abuse_signal::Kind::PoolLookup);
+        assert_eq!(signal.session_id, session.to_string());
+        // Not acked yet: the next stream sends it again. Acked: it is gone.
+        let abuse_due = |later: u64| {
+            setup
+                .shared
+                .lock()
+                .due(Instant::now() + Duration::from_secs(later), Duration::from_secs(1))
+                .into_iter()
+                .filter(|request| matches!(request.body, Some(AgentBody::AbuseSignal(_))))
+                .count()
+        };
+        assert_eq!(abuse_due(3600), 1, "sent again until acked");
+        setup.shared.lock().acked(message_id);
+        assert_eq!(abuse_due(7200), 0, "and gone once acked");
+    }
+
+    #[tokio::test]
     async fn after_the_lease_lapses_nothing_more_is_reported() {
         let mut setup = setup();
         let session = Uuid::now_v7();
@@ -1558,7 +1727,7 @@ mod tests {
     async fn without_a_runner_a_start_fails_rather_than_hanging() {
         let (shared, _received) = new(
             Arc::new(FakeLeaseClock::default()),
-            Arc::new(|_: &[String]| 0),
+            Arc::new(|_: &[String]| crate::telemetry::GpuUsage::util(0)),
             None,
             HashSet::from([GPU.to_owned()]),
             std::env::temp_dir().join("idleo-unused"),

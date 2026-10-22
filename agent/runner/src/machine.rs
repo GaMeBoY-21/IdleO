@@ -63,8 +63,32 @@ pub struct Exit {
     pub code: i32,
 }
 
+/// What a session's network has carried and what the fair-use limits dropped, since its container started (ADR 0038).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Traffic {
+    /// Bytes the job sent out.
+    pub out_bytes: u64,
+    /// Bytes it received.
+    pub in_bytes: u64,
+    /// What the fair-use rules dropped.
+    pub drops: crate::fair::Drops,
+}
+
 /// A running job.
 pub trait Container: Send + Sync {
+    /// The processes in the container now. Their executables' SHA-256 are worked out only when `with_hashes` (the blocklist
+    /// lists any), and only once for each executable.
+    fn processes(&self, _with_hashes: bool) -> Fut<'_, Vec<crate::abuse::ProcessSeen>> {
+        Box::pin(async { Vec::new() })
+    }
+    /// The mining-pool lookups the session's DNS forwarder has refused, one message each. Only the first call has them.
+    fn take_lookups(&self) -> Option<mpsc::UnboundedReceiver<crate::dns::PoolLookup>> {
+        None
+    }
+    /// What its network has carried and what the fair-use limits have dropped, in all.
+    fn traffic(&self) -> Fut<'_, Traffic> {
+        Box::pin(async { Traffic::default() })
+    }
     /// Its output, a chunk at a time, ending when the job's output does. Only the first call has it.
     fn take_output(&self) -> Option<Output>;
     /// Resolves when the job's process has exited.
@@ -136,6 +160,11 @@ pub trait Machine: Send + Sync + 'static {
     /// Whether this is a development distribution, where the runner tells each session's log what was left from the ones before.
     fn development(&self) -> bool {
         false
+    }
+    /// The list of software and pools to look for in a session (ADR 0038): the one built into the runner, and, in a development
+    /// distribution, the test entries its marker file names.
+    fn abuse_blocklist(&self) -> Arc<crate::abuse::Blocklist> {
+        Arc::new(crate::abuse::Blocklist::built_in())
     }
     /// Sessions' leftovers from a runner that died: containers and scratch disks nobody holds. Run once at start-up.
     fn clean_up_leftovers(&self) -> Fut<'_, ()>;

@@ -40,8 +40,32 @@ pub struct GpuReading {
     pub util_pct: i32,
     /// Memory in use, MB.
     pub vram_used_mb: i32,
+    /// The GPU's memory in all, MB.
+    pub vram_total_mb: i32,
+    /// `PCIe` traffic between the GPU and the machine now, both directions together, in KB/s; 0 where the GPU doesn't report it
+    /// (many laptop GPUs don't). Used only for the review of abuse, never for billing (ADR 0038).
+    pub pcie_kb_per_s: i32,
     /// Power draw in watts, if the GPU reports it.
     pub power_w: Option<i32>,
+}
+
+/// What a session's GPUs did over the minute just ended, for its usage report.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct GpuUsage {
+    /// Mean utilisation, percent.
+    pub util_pct: i32,
+    /// Mean memory in use, percent of the GPU's.
+    pub memory_pct: i32,
+    /// Mean `PCIe` traffic, KB/s.
+    pub pcie_kb_per_s: i32,
+}
+
+impl GpuUsage {
+    /// Only a utilisation: for tests and sources with nothing more to say.
+    #[must_use]
+    pub fn util(util_pct: i32) -> Self {
+        Self { util_pct, ..Self::default() }
+    }
 }
 
 /// A GPU reading failed, or no GPU source is available.
@@ -104,11 +128,14 @@ struct Summary {
     max_temp_c: i32,
     util_total: i64,
     vram_used_mb: i32,
+    vram_total_mb: i32,
     max_power_w: Option<i32>,
     latest_temp_c: i32,
     last: Option<GpuReading>,
-    /// Utilisation since a session last took it, for its per-minute usage report.
+    /// Utilisation, memory and `PCIe` traffic since a session last took them, for its per-minute usage report.
     usage_util_total: i64,
+    usage_memory_pct_total: i64,
+    usage_pcie_total: i64,
     usage_samples: u32,
 }
 
@@ -124,10 +151,13 @@ impl Readings {
                     max_temp_c: i32::MIN,
                     util_total: 0,
                     vram_used_mb: 0,
+                    vram_total_mb: 0,
                     max_power_w: None,
                     latest_temp_c: reading.temp_c,
                     last: None,
                     usage_util_total: 0,
+                    usage_memory_pct_total: 0,
+                    usage_pcie_total: 0,
                     usage_samples: 0,
                 });
                 summaries.len() - 1
@@ -137,25 +167,39 @@ impl Readings {
             summary.max_temp_c = summary.max_temp_c.max(reading.temp_c);
             summary.util_total += i64::from(reading.util_pct);
             summary.usage_util_total += i64::from(reading.util_pct);
+            if reading.vram_total_mb > 0 {
+                summary.usage_memory_pct_total +=
+                    i64::from(reading.vram_used_mb) * 100 / i64::from(reading.vram_total_mb);
+            }
+            summary.usage_pcie_total += i64::from(reading.pcie_kb_per_s);
             summary.usage_samples += 1;
             summary.vram_used_mb = reading.vram_used_mb;
+            summary.vram_total_mb = reading.vram_total_mb;
             summary.latest_temp_c = reading.temp_c;
             summary.max_power_w = summary.max_power_w.max(reading.power_w);
         }
     }
 
-    /// The mean utilisation of `uuids` since the last call for them, in percent, and starts counting
-    /// again: a session's usage report for the minute just ended. 0 with no readings.
-    pub fn take_mean_utilisation(&self, uuids: &[String]) -> i32 {
+    /// What `uuids` did since the last call for them, as means, and starts counting again: a session's usage report for the
+    /// minute just ended. Zeroes with no readings.
+    pub fn take_usage(&self, uuids: &[String]) -> GpuUsage {
         let mut summaries = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let (mut total, mut samples) = (0i64, 0i64);
+        let (mut util, mut memory, mut pcie, mut samples) = (0i64, 0i64, 0i64, 0i64);
         for summary in summaries.iter_mut().filter(|summary| uuids.contains(&summary.uuid)) {
-            total += summary.usage_util_total;
+            util += summary.usage_util_total;
+            memory += summary.usage_memory_pct_total;
+            pcie += summary.usage_pcie_total;
             samples += i64::from(summary.usage_samples);
             summary.usage_util_total = 0;
+            summary.usage_memory_pct_total = 0;
+            summary.usage_pcie_total = 0;
             summary.usage_samples = 0;
         }
-        if samples == 0 { 0 } else { i32::try_from(total / samples).unwrap_or(100) }
+        if samples == 0 {
+            return GpuUsage::default();
+        }
+        let mean = |total: i64| i32::try_from(total / samples).unwrap_or(i32::MAX);
+        GpuUsage { util_pct: mean(util).min(100), memory_pct: mean(memory).min(100), pcie_kb_per_s: mean(pcie) }
     }
 
     /// The hottest GPU's latest reading, if any GPU has been read.
@@ -178,6 +222,8 @@ impl Readings {
                         temp_c: summary.max_temp_c,
                         util_pct: i32::try_from(mean).unwrap_or(i32::MAX),
                         vram_used_mb: summary.vram_used_mb,
+                        vram_total_mb: summary.vram_total_mb,
+                        pcie_kb_per_s: 0,
                         power_w: summary.max_power_w,
                     });
                     summary.samples = 0;
@@ -203,18 +249,51 @@ mod tests {
             temp_c: 60,
             util_pct,
             vram_used_mb: 1,
+            vram_total_mb: 0,
+            pcie_kb_per_s: 0,
             power_w: None,
         };
         readings.record(&[reading("a", 90), reading("b", 10)]);
         readings.record(&[reading("a", 70), reading("b", 10)]);
-        assert_eq!(readings.take_mean_utilisation(&["a".to_owned()]), 80);
-        assert_eq!(readings.take_mean_utilisation(&["a".to_owned()]), 0, "taken");
-        assert_eq!(readings.take_mean_utilisation(&["b".to_owned()]), 10, "b untouched by a's take");
+        assert_eq!(readings.take_usage(&["a".to_owned()]).util_pct, 80);
+        assert_eq!(readings.take_usage(&["a".to_owned()]), GpuUsage::default(), "taken");
+        assert_eq!(readings.take_usage(&["b".to_owned()]).util_pct, 10, "b untouched by a's take");
         assert_eq!(readings.summarise().len(), 2, "heartbeats unaffected");
     }
 
+    #[test]
+    fn a_sessions_minute_has_the_mean_memory_in_percent_and_the_mean_pcie_traffic() {
+        let readings = Readings::default();
+        let sample = |used: i32, pcie: i32| GpuReading {
+            uuid: "a".to_owned(),
+            temp_c: 60,
+            util_pct: 98,
+            vram_used_mb: used,
+            vram_total_mb: 8_000,
+            pcie_kb_per_s: pcie,
+            power_w: None,
+        };
+        // A job that works the GPU hard with little of its memory and next to no traffic over the bus.
+        readings.record(&[sample(400, 100)]);
+        readings.record(&[sample(480, 300)]);
+        assert_eq!(
+            readings.take_usage(&["a".to_owned()]),
+            GpuUsage { util_pct: 98, memory_pct: 5, pcie_kb_per_s: 200 },
+            "400 and 480 MB of 8,000 are 5% and 6%, whose integer mean is 5"
+        );
+        assert_eq!(GpuUsage::util(42), GpuUsage { util_pct: 42, memory_pct: 0, pcie_kb_per_s: 0 });
+    }
+
     fn reading(uuid: &str, temp_c: i32, util_pct: i32, vram_used_mb: i32, power_w: Option<i32>) -> GpuReading {
-        GpuReading { uuid: uuid.to_owned(), temp_c, util_pct, vram_used_mb, power_w }
+        GpuReading {
+            uuid: uuid.to_owned(),
+            temp_c,
+            util_pct,
+            vram_used_mb,
+            vram_total_mb: 0,
+            pcie_kb_per_s: 0,
+            power_w,
+        }
     }
 
     #[test]

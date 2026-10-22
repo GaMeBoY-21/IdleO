@@ -47,6 +47,9 @@ pub mod code {
     pub const BAD_REQUEST: &str = "bad_request";
     /// The line's version isn't the runner's.
     pub const UNSUPPORTED_VERSION: &str = "unsupported_version";
+    /// The runner stopped the job because it ran software no renter may run on a host's GPU (ADR 0038): a listed build, or a
+    /// second lookup of a mining pool.
+    pub const ABUSE_STOPPED: &str = "abuse_stopped";
 }
 
 /// One line on the wire.
@@ -503,6 +506,34 @@ pub enum Event {
         /// How it ended.
         ended: Ended,
     },
+    /// What the runner saw in the session that an admin should look at, or that it stopped the session for (ADR 0038).
+    Abuse {
+        /// Which signal.
+        kind: AbuseKind,
+        /// The process's name, or the pool's domain from the blocklist; never a path, an address or anything the job typed.
+        #[serde(default)]
+        detail: String,
+        /// The executable's SHA-256, for [`AbuseKind::ProcessHash`].
+        #[serde(default)]
+        sha256: String,
+        /// For [`AbuseKind::ConnectionDrops`]: how many new connections the fair-use limit has dropped in all.
+        #[serde(default)]
+        count: u64,
+        /// The runner stopped the session because of this; else it only tells.
+        stopped: bool,
+    },
+    /// What the session's job did in the last minute, for the review of abuse (ADR 0038): never billed on, never shown to a
+    /// host, and kept 90 days by the control plane.
+    Behavior {
+        /// Bytes the job sent out in the minute.
+        net_out_bytes: u64,
+        /// Bytes it received.
+        net_in_bytes: u64,
+        /// How many lines it printed.
+        printed_lines: u64,
+        /// New connections the fair-use limit dropped in the minute.
+        conn_drops: u64,
+    },
     /// Progress of a [`Request::Pull`], which has no session: `session` is empty.
     Pull {
         /// The image.
@@ -512,6 +543,20 @@ pub enum Event {
         /// Bytes in all, when known.
         total_bytes: u64,
     },
+}
+
+/// What an [`Event::Abuse`] is about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AbuseKind {
+    /// A process with a listed name (flagged).
+    ProcessName,
+    /// A process whose executable is a listed build (stops the session).
+    ProcessHash,
+    /// A lookup of a mining pool's domain (flagged; a second stops the session).
+    PoolLookup,
+    /// The fair-use limit has dropped a job's new connections for 5 minutes running (flagged).
+    ConnectionDrops,
 }
 
 /// Why a line couldn't be read.
@@ -659,6 +704,22 @@ mod tests {
             Frame::event("s", 1, Event::State { phase: Phase::Running }),
             Frame::event("s", 1, Event::Logs { latest_seq: 3, flushed: false }),
             Frame::event("s", 1, Event::Checkpoint { seq: 2 }),
+            Frame::event(
+                "s",
+                1,
+                Event::Abuse {
+                    kind: AbuseKind::PoolLookup,
+                    detail: "nanopool.org".to_owned(),
+                    sha256: String::new(),
+                    count: 0,
+                    stopped: false,
+                },
+            ),
+            Frame::event(
+                "s",
+                1,
+                Event::Behavior { net_out_bytes: 1200, net_in_bytes: 3400, printed_lines: 7, conn_drops: 0 },
+            ),
             Frame::event(
                 "s",
                 1,

@@ -7,10 +7,12 @@ use std::time::Duration;
 
 use jobcore::manifest::Manifest;
 use jobcore::protocol::{
-    AgentNotes, Body, Ended, Event, Frame, GrantWire, Grants, InputFile, Phase, ResumeFrom, Spec, Start, code,
+    AbuseKind, AgentNotes, Body, Ended, Event, Frame, GrantWire, Grants, InputFile, Phase, ResumeFrom, Spec, Start,
+    code,
 };
 use tokio::sync::broadcast;
 
+use crate::abuse::Blocklist;
 use crate::machine::{StartError, Stream};
 use crate::session::Registry;
 use crate::testing::{FakeMachine, MemoryStorage, OnTerm, TokioClock};
@@ -267,6 +269,130 @@ async fn a_lease_nobody_renews_kills_the_job_and_one_that_is_renewed_keeps_it_ru
     assert_eq!(failed_code(&ended), code::LEASE_EXPIRED, "the agent stopped renewing");
     assert_eq!(container.signals(), ["KILL"]);
     assert!(rig.storage.keys().iter().all(|k| !k.contains("checkpoints/")), "nothing is uploaded after a lease lapses");
+}
+
+/// A list with one listed build, for the tests of what the runner does about software no renter may run (ADR 0038).
+fn list_with_a_build(sha256: &str) -> Arc<Blocklist> {
+    Arc::new(
+        Blocklist::parse(&format!(
+            r#"{{"version":"t","names":[{{"name":"xmrig","kind":"miner","source":"https://example.invalid/x"}}],
+               "hashes":[{{"sha256":"{sha256}","name":"a listed build","kind":"miner","source":"https://example.invalid/x"}}],
+               "pools":[{{"domain":"nanopool.org","source":"https://example.invalid/x"}}]}}"#
+        ))
+        .unwrap(),
+    )
+}
+
+fn abuse_events(events: &[Event]) -> Vec<(AbuseKind, String, bool)> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            Event::Abuse { kind, detail, stopped, .. } => Some((*kind, detail.clone(), *stopped)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn a_listed_build_stops_the_session_tells_the_renter_and_saves_nothing() {
+    let mut rig = rig();
+    let build = "e".repeat(64);
+    *rig.machine.blocklist.lock().unwrap() = Some(list_with_a_build(&build));
+    rig.registry.start(start(1)).unwrap();
+    let container = rig.machine.container().await;
+    let work = rig.machine.scratch_of(&format!("{SESSION}-1")).join("work");
+    std::fs::create_dir_all(work.join("outputs")).unwrap();
+    std::fs::write(work.join("outputs/result.json"), b"{}").unwrap();
+
+    // Renamed to look innocent, but it is the listed build.
+    container.show_process(900, "totally-innocent", "totally-innocent", Some(&build));
+    let ended = rig.ended(1).await;
+
+    assert_eq!(failed_code(&ended), code::ABUSE_STOPPED, "{ended:?}");
+    assert_eq!(container.signals(), ["KILL"], "killed at once, no grace");
+    assert_eq!(abuse_events(&rig.events()), [(AbuseKind::ProcessHash, "a listed build".to_owned(), true)]);
+    assert!(rig.log_text(1).contains("stopped because it ran software that isn't allowed on IdleO"));
+    assert!(rig.storage.keys().iter().all(|k| !k.contains("outputs/")), "nothing of a stopped session is saved");
+    assert!(container.removed.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn a_listed_name_only_tells_an_admin_and_the_job_goes_on() {
+    let mut rig = rig();
+    *rig.machine.blocklist.lock().unwrap() = Some(list_with_a_build(&"e".repeat(64)));
+    rig.registry.start(start(1)).unwrap();
+    let container = rig.machine.container().await;
+
+    container.show_process(901, "xmrig", "xmrig", None);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(rig.registry.list()[0].ended.is_none(), "a name alone stops no one");
+    // The same name again, a new process of it, is not told twice.
+    container.show_process(902, "xmrig", "xmrig", None);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(abuse_events(&rig.events()), [(AbuseKind::ProcessName, "xmrig".to_owned(), false)]);
+
+    container.finish(0);
+    assert_eq!(rig.ended(1).await, Ended::Succeeded, "and it finishes like any job");
+}
+
+#[tokio::test]
+async fn the_first_lookup_of_a_pool_tells_and_the_second_stops_the_session() {
+    let mut rig = rig();
+    rig.registry.start(start(1)).unwrap();
+    let container = rig.machine.container().await;
+
+    container.refuse_lookup("nanopool.org");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(rig.registry.list()[0].ended.is_none(), "one lookup stops no one");
+    container.refuse_lookup("2miners.com");
+    let ended = rig.ended(1).await;
+
+    assert_eq!(failed_code(&ended), code::ABUSE_STOPPED);
+    assert_eq!(
+        abuse_events(&rig.events()),
+        [
+            (AbuseKind::PoolLookup, "nanopool.org".to_owned(), false),
+            (AbuseKind::PoolLookup, "2miners.com".to_owned(), true)
+        ]
+    );
+}
+
+#[tokio::test]
+async fn every_minute_the_runner_says_what_the_job_sent_received_and_printed_and_five_minutes_of_dropped_connections_tell()
+ {
+    let mut rig = rig();
+    rig.registry.start(start(1)).unwrap();
+    let container = rig.machine.container().await;
+    // A minute is 60 ticks here: 600 ms.
+    container.say(Stream::Stdout, "one\ntwo\nthree\n").await;
+    container.carry(5_000, 90_000, 0);
+    tokio::time::sleep(Duration::from_millis(750)).await;
+    let behaviours = |events: Vec<Event>| -> Vec<(u64, u64, u64, u64)> {
+        events
+            .into_iter()
+            .filter_map(|event| match event {
+                Event::Behavior { net_out_bytes, net_in_bytes, printed_lines, conn_drops } => {
+                    Some((net_out_bytes, net_in_bytes, printed_lines, conn_drops))
+                }
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(behaviours(rig.events()), [(5_000, 90_000, 3, 0)], "what the first minute carried and printed");
+
+    // Then the minute after it, counted from the one before, with connections dropped in it and in each one that follows.
+    for minute in 1..=5_u64 {
+        container.carry(5_000 + 100 * minute, 90_000 + 200 * minute, 400 * minute);
+        tokio::time::sleep(Duration::from_millis(600)).await;
+    }
+    let events = rig.events();
+    let flags: Vec<_> = abuse_events(&events);
+    assert_eq!(flags, [(AbuseKind::ConnectionDrops, String::new(), false)], "told once, after five minutes in a row");
+    assert!(rig.registry.list()[0].ended.is_none(), "dropped connections stop no one");
+    let counts = behaviours(events);
+    assert!(counts.iter().all(|(out, inn, lines, _)| (*out, *inn, *lines) == (100, 200, 0)), "{counts:?}");
+    container.finish(0);
+    rig.ended(1).await;
 }
 
 #[tokio::test]

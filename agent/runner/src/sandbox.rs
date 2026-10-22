@@ -166,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn the_rules_block_every_home_network_range_and_allow_only_dns_and_the_web() {
+    fn the_rules_block_every_home_network_range_and_allow_only_the_web_and_dns_to_the_sessions_own_gateway() {
         for range in [
             "10.0.0.0/8",
             "172.16.0.0/12",
@@ -186,13 +186,8 @@ mod tests {
         let accepts: Vec<&str> = session.lines().map(str::trim).filter(|line| line.ends_with("accept")).collect();
         assert_eq!(
             accepts,
-            [
-                "ct state established,related accept",
-                "ip daddr @resolvers_v4 udp dport 53 accept",
-                "ip daddr @resolvers_v4 tcp dport 53 accept",
-                "tcp dport { 80, 443 } accept",
-            ],
-            "nothing else is let through"
+            ["ct state established,related accept", "tcp dport { 80, 443 } accept"],
+            "nothing else is let through: DNS is not, from a session to anywhere it can forward to (ADR 0038)"
         );
         assert_eq!(
             session.lines().map(str::trim).rfind(|line| !line.is_empty()),
@@ -200,7 +195,21 @@ mod tests {
             "and the rest is dropped"
         );
         assert!(session.contains("meta nfproto ipv6 drop"));
+        assert!(!RULES.contains("resolvers_v4"), "no public resolver is asked from a session any more");
         assert!(RULES.contains("iifname \"idl*\" drop"), "nothing on this machine is reachable");
+        // The one thing on this machine a job may reach: port 53, UDP and TCP, of its own network's gateway address.
+        let input = RULES.split("chain input {").nth(1).unwrap().split("\n    }").next().unwrap();
+        let accepts: Vec<&str> = input.lines().map(str::trim).filter(|line| line.ends_with("accept")).collect();
+        assert_eq!(accepts, ["iifname . ip daddr @session_dns_v4 meta l4proto { tcp, udp } th dport 53 accept"]);
+        assert!(
+            input.find("@session_dns_v4").unwrap() < input.find("iifname \"idl*\" drop").unwrap(),
+            "the DNS accept comes before the drop"
+        );
+        for slot in 0..crate::nerdctl::SLOTS {
+            let pair = format!("\"{BRIDGE_PREFIX}{slot}\" . 172.30.{slot}.1");
+            assert_eq!(RULES.matches(&pair).count(), 1, "network {slot} may ask its own gateway, once");
+        }
+        assert_eq!(RULES.matches(" . 172.30.").count(), usize::from(crate::nerdctl::SLOTS), "and no other pair");
         assert!(RULES.contains("oifname \"idl*\" ct state new drop"), "nothing starts a connection to a job");
     }
 

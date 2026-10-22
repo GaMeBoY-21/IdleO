@@ -79,6 +79,31 @@ pub enum Report {
     Stopped,
     /// The attempt's logs are uploaded up to this chunk, or finished (only a runner that owns the logs says so).
     Logs(LogEvent),
+    /// The runner saw something in the session an admin should look at, or stopped it for that (ADR 0038). Sent to the
+    /// control plane as an `AbuseSignal`, which it acks.
+    Abuse {
+        /// Which signal.
+        kind: jobcore::protocol::AbuseKind,
+        /// The process's name or the pool's domain.
+        detail: String,
+        /// The executable's SHA-256, for a listed build.
+        sha256: String,
+        /// Dropped connections in all, for connection drops.
+        count: u64,
+        /// The runner stopped the session because of this.
+        stopped: bool,
+    },
+    /// What the job did in the last minute, which goes on the next usage report (ADR 0038).
+    Behavior {
+        /// Bytes it sent out.
+        net_out_bytes: u64,
+        /// Bytes it received.
+        net_in_bytes: u64,
+        /// Lines it printed.
+        printed_lines: u64,
+        /// New connections the fair-use limit dropped.
+        conn_drops: u64,
+    },
     /// The job or its setup failed.
     Failed {
         /// A stable code, for example `invalid_args`.
