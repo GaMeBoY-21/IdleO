@@ -31,7 +31,7 @@ use jobcore::storage::ObjectStore;
 use tokio::sync::{broadcast, watch};
 
 use crate::container::{self, Plan};
-use crate::machine::{Container, Machine, Progress, Scratch, Stream};
+use crate::machine::{Container, Machine, Progress, Scratch, StartError, Stream};
 use crate::storage::{Opened, Refresher, Storage};
 use crate::uploads::{self, Checkpoints};
 
@@ -578,6 +578,7 @@ impl Registry {
             input: scratch.input.clone(),
             resume,
             logs: scratch.logs(),
+            upload_cap_kbps: start.upload_cap_kbps,
             slots,
             development: self.machine.hello().await.development,
             entrypoint: None,
@@ -586,7 +587,8 @@ impl Registry {
         let mark = std::time::Instant::now();
         let container = match step!(self.machine.start_container(plan)) {
             Ok(container) => Arc::clone(held.container.insert(container)),
-            Err(why) => return failed(code::RUNNER_FAILED, why),
+            Err(StartError::SandboxNotReady(why)) => return failed(code::SANDBOX_NOT_READY, why),
+            Err(StartError::Failed(why)) => return failed(code::RUNNER_FAILED, why),
         };
         timings.container = mark.elapsed();
         timings.started = Some(std::time::Instant::now());

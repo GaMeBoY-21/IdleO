@@ -193,6 +193,8 @@ final class AgentMessages {
     static final int MAX_SELF_TEST_CHECKS = 32;
 
     static final int MAX_DETAIL = 300;
+    /** The fastest upload a self-test may report, in kbit/s: 100 Gbit/s. */
+    static final int MAX_KBPS = 100_000_000;
 
     /** A self-test ready to record, or the reason it's invalid. */
     sealed interface SelfTestResult {
@@ -222,7 +224,18 @@ final class AgentMessages {
         if (report.getPassed() && checks.stream().anyMatch(check -> !check.passed())) {
             return new SelfTestResult.Invalid("passed is true but a check failed");
         }
-        return new SelfTestResult.Valid(new SelfTest(report.getPassed(), cut(report.getDistroVersion()), checks));
+        if (report.getUploadKbps() > MAX_KBPS
+                || report.getUploadCapKbps() > MAX_KBPS
+                || report.getUploadKbps() < 0
+                || report.getUploadCapKbps() < 0) {
+            return new SelfTestResult.Invalid("an upload speed over " + MAX_KBPS + " kbit/s");
+        }
+        return new SelfTestResult.Valid(new SelfTest(
+                report.getPassed(),
+                cut(report.getDistroVersion()),
+                checks,
+                report.getUploadKbps(),
+                report.getUploadCapKbps()));
     }
 
     /** The outcome of a valid UpdateResult, or empty if it's invalid. */

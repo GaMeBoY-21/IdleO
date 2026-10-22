@@ -30,7 +30,8 @@ class HostViews {
      * running now and what it has earned from that so far, never for whom; empty when it's idle. {@code rating} is
      * its renters' average over the last 90 days, empty until 5 of them have rated it (ADR 0028). {@code
      * updateWaiting} says a newer release of the Windows app is offered to it, which it installs once it's idle (ADR
-     * 0034).
+     * 0034). {@code uploadCapKbps} is the most a job may upload at once on it, in kbit/s: half of the upload its agent
+     * measured, never under its floor (ADR 0038); empty until the first speed check.
      */
     record HostResponse(
             UUID id,
@@ -48,6 +49,7 @@ class HostViews {
             List<GpuResponse> gpus,
             HostListings.@Nullable Listing listing,
             HostRatings.@Nullable Rating rating,
+            @Nullable Integer uploadCapKbps,
             Instant createdAt) {}
 
     private final HostService hosts;
@@ -95,6 +97,7 @@ class HostViews {
         var gpus = hosts.gpus(ids);
         var current = work.current(ids);
         var rated = ids.isEmpty() ? Map.<UUID, HostRatings.Rating>of() : ratings.of(ids);
+        var caps = hosts.uploadCaps(ids);
         var now = Instant.now(clock);
         return list.stream()
                 .map(host -> {
@@ -120,6 +123,7 @@ class HostViews {
                                     .toList(),
                             listings.listing(host.id()).orElse(null),
                             rated.get(host.id()),
+                            caps.get(host.id()),
                             host.createdAt());
                 })
                 .toList();

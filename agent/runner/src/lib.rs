@@ -12,6 +12,7 @@
 pub mod attach;
 pub mod container;
 pub mod crypto;
+pub mod fair;
 pub mod machine;
 pub mod nerdctl;
 pub mod safefs;

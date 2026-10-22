@@ -4,7 +4,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
-import { COMMISSION_PERCENT } from "@/lib/hosting";
+import { COMMISSION_PERCENT, uploadLine } from "@/lib/hosting";
 import { gpuName, gigabytes } from "@/lib/gpu";
 
 /**
@@ -107,11 +107,15 @@ export function RightNow({ host }: { host: Host }) {
   );
 }
 
-/** What every owner is told on their machine's screen: who they are stays private, and so do their files. */
-export function PrivacyLine() {
+/**
+ * What every owner is told on their machine's screen: who they are stays private, and so do their files; and how much of
+ * their upload a job may use (ADR 0038), always a line, so a speed check arriving moves nothing.
+ */
+export function PrivacyLine({ host }: { host: Host }) {
   return (
-    <p className="text-small text-text-muted">
-      Renters never see who you are, and their work never touches your files.
-    </p>
+    <div className="flex flex-col gap-1.5 text-small text-text-muted">
+      <p>Renters never see who you are, and their work never touches your files.</p>
+      <p>{uploadLine(host.uploadCapKbps)}</p>
+    </div>
   );
 }

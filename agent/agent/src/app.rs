@@ -228,6 +228,7 @@ fn environment(
         skip,
         runner,
         cuda_image: None,
+        min_upload_kbps: config.min_upload_kbps,
     }
 }
 
@@ -415,6 +416,8 @@ async fn run_command(
     if dev_runner && fake_gpu.is_none() {
         return fail(exit::CONFIG, &"--dev-runner needs --fake-gpu");
     }
+    // How much of the owner's upload a job may use: half of what the self-test last measured, never under the config's floor.
+    let upload_cap = crate::fair_use::UploadCap::load(&config.data_dir, config.min_upload_kbps);
     let containers: Option<Arc<ContainerRunner>> = match container_runner {
         Some(spec) => {
             let Some(container) = spec.strip_prefix("docker:").filter(|name| !name.is_empty()) else {
@@ -427,12 +430,12 @@ async fn run_command(
                 container,
                 "running sessions in containers of a development distribution, as asked by --container-runner"
             );
-            Some(Arc::new(ContainerRunner::docker(container)))
+            Some(Arc::new(ContainerRunner::docker(container).with_upload_cap(Arc::clone(&upload_cap))))
         }
         // A real host on Windows: its own distribution, through wsl.exe (ADR 0035).
         None if !fake_gpu_given && !dev_runner && cfg!(windows) => Updater::current_distro(&Layout::for_user())
             .and_then(|version| ContainerRunner::wsl(&idleo_release::manifest::distro_name(&version)).ok())
-            .map(Arc::new),
+            .map(|runner| Arc::new(runner.with_upload_cap(Arc::clone(&upload_cap)))),
         None => None,
     };
     let runner: Option<Arc<dyn SessionRunner>> = if dev_runner {
@@ -505,7 +508,8 @@ async fn run_command(
     self_test_environment.cuda_image =
         Some(Arc::new(move || cuda_host.prefetch_images().into_iter().next().map(|(image, _)| image)));
     let environment = Arc::new(self_test_environment);
-    let speed = Arc::new(StorageSpeed::new(Arc::clone(&host), http.clone(), Arc::clone(&lease_clock)));
+    let speed =
+        Arc::new(StorageSpeed::new(Arc::clone(&host), http.clone(), Arc::clone(&lease_clock), Arc::clone(&upload_cap)));
     let self_test: SelfTestFn = Arc::new(move |quick| {
         let environment = Arc::clone(&environment);
         let speed = Arc::clone(&speed);

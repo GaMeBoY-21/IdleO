@@ -229,6 +229,19 @@ export function appLine(host: Pick<Host, "agentVersion" | "updateRequired" | "up
   return host.updateWaiting ? `${version} · updating when idle` : `${version} · up to date`;
 }
 
+/**
+ * What the machine page tells its owner about their internet (ADR 0038): the most a job may upload at once, half of what
+ * the host app measured the line to be, never under its floor ("Jobs use at most 25 Mbit/s of your upload"); before the
+ * first speed check it says so, as the host app uses its floor until then.
+ */
+export function uploadLine(uploadCapKbps: number | null | undefined): string {
+  if (!uploadCapKbps) {
+    return "Jobs use only a little of your upload until the host app has checked your connection's speed.";
+  }
+  const mbit = uploadCapKbps / 1_000;
+  return `Jobs use at most ${Number.isInteger(mbit) ? mbit : mbit.toFixed(1)} Mbit/s of your upload, so your own internet stays usable.`;
+}
+
 /** "v0.2.0 · 9.8 MB": the Download button's version and the setup program's size. */
 export function releaseLine(release: { version: string; setupSizeBytes: number }): string {
   return `v${release.version} · ${(release.setupSizeBytes / 1_000_000).toFixed(1)} MB`;

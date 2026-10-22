@@ -16,6 +16,7 @@ pub mod connection;
 pub mod disk;
 pub mod enrol;
 pub mod facts;
+pub mod fair_use;
 pub mod host;
 pub mod link;
 pub mod local;

@@ -435,7 +435,14 @@ pub mod fake {
             });
             let passed = checks.iter().all(|check| check.passed);
             let facts = if facts.is_some() { self.facts.clone() } else { Vec::new() };
-            Ok(Report { passed, checks, distro_version: distro_version.into(), facts })
+            Ok(Report {
+                passed,
+                checks,
+                distro_version: distro_version.into(),
+                facts,
+                upload_kbps: None,
+                upload_cap_kbps: None,
+            })
         }
 
         fn linked(&self) -> bool {

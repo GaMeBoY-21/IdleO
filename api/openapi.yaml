@@ -6142,6 +6142,11 @@ components:
           type: boolean
         updateWaiting:
           type: boolean
+        uploadCapKbps:
+          type:
+          - integer
+          - "null"
+          format: int32
       required:
       - createdAt
       - gpus

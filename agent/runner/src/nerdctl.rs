@@ -27,7 +27,8 @@ use tokio::sync::{mpsc, watch};
 
 use crate::container::{self, NAMESPACE, Plan};
 use crate::crypto;
-use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, Stream};
+use crate::fair;
+use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, StartError, Stream};
 use crate::sandbox;
 
 mod leftovers;
@@ -502,6 +503,7 @@ impl Nerdctl {
         if std::fs::read_to_string("/proc/sys/net/ipv4/ip_forward").map_or(true, |text| text.trim() != "1") {
             return Err("forwarding is off, so a session network can't reach out".to_owned());
         }
+        Self::ensure_fair_table().await?;
         // A renter's files are never on a plain disk here (ADR 0038); only a development distribution may go without.
         if let Err(why) = self.encryption_ready().await
             && !Self::development()
@@ -544,6 +546,42 @@ impl Nerdctl {
                 .split('/')
                 .next()
                 .is_some_and(|host| host.contains(':') || host.parse::<std::net::Ipv4Addr>().is_ok())
+    }
+
+    /// The fair-use table (ADR 0038), made if it isn't there. Never replaced when it is: the rules of the sessions running now
+    /// are in it.
+    async fn ensure_fair_table() -> Result<(), String> {
+        let listing = run("nft", &["list", "table", "inet", fair::TABLE], None, COMMAND_TIMEOUT).await?;
+        if listing.ok {
+            return Ok(());
+        }
+        let loaded = run("nft", &["-f", "-"], Some(fair::base_script().as_bytes()), COMMAND_TIMEOUT).await?;
+        if loaded.ok { Ok(()) } else { Err(loaded.why("loading the fair-use rules")) }
+    }
+
+    /// Puts a session's limits on the owner's internet in place on its network, and reads them back: a session starts only
+    /// when they are there with the numbers asked for.
+    async fn apply_fair_use(slot: u8, cap_kbps: u32) -> Result<(), String> {
+        Self::ensure_fair_table().await?;
+        let script = fair::session_script(slot, cap_kbps);
+        let applied = run("nft", &["-f", "-"], Some(script.as_bytes()), COMMAND_TIMEOUT).await?;
+        if !applied.ok {
+            return Err(applied.why("putting the fair-use limits in place"));
+        }
+        let chain = format!("fair_{slot}");
+        let listing = run("nft", &["-j", "list", "chain", "inet", fair::TABLE, &chain], None, COMMAND_TIMEOUT).await?;
+        if !listing.ok {
+            return Err(listing.why("reading the fair-use limits back"));
+        }
+        fair::verify_session(&listing.stdout, slot, cap_kbps)
+    }
+
+    /// Takes a session's limits out of its network's chain; a chain nobody uses holds nothing.
+    async fn clear_fair_use(slot: u8) {
+        let script = fair::clear_script(slot);
+        if let Err(why) = run("nft", &["-f", "-"], Some(script.as_bytes()), COMMAND_TIMEOUT).await {
+            tracing::warn!(%why, slot, "a session's fair-use limits couldn't be cleared");
+        }
     }
 
     /// Whether this kernel can encrypt a scratch disk, found once by making a small encrypted volume and seeing that what is
@@ -812,7 +850,7 @@ impl Machine for Nerdctl {
         })
     }
 
-    fn start_container(&self, mut plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, String>> {
+    fn start_container(&self, mut plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, StartError>> {
         Box::pin(async move {
             let slot = self.take_slot().ok_or("every session network is in use")?;
             plan.network = format!("idleo-slot-{slot}");
@@ -821,7 +859,15 @@ impl Machine for Nerdctl {
             } else {
                 container::create_arguments(&plan)
             }
-            .map_err(|refused| refused.0)?;
+            .map_err(|refused| {
+                self.release_slot(slot);
+                refused.0
+            })?;
+            // The session's limits on the owner's internet are in place before its container exists (ADR 0038).
+            if let Err(why) = Self::apply_fair_use(slot, fair::effective_cap_kbps(plan.upload_cap_kbps)).await {
+                self.release_slot(slot);
+                return Err(StartError::SandboxNotReady(why));
+            }
             let started = self.launch(&plan, &args).await;
             match started {
                 Ok(running) => {
@@ -837,7 +883,8 @@ impl Machine for Nerdctl {
                 }
                 Err(why) => {
                     self.release_slot(slot);
-                    Err(why)
+                    Self::clear_fair_use(slot).await;
+                    Err(StartError::Failed(why))
                 }
             }
         })
@@ -1050,6 +1097,7 @@ impl Container for NerdctlContainer {
             self.held.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.exits.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
             self.ooms.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.running.id);
+            Nerdctl::clear_fair_use(self.slot).await;
             self.slots.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.slot);
         })
     }

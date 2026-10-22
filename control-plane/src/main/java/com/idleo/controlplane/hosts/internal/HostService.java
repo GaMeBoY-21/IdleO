@@ -112,6 +112,24 @@ class HostService implements HostOwners, HostGpus {
         return gpus;
     }
 
+    /**
+     * The most a job may upload at once on each of these hosts, in kbit/s (ADR 0038): what its agent worked out from its
+     * latest speed check. A host that has not measured its upload is not in the map.
+     */
+    Map<UUID, Integer> uploadCaps(Collection<UUID> hostIds) {
+        if (hostIds.isEmpty()) {
+            return Map.of();
+        }
+        var caps = new HashMap<UUID, Integer>();
+        jdbc.sql("""
+                        select host_id, upload_cap_kbps from hosts.self_tests
+                        where host_id in (:hostIds) and upload_cap_kbps is not null
+                        """).param("hostIds", hostIds).query(rs -> {
+            caps.put(rs.getObject("host_id", UUID.class), rs.getInt("upload_cap_kbps"));
+        });
+        return caps;
+    }
+
     /** A new one-time code for the host, replacing any earlier one; empty if it isn't the owner's. */
     @Transactional
     Optional<IssuedCode> issueCode(UUID ownerUserId, UUID hostId) {

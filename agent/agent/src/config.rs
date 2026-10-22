@@ -29,6 +29,9 @@ pub struct Config {
     pub api_url: Option<String>,
     /// The web app, where the tray's Open dashboard goes (for example `https://app.idleo.in`).
     pub app_url: Option<String>,
+    /// The least upload, in kbit/s, a job may use whatever the line measures (ADR 0038): half of the measured upload, never
+    /// under this. Enough to keep checkpoints moving.
+    pub min_upload_kbps: u32,
 }
 
 /// The control plane's agent endpoint.
@@ -62,6 +65,7 @@ struct File {
     welcome_timeout_secs: Option<u64>,
     api_url: Option<String>,
     app_url: Option<String>,
+    min_upload_kbps: Option<u32>,
 }
 
 /// Why the config couldn't be loaded.
@@ -145,6 +149,11 @@ impl Config {
         {
             return Err(invalid("app_url must start with http:// or https://"));
         }
+        let min_upload_kbps = match file.min_upload_kbps {
+            None => crate::fair_use::DEFAULT_FLOOR_KBPS,
+            Some(kbps @ 100..=1_000_000) => kbps,
+            Some(_) => return Err(invalid("min_upload_kbps must be from 100 to 1000000")),
+        };
         let base = path.parent().unwrap_or(Path::new("."));
         Ok(Self {
             control_plane: file.control_plane,
@@ -154,6 +163,7 @@ impl Config {
             welcome_timeout,
             api_url: file.api_url,
             app_url: file.app_url,
+            min_upload_kbps,
         })
     }
 }
@@ -186,6 +196,19 @@ mod tests {
         assert_eq!(config.ca_root, Path::new("/etc/idleo/ca-root.pem"));
         assert_eq!(config.data_dir, default_dir());
         assert_eq!(config.log_format, LogFormat::Text);
+        assert_eq!(config.min_upload_kbps, 5_000);
+    }
+
+    #[test]
+    fn the_least_upload_a_job_gets_can_be_set_within_reason() {
+        let with = |value: &str| {
+            Config::parse(
+                &format!("min_upload_kbps = {value}\n[control_plane]\nhost = \"agents.example.invalid\"\nport = 443\n"),
+                Path::new("/etc/idleo/agent.toml"),
+            )
+        };
+        assert_eq!(with("8000").unwrap().min_upload_kbps, 8_000);
+        assert!(with("0").is_err() && with("99").is_err() && with("2000000").is_err());
     }
 
     #[test]

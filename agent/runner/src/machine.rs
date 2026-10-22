@@ -77,6 +77,36 @@ pub trait Container: Send + Sync {
     fn remove(&self) -> Fut<'_, ()>;
 }
 
+/// Why a container couldn't be started. A sandbox that isn't ready (its limits can't be put in place) is told apart from a
+/// runner that failed, because the first is the host's and the renter is not charged for it (`sandbox_not_ready`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StartError {
+    /// The limits a session must run under (the network rules, the fair-use limits) aren't in place.
+    SandboxNotReady(String),
+    /// Anything else.
+    Failed(String),
+}
+
+impl From<String> for StartError {
+    fn from(why: String) -> Self {
+        Self::Failed(why)
+    }
+}
+
+impl From<&str> for StartError {
+    fn from(why: &str) -> Self {
+        Self::Failed(why.to_owned())
+    }
+}
+
+impl std::fmt::Display for StartError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SandboxNotReady(why) | Self::Failed(why) => f.write_str(why),
+        }
+    }
+}
+
 /// The distribution.
 pub trait Machine: Send + Sync + 'static {
     /// What the self-test and the agent ask first.
@@ -93,7 +123,7 @@ pub trait Machine: Send + Sync + 'static {
     /// Unmounts and deletes a scratch disk. Safe to call again.
     fn remove_scratch<'a>(&'a self, scratch: &'a Scratch) -> Fut<'a, ()>;
     /// Gives the plan its session network and starts the container.
-    fn start_container(&self, plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, String>>;
+    fn start_container(&self, plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, StartError>>;
     /// The checks of a self-check.
     fn self_check<'a>(&'a self, cuda_image: Option<&'a str>, quick: bool) -> Fut<'a, Vec<Check>>;
     /// What finished sessions have left behind in this distribution, one phrase for each kind of thing ("1 process", "2 mounts"):

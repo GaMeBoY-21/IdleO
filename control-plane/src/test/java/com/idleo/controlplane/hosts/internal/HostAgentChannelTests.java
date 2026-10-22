@@ -304,6 +304,69 @@ class HostAgentChannelTests {
                                                     .equals(lie.getMessageId()),
                                     Duration.ofSeconds(1)))
                     .isFalse();
+
+            // An upload speed no line has is a broken agent's, dropped like a lie; a real one is kept (ADR 0038).
+            var impossible = TestAgent.request()
+                    .setSelfTestReport(SelfTestReport.newBuilder()
+                            .setPassed(true)
+                            .setUploadKbps(200_000_000)
+                            .setUploadCapKbps(100_000_000)
+                            .addChecks(
+                                    SelfTestCheck.newBuilder().setName("disk").setPassed(true)))
+                    .build();
+            host.stream().send(impossible);
+            assertThat(host.stream()
+                            .receives(
+                                    message -> message.hasAck()
+                                            && message.getAck()
+                                                    .getAckedMessageId()
+                                                    .equals(impossible.getMessageId()),
+                                    Duration.ofSeconds(1)))
+                    .isFalse();
+            var measured = TestAgent.request()
+                    .setSelfTestReport(SelfTestReport.newBuilder()
+                            .setPassed(true)
+                            .setUploadKbps(60_000)
+                            .setUploadCapKbps(30_000)
+                            .addChecks(
+                                    SelfTestCheck.newBuilder().setName("disk").setPassed(true)))
+                    .build();
+            host.stream().send(measured);
+            host.stream()
+                    .await(
+                            message -> message.hasAck()
+                                    && message.getAck().getAckedMessageId().equals(measured.getMessageId()),
+                            WAIT);
+            mvc.perform(get("/v1/hosts/" + host.id()).header("Authorization", host.agent().bearer))
+                    .andExpect(jsonPath("$.uploadCapKbps").value(30_000));
+        } finally {
+            host.disconnect();
+        }
+    }
+
+    @Test
+    void theOwnerIsToldHowMuchOfTheirUploadJobsMayUseAndALaterTestThatDidNotMeasureKeepsIt() throws Exception {
+        var host = TestHosts.connect(mvc, grpcPort);
+        try {
+            var reports = context.getBean(HostAgentReports.class);
+            var checks = List.of(new HostAgentReports.SelfTestCheck("disk", true, "120 GB free", 5));
+            mvc.perform(get("/v1/hosts/" + host.id()).header("Authorization", host.agent().bearer))
+                    .andExpect(jsonPath("$.uploadCapKbps").doesNotExist());
+
+            // A line that uploads 50 Mbit/s: jobs may use half.
+            reports.recordSelfTest(host.id(), new HostAgentReports.SelfTest(true, "0.1.0", checks, 50_000, 25_000));
+            mvc.perform(get("/v1/hosts/" + host.id()).header("Authorization", host.agent().bearer))
+                    .andExpect(jsonPath("$.uploadCapKbps").value(25_000));
+
+            // A quick self-test measures nothing, and says so with zeroes: what was known stays.
+            reports.recordSelfTest(host.id(), new HostAgentReports.SelfTest(true, "0.1.0", checks));
+            mvc.perform(get("/v1/hosts/" + host.id()).header("Authorization", host.agent().bearer))
+                    .andExpect(jsonPath("$.uploadCapKbps").value(25_000));
+
+            // A new measurement replaces it.
+            reports.recordSelfTest(host.id(), new HostAgentReports.SelfTest(true, "0.1.0", checks, 8_000, 5_000));
+            mvc.perform(get("/v1/hosts/" + host.id()).header("Authorization", host.agent().bearer))
+                    .andExpect(jsonPath("$.uploadCapKbps").value(5_000));
         } finally {
             host.disconnect();
         }

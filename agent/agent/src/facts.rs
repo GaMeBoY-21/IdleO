@@ -211,6 +211,7 @@ mod tests {
         Environment {
             runner: None,
             cuda_image: None,
+            min_upload_kbps: 5_000,
             wsl: Arc::new(script),
             distro_version: Some("0.1.0".to_owned()),
             gpus: Arc::new(FakeGpus::new(1, &FakeModel::default())),
@@ -270,7 +271,14 @@ mod tests {
 
     #[test]
     fn facts_travel_in_the_json_only_when_there_are_some_and_an_old_report_still_reads() {
-        let mut report = Report { checks: Vec::new(), passed: true, distro_version: "0.1.0".into(), facts: Vec::new() };
+        let mut report = Report {
+            checks: Vec::new(),
+            passed: true,
+            distro_version: "0.1.0".into(),
+            facts: Vec::new(),
+            upload_kbps: None,
+            upload_cap_kbps: None,
+        };
         assert!(!serde_json::to_string(&report).unwrap().contains("facts"));
         let old = r#"{"checks":[],"passed":false,"distro_version":"0.1.0"}"#;
         let read: Report = serde_json::from_str(old).unwrap();

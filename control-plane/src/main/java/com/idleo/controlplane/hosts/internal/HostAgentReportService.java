@@ -47,19 +47,26 @@ class HostAgentReportService implements HostAgentReports {
     public void recordSelfTest(UUID hostId, SelfTest selfTest) {
         var now = Timestamp.from(Instant.now(clock));
         jdbc.sql("""
-                        insert into hosts.self_tests (host_id, passed, distro_version, agent_version, checks, reported_at)
+                        insert into hosts.self_tests
+                            (host_id, passed, distro_version, agent_version, checks, reported_at,
+                             upload_kbps, upload_cap_kbps)
                         values (:hostId, :passed, :distro, (select agent_version from hosts.hosts where id = :hostId),
-                                cast(:checks as jsonb), :now)
+                                cast(:checks as jsonb), :now, :upload, :cap)
                         on conflict (host_id) do update
                         set passed = excluded.passed, distro_version = excluded.distro_version,
                             agent_version = excluded.agent_version, checks = excluded.checks,
-                            reported_at = excluded.reported_at
+                            reported_at = excluded.reported_at,
+                            upload_kbps = coalesce(excluded.upload_kbps, hosts.self_tests.upload_kbps),
+                            upload_cap_kbps = coalesce(excluded.upload_cap_kbps, hosts.self_tests.upload_cap_kbps)
                         """)
                 .param("hostId", hostId)
                 .param("passed", selfTest.passed())
                 .param("distro", selfTest.distroVersion())
                 .param("checks", json.writeValueAsString(selfTest.checks()))
                 .param("now", now)
+                // Nothing measured is null, and a later self-test that measured nothing keeps what was known.
+                .param("upload", selfTest.uploadKbps() > 0 ? selfTest.uploadKbps() : null)
+                .param("cap", selfTest.uploadCapKbps() > 0 ? selfTest.uploadCapKbps() : null)
                 .update();
         metrics.selfTest(selfTest);
         if (!selfTest.passed() || !settings.autoActivate()) {

@@ -12,7 +12,7 @@
 #                                                are N/A with the reason. A single FAIL stops the laptop day.
 #
 # It needs Docker, the sealed image (scripts/build-distro.sh) and the internet (HTTPS to a public address is the positive
-# control that makes a "blocked" mean something).
+# control that makes a "blocked" mean something, and the fair-use tests flood a public speed-test address: speed.cloudflare.com).
 set -euo pipefail
 
 cd "$(dirname "$0")/../../../.."
@@ -59,6 +59,8 @@ rows="$(grep -oE 'HOSTILE [0-9]+ .*: (PASS|FAIL)' "$log" | wc -l | tr -d ' ' || 
 fails="$(grep -oE 'HOSTILE [0-9]+ .*: FAIL' "$log" | wc -l | tr -d ' ' || true)"
 echo
 grep -E 'TIMING' -A4 "$log" | cut -c1-400 || true
+# The tests that are not attacks (fair use of the owner's internet, what a session writes outside its encrypted disk), with their numbers.
+grep -E '^(FAIR|WATCH|RULES-CHECK|LEFTOVERS-CHECK)' "$log" | cut -c1-400 || true
 echo "hostile: $rows of 16 rows, $fails FAIL (full log: $log)"
 if [[ "$status" != 0 || "$rows" != 16 || "$fails" != 0 ]]; then
   grep -E 'panicked|assertion|FAIL' -A6 "$log" | head -60 >&2 || true

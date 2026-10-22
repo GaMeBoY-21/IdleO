@@ -8,9 +8,10 @@ use std::time::{Duration, Instant};
 
 use idleo_release::channel::LinkState;
 
+use crate::fair_use::UploadCap;
 use crate::host::Host;
 use crate::lease_clock::LeaseClock;
-use crate::self_test::{SPEED_TEST_BYTES, SpeedCheck, mbit_per_second};
+use crate::self_test::{SPEED_TEST_BYTES, Speed, SpeedCheck, kbit_per_second, mbit_per_second};
 use crate::storage::{Grant, ObjectStore, S3Store};
 
 /// How long to wait for the control plane's grant.
@@ -21,18 +22,20 @@ pub struct StorageSpeed {
     host: Arc<Host>,
     http: reqwest::Client,
     clock: Arc<dyn LeaseClock>,
+    /// What jobs may upload: the upload measured here is what it's half of (ADR 0038).
+    upload_cap: Arc<UploadCap>,
 }
 
 impl StorageSpeed {
     /// The check for this agent.
     #[must_use]
-    pub fn new(host: Arc<Host>, http: reqwest::Client, clock: Arc<dyn LeaseClock>) -> Self {
-        Self { host, http, clock }
+    pub fn new(host: Arc<Host>, http: reqwest::Client, clock: Arc<dyn LeaseClock>, upload_cap: Arc<UploadCap>) -> Self {
+        Self { host, http, clock, upload_cap }
     }
 }
 
 impl SpeedCheck for StorageSpeed {
-    fn measure(&self) -> Pin<Box<dyn Future<Output = Result<String, String>> + Send + '_>> {
+    fn measure(&self) -> Pin<Box<dyn Future<Output = Result<Speed, String>> + Send + '_>> {
         Box::pin(async move {
             if !matches!(self.host.link_state(), LinkState::Active | LinkState::PendingApproval) {
                 return Err("not linked to IdleO yet".to_owned());
@@ -57,11 +60,16 @@ impl SpeedCheck for StorageSpeed {
             if back.len() != SPEED_TEST_BYTES {
                 return Err(format!("{} bytes came back, not {SPEED_TEST_BYTES}", back.len()));
             }
-            Ok(format!(
-                "up {} Mbit/s, down {} Mbit/s",
-                mbit_per_second(SPEED_TEST_BYTES, up),
-                mbit_per_second(SPEED_TEST_BYTES, down)
-            ))
+            let up_kbps = kbit_per_second(SPEED_TEST_BYTES, up);
+            self.upload_cap.measured(up_kbps);
+            Ok(Speed {
+                detail: format!(
+                    "up {} Mbit/s, down {} Mbit/s",
+                    mbit_per_second(SPEED_TEST_BYTES, up),
+                    mbit_per_second(SPEED_TEST_BYTES, down)
+                ),
+                up_kbps,
+            })
         })
     }
 }

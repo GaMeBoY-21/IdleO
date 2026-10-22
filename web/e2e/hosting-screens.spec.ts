@@ -149,6 +149,10 @@ test.describe("one machine", () => {
     await expect(
       page.getByText("Renters never see who you are, and their work never touches your files."),
     ).toBeVisible();
+    // How much of the owner's upload a job may use (ADR 0038): half of what the host app measured.
+    await expect(
+      page.getByText("Jobs use at most 25 Mbit/s of your upload, so your own internet stays usable."),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /Price and limits/ })).toContainText(
       "₹10.80 an hour · stops above 85°C",
     );
@@ -168,6 +172,8 @@ test.describe("one machine", () => {
     await open(page, at(hosting.hostPaused));
     // Too few ratings to show an average.
     await expect(page.getByText("Ratings appear after 5 sessions.")).toBeVisible();
+    // No speed check has reached the server yet for this one.
+    await expect(page.getByText(/Jobs use only a little of your upload/)).toBeVisible();
     await expect(
       page.getByText(/Paused until 6 pm\. A session that's running finishes first\./),
     ).toBeVisible();

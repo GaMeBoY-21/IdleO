@@ -32,11 +32,21 @@ public interface HostAgentReports {
     /** Records how an update went, the latest per version; a version rolled back is never offered to the host again. */
     void recordUpdateResult(UUID hostId, String version, UpdateOutcome outcome, String detail);
 
-    /** A self-test: every check that ran, whether all passed, and the distro's version (empty without one). */
-    record SelfTest(boolean passed, String distroVersion, List<SelfTestCheck> checks) {
+    /**
+     * A self-test: every check that ran, whether all passed, and the distro's version (empty without one); {@code
+     * uploadKbps} is how fast the machine uploaded to our storage and {@code uploadCapKbps} the most a job may upload at
+     * once on it (ADR 0038), both in kbit/s and 0 when this self-test didn't measure the speed.
+     */
+    record SelfTest(
+            boolean passed, String distroVersion, List<SelfTestCheck> checks, int uploadKbps, int uploadCapKbps) {
 
         public SelfTest {
             checks = List.copyOf(checks);
+        }
+
+        /** A self-test that measured no upload speed. */
+        public SelfTest(boolean passed, String distroVersion, List<SelfTestCheck> checks) {
+            this(passed, distroVersion, checks, 0, 0);
         }
     }
 

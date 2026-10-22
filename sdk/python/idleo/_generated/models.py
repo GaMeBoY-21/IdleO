@@ -1327,6 +1327,7 @@ class HostResponse(BaseModel):
     status: str
     update_required: Annotated[bool, Field(alias="updateRequired")]
     update_waiting: Annotated[bool, Field(alias="updateWaiting")]
+    upload_cap_kbps: Annotated[int | None, Field(alias="uploadCapKbps")] = None
 
 
 class LatestRelease(BaseModel):

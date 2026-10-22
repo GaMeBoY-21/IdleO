@@ -126,12 +126,13 @@ impl Nerdctl {
             input: scratch.input.clone(),
             resume: None,
             logs: scratch.logs(),
+            upload_cap_kbps: 0,
             slots: Vec::new(),
             development: Self::development(),
             entrypoint: Some(entrypoint.to_owned()),
         };
         let result = async {
-            let container = self.start_container(plan).await?;
+            let container = self.start_container(plan).await.map_err(|why| why.to_string())?;
             let mut output = container.take_output();
             let mut text = String::new();
             let collected = tokio::time::timeout(PROBE_LIMIT, async {

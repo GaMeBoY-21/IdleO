@@ -53,6 +53,8 @@ pub struct Plan {
     pub resume: Option<PathBuf>,
     /// The folder on the scratch disk, out of the job's sight, where nerdctl's file of what it prints is kept (ADR 0038).
     pub logs: PathBuf,
+    /// The most the session may upload, in kbit/s; 0 is "not said" and the runner's default holds (ADR 0038).
+    pub upload_cap_kbps: u32,
     /// The input slots that were staged, for `SESSION_INPUT_<SLOT>_DIR`.
     pub slots: Vec<String>,
     /// Whether this is a development distribution, which may run a job without a GPU.
@@ -227,6 +229,7 @@ mod tests {
             input: PathBuf::from("/var/lib/idleo/mnt/s-1/input"),
             resume: None,
             logs: PathBuf::from("/var/lib/idleo/mnt/s-1/logs"),
+            upload_cap_kbps: 25_000,
             slots: vec!["code".to_owned()],
             development: false,
             entrypoint: None,

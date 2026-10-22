@@ -14,7 +14,7 @@ use jobcore::storage::testing::{MemoryStore, Objects};
 use tokio::sync::{mpsc, watch};
 
 use crate::container::Plan;
-use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, Stream};
+use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, StartError, Stream};
 use crate::storage::{Opened, Storage};
 
 /// A clock that follows tokio's, so a test with paused time moves both together.
@@ -137,6 +137,8 @@ pub type StartHook = Box<dyn Fn(&Plan) + Send>;
 pub struct FakeMachine {
     pub sandbox: Mutex<Result<(), String>>,
     pub image: Mutex<Result<(), String>>,
+    /// What starting a container does: nothing wrong, or this failure.
+    pub start: Mutex<Option<StartError>>,
     pub scratch_free: AtomicU64,
     pub development: AtomicBool,
     /// What `leftovers` says is left from finished sessions.
@@ -154,6 +156,7 @@ impl FakeMachine {
         Arc::new(Self {
             sandbox: Mutex::new(Ok(())),
             image: Mutex::new(Ok(())),
+            start: Mutex::new(None),
             scratch_free: AtomicU64::new(10 * 1024 * 1024 * 1024),
             development: AtomicBool::new(false),
             leftover: Mutex::new(Vec::new()),
@@ -236,8 +239,11 @@ impl Machine for FakeMachine {
         })
     }
 
-    fn start_container(&self, plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, String>> {
+    fn start_container(&self, plan: Plan) -> Fut<'_, Result<Arc<dyn Container>, StartError>> {
         Box::pin(async move {
+            if let Some(failure) = self.start.lock().unwrap().clone() {
+                return Err(failure);
+            }
             if let Some(hook) = self.on_start.lock().unwrap().as_ref() {
                 hook(&plan);
             }

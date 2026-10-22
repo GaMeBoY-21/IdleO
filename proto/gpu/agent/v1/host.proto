@@ -19,6 +19,14 @@ message SelfTestReport {
   // The version of the agent's Linux distribution, for example "0.1.0";
   // empty where there is none (Linux and macOS hosts).
   string distro_version = 3;
+  // How fast the machine uploaded to our storage in the speed check, in
+  // kbit/s; 0 when the check didn't run in this self-test (the control plane
+  // then keeps what it had).
+  uint32 upload_kbps = 4;
+  // The most a job may upload at once: half of the measured upload, never
+  // under the machine's floor (`min_upload_kbps`, 5,000 by default), in
+  // kbit/s; 0 together with `upload_kbps`. The web app tells the owner.
+  uint32 upload_cap_kbps = 5;
 }
 
 // One named check of a self-test.

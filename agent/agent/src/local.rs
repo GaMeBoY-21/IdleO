@@ -275,6 +275,8 @@ mod tests {
                     passed: true,
                     distro_version: "0.1.0".into(),
                     facts: Vec::new(),
+                    upload_kbps: None,
+                    upload_cap_kbps: None,
                 }
             })
         });

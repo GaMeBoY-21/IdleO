@@ -13,11 +13,11 @@ use std::process::Command as Process;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use idleo_runner::sandbox;
+use idleo_runner::{fair, sandbox};
 use jobcore::fakes3::FakeS3;
 use jobcore::link::{Link, RunnerEvent};
 use jobcore::protocol::{
-    AgentNotes, Answer, CheckStatus, Ended, Event, GrantWire, Grants, InputFile, Request, Spec, Start, code,
+    AgentNotes, Answer, CheckStatus, Ended, Event, GrantWire, Grants, InputFile, Phase, Request, Spec, Start, code,
 };
 use tokio::sync::broadcast::Receiver;
 
@@ -47,6 +47,8 @@ struct Job {
     scratch_mb: u32,
     max_runtime_secs: u64,
     inputs: Vec<(String, Vec<u8>)>,
+    /// The upload cap the agent would have given, in kbit/s; 0 is the runner's default.
+    upload_cap_kbps: u32,
 }
 
 impl Job {
@@ -59,6 +61,7 @@ impl Job {
             scratch_mb: 64,
             max_runtime_secs: 120,
             inputs: Vec::new(),
+            upload_cap_kbps: 0,
         }
     }
 }
@@ -149,6 +152,7 @@ impl Harness {
             inputs,
             lease_ttl_secs: 600,
             agent: AgentNotes { minute_index_base: 0, gpus: vec![] },
+            upload_cap_kbps: job.upload_cap_kbps,
         }
     }
 
@@ -236,6 +240,51 @@ impl Harness {
         assert!(containers.trim().is_empty(), "containers left behind: {containers}");
         let mounts = self.inside(&["sh", "-c", "mount | grep /var/lib/idleo/mnt || true"]);
         assert!(mounts.trim().is_empty(), "scratch disks left mounted: {mounts}");
+    }
+
+    /// The number of a running session's network, from its container's address (`172.30.<N>.x`), waiting for it to have one.
+    async fn network_of(&self, session: &str) -> u8 {
+        for _ in 0..120 {
+            let address = self.container_address(session);
+            if let Some(slot) = address.strip_prefix("172.30.").and_then(|rest| rest.split('.').next()) {
+                return slot.parse().expect("a network number");
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+        panic!("the session never got a network address");
+    }
+
+    /// What the fair-use rules of network `slot` have dropped since its session began.
+    fn fair_drops(&self, slot: u8) -> fair::Drops {
+        let listing = self.inside(&["nft", "-j", "list", "counters", "table", "inet", fair::TABLE]);
+        fair::drops_of(&fair::parse_counters(&listing).expect("nft's listing of the counters"), slot)
+    }
+
+    /// Waits for a job to end, saying how long its outputs took to upload (from the runner's `uploading` to its end).
+    async fn finish_timed(
+        &self,
+        session: &str,
+        mut events: Receiver<RunnerEvent>,
+        within: Duration,
+    ) -> (Run, Duration) {
+        let deadline = Instant::now() + within;
+        let mut uploading = None;
+        let (ended, took) = loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            assert!(!left.is_zero(), "the job didn't end in {within:?}");
+            match tokio::time::timeout(left, events.recv()).await {
+                Ok(Ok(RunnerEvent { session: who, event: Event::State { phase: Phase::Uploading }, .. }))
+                    if who == session =>
+                {
+                    uploading = Some(Instant::now());
+                }
+                Ok(Ok(RunnerEvent { session: who, event: Event::Exited { ended }, .. })) if who == session => {
+                    break (ended, uploading.map(|began| began.elapsed()).unwrap_or_default());
+                }
+                Ok(_) | Err(_) => {}
+            }
+        };
+        (Run { ended, log: self.log(session) }, took)
     }
 
     fn runner_pid(&self) -> String {
@@ -683,6 +732,113 @@ async fn nothing_of_a_session_is_written_outside_its_encrypted_disk() {
     );
     assert_eq!(on_disk, 0, "the marker is in the backing disk {on_disk} times");
     println!("WATCH nothing of the session was written outside its encrypted disk; links: {links:?}");
+}
+
+/// What a flood job printed: the number after `name=` in its verdict line.
+fn number_after(run: &Run, attack: &str, name: &str) -> f64 {
+    let line = run.verdict(attack).map(|(_, detail)| detail).unwrap_or_default();
+    line.split_whitespace()
+        .find_map(|word| word.strip_prefix(&format!("{name}=")))
+        .and_then(|number| number.trim_end_matches('s').parse().ok())
+        .unwrap_or_else(|| panic!("no {name} in the verdict of {attack}: {:?}\n{}", run.verdict(attack), run.log))
+}
+
+/// Not an attack: fair use of the owner's home internet (ADR 0038). A job that tries to open 1,000 connections a second for
+/// five seconds, as a scan or a flood from someone's home would, is held to 50 a second with a burst of 100, and the rules
+/// count what they dropped.
+#[tokio::test]
+#[ignore = "needs the development distribution and the internet: agent/runner/tests/hostile/run.sh"]
+async fn a_job_cant_open_connections_faster_than_the_limit() {
+    let h = Harness::new().await;
+    let mut job = Job::new("connection_flood");
+    job.max_runtime_secs = 90;
+    let (session, events) = h.begin(&job).await;
+    let slot = h.network_of(&session).await;
+    let run = h.finish(&session, events, Duration::from_secs(90)).await;
+    let (attempted, completed, seconds) = (
+        number_after(&run, "connection_flood", "attempted"),
+        number_after(&run, "connection_flood", "completed"),
+        number_after(&run, "connection_flood", "in"),
+    );
+    let drops = h.fair_drops(slot);
+    // 50 a second for the time it ran, and the burst of 100 ahead of that, with a little room for the second it takes the last
+    // connections to finish.
+    let allowed = 50.0 * (seconds + 1.0) + 100.0;
+    println!(
+        "FAIR connections: attempted {attempted}, completed {completed} (at most {allowed:.0}), the rules dropped {} new-connection packets",
+        drops.connections
+    );
+    assert!(attempted >= 4000.0, "the job didn't try hard enough to mean anything: {attempted}");
+    assert!(completed <= allowed, "{completed} connections completed, more than 50 a second allows ({allowed:.0})");
+    assert!(completed > 0.0, "an honest connection must still get through");
+    assert!(drops.connections >= 1000, "the rules counted only {} dropped connections", drops.connections);
+}
+
+/// Not an attack: a job that uploads as fast as it can for 20 seconds is held to its cap (10 Mbit/s here), within 30%: the
+/// token bucket lets a quarter of a second through ahead of the rate, and TCP slows to fit what it drops.
+#[tokio::test]
+#[ignore = "needs the development distribution and the internet: agent/runner/tests/hostile/run.sh"]
+async fn a_job_cant_use_more_of_the_upload_than_its_cap() {
+    let h = Harness::new().await;
+    let mut job = Job::new("upload_flood");
+    job.max_runtime_secs = 120;
+    job.upload_cap_kbps = 10_000;
+    let (session, events) = h.begin(&job).await;
+    let slot = h.network_of(&session).await;
+    let run = h.finish(&session, events, Duration::from_secs(120)).await;
+    let kbps = number_after(&run, "upload_flood", "kbps");
+    let drops = h.fair_drops(slot);
+    println!(
+        "FAIR upload: {kbps:.0} kbit/s achieved of a cap of 10000 ({:.0}%), the rules dropped {} packets ({} bytes)",
+        kbps / 100.0,
+        drops.upload_packets,
+        drops.upload_bytes
+    );
+    assert!(kbps <= 13_000.0, "the job uploaded at {kbps} kbit/s, over its cap of 10000");
+    assert!(kbps >= 7_000.0, "the job got only {kbps} kbit/s of its 10000: the cap is too hard on honest uploads");
+    assert!(drops.upload_packets > 0, "nothing was dropped, so the cap wasn't what held it");
+}
+
+/// Not an attack: the runner's own uploads of a session's outputs start in the distribution, never from a session's network,
+/// so a session's cap does not hold them. While one job floods its upload under a cap of 5 Mbit/s (which would take 160 s to
+/// move 100 MB), another job's 100 MB of outputs reach storage as fast as without the flood.
+#[tokio::test]
+#[ignore = "needs the development distribution and the internet: agent/runner/tests/hostile/run.sh"]
+async fn the_runners_own_uploads_are_not_held_by_a_sessions_cap() {
+    let h = Harness::new().await;
+    let output = |h: &Harness| {
+        let mut job = Job::new("write_output");
+        job.scratch_mb = 400;
+        job.upload_cap_kbps = 5_000;
+        job.env.insert("SESSION_PARAM_MB".to_owned(), "100".to_owned());
+        let _ = h;
+        job
+    };
+    let (session, events) = h.begin(&output(&h)).await;
+    let (alone_run, alone) = h.finish_timed(&session, events, Duration::from_secs(180)).await;
+    assert_eq!(alone_run.ended, Ended::Succeeded, "{}", alone_run.log);
+
+    let mut flood = Job::new("upload_flood");
+    flood.max_runtime_secs = 120;
+    flood.upload_cap_kbps = 5_000;
+    let (flooding, flood_events) = h.begin(&flood).await;
+    let slot = h.network_of(&flooding).await;
+    tokio::time::sleep(Duration::from_secs(4)).await;
+    let (session, events) = h.begin(&output(&h)).await;
+    let (busy_run, busy) = h.finish_timed(&session, events, Duration::from_secs(180)).await;
+    assert_eq!(busy_run.ended, Ended::Succeeded, "{}", busy_run.log);
+    let still_flooding = h.fair_drops(slot).upload_packets;
+    let _ = h.link.request(Request::Stop { session: flooding.clone(), attempt: 1, grace_secs: 0 }).await;
+    let _ = h.finish(&flooding, flood_events, Duration::from_secs(60)).await;
+    println!(
+        "FAIR runner upload: 100 MB of outputs took {alone:?} alone and {busy:?} beside a job flooding its own upload (capped at 5 Mbit/s, which has dropped {still_flooding} packets)"
+    );
+    assert!(still_flooding > 0, "the flood wasn't being held while the outputs went up");
+    assert!(
+        busy < Duration::from_secs(20),
+        "100 MB took {busy:?}: the runner's upload looks held by the session's cap (160 s)"
+    );
+    assert!(busy < alone * 3 + Duration::from_secs(2), "{busy:?} beside the flood against {alone:?} alone");
 }
 
 /// Not an attack: the number that matters, how long from "Start" to the job's first line, with the image already here.

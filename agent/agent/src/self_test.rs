@@ -77,6 +77,12 @@ pub struct Report {
     /// are never checks: nothing in them can fail the test, and they aren't sent to the control plane.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facts: Vec<crate::facts::Fact>,
+    /// What the speed check measured this laptop's upload to be, in kbit/s, when it ran (ADR 0038).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_kbps: Option<u32>,
+    /// What jobs may use of it: half, never under the config's floor, in kbit/s; present with `upload_kbps`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_cap_kbps: Option<u32>,
 }
 
 impl Report {
@@ -96,15 +102,26 @@ impl Report {
                 .collect(),
             passed: self.passed,
             distro_version: self.distro_version.clone(),
+            upload_kbps: self.upload_kbps.unwrap_or(0),
+            upload_cap_kbps: self.upload_cap_kbps.unwrap_or(0),
         }
     }
 }
 
+/// What the storage speed check found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Speed {
+    /// The detail line for the self-test: "up 48 Mbit/s, down 96 Mbit/s".
+    pub detail: String,
+    /// How fast it uploaded, in kbit/s: what jobs' upload is capped by (ADR 0038).
+    pub up_kbps: u32,
+}
+
 /// The storage speed check: the running agent asks the control plane for a grant over its stream, writes and reads
-/// one object, and says how fast. Returns the detail line, or why it failed.
+/// one object, and says how fast. Returns what it found, or why it failed.
 pub trait SpeedCheck: Send + Sync {
     /// Runs the check.
-    fn measure(&self) -> Pin<Box<dyn Future<Output = Result<String, String>> + Send + '_>>;
+    fn measure(&self) -> Pin<Box<dyn Future<Output = Result<Speed, String>> + Send + '_>>;
 }
 
 /// What the self-test asks the job runner (ADR 0035): its own answer, and its checks.
@@ -156,6 +173,8 @@ pub struct Environment {
     /// Names the job image to run the CUDA calculation in, asked each time (the agent learns its images from the control
     /// plane's Welcome); `None`, or an answer of none, until the image has been downloaded.
     pub cuda_image: Option<CudaImage>,
+    /// The least upload, in kbit/s, a job may use whatever the line measures (`min_upload_kbps` in `agent.toml`).
+    pub min_upload_kbps: u32,
 }
 
 #[allow(clippy::too_many_lines)] // The checks in the order they run, each with its own words: clearer whole than split.
@@ -167,7 +186,7 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
             .into_iter()
             .map(|name| Check { name: name.to_owned(), passed: true, detail: format!("skipped: {why}"), took_ms: 0 })
             .collect();
-        return Report { checks, passed: true, distro_version: String::new(), facts: Vec::new() };
+        return finish(checks, String::new(), None, 0);
     }
     let mut checks = Vec::new();
     let Some(version) = environment.distro_version.clone() else {
@@ -177,7 +196,7 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
             detail: "no IdleO distribution is installed".to_owned(),
             took_ms: 0,
         });
-        return finish(checks, String::new());
+        return finish(checks, String::new(), None, 0);
     };
     let name = idleo_release::manifest::distro_name(&version);
     let wsl = Wsl::new(Arc::clone(&environment.wsl));
@@ -189,7 +208,7 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
         Err(e) => (false, e.to_string()),
     }));
     if !checks[0].passed {
-        return finish(checks, version);
+        return finish(checks, version, None, 0);
     }
     checks.push(timed("lockdown_config", || match wsl.exec(&name, "cat", &["/etc/wsl.conf"]) {
         Ok(output) if output.ok() && output.stdout == WSL_CONF => (true, "matches agent/distro/wsl.conf".to_owned()),
@@ -323,15 +342,19 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
         }
         Err(e) => (false, format!("free space couldn't be read: {e}")),
     }));
+    let mut upload_kbps = None;
     if !quick && let Some(speed) = speed {
         let started = Instant::now();
         let (passed, detail) = match speed.measure().await {
-            Ok(detail) => (true, detail),
+            Ok(found) => {
+                upload_kbps = Some(found.up_kbps);
+                (true, found.detail)
+            }
             Err(e) => (false, e),
         };
         checks.push(Check { name: "storage_speed".to_owned(), passed, detail, took_ms: millis(started) });
     }
-    finish(checks, version)
+    finish(checks, version, upload_kbps, environment.min_upload_kbps)
 }
 
 fn names(quick: bool, speed: bool) -> Vec<&'static str> {
@@ -353,9 +376,16 @@ fn names(quick: bool, speed: bool) -> Vec<&'static str> {
     names
 }
 
-fn finish(checks: Vec<Check>, distro_version: String) -> Report {
+fn finish(checks: Vec<Check>, distro_version: String, upload_kbps: Option<u32>, floor_kbps: u32) -> Report {
     let passed = !checks.is_empty() && checks.iter().all(|check| check.passed);
-    Report { checks, passed, distro_version, facts: Vec::new() }
+    Report {
+        checks,
+        passed,
+        distro_version,
+        facts: Vec::new(),
+        upload_kbps,
+        upload_cap_kbps: upload_kbps.map(|measured| crate::fair_use::cap_kbps(measured, floor_kbps)),
+    }
 }
 
 fn timed(name: &str, check: impl FnOnce() -> (bool, String)) -> Check {
@@ -379,6 +409,16 @@ fn last_line(text: &str) -> String {
 /// At most 200 characters: details are one line for the admin console.
 fn cut(text: &str) -> String {
     text.chars().take(200).collect()
+}
+
+/// Kilobits a second for `bytes` in `took`.
+#[must_use]
+pub fn kbit_per_second(bytes: usize, took: Duration) -> u32 {
+    let seconds = took.as_secs_f64().max(0.001);
+    // Under 2^53 for any real transfer; a line faster than 4 Tbit/s is clamped, not wrapped.
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let speed = ((bytes as f64) * 8.0 / 1_000.0 / seconds).round().min(f64::from(u32::MAX)) as u32;
+    speed
 }
 
 /// Megabits a second for `bytes` in `took`.
@@ -488,6 +528,7 @@ mod tests {
             skip: None,
             runner: Some(Arc::new(runner)),
             cuda_image: None,
+            min_upload_kbps: 5_000,
         }
     }
 
@@ -503,18 +544,18 @@ mod tests {
         fake
     }
 
-    struct Speed;
+    struct FastLine;
 
-    impl SpeedCheck for Speed {
-        fn measure(&self) -> Pin<Box<dyn Future<Output = Result<String, String>> + Send + '_>> {
-            Box::pin(async { Ok("up 48 Mbit/s, down 96 Mbit/s".to_owned()) })
+    impl SpeedCheck for FastLine {
+        fn measure(&self) -> Pin<Box<dyn Future<Output = Result<Speed, String>> + Send + '_>> {
+            Box::pin(async { Ok(Speed { detail: "up 48 Mbit/s, down 96 Mbit/s".to_owned(), up_kbps: 48_000 }) })
         }
     }
 
     #[tokio::test]
     async fn a_healthy_laptop_passes_every_check() {
         let fake = healthy();
-        let report = run(&environment(&fake, 120), false, Some(&Speed)).await;
+        let report = run(&environment(&fake, 120), false, Some(&FastLine)).await;
         let names: Vec<_> = report.checks.iter().map(|check| check.name.as_str()).collect();
         assert_eq!(
             names,
@@ -543,9 +584,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn the_report_says_how_fast_the_laptop_uploads_and_how_much_of_it_jobs_may_use() {
+        let fake = healthy();
+        let report = run(&environment(&fake, 120), false, Some(&FastLine)).await;
+        // 48 Mbit/s up: jobs may use half, 24 Mbit/s.
+        assert_eq!((report.upload_kbps, report.upload_cap_kbps), (Some(48_000), Some(24_000)));
+        let message = report.to_message();
+        assert_eq!((message.upload_kbps, message.upload_cap_kbps), (48_000, 24_000));
+
+        // A slow line: half of it is under the floor, so the floor it is.
+        let mut slow = environment(&fake, 120);
+        slow.min_upload_kbps = 30_000;
+        assert_eq!(run(&slow, false, Some(&FastLine)).await.upload_cap_kbps, Some(30_000));
+
+        // No speed check in this self-test (a quick one): nothing is said, and the control plane keeps what it had.
+        let quick = run(&environment(&fake, 120), true, Some(&FastLine)).await;
+        assert_eq!((quick.upload_kbps, quick.upload_cap_kbps), (None, None));
+        assert_eq!((quick.to_message().upload_kbps, quick.to_message().upload_cap_kbps), (0, 0));
+    }
+
+    #[tokio::test]
     async fn quick_leaves_out_the_slow_checks() {
         let fake = healthy();
-        let report = run(&environment(&fake, 120), true, Some(&Speed)).await;
+        let report = run(&environment(&fake, 120), true, Some(&FastLine)).await;
         let names: Vec<_> = report.checks.iter().map(|check| check.name.as_str()).collect();
         assert_eq!(
             names,

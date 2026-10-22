@@ -205,6 +205,7 @@ export const ratingOf = (stars: number[]): NonNullable<Host["rating"]> => ({
 export const hostRunning: Host = {
   ...base(ROG),
   rating: ratingOf(ROG_STARS),
+  uploadCapKbps: 25_000,
   currentSession: {
     serviceName: runningRun.run.service[0],
     runningLabel: runningRun.run.service[1],

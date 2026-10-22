@@ -11,7 +11,7 @@ use jobcore::protocol::{
 };
 use tokio::sync::broadcast;
 
-use crate::machine::Stream;
+use crate::machine::{StartError, Stream};
 use crate::session::Registry;
 use crate::testing::{FakeMachine, MemoryStorage, OnTerm, TokioClock};
 
@@ -62,6 +62,7 @@ fn start(attempt: i32) -> Start {
         inputs: vec![],
         lease_ttl_secs: 60,
         agent: AgentNotes { minute_index_base: 0, gpus: vec!["GPU-1".to_owned()] },
+        upload_cap_kbps: 0,
     }
 }
 
@@ -266,6 +267,21 @@ async fn a_lease_nobody_renews_kills_the_job_and_one_that_is_renewed_keeps_it_ru
     assert_eq!(failed_code(&ended), code::LEASE_EXPIRED, "the agent stopped renewing");
     assert_eq!(container.signals(), ["KILL"]);
     assert!(rig.storage.keys().iter().all(|k| !k.contains("checkpoints/")), "nothing is uploaded after a lease lapses");
+}
+
+#[tokio::test]
+async fn a_start_refused_for_its_limits_is_the_hosts_and_any_other_is_the_runners() {
+    let rig = rig();
+    *rig.machine.start.lock().unwrap() =
+        Some(StartError::SandboxNotReady("the fair-use limits of network 3 are not in place".to_owned()));
+    rig.registry.start(start(1)).unwrap();
+    let ended = rig.ended(1).await;
+    assert_eq!(failed_code(&ended), code::SANDBOX_NOT_READY, "{ended:?}");
+    assert_eq!(rig.machine.scratches_removed.lock().unwrap().len(), 1, "and its scratch disk is erased");
+
+    *rig.machine.start.lock().unwrap() = Some(StartError::Failed("nerdctl died".to_owned()));
+    rig.registry.start(start(2)).unwrap();
+    assert_eq!(failed_code(&rig.ended(2).await), code::RUNNER_FAILED);
 }
 
 #[tokio::test]

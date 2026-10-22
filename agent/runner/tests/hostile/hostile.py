@@ -495,7 +495,79 @@ def leave_marker():
     return 0
 
 
-ATTACKS = {f.__name__: f for f in (write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever, leave_marker)}
+def connection_flood():
+    # Tries to open 1,000 new connections a second for 5 seconds to a public address, as a scan or a flood would; counts how
+    # many the sandbox let complete. Each socket is closed 300 ms after it was opened, so a held-back one is not retried for long.
+    import selectors
+
+    target = ("1.1.1.1", 443)
+    selector = selectors.DefaultSelector()
+    opened, attempted, completed = [], 0, 0
+    started = time.time()
+    next_tick = started
+    while time.time() - started < 5.0:
+        for _ in range(100):  # every 100 ms
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setblocking(False)
+            sock.connect_ex(target)
+            attempted += 1
+            selector.register(sock, selectors.EVENT_WRITE)
+            opened.append((time.time(), sock))
+        next_tick += 0.1
+        deadline = min(next_tick, time.time() + 0.1)
+        while time.time() < deadline:
+            for key, _ in selector.select(timeout=max(0.0, deadline - time.time())):
+                sock = key.fileobj
+                selector.unregister(sock)
+                if sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR) == 0:
+                    completed += 1
+                sock.close()
+                opened = [(t, s) for t, s in opened if s is not sock]
+        for t, sock in list(opened):
+            if time.time() - t > 0.3:
+                try:
+                    selector.unregister(sock)
+                except (KeyError, ValueError):
+                    pass
+                sock.close()
+                opened.remove((t, sock))
+    elapsed = time.time() - started
+    for _, sock in opened:
+        sock.close()
+    print(f"RESULT connection_flood HELD attempted={attempted} completed={completed} in={elapsed:.1f}s", flush=True)
+    return 0
+
+
+def upload_flood():
+    # Uploads to a public speed-test address over plain HTTP as fast as it can for 20 seconds, and says how fast that was.
+    import http.client
+
+    body = b"\x5a" * 4_000_000
+    sent, started = 0, time.time()
+    while time.time() - started < 20.0:
+        c = http.client.HTTPConnection("speed.cloudflare.com", timeout=60)
+        c.request("POST", "/__up", body=body, headers={"Content-Type": "text/plain"})
+        c.getresponse().read()
+        c.close()
+        sent += len(body)
+    elapsed = time.time() - started
+    print(f"RESULT upload_flood HELD sent={sent} seconds={elapsed:.2f} kbps={sent * 8 / elapsed / 1000:.0f}", flush=True)
+    return 0
+
+
+def write_output():
+    # Leaves SESSION_PARAM_MB megabytes of output, for the runner to upload when the job ends.
+    mb = int(os.environ.get("SESSION_PARAM_MB", "100"))
+    block = os.urandom(1024 * 1024)
+    os.makedirs("/work/outputs", exist_ok=True)
+    with open("/work/outputs/big.bin", "wb") as f:
+        for _ in range(mb):
+            f.write(block)
+    print(f"RESULT write_output HELD wrote {mb} MiB", flush=True)
+    return 0
+
+
+ATTACKS = {f.__name__: f for f in (write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever, leave_marker, connection_flood, upload_flood, write_output)}
 
 if __name__ == "__main__":
     # `hostile.py <attack>`, or, as the development-only `hostile-test` template runs it, the Attack parameter.

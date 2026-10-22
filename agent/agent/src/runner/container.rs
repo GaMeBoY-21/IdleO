@@ -43,6 +43,8 @@ pub struct ContainerRunner {
     gpu: bool,
     /// Whether the distribution is running, so the agent never starts it just to look: `None` where it always is.
     awake: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
+    /// How much of the owner's upload a job may use (ADR 0038), told to the runner at every start.
+    upload_cap: Arc<crate::fair_use::UploadCap>,
 }
 
 impl ContainerRunner {
@@ -50,7 +52,19 @@ impl ContainerRunner {
     /// development stand-in, whose distribution the runner then must find to be a development one.
     #[must_use]
     pub fn new(link: Link, gpu: bool) -> Self {
-        Self { link, gpu, awake: None }
+        Self {
+            link,
+            gpu,
+            awake: None,
+            upload_cap: crate::fair_use::UploadCap::floor_only(crate::fair_use::DEFAULT_FLOOR_KBPS),
+        }
+    }
+
+    /// Takes the upload cap the self-test measures and the config's floor (ADR 0038).
+    #[must_use]
+    pub fn with_upload_cap(mut self, cap: Arc<crate::fair_use::UploadCap>) -> Self {
+        self.upload_cap = cap;
+        self
     }
 
     /// Says how to tell whether the distribution is running.
@@ -211,6 +225,7 @@ impl ContainerRunner {
                 .collect(),
             lease_ttl_secs: u32::try_from(job.lease_ttl.as_secs()).unwrap_or(u32::MAX),
             agent: AgentNotes { minute_index_base: job.minute_index_base, gpus: job.gpus.clone() },
+            upload_cap_kbps: self.upload_cap.kbps(),
         })
     }
 }

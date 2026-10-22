@@ -98,7 +98,7 @@ export function Machine() {
       {since !== null && <StaleNotice updatedAt={since} />}
       <GpuLine host={machine} />
       <RightNow host={machine} />
-      <PrivacyLine />
+      <PrivacyLine host={machine} />
       <div className="flex flex-col gap-2.5 xl:col-span-2">
         <MachineLink
           href={`/hosting/price/?id=${machine.id}`}

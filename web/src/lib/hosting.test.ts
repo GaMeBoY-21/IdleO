@@ -201,6 +201,24 @@ describe("the week's bars", () => {
   });
 });
 
+describe("the machine page's line about the owner's upload", () => {
+  it("says the most a job may use, in whole Mbit/s when it is, and what holds before the first check", async () => {
+    const { uploadLine } = await import("./hosting");
+    expect(uploadLine(25_000)).toBe(
+      "Jobs use at most 25 Mbit/s of your upload, so your own internet stays usable.",
+    );
+    expect(uploadLine(7_500)).toBe(
+      "Jobs use at most 7.5 Mbit/s of your upload, so your own internet stays usable.",
+    );
+    expect(uploadLine(5_000)).toContain("at most 5 Mbit/s");
+    for (const unknown of [null, undefined, 0]) {
+      expect(uploadLine(unknown)).toBe(
+        "Jobs use only a little of your upload until the host app has checked your connection's speed.",
+      );
+    }
+  });
+});
+
 describe("the machine page's host app line", () => {
   it("says the version, and whether an update is needed or waiting for an idle moment", async () => {
     const { appLine, releaseLine } = await import("./hosting");

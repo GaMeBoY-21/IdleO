@@ -330,6 +330,10 @@ pub struct Start {
     pub lease_ttl_secs: u32,
     /// What the agent needs back when it reattaches after a restart.
     pub agent: AgentNotes,
+    /// The most the session may upload, in kbit/s: half of what the laptop measured its own upload to be, never under the
+    /// agent's floor (ADR 0038). Zero is "not said": the runner uses its default.
+    #[serde(default)]
+    pub upload_cap_kbps: u32,
 }
 
 /// What the agent keeps in the runner, to pick an attempt up again after it restarts.
@@ -634,6 +638,7 @@ mod tests {
             }],
             lease_ttl_secs: 120,
             agent: AgentNotes { minute_index_base: 3, gpus: vec!["GPU-1".to_owned()] },
+            upload_cap_kbps: 12_500,
         }
     }
 
