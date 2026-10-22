@@ -215,6 +215,7 @@ impl Machine for FakeMachine {
                 input: root.join("input"),
                 resume: root.join("resume"),
                 root,
+                mapper: None,
             };
             for folder in [&scratch.work, &scratch.input, &scratch.resume] {
                 std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;

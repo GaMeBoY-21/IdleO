@@ -472,7 +472,30 @@ def run_forever():
     time.sleep(3600)
 
 
-ATTACKS = {f.__name__: f for f in (write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever)}
+def leave_marker():
+    # A value made here and nowhere else, written where a renter's data lives and printed, so the test can prove it's
+    # nowhere in the clear on the distribution's disk once the session has ended (its scratch disk was encrypted). The test
+    # learns it from this line (the job's uploaded log), not from anything it passed in.
+    import secrets
+
+    marker = "IDLEO-SCRATCH-MARKER-" + secrets.token_hex(16)
+    blob = (marker + "\n") * 4096
+    for rel in ("outputs/result.txt", "checkpoints/state.bin", "big.bin"):
+        path = os.path.join("/work", rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(blob)
+    with open("/work/MARKER-WRITTEN", "w") as f:
+        f.write(marker)
+    print(f"RESULT leave_marker HELD marker={marker}", flush=True)
+    # Holds the session open, so the test can try to read the disk while it runs (hostile test 16).
+    hold = int(os.environ.get("SESSION_PARAM_HOLD", "0"))
+    if hold:
+        time.sleep(hold)
+    return 0
+
+
+ATTACKS = {f.__name__: f for f in (write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever, leave_marker)}
 
 if __name__ == "__main__":
     # `hostile.py <attack>`, or, as the development-only `hostile-test` template runs it, the Attack parameter.

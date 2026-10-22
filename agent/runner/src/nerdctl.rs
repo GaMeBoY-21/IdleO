@@ -5,8 +5,12 @@
 //! **Networks.** Each session gets its own bridge, taken from a pool of 32: slot `N` is the bridge `idlN` on
 //! `172.30.N.0/24`, described by a CNI config written at start-up (`idleo-slot-N`), so no network is made or deleted per
 //! session and a crash leaves nothing to clean up but the slot. A slot is held from a container's start until it's removed.
-//! **Scratch disks.** `<state>/scratch/<key>.img`, a sparse ext4 image of `scratch_mb`, loop-mounted at `<state>/mnt/<key>`
-//! with `nosuid,nodev`; deleted at the end. A job can't fill the machine's disk, only its own.
+//! **Scratch disks.** `<state>/scratch/<key>.img`, a sparse image of `scratch_mb` holding a LUKS2 volume with a key of its
+//! own (ADR 0038, `crypto.rs`), with ext4 inside, mounted at `<state>/mnt/<key>` with `nosuid,nodev`; closed, its header
+//! erased and deleted at the end. A job can't fill the machine's disk, only its own. What the job prints, which nerdctl
+//! keeps in a file of the container's, is kept on that disk too (`<root>/logs`), through a link put in place before the
+//! container starts, so nothing of the renter's is on the distribution's disk in the clear. A development distribution
+//! whose kernel has no dm-crypt makes plain disks and says so; a release one runs no job without it.
 
 use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
@@ -22,6 +26,7 @@ use tokio::process::Command;
 use tokio::sync::{mpsc, watch};
 
 use crate::container::{self, NAMESPACE, Plan};
+use crate::crypto;
 use crate::machine::{Container, Exit, Fut, Machine, Output, Progress, Scratch, Stream};
 use crate::sandbox;
 
@@ -41,6 +46,19 @@ pub const DEV_REGISTRY: &str = "registry.idleo.test:5000";
 pub const SELF_CHECK_IMAGE: &str = "docker.io/idleo/gpu-check:local";
 /// The job's user, which owns `/work`.
 const JOB_UID: u32 = 10001;
+/// Room on every scratch disk that only root can use, beyond the job's `scratch_mb`: what the job prints is kept in a file on
+/// the disk (ADR 0038), written by nerdctl as root, so a job that fills its share of the disk still has its last lines
+/// recorded. The runner keeps at most 10 MiB of a job's output (`jobcore::logs::CAP`); nerdctl's file of it, a JSON object
+/// a line, is larger. A small disk keeps a quarter of its size instead (ext4 refuses to reserve half of one).
+const OUTPUT_RESERVE_MIB: u32 = 64;
+
+/// The room kept for what the job prints on a disk of `scratch_mb` for the job: [`OUTPUT_RESERVE_MIB`], or a quarter of a
+/// small one, and never under 4 MiB.
+fn output_reserve_mib(scratch_mb: u32) -> u32 {
+    OUTPUT_RESERVE_MIB.min(scratch_mb / 4).max(4)
+}
+/// The scratch disk's block size, so the reserve is exactly [`OUTPUT_RESERVE_MIB`] (a small ext4 would use 1 KiB blocks).
+const SCRATCH_BLOCK: u32 = 4096;
 /// A command that takes longer than this fails.
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(120);
 /// Pulling an image has longer: a few GB over a home connection.
@@ -57,6 +75,10 @@ pub struct Paths {
     pub cni_state: PathBuf,
     /// containerd's content store, whose growth is a pull's progress.
     pub content: PathBuf,
+    /// nerdctl's own data: each container's folder, with the file of what it prints.
+    pub nerdctl_data: PathBuf,
+    /// Where device-mapper's devices are, to find an encrypted volume a crashed runner left open.
+    pub mapper: PathBuf,
 }
 
 impl Default for Paths {
@@ -66,6 +88,8 @@ impl Default for Paths {
             cni_config: PathBuf::from("/etc/cni/net.d"),
             cni_state: PathBuf::from("/var/lib/cni/networks"),
             content: PathBuf::from("/var/lib/containerd/io.containerd.content.v1.content"),
+            nerdctl_data: PathBuf::from("/var/lib/nerdctl"),
+            mapper: PathBuf::from("/dev/mapper"),
         }
     }
 }
@@ -84,6 +108,8 @@ pub struct Nerdctl {
     /// their containers and the keys of their scratch disks. (Session networks are `slots`.)
     held_containers: Arc<Mutex<HashSet<String>>>,
     held_scratch: Arc<Mutex<HashSet<String>>>,
+    /// Whether this kernel can encrypt a scratch disk, found once by making a small encrypted volume (ADR 0038).
+    encryption: tokio::sync::OnceCell<Result<(), String>>,
 }
 
 struct Finished {
@@ -115,19 +141,24 @@ impl Finished {
     }
 }
 
-async fn run(program: &str, args: &[&str], stdin: Option<&str>, limit: Duration) -> Result<Finished, String> {
+/// Runs `program` with `args`, writing `stdin` to its standard input (then closing it) when there is one: the only way a
+/// scratch disk's key ever reaches `cryptsetup`.
+async fn run(program: &str, args: &[&str], stdin: Option<&[u8]>, limit: Duration) -> Result<Finished, String> {
     let mut command = Command::new(program);
     command
         .args(args)
         .env("PATH", "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin")
         .env("CNI_PATH", "/opt/cni/bin")
+        // There's no udev in the distribution: device-mapper makes its own device nodes instead of waiting for it.
+        .env("DM_DISABLE_UDEV", "1")
         .stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
     let mut child = command.spawn().map_err(|e| format!("{program} couldn't be started: {e}"))?;
-    if let (Some(text), Some(mut pipe)) = (stdin, child.stdin.take()) {
-        pipe.write_all(text.as_bytes()).await.map_err(|e| format!("{program} didn't take its input: {e}"))?;
+    if let (Some(bytes), Some(mut pipe)) = (stdin, child.stdin.take()) {
+        pipe.write_all(bytes).await.map_err(|e| format!("{program} didn't take its input: {e}"))?;
+        drop(pipe);
     }
     let result = tokio::time::timeout(limit, child.wait_with_output())
         .await
@@ -158,6 +189,7 @@ impl Nerdctl {
             exits: Arc::default(),
             held_containers: Arc::default(),
             held_scratch: Arc::default(),
+            encryption: tokio::sync::OnceCell::new(),
         }
     }
 
@@ -286,17 +318,49 @@ impl Nerdctl {
         self.slots.lock().unwrap_or_else(PoisonError::into_inner).remove(&slot);
     }
 
-    /// Starts a container from its `nerdctl run` arguments, and the tasks that follow it. On failure nothing is left running.
-    async fn launch(plan: &Plan, args: &[String]) -> Result<Running, String> {
+    /// Moves the file nerdctl keeps of what container `id` prints (`<data>/<address hash>/containers/<namespace>/<id>/
+    /// <id>-json.log`, made empty by `nerdctl create`) onto the scratch disk, leaving a link where it was: nerdctl and
+    /// `nerdctl logs` go on using it, and what the job prints is written only to the encrypted disk. A container whose file
+    /// isn't where nerdctl keeps it isn't started, so a nerdctl that changed where it keeps it can't put a renter's output
+    /// on the distribution's disk unnoticed.
+    fn keep_output_on_scratch(&self, id: &str, logs: &Path) -> Result<(), String> {
+        let name = format!("{id}-json.log");
+        let file = std::fs::read_dir(&self.paths.nerdctl_data)
+            .map_err(|e| format!("nerdctl's data couldn't be read: {e}"))?
+            .flatten()
+            .map(|entry| entry.path().join("containers").join(NAMESPACE).join(id).join(&name))
+            .find(|path| path.symlink_metadata().is_ok_and(|meta| meta.is_file()))
+            .ok_or("nerdctl's file of the container's output isn't where nerdctl keeps it")?;
+        let kept = logs.join(&name);
+        std::fs::File::create(&kept).map_err(|e| format!("the container's output file couldn't be made: {e}"))?;
+        set_mode(&kept, 0o600)?;
+        std::fs::remove_file(&file).map_err(|e| format!("nerdctl's output file couldn't be moved: {e}"))?;
+        std::os::unix::fs::symlink(&kept, &file).map_err(|e| format!("nerdctl's output file couldn't be linked: {e}"))
+    }
+
+    /// Makes a container from its `nerdctl create` arguments, keeps what it will print on its scratch disk, starts it, and
+    /// starts the tasks that follow it. On failure nothing is left running.
+    async fn launch(&self, plan: &Plan, args: &[String]) -> Result<Running, String> {
         let arguments: Vec<&str> = args.iter().map(String::as_str).collect();
         let out = run("nerdctl", &arguments, None, COMMAND_TIMEOUT).await?;
         if !out.ok {
             let _ = nerdctl(&["rm", "--force", &plan.name]).await;
-            return Err(out.why("starting the container"));
+            return Err(out.why("making the container"));
         }
         let id = out.stdout.lines().last().unwrap_or_default().trim().to_owned();
         if id.is_empty() {
-            return Err("nerdctl started a container but gave no id".to_owned());
+            let _ = nerdctl(&["rm", "--force", &plan.name]).await;
+            return Err("nerdctl made a container but gave no id".to_owned());
+        }
+        let started = match self.keep_output_on_scratch(&id, &plan.logs) {
+            Ok(()) => nerdctl(&["start", &id])
+                .await
+                .and_then(|out| if out.ok { Ok(()) } else { Err(out.why("starting the container")) }),
+            Err(why) => Err(why),
+        };
+        if let Err(why) = started {
+            let _ = nerdctl(&["rm", "--force", &id]).await;
+            return Err(why);
         }
         let cgroup_events = async {
             let pid = nerdctl(&["inspect", "--format", "{{.State.Pid}}", &id])
@@ -378,7 +442,7 @@ impl Nerdctl {
     /// # Errors
     /// If `nft` refuses them.
     pub async fn load_rules() -> Result<(), String> {
-        let out = run("nft", &["-f", "-"], Some(&sandbox::rendered()), COMMAND_TIMEOUT).await?;
+        let out = run("nft", &["-f", "-"], Some(sandbox::rendered().as_bytes()), COMMAND_TIMEOUT).await?;
         if out.ok { Ok(()) } else { Err(out.why("loading the network rules")) }
     }
 
@@ -391,9 +455,13 @@ impl Nerdctl {
             .get_or_init(|| async {
                 let listing = |family: &'static str, table: &'static str| async move {
                     let script = format!("nft -f - && nft -j list table {family} {table}");
-                    let out =
-                        run("unshare", &["--net", "sh", "-c", &script], Some(&sandbox::rendered()), COMMAND_TIMEOUT)
-                            .await?;
+                    let out = run(
+                        "unshare",
+                        &["--net", "sh", "-c", &script],
+                        Some(sandbox::rendered().as_bytes()),
+                        COMMAND_TIMEOUT,
+                    )
+                    .await?;
                     if out.ok {
                         sandbox::normalize(&out.stdout)
                     } else {
@@ -426,12 +494,19 @@ impl Nerdctl {
         }
         let mut blocked = sandbox::own_addresses(&std::fs::read_to_string("/proc/net/fib_trie").unwrap_or_default());
         blocked.extend(sandbox::default_gateway(&std::fs::read_to_string("/proc/net/route").unwrap_or_default()));
-        let update = run("nft", &["-f", "-"], Some(&sandbox::extra_blocked_script(&blocked)), COMMAND_TIMEOUT).await?;
+        let update =
+            run("nft", &["-f", "-"], Some(sandbox::extra_blocked_script(&blocked).as_bytes()), COMMAND_TIMEOUT).await?;
         if !update.ok {
             return Err(update.why("refreshing the blocked addresses"));
         }
         if std::fs::read_to_string("/proc/sys/net/ipv4/ip_forward").map_or(true, |text| text.trim() != "1") {
             return Err("forwarding is off, so a session network can't reach out".to_owned());
+        }
+        // A renter's files are never on a plain disk here (ADR 0038); only a development distribution may go without.
+        if let Err(why) = self.encryption_ready().await
+            && !Self::development()
+        {
+            return Err(format!("scratch disks can't be encrypted on this kernel: {why}"));
         }
         Ok(())
     }
@@ -469,6 +544,136 @@ impl Nerdctl {
                 .split('/')
                 .next()
                 .is_some_and(|host| host.contains(':') || host.parse::<std::net::Ipv4Addr>().is_ok())
+    }
+
+    /// Whether this kernel can encrypt a scratch disk, found once by making a small encrypted volume and seeing that what is
+    /// written through it isn't on its image in the clear. A release distribution runs no job without it; a development one
+    /// says so in the runner's log and makes plain disks.
+    async fn encryption_ready(&self) -> Result<(), String> {
+        self.encryption
+            .get_or_init(|| async {
+                let result = self.encryption_round_trip().await.map(|_| ());
+                if let Err(why) = &result {
+                    if Self::development() {
+                        tracing::warn!(%why, "this kernel can't encrypt scratch disks; a development distribution makes plain ones");
+                    } else {
+                        tracing::error!(%why, "this kernel can't encrypt scratch disks, so no job will run");
+                    }
+                }
+                result
+            })
+            .await
+            .clone()
+    }
+
+    /// Makes a small encrypted volume with a key of its own, writes a marker through it and reads it back, closes it and
+    /// erases its header, and checks the image never held the marker in the clear. What it took, in a line.
+    pub(super) async fn encryption_round_trip(&self) -> Result<String, String> {
+        // Microsoft's WSL kernel has dm-crypt as a module (CONFIG_DM_CRYPT=m); a kernel with it built in has nothing to load.
+        let _ = run("modprobe", &["dm_crypt"], None, COMMAND_TIMEOUT).await;
+        let key = "encryption-check";
+        let mapper = crypto::mapper_name(key)?;
+        let (image, _) = self.scratch_paths(key);
+        let image_text = image.to_string_lossy().into_owned();
+        let device = self.paths.mapper.join(&mapper);
+        let started = std::time::Instant::now();
+        let checked = async {
+            tokio::fs::create_dir_all(image.parent().unwrap_or(Path::new("/")))
+                .await
+                .map_err(|e| format!("the scratch folder couldn't be made: {e}"))?;
+            let out = run("truncate", &["-s", "32M", &image_text], None, COMMAND_TIMEOUT).await?;
+            if !out.ok {
+                return Err(out.why("making the test volume"));
+            }
+            open_encrypted(&image_text, &mapper).await?;
+            let opened = started.elapsed();
+            let marker: Vec<u8> = b"IDLEO-ENCRYPTION-CHECK-".iter().copied().cycle().take(64 * 1024).collect();
+            let device_for_io = device.clone();
+            let probe = marker.clone();
+            let read = tokio::task::spawn_blocking(move || -> std::io::Result<Vec<u8>> {
+                use std::io::{Read, Seek, SeekFrom, Write};
+                let mut volume = std::fs::OpenOptions::new().read(true).write(true).open(&device_for_io)?;
+                volume.write_all(&probe)?;
+                volume.sync_all()?;
+                volume.seek(SeekFrom::Start(0))?;
+                let mut back = vec![0_u8; probe.len()];
+                volume.read_exact(&mut back)?;
+                Ok(back)
+            })
+            .await
+            .map_err(|e| format!("the test volume's check didn't finish: {e}"))?
+            .map_err(|e| format!("the test volume couldn't be written and read: {e}"));
+            close_encrypted(&image_text, &mapper).await;
+            if read? != marker {
+                return Err("what was read back from the test volume isn't what was written".to_owned());
+            }
+            let raw =
+                tokio::fs::read(&image).await.map_err(|e| format!("the test volume's image couldn't be read: {e}"))?;
+            if raw.windows(23).any(|window| window == &marker[..23]) {
+                return Err("the test volume's image holds what was written through it in the clear".to_owned());
+            }
+            Ok(format!(
+                "opened in {} ms, written, read, closed and erased in {} ms; its image holds nothing in the clear",
+                opened.as_millis(),
+                started.elapsed().as_millis()
+            ))
+        }
+        .await;
+        if checked.is_err() {
+            close_encrypted(&image_text, &mapper).await;
+        }
+        let _ = tokio::fs::remove_file(&image).await;
+        checked
+    }
+
+    /// Makes the scratch disk's image of `scratch_mb` and its reserve, opens it as an encrypted volume when there's a mapper
+    /// name for it, puts ext4 on it with the reserve kept for root, and mounts it at `root`.
+    async fn format_and_mount(
+        &self,
+        image: &Path,
+        root: &Path,
+        scratch_mb: u32,
+        mapper: Option<&str>,
+    ) -> Result<(), String> {
+        let image_text = image.to_string_lossy().into_owned();
+        let reserve_mib = output_reserve_mib(scratch_mb);
+        let size = format!("{}M", scratch_mb + reserve_mib);
+        let step = |out: Finished, what: &str| if out.ok { Ok(()) } else { Err(out.why(what)) };
+        step(run("truncate", &["-s", &size, &image_text], None, COMMAND_TIMEOUT).await?, "making the scratch disk")?;
+        // Only root reads it: not the `idleo` user or any other account in the distribution (hostile test 16).
+        set_mode(image, 0o600)?;
+        // The filesystem goes on the opened volume, or on the image itself when it's a plain disk.
+        let (device, mount_options) = match mapper {
+            Some(mapper) => {
+                open_encrypted(&image_text, mapper).await?;
+                (self.paths.mapper.join(mapper).to_string_lossy().into_owned(), "nosuid,nodev")
+            }
+            None => (image_text.clone(), "loop,nosuid,nodev"),
+        };
+        let block = SCRATCH_BLOCK.to_string();
+        let format = [
+            "-q",
+            "-F",
+            "-m",
+            "0",
+            "-b",
+            &block,
+            "-L",
+            "idleo-scratch",
+            "-E",
+            "lazy_itable_init=1,lazy_journal_init=1,nodiscard",
+            &device,
+        ];
+        step(run("mkfs.ext4", &format, None, COMMAND_TIMEOUT).await?, "formatting the scratch disk")?;
+        let reserved = (reserve_mib * 1024 * 1024 / SCRATCH_BLOCK).to_string();
+        step(
+            run("tune2fs", &["-r", &reserved, &device], None, COMMAND_TIMEOUT).await?,
+            "keeping room on the scratch disk for what the job prints",
+        )?;
+        step(
+            run("mount", &["-o", mount_options, &device, &root.to_string_lossy()], None, COMMAND_TIMEOUT).await?,
+            "mounting the scratch disk",
+        )
     }
 
     async fn remove_leftover_mounts(&self) {
@@ -534,6 +739,12 @@ impl Machine for Nerdctl {
 
     fn make_scratch<'a>(&'a self, key: &'a str, scratch_mb: u32) -> Fut<'a, Result<Scratch, String>> {
         Box::pin(async move {
+            // A release distribution never makes a plain disk; `check_sandbox` has already refused its jobs.
+            let encrypted = match self.encryption_ready().await {
+                Ok(()) => Some(crypto::mapper_name(key)?),
+                Err(_) if Self::development() => None,
+                Err(why) => return Err(format!("this distribution can't encrypt a scratch disk: {why}")),
+            };
             self.held_scratch.lock().unwrap_or_else(PoisonError::into_inner).insert(key.to_owned());
             let (image, root) = self.scratch_paths(key);
             let made = async {
@@ -542,50 +753,20 @@ impl Machine for Nerdctl {
                         .await
                         .map_err(|e| format!("{} couldn't be made: {e}", folder.display()))?;
                 }
-                let image_text = image.to_string_lossy().into_owned();
-                let size = format!("{scratch_mb}M");
-                let step = |out: Finished, what: &str| if out.ok { Ok(()) } else { Err(out.why(what)) };
-                step(
-                    run("truncate", &["-s", &size, &image_text], None, COMMAND_TIMEOUT).await?,
-                    "making the scratch disk",
-                )?;
-                step(
-                    run(
-                        "mkfs.ext4",
-                        &[
-                            "-q",
-                            "-F",
-                            "-m",
-                            "0",
-                            "-L",
-                            "idleo-scratch",
-                            "-E",
-                            "lazy_itable_init=1,lazy_journal_init=1,nodiscard",
-                            &image_text,
-                        ],
-                        None,
-                        COMMAND_TIMEOUT,
-                    )
-                    .await?,
-                    "formatting the scratch disk",
-                )?;
-                step(
-                    run(
-                        "mount",
-                        &["-o", "loop,nosuid,nodev", &image_text, &root.to_string_lossy()],
-                        None,
-                        COMMAND_TIMEOUT,
-                    )
-                    .await?,
-                    "mounting the scratch disk",
-                )?;
+                set_mode(image.parent().unwrap_or(Path::new("/")), 0o700)?;
+                self.format_and_mount(&image, &root, scratch_mb, encrypted.as_deref()).await?;
                 let scratch = Scratch {
                     key: key.to_owned(),
                     work: root.join("work"),
                     input: root.join("input"),
                     resume: root.join("resume"),
                     root: root.clone(),
+                    mapper: encrypted.clone(),
                 };
+                // The container's own output file, on this disk and readable only by root: nothing of the job's sees it.
+                std::fs::create_dir(scratch.logs())
+                    .map_err(|e| format!("the scratch disk's logs folder couldn't be made: {e}"))?;
+                set_mode(&scratch.logs(), 0o700)?;
                 for (folder, mode) in [(&scratch.work, 0o755), (&scratch.input, 0o755), (&scratch.resume, 0o755)] {
                     std::fs::create_dir(folder).map_err(|e| format!("{} couldn't be made: {e}", folder.display()))?;
                     set_mode(folder, mode)?;
@@ -611,7 +792,7 @@ impl Machine for Nerdctl {
                 Ok(scratch) => Ok(scratch),
                 Err(why) => {
                     let (image, root) = self.scratch_paths(key);
-                    teardown_scratch(&image, &root).await;
+                    teardown_scratch(&image, &root, encrypted.as_deref()).await;
                     self.held_scratch.lock().unwrap_or_else(PoisonError::into_inner).remove(key);
                     Err(why)
                 }
@@ -626,7 +807,7 @@ impl Machine for Nerdctl {
     fn remove_scratch<'a>(&'a self, scratch: &'a Scratch) -> Fut<'a, ()> {
         Box::pin(async move {
             let (image, root) = self.scratch_paths(&scratch.key);
-            teardown_scratch(&image, &root).await;
+            teardown_scratch(&image, &root, scratch.mapper.as_deref()).await;
             self.held_scratch.lock().unwrap_or_else(PoisonError::into_inner).remove(&scratch.key);
         })
     }
@@ -636,12 +817,12 @@ impl Machine for Nerdctl {
             let slot = self.take_slot().ok_or("every session network is in use")?;
             plan.network = format!("idleo-slot-{slot}");
             let args = if plan.entrypoint.is_some() {
-                container::run_arguments_trusted(&plan)
+                container::create_arguments_trusted(&plan)
             } else {
-                container::run_arguments(&plan)
+                container::create_arguments(&plan)
             }
             .map_err(|refused| refused.0)?;
-            let started = Self::launch(&plan, &args).await;
+            let started = self.launch(&plan, &args).await;
             match started {
                 Ok(running) => {
                     self.held_containers.lock().unwrap_or_else(PoisonError::into_inner).insert(running.id.clone());
@@ -682,6 +863,13 @@ impl Machine for Nerdctl {
                 }
             }
             self.remove_leftover_mounts().await;
+            // An encrypted volume a runner that died left open: its key died with it, so what's in it can't be read again;
+            // the mapping and its loop device go, and the header is erased before the image is deleted.
+            for mapper in leftovers::open_mappers(&self.paths.mapper) {
+                let key = mapper.strip_prefix(crypto::MAPPER_PREFIX).unwrap_or(&mapper).to_owned();
+                let (image, _) = self.scratch_paths(&key);
+                close_encrypted(&image.to_string_lossy(), &mapper).await;
+            }
             let _ = tokio::fs::remove_dir_all(self.paths.state.join("scratch")).await;
             let _ = tokio::fs::remove_dir_all(self.paths.state.join("mnt")).await;
         })
@@ -694,17 +882,63 @@ fn set_mode(path: &Path, mode: u32) -> Result<(), String> {
         .map_err(|e| format!("{} couldn't be set up: {e}", path.display()))
 }
 
-/// Unmounts a scratch disk and deletes its image and folder, whatever state it's in.
-async fn teardown_scratch(image: &Path, root: &Path) {
+fn strs(args: &[String]) -> Vec<&str> {
+    args.iter().map(String::as_str).collect()
+}
+
+/// Makes `image` a LUKS2 volume with a fresh key and opens it as `/dev/mapper/<mapper>`. The key goes to `cryptsetup`
+/// through its standard input and nowhere else, and is zeroed when this returns: from then on only the kernel holds what
+/// unlocks the volume, and only while it's open.
+async fn open_encrypted(image: &str, mapper: &str) -> Result<(), String> {
+    let key = crypto::ScratchKey::random()?;
+    let out = run("cryptsetup", &strs(&crypto::format_arguments(image)), Some(key.bytes()), COMMAND_TIMEOUT).await?;
+    if !out.ok {
+        return Err(out.why("encrypting the scratch disk"));
+    }
+    let out =
+        run("cryptsetup", &strs(&crypto::open_arguments(image, mapper)), Some(key.bytes()), COMMAND_TIMEOUT).await?;
+    if !out.ok {
+        return Err(out.why("opening the encrypted scratch disk"));
+    }
+    Ok(())
+}
+
+/// Closes an encrypted volume (which also lets go of the loop device `cryptsetup open` made) and erases every key slot in
+/// its image's header, so nothing can open it again. Safe to call on one that's closed already.
+async fn close_encrypted(image: &str, mapper: &str) {
+    for attempt in 0..5 {
+        match run("cryptsetup", &strs(&crypto::close_arguments(mapper)), None, COMMAND_TIMEOUT).await {
+            Ok(out) if out.ok || out.stderr.contains("doesn't exist") || out.stderr.contains("is not active") => break,
+            Ok(out) if attempt == 4 => {
+                tracing::warn!(why = %out.why("closing an encrypted scratch disk"), "it stays open");
+            }
+            _ => tokio::time::sleep(Duration::from_millis(300)).await,
+        }
+    }
+    if Path::new(image).exists() {
+        match run("cryptsetup", &strs(&crypto::erase_arguments(image)), None, COMMAND_TIMEOUT).await {
+            Ok(out) if out.ok => {}
+            Ok(out) => tracing::warn!(why = %out.why("erasing a scratch disk's header"), "the image is deleted anyway"),
+            Err(why) => tracing::warn!(%why, "the image is deleted anyway"),
+        }
+    }
+}
+
+/// Unmounts a scratch disk, closes and erases its encrypted volume if it has one, and deletes its image and folder,
+/// whatever state it's in.
+async fn teardown_scratch(image: &Path, root: &Path, mapper: Option<&str>) {
     let point = root.to_string_lossy().into_owned();
     for attempt in 0..5 {
         match run("umount", &[&point], None, COMMAND_TIMEOUT).await {
-            Ok(out) if out.ok || out.stderr.contains("not mounted") => break,
+            Ok(out) if out.ok || out.stderr.contains("not mounted") || out.stderr.contains("no mount point") => break,
             _ if attempt == 4 => {
                 let _ = run("umount", &["-l", &point], None, COMMAND_TIMEOUT).await;
             }
             _ => tokio::time::sleep(Duration::from_millis(300)).await,
         }
+    }
+    if let Some(mapper) = mapper {
+        close_encrypted(&image.to_string_lossy(), mapper).await;
     }
     let _ = tokio::fs::remove_file(image).await;
     let _ = tokio::fs::remove_dir_all(root).await;
@@ -844,6 +1078,14 @@ fn oom_kills(events: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_scratch_disk_keeps_room_for_what_the_job_prints() {
+        assert_eq!(output_reserve_mib(40960), 64, "a real job's disk keeps 64 MiB");
+        assert_eq!(output_reserve_mib(256), 64);
+        assert_eq!(output_reserve_mib(64), 16, "a small one a quarter of it, which ext4 allows");
+        assert_eq!(output_reserve_mib(8), 4, "never under 4 MiB");
+    }
 
     #[test]
     fn an_exit_event_names_its_container() {

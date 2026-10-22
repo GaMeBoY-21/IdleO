@@ -18,6 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 agent-proto = { path = "../agent-proto" }
+getrandom = "0.4.3"
 jobcore = { path = "../jobcore" }
 prost-types = "0.14.4"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -27,6 +28,7 @@ tokio = { version = "1.53.2", features = ["fs", "io-std", "io-util", "macros", "
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["ansi", "fmt", "std"] }
 uuid = { version = "1.27.0", features = ["v7"] }
+zeroize = "1.9.0"
 
 # Runs only in our Linux distribution: on Windows the crate is empty, so the workspace still builds and lints there.
 [target.'cfg(unix)'.dependencies]

@@ -41,6 +41,7 @@
     "lockdown",
     "network_lockdown",
     "runner",
+    "scratch_encryption",
     "pendingapproval",
     "active"
   ]

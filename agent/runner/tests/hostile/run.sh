@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Runs the 14 hostile tests (ADR 0035, §7) against the development distribution and prints a table. A single FAIL, or fewer
-# than 14 rows, exits non-zero.
+# Runs the 16 hostile tests (ADR 0035, §7, and ADR 0038) against the development distribution and prints a table. A single FAIL, or fewer
+# than 16 rows, exits non-zero.
 #
 #   agent/runner/tests/hostile/run.sh            use the running distribution and registry (start them if they aren't)
 #   agent/runner/tests/hostile/run.sh --fresh    remove the distribution first, so it starts cold
-#   agent/runner/tests/hostile/run.sh --host ID  the same 14, through the real path on a linked host: the stack, the agent, the
+#   agent/runner/tests/hostile/run.sh --host ID  the same 16, through the real path on a linked host: the stack, the agent, the
 #                                                job runner in its Linux distribution (the Windows laptop on laptop day), by
 #                                                booking the development-only hostile-test template as the key's owner
 #                                                (IDLEO_API_KEY, IDLEO_API_URL; ./start.sh --lan --real-runner publishes the
@@ -59,8 +59,8 @@ rows="$(grep -oE 'HOSTILE [0-9]+ .*: (PASS|FAIL)' "$log" | wc -l | tr -d ' ' || 
 fails="$(grep -oE 'HOSTILE [0-9]+ .*: FAIL' "$log" | wc -l | tr -d ' ' || true)"
 echo
 grep -E 'TIMING' -A4 "$log" | cut -c1-400 || true
-echo "hostile: $rows of 14 rows, $fails FAIL (full log: $log)"
-if [[ "$status" != 0 || "$rows" != 14 || "$fails" != 0 ]]; then
+echo "hostile: $rows of 16 rows, $fails FAIL (full log: $log)"
+if [[ "$status" != 0 || "$rows" != 16 || "$fails" != 0 ]]; then
   grep -E 'panicked|assertion|FAIL' -A6 "$log" | head -60 >&2 || true
   exit 1
 fi

@@ -33,6 +33,18 @@ pub struct Scratch {
     pub input: PathBuf,
     /// `<root>/resume`, the checkpoint to resume from, mounted read-only at `/work/resume`.
     pub resume: PathBuf,
+    /// The device-mapper name of its encrypted volume (ADR 0038); `None` only for a development distribution whose kernel
+    /// has no dm-crypt, where the disk is plain and the runner has said so.
+    pub mapper: Option<String>,
+}
+
+impl Scratch {
+    /// `<root>/logs`: where the container's own output file is kept, on this disk and out of the job's sight, so what a job
+    /// prints is never on the distribution's disk in the clear.
+    #[must_use]
+    pub fn logs(&self) -> PathBuf {
+        self.root.join("logs")
+    }
 }
 
 /// Which of a job's output streams a chunk came from.

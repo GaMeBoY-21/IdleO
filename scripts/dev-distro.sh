@@ -23,6 +23,10 @@
 #                                                     distribution, then restart it (a quick loop while changing it)
 #   scripts/dev-distro.sh exec -- COMMAND...          run a command inside, as root
 #
+# Its state (`/var/lib/idleo`, where the runner keeps scratch disks) is an ext4 image, `/var/lib/idleo-disk/state.img` on a
+# volume, loop-mounted before the runner starts: the stand-in for a laptop's WSL virtual disk (ext4.vhdx), which an owner
+# could copy, so a test can scan it whole for anything of a renter's left in the clear (hostile test 15, ADR 0038).
+#
 # The development registry (control-plane/compose.yaml's `registry`) is reached by its logical name, registry.idleo.test:5000,
 # which the runner maps to the real address from the marker's `registry=` line; --registry says which (default
 # host.docker.internal:5000, the registry compose publishes on this Mac). The marker also sends the runner's storage requests
@@ -35,7 +39,9 @@ name="${IDLEO_DEV_DISTRO:-idleo-dev-distro}"
 version="$(tr -d '[:space:]' <agent/distro/VERSION)"
 image="idleo-distro-dev:$version"
 registry="host.docker.internal:5000"
-volumes=("$name-containerd:/var/lib/containerd" "$name-state:/var/lib/idleo" "$name-nerdctl:/var/lib/nerdctl" "$name-cni:/var/lib/cni")
+volumes=("$name-containerd:/var/lib/containerd" "$name-disk:/var/lib/idleo-disk" "$name-nerdctl:/var/lib/nerdctl" "$name-cni:/var/lib/cni")
+# The stand-in virtual disk's size: sparse, so it takes only what's written.
+state_disk_size="64G"
 
 die() { echo "dev-distro: $*" >&2; exit 1; }
 inside() { docker exec "$name" "$@"; }
@@ -68,6 +74,16 @@ case "$cmd" in
     fi
     # The development marker, with where the logical registry name points; only root in the distribution can write it.
     inside bash -c "mkdir -p /etc/idleo && printf 'registry=%s\nlocalhost=host.docker.internal\n' '$registry' >/etc/idleo/development"
+    # The state disk, mounted under the runner (which systemd started at boot, on the image's own folder): stopped, the disk
+    # mounted, and started again, so every scratch disk it makes is on the image.
+    inside bash -c "set -e
+      if ! mountpoint -q /var/lib/idleo; then
+        systemctl stop idleo-runner.service
+        [ -f /var/lib/idleo-disk/state.img ] || { truncate -s $state_disk_size /var/lib/idleo-disk/state.img
+          mkfs.ext4 -q -F -m 0 -L idleo-state -E lazy_itable_init=1,lazy_journal_init=1,nodiscard /var/lib/idleo-disk/state.img; }
+        mount -o loop /var/lib/idleo-disk/state.img /var/lib/idleo
+        systemctl start idleo-runner.service
+      fi"
     started=$SECONDS
     for _ in $(seq 1 180); do
       answers && break

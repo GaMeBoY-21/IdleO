@@ -1,5 +1,5 @@
-//! What finished sessions leave behind (ADR 0035): a job's processes, containers, scratch disks, mounts, loop devices, files and
-//! session networks must all be gone once it has ended, whatever it did to try to stay (hostile test 12). The check reads the
+//! What finished sessions leave behind (ADR 0035): a job's processes, containers, scratch disks, mounts, loop devices, encrypted
+//! volumes (ADR 0038), files and session networks must all be gone once it has ended, whatever it did to try to stay (hostile test 12). The check reads the
 //! distribution itself, not what the runner believes it did, and tells what a session running now holds (its container, its
 //! scratch disk, its network) from what is left.
 
@@ -9,7 +9,22 @@ use std::sync::PoisonError;
 use std::time::Duration;
 
 use super::{Nerdctl, SLOTS, nerdctl, run};
-use crate::sandbox;
+use crate::{crypto, sandbox};
+
+/// The encrypted volumes open now that the runner made: the device-mapper names in `folder` (`/dev/mapper`) with its prefix.
+pub(super) fn open_mappers(folder: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(folder)
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .filter(|name| name.starts_with(crypto::MAPPER_PREFIX))
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+}
 
 /// A container's systemd scope: `nerdctl-<64 hex>.scope`, the cgroup its processes live in.
 fn scope_of(cgroup: &str) -> Option<&str> {
@@ -94,6 +109,12 @@ impl Nerdctl {
             loop_keys(&losetup, &scratch_folder).into_iter().filter(|key| !held_scratch.contains(*key)).count();
         left.extend(count(looped, "loop device", "loop devices"));
 
+        let volumes = open_mappers(&self.paths.mapper)
+            .iter()
+            .filter(|name| !held_scratch.contains(name.strip_prefix(crypto::MAPPER_PREFIX).unwrap_or(name)))
+            .count();
+        left.extend(count(volumes, "encrypted volume", "encrypted volumes"));
+
         let mut files = 0;
         for (folder, suffix) in [(&scratch_folder, ".img"), (&mount_folder, "")] {
             if let Ok(entries) = std::fs::read_dir(folder) {
@@ -151,6 +172,16 @@ mod tests {
         assert_eq!(loop_keys(losetup, Path::new("/var/lib/idleo/scratch")), ["s1-1", "s2-1"]);
         let mounts = "/dev/loop0 /var/lib/idleo/mnt/s1-1 ext4 rw 0 0\nproc /proc proc rw 0 0\n/dev/loop2 /var/lib/idleo/mnt/s2-1/work ext4 rw 0 0\n";
         assert_eq!(mounted_keys(mounts, Path::new("/var/lib/idleo/mnt")), ["s1-1", "s2-1"]);
+    }
+
+    #[test]
+    fn the_runners_encrypted_volumes_are_found_by_their_prefix_and_nothing_else_is() {
+        let folder = tempfile::tempdir().unwrap();
+        for name in ["control", "idleo-s1-1", "idleo-selfcheck-scratch", "other-volume"] {
+            std::fs::write(folder.path().join(name), b"").unwrap();
+        }
+        assert_eq!(open_mappers(folder.path()), ["idleo-s1-1", "idleo-selfcheck-scratch"]);
+        assert_eq!(open_mappers(&folder.path().join("missing")), Vec::<String>::new());
     }
 
     #[test]

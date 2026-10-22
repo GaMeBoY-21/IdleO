@@ -3138,6 +3138,7 @@ name = "runner"
 version = "0.1.0"
 dependencies = [
  "agent-proto",
+ "getrandom 0.4.3",
  "jobcore",
  "prost-types",
  "rustix",
@@ -3149,6 +3150,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]

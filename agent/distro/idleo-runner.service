@@ -5,9 +5,13 @@ After=containerd.service idleo-sandbox.service idleo-images.service
 Requires=containerd.service idleo-sandbox.service
 
 [Service]
+# WSL has no udev, so cryptsetup must not wait for device-mapper udev events (ADR 0038).
+Environment=DM_DISABLE_UDEV=1
 ExecStart=/usr/local/bin/idleo-runner serve
 Restart=on-failure
 RestartSec=2
+# The per-session scratch keys live only in the runner's memory: it must never be swapped to the Windows disk.
+MemorySwapMax=0
 
 [Install]
 WantedBy=multi-user.target

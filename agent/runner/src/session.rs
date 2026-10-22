@@ -577,6 +577,7 @@ impl Registry {
             work: scratch.work.clone(),
             input: scratch.input.clone(),
             resume,
+            logs: scratch.logs(),
             slots,
             development: self.machine.hello().await.development,
             entrypoint: None,

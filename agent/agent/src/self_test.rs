@@ -11,6 +11,10 @@
 //! 5. `runner`: the job runner (ADR 0035) answers, the sandbox's network rules are loaded, a scratch disk can be made and
 //!    removed, and nothing is left behind by sessions that have finished (`leftovers`: no container, process, mount, loop
 //!    device, scratch file or session network that no running session holds).
+//!    `scratch_encryption` (ADR 0038): this machine's Linux kernel can encrypt a scratch disk: a small encrypted volume is
+//!    made with a key of its own, written, read, closed and erased, and its image never held what was written in the clear.
+//!    A laptop that can't is not listed: the runner refuses its jobs (`sandbox_not_ready`), so a renter's files are never on a
+//!    plain disk. A development distribution that can't only says so (skipped), and makes plain disks.
 //! 6. `gpu_in_container`: the GPU-check image prints the GPU's name and memory from inside a container, and, once the
 //!    job image is on the laptop, a real CUDA calculation (a matrix multiply through `PyTorch`, checked against the CPU's
 //!    answer) runs in it; before it's downloaded that part is "skipped: image not downloaded yet", not a failure.
@@ -264,6 +268,16 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
         detail: cut(&runner_detail),
         took_ms: millis(runner_started),
     });
+    if results.as_ref().is_some_and(Result::is_ok) {
+        checks.push(timed("scratch_encryption", || match found("scratch_encryption") {
+            Some(check) if check.status == jobcore::protocol::CheckStatus::Failed => (false, check.detail.clone()),
+            Some(check) if check.status == jobcore::protocol::CheckStatus::Skipped => {
+                (true, format!("skipped: {}", check.detail))
+            }
+            Some(check) => (true, check.detail.clone()),
+            None => (false, "the job runner didn't run it".to_owned()),
+        }));
+    }
     if !quick {
         checks.push(timed("gpu_in_container", || {
             let args = ["run", "--rm", "--gpus", "0", GPU_CHECK_IMAGE, "idleo-gpu-check"];
@@ -321,7 +335,14 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
 }
 
 fn names(quick: bool, speed: bool) -> Vec<&'static str> {
-    let mut names = vec!["distro_registered", "lockdown_config", "gpu_visible", "container_runtime", "runner"];
+    let mut names = vec![
+        "distro_registered",
+        "lockdown_config",
+        "gpu_visible",
+        "container_runtime",
+        "runner",
+        "scratch_encryption",
+    ];
     if !quick {
         names.extend(["gpu_in_container", "lockdown", "network_lockdown"]);
     }
@@ -402,6 +423,7 @@ mod tests {
                 }),
                 checks: vec![
                     check("sandbox_rules", CheckStatus::Passed, "loaded"),
+                    check("scratch_encryption", CheckStatus::Passed, "opened, written, read, closed and erased"),
                     check("scratch_disk", CheckStatus::Passed, "made, written and removed"),
                     check("leftovers", CheckStatus::Passed, "nothing is left from finished sessions"),
                     check(
@@ -435,7 +457,13 @@ mod tests {
                 Ok(self
                     .checks
                     .iter()
-                    .filter(|c| !quick || matches!(c.name.as_str(), "sandbox_rules" | "scratch_disk" | "leftovers"))
+                    .filter(|c| {
+                        !quick
+                            || matches!(
+                                c.name.as_str(),
+                                "sandbox_rules" | "scratch_encryption" | "scratch_disk" | "leftovers"
+                            )
+                    })
                     .cloned()
                     .collect())
             })
@@ -496,6 +524,7 @@ mod tests {
                 "gpu_visible",
                 "container_runtime",
                 "runner",
+                "scratch_encryption",
                 "gpu_in_container",
                 "lockdown",
                 "network_lockdown",
@@ -505,7 +534,7 @@ mod tests {
         );
         assert!(report.passed, "{report:?}");
         assert_eq!(report.distro_version, "0.1.0");
-        assert_eq!(report.to_message().checks.len(), 10);
+        assert_eq!(report.to_message().checks.len(), 11);
         let in_container = report.checks.iter().find(|c| c.name == "gpu_in_container").unwrap();
         assert!(
             in_container.detail.contains("CUDA calculation skipped: the job image isn't downloaded yet"),
@@ -520,7 +549,15 @@ mod tests {
         let names: Vec<_> = report.checks.iter().map(|check| check.name.as_str()).collect();
         assert_eq!(
             names,
-            ["distro_registered", "lockdown_config", "gpu_visible", "container_runtime", "runner", "disk"]
+            [
+                "distro_registered",
+                "lockdown_config",
+                "gpu_visible",
+                "container_runtime",
+                "runner",
+                "scratch_encryption",
+                "disk"
+            ]
         );
         assert!(report.passed);
     }
@@ -596,6 +633,37 @@ mod tests {
         let lockdown = report.checks.iter().find(|c| c.name == "network_lockdown").unwrap();
         assert!(lockdown.passed && lockdown.detail.starts_with("skipped: "), "{lockdown:?}");
         assert!(report.passed, "{report:?}");
+    }
+
+    #[tokio::test]
+    async fn a_kernel_that_cant_encrypt_a_scratch_disk_fails_the_self_test_and_a_development_one_only_says_so() {
+        let fake = healthy();
+        let plain = FakeRunner::healthy().with(check(
+            "scratch_encryption",
+            CheckStatus::Failed,
+            "scratch disks can't be encrypted, so no job will run: cryptsetup: Cannot initialize crypto backend",
+        ));
+        let report = run(&with_runner(&fake, 120, plain), true, None).await;
+        let encryption = report.checks.iter().find(|c| c.name == "scratch_encryption").unwrap();
+        assert!(!encryption.passed && encryption.detail.contains("no job will run"), "{encryption:?}");
+        assert!(!report.passed, "a laptop that can't encrypt isn't listed");
+
+        let development = FakeRunner::healthy().with(check(
+            "scratch_encryption",
+            CheckStatus::Skipped,
+            "a development distribution makes plain scratch disks here: no dm-crypt",
+        ));
+        let report = run(&with_runner(&fake, 120, development), true, None).await;
+        let encryption = report.checks.iter().find(|c| c.name == "scratch_encryption").unwrap();
+        assert!(encryption.passed && encryption.detail.starts_with("skipped: "), "{encryption:?}");
+        assert!(report.passed, "{report:?}");
+
+        // A runner that doesn't run the check at all (an older one) is not trusted with a renter's files.
+        let mut older = FakeRunner::healthy();
+        older.checks.retain(|c| c.name != "scratch_encryption");
+        let report = run(&with_runner(&fake, 120, older), true, None).await;
+        let encryption = report.checks.iter().find(|c| c.name == "scratch_encryption").unwrap();
+        assert!(!encryption.passed && encryption.detail.contains("didn't run it"), "{encryption:?}");
     }
 
     #[tokio::test]

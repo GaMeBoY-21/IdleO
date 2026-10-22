@@ -77,6 +77,11 @@ ARG RUNC_VERSION=1.3.4-0ubuntu1~24.04.1
 ARG SYSTEMD_VERSION=255.4-1ubuntu8.18
 ARG NVIDIA_TOOLKIT_VERSION=1.20.1-1
 ARG NFTABLES_VERSION=1.0.9-1ubuntu0.1
+# For the encrypted scratch disk (ADR 0038): cryptsetup-bin opens a LUKS2 volume per session, and kmod lets the runner
+# load the dm-crypt module (Microsoft's WSL kernel has it as a module, not built in).
+ARG CRYPTSETUP_VERSION=2:2.7.0-1ubuntu4.2
+ARG KMOD_VERSION=31+20240202-2ubuntu7.2
+ARG LIBPOPT_VERSION=1.19+dfsg-1build1
 # The fingerprint of NVIDIA's repository signing key (public): the build refuses any other.
 ARG NVIDIA_REPOSITORY_SIGNER=C95B321B61E88C1809C4F759DDCAE044F796ECB0
 ARG IDLEO_DISTRO_VERSION
@@ -113,7 +118,8 @@ RUN set -eux; \
         "nvidia-container-toolkit-base=${NVIDIA_TOOLKIT_VERSION}" \
         "libnvidia-container-tools=${NVIDIA_TOOLKIT_VERSION}" \
         "libnvidia-container1=${NVIDIA_TOOLKIT_VERSION}" \
-        "nftables=${NFTABLES_VERSION}"; \
+        "nftables=${NFTABLES_VERSION}" \
+        "cryptsetup-bin=${CRYPTSETUP_VERSION}" "libpopt0=${LIBPOPT_VERSION}" "kmod=${KMOD_VERSION}"; \
     apt-get purge -y --auto-remove curl gnupg; \
     rm -f /etc/apt/apt.conf.d/49idleo-bootstrap-ca /tmp/bootstrap-ca.crt; \
     rm -rf /tmp/nvidia.asc /var/lib/apt/lists/* /var/cache/apt/* /var/log/apt /var/log/dpkg.log /var/log/alternatives.log \

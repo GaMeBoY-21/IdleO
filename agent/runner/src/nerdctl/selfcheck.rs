@@ -1,5 +1,5 @@
 //! The self-test's checks of this distribution (ADR 0035), run by `Request::SelfCheck`: the sandbox's rules are loaded, a
-//! scratch disk can be made and removed, a throwaway container on a session network can't reach the home network (and can
+//! scratch disk can be encrypted (ADR 0038) and made and removed, a throwaway container on a session network can't reach the home network (and can
 //! reach the internet, when there is one), and, once the job image is on the laptop, a real CUDA calculation runs in it.
 
 use std::collections::BTreeMap;
@@ -41,6 +41,7 @@ impl Nerdctl {
                 }
                 Err(why) => check("sandbox_rules", CheckStatus::Failed, why),
             },
+            self.encryption_check().await,
             self.scratch_check().await,
             self.leftovers_check().await,
         ];
@@ -59,6 +60,24 @@ impl Nerdctl {
             check("leftovers", CheckStatus::Passed, "nothing is left from finished sessions")
         } else {
             check("leftovers", CheckStatus::Failed, format!("left from finished sessions: {}", left.join(", ")))
+        }
+    }
+
+    /// `scratch_encryption`: a small encrypted volume is made with a key of its own, written, read, closed and erased, and its
+    /// image never held what was written in the clear. A release distribution runs no job without it; a development one warns
+    /// (skipped, with why) and makes plain disks.
+    async fn encryption_check(&self) -> Check {
+        const NAME: &str = "scratch_encryption";
+        match self.encryption_round_trip().await {
+            Ok(detail) => check(NAME, CheckStatus::Passed, detail),
+            Err(why) if Self::development() => check(
+                NAME,
+                CheckStatus::Skipped,
+                format!("a development distribution makes plain scratch disks here: {why}"),
+            ),
+            Err(why) => {
+                check(NAME, CheckStatus::Failed, format!("scratch disks can't be encrypted, so no job will run: {why}"))
+            }
         }
     }
 
@@ -106,6 +125,7 @@ impl Nerdctl {
             work: scratch.work.clone(),
             input: scratch.input.clone(),
             resume: None,
+            logs: scratch.logs(),
             slots: Vec::new(),
             development: Self::development(),
             entrypoint: Some(entrypoint.to_owned()),

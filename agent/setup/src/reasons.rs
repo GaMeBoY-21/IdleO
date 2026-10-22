@@ -174,6 +174,7 @@ pub fn examples() -> Vec<String> {
         check("Lockdown"),
         check("network_lockdown"),
         check("runner"),
+        check("scratch_encryption"),
         listed("PendingApproval"),
         listed("Active"),
     ]);

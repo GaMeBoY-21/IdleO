@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Checks the sealed Linux image (agent/distro/README.md): it builds; the wsl.conf inside is the repository's; no sshd,
 # compiler or sudo; the `idleo` user exists and has no privileges; containerd and the NVIDIA container toolkit are at the
-# versions the Dockerfile pins, with nerdctl, the CNI plugins and nftables; the runner is the real one and its rules file and
+# versions the Dockerfile pins, with nerdctl, the CNI plugins, nftables and cryptsetup; the runner is the real one and its rules file and
 # systemd units are the repository's; the compressed tarball is under 400 MB; and a second build
 # from the same inputs has the same package list. scripts/check-all.sh runs it (`--no-distro` leaves it out).
 #
@@ -77,6 +77,16 @@ in_image nerdctl --version 2>&1 | grep -q "nerdctl version $nerdctl_pin" && pass
   pass "the CNI plugins are the three a session network needs (bridge, host-local, loopback), $cni_pin" ||
   fail "the CNI plugins are the three a session network needs" "$(in_image sh -c 'ls /opt/cni/bin' | tr '\n' ' ')"
 [[ "$(in_image dpkg-query -W -f='${Version}' nftables)" == "$nft_pin" ]] && pass "nftables is $nft_pin" || fail "nftables is $nft_pin"
+# The encrypted scratch disk (ADR 0038): cryptsetup opens a LUKS2 volume for each session, kmod loads dm-crypt on a kernel that
+# has it as a module (Microsoft's WSL kernel does), and the runner never swaps its memory, where the keys are.
+cryptsetup_pin="$(pinned CRYPTSETUP_VERSION)"
+kmod_pin="$(pinned KMOD_VERSION)"
+[[ "$(in_image dpkg-query -W -f='${Version}' cryptsetup-bin)" == "$cryptsetup_pin" ]] && pass "cryptsetup is $cryptsetup_pin" ||
+  fail "cryptsetup is $cryptsetup_pin" "found $(in_image dpkg-query -W -f='${Version}' cryptsetup-bin)"
+[[ "$(in_image dpkg-query -W -f='${Version}' kmod)" == "$kmod_pin" ]] && in_image sh -c 'command -v modprobe' >/dev/null &&
+  pass "kmod is $kmod_pin, and modprobe is there" || fail "kmod is $kmod_pin"
+in_image grep -qx 'MemorySwapMax=0' /etc/systemd/system/idleo-runner.service && pass "the runner's memory is never swapped (MemorySwapMax=0)" ||
+  fail "the runner's memory is never swapped (MemorySwapMax=0)"
 if in_image sh -c 'command -v docker dockerd' >/dev/null 2>&1; then fail "there is no Docker in the image"; else pass "there is no Docker in the image"; fi
 hello="$(in_image /usr/local/bin/idleo-runner --version 2>&1 || true)"
 [[ "$hello" == idleo-runner* && "$hello" != *"not installed yet"* ]] && pass "the runner is the real one ($hello)" || fail "the runner is the real one" "$hello"

@@ -1,5 +1,6 @@
-//! The container every job runs in (ADR 0035, docs/plan/technical-design.md "Sandbox configuration"), as `nerdctl run`
-//! flags. One pure function builds them, so a test can hold every setting the sandbox promises, and nothing else can add a
+//! The container every job runs in (ADR 0035, docs/plan/technical-design.md "Sandbox configuration"), as `nerdctl create`
+//! flags: the container is made, the file nerdctl keeps of what it prints is moved onto its encrypted scratch disk (ADR
+//! 0038), and only then is it started. One pure function builds them, so a test can hold every setting the sandbox promises, and nothing else can add a
 //! flag.
 //!
 //! Every time: the image pinned by digest; user 10001:10001; a read-only root with a 1 GiB `/tmp`; `/work` the session's
@@ -50,6 +51,8 @@ pub struct Plan {
     pub input: PathBuf,
     /// The checkpoint to resume from, mounted read-only at `/work/resume`.
     pub resume: Option<PathBuf>,
+    /// The folder on the scratch disk, out of the job's sight, where nerdctl's file of what it prints is kept (ADR 0038).
+    pub logs: PathBuf,
     /// The input slots that were staged, for `SESSION_INPUT_<SLOT>_DIR`.
     pub slots: Vec<String>,
     /// Whether this is a development distribution, which may run a job without a GPU.
@@ -119,16 +122,16 @@ pub fn shm_mib(memory_mb: u32) -> u32 {
     SHM_MAX_MIB.min(memory_mb / 4)
 }
 
-/// The arguments of `nerdctl run`, in full.
+/// The arguments of `nerdctl create`, in full.
 ///
 /// # Errors
 /// If the spec can't be run: an unpinned image, a limit of zero, or no GPU outside a development distribution.
-pub fn run_arguments(plan: &Plan) -> Result<Vec<String>, Refused> {
+pub fn create_arguments(plan: &Plan) -> Result<Vec<String>, Refused> {
     check_image(&plan.spec.image)?;
     if !plan.spec.gpu && !plan.development {
         return Err(Refused("a job without a GPU only runs in a development distribution".to_owned()));
     }
-    run_arguments_unchecked(plan)
+    create_arguments_unchecked(plan)
 }
 
 /// The same flags for an image that isn't pinned by digest: only for the image baked into the distribution, which the
@@ -136,18 +139,18 @@ pub fn run_arguments(plan: &Plan) -> Result<Vec<String>, Refused> {
 ///
 /// # Errors
 /// If a limit is zero.
-pub fn run_arguments_trusted(plan: &Plan) -> Result<Vec<String>, Refused> {
-    run_arguments_unchecked(plan)
+pub fn create_arguments_trusted(plan: &Plan) -> Result<Vec<String>, Refused> {
+    create_arguments_unchecked(plan)
 }
 
-fn run_arguments_unchecked(plan: &Plan) -> Result<Vec<String>, Refused> {
+fn create_arguments_unchecked(plan: &Plan) -> Result<Vec<String>, Refused> {
     let spec = &plan.spec;
     if spec.memory_mb == 0 || spec.cpu_millicores == 0 || spec.pids_limit == 0 || spec.scratch_mb == 0 {
         return Err(Refused("a resource limit in the spec is zero".to_owned()));
     }
     let mut args: Vec<String> = Vec::new();
     let mut add = |flags: &[&str]| args.extend(flags.iter().map(|flag| (*flag).to_owned()));
-    add(&["--namespace", NAMESPACE, "run", "--detach", "--pull", "never"]);
+    add(&["--namespace", NAMESPACE, "create", "--pull", "never"]);
     add(&["--name", &plan.name]);
     add(&[
         "--label",
@@ -223,6 +226,7 @@ mod tests {
             work: PathBuf::from("/var/lib/idleo/mnt/s-1/work"),
             input: PathBuf::from("/var/lib/idleo/mnt/s-1/input"),
             resume: None,
+            logs: PathBuf::from("/var/lib/idleo/mnt/s-1/logs"),
             slots: vec!["code".to_owned()],
             development: false,
             entrypoint: None,
@@ -235,7 +239,7 @@ mod tests {
 
     #[test]
     fn every_setting_the_sandbox_promises_is_there() {
-        let args = run_arguments(&plan()).unwrap();
+        let args = create_arguments(&plan()).unwrap();
         for pair in [
             &["--user", "10001:10001"][..],
             &["--cap-drop", "ALL"],
@@ -260,7 +264,8 @@ mod tests {
             assert!(has(&args, pair), "{pair:?} missing from {args:?}");
         }
         assert!(args.contains(&"--read-only".to_owned()));
-        assert!(args.contains(&"--detach".to_owned()));
+        assert_eq!(args[..4], ["--namespace", "idleo", "create", "--pull"], "made, never started, by these arguments");
+        assert!(!args.contains(&"--detach".to_owned()) && !args.contains(&"run".to_owned()));
         assert_eq!(
             &args[args.len() - 2..],
             [format!("registry.example/idleo/pytorch@sha256:{DIGEST}"), "/opt/idleo/run.sh".to_owned()]
@@ -272,7 +277,7 @@ mod tests {
         let mut with_resume = plan();
         with_resume.resume = Some(PathBuf::from("/var/lib/idleo/mnt/s-1/resume"));
         for plan in [plan(), with_resume] {
-            let args = run_arguments(&plan).unwrap();
+            let args = create_arguments(&plan).unwrap();
             for banned in [
                 "--privileged",
                 "--device",
@@ -318,7 +323,7 @@ mod tests {
         let mut resumed = plan();
         resumed.resume = Some(PathBuf::from("/x"));
         assert_eq!(environment(&resumed)["SESSION_RESUME_DIR"], "/work/resume");
-        let printed = run_arguments(&plan()).unwrap().join(" ");
+        let printed = create_arguments(&plan()).unwrap().join(" ");
         assert!(!printed.contains("hunter2") && !printed.to_lowercase().contains("token"), "{printed}");
     }
 
@@ -357,19 +362,19 @@ mod tests {
         }
         let mut unpinned = plan();
         unpinned.spec.image = "ubuntu:24.04".to_owned();
-        assert!(run_arguments(&unpinned).is_err());
+        assert!(create_arguments(&unpinned).is_err());
     }
 
     #[test]
     fn no_gpu_is_for_a_development_distribution_only_and_zero_limits_are_refused() {
         let mut cpu = plan();
         cpu.spec.gpu = false;
-        assert!(run_arguments(&cpu).is_err(), "a release distribution never runs a job without a GPU");
+        assert!(create_arguments(&cpu).is_err(), "a release distribution never runs a job without a GPU");
         cpu.development = true;
-        let args = run_arguments(&cpu).unwrap();
+        let args = create_arguments(&cpu).unwrap();
         assert!(!args.contains(&"--gpus".to_owned()));
         let mut zero = plan();
         zero.spec.pids_limit = 0;
-        assert!(run_arguments(&zero).is_err());
+        assert!(create_arguments(&zero).is_err());
     }
 }
