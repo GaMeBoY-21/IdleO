@@ -48,6 +48,10 @@
       "sentence": "It reached your spending cap, so it saved a checkpoint and stopped.",
       "next": "Run it again with a higher budget if it needs longer."
     },
+    "abuse_stopped": {
+      "sentence": "This session was stopped because it ran software that isn't allowed on IdleO.",
+      "next": "Contact us if you think this is wrong."
+    },
     "operator_stopped": {
       "sentence": "We stopped it, so you were charged only for the minutes it ran.",
       "next": "If you don't know why, write to us and we'll explain."

@@ -29,7 +29,7 @@ class ApiKeyAuthentication implements AuthenticationManager {
         var credential =
                 new IdentityAuthenticationToken.KeyCredential(use.keyId(), use.scope() == ApiKeyStore.Scope.READ);
         return switch (use.userStatus()) {
-            case SUSPENDED, ERASED ->
+            case SUSPENDED, BANNED, ERASED ->
                 IdentityAuthenticationToken.denied(Problem.ACCOUNT_SUSPENDED, SignInAuthenticationConverter.SUSPENDED);
             case WAITING -> IdentityAuthenticationToken.withKey(user, true, credential);
             case ACTIVE -> IdentityAuthenticationToken.withKey(user, false, credential);

@@ -40,3 +40,12 @@ groups:
         annotations:
           summary: 'More than half the connected agents dropped in 5 minutes; {{ $value }} are left.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#agents-dropped
+      - alert: AbuseStops
+        # More than 3 sessions stopped by their host's runner for software no renter may run (ADR 0038) in an hour, across the fleet:
+        # an attack, or a bad blocklist entry stopping honest renters.
+        expr: sum(increase(trust_abuse_stops_total{job="control-plane"}[1h])) > 3
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | printf "%.0f" }} sessions were stopped for running software that is not allowed, in the last hour.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#abuse-stops

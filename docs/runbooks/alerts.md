@@ -153,3 +153,14 @@ Two alerts share this section.
 **Check first:** the admin console's Tickets, which lists open tickets by due date, overdue first, highlighted. `support_tickets_overdue` says how many are past due.
 
 **Do:** answer it. A request to see or download one's data: the ticket's "Start an export" (the person gets it by email). A request to delete: tell them Account, Your data, Delete my account, or what stops it (the ticket shows where their deletion stands); never skip the wait unless a legal order says so. A correction we can't make in the app (an email address): make it, and say so. Then resolve the ticket with the answer.
+
+## Abuse stops
+
+**Means:** more than 3 sessions in an hour, across the fleet, were stopped by their host's runner for running software no renter may run on a host's GPU (ADR 0038): a build on the blocklist by its hash, or a second look-up of a mining pool's domain. Each one suspended its renter's account until an admin has looked at it. Many at once means an attack (someone with several accounts), or a bad entry on the blocklist stopping honest renters.
+
+**Check first:** the admin console's Abuse, open items, newest first. Which signals? One kind from many different renters and many different hosts points at an entry in `agent/runner/abuse/blocklist.json` (a domain that is not only a pool's, say). The same renter again and again, or one host's sessions only, points at a person or a machine. `trust_abuse_stops_total` by `kind` is on the Marketplace dashboard.
+
+**Do:**
+- A bad entry: clear every item it stopped (that reinstates the account and refunds the session), then take the entry out and ship a new distribution (docs/runbooks/abuse.md, "Changing the blocklist"). Until the runner updates, the same stops go on happening on laptops that haven't.
+- An attack: confirm the items, ban the accounts (a ban is lifted only by clearing its item), and look at the host if every stop was on one machine.
+- Say what happened to anyone who wrote in: docs/runbooks/abuse.md has the words for a renter and for a host.

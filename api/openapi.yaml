@@ -9,6 +9,174 @@ servers:
 security:
 - idToken: []
 paths:
+  /admin/v1/abuse:
+    get:
+      operationId: adminAbuseList
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbusePage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
+  /admin/v1/abuse/{id}:
+    get:
+      operationId: adminAbuseGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbuseDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
+  /admin/v1/abuse/{id}/clear:
+    post:
+      operationId: adminAbuseClear
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbuseDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
+  /admin/v1/abuse/{id}/confirm:
+    post:
+      operationId: adminAbuseConfirm
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbuseConfirm"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbuseDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
+  /admin/v1/abuse/{id}/notes:
+    post:
+      operationId: adminAbuseNote
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbuseNote"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbuseDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
   /admin/v1/audit:
     get:
       operationId: auditLogList
@@ -3639,6 +3807,176 @@ paths:
       - wallet
 components:
   schemas:
+    AbuseConfirm:
+      type: object
+      properties:
+        ban:
+          type: boolean
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - ban
+      - reason
+    AbuseDetail:
+      type: object
+      properties:
+        behaviour:
+          type: array
+          items:
+            $ref: "#/components/schemas/BehaviourMinute"
+        item:
+          $ref: "#/components/schemas/AbuseSummary"
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AbuseNoteView"
+        paidPaise:
+          type: integer
+          format: int64
+        refundedPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/AbuseSignalView"
+      required:
+      - behaviour
+      - item
+      - notes
+      - paidPaise
+      - signals
+    AbuseNote:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - note
+    AbuseNoteView:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        authorId:
+          type: string
+          format: uuid
+        note:
+          type: string
+      required:
+      - at
+      - authorId
+      - note
+    AbusePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AbuseSummary"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - items
+    AbuseSignalView:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        count:
+          type: integer
+          format: int64
+        detail:
+          type: string
+        kind:
+          type: string
+          enum:
+          - process_name
+          - process_hash
+          - pool_lookup
+          - connection_drops
+          - mining_pattern
+        sha256:
+          type: string
+        stopped:
+          type: boolean
+      required:
+      - at
+      - count
+      - detail
+      - kind
+      - sha256
+      - stopped
+    AbuseSummary:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+          - none
+          - stopped
+          - suspended
+        attempt:
+          type: integer
+          format: int32
+        banned:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        hostId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        kinds:
+          type: array
+          items:
+            type: string
+        renterId:
+          type: string
+          format: uuid
+        resolution:
+          type:
+          - string
+          - "null"
+        resolvedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        sessionId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - open
+          - confirmed
+          - cleared
+      required:
+      - action
+      - attempt
+      - banned
+      - createdAt
+      - id
+      - kinds
+      - renterId
+      - sessionId
+      - state
     AcceptNoticesRequest:
       type: object
       properties:
@@ -5368,6 +5706,42 @@ components:
             $ref: "#/components/schemas/GpuAvailability"
       required:
       - gpus
+    BehaviourMinute:
+      type: object
+      properties:
+        connectionsDropped:
+          type: integer
+          format: int64
+        gpuPercent:
+          type: integer
+          format: int32
+        memoryPercent:
+          type: integer
+          format: int32
+        minuteIndex:
+          type: integer
+          format: int32
+        networkInBytes:
+          type: integer
+          format: int64
+        networkOutBytes:
+          type: integer
+          format: int64
+        pcieKbPerSecond:
+          type: integer
+          format: int32
+        printedLines:
+          type: integer
+          format: int64
+      required:
+      - connectionsDropped
+      - gpuPercent
+      - memoryPercent
+      - minuteIndex
+      - networkInBytes
+      - networkOutBytes
+      - pcieKbPerSecond
+      - printedLines
     Blocker:
       type: object
       properties:

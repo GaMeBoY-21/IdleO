@@ -8,6 +8,8 @@ enum UserStatus {
     WAITING,
     ACTIVE,
     SUSPENDED,
+    /** Held until the review item that caused it is cleared (ADR 0038): refused like a suspension, lifted only by that. */
+    BANNED,
     /** Deleted at the person's request (ADR 0037): a tombstone with no email or name, which nothing can sign in as. */
     ERASED;
 

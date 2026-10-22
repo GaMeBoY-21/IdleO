@@ -7,6 +7,7 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.FreshSignIn;
+import com.idleo.controlplane.identity.OpenToHeldAccounts;
 import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -72,6 +73,7 @@ class DeletionController {
     }
 
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @GetMapping("/v1/me/deletion")
     DeletionStanding get(@AuthenticationPrincipal CurrentUser user, Authentication authentication) {
         return standing(user.id(), authentication);
@@ -84,6 +86,7 @@ class DeletionController {
      * then, a new link is sent and the old one stops working.
      */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @BrowserSignInOnly
     @PostMapping("/v1/me/deletion")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -107,6 +110,7 @@ class DeletionController {
      * cancel. 400 {@code deletion-link-invalid} for a wrong, used or expired link.
      */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @BrowserSignInOnly
     @PostMapping("/v1/me/deletion/confirm")
     DeletionStanding confirm(
@@ -119,6 +123,7 @@ class DeletionController {
 
     /** Cancels the waiting deletion; 409 {@code no-deletion-pending} when nothing is waiting, or erasing has begun. */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @BrowserSignInOnly
     @DeleteMapping("/v1/me/deletion")
     DeletionStanding cancel(@AuthenticationPrincipal CurrentUser user, Authentication authentication) {

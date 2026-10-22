@@ -25,7 +25,9 @@
  * com.idleo.controlplane.agentgateway.OfferReplies} (scheduling), and {@link
  * com.idleo.controlplane.agentgateway.SessionCredentials}, {@link
  * com.idleo.controlplane.agentgateway.SessionStatuses} and {@link
- * com.idleo.controlplane.agentgateway.SessionReconciliation} (sessions).
+ * com.idleo.controlplane.agentgateway.SessionReconciliation} (sessions), and {@link
+ * com.idleo.controlplane.agentgateway.SessionSignals} (trust: what a runner saw in a session and what a job did each minute,
+ * ADR 0038).
  */
 @ApplicationModule
 package com.idleo.controlplane.agentgateway;

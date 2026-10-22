@@ -2,6 +2,7 @@ package com.idleo.controlplane.support.internal;
 
 import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.OpenToHeldAccounts;
 import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -86,6 +87,7 @@ class SupportController {
 
     /** Sends a message to support, signed in or not: 202 with its number; acknowledged at once by email. */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @PostMapping("/v1/support/tickets")
     ResponseEntity<SupportTicket> open(
             @AuthenticationPrincipal @Nullable CurrentUser user, @Valid @RequestBody NewTicket request) {
@@ -105,6 +107,7 @@ class SupportController {
     }
 
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @GetMapping("/v1/support/tickets")
     SupportTickets mine(@AuthenticationPrincipal CurrentUser user) {
         return new SupportTickets(
@@ -112,6 +115,7 @@ class SupportController {
     }
 
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @GetMapping("/v1/support/tickets/{id}")
     SupportThread thread(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         var ticket = tickets.own(user.id(), id);
@@ -120,6 +124,7 @@ class SupportController {
 
     /** The person adds to their own ticket, which is open again. */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @PostMapping("/v1/support/tickets/{id}/messages")
     SupportThread reply(
             @AuthenticationPrincipal CurrentUser user, @PathVariable UUID id, @Valid @RequestBody Reply request) {

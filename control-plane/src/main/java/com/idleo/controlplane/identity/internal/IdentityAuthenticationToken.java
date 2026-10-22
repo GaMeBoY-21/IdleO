@@ -30,6 +30,7 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
     private final @Nullable CurrentUser user;
     private final @Nullable Denial denial;
     private final boolean waiting;
+    private final boolean held;
     private final ArrayList<String> signInMethods;
     private final @Nullable KeyCredential key;
     private final @Nullable UUID identityId;
@@ -39,6 +40,7 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
             @Nullable CurrentUser user,
             @Nullable Denial denial,
             boolean waiting,
+            boolean held,
             List<String> signInMethods,
             @Nullable KeyCredential key,
             @Nullable UUID identityId,
@@ -47,6 +49,7 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
         this.user = user;
         this.denial = denial;
         this.waiting = waiting;
+        this.held = held;
         this.signInMethods = new ArrayList<>(signInMethods);
         this.key = key;
         this.identityId = identityId;
@@ -61,22 +64,32 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
      */
     static IdentityAuthenticationToken allowed(
             CurrentUser user, List<String> signInMethods, UUID identityId, @Nullable Instant authTime) {
-        return new IdentityAuthenticationToken(user, null, false, signInMethods, null, identityId, authTime);
+        return new IdentityAuthenticationToken(user, null, false, false, signInMethods, null, identityId, authTime);
+    }
+
+    /**
+     * A suspended or banned user, signed in (ADR 0038): they may reach only the handlers marked {@link
+     * com.idleo.controlplane.identity.OpenToHeldAccounts}, decided after routing by {@link AccessRules}.
+     */
+    static IdentityAuthenticationToken held(
+            CurrentUser user, List<String> signInMethods, UUID identityId, @Nullable Instant authTime) {
+        return new IdentityAuthenticationToken(user, null, false, true, signInMethods, null, identityId, authTime);
     }
 
     /** A user who hasn't entered an invite code yet: they may only reach their own account. */
     static IdentityAuthenticationToken waiting(
             CurrentUser user, List<String> signInMethods, UUID identityId, @Nullable Instant authTime) {
-        return new IdentityAuthenticationToken(user, null, true, signInMethods, null, identityId, authTime);
+        return new IdentityAuthenticationToken(user, null, true, false, signInMethods, null, identityId, authTime);
     }
 
     /** A user calling with an API key; {@code waiting} as for their tokens. */
     static IdentityAuthenticationToken withKey(CurrentUser user, boolean waiting, KeyCredential key) {
-        return new IdentityAuthenticationToken(user, null, waiting, List.of(), key, null, null);
+        return new IdentityAuthenticationToken(user, null, waiting, false, List.of(), key, null, null);
     }
 
     static IdentityAuthenticationToken denied(Problem problem, String reason) {
-        return new IdentityAuthenticationToken(null, new Denial(problem, reason), false, List.of(), null, null, null);
+        return new IdentityAuthenticationToken(
+                null, new Denial(problem, reason), false, false, List.of(), null, null, null);
     }
 
     /** When the person signed in at the provider ({@code auth_time}); empty for an API key or a token without it. */
@@ -96,6 +109,11 @@ final class IdentityAuthenticationToken extends AbstractAuthenticationToken {
 
     boolean isWaiting() {
         return waiting;
+    }
+
+    /** Whether the account is suspended or banned: limited to the few calls marked open to held accounts. */
+    boolean isHeld() {
+        return held;
     }
 
     List<String> signInMethods() {

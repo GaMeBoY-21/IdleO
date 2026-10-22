@@ -345,6 +345,62 @@ class HostAgentChannelTests {
     }
 
     @Test
+    void anAbuseSignalIsAckedOnceHandledAndDroppedWhenItBreaksTheProtocol() throws Exception {
+        var host = TestHosts.connect(mvc, grpcPort);
+        try {
+            // About a session this host never ran: handled (nothing is recorded) and acked, so the agent stops sending
+            // it.
+            var valid = TestAgent.request()
+                    .setAbuseSignal(gpu.agent.v1.Session.AbuseSignal.newBuilder()
+                            .setSessionId(UUID.randomUUID().toString())
+                            .setAttempt(1)
+                            .setKind(gpu.agent.v1.Session.AbuseSignal.Kind.KIND_PROCESS_NAME)
+                            .setDetail("xmrig"))
+                    .build();
+            host.stream().send(valid);
+            host.stream()
+                    .await(
+                            message -> message.hasAck()
+                                    && message.getAck().getAckedMessageId().equals(valid.getMessageId()),
+                            WAIT);
+
+            // No kind, a session that isn't an id, a detail of a thousand characters, a hash that isn't one: dropped,
+            // never acked.
+            for (var broken : List.of(
+                    gpu.agent.v1.Session.AbuseSignal.newBuilder()
+                            .setSessionId(UUID.randomUUID().toString())
+                            .setAttempt(1),
+                    gpu.agent.v1.Session.AbuseSignal.newBuilder()
+                            .setSessionId("not an id")
+                            .setAttempt(1)
+                            .setKind(gpu.agent.v1.Session.AbuseSignal.Kind.KIND_POOL_LOOKUP),
+                    gpu.agent.v1.Session.AbuseSignal.newBuilder()
+                            .setSessionId(UUID.randomUUID().toString())
+                            .setAttempt(1)
+                            .setKind(gpu.agent.v1.Session.AbuseSignal.Kind.KIND_PROCESS_NAME)
+                            .setDetail("x".repeat(1000)),
+                    gpu.agent.v1.Session.AbuseSignal.newBuilder()
+                            .setSessionId(UUID.randomUUID().toString())
+                            .setAttempt(1)
+                            .setKind(gpu.agent.v1.Session.AbuseSignal.Kind.KIND_PROCESS_HASH)
+                            .setSha256("NOT-A-HASH"))) {
+                var request = TestAgent.request().setAbuseSignal(broken).build();
+                host.stream().send(request);
+                assertThat(host.stream()
+                                .receives(
+                                        message -> message.hasAck()
+                                                && message.getAck()
+                                                        .getAckedMessageId()
+                                                        .equals(request.getMessageId()),
+                                        Duration.ofMillis(500)))
+                        .isFalse();
+            }
+        } finally {
+            host.disconnect();
+        }
+    }
+
+    @Test
     void theOwnerIsToldHowMuchOfTheirUploadJobsMayUseAndALaterTestThatDidNotMeasureKeepsIt() throws Exception {
         var host = TestHosts.connect(mvc, grpcPort);
         try {

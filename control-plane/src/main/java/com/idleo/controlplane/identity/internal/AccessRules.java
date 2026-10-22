@@ -2,6 +2,7 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.ClientAccessDeniedException;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.identity.OpenToHeldAccounts;
 import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,7 +15,8 @@ import org.springframework.web.servlet.HandlerMapping;
 
 /**
  * The rules that depend on which call a request is, checked once, after routing, on the handler the request actually
- * reached (ADR 0024, ADR 0025): a waiting user reaches only {@link OpenToWaitingUsers} handlers, and a request made
+ * reached (ADR 0024, ADR 0025): a waiting user reaches only {@link OpenToWaitingUsers} handlers, a held account (suspended
+ * or banned, ADR 0038) only {@link OpenToHeldAccounts} ones, and a request made
  * with an API key is held to {@link KeyRules}. Deciding by the route, never by the spelling of the path, is what
  * makes a percent-encoded letter or a trailing slash meet the same answer as the plain path. Both fail closed: a
  * request that reaches no handler method is outside the waiting user's few calls, and is only a read for a key.
@@ -37,6 +39,9 @@ class AccessRules implements HandlerInterceptor {
         var route = handler instanceof HandlerMethod method ? method : null;
         if (token.isWaiting() && (route == null || !route.hasMethodAnnotation(OpenToWaitingUsers.class))) {
             throw new ClientAccessDeniedException(Problem.INVITE_REQUIRED, INVITE_REQUIRED);
+        }
+        if (token.isHeld() && (route == null || !route.hasMethodAnnotation(OpenToHeldAccounts.class))) {
+            throw new ClientAccessDeniedException(Problem.ACCOUNT_SUSPENDED, SignInAuthenticationConverter.SUSPENDED);
         }
         token.key()
                 .flatMap(key -> KeyRules.refusal(request.getMethod(), route, pathVariables(request), key))

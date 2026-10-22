@@ -5,6 +5,7 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.EmailDeliverability;
+import com.idleo.controlplane.identity.OpenToHeldAccounts;
 import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import com.idleo.controlplane.identity.UnreadNotifications;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -126,7 +127,8 @@ class MeController {
                     user.id(),
                     user.email(),
                     user.displayName(),
-                    user.userStatus().dbValue(),
+                    // A ban is not told apart from a suspension: the person is told the same either way (ADR 0038).
+                    (user.userStatus() == UserStatus.BANNED ? UserStatus.SUSPENDED : user.userStatus()).dbValue(),
                     authentication instanceof IdentityAuthenticationToken token ? token.signInMethods() : List.of(),
                     user.createdAt(),
                     unreadNotifications,
@@ -146,6 +148,7 @@ class MeController {
     }
 
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @GetMapping
     @ApiResponse(
             responseCode = "200",

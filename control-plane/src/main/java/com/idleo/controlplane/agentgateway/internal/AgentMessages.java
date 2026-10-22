@@ -168,6 +168,34 @@ final class AgentMessages {
         return Optional.empty();
     }
 
+    /** Why an AbuseSignal breaks the protocol (ADR 0038), or empty if it doesn't. */
+    static Optional<String> invalidAbuseSignal(gpu.agent.v1.Session.AbuseSignal signal) {
+        try {
+            java.util.UUID.fromString(signal.getSessionId());
+        } catch (IllegalArgumentException e) {
+            return Optional.of("session_id must be a UUID");
+        }
+        if (signal.getAttempt() <= 0) {
+            return Optional.of("attempt must be above zero");
+        }
+        switch (signal.getKind()) {
+            case KIND_PROCESS_NAME, KIND_PROCESS_HASH, KIND_POOL_LOOKUP, KIND_CONNECTION_DROPS -> {}
+            default -> {
+                return Optional.of("kind must be one the control plane knows");
+            }
+        }
+        if (signal.getDetail().length() > 200) {
+            return Optional.of("detail is over 200 characters");
+        }
+        if (!signal.getSha256().isEmpty() && !signal.getSha256().matches("[0-9a-f]{64}")) {
+            return Optional.of("sha256 must be 64 lower-case hex digits");
+        }
+        if (signal.getCount() < 0) {
+            return Optional.of("count can't be negative");
+        }
+        return Optional.empty();
+    }
+
     private static @Nullable String osName(OperatingSystem os) {
         return switch (os) {
             case OPERATING_SYSTEM_WINDOWS, OPERATING_SYSTEM_LINUX, OPERATING_SYSTEM_MACOS ->

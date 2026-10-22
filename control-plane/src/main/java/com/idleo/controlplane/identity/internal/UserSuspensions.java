@@ -1,11 +1,13 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.identity.AccountHolds;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -17,7 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * active again. Only an active account is suspended: a waiting one can do nothing yet. Each change is audited.
  */
 @Service
-class UserSuspensions {
+class UserSuspensions implements AccountHolds {
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -35,7 +37,7 @@ class UserSuspensions {
     record Change(UUID userId, String from, String to, boolean changed) {}
 
     /** Refused; nothing changed. */
-    static final class Refused extends RuntimeException {
+    static final class Refused extends IllegalStateException {
         private static final long serialVersionUID = 1L;
 
         Refused(String message) {
@@ -47,16 +49,47 @@ class UserSuspensions {
         if (userId.equals(actor.userId())) {
             throw new Refused("An admin can't suspend their own account.");
         }
-        return change(userId, UserStatus.ACTIVE, UserStatus.SUSPENDED, "user.suspend", reason, actor);
+        return change(userId, Set.of(UserStatus.ACTIVE), UserStatus.SUSPENDED, "user.suspend", reason, actor);
     }
 
+    /** Reinstate on the Users page: a suspended account, never a banned one (that is the review item's to lift). */
     Change unsuspend(UUID userId, String reason, AuditTrail.Actor actor) {
-        return change(userId, UserStatus.SUSPENDED, UserStatus.ACTIVE, "user.unsuspend", reason, actor);
+        return change(userId, Set.of(UserStatus.SUSPENDED), UserStatus.ACTIVE, "user.unsuspend", reason, actor);
+    }
+
+    @Override
+    public boolean hold(UUID userId, String reason, AuditTrail.Actor actor) {
+        return change(userId, Set.of(UserStatus.ACTIVE), UserStatus.SUSPENDED, "user.suspend", reason, actor)
+                .changed();
+    }
+
+    @Override
+    public boolean ban(UUID userId, String reason, AuditTrail.Actor actor) {
+        return change(
+                        userId,
+                        Set.of(UserStatus.ACTIVE, UserStatus.SUSPENDED),
+                        UserStatus.BANNED,
+                        "user.ban",
+                        reason,
+                        actor)
+                .changed();
+    }
+
+    @Override
+    public boolean lift(UUID userId, String reason, AuditTrail.Actor actor) {
+        return change(
+                        userId,
+                        Set.of(UserStatus.SUSPENDED, UserStatus.BANNED),
+                        UserStatus.ACTIVE,
+                        "user.hold_lifted",
+                        reason,
+                        actor)
+                .changed();
     }
 
     /** Empty when there's no such user. */
     private Change change(
-            UUID userId, UserStatus from, UserStatus to, String action, String reason, AuditTrail.Actor actor) {
+            UUID userId, Set<UserStatus> from, UserStatus to, String action, String reason, AuditTrail.Actor actor) {
         if (reason == null || reason.isBlank()) {
             throw new Refused("A reason is required.");
         }
@@ -70,9 +103,14 @@ class UserSuspensions {
             if (current == to) {
                 return new Change(userId, current.dbValue(), to.dbValue(), false);
             }
-            if (current != from) {
+            if (!from.contains(current)) {
                 throw new Refused("The account is " + current.dbValue() + ", so it can't be "
-                        + (to == UserStatus.SUSPENDED ? "suspended" : "reinstated") + ".");
+                        + switch (to) {
+                            case SUSPENDED -> "suspended";
+                            case BANNED -> "banned";
+                            default -> "reinstated";
+                        }
+                        + ".");
             }
             jdbc.sql("update identity.users set status = :to, updated_at = :now, version = version + 1 where id = :id")
                     .param("to", to.dbValue())
@@ -85,9 +123,9 @@ class UserSuspensions {
                     "user",
                     userId.toString(),
                     reason,
-                    Map.of("status", from.dbValue()),
+                    Map.of("status", current.dbValue()),
                     Map.of("status", to.dbValue())));
-            return new Change(userId, from.dbValue(), to.dbValue(), true);
+            return new Change(userId, current.dbValue(), to.dbValue(), true);
         }));
     }
 }

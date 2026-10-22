@@ -203,7 +203,8 @@ class SignInService {
         return switch (identity.status()) {
             case WAITING -> new SignInOutcome.Waiting(identity.userId(), identity.id());
             case ACTIVE -> new SignInOutcome.Active(identity.userId(), identity.id());
-            case SUSPENDED, ERASED -> new SignInOutcome.Suspended(identity.userId());
+            case SUSPENDED, BANNED -> new SignInOutcome.Held(identity.userId(), identity.id());
+            case ERASED -> new SignInOutcome.Suspended(identity.userId());
         };
     }
 

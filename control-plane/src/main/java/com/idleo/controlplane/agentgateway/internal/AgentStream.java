@@ -12,6 +12,7 @@ import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.AgentGateway.PrefetchImage;
 import gpu.agent.v1.AgentGateway.Welcome;
 import gpu.agent.v1.Session.RunningSession;
+import gpu.agent.v1.Session.UsageReport;
 import gpu.agent.v1.Telemetry.Heartbeat;
 import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
@@ -118,6 +119,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             case LEAVE -> onLeave(request);
             case UPDATE_RESULT -> onUpdateResult(request);
             case SPEED_TEST_REQUEST -> onSpeedTestRequest();
+            case ABUSE_SIGNAL -> onAbuseSignal(request);
             default -> services.metrics().unhandledMessage(body.name().toLowerCase(java.util.Locale.ROOT));
         }
     }
@@ -309,6 +311,51 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         } catch (RuntimeException e) {
             log.warn(
                     "Couldn't record host {}'s usage for session {}; it will resend", hostId, report.getSessionId(), e);
+            return;
+        }
+        recordBehaviour(report);
+        ack(request);
+    }
+
+    /**
+     * What the job did this minute (ADR 0038), for the review of abuse: handed to the trust module apart from the charge, so
+     * that a failure here is logged and never delays or repeats the billing of the minute.
+     */
+    private void recordBehaviour(UsageReport report) {
+        var signals = services.signals();
+        if (!report.getBehaviourReported() || signals == null) {
+            return;
+        }
+        try {
+            signals.onBehaviour(hostId, report);
+        } catch (RuntimeException e) {
+            log.warn("Couldn't record host {}'s behaviour for session {}", hostId, report.getSessionId(), e);
+        }
+    }
+
+    /**
+     * The runner saw something in a session an admin should look at, or stopped it for that (ADR 0038): handed to the trust
+     * module, then acked. One that breaks the protocol is counted and dropped.
+     */
+    private void onAbuseSignal(OpenStreamRequest request) {
+        var signal = request.getAbuseSignal();
+        if (AgentMessages.invalidAbuseSignal(signal).isPresent()) {
+            services.metrics().unhandledMessage("invalid_abuse_signal");
+            return;
+        }
+        var handler = services.signals();
+        if (handler == null) {
+            services.metrics().unhandledMessage("abuse_signal");
+            return;
+        }
+        try {
+            handler.onAbuse(hostId, signal);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Couldn't record host {}'s abuse signal for session {}; it will resend",
+                    hostId,
+                    signal.getSessionId(),
+                    e);
             return;
         }
         ack(request);

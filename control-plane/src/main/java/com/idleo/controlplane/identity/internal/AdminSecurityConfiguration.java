@@ -92,6 +92,7 @@ class AdminSecurityConfiguration {
             if (!(authentication.get() instanceof IdentityAuthenticationToken token)
                     || token.denial().isPresent()
                     || token.isWaiting()
+                    || token.isHeld()
                     || token.key().isPresent()
                     || token.identityId().isEmpty()
                     || !(token.getPrincipal() instanceof CurrentUser user)) {

@@ -123,7 +123,12 @@ class AdminIdentityTests {
         var suspended =
                 read(reason(post("/admin/v1/users/" + target + "/suspend"), "card testing from this account"), admin);
         assertThat(suspended.get("status").asString()).isEqualTo("suspended");
+        // A suspended account reads its own status (ADR 0038: it is told, and keeps its data and support) and nothing
+        // else.
         mvc.perform(get("/v1/me").header("Authorization", renter.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("suspended"));
+        mvc.perform(get("/v1/sessions").header("Authorization", renter.bearer()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.type").value("/problems/account-suspended"));
         // Again changes nothing and isn't audited twice.

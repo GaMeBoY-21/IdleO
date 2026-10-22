@@ -3,6 +3,7 @@ package com.idleo.controlplane.privacy.internal;
 import com.idleo.controlplane.PersonalData;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.OpenToHeldAccounts;
 import com.idleo.controlplane.identity.OpenToWaitingUsers;
 import java.net.URI;
 import java.time.Instant;
@@ -49,6 +50,7 @@ class YourDataController {
 
     /** What we hold about the person, by group, with counts and dates; nothing of the records themselves. */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @GetMapping("/data")
     YourData data(@AuthenticationPrincipal CurrentUser user) {
         var all = new ArrayList<PersonalData.Group>();
@@ -68,6 +70,7 @@ class YourDataController {
 
     /** The person's exports, newest first. */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @GetMapping("/exports")
     ExportList list(@AuthenticationPrincipal CurrentUser user) {
         return new ExportList(exports.list(user.id()));
@@ -79,6 +82,7 @@ class YourDataController {
      * Retry-After}. Only in a browser.
      */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @BrowserSignInOnly
     @PostMapping("/exports")
     ResponseEntity<Exports.Export> request(@AuthenticationPrincipal CurrentUser user) {
@@ -92,6 +96,7 @@ class YourDataController {
 
     /** A link to the person's own ready export, which works for 5 minutes; 404 for anyone else's. */
     @OpenToWaitingUsers
+    @OpenToHeldAccounts
     @GetMapping("/exports/{id}/download")
     ExportDownload download(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
         var download = exports.download(user.id(), id);

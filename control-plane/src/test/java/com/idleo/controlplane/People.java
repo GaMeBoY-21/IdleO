@@ -367,6 +367,44 @@ public final class People {
                 ts(now),
                 ts(now));
 
+        // Trust, ADR 0038: a review of software no renter may run, settled, with a signal, an admin's note and a minute
+        // of
+        // what the job did.
+        var review = IDS.generate();
+        jdbc.update(
+                "insert into trust.abuse_items (id, session_id, attempt, renter_id, host_id, state, action, banned,"
+                        + " created_at, updated_at, resolved_at, resolved_by, resolution)"
+                        + " values (?, ?, 1, ?, ?, 'cleared', 'stopped', false, ?, ?, ?, ?, ?)",
+                review,
+                session,
+                me,
+                host,
+                ts(now),
+                ts(now),
+                ts(now),
+                IDS.generate(),
+                "a false alarm for " + marker);
+        jdbc.update(
+                "insert into trust.abuse_signals (id, item_id, kind, detail, sha256, count, stopped, at)"
+                        + " values (?, ?, 'process_name', 'xmrig', '', 0, false, ?)",
+                IDS.generate(),
+                review,
+                ts(now));
+        jdbc.update(
+                "insert into trust.abuse_notes (id, item_id, author_id, note, at) values (?, ?, ?, ?, ?)",
+                IDS.generate(),
+                review,
+                IDS.generate(),
+                "it was a test script for " + marker,
+                ts(now));
+        jdbc.update(
+                "insert into trust.behavior_samples (session_id, attempt, minute_index, host_id, util_pct, memory_pct,"
+                        + " pcie_kb_s, net_out, net_in, printed, conn_drops, at)"
+                        + " values (?, 1, 0, ?, 97, 4, 120, 600, 900, 3, 0, ?)",
+                session,
+                host,
+                ts(now));
+
         // Support: a message, signed in, about their session.
         mvc.perform(post("/v1/support/tickets")
                         .header("Authorization", user.bearer())

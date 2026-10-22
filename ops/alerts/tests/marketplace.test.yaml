@@ -74,3 +74,33 @@ tests:
       - eval_time: 11m
         alertname: AgentsDropped
         exp_alerts: []
+
+  # Three stops in the hour are a bad afternoon; the fourth is the alert. Stops of different kinds count together.
+  - interval: 5m
+    input_series:
+      - series: 'trust_abuse_stops_total{job="control-plane", instance="a", kind="process_hash"}'
+        values: '0 0 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2'
+      - series: 'trust_abuse_stops_total{job="control-plane", instance="b", kind="pool_lookup"}'
+        values: '0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: AbuseStops
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: AbuseStops
+        exp_alerts: []
+  - interval: 5m
+    input_series:
+      - series: 'trust_abuse_stops_total{job="control-plane", instance="a", kind="process_hash"}'
+        values: '0 1 2 3 4 4 4 4 4 4 4 4 4 4 4 4 4 4'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: AbuseStops
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '4 sessions were stopped for running software that is not allowed, in the last hour.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#abuse-stops
+      - eval_time: 90m
+        alertname: AbuseStops
+        exp_alerts: []

@@ -431,6 +431,11 @@ legal:
     audit-log: 2922d
     # Support tickets, once resolved, with their messages: what a person asked and what we answered. LEGAL(confirm)
     support-tickets: 365d
+    # What each job did each minute it ran (its GPU, its memory, its bus, its network, whether it printed), for the review of abuse
+    # (ADR 0038): never billed on, never shown to a host. LEGAL(confirm)
+    behaviour: 90d
+    # Review items for software no renter may run, with their signals and notes, once settled. LEGAL(confirm)
+    abuse-reviews: 365d
     # Database backups, which can hold an erased person until they age out (ops/backup/, docs/runbooks/backups.md);
     # the privacy notice must say so. Changing it means changing the backup scripts too. LEGAL(confirm)
     backups: 30d

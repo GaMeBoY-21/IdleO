@@ -7,6 +7,7 @@ import com.idleo.controlplane.agentgateway.OfferReplies;
 import com.idleo.controlplane.agentgateway.SessionCredentials;
 import com.idleo.controlplane.agentgateway.SessionLogProgress;
 import com.idleo.controlplane.agentgateway.SessionReconciliation;
+import com.idleo.controlplane.agentgateway.SessionSignals;
 import com.idleo.controlplane.agentgateway.SessionStatuses;
 import com.idleo.controlplane.agentgateway.UsageReports;
 import com.idleo.controlplane.hosts.HostAgentReports;
@@ -36,6 +37,7 @@ class AgentStreamServices implements DisposableBean {
     private final ObjectProvider<SessionReconciliation> reconciliation;
     private final ObjectProvider<SessionCredentials> credentials;
     private final ObjectProvider<UsageReports> usageReports;
+    private final ObjectProvider<SessionSignals> signals;
     private final ObjectProvider<ImagesToPrefetch> prefetch;
     private final ObjectProvider<CommandDelivery> delivery;
     private final Presence presence;
@@ -66,6 +68,7 @@ class AgentStreamServices implements DisposableBean {
             ObjectProvider<SessionReconciliation> reconciliation,
             ObjectProvider<SessionCredentials> credentials,
             ObjectProvider<UsageReports> usageReports,
+            ObjectProvider<SessionSignals> signals,
             ObjectProvider<ImagesToPrefetch> prefetch,
             ObjectProvider<CommandDelivery> delivery,
             Presence presence,
@@ -88,6 +91,7 @@ class AgentStreamServices implements DisposableBean {
         this.reconciliation = reconciliation;
         this.credentials = credentials;
         this.usageReports = usageReports;
+        this.signals = signals;
         this.prefetch = prefetch;
         this.delivery = delivery;
         this.presence = presence;
@@ -157,6 +161,11 @@ class AgentStreamServices implements DisposableBean {
     @Nullable
     UsageReports usageReports() {
         return usageReports.getIfAvailable();
+    }
+
+    @Nullable
+    SessionSignals signals() {
+        return signals.getIfAvailable();
     }
 
     @Nullable

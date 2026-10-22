@@ -16,7 +16,9 @@ import org.springframework.stereotype.Component;
 @Component
 class SignInAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
+    /** What a held account (suspended or banned alike) is told. */
     static final String SUSPENDED = "This account is suspended.";
+
     static final String EMAIL_NOT_VERIFIED =
             "Your email address must be verified with the sign-in provider before you can use this account.";
 
@@ -45,6 +47,9 @@ class SignInAuthenticationConverter implements Converter<Jwt, AbstractAuthentica
             case SignInOutcome.Waiting waiting ->
                 IdentityAuthenticationToken.waiting(
                         new CurrentUser(waiting.userId()), methods, waiting.identityId(), claims.authTime());
+            case SignInOutcome.Held held ->
+                IdentityAuthenticationToken.held(
+                        new CurrentUser(held.userId()), methods, held.identityId(), claims.authTime());
             case SignInOutcome.Suspended suspended -> {
                 security.record(SecurityLog.Kind.SIGN_IN_REFUSED, suspended.userId(), "suspended");
                 yield IdentityAuthenticationToken.denied(Problem.ACCOUNT_SUSPENDED, SUSPENDED);

@@ -117,6 +117,10 @@ Money records are kept for `legal.retention.money-records` (8 years, LEGAL(confi
 | `trust.ratings` | session_id, renter_id, host_id, stars, **comment**, rated_at, changed_at | `renter_id = :user` | reports: ratings | A renter's rating of a host | With the session | Cleared: the comment and the author (renter_id); the stars stay for the host's average |
 | `trust.host_ratings` | host_id, average_stars, count_at_least, refreshed_at | `host_id in (:hosts)` | — | A host's average, worked out daily | With the host | Kept |
 | `trust.disputes` | id, session_id, renter_id, reason, **details**, state, created_at, **resolution_reason**, resolved_by, resolved_at, refund_paise, commission_refund_paise, host_refund_paise, refund_txn | `renter_id = :user` | reports: reports | A renter's report about a session; a refund is a money record | Money record | Cleared: details and resolution reason; kept as a money record |
+| `trust.abuse_items` | id, session_id, attempt, renter_id, host_id, state, action, banned, created_at, updated_at, resolved_at, resolved_by, **resolution**, refund_txn, refund_paise | `renter_id = :user` | reports: abuseReviews | A session whose host's runner flagged it, or stopped it, for software no renter may run on a host's GPU (ADR 0038), what was done automatically, and how an admin settled it | `rule: abuse-reviews`: a year after it was settled, LEGAL(confirm); an open one is never deleted | Cleared: the admin's reason for settling it; the rest stays by id |
+| `trust.abuse_signals` | id, item_id, kind, detail, sha256, count, stopped, at | `item_id in (select id from trust.abuse_items where renter_id = :user)` | reports: abuseSignals | Each thing seen on an item: a listed program's name or build, a listed pool's domain, dropped connections, a mining-like pattern of numbers | `rule: abuse-reviews` | Kept: a program on the blocklist, a domain on it, or numbers; nothing the renter typed or chose |
+| `trust.abuse_notes` | id, item_id, author_id, **note**, at | `item_id in (select id from trust.abuse_items where renter_id = :user)` | reports: abuseNotes | An admin's notes on an item | `rule: abuse-reviews` | Cleared: the words |
+| `trust.behavior_samples` | session_id, attempt, minute_index, host_id, util_pct, memory_pct, pcie_kb_s, net_out, net_in, printed, conn_drops, at | `session_id in (:sessions)` | reports: behaviour | What each job did each minute it ran: GPU use, the share of its memory, the traffic over the PCIe bus, bytes over the network, lines printed (a count, never a word), connections dropped; for the review of abuse only (ADR 0038), never billed on and never shown to a host | `rule: behaviour-samples`: 90 days, LEGAL(confirm) | Kept: numbers by session id |
 | `trust.idempotency_keys` | user_id, idempotency_key, request_hash, state, response_status, response_location, **response_body**, locked_at, created_at, expires_at | `user_id = :user` | — | As identity's | `rule: idempotency-keys` | Deleted |
 | `notifications.notifications` | id, user_id, kind, dedupe_key, **title**, **body**, link, created_at, in_app, read_at, email_wanted, email_claimed_at, email_sent_at | `user_id = :user` | messages: messages | The in-app list and each email (ADR 0026) | `rule: notifications` | Deleted, after the last email is sent |
 | `notifications.preferences` | user_id, kind, email, in_app, updated_at | `user_id = :user` | messages: choices | What the person chose to be told | The account's life | Deleted |
@@ -168,7 +172,9 @@ Only state that may expire; never anything financial (ADR 0013).
 | Traces (Tempo) | Span attributes: the HTTP method, route template and status; the URL path, which holds ids; no query string, header, body or IP (`TelemetryPrivacyTests`) | 14 days |
 | Browser vitals and errors (`/v1/vitals`) | Route and release as codes; an error's message with anything shaped like an email, a token or a path removed | As logs and metrics |
 | The agent's logs on a host | The agent's own lines, ids only | On the host, rotated |
-| The job's logs on a host | Uploaded to `logs/` above; the scratch disk is deleted at session end | Session end |
+| The job's logs on a host | Uploaded to `logs/` above; the file nerdctl keeps of what a job prints is on the session's encrypted scratch disk too (ADR 0038), so it goes with it | Session end |
+| A host's disk (the Linux distribution's virtual disk) | A renter's files, checkpoints, outputs and what the job prints are on the session's LUKS2 volume, whose random key lives only in the runner's memory; at the end the volume is closed, its header erased and its image deleted, so a copy of the virtual disk holds nothing readable of a session. `HostileTest 15` scans the whole disk for a marker. A host with admin rights can still read a *running* job's memory | Session end |
+| The runner's DNS for a session (ADR 0038) | It forwards each question to the public resolvers and answers none itself but a mining pool's name on the blocklist (refused). It writes no question down, counts none and keeps none; only a refused pool's listed domain goes to a review item | Nothing |
 
 ## Outside our servers
 
@@ -178,7 +184,7 @@ Only state that may expire; never anything financial (ADR 0013).
 | The email provider (Resend) | Each email: address, subject, body | 30 days of logs (email.md) | Ages out |
 | The person's browser | Upload progress (IndexedDB: file names and parts' ETags), the sign-in SDK's own token store | Until they clear it | Theirs |
 | The command line and SDK (`idleo`) | The key (keychain or a 0600 file), uploads' progress, pending bookings | Until `logout` | Theirs |
-| A host's machine | While a session runs: the renter's inputs, scratch disk and container | Deleted at session end | Nothing left |
+| A host's machine | While a session runs: the renter's inputs, scratch disk (encrypted, ADR 0038) and container | Deleted at session end | Nothing left |
 
 ## Retention rules
 
@@ -204,6 +210,8 @@ Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an
 | `event-publications` | Durable events between modules, once delivered | 7 days | `retention.periods.event-publications` |
 | `idempotency-keys` | Every module's finished Idempotency-Key records (their response bodies) | When each expires (a day) | `IdempotentRequests` |
 | `support-tickets` | Resolved support tickets, with their messages | A year after resolved, LEGAL(confirm) | `legal.retention.support-tickets` |
+| `behaviour-samples` | What each job did each minute (`trust.behavior_samples`) | 90 days, LEGAL(confirm) | `legal.retention.behaviour` |
+| `abuse-reviews` | A settled review item with its signals and notes | A year after it was settled, LEGAL(confirm) | `legal.retention.abuse-reviews` |
 | `reconciliation-runs` | The nightly wallet check's results but the latest (mismatches name a person by id) | A year | `retention.periods.reconciliation-runs` |
 
 Not deleted yet, by decision (ADR 0037): money records and the audit log (`legal.retention.money-records` and `legal.retention.audit-log`, 8 years, LEGAL(confirm)): both are append-only by design, and the first of them reaches its period in 2034; how to delete them then, keeping the ledger balanced and the log trustworthy, is a later decision. Backups delete themselves after `legal.retention.backups` (`ops/backup/`). Valkey's keys expire on their own.
