@@ -64,7 +64,9 @@ case "$cmd" in
       shift
     done
     docker image inspect "$image" >/dev/null 2>&1 || die "$image isn't built: run scripts/build-distro.sh --dev first"
+    created=false
     if ! running; then
+      created=true
       docker rm -f "$name" >/dev/null 2>&1 || true
       mounts=()
       for volume in "${volumes[@]}"; do mounts+=(-v "$volume"); done
@@ -72,18 +74,19 @@ case "$cmd" in
         --add-host host.docker.internal:host-gateway --stop-signal SIGRTMIN+3 \
         "${mounts[@]}" --entrypoint /lib/systemd/systemd "$image" >/dev/null
     fi
+    # systemd first: it hands the cgroup controllers (pids, memory, cpu) to its services while it boots, and it can't while a
+    # `docker exec` process sits in the container's root cgroup, so nothing runs in the container until it has settled
+    # (without them no container can start: runc can't write pids.max).
+    if $created; then
+      sleep 3
+      for _ in $(seq 1 60); do
+        state="$(inside systemctl is-system-running 2>/dev/null || true)"
+        [[ "$state" == running || "$state" == degraded ]] && break
+        sleep 1
+      done
+    fi
     # The development marker, with where the logical registry name points; only root in the distribution can write it.
     inside bash -c "mkdir -p /etc/idleo && printf 'registry=%s\nlocalhost=host.docker.internal\n' '$registry' >/etc/idleo/development"
-    # A developer's network may not let public DNS through (a campus or office Wi-Fi), and then every job's name look-up fails and
-    # the hostile tests can't tell a blocked name from a broken network. When neither public resolver answers from here, the
-    # runner's forwarder is told (a development-only marker line) to ask the resolver this distribution itself was given.
-    if ! inside bash -c 'timeout 3 bash -c "exec 3<>/dev/tcp/1.1.1.1/53" || timeout 3 bash -c "exec 3<>/dev/tcp/8.8.8.8/53"' 2>/dev/null; then
-      upstream="$(inside awk '/^nameserver/ && $2 ~ /^[0-9.]+$/ {print $2; exit}' /etc/resolv.conf)"
-      if [[ -n "$upstream" ]]; then
-        inside bash -c "echo dns-upstream=$upstream >>/etc/idleo/development"
-        echo "dev-distro: public DNS isn't reachable from here, so names are looked up through $upstream"
-      fi
-    fi
     # The state disk, mounted under the runner (which systemd started at boot, on the image's own folder): stopped, the disk
     # mounted, and started again, so every scratch disk it makes is on the image.
     inside bash -c "set -e
@@ -100,6 +103,18 @@ case "$cmd" in
       sleep 1
     done
     answers || { docker logs --tail 40 "$name" >&2 || true; die "the runner didn't come up in 3 minutes"; }
+    # A developer's network may not let public DNS through (a campus or office Wi-Fi), and then every job's name look-up fails and
+    # the hostile tests can't tell a blocked name from a broken network. When neither public resolver answers from here, the
+    # runner's forwarder is told (a development-only marker line) to ask the resolver this distribution itself was given.
+    # After the runner answers, not before: a `docker exec` process sitting in the container's root cgroup while systemd boots
+    # keeps systemd from enabling the cgroup controllers for the services (no pids.max, and no container can start).
+    if ! inside bash -c 'timeout 3 bash -c "exec 3<>/dev/tcp/1.1.1.1/53" || timeout 3 bash -c "exec 3<>/dev/tcp/8.8.8.8/53"' 2>/dev/null; then
+      upstream="$(inside awk '/^nameserver/ && $2 ~ /^[0-9.]+$/ {print $2; exit}' /etc/resolv.conf)"
+      if [[ -n "$upstream" ]]; then
+        inside bash -c "echo dns-upstream=$upstream >>/etc/idleo/development"
+        echo "dev-distro: public DNS isn't reachable from here, so names are looked up through $upstream"
+      fi
+    fi
     echo "dev-distro: $name is up (runner answering after $((SECONDS - started)) s); agent: --container-runner docker:$name"
     ;;
   down)

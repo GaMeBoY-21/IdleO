@@ -289,27 +289,26 @@ me2="$(curl -sf "$api/v1/me" -H "Authorization: Bearer $token2" | json_get .id)"
 ops grant-credits --user "$me2" --paise 50000 --reason "'Real runner abuse test credit'" --key "real-$me2" || fail "grant-credits failed for the second renter"
 key2="$(curl -sf -X POST "$api/v1/api-keys" -H "Authorization: Bearer $token2" -H 'Content-Type: application/json' \
   -H "Idempotency-Key: \"$renter2-key\"" -d '{"name": "real-runner-b", "scope": "full"}' | json_get .key)" || fail "making the second renter's key failed"
-s6="$(IDLEO_API_KEY="$key2" "$idleo" --json run hostile-test --param attack=run_named --max-spend 5 --detach 2>>"$out/cli.log" | detached)"
-[[ -n "$s6" && "$s6" != None ]] || fail "booking the listed build failed"
-deadline=$((SECONDS + 120))
-until [[ "$(curl -sf "$api/v1/sessions/$s6" -H "Authorization: Bearer $token2" | json_get .settled)" == True ]]; do
-  ((SECONDS < deadline)) || fail "the session running a listed build didn't end within 120 s"
-  sleep 1
-done
-ending="$(curl -sf "$api/v1/sessions/$s6" -H "Authorization: Bearer $token2" | json_get .errorCode)"
-[[ "$ending" == abuse_stopped ]] || fail "the listed build's session ended $ending, not abuse_stopped"
-until [[ "$(curl -sf "$api/v1/me" -H "Authorization: Bearer $token2" | json_get .status)" == suspended ]]; do
-  ((SECONDS < deadline)) || fail "the renter of a stopped session wasn't suspended"
-  sleep 1
-done
-refused="$(curl -s -o /dev/null -w '%{http_code}' "$api/v1/sessions" -H "Authorization: Bearer $token2")"
-[[ "$refused" == 403 ]] || fail "a suspended renter's call answered $refused, not 403"
 # The admin: a user given the role by the operator command, a second factor enrolled from the secret the server shows.
 admin="real-admin-$(perl -e 'printf "%08x", int(rand(2**32))')"
 admin_token="$(stack_token "$admin")"
 ops grant-admin "$admin@example.com" --reason "'Real runner abuse test'" || fail "grant-admin failed"
 admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token")" || fail "the admin's second factor didn't enrol"
 admin_get() { curl -sf "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session"; }
+s6="$(IDLEO_API_KEY="$key2" "$idleo" --json run hostile-test --param attack=run_named --max-spend 5 --detach 2>>"$out/cli.log" | detached)"
+[[ -n "$s6" && "$s6" != None ]] || fail "booking the listed build failed"
+# A stopped renter is suspended at once and can't read their sessions (a held account reaches only its data, deletion and
+# support), so the admin watches the session instead.
+deadline=$((SECONDS + 120))
+until [[ "$(admin_get "/admin/v1/sessions/$s6" | json_get .settled)" == True ]]; do
+  ((SECONDS < deadline)) || fail "the session running a listed build didn't end within 120 s"
+  sleep 1
+done
+ending="$(admin_get "/admin/v1/sessions/$s6" | json_get .session.errorCode)"
+[[ "$ending" == abuse_stopped ]] || fail "the listed build's session ended $ending, not abuse_stopped"
+[[ "$(curl -sf "$api/v1/me" -H "Authorization: Bearer $token2" | json_get .status)" == suspended ]] || fail "the renter of a stopped session wasn't suspended"
+refused="$(curl -s -o /dev/null -w '%{http_code}' "$api/v1/sessions" -H "Authorization: Bearer $token2")"
+[[ "$refused" == 403 ]] || fail "a suspended renter's call answered $refused, not 403"
 item="$(admin_get '/admin/v1/abuse?state=open' | python3 -c 'import json, sys
 for item in json.load(sys.stdin)["items"]:
     if item["sessionId"] == sys.argv[1]:

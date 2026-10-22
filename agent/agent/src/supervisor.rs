@@ -858,6 +858,7 @@ impl Supervisor {
                 self.end(tagged.session_id, SessionState::Stopped, Some((&reason, stop_message(&reason))), None);
             }
             Reported::Report(Report::Failed { code, message, exit_code }) => {
+                tracing::warn!(session = %tagged.session_id, %code, %message, "an attempt failed");
                 self.end(tagged.session_id, SessionState::Failed, Some((&code, &message)), exit_code);
             }
             Reported::Ended { panicked } => {
