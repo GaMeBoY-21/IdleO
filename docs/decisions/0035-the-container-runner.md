@@ -92,7 +92,7 @@ development image to that registry and, with `--release`, the CUDA image to GHCR
 
 ## Consequences
 
-- A job can no longer touch the owner's files or home network, and the claim is tested: fourteen hostile cases, the
+- A job can no longer touch the owner's files or home network, and the claim is tested: fourteen hostile cases (sixteen since ADR 0038), the
   self-test's `network_lockdown` on every laptop, and the real-runner end-to-end test (`scripts/e2e/real-runner.sh`).
 - The runner and the agent are separate programs with a protocol to keep compatible: it changes additively
   (`unsupported_version` otherwise), and `hello` reports the runner's version and the images it has.

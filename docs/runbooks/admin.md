@@ -84,3 +84,19 @@ Every action opens a sheet that says what will change and asks why, in at least 
 - **A report waiting more than 2 days:** the renter was promised a reply within 2 days, and nothing counts it yet. Work the Disputes queue from the top: it is oldest first, with open reports before resolved ones.
 - **Answering a report:** open the session's timeline and minutes before deciding. A minute only the agent saw, or one the lease saw but the agent didn't, is in Review queue, not here. A refund is real money (it credits the renter and takes the commission and, past that, the host's share, which the host sees as "Refunded to renter"), and it can't be undone; a mistake is put right with a credit grant, with its own reason. While a report is open the session's earnings show "Held from payout" on the host's screen; resolving it ends the hold.
 - **A rating's comment:** only admins read it (Disputes shows the one beside a report; `GET /admin/v1/ratings` lists them). Never repeat it to a host, and never say who rated.
+
+## Who is behind each operator handle
+
+`OPERATOR` is a short handle, never a name or an email (ADR 0037), and the audit log shows only the handle. Who it is lives
+in **`private/operators.md`**, which is git-ignored and never committed. Keep it in this shape, one line a handle:
+
+```
+# Operators (private: never commit)
+| Handle | Person | Since | Notes |
+| --- | --- | --- | --- |
+| local-stack, e2e-script, real-runner-script | nobody: the scripts that run the local stack and its tests | 2026-09 | scripts/lib/stack.sh, scripts/e2e/ |
+| (a handle) | the person it names | the date | what they may do |
+```
+
+Add a line when a handle is first used and when someone stops being an operator, and use the same handle every time: the
+audit log can then say who did a thing, and only this file can say who that is.

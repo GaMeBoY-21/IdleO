@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The 14 hostile tests (ADR 0035) through the real path, on one linked host: the stack, its agent, the job runner inside the
+"""The 16 hostile tests (ADR 0035, ADR 0038) through the real path, on one linked host: the stack, its agent, the job runner inside the
 Linux distribution and a container, the way a renter's job reaches a laptop. `run.sh --host <host id>` runs it.
 
 Each test is a session of the development-only `hostile-test` template (templates/development-real.yaml, hidden) running the
 hostile image with one attack named by its Attack parameter, booked as the key's owner and read back through the API: how the
-session ended, and the attack's own `RESULT` line in its log. Printing the same 14-row table as the Mac's run. What this path
+session ended, and the attack's own `RESULT` line in its log. Printing the same 16-row table as the Mac's run. What this path
 can't see (the Linux distribution's own processes and disk, a second session's address) is marked N/A with the reason; a row
 is never PASS by default. A single FAIL is a failed run (exit 1).
 """
@@ -34,9 +34,13 @@ TESTS = [
     (12, "outlive the session", "outlive_session"),
     (13, "write into the read-only inputs", "write_inputs"),
     (14, "run past max_runtime", "run_forever"),
+    (15, "a renter's data is encrypted on the distribution's disk", "leave_marker"),
+    (16, "a running session's scratch disk and memory are protected", "leave_marker"),
 ]
 NOT_HERE = {
     11: "needs two sessions at once and the other one's address inside the Linux distribution; only the Mac's run (run.sh with no --host) proves it",
+    15: "searches the distribution's own disk for what a job wrote, which the API can't reach; the Mac's run proves it, and on a laptop the self-test's `scratch_encryption` check proves the real kernel can open, use and close an encrypted volume",
+    16: "tries to open a running session's mapping from an unprivileged process inside the distribution, which the API can't reach; only the Mac's run (run.sh with no --host) proves it",
 }
 TEMPLATE = "hostile-test"
 HELLO = b"hello from the renter\n"
@@ -159,7 +163,7 @@ def main():
         for other in others:
             stack.call("POST", f"/v1/hosts/{other['id']}/resume")
     print(f"\nhostile (laptop): {passes + fails + nas} rows, {passes} PASS, {nas} N/A, {fails} FAIL")
-    sys.exit(1 if fails or passes + fails + nas != 14 else 0)
+    sys.exit(1 if fails or passes + fails + nas != 16 else 0)
 
 
 LEFT = "idleo-runner (development): left from finished sessions: "
