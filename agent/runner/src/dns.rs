@@ -25,6 +25,18 @@ use crate::abuse::Blocklist;
 
 /// The public resolvers a question is forwarded to, in the order they are tried.
 pub const RESOLVERS: [Ipv4Addr; 2] = [Ipv4Addr::new(1, 1, 1, 1), Ipv4Addr::new(8, 8, 8, 8)];
+
+/// The resolvers to forward to: [`RESOLVERS`], unless a development distribution's marker file names its own with
+/// `dns-upstream=` lines, for a developer's network that doesn't let public DNS through (a release distribution has no
+/// marker, so a host's jobs only ever reach the public resolvers, never the home network's own).
+#[must_use]
+pub fn resolvers_for(development_marker: &str) -> Arc<[Ipv4Addr]> {
+    let named: Vec<Ipv4Addr> = development_marker
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("dns-upstream=")?.trim().parse().ok())
+        .collect();
+    if named.is_empty() { Arc::from(RESOLVERS) } else { Arc::from(named) }
+}
 /// The DNS port.
 const PORT: u16 = 53;
 /// The most a question or an answer may be (UDP with EDNS is at most this; a TCP message has its own length).
@@ -117,9 +129,10 @@ impl Forwarder {
     pub fn start(
         gateway: Ipv4Addr,
         blocklist: Arc<Blocklist>,
+        resolvers: Arc<[Ipv4Addr]>,
         lookups: mpsc::UnboundedSender<PoolLookup>,
     ) -> Result<Self, String> {
-        Self::start_on(SocketAddr::from((gateway, PORT)), blocklist, lookups)
+        Self::start_on(SocketAddr::from((gateway, PORT)), blocklist, resolvers, lookups)
     }
 
     /// The same on any address and port (0 for any free one), which is how the tests run it.
@@ -129,6 +142,7 @@ impl Forwarder {
     pub fn start_on(
         address: SocketAddr,
         blocklist: Arc<Blocklist>,
+        resolvers: Arc<[Ipv4Addr]>,
         lookups: mpsc::UnboundedSender<PoolLookup>,
     ) -> Result<Self, String> {
         let udp = bound(Type::DGRAM, Protocol::UDP, address)?;
@@ -143,8 +157,8 @@ impl Forwarder {
         let limit = Arc::new(Semaphore::new(IN_FLIGHT));
         let udp = Arc::new(udp);
         let udp_task = {
-            let (blocklist, lookups, limit, socket) =
-                (Arc::clone(&blocklist), lookups.clone(), Arc::clone(&limit), Arc::clone(&udp));
+            let (blocklist, resolvers, lookups, limit, socket) =
+                (Arc::clone(&blocklist), Arc::clone(&resolvers), lookups.clone(), Arc::clone(&limit), Arc::clone(&udp));
             tokio::spawn(async move {
                 let mut buffer = vec![0_u8; MAX_MESSAGE];
                 while let Ok((length, from)) = socket.recv_from(&mut buffer).await {
@@ -152,9 +166,10 @@ impl Forwarder {
                     let Ok(permit) = Arc::clone(&limit).try_acquire_owned() else {
                         continue; // Too many in flight: a UDP question is retried by its sender.
                     };
-                    let (blocklist, lookups, socket) = (Arc::clone(&blocklist), lookups.clone(), Arc::clone(&socket));
+                    let (blocklist, resolvers, lookups, socket) =
+                        (Arc::clone(&blocklist), Arc::clone(&resolvers), lookups.clone(), Arc::clone(&socket));
                     tokio::spawn(async move {
-                        if let Some(reply) = answer(&message, &blocklist, &lookups, false).await {
+                        if let Some(reply) = answer(&message, &blocklist, &resolvers, &lookups, false).await {
                             let _ = socket.send_to(&reply, from).await;
                         }
                         drop(permit);
@@ -165,9 +180,9 @@ impl Forwarder {
         let tcp_task = tokio::spawn(async move {
             while let Ok((stream, _)) = tcp.accept().await {
                 let Ok(permit) = Arc::clone(&limit).try_acquire_owned() else { continue };
-                let (blocklist, lookups) = (Arc::clone(&blocklist), lookups.clone());
+                let (blocklist, resolvers, lookups) = (Arc::clone(&blocklist), Arc::clone(&resolvers), lookups.clone());
                 tokio::spawn(async move {
-                    serve_tcp(stream, &blocklist, &lookups).await;
+                    serve_tcp(stream, &blocklist, &resolvers, &lookups).await;
                     drop(permit);
                 });
             }
@@ -211,6 +226,7 @@ fn bound(kind: Type, protocol: Protocol, address: SocketAddr) -> Result<Socket, 
 async fn answer(
     message: &[u8],
     blocklist: &Blocklist,
+    resolvers: &[Ipv4Addr],
     lookups: &mpsc::UnboundedSender<PoolLookup>,
     over_tcp: bool,
 ) -> Option<Vec<u8>> {
@@ -220,7 +236,7 @@ async fn answer(
         let _ = lookups.send(PoolLookup { domain: domain.to_owned() });
         return nxdomain_reply(message);
     }
-    for resolver in RESOLVERS {
+    for &resolver in resolvers {
         let result = if over_tcp { ask_tcp(message, resolver).await } else { ask_udp(message, resolver).await };
         if result.is_some() {
             return result;
@@ -252,7 +268,12 @@ async fn ask_tcp(message: &[u8], resolver: Ipv4Addr) -> Option<Vec<u8>> {
 }
 
 /// One TCP connection from a job: length-prefixed questions until it goes quiet or closes.
-async fn serve_tcp(mut stream: TcpStream, blocklist: &Blocklist, lookups: &mpsc::UnboundedSender<PoolLookup>) {
+async fn serve_tcp(
+    mut stream: TcpStream,
+    blocklist: &Blocklist,
+    resolvers: &[Ipv4Addr],
+    lookups: &mpsc::UnboundedSender<PoolLookup>,
+) {
     loop {
         let mut length = [0_u8; 2];
         match tokio::time::timeout(TCP_IDLE, stream.read_exact(&mut length)).await {
@@ -267,7 +288,7 @@ async fn serve_tcp(mut stream: TcpStream, blocklist: &Blocklist, lookups: &mpsc:
         if !matches!(tokio::time::timeout(TCP_IDLE, stream.read_exact(&mut message)).await, Ok(Ok(_))) {
             return;
         }
-        let Some(reply) = answer(&message, blocklist, lookups, true).await else { return };
+        let Some(reply) = answer(&message, blocklist, resolvers, lookups, true).await else { return };
         let Ok(prefix) = u16::try_from(reply.len()) else { return };
         if stream.write_all(&prefix.to_be_bytes()).await.is_err() || stream.write_all(&reply).await.is_err() {
             return;
@@ -330,16 +351,29 @@ mod tests {
         assert_eq!(nxdomain_reply(&[1, 2, 3]), None);
     }
 
+    #[test]
+    fn a_development_marker_may_name_the_resolvers_and_a_release_distribution_never_does() {
+        assert_eq!(*resolvers_for(""), RESOLVERS);
+        assert_eq!(*resolvers_for("registry=x\nabuse-name=y"), RESOLVERS);
+        let named = resolvers_for(
+            "registry=x\ndns-upstream=192.168.65.7\ndns-upstream= 10.0.58.70 \ndns-upstream=not-an-address",
+        );
+        assert_eq!(*named, [Ipv4Addr::new(192, 168, 65, 7), Ipv4Addr::new(10, 0, 58, 70)]);
+    }
+
     #[tokio::test]
     async fn a_pool_lookup_is_refused_and_told_and_nothing_else_is_ever_told() {
         let list = Blocklist::built_in();
         let (lookups, mut told) = mpsc::unbounded_channel();
-        let refused = answer(&query("eu.NanoPool.org"), &list, &lookups, false).await.unwrap();
+        let refused = answer(&query("eu.NanoPool.org"), &list, &RESOLVERS, &lookups, false).await.unwrap();
         assert_eq!(refused[3] & 0x0F, 3);
         assert_eq!(told.recv().await, Some(PoolLookup { domain: "nanopool.org".to_owned() }));
         // A name that isn't a pool's is forwarded (and here, in a test with no network, goes unanswered): nothing is told.
-        let forwarded =
-            tokio::time::timeout(Duration::from_millis(50), answer(&query("pypi.org"), &list, &lookups, false)).await;
+        let forwarded = tokio::time::timeout(
+            Duration::from_millis(50),
+            answer(&query("pypi.org"), &list, &RESOLVERS, &lookups, false),
+        )
+        .await;
         let _ = forwarded;
         assert!(told.try_recv().is_err(), "a lookup that is no pool's is never recorded");
     }
@@ -347,8 +381,13 @@ mod tests {
     #[tokio::test]
     async fn the_forwarder_answers_a_pool_over_udp_and_tcp_and_tells_the_session() {
         let (lookups, mut told) = mpsc::unbounded_channel();
-        let forwarder =
-            Forwarder::start_on("127.0.0.1:0".parse().unwrap(), Arc::new(Blocklist::built_in()), lookups).unwrap();
+        let forwarder = Forwarder::start_on(
+            "127.0.0.1:0".parse().unwrap(),
+            Arc::new(Blocklist::built_in()),
+            Arc::from(RESOLVERS),
+            lookups,
+        )
+        .unwrap();
         let (udp, tcp) = forwarder.addresses();
         let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         socket.send_to(&query("pool.nanopool.org"), udp).await.unwrap();

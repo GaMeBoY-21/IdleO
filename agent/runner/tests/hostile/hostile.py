@@ -203,8 +203,26 @@ def raw_net():
     return result("raw_net", not breaches, "no raw sockets and no network setting could be changed" if not breaches else "; ".join(breaches))
 
 
+def own_address():
+    # The job's own address on its session network (a UDP connect to the gateway sends nothing, and says which address would be used).
+    gw = gateway()
+    if not gw:
+        return None
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect((gw, 53))
+        return probe.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        probe.close()
+
+
 def reach_private():
-    extra = [t for t in os.environ.get("SESSION_PARAM_TARGETS", "").split(",") if t]
+    # The harness names every session network's first container address too, and one of them is this job's own, which
+    # answers itself ("refused"): that is no breach, only the job talking to itself.
+    mine = own_address()
+    extra = [t for t in os.environ.get("SESSION_PARAM_TARGETS", "").split(",") if t and t != mine]
     hosts = ["10.0.0.1", "10.255.255.254", "172.16.0.1", "172.31.255.254", "192.168.0.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "224.0.0.1", "255.255.255.255", "192.0.0.1", "192.0.0.254", "198.18.0.1", "198.19.255.254", "192.0.2.1", "198.51.100.1", "203.0.113.1"] + extra
     gw = gateway()
     if gw:

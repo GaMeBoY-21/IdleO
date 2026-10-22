@@ -74,6 +74,16 @@ case "$cmd" in
     fi
     # The development marker, with where the logical registry name points; only root in the distribution can write it.
     inside bash -c "mkdir -p /etc/idleo && printf 'registry=%s\nlocalhost=host.docker.internal\n' '$registry' >/etc/idleo/development"
+    # A developer's network may not let public DNS through (a campus or office Wi-Fi), and then every job's name look-up fails and
+    # the hostile tests can't tell a blocked name from a broken network. When neither public resolver answers from here, the
+    # runner's forwarder is told (a development-only marker line) to ask the resolver this distribution itself was given.
+    if ! inside bash -c 'timeout 3 bash -c "exec 3<>/dev/tcp/1.1.1.1/53" || timeout 3 bash -c "exec 3<>/dev/tcp/8.8.8.8/53"' 2>/dev/null; then
+      upstream="$(inside awk '/^nameserver/ && $2 ~ /^[0-9.]+$/ {print $2; exit}' /etc/resolv.conf)"
+      if [[ -n "$upstream" ]]; then
+        inside bash -c "echo dns-upstream=$upstream >>/etc/idleo/development"
+        echo "dev-distro: public DNS isn't reachable from here, so names are looked up through $upstream"
+      fi
+    fi
     # The state disk, mounted under the runner (which systemd started at boot, on the image's own folder): stopped, the disk
     # mounted, and started again, so every scratch disk it makes is on the image.
     inside bash -c "set -e

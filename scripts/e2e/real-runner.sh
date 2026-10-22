@@ -11,7 +11,10 @@
 #      starts attempt 2, which resumes from the checkpoint the first one left.
 #   4. A tiny CPU fine-tune of a tiny model made inside the image, booked from the CLI with its model and examples, the
 #      adapter downloaded.
-#   5. The 14 hostile tests (agent/runner/tests/hostile/laptop.py) through this same path: 13 PASS, 1 N/A, 0 FAIL.
+#   5. The 16 hostile tests (agent/runner/tests/hostile/laptop.py) through this same path: 13 PASS, 3 N/A, 0 FAIL.
+#   6. An abuse stop and a clear (ADR 0038): a build listed in the development distribution's marker file runs in a session, the
+#      runner stops it and the control plane suspends its renter and opens a review item; an admin (a real second-factor
+#      session) sees it, clears it, and the renter is back and has their credit again.
 # It prints how long each took to its first log line, from the control plane's events and the runner's own timings.
 #
 #   scripts/e2e/real-runner.sh
@@ -259,14 +262,70 @@ assert len([k for k in header if k != "__metadata__"]) > 0
 PY
 summary+=("4 tiny CPU fine-tune through the CLI: completed in $(seconds_since "$started") s, adapter $(wc -c <"$work/out4/adapter_model.safetensors" | tr -d ' ') bytes: PASS")
 
-# 5. The 14 hostile tests through the real path (ADR 0035, agent/runner/tests/hostile/run.sh --host): the stack, the agent and
-#    the runner in the distribution, as on a laptop. Thirteen must PASS and one (11) says N/A with its reason; a FAIL fails this.
+# 5. The 16 hostile tests through the real path (ADR 0035, ADR 0038, agent/runner/tests/hostile/run.sh --host): the stack, the agent
+#    and the runner in the distribution, as on a laptop. Thirteen must PASS and three (11, 15, 16) say N/A with their reasons; a
+#    FAIL fails this.
 started="$(now_ms)"
 IDLEO_API_KEY="$key" IDLEO_API_URL="$api" python3 agent/runner/tests/hostile/laptop.py --host "$host" --cli "$idleo" \
   >"$work/hostile.txt" 2>"$out/hostile.err" || { cat "$work/hostile.txt" >&2; fail "the hostile tests through the real path failed; see private/real-runner/hostile.err"; }
 cp "$work/hostile.txt" "$out/hostile-table.txt"
-grep -q "14 rows, 13 PASS, 1 N/A, 0 FAIL" "$work/hostile.txt" || fail "the hostile tests' table isn't 13 PASS, 1 N/A: $(tail -3 "$work/hostile.txt")"
-summary+=("5 the 14 hostile tests through the real path: 13 PASS, 1 N/A (11, with its reason), 0 FAIL, $(seconds_since "$started") s: PASS")
+grep -q "16 rows, 13 PASS, 3 N/A, 0 FAIL" "$work/hostile.txt" || fail "the hostile tests' table isn't 13 PASS, 3 N/A: $(tail -3 "$work/hostile.txt")"
+summary+=("5 the 16 hostile tests through the real path: 13 PASS, 3 N/A (11, 15 and 16, with their reasons), 0 FAIL, $(seconds_since "$started") s: PASS")
+
+# 6. An abuse stop and a clear (ADR 0038). The development distribution's marker lists the SHA-256 of the hostile image's `sleep`
+#    (a release distribution reads no such line); a second renter runs a copy of it, so the runner finds a listed build, stops the
+#    session, and the control plane suspends that renter and opens a review item. An admin (a real second-factor session) clears it.
+started="$(now_ms)"
+hostile_image="$(sed -n 's/^ *image: \(registry.idleo.test:5000\/idleo\/hostile@sha256:[0-9a-f]\{64\}\).*/\1/p' private/local/development-real.yaml | head -1)"
+[[ -n "$hostile_image" ]] || fail "the hostile image isn't named in private/local/development-real.yaml"
+sleep_hash="$(scripts/dev-distro.sh exec -- nerdctl --namespace idleo run --rm --pull never --network none --entrypoint sha256sum "$hostile_image" /bin/sleep |
+  tr -s ' ' '\n' | grep -E '^[0-9a-f]{64}$' | head -1)"
+[[ -n "$sleep_hash" ]] || fail "couldn't hash the hostile image's sleep inside the distribution"
+scripts/dev-distro.sh exec -- sh -c "grep -v '^abuse-' /etc/idleo/development >/tmp/marker; echo abuse-sha256=$sleep_hash >>/tmp/marker; cp /tmp/marker /etc/idleo/development" ||
+  fail "couldn't list the test build in the distribution's marker file"
+renter2="real-b-$(perl -e 'printf "%08x", int(rand(2**32))')"
+token2="$(stack_token "$renter2")"
+me2="$(curl -sf "$api/v1/me" -H "Authorization: Bearer $token2" | json_get .id)"
+ops grant-credits --user "$me2" --paise 50000 --reason "'Real runner abuse test credit'" --key "real-$me2" || fail "grant-credits failed for the second renter"
+key2="$(curl -sf -X POST "$api/v1/api-keys" -H "Authorization: Bearer $token2" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: \"$renter2-key\"" -d '{"name": "real-runner-b", "scope": "full"}' | json_get .key)" || fail "making the second renter's key failed"
+s6="$(IDLEO_API_KEY="$key2" "$idleo" --json run hostile-test --param attack=run_named --max-spend 5 --detach 2>>"$out/cli.log" | detached)"
+[[ -n "$s6" && "$s6" != None ]] || fail "booking the listed build failed"
+deadline=$((SECONDS + 120))
+until [[ "$(curl -sf "$api/v1/sessions/$s6" -H "Authorization: Bearer $token2" | json_get .settled)" == True ]]; do
+  ((SECONDS < deadline)) || fail "the session running a listed build didn't end within 120 s"
+  sleep 1
+done
+ending="$(curl -sf "$api/v1/sessions/$s6" -H "Authorization: Bearer $token2" | json_get .errorCode)"
+[[ "$ending" == abuse_stopped ]] || fail "the listed build's session ended $ending, not abuse_stopped"
+until [[ "$(curl -sf "$api/v1/me" -H "Authorization: Bearer $token2" | json_get .status)" == suspended ]]; do
+  ((SECONDS < deadline)) || fail "the renter of a stopped session wasn't suspended"
+  sleep 1
+done
+refused="$(curl -s -o /dev/null -w '%{http_code}' "$api/v1/sessions" -H "Authorization: Bearer $token2")"
+[[ "$refused" == 403 ]] || fail "a suspended renter's call answered $refused, not 403"
+# The admin: a user given the role by the operator command, a second factor enrolled from the secret the server shows.
+admin="real-admin-$(perl -e 'printf "%08x", int(rand(2**32))')"
+admin_token="$(stack_token "$admin")"
+ops grant-admin "$admin@example.com" --reason "'Real runner abuse test'" || fail "grant-admin failed"
+admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token")" || fail "the admin's second factor didn't enrol"
+admin_get() { curl -sf "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session"; }
+item="$(admin_get '/admin/v1/abuse?state=open' | python3 -c 'import json, sys
+for item in json.load(sys.stdin)["items"]:
+    if item["sessionId"] == sys.argv[1]:
+        print(item["id"], item["action"], ",".join(item["kinds"]))' "$s6")"
+[[ -n "$item" ]] || fail "no open review item for the stopped session"
+read -r item_id item_action item_kinds <<<"$item"
+[[ "$item_action" == suspended && "$item_kinds" == process_hash ]] || fail "the review item says $item_action for $item_kinds, not suspended for process_hash"
+paid="$(admin_get "/admin/v1/abuse/$item_id" | json_get .paidPaise)"
+cleared="$(curl -s -o "$work/clear.json" -w '%{http_code}' -X POST "$api/admin/v1/abuse/$item_id/clear" -H "Authorization: Bearer $admin_token" \
+  -H "Admin-Session: $admin_session" -H 'Content-Type: application/json' -d '{"reason": "Real runner test: a copy of sleep, not a miner"}')"
+[[ "$cleared" == 200 ]] || fail "clearing the review item answered $cleared: $(cat "$work/clear.json")"
+[[ "$(curl -sf "$api/v1/me" -H "Authorization: Bearer $token2" | json_get .status)" == active ]] || fail "clearing didn't reinstate the renter"
+credit="$(curl -sf "$api/v1/wallet" -H "Authorization: Bearer $token2" | json_get .availablePaise)"
+[[ "$credit" == 50000 ]] || fail "after clearing the renter has $credit paise, not their 50000 back (the session cost $paid)"
+[[ "$(admin_get "/admin/v1/abuse/$item_id" | json_get .item.state)" == cleared ]] || fail "the item isn't cleared"
+summary+=("6 abuse: a listed build stopped (abuse_stopped), its renter suspended and refused (403), an open item for process_hash, an admin cleared it with a second factor, the renter is active again with all 50000 paise back (the session had cost $paid), $(seconds_since "$started") s: PASS")
 
 # What the first lines of each cost: the control plane's REQUESTED to RUNNING, and the runner's own breakdown.
 for entry in "stop:$s1" "adopted:$s2" "resumed:$s3" "fine-tune:$s4"; do

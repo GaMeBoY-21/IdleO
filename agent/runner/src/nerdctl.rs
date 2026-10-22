@@ -203,6 +203,17 @@ impl Nerdctl {
         Path::new(DEVELOPMENT_MARKER).exists()
     }
 
+    /// The resolvers a session's DNS forwarder asks: the public ones, unless a development distribution's marker names its own
+    /// (a developer's network that blocks public DNS).
+    fn dns_resolvers() -> Arc<[Ipv4Addr]> {
+        let marker = if Self::development() {
+            std::fs::read_to_string(DEVELOPMENT_MARKER).unwrap_or_default()
+        } else {
+            String::new()
+        };
+        crate::dns::resolvers_for(&marker)
+    }
+
     /// Points the development registry's logical name at its real address, in containerd's registry config (`hosts.toml`):
     /// plain HTTP, and only in a development distribution.
     fn map_development_registry(image: &str) -> Result<(), String> {
@@ -875,7 +886,7 @@ impl Machine for Nerdctl {
                 return Err(StartError::SandboxNotReady(why));
             }
             let (lookups, refused) = mpsc::unbounded_channel();
-            let forwarder = match Forwarder::start(plan.dns, self.abuse_blocklist(), lookups) {
+            let forwarder = match Forwarder::start(plan.dns, self.abuse_blocklist(), Self::dns_resolvers(), lookups) {
                 Ok(forwarder) => forwarder,
                 Err(why) => {
                     self.release_slot(slot);

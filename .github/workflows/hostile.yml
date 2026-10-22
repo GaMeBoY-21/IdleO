@@ -1,9 +1,9 @@
 name: hostile
 
-# The 14 hostile tests (ADR 0035) on the architecture laptops have. On a Mac they only ever run against an arm64 copy of the
+# The 16 hostile tests (ADR 0035) on the architecture laptops have. On a Mac they only ever run against an arm64 copy of the
 # distribution, because amd64 containers can't run containers under Rosetta; a GitHub runner is amd64, so here the sealed Linux
 # image is built for linux/amd64, natively, run as the stand-in "laptop" (scripts/dev-distro.sh: systemd as PID 1 in a privileged
-# container, our runner, our nftables rules, real containers), and the hostile job is run against it 14 ways. Every attempt
+# container, our runner, our nftables rules, real containers), and the hostile job is run against it 16 ways. Every attempt
 # must fail. Not on every push: by hand, and weekly. (Written while Actions are off for billing: it hasn't run yet.)
 on:
   workflow_dispatch:
@@ -40,9 +40,9 @@ jobs:
         run: |
           echo "architecture: $(uname -m)"
           docker image inspect --format 'distribution image: {{.Architecture}}' "idleo-distro-dev:$(tr -d '[:space:]' < agent/distro/VERSION)"
-      # Starts the distribution and a local registry, builds and pushes the hostile image, and runs the 14 tests against it,
-      # printing their table. A single FAIL (or fewer than 14 rows) fails the job.
-      - name: The 14 hostile tests
+      # Starts the distribution and a local registry, builds and pushes the hostile image, and runs the 16 tests against it,
+      # printing their table. A single FAIL (or fewer than 16 rows) fails the job.
+      - name: The 16 hostile tests
         run: agent/runner/tests/hostile/run.sh
       - name: What the runner and the tests logged
         if: always()
