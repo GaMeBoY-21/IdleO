@@ -34,7 +34,11 @@ class SuspensionTests {
                 where id = (select user_id from identity.external_identities where issuer = ? and subject = ?)
                 """, issuers.issuerA, subject);
 
+        // It can read its own account (told it is suspended, ADR 0038), and nothing else, whatever its token says.
         mvc.perform(get("/v1/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("suspended"));
+        mvc.perform(get("/v1/wallet").header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.detail").value("This account is suspended."));

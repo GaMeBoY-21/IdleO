@@ -53,6 +53,13 @@ public enum Problem {
             HttpStatus.BAD_REQUEST,
             "Invite code not accepted",
             "The code isn't one that can be used: it's wrong, already used or expired. The response never says which."),
+    TERMS_NOT_ACCEPTED(
+            "terms-not-accepted",
+            HttpStatus.FORBIDDEN,
+            "Accept the Terms first",
+            "Booking, uploading and adding or pricing a machine need the current Terms and privacy notice accepted, "
+                    + "which only a person signed in in a browser can do. The detail says where. Reading, stopping, "
+                    + "pausing, removing and downloading are never refused for it."),
     NOTICES_CHANGED(
             "notices-changed",
             HttpStatus.CONFLICT,

@@ -7276,6 +7276,7 @@ components:
           - /problems/email-not-verified
           - /problems/invite-required
           - /problems/invite-invalid
+          - /problems/terms-not-accepted
           - /problems/notices-changed
           - /problems/age-not-confirmed
           - /problems/fresh-sign-in-required

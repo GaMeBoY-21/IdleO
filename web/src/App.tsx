@@ -150,7 +150,43 @@ function NoticesGate() {
   return null;
 }
 
+// Only a suspended or banned account ever draws these, so they are chunks of their own, not part of any first load.
+const HeldShell = lazy(() => import("@/features/held/HeldAccount").then((m) => ({ default: m.HeldShell })));
+const HeldAccount = lazy(() =>
+  import("@/features/held/HeldAccount").then((m) => ({ default: m.HeldAccount })),
+);
+
+/**
+ * A suspended or banned account (ADR 0038) is told so, and keeps three screens: its data, deleting the account, and writing
+ * to us. Everywhere else it meets the same plain message. It has no tabs, credit or bell to ask the server for.
+ */
+function HeldArea() {
+  return (
+    <HeldShell>
+      <Suspense fallback={<Skeleton className="h-16 w-full" />}>
+        <Switch>
+          <Route path="/account/data/" component={YourData} />
+          <Route path="/account/delete/" component={DeleteAccount} />
+          <Route path="/account/help/" component={Help} />
+          <Route path="/account/help/ticket/" component={HelpTicket} />
+          <Route component={HeldAccount} />
+        </Switch>
+      </Suspense>
+    </HeldShell>
+  );
+}
+
 function SignedInArea() {
+  const me = useMeAfterPaint();
+  if (me.data?.status === "suspended") {
+    return (
+      <RequireAuth fallback={<ShellSkeleton />}>
+        <Suspense fallback={<ShellSkeleton />}>
+          <HeldArea />
+        </Suspense>
+      </RequireAuth>
+    );
+  }
   return (
     <RequireAuth fallback={<ShellSkeleton />}>
       <NoticesGate />

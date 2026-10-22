@@ -55,7 +55,7 @@ public final class TestAgent {
 
     public static TestAgent enrol(MockMvc mvc, int grpcPort) throws Exception {
         var json = JsonMapper.builder().build();
-        var bearer = "Bearer " + TestIssuers.get().validToken();
+        var bearer = TestUsers.signUp(mvc).bearer();
         var host = mvc.perform(post("/v1/hosts")
                         .header("Authorization", bearer)
                         .header("Idempotency-Key", UUID.randomUUID().toString())

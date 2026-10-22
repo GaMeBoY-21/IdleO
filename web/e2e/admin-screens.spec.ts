@@ -48,6 +48,8 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/ledger": { json: admin.ledger },
   "/admin/v1/invites": { json: admin.invites },
   "/admin/v1/audit": { json: admin.audit },
+  "/admin/v1/abuse": { json: admin.abuseQueue },
+  [`/admin/v1/abuse/${admin.ABUSE_OPEN_ID}`]: { json: admin.abuseDetail },
   "/admin/v1/tickets": { json: support.adminTickets() },
   [`/admin/v1/tickets/${support.PRIVACY_TICKET}`]: { json: support.adminThread() },
   [`/admin/v1/users/${data.me().id}/deletion`]: { json: support.adminDeletion() },
@@ -140,7 +142,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(11);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(12);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -434,6 +436,83 @@ test.describe("the console", () => {
     await expect(page.getByRole("table", { name: "Audit log" })).toContainText("host.activate");
     await expectAccessible(page);
     await capture(page, info, "admin-audit");
+  });
+});
+
+test.describe("abuse reviews", () => {
+  test("lists what a runner flagged or stopped, open first, with what was done", async ({ page }, info) => {
+    await open(page, "/admin/abuse/");
+    await expect(page.getByRole("heading", { level: 1, name: "Abuse" })).toBeVisible();
+    await expect(
+      page.getByText("The job looked up a mining pool; Its numbers look like mining"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("The runner stopped the session and the account was suspended").first(),
+    ).toBeVisible();
+    await expect(page.getByText("Confirmed, banned")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-abuse");
+  });
+
+  test("shows an empty queue in words", async ({ page }) => {
+    await open(page, "/admin/abuse/", { "/admin/v1/abuse": { json: { items: [], nextCursor: null } } });
+    await expect(page.getByText("Nothing to look at")).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  test("opens a review with its signals, its minutes and its notes", async ({ page }, info) => {
+    await open(page, `/admin/abuse/?id=${admin.ABUSE_OPEN_ID}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Abuse review" })).toBeVisible();
+    await expect(page.getByText("— the runner stopped the session")).toBeVisible();
+    await expect(page.getByRole("table", { name: "Behaviour" })).toBeVisible();
+    await expect(page.getByText("Renter's account is three days old.")).toBeVisible();
+    await expect(page.getByText("they stop no one")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-abuse-review");
+  });
+
+  test("clears a review and refunds the session, after a reason", async ({ page }) => {
+    let cleared: Record<string, unknown> | null = null;
+    await open(page, `/admin/abuse/?id=${admin.ABUSE_OPEN_ID}`, {
+      [`/admin/v1/abuse/${admin.ABUSE_OPEN_ID}/clear`]: (call, request) => {
+        cleared = request.postDataJSON() as Record<string, unknown>;
+        return { json: admin.abuseDetail };
+      },
+    });
+    await page.getByRole("button", { name: "Clear and refund" }).click();
+    await page.getByLabel("Reason").fill("a notebook that renders, not a miner");
+    await page.getByRole("button", { name: "Clear and refund" }).last().click();
+    await expect.poll(() => cleared).toMatchObject({ reason: "a notebook that renders, not a miner" });
+  });
+
+  test("confirms and bans, after a reason", async ({ page }) => {
+    let confirmed: Record<string, unknown> | null = null;
+    await open(page, `/admin/abuse/?id=${admin.ABUSE_OPEN_ID}`, {
+      [`/admin/v1/abuse/${admin.ABUSE_OPEN_ID}/confirm`]: (call, request) => {
+        confirmed = request.postDataJSON() as Record<string, unknown>;
+        return { json: admin.abuseDetail };
+      },
+    });
+    await page.getByRole("button", { name: "Confirm and ban" }).click();
+    await page.getByLabel("Reason").fill("a miner, seen by two people");
+    await page.getByRole("button", { name: "Confirm and ban" }).last().click();
+    await expect.poll(() => confirmed).toMatchObject({ ban: true, reason: "a miner, seen by two people" });
+  });
+
+  test("a note needs five characters, then is kept", async ({ page }) => {
+    let noted: Record<string, unknown> | null = null;
+    await open(page, `/admin/abuse/?id=${admin.ABUSE_OPEN_ID}`, {
+      [`/admin/v1/abuse/${admin.ABUSE_OPEN_ID}/notes`]: (call, request) => {
+        noted = request.postDataJSON() as Record<string, unknown>;
+        return { json: admin.abuseDetail };
+      },
+    });
+    await page.getByRole("textbox", { name: "Note" }).fill("hi");
+    await page.getByRole("button", { name: "Add the note" }).click();
+    await expect(page.getByText("Write at least 5 characters.")).toBeVisible();
+    await page.getByRole("textbox", { name: "Note" }).fill("Asked the renter what it was.");
+    await page.getByRole("button", { name: "Add the note" }).click();
+    await expect.poll(() => noted).toMatchObject({ note: "Asked the renter what it was." });
   });
 });
 

@@ -47,7 +47,7 @@ class NoticeTests {
 
     @Test
     void aNewAccountAcceptsOnceWithItsAgeConfirmed() throws Exception {
-        var user = TestUsers.signUp(mvc);
+        var user = TestUsers.signUpWithoutTerms(mvc);
         mvc.perform(get("/v1/me").header("Authorization", user.bearer()))
                 .andExpect(jsonPath("$.notices.accepted").value(false))
                 .andExpect(jsonPath("$.notices.ageConfirmed").value(false))
@@ -120,7 +120,7 @@ class NoticeTests {
 
     @Test
     void anApiKeyCantAcceptForAPerson() throws Exception {
-        var user = TestUsers.signUp(mvc);
+        var user = TestUsers.signUpWithoutTerms(mvc);
         var key = JsonMapper.builder()
                 .build()
                 .readTree(mvc.perform(post("/v1/api-keys")

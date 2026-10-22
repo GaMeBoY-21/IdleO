@@ -2,6 +2,7 @@ package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.RequiresAcceptedTerms;
 import com.idleo.controlplane.sessions.CreateSessionRequest;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -61,6 +62,7 @@ class SessionController {
             List<SessionViews.SessionResponse> sessions,
             @Nullable String nextCursor) {}
 
+    @RequiresAcceptedTerms
     @PostMapping
     @ApiResponse(
             responseCode = "201",

@@ -92,6 +92,8 @@ class RenterLimitsTests {
 
     private TestUser renter(boolean dayOld) throws Exception {
         var renter = TestUsers.signUpLasting(mvc, Duration.ofHours(3));
+        clock.advance(
+                Duration.ofSeconds(61)); // signing up took two requests (reading the account, accepting the Terms)
         if (dayOld) {
             jdbc.update(
                     "update identity.users set created_at = created_at - interval '2 days' where id = ?", renter.id());
@@ -127,8 +129,9 @@ class RenterLimitsTests {
 
     @Test
     void sixRequestsInAMinuteIsOneTooMany() throws Exception {
-        var renter = TestUsers.signUpLasting(mvc, Duration.ofHours(1)); // its first request
-        for (int i = 0; i < 4; i++) {
+        var renter = TestUsers.signUpLasting(mvc, Duration.ofHours(1)); // two requests: the account, the Terms
+        clock.advance(Duration.ofSeconds(61));
+        for (int i = 0; i < 5; i++) {
             mvc.perform(get("/v1/me").header("Authorization", renter.bearer())).andExpect(status().isOk());
         }
 

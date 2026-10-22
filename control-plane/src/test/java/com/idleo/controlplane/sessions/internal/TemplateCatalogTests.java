@@ -558,7 +558,7 @@ class TemplateCatalogTests {
         });
     }
 
-    /** The hostile test's Attack parameter offers exactly the attacks hostile.py has: the 14 of ADR 0035, in its order. */
+    /** The hostile test's Attack parameter offers exactly the attacks hostile.py has: the 14 of ADR 0035 in its order, then the six the encrypted disk, the fair use of the internet and the abuse watch need (ADR 0038). */
     @Test
     void theHostileTestTemplateOffersExactlyTheAttacksTheHostileJobHas() throws Exception {
         TemplateCatalog.Parsed real;
@@ -577,7 +577,7 @@ class TemplateCatalogTests {
                         java.util.Arrays.stream(attacks.group(1).split(","))
                                 .map(String::trim)
                                 .toList());
-        assertThat(hostile.params().get(0).choices()).hasSize(14);
+        assertThat(hostile.params().get(0).choices()).hasSize(20);
     }
 
     @Test

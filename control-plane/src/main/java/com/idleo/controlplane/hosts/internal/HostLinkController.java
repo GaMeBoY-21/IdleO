@@ -5,6 +5,7 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.hosts.HostListings;
 import com.idleo.controlplane.identity.BrowserSignInOnly;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.RequiresAcceptedTerms;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -123,6 +124,7 @@ class HostLinkController {
         return links.find(id).map(this::view).orElseThrow(HostLinkController::notFound);
     }
 
+    @RequiresAcceptedTerms
     @BrowserSignInOnly
     @PostMapping("/{id}/approve")
     LinkResponse approve(

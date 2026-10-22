@@ -6,6 +6,7 @@ import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { problemMessage } from "@/lib/problems";
+import { siteLink } from "@/lib/site-links";
 import type { QuoteState } from "./useQuote";
 
 const settingsRefused = (error: unknown) =>
@@ -16,7 +17,8 @@ const settingsRefused = (error: unknown) =>
  * there is, both from the quote (docs/design/redesign/book-finetune-laptop.html). It waits, saying why, while an
  * upload is going ("Waiting for your upload… 64%"), while no GPU is free, when the credit is short (both figures),
  * and for good when no GPU here has the memory the model needs. With answers still to give it can be pressed, and
- * pressing points at them.
+ * pressing points at them. Under both, the two things a renter should know before sending anything (ADR 0038): a host is a
+ * person at home, so no secret data, and the Terms say what isn't allowed (the Terms' words are the lawyer's, only linked here).
  */
 export function RequestButton({
   quote,
@@ -92,6 +94,13 @@ export function RequestButton({
       >
         {line}
       </div>
+      <p className="text-center text-caption text-dark-muted">
+        Hosts are people at home, so don&apos;t send secret data. What isn&apos;t allowed is in{" "}
+        <a href={siteLink("/terms/")} target="_blank" rel="noreferrer" className="underline">
+          the Terms
+        </a>
+        .
+      </p>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.identity.SecurityLog;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -11,8 +12,19 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @ConditionalOnWebApplication
 class AccessRulesConfiguration implements WebMvcConfigurer {
 
+    private final NoticeAcceptances notices;
+    private final IdentityProperties properties;
+    private final SecurityLog security;
+
+    AccessRulesConfiguration(NoticeAcceptances notices, IdentityProperties properties, SecurityLog security) {
+        this.notices = notices;
+        this.properties = properties;
+        this.security = security;
+    }
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AccessRules()).order(Ordered.HIGHEST_PRECEDENCE);
+        registry.addInterceptor(new AccessRules(notices, properties.webAppUrl(), security))
+                .order(Ordered.HIGHEST_PRECEDENCE);
     }
 }

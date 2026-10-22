@@ -2,6 +2,7 @@ package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.RequiresAcceptedTerms;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -148,6 +149,7 @@ class UploadController {
     record UploadList(
             List<UploadResponse> uploads, @Nullable String nextCursor) {}
 
+    @RequiresAcceptedTerms
     @PostMapping
     @ApiResponse(
             responseCode = "201",

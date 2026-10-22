@@ -62,6 +62,14 @@ class InviteInvalid(IdleoError):
     title = "Invite code not accepted"
 
 
+class TermsNotAccepted(IdleoError):
+    """Accept the Terms first (HTTP 403)."""
+
+    slug = "terms-not-accepted"
+    status = 403
+    title = "Accept the Terms first"
+
+
 class NoticesChanged(IdleoError):
     """The Terms or privacy notice changed (HTTP 409)."""
 
@@ -598,6 +606,7 @@ __all__ = [
     "EmailNotVerified",
     "InviteRequired",
     "InviteInvalid",
+    "TermsNotAccepted",
     "NoticesChanged",
     "AgeNotConfirmed",
     "FreshSignInRequired",
@@ -674,6 +683,7 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "email-not-verified": EmailNotVerified,
     "invite-required": InviteRequired,
     "invite-invalid": InviteInvalid,
+    "terms-not-accepted": TermsNotAccepted,
     "notices-changed": NoticesChanged,
     "age-not-confirmed": AgeNotConfirmed,
     "fresh-sign-in-required": FreshSignInRequired,

@@ -26,6 +26,7 @@ _EXIT_BY_SLUG = {
     "unauthenticated": EXIT_NOT_SIGNED_IN,
     "invite-required": EXIT_NOT_SIGNED_IN,
     "browser-sign-in-required": EXIT_NOT_SIGNED_IN,
+    "terms-not-accepted": EXIT_NOT_SIGNED_IN,
     "insufficient-credit": EXIT_NOT_ENOUGH_CREDIT,
     "no-gpu-free": EXIT_NO_GPU_FREE,
     "rate-limited": EXIT_RATE_LIMITED,

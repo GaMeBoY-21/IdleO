@@ -6,6 +6,7 @@
   { "slug": "email-not-verified", "status": 403, "title": "Email not verified" },
   { "slug": "invite-required", "status": 403, "title": "Invite code required" },
   { "slug": "invite-invalid", "status": 400, "title": "Invite code not accepted" },
+  { "slug": "terms-not-accepted", "status": 403, "title": "Accept the Terms first" },
   { "slug": "notices-changed", "status": 409, "title": "The Terms or privacy notice changed" },
   { "slug": "age-not-confirmed", "status": 422, "title": "Age not confirmed" },
   { "slug": "fresh-sign-in-required", "status": 403, "title": "Sign in again first" },

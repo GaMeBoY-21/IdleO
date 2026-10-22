@@ -270,6 +270,16 @@ mod tests {
     }
 
     #[test]
+    fn terms_not_accepted_shows_where_to_accept_and_exits_as_not_signed_in() {
+        let detail = "Accept the Terms and the privacy notice before you create anything: sign in at https://app.example.invalid/agree/ in a browser and accept them there, then try again.";
+        let body = json!({"type": "/problems/terms-not-accepted", "title": "Accept the Terms first", "detail": detail});
+        let error = from_problem(StatusCode::FORBIDDEN, &body, None);
+        assert_eq!(error.exit, Exit::NotSignedIn);
+        assert_eq!(error.message, detail, "the person reads the address to go to");
+        assert_eq!(error.problem.as_deref(), Some("terms-not-accepted"));
+    }
+
+    #[test]
     fn invalid_fields_are_listed() {
         let body = json!({"type": "/problems/validation-failed", "detail": "The request has invalid fields.",
             "errors": [{"field": "params.epochs", "detail": "must be at most 10"}]});

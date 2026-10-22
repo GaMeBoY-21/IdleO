@@ -1,12 +1,14 @@
 package com.idleo.controlplane;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -62,14 +64,40 @@ public final class TestUsers {
                                 .expirationTime(expires));
     }
 
+    /**
+     * A user who hasn't accepted the Terms and the privacy notice, for tests of what that means (ADR 0038). Every other user
+     * here has, as a person does at their first sign-in: the API refuses to create anything for one who hasn't.
+     */
+    public static TestUser signUpWithoutTerms(MockMvc mvc) throws Exception {
+        return signUp(mvc, TestIssuers.get().validToken(), false);
+    }
+
     private static TestUser signUp(MockMvc mvc, String token) throws Exception {
+        return signUp(mvc, token, true);
+    }
+
+    private static TestUser signUp(MockMvc mvc, String token, boolean acceptTerms) throws Exception {
         var bearer = "Bearer " + token;
         var body = mvc.perform(get("/v1/me").header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        return new TestUser(
-                bearer, UUID.fromString(JSON.readTree(body).get("id").asString()));
+        var me = JSON.readTree(body);
+        if (acceptTerms && !me.get("notices").get("accepted").asBoolean()) {
+            mvc.perform(post("/v1/me/notices")
+                            .header("Authorization", bearer)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"termsVersion\":\"%s\",\"privacyVersion\":\"%s\",\"ageConfirmed\":true}"
+                                    .formatted(
+                                            me.get("notices")
+                                                    .get("termsVersion")
+                                                    .asString(),
+                                            me.get("notices")
+                                                    .get("privacyVersion")
+                                                    .asString())))
+                    .andExpect(status().isOk());
+        }
+        return new TestUser(bearer, UUID.fromString(me.get("id").asString()));
     }
 }

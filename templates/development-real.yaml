@@ -183,7 +183,7 @@ templates:
         type: choice
         group: basic
         default: write_root
-        choices: [write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever]
+        choices: [write_root, become_root, raw_net, reach_private, reach_ports, ipv6, fork_bomb, memory_bomb, fill_disk, see_grants, see_other_session, outlive_session, write_inputs, run_forever, leave_marker, connection_flood, upload_flood, write_output, lookup_pools, run_named]
     questions:
       - param: attack
     budget_chips: [100]

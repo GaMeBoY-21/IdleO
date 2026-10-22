@@ -63,6 +63,8 @@ export type AdminReconciliationRun = Schemas["AdminReconciliationRun"];
 export type AdminInvite = Schemas["AdminInvite"];
 export type AuditEntry = Schemas["AuditEntry"];
 export type TicketStatus = Schemas["AdminAnswer"]["status"];
+export type AbuseSummary = Schemas["AbuseSummary"];
+export type AbuseDetail = Schemas["AbuseDetail"];
 
 let onNotFound: () => void = () => undefined;
 

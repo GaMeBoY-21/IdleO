@@ -16,6 +16,7 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "Your account is suspended, so nothing can be booked. Contact us to have it reinstated.",
   "email-not-verified": "Your email address isn't verified yet. Open the link we sent you, then try again.",
   "access-denied": "This account can't do that.",
+  "terms-not-accepted": "Accept the Terms and the privacy notice first, then try again.",
   "browser-sign-in-required": "Do this in the web app, signed in: an API key can't.",
   "api-key-read-only": "This API key can only read. Use a full key, or the web app.",
   "too-many-api-keys": "You have 20 API keys. Revoke one you no longer use, then create this one.",

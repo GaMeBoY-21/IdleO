@@ -130,7 +130,7 @@ class SecurityLogTests {
         mvc.perform(delete("/v1/api-keys/" + made.get("id").asString()).header("Authorization", user.bearer()))
                 .andExpect(status().isNoContent());
         jdbc.update("update identity.users set status = 'suspended' where id = ?", user.id());
-        mvc.perform(get("/v1/me").header("Authorization", user.bearer())).andExpect(status().isForbidden());
+        mvc.perform(get("/v1/sessions").header("Authorization", user.bearer())).andExpect(status().isForbidden());
 
         assertThat(kinds(user.id()))
                 .containsSubsequence("api_key_created:web", "api_key_revoked", "sign_in_refused:suspended");

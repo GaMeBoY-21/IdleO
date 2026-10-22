@@ -638,6 +638,7 @@ class Type(Enum):
     field_problems_email_not_verified = "/problems/email-not-verified"
     field_problems_invite_required = "/problems/invite-required"
     field_problems_invite_invalid = "/problems/invite-invalid"
+    field_problems_terms_not_accepted = "/problems/terms-not-accepted"
     field_problems_notices_changed = "/problems/notices-changed"
     field_problems_age_not_confirmed = "/problems/age-not-confirmed"
     field_problems_fresh_sign_in_required = "/problems/fresh-sign-in-required"

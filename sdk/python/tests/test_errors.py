@@ -31,6 +31,14 @@ def test_a_problem_becomes_its_class_and_its_detail():
     assert error.status == 402
 
 
+def test_terms_not_accepted_carries_where_to_accept_and_exits_as_not_signed_in():
+    detail = "Accept the Terms and the privacy notice before you create anything: sign in at https://app.example.invalid/agree/."
+    error = problem_from(problem("terms-not-accepted", 403, detail))
+    assert isinstance(error, errors.TermsNotAccepted)
+    assert str(error) == detail
+    assert error.exit_code == 5
+
+
 def test_a_limit_says_how_long_to_wait():
     response = httpx.Response(
         429,
@@ -111,7 +119,7 @@ def test_the_exit_table_is_the_command_lines():
     for arm in re.finditer(r"((?:\"[a-z-]+\"\s*\|?\s*)+)=> Self::(\w+)", arms):
         for slug in re.findall(r"\"([a-z-]+)\"", arm.group(1)):
             expected[slug] = code[arm.group(2)]
-    assert len(expected) == 9
+    assert len(expected) == 10
     from idleo._problem import _EXIT_BY_SLUG
 
     assert expected == _EXIT_BY_SLUG

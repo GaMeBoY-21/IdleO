@@ -383,7 +383,8 @@ class EnrolmentTests {
         }
     }
 
-    private static String bearer() {
-        return "Bearer " + TestIssuers.get().validToken();
+    /** A new person, signed in, who has accepted the Terms as a person does at their first sign-in. */
+    private String bearer() throws Exception {
+        return TestUsers.signUp(mvc).bearer();
     }
 }

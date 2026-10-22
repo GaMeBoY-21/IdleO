@@ -614,6 +614,34 @@ test.describe("the account", () => {
   });
 });
 
+test.describe("a suspended account", () => {
+  const held = (overrides: Record<string, Answer> = {}) =>
+    signedIn({ "/v1/me": { json: data.meSuspended(), etag: '"4"' }, ...overrides });
+
+  test("is told so, in plain words, wherever it goes, and keeps three things it can do", async ({
+    page,
+  }, info) => {
+    await fakeApi(page, held());
+    await signIn(page, "asha", "/");
+    await expect(page.getByRole("heading", { level: 1, name: "Your account is suspended" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Write to us" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Your data" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Delete my account" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Hosting" })).toHaveCount(0);
+    await expectAccessible(page);
+    await capture(page, info, "account-suspended");
+    await page.goto("/book/");
+    await expect(page.getByRole("heading", { level: 1, name: "Your account is suspended" })).toBeVisible();
+  });
+
+  test("can still reach what we hold about it", async ({ page }) => {
+    await fakeApi(page, held({ "/v1/me/data": { json: privacy.yourData() } }));
+    await signIn(page, "asha", "/account/data/");
+    await expect(page.getByRole("heading", { level: 1, name: /your data/i })).toBeVisible();
+    await expectAccessible(page);
+  });
+});
+
 // The terms and privacy pages are public pages, not the app's (ADR 0029): public-pages.spec.ts holds them.
 test.describe("terms and privacy", () => {
   test("are linked from sign-in, in one line", async ({ page }) => {

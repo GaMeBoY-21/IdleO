@@ -420,3 +420,88 @@ export const dashboard = {
   reviewQueue: reviewMinutes.minutes.filter((each) => each.resolution === null).length,
   at: NOW.toISOString(),
 };
+
+/**
+ * The abuse reviews (ADR 0038): one open, from a stopped session whose renter was suspended, with the signals the runner
+ * sent and the job's last minutes; one confirmed and banned; one cleared with its charge refunded. The behaviour is
+ * minutes of a job that works the GPU hard and sends little.
+ */
+export const ABUSE_OPEN_ID = "01a1340a-0000-7000-8000-00000000e001";
+export const ABUSE_BANNED_ID = "01a1340a-0000-7000-8000-00000000e002";
+export const ABUSE_CLEARED_ID = "01a1340a-0000-7000-8000-00000000e003";
+
+const abuseSummary = (
+  id: string,
+  state: "open" | "confirmed" | "cleared",
+  kinds: string[],
+  action: "none" | "stopped" | "suspended",
+  minutes: number,
+  extra: { banned?: boolean; resolution?: string } = {},
+) => ({
+  id,
+  sessionId: SESSION_ID,
+  attempt: 1,
+  renterId: RENTER_ID,
+  hostId: HOST_ID,
+  kinds,
+  action,
+  state,
+  banned: extra.banned ?? false,
+  createdAt: ago(minutes),
+  resolvedAt: state === "open" ? null : ago(minutes / 2),
+  resolution: extra.resolution ?? null,
+});
+
+const abuseOpen = abuseSummary(ABUSE_OPEN_ID, "open", ["pool_lookup", "mining_pattern"], "suspended", 90);
+
+export const abuseQueue = {
+  items: [
+    abuseOpen,
+    abuseSummary(ABUSE_BANNED_ID, "confirmed", ["process_hash"], "suspended", 600, {
+      banned: true,
+      resolution: "confirmed",
+    }),
+    abuseSummary(ABUSE_CLEARED_ID, "cleared", ["process_name"], "none", 1500, { resolution: "cleared" }),
+  ],
+  nextCursor: null,
+};
+
+export const abuseOpenOnly = { items: [abuseOpen], nextCursor: null };
+
+const behaviourMinutes = Array.from({ length: 6 }, (_, index) => ({
+  minuteIndex: index,
+  gpuPercent: 99,
+  memoryPercent: 12,
+  pcieKbPerSecond: 40,
+  networkOutBytes: 2_000 + index * 10,
+  networkInBytes: 1_500,
+  printedLines: 0,
+  connectionsDropped: 0,
+}));
+
+export const abuseDetail = {
+  item: abuseOpen,
+  signals: [
+    {
+      kind: "pool_lookup",
+      detail: "pool.example-miners.test",
+      sha256: "",
+      count: 1,
+      stopped: false,
+      at: ago(95),
+    },
+    {
+      kind: "pool_lookup",
+      detail: "pool.example-miners.test",
+      sha256: "",
+      count: 2,
+      stopped: true,
+      at: ago(91),
+    },
+    { kind: "mining_pattern", detail: "6 minutes", sha256: "", count: 0, stopped: false, at: ago(90) },
+  ],
+  behaviour: behaviourMinutes,
+  notes: [{ at: ago(60), authorId: ADMIN_ID, note: "Renter's account is three days old." }],
+  paidPaise: 30 * PRICE,
+  refundedPaise: null,
+};

@@ -55,6 +55,9 @@ export const meNew = () => ({
   notices: { ...NOTICES_ACCEPTED, accepted: false, ageConfirmed: false },
 });
 
+/** A suspended or banned account (ADR 0038): the server reports both the same way. */
+export const meSuspended = () => me("2026-09-01T10:00:00Z", "suspended");
+
 /** An account that hasn't entered an invite code yet (ADR 0024). */
 export const meWaiting = () => me("2026-10-07T06:30:00Z", "waiting");
 
