@@ -49,6 +49,16 @@ class PaymentMetrics {
                 .increment());
     }
 
+    /** One payment's part of a refund of bought credit, processed by Razorpay. */
+    void refunded() {
+        AfterCommit.run(() -> registry.counter("billing.refunds.processed").increment());
+    }
+
+    /** One payment's part of a refund that failed, its credit back with the renter. */
+    void refundFailed() {
+        AfterCommit.run(() -> registry.counter("billing.refunds.failed").increment());
+    }
+
     /** A payment that came back for another order, amount or currency than its top-up's. */
     void mismatched() {
         registry.counter("billing.topups.mismatched").increment();

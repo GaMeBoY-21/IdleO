@@ -100,7 +100,7 @@ class SessionService {
             }
             limits.checkNewSession(renterId);
             int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), vram, checked.diskNeededMb());
-            var hold = CreditReservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
+            var hold = reservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
             var available = reservations.available(renterId);
             if (hold.isGreaterThan(available)) {
                 throw ApiProblem.of(

@@ -34,8 +34,16 @@ class BillingPersonalData implements PersonalData {
     private final Ledger ledger;
     private final TransactionTemplate transactions;
 
+    private final CreditRefunds refunds;
+
     BillingPersonalData(
-            JdbcClient jdbc, ExportRows rows, HostOwners owners, Ledger ledger, TransactionTemplate transactions) {
+            JdbcClient jdbc,
+            ExportRows rows,
+            HostOwners owners,
+            Ledger ledger,
+            TransactionTemplate transactions,
+            @org.springframework.context.annotation.Lazy CreditRefunds refunds) {
+        this.refunds = refunds;
         this.jdbc = jdbc;
         this.rows = rows;
         this.owners = owners;
@@ -112,6 +120,24 @@ class BillingPersonalData implements PersonalData {
                                        card_last4, failure_reason, created_at, paid_at
                                 from billing.topups where user_id = :user order by created_at, id
                                 """, params)),
+                new Part(
+                        "money",
+                        "billingDetails",
+                        rows.one(
+                                jdbc,
+                                "select state_code, gstin, business_name, updated_at from billing.billing_details"
+                                        + " where user_id = :user",
+                                params)),
+                new Part("money", "invoices", rows.list(jdbc, """
+                                select number, kind, taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise,
+                                       issued_at, document
+                                from billing.invoices where user_id = :user order by issued_at, id
+                                """, params)),
+                new Part("money", "refunds", rows.list(jdbc, """
+                                select r.id, r.cause, r.status, r.requested_paise, r.approved_paise, r.note,
+                                       r.ticket_number, r.decision, r.requested_at, r.finished_at
+                                from billing.credit_refunds r where r.user_id = :user order by r.requested_at
+                                """, params)),
                 new Part("money", "creditLots", rows.list(jdbc, """
                                 select id, kind, source_type, amount_paise, remaining_paise, expires_at, created_at
                                 from billing.credit_lots where user_id = :user order by created_at, id
@@ -156,14 +182,22 @@ class BillingPersonalData implements PersonalData {
 
     @Override
     public List<Blocker> blockers(UUID userId) {
+        var blockers = new java.util.ArrayList<Blocker>(refunds.blockers(userId));
         var unpaid = unpaid(userId);
-        return unpaid <= 0
-                ? List.of()
-                : List.of(new Blocker(
-                        "unpaid-earnings",
-                        "Your machines have earned " + Rupees.format(unpaid) + " that hasn't been paid out yet. "
-                                + "It's paid to you before your account is deleted: contact us and we'll arrange it.",
-                        unpaid));
+        if (unpaid > 0) {
+            blockers.add(new Blocker(
+                    "unpaid-earnings",
+                    "Your machines have earned " + Rupees.format(unpaid) + " that hasn't been paid out yet. "
+                            + "It's paid to you before your account is deleted: contact us and we'll arrange it.",
+                    unpaid));
+        }
+        return blockers;
+    }
+
+    /** Bought credit goes back to where it was paid from before the account goes (ADR 0039). */
+    @Override
+    public void beforeErasure(UUID userId) {
+        refunds.forDeletion(userId);
     }
 
     /** The free credit left in the person's lots (ADR 0039): what deleting the account forfeits. */
@@ -181,7 +215,8 @@ class BillingPersonalData implements PersonalData {
                 ? List.of()
                 : List.of(new Loss(
                         "credit-forfeited",
-                        "Your " + Rupees.format(credit) + " of free credit can't be paid out, so it's forfeited.",
+                        "Your " + Rupees.format(credit) + " of free credit can't be paid out, so it's forfeited. "
+                                + "Credit you bought is refunded to where you paid from first.",
                         credit));
     }
 
@@ -199,6 +234,14 @@ class BillingPersonalData implements PersonalData {
                 .param("user", userId)
                 .update();
         jdbc.sql("delete from billing.topup_failures where user_id = :user")
+                .param("user", userId)
+                .update();
+        // Invoices stay whole: the law keeps them (legal.retention.money-records). Billing details go; a refund's
+        // own words go, its amounts and Razorpay's ids stay.
+        jdbc.sql("delete from billing.billing_details where user_id = :user")
+                .param("user", userId)
+                .update();
+        jdbc.sql("update billing.credit_refunds set note = null where user_id = :user")
                 .param("user", userId)
                 .update();
         jdbc.sql("delete from billing.idempotency_keys where user_id = :user")

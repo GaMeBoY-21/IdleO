@@ -276,6 +276,9 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `TopUpOutOfLimits` | `top-up-out-of-limits` | 422 | 1 |
 | `TooManyFailedPayments` | `too-many-failed-payments` | 429 | 1 |
 | `PaymentNotVerified` | `payment-not-verified` | 422 | 1 |
+| `RefundAlreadyRequested` | `refund-already-requested` | 409 | 1 |
+| `NothingToRefund` | `nothing-to-refund` | 422 | 1 |
+| `BillingDetailsRequired` | `billing-details-required` | 409 | 1 |
 | `HostBusy` | `host-busy` | 409 | 1 |
 | `HostRemoved` | `host-removed` | 410 | 1 |
 | `HostNoGpu` | `host-no-gpu` | 409 | 1 |

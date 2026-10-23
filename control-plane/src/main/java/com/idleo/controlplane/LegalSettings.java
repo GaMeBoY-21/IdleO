@@ -23,7 +23,39 @@ public record LegalSettings(
         @NotNull @Valid Support support,
         @NotNull @Valid Grievance grievance,
         @NotNull @Valid Credit credit,
-        @NotNull @Valid TopUps topUps) {
+        @NotNull @Valid TopUps topUps,
+        @NotNull @Valid Invoicing invoicing) {
+
+    /**
+     * Invoices and GST (ADR 0039), every value the CA's to confirm. With no {@code gstin} we aren't registered: no GST
+     * is charged and every document says "Not a tax invoice: GST registration pending". {@code pricesIncludeGst} says
+     * whether the prices renters see have GST in them (a host's listing price is always before GST). {@code mode} is
+     * {@code per_topup} (a tax invoice for each top-up, GST owed when it's paid) or {@code monthly_usage} (a receipt for
+     * each top-up, and a monthly tax invoice for the credit used). {@code tcs} is the e-commerce operator's tax
+     * collected at source, not built: the prod profile refuses it on until it is.
+     */
+    public record Invoicing(
+            String legalName,
+            String address,
+            String gstin,
+            String stateCode,
+            String sac,
+            @Min(0) @jakarta.validation.constraints.Max(28) int gstRatePercent,
+            boolean pricesIncludeGst,
+            @NotNull InvoiceMode mode,
+            boolean tcs,
+            @NotBlank @Pattern(regexp = "[A-Z]{1,4}") String numberPrefix) {
+
+        /** Whether we're registered for GST, so a tax invoice can be issued and GST charged. */
+        public boolean registered() {
+            return gstin != null && !gstin.isBlank();
+        }
+    }
+
+    public enum InvoiceMode {
+        PER_TOPUP,
+        MONTHLY_USAGE
+    }
 
     /**
      * The limits on buying credit (ADR 0039), in paise. An account younger than {@code newAccountAge} has the {@code

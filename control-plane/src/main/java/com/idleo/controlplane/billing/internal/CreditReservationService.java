@@ -27,8 +27,10 @@ class CreditReservationService implements CreditReservations {
     private final JdbcClient jdbc;
     private final IdGenerator ids;
     private final Clock clock;
+    private final Gst gst;
 
-    CreditReservationService(Ledger ledger, JdbcClient jdbc, IdGenerator ids, Clock clock) {
+    CreditReservationService(Ledger ledger, JdbcClient jdbc, IdGenerator ids, Clock clock, Gst gst) {
+        this.gst = gst;
         this.ledger = ledger;
         this.jdbc = jdbc;
         this.ids = ids;
@@ -160,6 +162,16 @@ class CreditReservationService implements CreditReservations {
         return active(sessionId)
                 .map(hold -> !needed.isGreaterThan(hold.amount().minus(hold.committed())))
                 .orElse(false);
+    }
+
+    @Override
+    public Paise renterCost(Paise net) {
+        return gst.renterCost(net);
+    }
+
+    @Override
+    public int gstPercent() {
+        return gst.gstPercent();
     }
 
     @Override

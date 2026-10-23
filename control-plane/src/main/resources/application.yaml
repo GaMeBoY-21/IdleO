@@ -235,6 +235,12 @@ billing:
     previous-webhook-secret: ${RAZORPAY_PREVIOUS_WEBHOOK_SECRET:}
     previous-webhook-secret-until: ${RAZORPAY_PREVIOUS_WEBHOOK_SECRET_UNTIL:}
     timeout: 10s
+  # Refund parts Razorpay hasn't accepted yet (it couldn't be reached) are sent again this often (ADR 0039).
+  refunds:
+    send-every: 1m
+  # monthly_usage's tax invoices for the month before, on the first of each month, in India's time (ADR 0039).
+  invoices:
+    usage-cron: "0 0 4 1 * *"
   # A top-up still pending this long after its order is abandoned (a late capture is still credited).
   top-ups:
     abandon-after: 24h
@@ -445,6 +451,21 @@ legal:
   # long after it's given; bought credit and give-backs for a session that went wrong never expire. LEGAL(confirm)
   credit:
     free-expires-after: 90d
+  # Invoices and GST (ADR 0039, docs/runbooks/payments.md), all the CA's to confirm. With no GSTIN (no company yet) no
+  # GST is charged and every document says it isn't a tax invoice. Listing prices are always before GST; renters see
+  # GST added (prices-include-gst: their prices are shown with it). mode: per_topup (a tax invoice a top-up) or
+  # monthly_usage (a receipt a top-up, a monthly tax invoice for credit used). tcs isn't built. LEGAL(confirm)
+  invoicing:
+    legal-name: ${INVOICING_LEGAL_NAME:}
+    address: ${INVOICING_ADDRESS:}
+    gstin: ${INVOICING_GSTIN:}
+    state-code: ${INVOICING_STATE_CODE:29}
+    sac: ${INVOICING_SAC:}
+    gst-rate-percent: 18
+    prices-include-gst: true
+    mode: per_topup
+    tcs: false
+    number-prefix: IDL
   # What one person may buy (ADR 0039), in paise: each top-up ₹50 to ₹10,000, at most ₹10,000 a day, and at most
   # ₹25,000 of bought credit held at once; an account younger than 7 days, at most ₹2,000 a top-up and ₹2,000 a day.
   # LEGAL(confirm)

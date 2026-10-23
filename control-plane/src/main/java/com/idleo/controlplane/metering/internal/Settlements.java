@@ -84,7 +84,8 @@ class Settlements {
                 continue;
             }
             var price = Paise.of(attempt.pricePaisePerMin());
-            if (total.plus(price).isGreaterThan(limit)) {
+            // The limit is in what the renter pays, GST and all (ADR 0039).
+            if (reservations.renterCost(total.plus(price)).isGreaterThan(limit)) {
                 break;
             }
             total = total.plus(price);
@@ -126,7 +127,7 @@ class Settlements {
                         "attempt " + attempt + " of the session isn't known, so there's no price or host to charge"));
         var price = Paise.of(ran.pricePaisePerMin());
         var limit = limit(session);
-        if (price.isGreaterThan(limit)) {
+        if (reservations.renterCost(price).isGreaterThan(limit)) {
             throw new NotChargeable("the minute costs " + price.value() + " paise, but the session's spending cap and"
                     + " the renter's credit leave only " + limit.value() + " paise");
         }
@@ -242,7 +243,7 @@ class Settlements {
         var current = attempts.values().stream()
                 .max(java.util.Comparator.comparingInt(MeteredSessions.Attempt::attempt))
                 .orElseThrow();
-        var ahead = Paise.of(current.pricePaisePerMin()).times(HOLD_MINUTES);
+        var ahead = reservations.renterCost(Paise.of(current.pricePaisePerMin()).times(HOLD_MINUTES));
         var capLeft = Paise.of(session.maxSpendPaise()).minus(chargedAfter);
         var target = ahead.isGreaterThan(capLeft) ? capLeft : ahead;
         return target.isNegative() ? Paise.ZERO : target;

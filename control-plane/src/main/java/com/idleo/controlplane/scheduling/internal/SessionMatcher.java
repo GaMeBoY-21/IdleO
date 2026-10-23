@@ -150,7 +150,7 @@ class SessionMatcher {
         if (!sessions.match(request.sessionId(), request.version(), candidate.hostId(), candidate.pricePaisePerMin())) {
             throw new Rollback(Attempt.SESSION_MOVED);
         }
-        var hold = CreditReservations.holdFor(candidate.pricePaisePerMin(), Paise.of(request.maxSpendPaise()));
+        var hold = reservations.holdFor(candidate.pricePaisePerMin(), Paise.of(request.maxSpendPaise()));
         if (!reservations.reserve(request.renterId(), request.sessionId(), hold)) {
             throw new Rollback(Attempt.NO_CREDIT);
         }

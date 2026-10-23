@@ -66,6 +66,9 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/top-up-out-of-limits` | 422 | Top-up outside the limits | The amount is below the smallest top-up or above the largest, or it would take today's top-ups or the bought credit you hold past their limits. The detail says which, and by how much. |
 | `/problems/too-many-failed-payments` | 429 | Too many failed payments | More than 5 payments failed in the last hour, so top-ups are paused for an hour. Retry-After says when the next one may be tried. |
 | `/problems/payment-not-verified` | 422 | Payment not verified | The payment's signature doesn't check out, or Razorpay says the payment isn't a captured one for this top-up's order, amount and currency. No credit was added for it. |
+| `/problems/refund-already-requested` | 409 | A refund is already on its way | One refund of bought credit at a time: the last one is still waiting for us or for your bank. |
+| `/problems/nothing-to-refund` | 422 | No bought credit to refund | Only credit you bought can go back, and only to where you paid from; free credit can't be paid out. |
+| `/problems/billing-details-required` | 409 | Billing details needed | Before your first top-up, say which state you're in (and, for a business invoice, your GSTIN): it decides the GST on your invoice. |
 | `/problems/host-busy` | 409 | The host is running a session | A host can't be removed while it has a session that hasn't ended. Pause it so it takes no new work, and remove it when the session is over. |
 | `/problems/host-removed` | 410 | The host was removed | This host was removed and never comes back; add the machine again to rent it out. |
 | `/problems/host-no-gpu` | 409 | The host hasn't reported a GPU | A price can only be suggested once the host's agent has connected and reported its GPU. |

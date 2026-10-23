@@ -486,6 +486,30 @@ class PaymentNotVerified(IdleoError):
     title = "Payment not verified"
 
 
+class RefundAlreadyRequested(IdleoError):
+    """A refund is already on its way (HTTP 409)."""
+
+    slug = "refund-already-requested"
+    status = 409
+    title = "A refund is already on its way"
+
+
+class NothingToRefund(IdleoError):
+    """No bought credit to refund (HTTP 422)."""
+
+    slug = "nothing-to-refund"
+    status = 422
+    title = "No bought credit to refund"
+
+
+class BillingDetailsRequired(IdleoError):
+    """Billing details needed (HTTP 409)."""
+
+    slug = "billing-details-required"
+    status = 409
+    title = "Billing details needed"
+
+
 class HostBusy(IdleoError):
     """The host is running a session (HTTP 409)."""
 
@@ -691,6 +715,9 @@ __all__ = [
     "TopUpOutOfLimits",
     "TooManyFailedPayments",
     "PaymentNotVerified",
+    "RefundAlreadyRequested",
+    "NothingToRefund",
+    "BillingDetailsRequired",
     "HostBusy",
     "HostRemoved",
     "HostNoGpu",
@@ -772,6 +799,9 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "top-up-out-of-limits": TopUpOutOfLimits,
     "too-many-failed-payments": TooManyFailedPayments,
     "payment-not-verified": PaymentNotVerified,
+    "refund-already-requested": RefundAlreadyRequested,
+    "nothing-to-refund": NothingToRefund,
+    "billing-details-required": BillingDetailsRequired,
     "host-busy": HostBusy,
     "host-removed": HostRemoved,
     "host-no-gpu": HostNoGpu,

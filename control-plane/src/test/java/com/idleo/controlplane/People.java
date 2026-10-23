@@ -1,6 +1,7 @@
 package com.idleo.controlplane;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.net.URI;
@@ -340,8 +341,38 @@ public final class People {
                         .content("{\"userId\":\"" + me + "\",\"paise\":2500,\"reason\":\"pilot welcome credit\"}")))
                 .andExpect(status().isCreated());
 
-        // Money in (ADR 0039): a top-up whose payment failed, through the fake Razorpay.
+        // Money in (ADR 0039): billing details for a business, and a top-up whose payment failed, through the fake
+        // Razorpay.
+        mvc.perform(put("/v1/wallet/billing-details")
+                        .header("Authorization", user.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stateCode\":\"29\",\"gstin\":\"29AAGCB7383J1Z4\",\"businessName\":\"Studio "
+                                + marker + "\"}"))
+                .andExpect(status().isOk());
         var razorpay = TestRazorpayConfiguration.RAZORPAY;
+        var paidTopUp = JSON.readTree(mvc.perform(post("/v1/wallet/topups")
+                        .header("Authorization", user.bearer())
+                        .header("Idempotency-Key", "topup-" + marker)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountPaise\":10000}"))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        var paid = razorpay.pay(paidTopUp.get("orderId").asString(), "card");
+        var captured = razorpay.event("payment.captured", paid.paymentId());
+        mvc.perform(post("/v1/payments/razorpay/webhook")
+                        .header("X-Razorpay-Signature", captured.signature())
+                        .header("x-razorpay-event-id", captured.eventId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(captured.body()))
+                .andExpect(status().isOk());
+        // Some of it asked back: a money ticket opens, and the request waits for an admin.
+        mvc.perform(post("/v1/wallet/refund-requests")
+                        .header("Authorization", user.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountPaise\":2000,\"note\":\"I bought too much, " + marker + "\"}"))
+                .andExpect(status().isCreated());
         var failedTopUp = JSON.readTree(mvc.perform(post("/v1/wallet/topups")
                         .header("Authorization", user.bearer())
                         .header("Idempotency-Key", "topup-failed-" + marker)

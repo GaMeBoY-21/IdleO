@@ -99,7 +99,7 @@ class SettlementTests {
                 Timestamp.from(startedAt),
                 maxSpend,
                 Timestamp.from(startedAt.plus(Duration.ofMinutes(15))));
-        var hold = CreditReservations.holdFor(price, Paise.of(maxSpend));
+        var hold = reservations.holdFor(price, Paise.of(maxSpend));
         tx(() -> reservations.reserve(renterId, sessionId, hold));
         return new Fixture(sessionId, renterId, hostId);
     }
@@ -156,7 +156,7 @@ class SettlementTests {
                         context.getBean(SessionControl.class),
                         reservations,
                         settlements,
-                        new Costs(sessions, settlements, refunds, jdbc),
+                        new Costs(sessions, settlements, refunds, jdbc, reservations),
                         NO_MILESTONES,
                         jdbc),
                 new Waivers(sessions, charges, jdbc),

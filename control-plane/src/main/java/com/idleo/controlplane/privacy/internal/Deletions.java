@@ -119,6 +119,11 @@ class Deletions {
                 legal.erasure().waitingPeriod());
     }
 
+    /** Lets each module start what must finish before the erasure (a refund of bought credit, say). */
+    void beforeErasure(UUID userId) {
+        modules.forEach(module -> module.beforeErasure(userId));
+    }
+
     List<PersonalData.Blocker> blockers(UUID userId) {
         var blockers = new ArrayList<PersonalData.Blocker>();
         modules.forEach(module -> blockers.addAll(module.blockers(userId)));

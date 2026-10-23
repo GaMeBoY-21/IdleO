@@ -349,6 +349,23 @@ public enum Problem {
             "The payment's signature doesn't check out, or Razorpay says the payment isn't a captured one for this "
                     + "top-up's order, amount and currency. No credit was added for it."),
 
+    REFUND_ALREADY_REQUESTED(
+            "refund-already-requested",
+            HttpStatus.CONFLICT,
+            "A refund is already on its way",
+            "One refund of bought credit at a time: the last one is still waiting for us or for your bank."),
+    NOTHING_TO_REFUND(
+            "nothing-to-refund",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "No bought credit to refund",
+            "Only credit you bought can go back, and only to where you paid from; free credit can't be paid out."),
+    BILLING_DETAILS_REQUIRED(
+            "billing-details-required",
+            HttpStatus.CONFLICT,
+            "Billing details needed",
+            "Before your first top-up, say which state you're in (and, for a business invoice, your GSTIN): it "
+                    + "decides the GST on your invoice."),
+
     // Hosts.
     HOST_BUSY(
             "host-busy",

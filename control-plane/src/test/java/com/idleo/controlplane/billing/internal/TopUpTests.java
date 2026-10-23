@@ -62,7 +62,17 @@ class TopUpTests {
     private TestUser renter() throws Exception {
         var user = TestUsers.signUpLasting(mvc, Duration.ofDays(4));
         jdbc.update("update identity.users set created_at = created_at - interval '30 days' where id = ?", user.id());
+        billingDetails(user, "29");
         return user;
+    }
+
+    private void billingDetails(TestUser user, String state) throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                                "/v1/wallet/billing-details")
+                        .header("Authorization", user.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stateCode\":\"" + state + "\"}"))
+                .andExpect(status().isOk());
     }
 
     private ResultActions order(TestUser user, long paise) throws Exception {
@@ -348,6 +358,7 @@ class TopUpTests {
 
         // An account younger than a week: at most ₹2,000 a top-up.
         var young = TestUsers.signUp(mvc);
+        billingDetails(young, "27");
         order(young, 200_001).andExpect(jsonPath("$.type").value("/problems/top-up-out-of-limits"));
         order(young, 200_000).andExpect(status().isCreated());
     }
@@ -398,6 +409,17 @@ class TopUpTests {
         webhook(RAZORPAY.event("payment.captured", late.paymentId())).andExpect(status().isOk());
         assertThat(statusOf(topUp)).isEqualTo("paid");
         assertThat(bought(user)).isEqualTo(8_000);
+    }
+
+    @Test
+    void theFirstTopUpWaitsForTheRentersState() throws Exception {
+        var user = TestUsers.signUp(mvc);
+
+        order(user, 10_000)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("/problems/billing-details-required"));
+        billingDetails(user, "07");
+        order(user, 10_000).andExpect(status().isCreated());
     }
 
     @Test

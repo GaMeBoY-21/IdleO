@@ -169,6 +169,15 @@ class RazorpayClient {
         return refund(call("POST", "/v1/payments/" + encode(paymentId) + "/refund", body));
     }
 
+    /** The refunds of one payment (https://razorpay.com/docs/api/refunds/fetch-multiple-refund-payment/). */
+    List<Refund> refundsOf(String paymentId) {
+        var all = new ArrayList<Refund>();
+        call("GET", "/v1/payments/" + encode(paymentId) + "/refunds?count=" + PAGE, null)
+                .path("items")
+                .forEach(item -> all.add(refund(item)));
+        return all;
+    }
+
     Payment payment(JsonNode node) {
         var card = node.path("card");
         var created = node.path("created_at");

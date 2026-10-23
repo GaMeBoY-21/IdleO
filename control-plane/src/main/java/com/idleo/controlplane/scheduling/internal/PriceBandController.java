@@ -2,6 +2,7 @@ package com.idleo.controlplane.scheduling.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.billing.CreditReservations;
 import com.idleo.controlplane.hosts.HostGpus;
 import com.idleo.controlplane.hosts.HostOwners;
 import com.idleo.controlplane.hosts.SchedulableHosts;
@@ -24,8 +25,15 @@ class PriceBandController {
     private final HostGpus gpus;
     private final SchedulableHosts hosts;
     private final SchedulingProperties properties;
+    private final CreditReservations reservations;
 
-    PriceBandController(HostOwners owners, HostGpus gpus, SchedulableHosts hosts, SchedulingProperties properties) {
+    PriceBandController(
+            HostOwners owners,
+            HostGpus gpus,
+            SchedulableHosts hosts,
+            SchedulingProperties properties,
+            CreditReservations reservations) {
+        this.reservations = reservations;
         this.owners = owners;
         this.gpus = gpus;
         this.hosts = hosts;
@@ -37,8 +45,10 @@ class PriceBandController {
      * @param highPaisePerMin the high end
      * @param sampleSize how many other hosts with the same GPU model it comes from; 0 when too few have listed one and
      *     it's the default for the GPU's memory class
+     * @param gstPercent the GST added to what renters pay (ADR 0039): a listing price is always before it, and a host's
+     *     earnings never change with it; zero while no GST is charged
      */
-    record PriceBand(int lowPaisePerMin, int highPaisePerMin, int sampleSize) {}
+    record PriceBand(int lowPaisePerMin, int highPaisePerMin, int sampleSize, int gstPercent) {}
 
     /**
      * The band for a GPU that isn't a host yet: the laptop a link is asking to add (ADR 0032). The approval page asks
@@ -56,7 +66,8 @@ class PriceBandController {
                 .map(SchedulableHosts.Candidate::pricePaisePerMin)
                 .toList();
         var band = PriceBands.of(peers, vramMb, properties);
-        return new PriceBand(band.lowPaisePerMin(), band.highPaisePerMin(), band.sampleSize());
+        return new PriceBand(
+                band.lowPaisePerMin(), band.highPaisePerMin(), band.sampleSize(), reservations.gstPercent());
     }
 
     /** Another user's host is a 404. */
@@ -74,6 +85,7 @@ class PriceBandController {
                 .map(SchedulableHosts.Candidate::pricePaisePerMin)
                 .toList();
         var band = PriceBands.of(peers, gpu.vramMb(), properties);
-        return new PriceBand(band.lowPaisePerMin(), band.highPaisePerMin(), band.sampleSize());
+        return new PriceBand(
+                band.lowPaisePerMin(), band.highPaisePerMin(), band.sampleSize(), reservations.gstPercent());
     }
 }

@@ -27,12 +27,14 @@ class PaymentEvents {
     private static final Logger log = LoggerFactory.getLogger(PaymentEvents.class);
 
     private final TopUps topUps;
+    private final CreditRefunds refunds;
     private final RazorpayClient razorpay;
     private final JdbcClient jdbc;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
 
-    PaymentEvents(TopUps topUps, RazorpayClient razorpay, JdbcClient jdbc, Clock clock) {
+    PaymentEvents(TopUps topUps, CreditRefunds refunds, RazorpayClient razorpay, JdbcClient jdbc, Clock clock) {
+        this.refunds = refunds;
         this.topUps = topUps;
         this.razorpay = razorpay;
         this.jdbc = jdbc;
@@ -70,6 +72,8 @@ class PaymentEvents {
         switch (event) {
             case "payment.captured", "order.paid" -> captured(payment);
             case "payment.failed" -> failed(payment);
+            case "refund.processed", "refund.failed" ->
+                refunded(payload.path("refund").path("entity"));
             default -> log.info("Razorpay event {} ({}) needs nothing from us", id, event);
         }
         record(id, event, payload);
@@ -130,6 +134,15 @@ class PaymentEvents {
         }
         topUps.byOrder(payment.orderId())
                 .ifPresent(topUp -> topUps.failed(topUp, payment.id(), payment.method(), payment.errorDescription()));
+    }
+
+    /** A refund's outcome: the refund entity's own status decides, so an event out of order changes nothing final. */
+    private void refunded(JsonNode refundNode) {
+        if (!refundNode.isObject()) {
+            throw new Unreadable("a refund event without its refund");
+        }
+        var refund = razorpay.refund(refundNode);
+        refunds.fromWebhook(refund.id(), refund.receipt(), refund.status());
     }
 
     private boolean seen(String eventId) {

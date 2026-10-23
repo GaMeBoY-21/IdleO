@@ -15,6 +15,7 @@ Tests change the values they need (ids, amounts, notes) and never add a field. T
 | `api-refund-create.json` | https://razorpay.com/docs/api/refunds/create-normal/ |
 | `api-payments-fetch-all.json` | https://razorpay.com/docs/api/payments/fetch-all-payments/ |
 | `api-refunds-fetch-all.json` | https://razorpay.com/docs/api/refunds/fetch-all/ |
+| `api-refunds-of-payment.json` | https://razorpay.com/docs/api/refunds/fetch-multiple-refund-payment/ |
 
 One change: the documentation's `api-payments-fetch-all.json` misses the comma after the second payment's `upi`
 object, so it isn't JSON as printed; the comma is added and nothing else.

@@ -64,6 +64,15 @@ class ApproveLinkRequest(BaseModel):
     name: Annotated[str, Field(max_length=100, min_length=0)]
 
 
+class BillingDetailsRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    business_name: Annotated[str | None, Field(alias="businessName", max_length=200, min_length=0)] = None
+    gstin: Annotated[str | None, Field(max_length=15, min_length=0)] = None
+    state_code: Annotated[str, Field(alias="stateCode", max_length=2, min_length=2)]
+
+
 class Blocker(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -205,6 +214,15 @@ class DeletionRequest(BaseModel):
     user_id: Annotated[UUID, Field(alias="userId")]
 
 
+class Details(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    business_name: Annotated[str | None, Field(alias="businessName")] = None
+    gstin: str | None = None
+    state_code: Annotated[str, Field(alias="stateCode")]
+
+
 class DisputeResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -333,6 +351,14 @@ class GrievanceOfficer(BaseModel):
     postal_address: Annotated[str, Field(alias="postalAddress")]
 
 
+class GstState(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: str
+    name: str
+
+
 class HistoryReference(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -414,6 +440,64 @@ class InstallEventsRequest(BaseModel):
         populate_by_name=True,
     )
     events: Annotated[list[InstallEvent], Field(max_length=20, min_length=0)]
+
+
+class InvoiceSummary(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    credit_note_for: Annotated[UUID | None, Field(alias="creditNoteFor")] = None
+    id: UUID
+    issued_at: Annotated[AwareDatetime, Field(alias="issuedAt")]
+    kind: str
+    number: str
+    tax_paise: Annotated[int, Field(alias="taxPaise")]
+    taxable_paise: Annotated[int, Field(alias="taxablePaise")]
+    title: str
+    top_up_id: Annotated[UUID | None, Field(alias="topUpId")] = None
+    total_paise: Annotated[int, Field(alias="totalPaise")]
+
+
+class NodeType(Enum):
+    array = "ARRAY"
+    binary = "BINARY"
+    boolean = "BOOLEAN"
+    missing = "MISSING"
+    null = "NULL"
+    number = "NUMBER"
+    object = "OBJECT"
+    pojo = "POJO"
+    string = "STRING"
+
+
+class JsonNode(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    array: bool | None = None
+    big_decimal: Annotated[bool | None, Field(alias="bigDecimal")] = None
+    big_integer: Annotated[bool | None, Field(alias="bigInteger")] = None
+    binary: bool | None = None
+    boolean: bool | None = None
+    container: bool | None = None
+    double: bool | None = None
+    embedded_value: Annotated[bool | None, Field(alias="embeddedValue")] = None
+    empty: bool | None = None
+    float: bool | None = None
+    floating_point_number: Annotated[bool | None, Field(alias="floatingPointNumber")] = None
+    int: bool | None = None
+    integral_number: Annotated[bool | None, Field(alias="integralNumber")] = None
+    long: bool | None = None
+    missing_node: Annotated[bool | None, Field(alias="missingNode")] = None
+    node_type: Annotated[NodeType | None, Field(alias="nodeType")] = None
+    null: bool | None = None
+    number: bool | None = None
+    object: bool | None = None
+    pojo: bool | None = None
+    short: bool | None = None
+    string: bool | None = None
+    textual: Annotated[bool | None, Field(deprecated=True)] = None
+    value_node: Annotated[bool | None, Field(alias="valueNode")] = None
 
 
 class KeptFor(BaseModel):
@@ -609,6 +693,7 @@ class PriceBand(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
+    gst_percent: Annotated[int, Field(alias="gstPercent")]
     high_paise_per_min: Annotated[int, Field(alias="highPaisePerMin")]
     low_paise_per_min: Annotated[int, Field(alias="lowPaisePerMin")]
     sample_size: Annotated[int, Field(alias="sampleSize")]
@@ -700,6 +785,9 @@ class Type(Enum):
     field_problems_top_up_out_of_limits = "/problems/top-up-out-of-limits"
     field_problems_too_many_failed_payments = "/problems/too-many-failed-payments"
     field_problems_payment_not_verified = "/problems/payment-not-verified"
+    field_problems_refund_already_requested = "/problems/refund-already-requested"
+    field_problems_nothing_to_refund = "/problems/nothing-to-refund"
+    field_problems_billing_details_required = "/problems/billing-details-required"
     field_problems_host_busy = "/problems/host-busy"
     field_problems_host_removed = "/problems/host-removed"
     field_problems_host_no_gpu = "/problems/host-no-gpu"
@@ -795,6 +883,28 @@ class Reading(BaseModel):
     temp_c: Annotated[int, Field(alias="tempC")]
     util_pct: Annotated[int, Field(alias="utilPct")]
     vram_used_mb: Annotated[int, Field(alias="vramUsedMb")]
+
+
+class RefundRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int | None, Field(alias="amountPaise", gt=0)] = None
+    note: Annotated[str | None, Field(max_length=2000, min_length=0)] = None
+
+
+class RefundView(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    approved_paise: Annotated[int | None, Field(alias="approvedPaise")] = None
+    decision: str | None = None
+    finished_at: Annotated[AwareDatetime | None, Field(alias="finishedAt")] = None
+    id: UUID
+    requested_at: Annotated[AwareDatetime, Field(alias="requestedAt")]
+    requested_paise: Annotated[int | None, Field(alias="requestedPaise")] = None
+    status: str
+    ticket_number: Annotated[int | None, Field(alias="ticketNumber")] = None
 
 
 class ReleaseUrls(BaseModel):
@@ -1276,6 +1386,16 @@ class ApiKeyList(BaseModel):
     keys: list[ApiKeyResponse]
 
 
+class BillingDetailsResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    details: Details | None = None
+    gst_percent: Annotated[int, Field(alias="gstPercent")]
+    prices_include_gst: Annotated[bool, Field(alias="pricesIncludeGst")]
+    states: list[GstState]
+
+
 class CompletedFile(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1375,6 +1495,13 @@ class HostResponse(BaseModel):
     upload_cap_kbps: Annotated[int | None, Field(alias="uploadCapKbps")] = None
 
 
+class InvoiceList(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    invoices: list[InvoiceSummary]
+
+
 class LatestRelease(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1432,6 +1559,14 @@ class PublicContact(BaseModel):
     grievance_officer: Annotated[GrievanceOfficer, Field(alias="grievanceOfficer")]
     response_days: Annotated[int, Field(alias="responseDays")]
     topics: list[Topic]
+
+
+class RefundList(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    refundable_paise: Annotated[int, Field(alias="refundablePaise")]
+    requests: list[RefundView]
 
 
 class SessionList(BaseModel):

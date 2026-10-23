@@ -135,7 +135,8 @@ class SupportTests {
 
         mvc.perform(get("/v1/support/tickets")
                         .header("Authorization", asha.user().bearer()))
-                .andExpect(jsonPath("$.tickets.length()").value(2));
+                // The fixture's message, its refund request's money ticket, and this one.
+                .andExpect(jsonPath("$.tickets.length()").value(3));
         mvc.perform(get("/v1/support/tickets").header("Authorization", bina.bearer()))
                 .andExpect(jsonPath("$.tickets.length()").value(0));
         mvc.perform(get("/v1/support/tickets/" + mine.get("id").asString()).header("Authorization", bina.bearer()))

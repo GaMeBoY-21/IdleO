@@ -149,12 +149,14 @@ class LocalSignInTests {
     @Test
     void aDevelopmentSignInCarriesItsSignInTimeAndIsLoggedOnce() throws Exception {
         var clientId = "local-" + UUID.randomUUID();
+        long before = clock.instant().getEpochSecond();
         var token = token(clientId);
+        long after = clock.instant().getEpochSecond();
         var claims = JsonMapper.builder()
                 .build()
                 .readTree(java.util.Base64.getUrlDecoder().decode(token.split("\\.")[1]));
-        assertThat(claims.get("auth_time").asString())
-                .isEqualTo(String.valueOf(clock.instant().getEpochSecond()));
+        // The sign-in server reads the same clock, and a second may turn while it signs.
+        assertThat(Long.parseLong(claims.get("auth_time").asString())).isBetween(before, after);
 
         mvc.perform(get("/v1/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
         mvc.perform(get("/v1/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());

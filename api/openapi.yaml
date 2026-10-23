@@ -767,6 +767,129 @@ paths:
         idToken: []
       tags:
       - adminInvites
+  /admin/v1/invoices:
+    get:
+      operationId: adminInvoicesSearch
+      parameters:
+      - in: query
+        name: number
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: userId
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminInvoiceList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminInvoices
+  /admin/v1/invoices/{id}:
+    get:
+      operationId: adminInvoicesGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonNode"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminInvoices
+  /admin/v1/invoices/{id}/credit-notes:
+    post:
+      operationId: adminInvoicesCreditNote
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreditNoteRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminInvoice"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminInvoices
+  /admin/v1/invoices/{id}/pdf:
+    get:
+      operationId: adminInvoicesPdf
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/pdf:
+              schema:
+                type: string
+          description: The document as a PDF
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminInvoices
   /admin/v1/ledger:
     get:
       operationId: adminMoneyLedger
@@ -943,6 +1066,130 @@ paths:
         idToken: []
       tags:
       - adminMoney
+  /admin/v1/refunds:
+    get:
+      operationId: adminRefundsList
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+          default: requested
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCreditRefundList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRefunds
+  /admin/v1/refunds/{id}:
+    get:
+      operationId: adminRefundsGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCreditRefund"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRefunds
+  /admin/v1/refunds/{id}/approve:
+    post:
+      operationId: adminRefundsApprove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveCreditRefund"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCreditRefund"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRefunds
+  /admin/v1/refunds/{id}/decline:
+    post:
+      operationId: adminRefundsDecline
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCreditRefund"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRefunds
   /admin/v1/review-minutes:
     get:
       operationId: adminReviewList
@@ -3788,6 +4035,156 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - wallet
+  /v1/wallet/billing-details:
+    get:
+      operationId: billingDetailsGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingDetailsResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - billingDetails
+    put:
+      operationId: billingDetailsPut
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingDetailsRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingDetailsResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - billingDetails
+  /v1/wallet/invoices:
+    get:
+      operationId: invoiceList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - invoice
+  /v1/wallet/invoices/{id}:
+    get:
+      operationId: invoiceGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonNode"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - invoice
+  /v1/wallet/invoices/{id}/pdf:
+    get:
+      operationId: invoicePdf
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/pdf:
+              schema:
+                type: string
+          description: The document as a PDF
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - invoice
+  /v1/wallet/refund-requests:
+    get:
+      operationId: refundRequestList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefundList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - refundRequest
+    post:
+      operationId: refundRequestRequest
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefundView"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - refundRequest
   /v1/wallet/topups:
     get:
       operationId: topUpList
@@ -4225,6 +4622,109 @@ components:
       - paise
       - reason
       - userId
+    AdminCreditRefund:
+      type: object
+      properties:
+        approvedPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        cause:
+          type: string
+        decidedBy:
+          type:
+          - string
+          - "null"
+        decision:
+          type:
+          - string
+          - "null"
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        note:
+          type:
+          - string
+          - "null"
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCreditRefundPart"
+        refundablePaise:
+          type: integer
+          format: int64
+        requestedAt:
+          type: string
+          format: date-time
+        requestedPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        status:
+          type: string
+        ticketId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        ticketNumber:
+          type:
+          - integer
+          - "null"
+          format: int64
+        userId:
+          type: string
+          format: uuid
+      required:
+      - cause
+      - id
+      - parts
+      - refundablePaise
+      - requestedAt
+      - status
+      - userId
+    AdminCreditRefundList:
+      type: object
+      properties:
+        refunds:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCreditRefund"
+      required:
+      - refunds
+    AdminCreditRefundPart:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        failureReason:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+        razorpayRefundId:
+          type:
+          - string
+          - "null"
+        status:
+          type: string
+      required:
+      - amountPaise
+      - id
+      - paymentId
+      - status
     AdminDashboard:
       type: object
       properties:
@@ -4794,6 +5294,26 @@ components:
           format: date-time
       required:
       - codes
+    AdminInvoice:
+      type: object
+      properties:
+        invoice:
+          $ref: "#/components/schemas/InvoiceSummary"
+        userId:
+          type: string
+          format: uuid
+      required:
+      - invoice
+      - userId
+    AdminInvoiceList:
+      type: object
+      properties:
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminInvoice"
+      required:
+      - invoices
     AdminLedgerEntry:
       type: object
       properties:
@@ -5731,6 +6251,20 @@ components:
       - name
       - prefix
       - scope
+    ApproveCreditRefund:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - amountPaise
+      - reason
     ApproveLinkRequest:
       type: object
       properties:
@@ -5862,6 +6396,47 @@ components:
       - networkOutBytes
       - pcieKbPerSecond
       - printedLines
+    BillingDetailsRequest:
+      type: object
+      properties:
+        businessName:
+          type:
+          - string
+          - "null"
+          maxLength: 200
+          minLength: 0
+        gstin:
+          type:
+          - string
+          - "null"
+          maxLength: 15
+          minLength: 0
+        stateCode:
+          type: string
+          maxLength: 2
+          minLength: 2
+      required:
+      - stateCode
+    BillingDetailsResponse:
+      type: object
+      properties:
+        details:
+          oneOf:
+          - $ref: "#/components/schemas/Details"
+          - type: "null"
+        gstPercent:
+          type: integer
+          format: int32
+        pricesIncludeGst:
+          type: boolean
+        states:
+          type: array
+          items:
+            $ref: "#/components/schemas/GstState"
+      required:
+      - gstPercent
+      - pricesIncludeGst
+      - states
     Blocker:
       type: object
       properties:
@@ -6098,6 +6673,20 @@ components:
       - name
       - prefix
       - scope
+    CreditNoteRequest:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - amountPaise
+      - reason
     CurrentSession:
       type: object
       properties:
@@ -6230,6 +6819,21 @@ components:
       - keptFor
       - losses
       - waitingDays
+    Details:
+      type: object
+      properties:
+        businessName:
+          type:
+          - string
+          - "null"
+        gstin:
+          type:
+          - string
+          - "null"
+        stateCode:
+          type: string
+      required:
+      - stateCode
     DisputePage:
       type: object
       properties:
@@ -6542,6 +7146,16 @@ components:
       - email
       - name
       - postalAddress
+    GstState:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+      required:
+      - code
+      - name
     HistoryEntry:
       type: object
       properties:
@@ -6887,6 +7501,120 @@ components:
       - listed
       - opened
       - recent
+    InvoiceList:
+      type: object
+      properties:
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceSummary"
+      required:
+      - invoices
+    InvoiceSummary:
+      type: object
+      properties:
+        creditNoteFor:
+          type:
+          - string
+          - "null"
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        issuedAt:
+          type: string
+          format: date-time
+        kind:
+          type: string
+        number:
+          type: string
+        taxPaise:
+          type: integer
+          format: int64
+        taxablePaise:
+          type: integer
+          format: int64
+        title:
+          type: string
+        topUpId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        totalPaise:
+          type: integer
+          format: int64
+      required:
+      - id
+      - issuedAt
+      - kind
+      - number
+      - taxPaise
+      - taxablePaise
+      - title
+      - totalPaise
+    JsonNode:
+      type: object
+      properties:
+        array:
+          type: boolean
+        bigDecimal:
+          type: boolean
+        bigInteger:
+          type: boolean
+        binary:
+          type: boolean
+        boolean:
+          type: boolean
+        container:
+          type: boolean
+        double:
+          type: boolean
+        embeddedValue:
+          type: boolean
+        empty:
+          type: boolean
+        float:
+          type: boolean
+        floatingPointNumber:
+          type: boolean
+        int:
+          type: boolean
+        integralNumber:
+          type: boolean
+        long:
+          type: boolean
+        missingNode:
+          type: boolean
+        nodeType:
+          type: string
+          enum:
+          - ARRAY
+          - BINARY
+          - BOOLEAN
+          - MISSING
+          - "NULL"
+          - NUMBER
+          - OBJECT
+          - POJO
+          - STRING
+        "null":
+          type: boolean
+        number:
+          type: boolean
+        object:
+          type: boolean
+        pojo:
+          type: boolean
+        short:
+          type: boolean
+        string:
+          type: boolean
+        textual:
+          type: boolean
+          deprecated: true
+        valueNode:
+          type: boolean
     KeptFor:
       type: object
       properties:
@@ -7342,6 +8070,9 @@ components:
     PriceBand:
       type: object
       properties:
+        gstPercent:
+          type: integer
+          format: int32
         highPaisePerMin:
           type: integer
           format: int32
@@ -7352,6 +8083,7 @@ components:
           type: integer
           format: int32
       required:
+      - gstPercent
       - highPaisePerMin
       - lowPaisePerMin
       - sampleSize
@@ -7474,6 +8206,9 @@ components:
           - /problems/top-up-out-of-limits
           - /problems/too-many-failed-payments
           - /problems/payment-not-verified
+          - /problems/refund-already-requested
+          - /problems/nothing-to-refund
+          - /problems/billing-details-required
           - /problems/host-busy
           - /problems/host-removed
           - /problems/host-no-gpu
@@ -7638,6 +8373,73 @@ components:
       - tempC
       - utilPct
       - vramUsedMb
+    RefundList:
+      type: object
+      properties:
+        refundablePaise:
+          type: integer
+          format: int64
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/RefundView"
+      required:
+      - refundablePaise
+      - requests
+    RefundRequest:
+      type: object
+      properties:
+        amountPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+          exclusiveMinimum: 0
+        note:
+          type:
+          - string
+          - "null"
+          maxLength: 2000
+          minLength: 0
+    RefundView:
+      type: object
+      properties:
+        approvedPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        decision:
+          type:
+          - string
+          - "null"
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        requestedAt:
+          type: string
+          format: date-time
+        requestedPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        status:
+          type: string
+        ticketNumber:
+          type:
+          - integer
+          - "null"
+          format: int64
+      required:
+      - id
+      - requestedAt
+      - status
     ReleaseUrls:
       type: object
       properties:

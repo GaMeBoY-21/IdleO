@@ -33,13 +33,16 @@ class SessionChargeService implements SessionCharges {
     private final int commissionPercent;
     private final LegalSettings legal;
     private final Clock clock;
+    private final Gst gst;
 
     SessionChargeService(
             Ledger ledger,
             CreditReservationService reservations,
             @Value("${billing.commission-percent}") int commissionPercent,
             LegalSettings legal,
-            Clock clock) {
+            Clock clock,
+            Gst gst) {
+        this.gst = gst;
         this.legal = legal;
         this.clock = clock;
         if (commissionPercent < 0 || commissionPercent > 100) {
@@ -83,13 +86,45 @@ class SessionChargeService implements SessionCharges {
         if (commission.isPositive()) {
             entries.add(LedgerEntry.credit(Account.PLATFORM_REVENUE, null, commission));
         }
+        // The renter pays the price plus its GST once that's charged (ADR 0039); the host's share and the commission
+        // are of the price before it.
+        var paid = gst.renterCost(amount);
         ledger.lockWallet(charge.renterId());
-        if (reservations.shrinkForSettlement(charge.sessionId(), amount, charge.txnId())) {
-            entries.addAll(0, ledger.draw(charge.renterId(), amount));
+        if (reservations.shrinkForSettlement(charge.sessionId(), paid, charge.txnId())) {
+            var draws = ledger.draw(charge.renterId(), paid);
+            entries.addAll(0, draws);
+            entries.addAll(taxOnCharge(charge.renterId(), draws, paid.minus(amount)));
             ledger.post(new LedgerTransaction(charge.txnId(), CHARGE_REF, charge.sessionId(), entries));
             reservations.topUp(charge.sessionId(), charge.holdTarget());
         }
-        return new Charged(amount, hostShare, commission, List.copyOf(hosts));
+        return new Charged(paid, hostShare, commission, List.copyOf(hosts));
+    }
+
+    /**
+     * The GST a charge carries ({@code tax}): what the bought lots it drew from already owe in per_topup goes with
+     * their credit ({@code gst_on_unused_credit} credited), and the rest is owed now.
+     */
+    private List<LedgerEntry> taxOnCharge(UUID renterId, List<LedgerEntry> draws, Paise tax) {
+        var entries = new ArrayList<LedgerEntry>();
+        if (!tax.isPositive()) {
+            return entries;
+        }
+        var carried = Paise.ZERO;
+        for (var draw : draws) {
+            var riding = gst.riding(ledger.lot(java.util.Objects.requireNonNull(draw.lotId())), draw.amount(), true);
+            if (riding.isPositive()) {
+                entries.add(
+                        new LedgerEntry(Account.GST_ON_UNUSED_CREDIT, null, riding, Direction.CREDIT, draw.lotId()));
+                carried = carried.plus(riding);
+            }
+        }
+        var rest = tax.minus(carried);
+        if (rest.isPositive()) {
+            entries.addAll(gst.owed(renterId, rest, true));
+        } else if (rest.isNegative()) {
+            entries.addAll(gst.owed(renterId, rest.negate(), false));
+        }
+        return entries;
     }
 
     @Override
@@ -116,7 +151,28 @@ class SessionChargeService implements SessionCharges {
             entries.add(LedgerEntry.debit(Account.PLATFORM_REVENUE, null, platform));
         }
         ledger.lockWallet(renterId);
-        entries.addAll(0, giveBack(sessionId, renterId, txnId, total));
+        // Lost time comes back with the GST it carried (ADR 0039): back to the lots, and no longer owed.
+        var back = gst.renterCost(total);
+        var returned = giveBack(sessionId, renterId, txnId, back);
+        entries.addAll(0, returned);
+        var tax = back.minus(total);
+        if (tax.isPositive()) {
+            var carried = Paise.ZERO;
+            for (var credit : returned) {
+                var lot = ledger.lot(java.util.Objects.requireNonNull(credit.lotId()));
+                var riding = gst.riding(lot, credit.amount(), false);
+                if (riding.isPositive()) {
+                    entries.add(new LedgerEntry(Account.GST_ON_UNUSED_CREDIT, null, riding, Direction.DEBIT, lot.id()));
+                    carried = carried.plus(riding);
+                }
+            }
+            var rest = tax.minus(carried);
+            if (rest.isPositive()) {
+                entries.addAll(gst.owed(renterId, rest, false));
+            } else if (rest.isNegative()) {
+                entries.addAll(gst.owed(renterId, rest.negate(), true));
+            }
+        }
         ledger.post(new LedgerTransaction(txnId, REFUND_REF, sessionId, entries));
     }
 

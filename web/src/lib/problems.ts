@@ -105,6 +105,10 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "Several payments failed in the last hour, so adding credit is paused for an hour.",
   "payment-not-verified":
     "We couldn't confirm that payment, so no credit was added. If money left your account, write to us.",
+  "refund-already-requested": "Your last refund is still on its way. You can ask again once it's done.",
+  "nothing-to-refund":
+    "Only credit you bought can go back, to where you paid from. Free credit can't be paid out.",
+  "billing-details-required": "Choose your state first: it decides the GST on your invoice.",
   "storage-unavailable":
     "Our file storage can't be reached just now, so files can't be uploaded or read. Your sessions keep running. Try again in a minute.",
   "internal-error": "Something went wrong on our side. Try again in a moment.",

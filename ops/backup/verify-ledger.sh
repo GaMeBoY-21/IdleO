@@ -14,6 +14,8 @@
 #   9. the entries from before lots (no lot_id) net to zero for every renter: all their credit is in a lot;
 #  10. nothing frozen for a chargeback or on its way back as a refund is below zero; frozen and refunding credit
 #      is outside the balance, so with check 3 nothing frozen, refunding or reserved is ever more than the renter has.
+#  11. every paid top-up has exactly one credit to the renter's bought credit, and every processed refund part exactly
+#      one debit from refunds_pending (ADR 0039).
 #
 #   ops/backup/verify-ledger.sh --container idleo-restore-<name>     a restored database (ops/backup/restore.sh)
 #   ops/backup/verify-ledger.sh --container <the live database's>    the live one
@@ -76,6 +78,13 @@ checks=(
        select owner_id, account from billing.ledger_entries
        where account in ('disputes_frozen', 'refunds_pending') group by owner_id, account
        having sum(case direction when 'credit' then amount_paise else -amount_paise end) < 0) negative"
+  "every paid top-up credited exactly once|select count(*) from billing.topups t
+     where t.status = 'paid' and (select count(*) from billing.ledger_entries e
+       where e.ref_type = 'topup' and e.ref_id = t.id and e.account = 'renter_purchased' and e.direction = 'credit') <> 1"
+  "every processed refund part debited exactly once|select count(*) from billing.refund_parts p
+     where p.status = 'processed' and (select count(*) from billing.ledger_entries e
+       where e.ref_type = 'credit_refund_processed' and e.ref_id = p.id and e.account = 'refunds_pending'
+         and e.direction = 'debit') <> 1"
 )
 
 failed=0

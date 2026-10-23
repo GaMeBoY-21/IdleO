@@ -76,14 +76,18 @@ class CreditGuard {
         if (current == null || current.runningAt() == null || current.endedAt() != null) {
             return;
         }
+        // What the renter pays: the price plus its GST once that's charged (ADR 0039).
         var price = Paise.of(current.pricePaisePerMin());
-        var leaseCost = price.times(MeteredSessions.minutesALeaseStarts(current.runningAt(), now, sessions.leaseTtl()));
+        var leaseCost = reservations.renterCost(
+                price.times(MeteredSessions.minutesALeaseStarts(current.runningAt(), now, sessions.leaseTtl())));
         var committed = committed(sessionId, current, price, now);
         var hold = reservations.held(sessionId).orElse(Paise.ZERO);
         var available = reservations.available(metered.renterId());
         var capLeft = Paise.of(metered.maxSpendPaise()).minus(settlements.chargedNet(sessionId));
         boolean capLimited = !capLeft.isGreaterThan(hold);
-        if (hold.minus(committed).compareTo(leaseCost.plus(price)) < 0 && !capLimited && available.isPositive()) {
+        if (hold.minus(committed).compareTo(leaseCost.plus(reservations.renterCost(price))) < 0
+                && !capLimited
+                && available.isPositive()) {
             settlements.settle(metered, now, now);
             committed = committed(sessionId, current, price, now);
             hold = reservations.held(sessionId).orElse(Paise.ZERO);
@@ -113,7 +117,10 @@ class CreditGuard {
                         committed.value());
             }
         }
-        boolean low = hold.plus(available).minus(committed).compareTo(price.times(LOW_CREDIT_MINUTES)) < 0;
+        boolean low = hold.plus(available)
+                        .minus(committed)
+                        .compareTo(reservations.renterCost(price.times(LOW_CREDIT_MINUTES)))
+                < 0;
         int flipped =
                 jdbc.sql("""
                         update metering.metered_sessions set low_credit = :low
@@ -136,7 +143,7 @@ class CreditGuard {
                 .query(Long.class)
                 .single();
         long undecided = Math.max(0, started - (checkedThrough + 1));
-        return Paise.of(costs.accruedPaise(sessionId)).plus(price.times(undecided));
+        return reservations.renterCost(Paise.of(costs.accruedPaise(sessionId)).plus(price.times(undecided)));
     }
 
     private boolean stoppedFor(UUID sessionId) {

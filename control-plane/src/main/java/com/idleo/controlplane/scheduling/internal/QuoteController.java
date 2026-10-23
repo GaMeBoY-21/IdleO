@@ -72,7 +72,7 @@ class QuoteController {
     QuoteResponse create(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody CreateSessionRequest request) {
         var checked = requests.check(user.id(), request, true);
         int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), checked.vramNeededMb(), checked.diskNeededMb());
-        var hold = CreditReservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
+        var hold = reservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
         var available = reservations.available(user.id());
         var fit = candidates.free(ceiling, checked.vramNeededMb(), checked.diskNeededMb(), List.of());
         var prices = fit.stream()

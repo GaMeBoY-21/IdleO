@@ -60,6 +60,9 @@ class TopUps {
     private final LegalSettings legal;
     private final PaymentMetrics metrics;
     private final Duration abandonAfter;
+    private final Gst gst;
+    private final Invoices invoices;
+    private final BillingDetails billingDetails;
 
     TopUps(
             RazorpayClient razorpay,
@@ -72,7 +75,13 @@ class TopUps {
             UserDirectory users,
             LegalSettings legal,
             PaymentMetrics metrics,
-            @Value("${billing.top-ups.abandon-after}") Duration abandonAfter) {
+            @Value("${billing.top-ups.abandon-after}") Duration abandonAfter,
+            Gst gst,
+            Invoices invoices,
+            BillingDetails billingDetails) {
+        this.billingDetails = billingDetails;
+        this.gst = gst;
+        this.invoices = invoices;
         this.razorpay = razorpay;
         this.settings = settings;
         this.ledger = ledger;
@@ -138,6 +147,7 @@ class TopUps {
         if (!settings.enabled()) {
             throw ApiProblem.of(Problem.PAYMENTS_UNAVAILABLE, "Payments aren't set up on this server.");
         }
+        billingDetails.required(userId);
         checkLimits(userId, amount);
         var id = ids.newId();
         var receipt = "tu_" + id.toString().replace("-", "");
@@ -295,14 +305,17 @@ class TopUps {
             var lot = ledger.openLot(
                     locked.userId(), CreditLot.Kind.PURCHASED, TOPUP_REF, locked.id(), locked.amount(), null);
             var txnId = txnId(payment.id());
-            ledger.post(new LedgerTransaction(
-                    txnId,
-                    TOPUP_REF,
-                    locked.id(),
-                    List.of(
-                            LedgerEntry.debit(Account.GATEWAY_CLEARING, null, locked.amount()),
-                            LedgerEntry.creditLot(
-                                    Account.RENTER_PURCHASED, locked.userId(), locked.amount(), lot.id()))));
+            var entries = new java.util.ArrayList<LedgerEntry>(List.of(
+                    LedgerEntry.debit(Account.GATEWAY_CLEARING, null, locked.amount()),
+                    LedgerEntry.creditLot(Account.RENTER_PURCHASED, locked.userId(), locked.amount(), lot.id())));
+            // per_topup (ADR 0039): the top-up's tax invoice makes the GST inside what was paid owed now, against the
+            // lot it bought, whose credit carries it as it's spent.
+            var tax = gst.perTopUp() ? gst.taxInside(locked.amount()) : Paise.ZERO;
+            if (tax.isPositive()) {
+                entries.add(new LedgerEntry(Account.GST_ON_UNUSED_CREDIT, null, tax, Direction.DEBIT, lot.id()));
+                entries.addAll(gst.owed(locked.userId(), tax, true));
+            }
+            ledger.post(new LedgerTransaction(txnId, TOPUP_REF, locked.id(), entries));
             jdbc.sql("""
                             update billing.topups
                             set status = 'paid', payment_id = :paymentId, method = :method, card_network = :network,
@@ -319,6 +332,7 @@ class TopUps {
                     .param("now", Timestamp.from(now()))
                     .param("id", locked.id())
                     .update();
+            invoices.forTopUp(find(locked.id()).orElseThrow());
             metrics.paid(payment.method(), Duration.between(payment.createdAt(), clock.instant()));
             return true;
         }));

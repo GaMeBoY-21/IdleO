@@ -84,4 +84,10 @@ public interface PersonalData {
     }
 
     default void erase(UUID userId, ErasureStep step) {}
+
+    /**
+     * Before a scheduled erasure checks its blockers: start what has to finish first, so a blocker can clear (ADR 0039:
+     * bought credit refunded to where it was paid from). Called each time the erasure looks, so it starts things once.
+     */
+    default void beforeErasure(UUID userId) {}
 }

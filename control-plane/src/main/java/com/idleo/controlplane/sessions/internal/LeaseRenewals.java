@@ -79,8 +79,8 @@ class LeaseRenewals {
      * rule 2).
      */
     private Paise leaseCost(Lease lease, Instant now) {
-        return Paise.of(lease.pricePaisePerMin())
-                .times(MeteredSessions.minutesALeaseStarts(lease.runningAt(), now, leases.ttl()));
+        return reservations.renterCost(Paise.of(lease.pricePaisePerMin())
+                .times(MeteredSessions.minutesALeaseStarts(lease.runningAt(), now, leases.ttl())));
     }
 
     @Scheduled(fixedDelayString = "${sessions.leases.renew-every}")

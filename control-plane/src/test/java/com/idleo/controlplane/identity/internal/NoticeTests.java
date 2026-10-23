@@ -112,7 +112,8 @@ class NoticeTests {
                         legal.support(),
                         legal.grievance(),
                         legal.credit(),
-                        legal.topUps()));
+                        legal.topUps(),
+                        legal.invoicing()));
         assertThat(changed.standing(user).accepted()).isFalse();
         assertThat(changed.standing(user).ageConfirmed()).isTrue();
         assertThat(changed.accept(user, "2027-01", legal.notices().privacyVersion(), false))

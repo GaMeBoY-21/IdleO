@@ -420,6 +420,10 @@ public final class FakeRazorpay implements AutoCloseable {
                 if (method.equals("GET") && path.equals("/v1/refunds")) {
                     return collection(refunds.values(), query);
                 }
+                if (method.equals("GET") && path.startsWith("/v1/payments/") && path.endsWith("/refunds")) {
+                    var id = path.substring("/v1/payments/".length(), path.length() - "/refunds".length());
+                    return collection(refundsOf(id), Map.of("count", query.getOrDefault("count", "10")));
+                }
                 if (method.equals("GET") && path.startsWith("/v1/payments/")) {
                     var payment = payments.get(path.substring("/v1/payments/".length()));
                     return payment == null ? sampleError("api-payment-fetch-error", 400) : json(200, payment);

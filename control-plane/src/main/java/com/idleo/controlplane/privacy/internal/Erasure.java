@@ -150,6 +150,7 @@ class Erasure {
     private boolean locked(UUID requestId, int through) {
         var request = deletions.find(requestId);
         if (request.state().equals("scheduled")) {
+            deletions.beforeErasure(request.userId());
             var blockers = deletions.blockers(request.userId());
             if (!blockers.isEmpty()) {
                 log.info(
