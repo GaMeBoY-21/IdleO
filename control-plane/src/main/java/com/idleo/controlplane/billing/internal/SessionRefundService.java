@@ -15,7 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Refunds for resolved reports (ADR 0028), from the session's own ledger entries: its settlements ({@code session}),
  * lost-time refunds ({@code session_refund}) and earlier report refunds ({@code dispute_refund}), all of which name
- * the session as their reference.
+ * the session as their reference. What a report gives back is free credit in a lot of its own that never expires
+ * (ADR 0039): the renter was wronged, so they don't lose it, and it can't be paid out as cash.
  */
 @Service
 class SessionRefundService implements SessionRefunds {
@@ -58,7 +59,8 @@ class SessionRefundService implements SessionRefunds {
         }
         var split = SessionRefunds.split(paid(nets), amount);
         var entries = new ArrayList<LedgerEntry>();
-        entries.add(LedgerEntry.credit(Account.RENTER_WALLET, renterId, amount));
+        var lot = ledger.openLot(renterId, CreditLot.Kind.FREE, REFUND_REF, txnId, amount, null);
+        entries.add(LedgerEntry.creditLot(Account.RENTER_WALLET, renterId, amount, lot.id()));
         if (split.fromCommission().isPositive()) {
             entries.add(LedgerEntry.debit(Account.PLATFORM_REVENUE, null, split.fromCommission()));
         }
@@ -102,15 +104,20 @@ class SessionRefundService implements SessionRefunds {
     private static Paid paid(List<Net> nets) {
         long renterPaid = 0;
         long commission = 0;
+        long tax = 0;
         var hosts = new ArrayList<HostPart>();
         for (var net : nets) {
             switch (net.account()) {
-                case RENTER_WALLET -> renterPaid -= net.net();
+                case RENTER_WALLET, RENTER_PURCHASED -> renterPaid -= net.net();
                 case PLATFORM_REVENUE -> commission += net.net();
                 case HOST_PAYABLE -> hosts.add(new HostPart(net.ownerId(), Paise.of(net.net())));
+                // GST on the charge (ADR 0039): a report gives back the price, never the tax, which a credit note
+                // corrects if it has to.
+                case TAX_CGST, TAX_SGST, TAX_IGST, GST_ON_UNUSED_CREDIT -> tax += net.net();
                 default -> throw new IllegalStateException("a session's entries never touch " + net.account());
             }
         }
+        renterPaid -= tax;
         hosts.sort(Comparator.comparing((HostPart host) -> host.amount().value())
                 .reversed()
                 .thenComparing(HostPart::hostId));

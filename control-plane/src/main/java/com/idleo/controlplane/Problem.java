@@ -323,6 +323,32 @@ public enum Problem {
             "Too many open streams",
             "This renter already has the most event streams open at once; close one first."),
 
+    // Payments (ADR 0039).
+    PAYMENTS_UNAVAILABLE(
+            "payments-unavailable",
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Payments unavailable",
+            "Top-ups can't be taken just now: payments aren't set up here, or Razorpay can't be reached. No money "
+                    + "moved. Try again later."),
+    TOP_UP_OUT_OF_LIMITS(
+            "top-up-out-of-limits",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "Top-up outside the limits",
+            "The amount is below the smallest top-up or above the largest, or it would take today's top-ups or the "
+                    + "bought credit you hold past their limits. The detail says which, and by how much."),
+    TOO_MANY_FAILED_PAYMENTS(
+            "too-many-failed-payments",
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Too many failed payments",
+            "More than 5 payments failed in the last hour, so top-ups are paused for an hour. Retry-After says when "
+                    + "the next one may be tried."),
+    PAYMENT_NOT_VERIFIED(
+            "payment-not-verified",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "Payment not verified",
+            "The payment's signature doesn't check out, or Razorpay says the payment isn't a captured one for this "
+                    + "top-up's order, amount and currency. No credit was added for it."),
+
     // Hosts.
     HOST_BUSY(
             "host-busy",

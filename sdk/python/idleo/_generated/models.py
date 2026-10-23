@@ -88,6 +88,15 @@ class ConfirmDeletion(BaseModel):
     token: Annotated[str, Field(max_length=100, min_length=0)]
 
 
+class ConfirmRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    razorpay_order_id: Annotated[str | None, Field(alias="razorpayOrderId", max_length=64, min_length=0)] = None
+    razorpay_payment_id: Annotated[str, Field(alias="razorpayPaymentId", max_length=64, min_length=0)]
+    razorpay_signature: Annotated[str, Field(alias="razorpaySignature", max_length=128, min_length=0)]
+
+
 class ContentRuleView(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -687,6 +696,10 @@ class Type(Enum):
     field_problems_too_many_new_sessions = "/problems/too-many-new-sessions"
     field_problems_too_many_sessions = "/problems/too-many-sessions"
     field_problems_too_many_streams = "/problems/too-many-streams"
+    field_problems_payments_unavailable = "/problems/payments-unavailable"
+    field_problems_top_up_out_of_limits = "/problems/top-up-out-of-limits"
+    field_problems_too_many_failed_payments = "/problems/too-many-failed-payments"
+    field_problems_payment_not_verified = "/problems/payment-not-verified"
     field_problems_host_busy = "/problems/host-busy"
     field_problems_host_removed = "/problems/host-removed"
     field_problems_host_no_gpu = "/problems/host-no-gpu"
@@ -1120,6 +1133,31 @@ class TicketRequest(BaseModel):
     poll_token: Annotated[str, Field(alias="pollToken", max_length=128, min_length=0)]
 
 
+class TopUpRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int, Field(alias="amountPaise", gt=0)]
+
+
+class TopUpResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int, Field(alias="amountPaise")]
+    card_last4: Annotated[str | None, Field(alias="cardLast4")] = None
+    card_network: Annotated[str | None, Field(alias="cardNetwork")] = None
+    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
+    currency: str
+    failure_reason: Annotated[str | None, Field(alias="failureReason")] = None
+    id: UUID
+    key_id: Annotated[str, Field(alias="keyId")]
+    method: str | None = None
+    order_id: Annotated[str, Field(alias="orderId")]
+    paid_at: Annotated[AwareDatetime | None, Field(alias="paidAt")] = None
+    status: str
+
+
 class Topic(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1223,6 +1261,11 @@ class WalletResponse(BaseModel):
     )
     available_paise: Annotated[int, Field(alias="availablePaise")]
     balance_paise: Annotated[int, Field(alias="balancePaise")]
+    bought_paise: Annotated[int, Field(alias="boughtPaise")]
+    free_expires_at: Annotated[AwareDatetime | None, Field(alias="freeExpiresAt")] = None
+    free_paise: Annotated[int, Field(alias="freePaise")]
+    frozen_paise: Annotated[int, Field(alias="frozenPaise")]
+    refunding_paise: Annotated[int, Field(alias="refundingPaise")]
     reserved_paise: Annotated[int, Field(alias="reservedPaise")]
 
 
@@ -1293,6 +1336,7 @@ class HistoryEntry(BaseModel):
         populate_by_name=True,
     )
     amount_paise: Annotated[int, Field(alias="amountPaise")]
+    bought_paise: Annotated[int | None, Field(alias="boughtPaise")] = None
     created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
     direction: str
     id: UUID
@@ -1434,6 +1478,13 @@ class TemplateResponse(BaseModel):
     typical_runtime_seconds: Annotated[int | None, Field(alias="typicalRuntimeSeconds")] = None
     vram_from_input: Annotated[VramFromInputView | None, Field(alias="vramFromInput")] = None
     you_get: Annotated[str | None, Field(alias="youGet")] = None
+
+
+class TopUpList(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    top_ups: Annotated[list[TopUpResponse], Field(alias="topUps")]
 
 
 class UploadDetail(BaseModel):

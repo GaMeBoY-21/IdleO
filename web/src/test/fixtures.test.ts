@@ -60,6 +60,11 @@ describe("the sessions on their own", () => {
       balancePaise: data.GRANT,
       reservedPaise: 0,
       availablePaise: data.GRANT,
+      boughtPaise: 0,
+      freePaise: data.GRANT,
+      freeExpiresAt: null,
+      refundingPaise: 0,
+      frozenPaise: 0,
     });
   });
 

@@ -30,6 +30,9 @@ import software.amazon.awssdk.services.s3.S3Client;
  */
 public final class People {
 
+    private static final tools.jackson.databind.json.JsonMapper JSON =
+            tools.jackson.databind.json.JsonMapper.builder().build();
+
     private static final com.fasterxml.uuid.impl.TimeBasedEpochGenerator IDS =
             com.fasterxml.uuid.Generators.timeBasedEpochGenerator();
 
@@ -336,6 +339,26 @@ public final class People {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"" + me + "\",\"paise\":2500,\"reason\":\"pilot welcome credit\"}")))
                 .andExpect(status().isCreated());
+
+        // Money in (ADR 0039): a top-up whose payment failed, through the fake Razorpay.
+        var razorpay = TestRazorpayConfiguration.RAZORPAY;
+        var failedTopUp = JSON.readTree(mvc.perform(post("/v1/wallet/topups")
+                        .header("Authorization", user.bearer())
+                        .header("Idempotency-Key", "topup-failed-" + marker)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountPaise\":6000}"))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        var failure = razorpay.event(
+                "payment.failed", razorpay.fail(failedTopUp.get("orderId").asString(), "upi"));
+        mvc.perform(post("/v1/payments/razorpay/webhook")
+                        .header("X-Razorpay-Signature", failure.signature())
+                        .header("x-razorpay-event-id", failure.eventId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(failure.body()))
+                .andExpect(status().isOk());
 
         // Trust: a rating with a comment, and a report answered.
         jdbc.update(

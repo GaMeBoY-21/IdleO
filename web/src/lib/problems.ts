@@ -99,6 +99,12 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "second-factor-exists": "Your authenticator is already set up. Sign in with a code from it.",
   "second-factor-missing": "Set up your authenticator first, then sign in with a code from it.",
   "action-refused": "That was refused, and nothing changed. The reason is shown below.",
+  "payments-unavailable": "Payments can't be taken just now. No money moved; try again in a little while.",
+  "top-up-out-of-limits": "That amount is outside what you can add. The amount field says what you can.",
+  "too-many-failed-payments":
+    "Several payments failed in the last hour, so adding credit is paused for an hour.",
+  "payment-not-verified":
+    "We couldn't confirm that payment, so no credit was added. If money left your account, write to us.",
   "storage-unavailable":
     "Our file storage can't be reached just now, so files can't be uploaded or read. Your sessions keep running. Try again in a minute.",
   "internal-error": "Something went wrong on our side. Try again in a moment.",

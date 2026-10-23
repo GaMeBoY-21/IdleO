@@ -5,10 +5,15 @@
 #   1. every ledger transaction balances: its debits equal its credits;
 #   2. all debits equal all credits;
 #   3. no wallet is negative, holds less than nothing, or holds more than its balance;
-#   4. every wallet equals the sum of its renter_wallet entries (the nightly reconciliation's first check);
+#   4. every wallet equals the sum of its renter_wallet and renter_purchased entries (the nightly reconciliation's
+#      first check);
 #   5. every wallet's reserved amount equals its active holds (its second);
 #   6. every hold equals the sum of its changes in reservation_changes (its third);
-#   7. no host's earnings (host_payable) are below zero.
+#   7. no host's earnings (host_payable) are below zero;
+#   8. every credit lot equals its entries, and no lot is below zero, bought or free (ADR 0039);
+#   9. the entries from before lots (no lot_id) net to zero for every renter: all their credit is in a lot;
+#  10. nothing frozen for a chargeback or on its way back as a refund is below zero; frozen and refunding credit
+#      is outside the balance, so with check 3 nothing frozen, refunding or reserved is ever more than the renter has.
 #
 #   ops/backup/verify-ledger.sh --container idleo-restore-<name>     a restored database (ops/backup/restore.sh)
 #   ops/backup/verify-ledger.sh --container <the live database's>    the live one
@@ -41,7 +46,7 @@ checks=(
      where balance_paise < 0 or reserved_paise < 0 or reserved_paise > balance_paise"
   "every wallet equals its ledger entries|with ledger as (
        select owner_id, sum(case direction when 'credit' then amount_paise else -amount_paise end) as paise
-       from billing.ledger_entries where account = 'renter_wallet' group by owner_id)
+       from billing.ledger_entries where account in ('renter_wallet', 'renter_purchased') group by owner_id)
      select count(*) from billing.wallets w full join ledger l on l.owner_id = w.user_id
      where coalesce(w.balance_paise, 0) <> coalesce(l.paise, 0)"
   "every wallet's reserved amount equals its active holds|with held as (
@@ -55,6 +60,21 @@ checks=(
               <> case when r.status = 'active' then r.amount_paise else 0 end) mismatched"
   "no host's earnings below zero|select count(*) from (
        select owner_id from billing.ledger_entries where account = 'host_payable' group by owner_id
+       having sum(case direction when 'credit' then amount_paise else -amount_paise end) < 0) negative"
+  "every credit lot equals its entries and none is below zero|select count(*) from (
+       select l.id from billing.credit_lots l
+       left join billing.ledger_entries e on e.lot_id = l.id and e.account in ('renter_wallet', 'renter_purchased')
+       group by l.id, l.remaining_paise
+       having l.remaining_paise < 0
+           or l.remaining_paise <> coalesce(sum(case e.direction when 'credit' then e.amount_paise
+                                                                 else -e.amount_paise end), 0)) mismatched"
+  "credit from before lots nets to zero|select count(*) from (
+       select owner_id from billing.ledger_entries
+       where account in ('renter_wallet', 'renter_purchased') and lot_id is null group by owner_id
+       having sum(case direction when 'credit' then amount_paise else -amount_paise end) <> 0) left_over"
+  "nothing frozen or refunding below zero|select count(*) from (
+       select owner_id, account from billing.ledger_entries
+       where account in ('disputes_frozen', 'refunds_pending') group by owner_id, account
        having sum(case direction when 'credit' then amount_paise else -amount_paise end) < 0) negative"
 )
 

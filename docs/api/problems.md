@@ -62,6 +62,10 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/too-many-new-sessions` | 429 | Too many new sessions | More sessions booked in the last hour than the limit: 10, or 2 for an account less than a day old. Retry-After says when the next one may be booked. |
 | `/problems/too-many-sessions` | 409 | Too many sessions at once | A person may have at most 3 sessions that haven't ended. Wait for one to finish, or stop one. |
 | `/problems/too-many-streams` | 429 | Too many open streams | This renter already has the most event streams open at once; close one first. |
+| `/problems/payments-unavailable` | 503 | Payments unavailable | Top-ups can't be taken just now: payments aren't set up here, or Razorpay can't be reached. No money moved. Try again later. |
+| `/problems/top-up-out-of-limits` | 422 | Top-up outside the limits | The amount is below the smallest top-up or above the largest, or it would take today's top-ups or the bought credit you hold past their limits. The detail says which, and by how much. |
+| `/problems/too-many-failed-payments` | 429 | Too many failed payments | More than 5 payments failed in the last hour, so top-ups are paused for an hour. Retry-After says when the next one may be tried. |
+| `/problems/payment-not-verified` | 422 | Payment not verified | The payment's signature doesn't check out, or Razorpay says the payment isn't a captured one for this top-up's order, amount and currency. No credit was added for it. |
 | `/problems/host-busy` | 409 | The host is running a session | A host can't be removed while it has a session that hasn't ended. Pause it so it takes no new work, and remove it when the session is over. |
 | `/problems/host-removed` | 410 | The host was removed | This host was removed and never comes back; add the machine again to rent it out. |
 | `/problems/host-no-gpu` | 409 | The host hasn't reported a GPU | A price can only be suggested once the host's agent has connected and reported its GPU. |

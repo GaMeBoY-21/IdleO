@@ -30,8 +30,18 @@ class LedgerPages {
 
     record HistoryReference(String type, UUID id) {}
 
+    /**
+     * One movement of money. {@code boughtPaise}, for a renter, is the part of it that was bought credit (ADR 0039):
+     * the rest was free credit; null for a host's earnings.
+     */
     record HistoryEntry(
-            UUID id, long amountPaise, String direction, String kind, HistoryReference reference, Instant createdAt) {}
+            UUID id,
+            long amountPaise,
+            String direction,
+            String kind,
+            HistoryReference reference,
+            Instant createdAt,
+            @Nullable Long boughtPaise) {}
 
     record HistoryPage(List<HistoryEntry> entries, @Nullable String nextCursor) {}
 
@@ -67,8 +77,61 @@ class LedgerPages {
                         rs.getString("direction"),
                         kind.apply(rs.getString("ref_type")),
                         new HistoryReference(rs.getString("ref_type"), rs.getObject("ref_id", UUID.class)),
-                        rs.getTimestamp("created_at").toInstant()))
+                        rs.getTimestamp("created_at").toInstant(),
+                        null))
                 .list();
+        return paged(rows, limit);
+    }
+
+    /**
+     * A page of a renter's credit history: one row a ledger transaction across their free and bought credit, however
+     * many lots it touched (ADR 0039), with the part that was bought credit. A transaction that moved credit between
+     * lots and left the total as it was (the move into lots, V49) isn't shown.
+     */
+    HistoryPage renterPage(UUID ownerId, @Nullable String cursor, int limit, UnaryOperator<String> kind) {
+        if (limit < 1 || limit > MAX_PAGE) {
+            throw ApiProblem.invalid("limit", "must be from 1 to " + MAX_PAGE + ".");
+        }
+        var after = cursor == null ? null : Cursor.decode(cursor);
+        var sql = """
+                select * from (
+                    select txn_id as id, min(created_at) as created_at, min(ref_type) as ref_type,
+                           (array_agg(ref_id))[1] as ref_id,
+                           sum(case direction when 'credit' then amount_paise else -amount_paise end) as net,
+                           sum(case direction when 'credit' then amount_paise else -amount_paise end)
+                               filter (where account = 'renter_purchased') as bought
+                    from billing.ledger_entries
+                    where owner_id = :ownerId and account in ('renter_wallet', 'renter_purchased')
+                    group by txn_id
+                    having sum(case direction when 'credit' then amount_paise else -amount_paise end) <> 0
+                ) history
+                """
+                + (after == null ? "" : "where (created_at, id) < (:afterTime, :afterId)\n")
+                + "order by created_at desc, id desc limit :limit";
+        var statement = jdbc.sql(sql).param("ownerId", ownerId).param("limit", limit + 1);
+        if (after != null) {
+            statement = statement
+                    .param("afterTime", Timestamp.from(after.createdAt()))
+                    .param("afterId", after.id());
+        }
+        var rows = statement
+                .query((rs, n) -> {
+                    long net = rs.getLong("net");
+                    long bought = rs.getLong("bought");
+                    return new HistoryEntry(
+                            rs.getObject("id", UUID.class),
+                            Math.abs(net),
+                            net > 0 ? "credit" : "debit",
+                            kind.apply(rs.getString("ref_type")),
+                            new HistoryReference(rs.getString("ref_type"), rs.getObject("ref_id", UUID.class)),
+                            rs.getTimestamp("created_at").toInstant(),
+                            Math.abs(bought));
+                })
+                .list();
+        return paged(rows, limit);
+    }
+
+    private static HistoryPage paged(List<HistoryEntry> rows, int limit) {
         if (rows.size() <= limit) {
             return new HistoryPage(rows, null);
         }

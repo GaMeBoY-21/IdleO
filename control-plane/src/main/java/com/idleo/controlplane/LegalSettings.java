@@ -21,7 +21,28 @@ public record LegalSettings(
         @NotNull @Valid Erasure erasure,
         @NotNull @Valid Notices notices,
         @NotNull @Valid Support support,
-        @NotNull @Valid Grievance grievance) {
+        @NotNull @Valid Grievance grievance,
+        @NotNull @Valid Credit credit,
+        @NotNull @Valid TopUps topUps) {
+
+    /**
+     * The limits on buying credit (ADR 0039), in paise. An account younger than {@code newAccountAge} has the {@code
+     * newAccount…} limits instead, and none may hold more than {@code maxBoughtBalancePaise} of bought credit.
+     */
+    public record TopUps(
+            @Min(100) long minPaise,
+            @Min(100) long maxPaise,
+            @Min(100) long perDayPaise,
+            @Min(100) long maxBoughtBalancePaise,
+            @NotNull Duration newAccountAge,
+            @Min(100) long newAccountMaxPaise,
+            @Min(100) long newAccountPerDayPaise) {}
+
+    /**
+     * What IdleO credit is (ADR 0039): closed-loop, spent only on IdleO, never withdrawn or transferred; bought credit
+     * never expires, free credit (grants and promotions, never a give-back) expires after {@code freeExpiresAfter}.
+     */
+    public record Credit(@NotNull Duration freeExpiresAfter) {}
 
     /** How long the records the law sets a period for are kept. */
     public record Retention(

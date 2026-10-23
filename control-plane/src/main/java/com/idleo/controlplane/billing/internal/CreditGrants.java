@@ -4,6 +4,7 @@ import static com.idleo.controlplane.billing.internal.LedgerEntry.credit;
 import static com.idleo.controlplane.billing.internal.LedgerEntry.debit;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.UserDirectory;
@@ -27,8 +28,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Free credit (ADR 0014): a grant debits {@code promotions} and credits the renter's wallet; a
- * reversal posts the opposite. Each writes an append-only record and a row in the audit log (ADR 0027) in
+ * Free credit (ADR 0014): a grant debits {@code promotions} and credits the renter's wallet, into a free lot of its
+ * own that expires {@code legal.credit.free-expires-after} later (ADR 0039); a reversal posts the opposite, from
+ * that lot. Each writes an append-only record and a row in the audit log (ADR 0027) in
  * the same database transaction as its ledger posting, and each is safe to re-run: a grant by its
  * idempotency key, a reversal by the grant it reverses. The operator commands and the admin console both
  * call these methods.
@@ -48,6 +50,7 @@ class CreditGrants {
     private final Clock clock;
     private final CreditProperties limits;
     private final AuditTrail audit;
+    private final LegalSettings legal;
 
     CreditGrants(
             Ledger ledger,
@@ -57,7 +60,9 @@ class CreditGrants {
             IdGenerator ids,
             Clock clock,
             CreditProperties limits,
-            AuditTrail audit) {
+            AuditTrail audit,
+            LegalSettings legal) {
+        this.legal = legal;
         this.ledger = ledger;
         this.users = users;
         this.jdbc = jdbc;
@@ -146,11 +151,20 @@ class CreditGrants {
                 throw new Refused("the grant would take the wallet to " + after.value() + " paise, above the cap of "
                         + limits.maxWalletPaise());
             }
+            var lot = ledger.openLot(
+                    userId,
+                    CreditLot.Kind.FREE,
+                    GRANT_REF,
+                    grant.id(),
+                    amount,
+                    grant.createdAt().plus(legal.credit().freeExpiresAfter()));
             ledger.post(new LedgerTransaction(
                     txnId,
                     GRANT_REF,
                     grant.id(),
-                    List.of(debit(Account.PROMOTIONS, null, amount), credit(Account.RENTER_WALLET, userId, amount))));
+                    List.of(
+                            debit(Account.PROMOTIONS, null, amount),
+                            LedgerEntry.creditLot(Account.RENTER_WALLET, userId, amount, lot.id()))));
             audit.record(new AuditTrail.Entry(
                     actor,
                     "credit.grant",
@@ -205,12 +219,20 @@ class CreditGrants {
                 throw new Refused("the wallet has " + wallet.available().value() + " paise available, less than the "
                         + grant.amount().value() + " paise grant: credit already spent or reserved can't be reversed");
             }
+            // Grants made before lots were moved into one lot a renter (V49), so theirs comes from that lot.
+            var lot = ledger.lotOf(GRANT_REF, grant.id())
+                    .or(() -> ledger.lotOf("free_lot_migration", grant.userId()))
+                    .orElseThrow(() -> new Refused("grant " + grantId + " has no credit lot to take it back from"));
+            if (grant.amount().isGreaterThan(lot.remaining())) {
+                throw new Refused("the grant's credit has " + lot.remaining().value() + " paise left of "
+                        + grant.amount().value() + ": credit already spent can't be reversed");
+            }
             ledger.post(new LedgerTransaction(
                     reversal.txnId(),
                     REVERSAL_REF,
                     reversal.id(),
                     List.of(
-                            debit(Account.RENTER_WALLET, grant.userId(), grant.amount()),
+                            LedgerEntry.debitLot(Account.RENTER_WALLET, grant.userId(), grant.amount(), lot.id()),
                             credit(Account.PROMOTIONS, null, grant.amount()))));
             var after = wallet.balance().minus(grant.amount());
             audit.record(new AuditTrail.Entry(

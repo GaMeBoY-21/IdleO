@@ -1,9 +1,9 @@
 package com.idleo.controlplane.billing.internal;
 
 import static com.idleo.controlplane.billing.internal.LedgerEntry.credit;
-import static com.idleo.controlplane.billing.internal.LedgerEntry.debit;
 
 import com.idleo.controlplane.ExportRows;
+import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.PersonalData;
 import com.idleo.controlplane.Rupees;
 import com.idleo.controlplane.hosts.HostOwners;
@@ -56,19 +56,25 @@ class BillingPersonalData implements PersonalData {
     public List<Group> summary(UUID userId) {
         var hosts = hosts(userId);
         return List.of(
-                lines("money", "ledger lines", Account.RENTER_WALLET, List.of(userId)),
-                lines("hosting", "earnings lines", Account.HOST_PAYABLE, hosts));
+                lines(
+                        "money",
+                        "ledger lines",
+                        List.of(Account.RENTER_WALLET, Account.RENTER_PURCHASED),
+                        List.of(userId)),
+                lines("hosting", "earnings lines", List.of(Account.HOST_PAYABLE), hosts));
     }
 
-    private Group lines(String group, String label, Account account, List<UUID> owners) {
+    private Group lines(String group, String label, List<Account> accounts, List<UUID> owners) {
         if (owners.isEmpty()) {
             return new Group(group, label, 0, null, null);
         }
         return jdbc.sql("""
                         select count(*), min(created_at), max(created_at) from billing.ledger_entries
-                        where account = :account and owner_id in (:owners)
+                        where account in (:accounts) and owner_id in (:owners)
                         """)
-                .param("account", account.dbValue)
+                .param(
+                        "accounts",
+                        accounts.stream().map(account -> account.dbValue).toList())
                 .param("owners", owners)
                 .query((rs, n) -> new Group(
                         group, label, rs.getLong(1), instant(rs.getTimestamp(2)), instant(rs.getTimestamp(3))))
@@ -81,7 +87,7 @@ class BillingPersonalData implements PersonalData {
 
     @Override
     public List<Part> export(UUID userId) {
-        var params = Map.of("user", userId, "wallet", Account.RENTER_WALLET.dbValue);
+        var params = Map.of("user", userId);
         var hosts = hosts(userId);
         return List.of(
                 new Part(
@@ -93,9 +99,22 @@ class BillingPersonalData implements PersonalData {
                                         + " where user_id = :user",
                                 params)),
                 new Part("money", "ledger", rows.list(jdbc, """
-                                select created_at, ref_type as purpose, direction, amount_paise, ref_id, txn_id
-                                from billing.ledger_entries where account = :wallet and owner_id = :user
+                                select created_at, account, ref_type as purpose, direction, amount_paise, ref_id,
+                                       txn_id, lot_id
+                                from billing.ledger_entries
+                                where account in ('renter_wallet', 'renter_purchased', 'refunds_pending',
+                                                  'disputes_frozen')
+                                  and owner_id = :user
                                 order by created_at, id
+                                """, params)),
+                new Part("money", "topUps", rows.list(jdbc, """
+                                select id, amount_paise, currency, status, order_id, payment_id, method, card_network,
+                                       card_last4, failure_reason, created_at, paid_at
+                                from billing.topups where user_id = :user order by created_at, id
+                                """, params)),
+                new Part("money", "creditLots", rows.list(jdbc, """
+                                select id, kind, source_type, amount_paise, remaining_paise, expires_at, created_at
+                                from billing.credit_lots where user_id = :user order by created_at, id
                                 """, params)),
                 new Part(
                         "money",
@@ -147,13 +166,12 @@ class BillingPersonalData implements PersonalData {
                         unpaid));
     }
 
-    /** The wallet's credit not held for a session: what deleting the account forfeits. */
+    /** The free credit left in the person's lots (ADR 0039): what deleting the account forfeits. */
     private long available(UUID userId) {
-        return jdbc.sql("select balance_paise - reserved_paise from billing.wallets where user_id = :user")
-                .param("user", userId)
-                .query(Long.class)
-                .optional()
-                .orElse(0L);
+        return jdbc.sql("""
+                        select coalesce(sum(remaining_paise), 0) from billing.credit_lots
+                        where user_id = :user and kind = 'free'
+                        """).param("user", userId).query(Long.class).single();
     }
 
     @Override
@@ -176,17 +194,32 @@ class BillingPersonalData implements PersonalData {
         if (step != ErasureStep.DE_IDENTIFY) {
             return;
         }
+        // The top-ups stay as money records, by Razorpay's ids; what Razorpay said of the card goes.
+        jdbc.sql("update billing.topups set card_network = null, card_last4 = null where user_id = :user")
+                .param("user", userId)
+                .update();
+        jdbc.sql("delete from billing.topup_failures where user_id = :user")
+                .param("user", userId)
+                .update();
+        jdbc.sql("delete from billing.idempotency_keys where user_id = :user")
+                .param("user", userId)
+                .update();
         transactions.executeWithoutResult(status -> {
-            var wallet = ledger.lockWallet(userId);
-            var credit = wallet.available();
+            ledger.lockWallet(userId);
+            var free = ledger.spendable(userId).stream()
+                    .filter(lot -> lot.kind() == CreditLot.Kind.FREE)
+                    .toList();
+            var credit = free.stream().map(CreditLot::remaining).reduce(Paise.ZERO, Paise::plus);
             if (!credit.isPositive()) {
                 return;
             }
+            var entries = new java.util.ArrayList<>(Ledger.drawFrom(userId, free, credit));
+            entries.add(credit(Account.PROMOTIONS, null, credit));
             ledger.post(new LedgerTransaction(
                     UUID.nameUUIDFromBytes((FORFEIT_REF + ":" + userId).getBytes(StandardCharsets.UTF_8)),
                     FORFEIT_REF,
                     userId,
-                    List.of(debit(Account.RENTER_WALLET, userId, credit), credit(Account.PROMOTIONS, null, credit))));
+                    entries));
         });
     }
 }

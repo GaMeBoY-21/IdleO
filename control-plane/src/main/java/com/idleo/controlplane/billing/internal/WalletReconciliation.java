@@ -23,7 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The nightly proof that the wallet cache equals the ledger (technical design line 427, ADR 0014): for
- * every renter, the cached balance must equal their {@code renter_wallet} credits minus debits, the cached
+ * every renter, the cached balance must equal their {@code renter_wallet} and {@code renter_purchased} credits minus
+ * debits, every credit lot what its entries leave in it (ADR 0039), the cached
  * reservation must equal the sum of their active holds (ADR 0015), every hold's changes must add up to its
  * amount (ADR 0017), and the whole ledger must balance. One control-plane instance runs it at a time, under a PostgreSQL advisory
  * lock; the others skip. Each complete run is kept, with every mismatch, for the admin console (ADR 0027). Mismatches are logged (user id and both values, nothing more) and counted in
@@ -78,7 +79,8 @@ class WalletReconciliation {
     enum Kind {
         BALANCE,
         RESERVED,
-        HOLD
+        HOLD,
+        LOT
     }
 
     record Mismatch(Kind kind, UUID userId, long walletPaise, long expectedPaise) {}
@@ -134,7 +136,7 @@ class WalletReconciliation {
                                 select owner_id,
                                        sum(case direction when 'credit' then amount_paise else -amount_paise end) as paise
                                 from billing.ledger_entries
-                                where account = 'renter_wallet'
+                                where account in ('renter_wallet', 'renter_purchased')
                                 group by owner_id
                             )
                             select coalesce(w.user_id, l.owner_id) as user_id,
@@ -189,6 +191,24 @@ class WalletReconciliation {
                             rs.getLong("changes_paise"),
                             rs.getLong("hold_paise")))
                     .list();
+            var lotMismatches = jdbc.sql("""
+                            select l.user_id, l.remaining_paise,
+                                   coalesce(sum(case e.direction when 'credit' then e.amount_paise
+                                                                 else -e.amount_paise end), 0) as entries_paise
+                            from billing.credit_lots l
+                            left join billing.ledger_entries e
+                                   on e.lot_id = l.id and e.account in ('renter_wallet', 'renter_purchased')
+                            group by l.id, l.user_id, l.remaining_paise
+                            having l.remaining_paise <> coalesce(sum(case e.direction when 'credit' then e.amount_paise
+                                                                                     else -e.amount_paise end), 0)
+                            order by 1
+                            """)
+                    .query((rs, n) -> new Mismatch(
+                            Kind.LOT,
+                            rs.getObject("user_id", UUID.class),
+                            rs.getLong("remaining_paise"),
+                            rs.getLong("entries_paise")))
+                    .list();
             var totals = jdbc.sql("""
                             select coalesce(sum(amount_paise) filter (where direction = 'debit'), 0) as debits,
                                    coalesce(sum(amount_paise) filter (where direction = 'credit'), 0) as credits
@@ -199,6 +219,7 @@ class WalletReconciliation {
             var mismatches = new java.util.ArrayList<Mismatch>(walletMismatches);
             mismatches.addAll(reservedMismatches);
             mismatches.addAll(holdMismatches);
+            mismatches.addAll(lotMismatches);
             return new Result(true, List.copyOf(mismatches), totals[0], totals[1], null);
         }));
         if (!result.ran()) {
@@ -211,6 +232,7 @@ class WalletReconciliation {
                         case BALANCE -> "Wallet {} disagrees with the ledger: wallet {} paise, ledger {} paise";
                         case RESERVED -> "Wallet {} reserves {} paise, but its active holds sum to {} paise";
                         case HOLD -> "A hold of {} has changes adding up to {} paise, but holds {} paise";
+                        case LOT -> "A credit lot of {} keeps {} paise, but its entries leave {} paise";
                     },
                     mismatch.userId(),
                     mismatch.walletPaise(),

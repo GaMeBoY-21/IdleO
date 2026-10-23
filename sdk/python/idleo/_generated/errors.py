@@ -454,6 +454,38 @@ class TooManyStreams(IdleoError):
     title = "Too many open streams"
 
 
+class PaymentsUnavailable(IdleoError):
+    """Payments unavailable (HTTP 503)."""
+
+    slug = "payments-unavailable"
+    status = 503
+    title = "Payments unavailable"
+
+
+class TopUpOutOfLimits(IdleoError):
+    """Top-up outside the limits (HTTP 422)."""
+
+    slug = "top-up-out-of-limits"
+    status = 422
+    title = "Top-up outside the limits"
+
+
+class TooManyFailedPayments(IdleoError):
+    """Too many failed payments (HTTP 429)."""
+
+    slug = "too-many-failed-payments"
+    status = 429
+    title = "Too many failed payments"
+
+
+class PaymentNotVerified(IdleoError):
+    """Payment not verified (HTTP 422)."""
+
+    slug = "payment-not-verified"
+    status = 422
+    title = "Payment not verified"
+
+
 class HostBusy(IdleoError):
     """The host is running a session (HTTP 409)."""
 
@@ -655,6 +687,10 @@ __all__ = [
     "TooManyNewSessions",
     "TooManySessions",
     "TooManyStreams",
+    "PaymentsUnavailable",
+    "TopUpOutOfLimits",
+    "TooManyFailedPayments",
+    "PaymentNotVerified",
     "HostBusy",
     "HostRemoved",
     "HostNoGpu",
@@ -732,6 +768,10 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "too-many-new-sessions": TooManyNewSessions,
     "too-many-sessions": TooManySessions,
     "too-many-streams": TooManyStreams,
+    "payments-unavailable": PaymentsUnavailable,
+    "top-up-out-of-limits": TopUpOutOfLimits,
+    "too-many-failed-payments": TooManyFailedPayments,
+    "payment-not-verified": PaymentNotVerified,
     "host-busy": HostBusy,
     "host-removed": HostRemoved,
     "host-no-gpu": HostNoGpu,

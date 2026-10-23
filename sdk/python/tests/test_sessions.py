@@ -200,7 +200,18 @@ def test_me_credit_and_availability_read_the_api(fake, tmp_path):
     fake.route(
         "GET",
         "/v1/wallet",
-        lambda r: httpx.Response(200, json={"availablePaise": 50000, "balancePaise": 50000, "reservedPaise": 0}),
+        lambda r: httpx.Response(
+            200,
+            json={
+                "availablePaise": 50000,
+                "balancePaise": 50000,
+                "reservedPaise": 0,
+                "boughtPaise": 0,
+                "freePaise": 50000,
+                "refundingPaise": 0,
+                "frozenPaise": 0,
+            },
+        ),
     )
     client = fake.client(tmp_path)
     assert client.me().email == "a@example.com"
@@ -214,7 +225,18 @@ def test_a_read_that_fails_in_the_network_is_tried_again_twice(fake, tmp_path):
         calls.append(1)
         if len(calls) < 3:
             return httpx.Response(502, text="bad gateway")
-        return httpx.Response(200, json={"availablePaise": 1, "balancePaise": 1, "reservedPaise": 0})
+        return httpx.Response(
+            200,
+            json={
+                "availablePaise": 1,
+                "balancePaise": 1,
+                "reservedPaise": 0,
+                "boughtPaise": 0,
+                "freePaise": 1,
+                "refundingPaise": 0,
+                "frozenPaise": 0,
+            },
+        )
 
     fake.route("GET", "/v1/wallet", flaky)
     assert fake.client(tmp_path).credit().balance_paise == 1

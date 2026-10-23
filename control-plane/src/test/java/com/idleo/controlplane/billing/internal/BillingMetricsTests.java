@@ -1,6 +1,5 @@
 package com.idleo.controlplane.billing.internal;
 
-import static com.idleo.controlplane.billing.internal.LedgerEntry.credit;
 import static com.idleo.controlplane.billing.internal.LedgerEntry.debit;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -87,7 +86,18 @@ class BillingMetricsTests {
                     UUID.randomUUID(),
                     List.of(
                             debit(Account.PROMOTIONS, null, Paise.of(100)),
-                            credit(Account.RENTER_WALLET, user, Paise.of(100)))));
+                            LedgerEntry.creditLot(
+                                    Account.RENTER_WALLET,
+                                    user,
+                                    Paise.of(100),
+                                    ledger.openLot(
+                                                    user,
+                                                    CreditLot.Kind.FREE,
+                                                    "metrics_test",
+                                                    UUID.randomUUID(),
+                                                    Paise.of(100),
+                                                    null)
+                                            .id()))));
             status.setRollbackOnly();
         });
 

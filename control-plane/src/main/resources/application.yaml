@@ -108,6 +108,8 @@ management:
         grpc.server: 10ms, 50ms, 250ms, 1s, 5s, 30s
         sessions.time-to-gpu: 5s, 15s, 30s, 1m, 2m, 5m, 10m
         sessions.time-to-first-log: 15s, 30s, 1m, 2m, 5m, 10m, 20m
+        # Paying to the credit in the wallet (ADR 0039): Razorpay's payment time to our posting.
+        billing.topups.seconds-to-credit: 2s, 5s, 10s, 30s, 1m, 5m
   endpoint:
     health:
       probes:
@@ -219,6 +221,24 @@ billing:
   reconciliation:
     cron: "0 30 2 * * *"
     zone: Asia/Kolkata
+  # Free credit past its expiry gives up what's left once a day (ADR 0039, FreeCreditExpiry), in the zone above.
+  free-credit-expiry:
+    cron: "0 15 3 * * *"
+  # Razorpay (ADR 0039, docs/runbooks/payments.md): keys from the environment only, never in a file. Without a key id
+  # payments are off. A local stack points api-url at the fake Razorpay; the prod profile refuses that, test keys, and
+  # a missing webhook secret. The previous webhook secret is accepted until the time given, after a rotation.
+  razorpay:
+    api-url: ${RAZORPAY_API_URL:https://api.razorpay.com}
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+    previous-webhook-secret: ${RAZORPAY_PREVIOUS_WEBHOOK_SECRET:}
+    previous-webhook-secret-until: ${RAZORPAY_PREVIOUS_WEBHOOK_SECRET_UNTIL:}
+    timeout: 10s
+  # A top-up still pending this long after its order is abandoned (a late capture is still credited).
+  top-ups:
+    abandon-after: 24h
+    abandon-sweep-every: 10m
 
 # Real visits' vitals and JavaScript errors (ADR 0036, BrowserVitals): the folder the web builds' source maps are
 # deployed to (never served), so an error is named by our own file and line. Without one, the browser's place is kept.
@@ -403,6 +423,8 @@ retention:
     notifications: 365d
     event-publications: 7d
     reconciliation-runs: 365d
+    # Failed payments, for pausing top-ups after more than 5 in an hour (ADR 0039).
+    topup-failures: 30d
 
 # A person's own data (ADR 0037): an export is made by a job looking every export-sweep-every, kept export-keep (its
 # links to files work as long), and asked for once every export-every; deleting an account is confirmed by an email
@@ -419,6 +441,21 @@ privacy:
 # confirm before launch; the report of the privacy work lists them with the question to ask. Nothing else in the code
 # or the pages repeats them.
 legal:
+  # What IdleO credit is (ADR 0039): closed-loop, spent only on IdleO. Free credit (grants and promotions) expires this
+  # long after it's given; bought credit and give-backs for a session that went wrong never expire. LEGAL(confirm)
+  credit:
+    free-expires-after: 90d
+  # What one person may buy (ADR 0039), in paise: each top-up ₹50 to ₹10,000, at most ₹10,000 a day, and at most
+  # ₹25,000 of bought credit held at once; an account younger than 7 days, at most ₹2,000 a top-up and ₹2,000 a day.
+  # LEGAL(confirm)
+  top-ups:
+    min-paise: 5000
+    max-paise: 1000000
+    per-day-paise: 1000000
+    max-bought-balance-paise: 2500000
+    new-account-age: 7d
+    new-account-max-paise: 200000
+    new-account-per-day-paise: 200000
   retention:
     # The security log (sign-ins, failures, key and admin events, deletion and export requests, with addresses):
     # at least a year. LEGAL(confirm)

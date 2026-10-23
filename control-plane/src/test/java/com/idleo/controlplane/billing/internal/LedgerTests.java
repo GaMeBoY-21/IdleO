@@ -23,14 +23,16 @@ class LedgerTests {
     @Autowired
     JdbcTemplate jdbc;
 
-    private static LedgerTransaction grant(UUID txnId, UUID renter, long paise) {
+    /** A grant of free credit into a lot opened for it (ADR 0039), named by the transaction. */
+    private LedgerTransaction grant(UUID txnId, UUID renter, long paise) {
+        var lot = ledger.openLot(renter, CreditLot.Kind.FREE, "credit_grant", txnId, Paise.of(paise), null);
         return new LedgerTransaction(
                 txnId,
                 "credit_grant",
-                UUID.randomUUID(),
+                txnId,
                 List.of(
                         debit(Account.PROMOTIONS, null, Paise.of(paise)),
-                        credit(Account.RENTER_WALLET, renter, Paise.of(paise))));
+                        LedgerEntry.creditLot(Account.RENTER_WALLET, renter, Paise.of(paise), lot.id())));
     }
 
     private long balance(UUID renter) {
@@ -72,9 +74,21 @@ class LedgerTests {
     void aTransactionIdReusedForDifferentEntriesIsRefused() {
         var renter = UUID.randomUUID();
         var txn = UUID.randomUUID();
-        ledger.post(grant(txn, renter, 10_000));
+        var first = grant(txn, renter, 10_000);
+        ledger.post(first);
+        var different = new LedgerTransaction(
+                txn,
+                "credit_grant",
+                txn,
+                List.of(
+                        debit(Account.PROMOTIONS, null, Paise.of(5_000)),
+                        LedgerEntry.creditLot(
+                                Account.RENTER_WALLET,
+                                renter,
+                                Paise.of(5_000),
+                                first.entries().get(1).lotId())));
 
-        assertThatThrownBy(() -> ledger.post(grant(txn, renter, 20_000))).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> ledger.post(different)).isInstanceOf(IllegalStateException.class);
         assertThat(balance(renter)).isEqualTo(10_000);
     }
 
@@ -88,7 +102,7 @@ class LedgerTests {
                 "session",
                 UUID.randomUUID(),
                 List.of(
-                        debit(Account.RENTER_WALLET, renter, Paise.of(1_200)),
+                        ledger.draw(renter, Paise.of(1_200)).getFirst(),
                         credit(Account.HOST_PAYABLE, host, Paise.of(960)),
                         credit(Account.PLATFORM_REVENUE, null, Paise.of(240))));
 
@@ -100,9 +114,14 @@ class LedgerTests {
                 "session",
                 UUID.randomUUID(),
                 List.of(
-                        debit(Account.RENTER_WALLET, renter, Paise.of(1)),
+                        LedgerEntry.debitLot(
+                                Account.RENTER_WALLET,
+                                renter,
+                                Paise.of(1),
+                                settlement.entries().getFirst().lotId()),
                         credit(Account.PLATFORM_REVENUE, null, Paise.of(1))));
         assertThatThrownBy(() -> ledger.post(tooMuch)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> ledger.draw(renter, Paise.of(1))).isInstanceOf(IllegalStateException.class);
         assertThat(entries(tooMuch.txnId())).isZero();
     }
 

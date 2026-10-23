@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "BAD_REQUEST_ERROR",
+    "description": "The amount must be at least INR 1.00",
+    "source": "business",
+    "step": "payment_initiation",
+    "reason": "input_validation_failed",
+    "metadata": {},
+    "field": "amount"
+  }
+}

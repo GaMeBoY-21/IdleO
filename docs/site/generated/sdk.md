@@ -272,6 +272,10 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `TooManyNewSessions` | `too-many-new-sessions` | 429 | 6 |
 | `TooManySessions` | `too-many-sessions` | 409 | 1 |
 | `TooManyStreams` | `too-many-streams` | 429 | 1 |
+| `PaymentsUnavailable` | `payments-unavailable` | 503 | 1 |
+| `TopUpOutOfLimits` | `top-up-out-of-limits` | 422 | 1 |
+| `TooManyFailedPayments` | `too-many-failed-payments` | 429 | 1 |
+| `PaymentNotVerified` | `payment-not-verified` | 422 | 1 |
 | `HostBusy` | `host-busy` | 409 | 1 |
 | `HostRemoved` | `host-removed` | 410 | 1 |
 | `HostNoGpu` | `host-no-gpu` | 409 | 1 |

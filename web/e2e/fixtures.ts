@@ -741,7 +741,17 @@ export function account(specs: Spec[], { grant = GRANT, createdAt = "2026-09-01T
   const reservedPaise = built.reduce((sum, b) => sum + b.session.reservedPaise, 0);
   const sessions = built.map((b) => b.session);
   return {
-    wallet: { balancePaise, reservedPaise, availablePaise: balancePaise - reservedPaise },
+    // All of it free credit until a fixture buys some (ADR 0039).
+    wallet: {
+      balancePaise,
+      reservedPaise,
+      availablePaise: balancePaise - reservedPaise,
+      boughtPaise: 0,
+      freePaise: balancePaise,
+      freeExpiresAt: null,
+      refundingPaise: 0,
+      frozenPaise: 0,
+    },
     sessions,
     history: entries,
     grant,
@@ -971,11 +981,7 @@ export const movedLive = build({
 /** The wallet a single extra live session leaves Asha's account with. */
 export const walletWith = (...extra: Session[]): Wallet => {
   const reserved = asha.wallet.reservedPaise + extra.reduce((sum, s) => sum + s.reservedPaise, 0);
-  return {
-    balancePaise: asha.wallet.balancePaise,
-    reservedPaise: reserved,
-    availablePaise: asha.wallet.balancePaise - reserved,
-  };
+  return { ...asha.wallet, reservedPaise: reserved, availablePaise: asha.wallet.balancePaise - reserved };
 };
 
 /** A page of the session list, as GET /v1/sessions serves it. */

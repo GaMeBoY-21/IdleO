@@ -29,4 +29,14 @@ class ReconciliationRetention {
                             .update();
         });
     }
+
+    /** Failed payments only matter for the hour after them (the velocity rule); kept a month to see a pattern. */
+    @Bean
+    RetentionRule topUpFailuresRule(JdbcClient jdbc, RetentionPeriods periods) {
+        return RetentionRule.of(
+                "topup-failures",
+                now -> jdbc.sql("delete from billing.topup_failures where failed_at < :before")
+                        .param("before", Timestamp.from(now.minus(periods.of("topup-failures"))))
+                        .update());
+    }
 }

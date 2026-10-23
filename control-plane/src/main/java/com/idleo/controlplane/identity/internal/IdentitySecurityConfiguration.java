@@ -54,6 +54,8 @@ class IdentitySecurityConfiguration {
                 paths.matcher(HttpMethod.POST, "/v1/host-installs/{installId}/events"),
                 // The email provider's bounces and complaints (ADR 0036): its signature is its proof.
                 paths.matcher(HttpMethod.POST, "/v1/email-events/resend"),
+                // Razorpay's webhooks (ADR 0039): X-Razorpay-Signature is its proof.
+                paths.matcher(HttpMethod.POST, "/v1/payments/razorpay/webhook"),
                 // What real visits meet, sent by the pages with navigator.sendBeacon, which carries no token (ADR
                 // 0036).
                 paths.matcher(HttpMethod.POST, "/v1/vitals"),

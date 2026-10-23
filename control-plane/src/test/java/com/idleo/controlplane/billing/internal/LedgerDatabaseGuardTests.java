@@ -117,13 +117,13 @@ class LedgerDatabaseGuardTests {
     }
 
     @Test
-    void theSameTransactionAccountAndOwnerCanOnlyBePostedOnce() {
+    void theSameTransactionAccountOwnerAndLotCanOnlyBePostedOnce() {
         var txn = UUID.randomUUID();
         assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
                     insertEntry(txn, "promotions", null, 500, "debit");
                     insertEntry(txn, "promotions", null, 500, "credit");
                 }))
-                .hasMessageContaining("ledger_entries_txn_account_owner_key");
+                .hasMessageContaining("ledger_entries_txn_account_owner_lot_key");
     }
 
     @Test

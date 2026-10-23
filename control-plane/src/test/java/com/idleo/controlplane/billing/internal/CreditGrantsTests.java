@@ -1,7 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
 import static com.idleo.controlplane.billing.internal.LedgerEntry.credit;
-import static com.idleo.controlplane.billing.internal.LedgerEntry.debit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -197,7 +196,7 @@ class CreditGrantsTests {
                 "session",
                 UUID.randomUUID(),
                 List.of(
-                        debit(Account.RENTER_WALLET, user, Paise.of(400)),
+                        ledger.draw(user, Paise.of(400)).getFirst(),
                         credit(Account.HOST_PAYABLE, UUID.randomUUID(), Paise.of(320)),
                         credit(Account.PLATFORM_REVENUE, null, Paise.of(80)))));
 

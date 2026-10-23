@@ -3056,6 +3056,20 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - inbox
+  /v1/payments/razorpay/webhook:
+    post:
+      operationId: razorpayWebhookReceive
+      responses:
+        "200":
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - razorpayWebhook
   /v1/price-band:
     get:
       operationId: priceBandForGpu
@@ -3774,6 +3788,112 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - wallet
+  /v1/wallet/topups:
+    get:
+      operationId: topUpList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopUpList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - topUp
+    post:
+      operationId: topUpCreate
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TopUpRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - topUp
+  /v1/wallet/topups/{id}:
+    get:
+      operationId: topUpGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopUpResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - topUp
+  /v1/wallet/topups/{id}/confirm:
+    post:
+      operationId: topUpConfirm
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopUpResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - topUp
   /v1/wallet/transactions:
     get:
       operationId: walletTransactions
@@ -5805,6 +5925,26 @@ components:
       required:
       - requestId
       - token
+    ConfirmRequest:
+      type: object
+      properties:
+        razorpayOrderId:
+          type:
+          - string
+          - "null"
+          maxLength: 64
+          minLength: 0
+        razorpayPaymentId:
+          type: string
+          maxLength: 64
+          minLength: 0
+        razorpaySignature:
+          type: string
+          maxLength: 128
+          minLength: 0
+      required:
+      - razorpayPaymentId
+      - razorpaySignature
     ContentRuleView:
       type: object
       properties:
@@ -6407,6 +6547,11 @@ components:
       properties:
         amountPaise:
           type: integer
+          format: int64
+        boughtPaise:
+          type:
+          - integer
+          - "null"
           format: int64
         createdAt:
           type: string
@@ -7325,6 +7470,10 @@ components:
           - /problems/too-many-new-sessions
           - /problems/too-many-sessions
           - /problems/too-many-streams
+          - /problems/payments-unavailable
+          - /problems/top-up-out-of-limits
+          - /problems/too-many-failed-payments
+          - /problems/payment-not-verified
           - /problems/host-busy
           - /problems/host-removed
           - /problems/host-no-gpu
@@ -8285,6 +8434,73 @@ components:
           minLength: 0
       required:
       - pollToken
+    TopUpList:
+      type: object
+      properties:
+        topUps:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopUpResponse"
+      required:
+      - topUps
+    TopUpRequest:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      required:
+      - amountPaise
+    TopUpResponse:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        cardLast4:
+          type:
+          - string
+          - "null"
+        cardNetwork:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        currency:
+          type: string
+        failureReason:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        keyId:
+          type: string
+        method:
+          type:
+          - string
+          - "null"
+        orderId:
+          type: string
+        paidAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        status:
+          type: string
+      required:
+      - amountPaise
+      - createdAt
+      - currency
+      - id
+      - keyId
+      - orderId
+      - status
     Topic:
       type: object
       properties:
@@ -8480,12 +8696,33 @@ components:
         balancePaise:
           type: integer
           format: int64
+        boughtPaise:
+          type: integer
+          format: int64
+        freeExpiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        freePaise:
+          type: integer
+          format: int64
+        frozenPaise:
+          type: integer
+          format: int64
+        refundingPaise:
+          type: integer
+          format: int64
         reservedPaise:
           type: integer
           format: int64
       required:
       - availablePaise
       - balancePaise
+      - boughtPaise
+      - freePaise
+      - frozenPaise
+      - refundingPaise
       - reservedPaise
     YourData:
       type: object
