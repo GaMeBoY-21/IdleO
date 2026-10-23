@@ -15,6 +15,7 @@ export const REPORT_REASONS: readonly ReportReason[] = [
   { value: "didnt_start", title: "It didn't start", detail: "It never began running, or took far too long" },
   { value: "failed", title: "It failed", detail: "It stopped with an error or ended too early" },
   { value: "slow", title: "It was slow", detail: "It ran slower than the GPU should have" },
+  { value: "host_stopped", title: "The host stopped it", detail: "Its machine went away or stopped the job" },
   {
     value: "wrong_output",
     title: "The output was wrong",

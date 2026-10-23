@@ -473,12 +473,9 @@ class CreditRefunds {
                     .param("now", Timestamp.from(now()))
                     .param("id", partId)
                     .update();
-            jdbc.sql("select id from billing.invoices where topup_id = :topUpId and kind in ('tax_invoice', 'receipt')")
-                    .param("topUpId", part.topUpId())
-                    .query(UUID.class)
-                    .optional()
-                    .ifPresent(invoice ->
-                            invoices.creditNote(invoice, part.amount(), "credit refunded to where it was paid from"));
+            invoices.ofTopUp(part.topUpId())
+                    .ifPresent(invoice -> invoices.creditNote(
+                            invoice.id(), part.amount(), "credit refunded to where it was paid from"));
             finish(refund.id());
             metrics.refunded();
         });

@@ -26,6 +26,7 @@ class NotificationChoicesTests {
             "host-lost",
             "machine-offline",
             "payout",
+            "report-answered",
             "top-up-confirmed",
             "new-device-sign-in",
             "account-and-data");
@@ -73,7 +74,7 @@ class NotificationChoicesTests {
     void everyKindIsOnByDefaultAndTheMoneyAndSafetyKindsAreLocked() throws Exception {
         var items = json.readTree(current()).get("items");
 
-        assertThat(items).hasSize(14);
+        assertThat(items).hasSize(15);
         var locked = new java.util.ArrayList<String>();
         for (var item : items) {
             assertThat(item.get("email").asBoolean()).isTrue();

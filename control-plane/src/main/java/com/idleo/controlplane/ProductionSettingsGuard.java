@@ -50,7 +50,9 @@ import org.springframework.stereotype.Component;
  *   <li>no OTLP endpoint for metrics, traces or logs, one that is plain HTTP or on this machine, or any of the three
  *       exports turned off ({@link #OTLP_ENDPOINTS}, ADR 0036);
  *   <li>no backup storage to watch ({@code backups.storage.*}), one that is plain HTTP or on this machine, or
- *       {@code backups.create-bucket}, development's (ADR 0036).
+ *       {@code backups.create-bucket}, development's (ADR 0036);
+ *   <li>Razorpay's test keys, an API other than Razorpay's (the fake), live keys without a webhook secret or without
+ *       the GSTIN, legal name and address invoices carry, or TCS on (ADR 0039); and live keys anywhere but prod.
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -100,6 +102,14 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
         var environment = beanFactory.getBean(Environment.class);
         if (!environment.matchesProfiles("prod")) {
+            // Live keys take real money: only production may hold them (ADR 0039).
+            if (Binder.get(environment)
+                    .bind("billing.razorpay.key-id", String.class)
+                    .orElse("")
+                    .strip()
+                    .startsWith("rzp_live_")) {
+                throw new IllegalStateException("Refusing to start with Razorpay's live keys outside the prod profile");
+            }
             return;
         }
         var problems = problems(environment);
@@ -234,12 +244,48 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         if (binder.bind("backups.create-bucket", Boolean.class).orElse(false)) {
             problems.add("backups.create-bucket is true");
         }
+        problems.addAll(paymentProblems(binder));
         new TreeMap<>(PRODUCTION_LIMITS).forEach((name, ceiling) -> {
             var value = binder.bind(name, Integer.class);
             if (value.isBound() && value.get() > ceiling) {
                 problems.add(name + " is " + value.get() + ", above production's " + ceiling);
             }
         });
+        return problems;
+    }
+
+    /**
+     * Money in (ADR 0039): production may run without Razorpay (payments off), but with a key only live keys, Razorpay's
+     * own API, a webhook secret, and a GSTIN, legal name and address to put on the invoices; and never TCS, which
+     * isn't built.
+     */
+    static List<String> paymentProblems(Binder binder) {
+        var problems = new ArrayList<String>();
+        var apiUrl = binder.bind("billing.razorpay.api-url", String.class).orElse("https://api.razorpay.com");
+        if (!apiUrl.strip().replaceAll("/+$", "").equals("https://api.razorpay.com")) {
+            problems.add("billing.razorpay.api-url " + apiUrl + " isn't Razorpay's");
+        }
+        if (binder.bind("legal.invoicing.tcs", Boolean.class).orElse(false)) {
+            problems.add("legal.invoicing.tcs is true, which isn't built");
+        }
+        var keyId =
+                binder.bind("billing.razorpay.key-id", String.class).orElse("").strip();
+        if (keyId.isEmpty()) {
+            return problems;
+        }
+        if (!keyId.startsWith("rzp_live_")) {
+            problems.add("billing.razorpay.key-id isn't a live key");
+        }
+        if (binder.bind("billing.razorpay.webhook-secret", String.class)
+                .orElse("")
+                .isBlank()) {
+            problems.add("billing.razorpay.webhook-secret is missing");
+        }
+        for (var field : List.of("legal.invoicing.gstin", "legal.invoicing.legal-name", "legal.invoicing.address")) {
+            if (binder.bind(field, String.class).orElse("").isBlank()) {
+                problems.add(field + " is missing, and live payments need it on their invoices");
+            }
+        }
         return problems;
     }
 

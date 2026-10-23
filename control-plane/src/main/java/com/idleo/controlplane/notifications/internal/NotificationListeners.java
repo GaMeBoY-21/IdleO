@@ -8,6 +8,7 @@ import com.idleo.controlplane.sessions.SessionNeverRan;
 import com.idleo.controlplane.sessions.SessionOutcomes;
 import com.idleo.controlplane.sessions.SessionOutcomes.Outcome;
 import com.idleo.controlplane.sessions.SessionSettled;
+import com.idleo.controlplane.trust.ReportResolved;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -98,6 +99,20 @@ class NotificationListeners {
         } else if ("FAILED".equals(session.state())) {
             notifier.tell(session.renterId(), NotificationKind.SESSION_FAILED, key, messages.failed(session, 0));
         }
+    }
+
+    /** The renter's report on a session was answered: once a report. */
+    @ApplicationModuleListener
+    void on(ReportResolved event) {
+        var session = outcome(event.sessionId());
+        if (session == null) {
+            return;
+        }
+        notifier.tell(
+                event.renterId(),
+                NotificationKind.REPORT_ANSWERED,
+                "report-answered:" + event.disputeId(),
+                messages.reportAnswered(session, event.refundPaise(), event.reason()));
     }
 
     /** At most one message and one email for each session, however often its credit dips under 10 minutes. */

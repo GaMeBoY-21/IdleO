@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ending, ENDINGS } from "./endings";
-import { creditKind } from "./labels";
+import { CREDIT_KINDS, creditKind } from "./labels";
 
 const root = new URL("../../../", import.meta.url).pathname;
 
@@ -57,6 +57,16 @@ describe("the renter's words", () => {
     expect(creditKind("session_charge")).toBe("Session charge");
     expect(creditKind("session_refund")).toBe("Refund for lost host time");
     expect(creditKind("dispute_refund")).toBe("Refund after your report");
+  });
+
+  it("have words for every kind the control plane names in a renter's history", () => {
+    const wallet = readFileSync(
+      join(root, "control-plane/src/main/java/com/idleo/controlplane/billing/internal/WalletController.java"),
+      "utf8",
+    );
+    const named = [...wallet.matchAll(/case [\w.]+ -> "([a-z_]+)";/g)].map((match) => match[1]);
+    expect(named.length).toBeGreaterThan(5);
+    expect(CREDIT_KINDS).toEqual(expect.arrayContaining(named));
   });
 
   it("have a sentence and a next step for every code a session can end with, in the control plane and the agent", () => {

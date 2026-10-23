@@ -238,6 +238,11 @@ billing:
   # Refund parts Razorpay hasn't accepted yet (it couldn't be reached) are sent again this often (ADR 0039).
   refunds:
     send-every: 1m
+  # Razorpay against the ledger (ADR 0039, PaymentReconciliation): yesterday's payments and refunds, at 03:15 in India,
+  # after Razorpay's day has closed; every instance reads the open count once a minute for its gauge.
+  payment-reconciliation:
+    cron: "0 15 3 * * *"
+    count-every: 1m
   # monthly_usage's tax invoices for the month before, on the first of each month, in India's time (ADR 0039).
   invoices:
     usage-cron: "0 0 4 1 * *"

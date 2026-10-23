@@ -373,6 +373,18 @@ public final class People {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amountPaise\":2000,\"note\":\"I bought too much, " + marker + "\"}"))
                 .andExpect(status().isCreated());
+        // A chargeback on the payment, raised and won: the frozen credit came back.
+        var disputeId = "disp_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14);
+        for (var event : List.of("payment.dispute.created", "payment.dispute.won")) {
+            var dispute = razorpay.disputeEvent(
+                    event, disputeId, paid.paymentId(), 1_500, Instant.parse("2026-12-01T18:30:00Z"));
+            mvc.perform(post("/v1/payments/razorpay/webhook")
+                            .header("X-Razorpay-Signature", dispute.signature())
+                            .header("x-razorpay-event-id", dispute.eventId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(dispute.body()))
+                    .andExpect(status().isOk());
+        }
         var failedTopUp = JSON.readTree(mvc.perform(post("/v1/wallet/topups")
                         .header("Authorization", user.bearer())
                         .header("Idempotency-Key", "topup-failed-" + marker)

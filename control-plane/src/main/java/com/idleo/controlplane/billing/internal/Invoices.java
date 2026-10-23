@@ -445,6 +445,15 @@ class Invoices {
                 .optional();
     }
 
+    /** The tax invoice or receipt issued for a top-up, which its credit notes go against. */
+    Optional<Invoice> ofTopUp(UUID topUpId) {
+        return jdbc.sql(
+                        "select * from billing.invoices where topup_id = :topUpId and kind in ('tax_invoice', 'receipt')")
+                .param("topUpId", topUpId)
+                .query((rs, n) -> invoice(rs))
+                .optional();
+    }
+
     Optional<Invoice> find(UUID id) {
         return jdbc.sql("select * from billing.invoices where id = :id")
                 .param("id", id)

@@ -23,6 +23,7 @@ enum NotificationKind {
     AGENT_UPDATE_NEEDED("agent-update-needed", "Host update needed", null, true),
     WEEKLY_EARNINGS("weekly-earnings", "Weekly earnings", null, true),
     PAYOUT("payout", "Payout sent or failed", "Payouts are your money.", true),
+    REPORT_ANSWERED("report-answered", "Report answered", "It's about money you were charged.", true),
     TOP_UP_CONFIRMED("top-up-confirmed", "Top-up confirmed", "Top-ups are your money.", true),
     NEW_DEVICE_SIGN_IN("new-device-sign-in", "New device sign-in", "It protects your account.", true),
     ACCOUNT_AND_DATA("account-and-data", "Your account and data", "It's about your account and your data.", true);

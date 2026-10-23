@@ -39,7 +39,12 @@ public final class TestAdmins {
 
     /** A new user, made an admin, enrolled, with an admin session; their token outlives the tests' clock moves. */
     public static TestAdmin signIn(MockMvc mvc, JdbcTemplate jdbc, Clock clock) throws Exception {
-        var user = TestUsers.signUpLasting(mvc, Duration.ofHours(12));
+        return signIn(mvc, jdbc, clock, Duration.ofHours(12));
+    }
+
+    /** The same, with a token that outlives {@code lifetime}, for tests that move the clock by days. */
+    public static TestAdmin signIn(MockMvc mvc, JdbcTemplate jdbc, Clock clock, Duration lifetime) throws Exception {
+        var user = TestUsers.signUpLasting(mvc, lifetime);
         grant(jdbc, user.id());
         var enrolment =
                 JSON.readTree(mvc.perform(post("/admin/v1/second-factor").header("Authorization", user.bearer()))

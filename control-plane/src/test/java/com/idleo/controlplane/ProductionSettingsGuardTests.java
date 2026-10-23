@@ -290,6 +290,50 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
+    void prodTakesPaymentsOnlyWithLiveKeysRazorpaysApiAWebhookSecretAndWhatInvoicesNeed() {
+        var live = new String[] {
+            "identity.issuers[0].issuer-uri=" + GOOGLE,
+            "billing.razorpay.key-id=rzp_live_IdleoNotARealKey",
+            "billing.razorpay.key-secret=" + PRODUCTION_KEY,
+            "billing.razorpay.webhook-secret=" + PRODUCTION_KEY,
+            "legal.invoicing.gstin=29AAGCB7383J1Z4",
+            "legal.invoicing.legal-name=IdleO Technologies Private Limited",
+            "legal.invoicing.address=A real address"
+        };
+        prod(live).run(context -> assertThat(context).hasNotFailed());
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context)
+                        .as("without Razorpay, payments are off")
+                        .hasNotFailed());
+        for (var setting : new String[][] {
+            {"billing.razorpay.key-id=rzp_test_IdleoNotARealKey", "billing.razorpay.key-id isn't a live key"},
+            {"billing.razorpay.webhook-secret=", "billing.razorpay.webhook-secret is missing"},
+            {"billing.razorpay.api-url=http://localhost:8091", "billing.razorpay.api-url http://localhost:8091"},
+            {"legal.invoicing.gstin=", "legal.invoicing.gstin is missing"},
+            {"legal.invoicing.legal-name=", "legal.invoicing.legal-name is missing"},
+            {"legal.invoicing.address=", "legal.invoicing.address is missing"},
+            {"legal.invoicing.tcs=true", "legal.invoicing.tcs is true"}
+        }) {
+            prod(live)
+                    .withPropertyValues(setting[0])
+                    .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+        }
+    }
+
+    @Test
+    void liveKeysAreRefusedOutsideProd() {
+        runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("local"))
+                .withPropertyValues("billing.razorpay.key-id=rzp_live_IdleoNotARealKey")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("live keys outside the prod profile"));
+        runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("local"))
+                .withPropertyValues("billing.razorpay.key-id=rzp_test_IdleoNotARealKey")
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
     void prodRefusesASenderOffOurDomainAndEmailWithoutItsSecrets() {
         for (var setting : new String[][] {
             {"notifications.email.from=IdleO <alerts@gmail.com>", "isn't on the web app's domain"},

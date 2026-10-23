@@ -6,6 +6,10 @@ import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.RequiresAcceptedTerms;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -90,6 +94,13 @@ class TopUpController {
 
     @PostMapping
     @RequiresAcceptedTerms
+    @ApiResponse(
+            responseCode = "201",
+            description =
+                    "The new top-up, with Razorpay's order for Checkout; a repeat with the same key returns the first"
+                            + " response",
+            headers = @Header(name = "Location", description = "The top-up's URL", schema = @Schema(type = "string")),
+            content = @Content(schema = @Schema(implementation = TopUpResponse.class)))
     ResponseEntity<String> create(
             @AuthenticationPrincipal CurrentUser user,
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String key,

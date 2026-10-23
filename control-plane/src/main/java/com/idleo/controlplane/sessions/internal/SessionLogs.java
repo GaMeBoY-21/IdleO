@@ -1,6 +1,7 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.agentgateway.SessionLogProgress;
+import com.idleo.controlplane.sessions.SessionLogsForReview;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
  * storage. Only the renter reads them; hosts never do.
  */
 @Component
-class SessionLogs implements SessionLogProgress {
+class SessionLogs implements SessionLogProgress, SessionLogsForReview {
 
     private final JdbcClient jdbc;
     private final SessionStorage storage;
@@ -129,6 +130,17 @@ class SessionLogs implements SessionLogProgress {
     }
 
     /** Where a client continues from: the last chunk returned, or where it already was. */
+    @Override
+    public SessionLogsForReview.Page page(UUID sessionId, @Nullable String cursor, int limit) {
+        var after = cursor == null ? new int[] {1, 0} : Cursors.chunk(cursor);
+        var page = page(sessionId, after[0], after[1], limit);
+        return new SessionLogsForReview.Page(
+                page.chunks().stream()
+                        .map(chunk -> new SessionLogsForReview.Chunk(chunk.attempt(), chunk.seq(), chunk.text()))
+                        .toList(),
+                page.more() ? cursorAfter(page, cursor) : null);
+    }
+
     static @Nullable String cursorAfter(Page page, @Nullable String given) {
         if (page.chunks().isEmpty()) {
             return given;

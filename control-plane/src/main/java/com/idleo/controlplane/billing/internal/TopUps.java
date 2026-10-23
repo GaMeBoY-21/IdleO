@@ -422,6 +422,30 @@ class TopUps {
                 .list();
     }
 
+    /**
+     * For the admin console: top-ups by the renter's id, the top-up's own id, or Razorpay's order or payment id; the
+     * newest first.
+     */
+    List<TopUp> search(String query, int limit) {
+        var text = query.strip();
+        UUID id = null;
+        try {
+            id = UUID.fromString(text);
+        } catch (IllegalArgumentException notAnId) {
+            // An order or payment id.
+        }
+        return jdbc.sql("""
+                        select * from billing.topups
+                        where user_id = :id or id = :id or order_id = :text or payment_id = :text
+                        order by created_at desc, id desc limit :limit
+                        """)
+                .param("id", id)
+                .param("text", text)
+                .param("limit", limit)
+                .query(TopUps::topUp)
+                .list();
+    }
+
     private TopUp lock(UUID id) {
         return jdbc.sql("select * from billing.topups where id = :id for update")
                 .param("id", id)

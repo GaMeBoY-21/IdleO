@@ -98,6 +98,11 @@ class WalletController {
             case SessionRefundService.REFUND_REF -> "dispute_refund";
             case FreeCreditExpiry.EXPIRY_REF -> "free_credit_expired";
             case BillingPersonalData.FORFEIT_REF -> "free_credit_forfeited";
+            case TopUps.TOPUP_REF -> "top_up";
+            case CreditRefunds.APPROVE_REF -> "refund_to_payment";
+            case CreditRefunds.FAILED_REF -> "refund_returned";
+            case Chargebacks.FREEZE_REF -> "frozen_for_chargeback";
+            case Chargebacks.SETTLE_REF -> "chargeback_settled";
             default -> refType;
         };
     }

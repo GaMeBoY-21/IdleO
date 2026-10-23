@@ -34,6 +34,16 @@ const KINDS: Record<string, string> = {
   session_charge: "Session charge",
   session_refund: "Refund for lost host time",
   dispute_refund: "Refund after your report",
+  free_credit_expired: "Free credit expired",
+  free_credit_forfeited: "Free credit given up",
+  top_up: "Credit added",
+  refund_to_payment: "Refunded to where you paid",
+  refund_returned: "Refund couldn't be sent; credit back",
+  frozen_for_chargeback: "Held for a disputed payment",
+  chargeback_settled: "Disputed payment settled",
 };
+
+/** Every kind of credit movement with words of its own (a test reads the control plane's list against it). */
+export const CREDIT_KINDS: readonly string[] = Object.keys(KINDS);
 
 export const creditKind = (kind: string) => KINDS[kind] ?? readable(kind);

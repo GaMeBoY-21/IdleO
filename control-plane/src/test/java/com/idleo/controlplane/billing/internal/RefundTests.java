@@ -3,7 +3,6 @@ package com.idleo.controlplane.billing.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,7 +10,6 @@ import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestAdmins;
 import com.idleo.controlplane.TestRazorpayConfiguration;
-import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
 import com.idleo.controlplane.razorpay.FakeRazorpay;
 import java.time.Duration;
@@ -56,37 +54,15 @@ class RefundTests {
     }
 
     private TestUser renter() throws Exception {
-        var user = TestUsers.signUpLasting(mvc, Duration.ofDays(2));
-        jdbc.update("update identity.users set created_at = created_at - interval '30 days' where id = ?", user.id());
-        mvc.perform(put("/v1/wallet/billing-details")
-                        .header("Authorization", user.bearer())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"stateCode\":\"29\"}"))
-                .andExpect(status().isOk());
-        return user;
+        return Buyers.renter(mvc, jdbc, Duration.ofDays(2));
     }
 
     /** A paid top-up; returns its payment id. */
     private String buy(TestUser user, long paise) throws Exception {
-        var topUp = json.readTree(mvc.perform(post("/v1/wallet/topups")
-                        .header("Authorization", user.bearer())
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"amountPaise\":" + paise + "}"))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString());
-        var paid = RAZORPAY.pay(topUp.get("orderId").asString(), "upi");
-        mvc.perform(post("/v1/wallet/topups/" + topUp.get("id").asString() + "/confirm")
-                        .header("Authorization", user.bearer())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"razorpayPaymentId\":\"%s\",\"razorpaySignature\":\"%s\"}"
-                                .formatted(paid.paymentId(), paid.signature())))
-                .andExpect(jsonPath("$.status").value("paid"));
+        var paymentId = Buyers.buy(mvc, RAZORPAY, user, paise);
         // Bought a minute apart, so "newest first" means something.
         clock.advance(Duration.ofMinutes(1));
-        return paid.paymentId();
+        return paymentId;
     }
 
     private JsonNode ask(TestUser user, String body) throws Exception {
@@ -101,19 +77,11 @@ class RefundTests {
     }
 
     private long account(String account, UUID owner) {
-        return jdbc.queryForObject(
-                "select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0)"
-                        + " from billing.ledger_entries where account = ? and owner_id = ?",
-                Long.class,
-                account,
-                owner);
+        return Buyers.account(jdbc, account, owner);
     }
 
     private long bought(UUID user) {
-        return jdbc.queryForObject(
-                "select coalesce(sum(remaining_paise), 0) from billing.credit_lots where user_id = ? and kind = 'purchased'",
-                Long.class,
-                user);
+        return Buyers.bought(jdbc, user);
     }
 
     @Test

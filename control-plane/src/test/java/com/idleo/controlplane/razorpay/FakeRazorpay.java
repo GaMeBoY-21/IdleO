@@ -75,6 +75,9 @@ public final class FakeRazorpay implements AutoCloseable {
 
     public volatile long webhookDelayMillis;
 
+    /** Razorpay's clock, for the {@code created_at} it stamps; a test may share the control plane's. */
+    public volatile java.time.Clock clock = java.time.Clock.systemUTC();
+
     public FakeRazorpay(int port) {
         server = new WireMockServer(options().port(port).extensions(new Behaviour()));
         server.start();
@@ -138,6 +141,22 @@ public final class FakeRazorpay implements AutoCloseable {
         return orders.get(orderId);
     }
 
+    /** An order made outside our API (a payment page in Razorpay's dashboard, say): returns its id. */
+    public String outsideOrder(long amount) {
+        var order = sample("api-order-create");
+        order.put("id", "order_" + nextId())
+                .put("amount", amount)
+                .put("amount_due", amount)
+                .put("amount_paid", 0)
+                .put("attempts", 0)
+                .put("currency", "INR")
+                .put("receipt", "outside_" + nextId())
+                .put("status", "created")
+                .put("created_at", clock.instant().getEpochSecond());
+        orders.put(text(order, "id"), order);
+        return text(order, "id");
+    }
+
     /** The orders made, oldest first. */
     public List<ObjectNode> orders() {
         var all = new ArrayList<>(orders.values());
@@ -171,6 +190,7 @@ public final class FakeRazorpay implements AutoCloseable {
         payments.clear();
         refunds.clear();
         refundOutcome = "processed";
+        clock = java.time.Clock.systemUTC();
     }
 
     /** Checkout's signature: HMAC-SHA256 of {@code order_id|payment_id} under the key secret. */
@@ -211,7 +231,7 @@ public final class FakeRazorpay implements AutoCloseable {
                     .put("receipt", text(stored, "receipt"))
                     .put("status", "paid");
         }
-        root.put("created_at", Instant.now().getEpochSecond());
+        root.put("created_at", clock.instant().getEpochSecond());
         return signed(root, WEBHOOK_SECRET);
     }
 
@@ -261,7 +281,10 @@ public final class FakeRazorpay implements AutoCloseable {
         if ("payment.dispute.lost".equals(event)) {
             dispute.put("amount_deducted", amount);
         }
-        ((ObjectNode) dispute.path("evidence")).put("amount", amount);
+        // The documented action_required sample carries no evidence.
+        if (dispute.path("evidence").isObject()) {
+            ((ObjectNode) dispute.path("evidence")).put("amount", amount);
+        }
         return signed(root, WEBHOOK_SECRET);
     }
 
@@ -314,7 +337,7 @@ public final class FakeRazorpay implements AutoCloseable {
                 .put("status", status)
                 .put("captured", "captured".equals(status))
                 .put("amount_refunded", 0)
-                .put("created_at", Instant.now().getEpochSecond());
+                .put("created_at", clock.instant().getEpochSecond());
         payment.set("notes", order.path("notes"));
         payment.putNull("refund_status");
         payments.put(id, payment);
@@ -459,7 +482,7 @@ public final class FakeRazorpay implements AutoCloseable {
                     .put("currency", body.path("currency").asString())
                     .put("receipt", receipt)
                     .put("status", "created")
-                    .put("created_at", Instant.now().getEpochSecond());
+                    .put("created_at", clock.instant().getEpochSecond());
             order.set("notes", body.path("notes"));
             orders.put(text(order, "id"), order);
             return json(200, order);
@@ -492,7 +515,7 @@ public final class FakeRazorpay implements AutoCloseable {
                             "failed".equals(refundOutcome)
                                     ? "failed"
                                     : "processed".equals(refundOutcome) ? "processed" : "pending")
-                    .put("created_at", Instant.now().getEpochSecond());
+                    .put("created_at", clock.instant().getEpochSecond());
             refund.set("notes", body.path("notes"));
             refunds.put(text(refund, "id"), refund);
             if (!"failed".equals(refundOutcome)) {

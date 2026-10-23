@@ -1,0 +1,56 @@
+# Money in (ADR 0039, docs/runbooks/payments.md): Razorpay and the ledger agree, webhooks are ours, payments go
+# through, and a chargeback is seen the day it opens. Same format and rules as platform.yaml.
+groups:
+  - name: payments
+    rules:
+      - alert: PaymentMismatch
+        # Any disagreement between Razorpay and our ledger that nobody has closed. Every instance reads the same count
+        # from the database, so the largest is the count.
+        expr: max(billing_payments_reconciliation_open{job="control-plane"}) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | printf "%.0f" }} disagreements between Razorpay and our ledger are open.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payment-mismatch
+
+      - alert: WebhookSignaturesFailing
+        # More than 5 webhooks or Checkout answers in 15 minutes with a signature that isn't Razorpay's: a secret that
+        # was rotated on one side only, or someone forging them.
+        expr: sum(increase(billing_payments_signature_failures_total{job="control-plane"}[15m])) > 5
+        labels:
+          severity: page
+        annotations:
+          summary: 'About {{ printf "%.0f" $value }} payment signatures failed in the last 15 minutes.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#webhook-signatures-failing
+
+      - alert: PaymentsFailing
+        # More than 30% of the payments in the last hour failed, once at least 10 were tried.
+        expr: |
+          (
+            sum(increase(billing_topups_failed_total{job="control-plane"}[1h]))
+            /
+            (
+              sum(increase(billing_topups_failed_total{job="control-plane"}[1h]))
+              + sum(increase(billing_topups_paid_total{job="control-plane"}[1h]))
+            )
+          ) > 0.3
+          and
+          (
+            sum(increase(billing_topups_failed_total{job="control-plane"}[1h]))
+            + sum(increase(billing_topups_paid_total{job="control-plane"}[1h]))
+          ) >= 10
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of the payments in the last hour failed.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payments-failing
+
+      - alert: ChargebackOpened
+        # A renter's bank disputed one of our payments: evidence is due by a date (the admin console's Chargebacks).
+        expr: sum(increase(billing_chargebacks_total{job="control-plane", event="opened"}[1h])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: 'A chargeback was opened on a payment; evidence is due in Razorpay''s dashboard.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#chargeback-opened

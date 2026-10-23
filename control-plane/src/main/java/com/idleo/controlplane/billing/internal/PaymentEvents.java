@@ -28,13 +28,21 @@ class PaymentEvents {
 
     private final TopUps topUps;
     private final CreditRefunds refunds;
+    private final Chargebacks chargebacks;
     private final RazorpayClient razorpay;
     private final JdbcClient jdbc;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
 
-    PaymentEvents(TopUps topUps, CreditRefunds refunds, RazorpayClient razorpay, JdbcClient jdbc, Clock clock) {
+    PaymentEvents(
+            TopUps topUps,
+            CreditRefunds refunds,
+            Chargebacks chargebacks,
+            RazorpayClient razorpay,
+            JdbcClient jdbc,
+            Clock clock) {
         this.refunds = refunds;
+        this.chargebacks = chargebacks;
         this.topUps = topUps;
         this.razorpay = razorpay;
         this.jdbc = jdbc;
@@ -74,6 +82,13 @@ class PaymentEvents {
             case "payment.failed" -> failed(payment);
             case "refund.processed", "refund.failed" ->
                 refunded(payload.path("refund").path("entity"));
+            case "payment.dispute.created",
+                    "payment.dispute.under_review",
+                    "payment.dispute.action_required",
+                    "payment.dispute.won",
+                    "payment.dispute.lost",
+                    "payment.dispute.closed" ->
+                chargebacks.fromWebhook(payload.path("dispute").path("entity"));
             default -> log.info("Razorpay event {} ({}) needs nothing from us", id, event);
         }
         record(id, event, payload);

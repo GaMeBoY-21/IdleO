@@ -86,6 +86,7 @@ export const notificationChoices = (): { items: Notification[] } => ({
     choice("agent-update-needed", "Host update needed"),
     choice("weekly-earnings", "Weekly earnings"),
     choice("payout", "Payout sent or failed", "Payouts are your money."),
+    choice("report-answered", "Report answered", "It's about money you were charged."),
     choice("top-up-confirmed", "Top-up confirmed", "Top-ups are your money."),
     choice("new-device-sign-in", "New device sign-in", "It protects your account."),
     choice("account-and-data", "Your account and data", "It's about your account and your data."),

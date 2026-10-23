@@ -334,6 +334,45 @@ class DisputeTests {
     }
 
     @Test
+    void theHostStoppedItIsAReasonAndAnAdminMayFlagTheHostAndReadTheLogAudited() throws Exception {
+        var sessionId = chargedSession();
+        var id = reported(sessionId, "host_stopped", "It stopped halfway, twice.");
+
+        mvc.perform(admin.as(get("/admin/v1/disputes/" + id + "/log")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.chunks").isArray())
+                .andExpect(jsonPath("$.nextCursor").doesNotExist());
+        assertThat(audited("dispute.log_read", id)).isOne();
+
+        mvc.perform(admin.as(body(
+                        post("/admin/v1/disputes/" + id + "/refund"),
+                        "{\"amountPaise\":120,\"reason\":\"The host stopped it twice.\",\"flagHost\":true}")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dispute.state").value("refunded"))
+                .andExpect(jsonPath("$.hostFlags.length()").value(1))
+                .andExpect(jsonPath("$.hostFlags[0].disputeId").value(id.toString()))
+                .andExpect(jsonPath("$.hostFlags[0].reason").value("The host stopped it twice."));
+        mvc.perform(admin.as(get("/admin/v1/disputes/host-flags?host=" + hostId)))
+                .andExpect(jsonPath("$.flags.length()").value(1));
+        assertThat(jdbcTemplate.queryForObject(
+                        "select after ->> 'flaggedHost' from identity.audit_log where action = 'dispute.refund'"
+                                + " and target_id = ?",
+                        String.class,
+                        id.toString()))
+                .isEqualTo(hostId.toString());
+        // The give-back is free credit that never expires (ADR 0039).
+        assertThat(jdbcTemplate.queryForObject(
+                        "select count(*) from billing.credit_lots where user_id = ? and kind = 'free'"
+                                + " and expires_at is null and amount_paise = 120",
+                        Integer.class,
+                        renter.id()))
+                .isOne();
+        // The host's owner sees nothing of it.
+        mvc.perform(get("/admin/v1/disputes/host-flags?host=" + hostId).header("Authorization", owner.bearer()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void aRefundIsNeverMoreThanWasChargedAndAReportIsResolvedOnce() throws Exception {
         var sessionId = chargedSession();
         var id = reported(sessionId, "charged_wrong", "I was charged twice.");

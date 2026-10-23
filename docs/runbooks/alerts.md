@@ -164,3 +164,35 @@ Two alerts share this section.
 - A bad entry: clear every item it stopped (that reinstates the account and refunds the session), then take the entry out and ship a new distribution (docs/runbooks/abuse.md, "Changing the blocklist"). Until the runner updates, the same stops go on happening on laptops that haven't.
 - An attack: confirm the items, ban the accounts (a ban is lifted only by clearing its item), and look at the host if every stop was on one machine.
 - Say what happened to anyone who wrote in: docs/runbooks/abuse.md has the words for a renter and for a host.
+
+## Payment mismatch
+
+**Means:** the payment reconciliation (ADR 0039) found Razorpay and our ledger disagreeing about a payment or a refund, and nobody has closed the item. It runs every night at 03:15 India time for the day before, and when an admin presses Run in the console. Kinds: a payment or refund Razorpay has and we don't (`missing_ours`), one we have and Razorpay doesn't (`missing_theirs`), a different amount (`amount`), a different state (`status`), a captured payment no top-up was credited for (`captured_not_credited`; the reconciliation has credited it already if the payment checks out), and a payment authorised but not captured (`authorized_not_captured`; never credited).
+
+**Check first:** the admin console's Money, Reconciliation: each open item with both sides' amounts and states and Razorpay's id. `billing_payments_reconciliation_open` is the count. Then Razorpay's dashboard for that id.
+
+**Do:** docs/runbooks/payments.md, "Reconciliation", says what each kind needs. Once put right, the next run marks it fixed by itself; an item that needs nothing (an authorised payment Razorpay will refund by itself) is accepted with a reason.
+
+## Webhook signatures failing
+
+**Means:** more than 5 Razorpay webhooks, or Checkout answers, in 15 minutes carried a signature that isn't Razorpay's under our secret. Nothing was credited for them: a payment is credited only when its signature checks out, or when we fetched it from Razorpay ourselves.
+
+**Check first:** `billing_payments_signature_failures_total` by `source` (`webhook` or `checkout`). Webhooks only, all at once: the webhook secret was changed in Razorpay's dashboard and not in `RAZORPAY_WEBHOOK_SECRET`, or the other way round. A trickle from many places: someone sending forged ones.
+
+**Do:** a rotation: docs/runbooks/payments.md, "Rotating the webhook secret" (the previous secret is accepted until the time you set). Forged ones: nothing is at risk; note the source addresses from the load balancer's log. Payments still arrive by Checkout and the reconciliation in the meantime.
+
+## Payments failing
+
+**Means:** more than 30% of the payments in the last hour failed, once at least 10 were tried. Failures are counted by method.
+
+**Check first:** `billing_topups_failed_total` by `method`. One method only (UPI, say) points at Razorpay or the banks: Razorpay's status page. Every method: our side, the Checkout script not loading (the Credit page's policy) or orders refused (`payments-unavailable` in the API's errors).
+
+**Do:** Razorpay's side: wait, and tell renters on the status page. Ours: docs/runbooks/payments.md, "Payments failing".
+
+## Chargeback opened
+
+**Means:** a renter's bank disputed one of our payments (Razorpay's `payment.dispute.created`). The renter's bought credit, up to the disputed amount, is frozen until it ends. Evidence must reach Razorpay by the date the dispute gives, or it's lost.
+
+**Check first:** the admin console's Money, Chargebacks: the dispute, its due date, the payment, and the sessions its credit paid for, each with its metering and log.
+
+**Do:** docs/runbooks/payments.md, "Chargebacks": evidence is submitted in Razorpay's dashboard, never from here. Lost, the account is suspended pending review.

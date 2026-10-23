@@ -2,11 +2,13 @@ package com.idleo.controlplane.trust.internal;
 
 import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.billing.SessionRefunds;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.sessions.SessionLogsForReview;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -49,6 +51,7 @@ class AdminDisputesController {
     private final SessionRefunds refunds;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
+    private final SessionLogsForReview logs;
 
     AdminDisputesController(
             Disputes disputes,
@@ -56,7 +59,9 @@ class AdminDisputesController {
             Ratings ratings,
             SessionRefunds refunds,
             AuditTrail audit,
-            JdbcClient jdbc) {
+            JdbcClient jdbc,
+            SessionLogsForReview logs) {
+        this.logs = logs;
         this.disputes = disputes;
         this.sessions = sessions;
         this.ratings = ratings;
@@ -112,10 +117,23 @@ class AdminDisputesController {
     /** The session's rating, if its renter gave one. */
     record AdminDisputeRating(int stars, @Nullable String comment, Instant ratedAt) {}
 
+    /** A mark an admin put on a host's record when resolving a report on one of its sessions (ADR 0039). */
+    record AdminHostFlag(UUID id, UUID hostId, UUID disputeId, String reason, String flaggedBy, Instant createdAt) {}
+
+    record AdminHostFlags(List<AdminHostFlag> flags) {}
+
+    /** @param hostFlags every flag on the session's host's record, the newest first, this report's included */
     record AdminDispute(
             AdminDisputeSummary dispute,
             AdminDisputeSession session,
-            @Nullable AdminDisputeRating rating) {}
+            @Nullable AdminDisputeRating rating,
+            List<AdminHostFlag> hostFlags) {}
+
+    /** A page of the session's log, as the renter reads it. */
+    record AdminDisputeLogChunk(int attempt, int seq, String text) {}
+
+    record AdminDisputeLog(
+            List<AdminDisputeLogChunk> chunks, @Nullable String nextCursor) {}
 
     /**
      * @param amountPaise refunded to the renter's credit: more than zero, at most what the session cost net
@@ -123,9 +141,25 @@ class AdminDisputesController {
      */
     record AdminRefund(
             @NotNull @Min(1) Long amountPaise,
-            @NotBlank @Size(min = 5, max = 500) String reason) {
+            @NotBlank @Size(min = 5, max = 500) String reason,
+            @Nullable Boolean flagHost) {
 
         AdminRefund {
+            reason = reason == null ? null : reason.strip();
+        }
+    }
+
+    /**
+     * @param reason what the renter reads, 5 to 500 characters; it's the audit row's reason too
+     * @param flagHost whether to mark the session's host's record too
+     */
+    record AdminNoRefund(
+            @NotBlank @Size(min = 5, max = 500) @NoContactDetails
+            String reason,
+
+            @Nullable Boolean flagHost) {
+
+        AdminNoRefund {
             reason = reason == null ? null : reason.strip();
         }
     }
@@ -191,7 +225,50 @@ class AdminDisputesController {
                                 .map(host -> new AdminHostKept(
                                         host.hostId(), host.amount().value()))
                                 .toList()),
-                rated == null ? null : new AdminDisputeRating(rated.stars(), rated.comment(), rated.ratedAt()));
+                rated == null ? null : new AdminDisputeRating(rated.stars(), rated.comment(), rated.ratedAt()),
+                ended.hostId() == null ? List.of() : flags(ended.hostId()));
+    }
+
+    /**
+     * The session's log, for judging the report (ADR 0039): only through a report, and each first page an audit row
+     * naming the admin.
+     */
+    @GetMapping("/{id}/log")
+    AdminDisputeLog log(
+            @AuthenticationPrincipal CurrentUser admin,
+            @PathVariable UUID id,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(defaultValue = "200") int limit) {
+        if (limit < 1 || limit > 1000) {
+            throw ApiProblem.invalid("limit", "must be from 1 to 1000.");
+        }
+        var sessionId = disputes.sessionForLog(id, cursor == null, audit.admin(admin))
+                .orElseThrow(AdminDisputesController::notFound);
+        var page = logs.page(sessionId, cursor, limit);
+        return new AdminDisputeLog(
+                page.chunks().stream()
+                        .map(chunk -> new AdminDisputeLogChunk(chunk.attempt(), chunk.seq(), chunk.text()))
+                        .toList(),
+                page.nextCursor());
+    }
+
+    /** Every flag on a host's record, the newest first. */
+    @GetMapping("/host-flags")
+    AdminHostFlags hostFlags(@RequestParam UUID host) {
+        return new AdminHostFlags(flags(host));
+    }
+
+    private List<AdminHostFlag> flags(UUID hostId) {
+        return jdbc.sql("select * from trust.host_flags where host_id = :hostId order by created_at desc, id desc")
+                .param("hostId", hostId)
+                .query((rs, n) -> new AdminHostFlag(
+                        rs.getObject("id", UUID.class),
+                        rs.getObject("host_id", UUID.class),
+                        rs.getObject("dispute_id", UUID.class),
+                        rs.getString("reason"),
+                        rs.getString("flagged_by"),
+                        rs.getTimestamp("created_at").toInstant()))
+                .list();
     }
 
     /**
@@ -204,7 +281,12 @@ class AdminDisputesController {
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminRefund request) {
-        resolved(disputes.refund(id, Paise.of(request.amountPaise()), request.reason(), audit.admin(admin)));
+        resolved(disputes.refund(
+                id,
+                Paise.of(request.amountPaise()),
+                request.reason(),
+                Boolean.TRUE.equals(request.flagHost()),
+                audit.admin(admin)));
         return get(id);
     }
 
@@ -213,8 +295,8 @@ class AdminDisputesController {
     AdminDispute noRefund(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
-            @Valid @RequestBody com.idleo.controlplane.AdminReason request) {
-        resolved(disputes.noRefund(id, request.reason(), audit.admin(admin)));
+            @Valid @RequestBody AdminNoRefund request) {
+        resolved(disputes.noRefund(id, request.reason(), Boolean.TRUE.equals(request.flagHost()), audit.admin(admin)));
         return get(id);
     }
 

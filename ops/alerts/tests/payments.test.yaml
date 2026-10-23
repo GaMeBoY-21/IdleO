@@ -1,0 +1,86 @@
+# promtool test rules: the payments alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../payments.yaml
+evaluation_interval: 1m
+tests:
+  # Two instances read the same count: nothing while it's 0, the alert once one is open for 5 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'billing_payments_reconciliation_open{job="control-plane", instance="a"}'
+        values: '0x10 2x20'
+      - series: 'billing_payments_reconciliation_open{job="control-plane", instance="b"}'
+        values: '0x10 2x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PaymentMismatch
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: PaymentMismatch
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '2 disagreements between Razorpay and our ledger are open.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payment-mismatch
+
+  # 3 bad signatures in 15 minutes is noise; 8 is a problem.
+  - interval: 1m
+    input_series:
+      - series: 'billing_payments_signature_failures_total{job="control-plane", instance="a", source="webhook"}'
+        values: '0x5 1 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 4 5 6 7 8 9 10 11'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: WebhookSignaturesFailing
+        exp_alerts: []
+      - eval_time: 29m
+        alertname: WebhookSignaturesFailing
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'About 9 payment signatures failed in the last 15 minutes.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#webhook-signatures-failing
+
+  # 12 payments in the hour, 5 failed (42%): fires. 6 payments, 4 failed: too few to say.
+  - interval: 5m
+    input_series:
+      - series: 'billing_topups_paid_total{job="control-plane", instance="a", method="upi"}'
+        values: '0 1 2 3 4 5 6 7 7 7 7 7 7'
+      - series: 'billing_topups_failed_total{job="control-plane", instance="a", method="upi"}'
+        values: '0 0 0 1 2 3 4 5 5 5 5 5 5'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: PaymentsFailing
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '43.31% of the payments in the last hour failed.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payments-failing
+  - interval: 5m
+    input_series:
+      - series: 'billing_topups_paid_total{job="control-plane", instance="a", method="card"}'
+        values: '0 1 2 2 2 2 2 2 2 2 2 2 2'
+      - series: 'billing_topups_failed_total{job="control-plane", instance="a", method="card"}'
+        values: '0 0 1 2 3 4 4 4 4 4 4 4 4'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: PaymentsFailing
+        exp_alerts: []
+
+  # One chargeback opens: the alert at once, and gone an hour later.
+  - interval: 1m
+    input_series:
+      - series: 'billing_chargebacks_total{job="control-plane", instance="a", event="opened"}'
+        values: '0x10 1x90'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: ChargebackOpened
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: ChargebackOpened
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'A chargeback was opened on a payment; evidence is due in Razorpay''s dashboard.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#chargeback-opened
+      - eval_time: 80m
+        alertname: ChargebackOpened
+        exp_alerts: []

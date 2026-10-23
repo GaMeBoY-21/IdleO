@@ -242,6 +242,62 @@ paths:
         idToken: []
       tags:
       - auditLog
+  /admin/v1/chargebacks:
+    get:
+      operationId: adminPaymentsChargebacks
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+          default: open
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChargebackList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayments
+  /admin/v1/chargebacks/{id}:
+    get:
+      operationId: adminPaymentsChargeback
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChargeback"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayments
   /admin/v1/credit-grants:
     get:
       operationId: adminMoneyList
@@ -404,6 +460,34 @@ paths:
         idToken: []
       tags:
       - adminDisputes
+  /admin/v1/disputes/host-flags:
+    get:
+      operationId: adminDisputesHostFlags
+      parameters:
+      - in: query
+        name: host
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminHostFlags"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDisputes
   /admin/v1/disputes/{id}:
     get:
       operationId: adminDisputesGet
@@ -432,6 +516,46 @@ paths:
         idToken: []
       tags:
       - adminDisputes
+  /admin/v1/disputes/{id}/log:
+    get:
+      operationId: adminDisputesLog
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 200
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDisputeLog"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminDisputes
   /admin/v1/disputes/{id}/no-refund:
     post:
       operationId: adminDisputesNoRefund
@@ -446,7 +570,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminReason"
+              $ref: "#/components/schemas/AdminNoRefund"
         required: true
       responses:
         "200":
@@ -967,6 +1091,121 @@ paths:
         idToken: []
       tags:
       - adminNotices
+  /admin/v1/payments:
+    get:
+      operationId: adminPaymentsPayments
+      parameters:
+      - in: query
+        name: query
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPaymentList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayments
+  /admin/v1/payments/mismatches/{id}/accept:
+    post:
+      operationId: adminPaymentsAccept
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPaymentMismatch"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayments
+  /admin/v1/payments/reconciliation:
+    get:
+      operationId: adminPaymentsReconciliation
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+          default: open
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPaymentReconciliation"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayments
+    post:
+      operationId: adminPaymentsRunReconciliation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunPaymentReconciliation"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPaymentReconciliationRun"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayments
   /admin/v1/ratings:
     get:
       operationId: adminRatingsList
@@ -4221,12 +4460,19 @@ paths:
               $ref: "#/components/schemas/TopUpRequest"
         required: true
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
+                $ref: "#/components/schemas/TopUpResponse"
+          description: "The new top-up, with Razorpay's order for Checkout; a repeat\
+            \ with the same key returns the first response"
+          headers:
+            Location:
+              description: The top-up's URL
+              schema:
                 type: string
-          description: OK
+              style: simple
         default:
           content:
             application/problem+json:
@@ -4537,6 +4783,109 @@ components:
       required:
       - message
       - status
+    AdminChargeback:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        deductedPaise:
+          type: integer
+          format: int64
+        disputeId:
+          type: string
+        frozenPaise:
+          type: integer
+          format: int64
+        id:
+          type: string
+          format: uuid
+        lostPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        openedAt:
+          type: string
+          format: date-time
+        outcome:
+          type:
+          - string
+          - "null"
+        payment:
+          oneOf:
+          - $ref: "#/components/schemas/AdminPayment"
+          - type: "null"
+        paymentId:
+          type: string
+        phase:
+          type:
+          - string
+          - "null"
+        reasonCode:
+          type:
+          - string
+          - "null"
+        releasedPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        respondBy:
+          type:
+          - string
+          - "null"
+          format: date-time
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminChargebackSession"
+        settledAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        status:
+          type: string
+        userId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - amountPaise
+      - currency
+      - deductedPaise
+      - disputeId
+      - frozenPaise
+      - id
+      - openedAt
+      - paymentId
+      - sessions
+      - status
+    AdminChargebackList:
+      type: object
+      properties:
+        chargebacks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminChargeback"
+      required:
+      - chargebacks
+    AdminChargebackSession:
+      type: object
+      properties:
+        paidFromThisPaymentPaise:
+          type: integer
+          format: int64
+        sessionId:
+          type: string
+          format: uuid
+      required:
+      - paidFromThisPaymentPaise
+      - sessionId
     AdminCodeRequest:
       type: object
       properties:
@@ -4775,6 +5124,10 @@ components:
       properties:
         dispute:
           $ref: "#/components/schemas/AdminDisputeSummary"
+        hostFlags:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminHostFlag"
         rating:
           oneOf:
           - $ref: "#/components/schemas/AdminDisputeRating"
@@ -4783,7 +5136,36 @@ components:
           $ref: "#/components/schemas/AdminDisputeSession"
       required:
       - dispute
+      - hostFlags
       - session
+    AdminDisputeLog:
+      type: object
+      properties:
+        chunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDisputeLogChunk"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - chunks
+    AdminDisputeLogChunk:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        seq:
+          type: integer
+          format: int32
+        text:
+          type: string
+      required:
+      - attempt
+      - seq
+      - text
     AdminDisputePage:
       type: object
       properties:
@@ -5049,6 +5431,41 @@ components:
       - notAfter
       - notBefore
       - serial
+    AdminHostFlag:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        disputeId:
+          type: string
+          format: uuid
+        flaggedBy:
+          type: string
+        hostId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+      required:
+      - createdAt
+      - disputeId
+      - flaggedBy
+      - hostId
+      - id
+      - reason
+    AdminHostFlags:
+      type: object
+      properties:
+        flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminHostFlag"
+      required:
+      - flags
     AdminHostGpu:
       type: object
       properties:
@@ -5365,6 +5782,19 @@ components:
           - "null"
       required:
       - entries
+    AdminNoRefund:
+      type: object
+      properties:
+        flagHost:
+          type:
+          - boolean
+          - "null"
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - reason
     AdminNotice:
       type: object
       properties:
@@ -5410,6 +5840,214 @@ components:
       - noticeId
       - sent
       - withoutAddress
+    AdminPayment:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        cardLast4:
+          type:
+          - string
+          - "null"
+        cardNetwork:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        creditedBy:
+          type:
+          - string
+          - "null"
+        failureReason:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        invoiceId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        invoiceNumber:
+          type:
+          - string
+          - "null"
+        method:
+          type:
+          - string
+          - "null"
+        orderId:
+          type: string
+        paidAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        paymentId:
+          type:
+          - string
+          - "null"
+        status:
+          type: string
+        userId:
+          type: string
+          format: uuid
+      required:
+      - amountPaise
+      - createdAt
+      - id
+      - orderId
+      - status
+      - userId
+    AdminPaymentList:
+      type: object
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPayment"
+      required:
+      - payments
+    AdminPaymentMismatch:
+      type: object
+      properties:
+        closeReason:
+          type:
+          - string
+          - "null"
+        closedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        closedBy:
+          type:
+          - string
+          - "null"
+        detail:
+          type: string
+        foundAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        lastFoundAt:
+          type: string
+          format: date-time
+        ourPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        ourStatus:
+          type:
+          - string
+          - "null"
+        paymentId:
+          type:
+          - string
+          - "null"
+        state:
+          type: string
+        subject:
+          type: string
+        theirPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        theirStatus:
+          type:
+          - string
+          - "null"
+        topUpId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        userId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - detail
+      - foundAt
+      - id
+      - kind
+      - lastFoundAt
+      - state
+      - subject
+    AdminPaymentReconciliation:
+      type: object
+      properties:
+        mismatches:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPaymentMismatch"
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPaymentReconciliationRun"
+      required:
+      - mismatches
+      - runs
+    AdminPaymentReconciliationRun:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        failure:
+          type:
+          - string
+          - "null"
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        found:
+          type:
+          - integer
+          - "null"
+          format: int32
+        id:
+          type: string
+          format: uuid
+        open:
+          type:
+          - integer
+          - "null"
+          format: int32
+        payments:
+          type:
+          - integer
+          - "null"
+          format: int32
+        refunds:
+          type:
+          - integer
+          - "null"
+          format: int32
+        startedAt:
+          type: string
+          format: date-time
+        trigger:
+          type: string
+      required:
+      - day
+      - id
+      - startedAt
+      - trigger
     AdminRating:
       type: object
       properties:
@@ -5552,6 +6190,10 @@ components:
           type: integer
           format: int64
           minimum: 1
+        flagHost:
+          type:
+          - boolean
+          - "null"
         reason:
           type: string
           maxLength: 500
@@ -8482,6 +9124,20 @@ components:
           minLength: 0
       required:
       - message
+    RunPaymentReconciliation:
+      type: object
+      properties:
+        day:
+          type:
+          - string
+          - "null"
+          format: date
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - reason
     SecurityEvent:
       type: object
       properties:

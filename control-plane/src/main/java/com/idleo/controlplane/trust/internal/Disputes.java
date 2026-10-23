@@ -6,6 +6,7 @@ import com.idleo.controlplane.Rupees;
 import com.idleo.controlplane.billing.PayoutHolds;
 import com.idleo.controlplane.billing.SessionRefunds;
 import com.idleo.controlplane.identity.AuditTrail;
+import com.idleo.controlplane.trust.ReportResolved;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -51,7 +53,7 @@ class Disputes {
 
     /** Why a renter reports a session. */
     static final List<String> REASONS =
-            List.of("didnt_start", "failed", "slow", "wrong_output", "charged_wrong", "other");
+            List.of("didnt_start", "failed", "slow", "host_stopped", "wrong_output", "charged_wrong", "other");
 
     static final String OPEN = "open";
     static final String REFUNDED = "refunded";
@@ -109,6 +111,7 @@ class Disputes {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     Disputes(
             EndedSessions sessions,
@@ -118,7 +121,9 @@ class Disputes {
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
-            Clock clock) {
+            Clock clock,
+            ApplicationEventPublisher events) {
+        this.events = events;
         this.sessions = sessions;
         this.refunds = refunds;
         this.holds = holds;
@@ -209,20 +214,24 @@ class Disputes {
                 .list();
     }
 
-    /** Resolves the report with a refund of {@code amount}, which the renter reads with {@code reason}. */
-    Resolved refund(UUID disputeId, Paise amount, String reason, AuditTrail.Actor actor) {
+    /**
+     * Resolves the report with a refund of {@code amount}, which the renter reads with {@code reason}; {@code flagHost}
+     * marks the session's host's record too.
+     */
+    Resolved refund(UUID disputeId, Paise amount, String reason, boolean flagHost, AuditTrail.Actor actor) {
         if (!amount.isPositive()) {
             throw new IllegalArgumentException("a refund is more than zero");
         }
-        return resolve(disputeId, amount, reason, actor);
+        return resolve(disputeId, amount, reason, flagHost, actor);
     }
 
     /** Resolves the report without a refund; the renter reads {@code reason}. */
-    Resolved noRefund(UUID disputeId, String reason, AuditTrail.Actor actor) {
-        return resolve(disputeId, null, reason, actor);
+    Resolved noRefund(UUID disputeId, String reason, boolean flagHost, AuditTrail.Actor actor) {
+        return resolve(disputeId, null, reason, flagHost, actor);
     }
 
-    private Resolved resolve(UUID disputeId, @Nullable Paise amount, String reason, AuditTrail.Actor actor) {
+    private Resolved resolve(
+            UUID disputeId, @Nullable Paise amount, String reason, boolean flagHost, AuditTrail.Actor actor) {
         if (reason == null || reason.isBlank()) {
             throw new IllegalArgumentException("a resolution has a reason");
         }
@@ -242,6 +251,12 @@ class Disputes {
                 return same
                         ? new Resolved.AlreadyDone(dispute)
                         : new Resolved.Refused("This report was already resolved: " + described(dispute) + ".");
+            }
+            var hostId = sessions.find(dispute.sessionId())
+                    .map(EndedSessions.EndedSession::hostId)
+                    .orElse(null);
+            if (flagHost && hostId == null) {
+                return new Resolved.Refused("The session never ran on a host, so there's no host to flag.");
             }
             SessionRefunds.Refund refund = null;
             if (amount != null) {
@@ -274,9 +289,31 @@ class Disputes {
                     .param("id", disputeId)
                     .update();
             holds.release(disputeId);
+            if (flagHost) {
+                jdbc.sql("""
+                                insert into trust.host_flags (id, host_id, dispute_id, reason, flagged_by, created_at)
+                                values (:id, :hostId, :disputeId, :reason, :by, :now)
+                                """)
+                        .param("id", ids.newId())
+                        .param("hostId", hostId)
+                        .param("disputeId", disputeId)
+                        .param("reason", reason.strip())
+                        .param("by", actor.label())
+                        .param("now", Timestamp.from(now))
+                        .update();
+            }
+            events.publishEvent(new ReportResolved(
+                    disputeId,
+                    dispute.sessionId(),
+                    dispute.renterId(),
+                    split == null ? null : split.amount().value(),
+                    reason.strip()));
             var resolved = find(disputeId).orElseThrow();
             var after = new LinkedHashMap<String, Object>();
             after.put("state", state);
+            if (flagHost) {
+                after.put("flaggedHost", Objects.requireNonNull(hostId).toString());
+            }
             if (refund != null) {
                 after.put("refundPaise", split.amount().value());
                 after.put("fromCommissionPaise", split.fromCommission().value());
@@ -301,6 +338,30 @@ class Disputes {
                     Map.of("state", OPEN, "sessionId", dispute.sessionId().toString()),
                     after));
             return new Resolved.Done(resolved);
+        }));
+    }
+
+    /**
+     * The session a report is about, for an admin to read its log (ADR 0039); {@code audited}: the first page, which
+     * writes the audit row naming the admin.
+     */
+    Optional<UUID> sessionForLog(UUID disputeId, boolean audited, AuditTrail.Actor actor) {
+        return Objects.requireNonNull(transactions.execute(status -> {
+            var sessionId = jdbc.sql("select session_id from trust.disputes where id = :id")
+                    .param("id", disputeId)
+                    .query(UUID.class)
+                    .optional();
+            if (audited && sessionId.isPresent()) {
+                audit.record(new AuditTrail.Entry(
+                        actor,
+                        "dispute.log_read",
+                        "dispute",
+                        disputeId.toString(),
+                        "read the session's log to judge the report",
+                        null,
+                        Map.of("sessionId", sessionId.get().toString())));
+            }
+            return sessionId;
         }));
     }
 

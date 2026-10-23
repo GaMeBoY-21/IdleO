@@ -16,6 +16,7 @@ import com.idleo.controlplane.sessions.SessionNeverRan;
 import com.idleo.controlplane.sessions.SessionOutcomes;
 import com.idleo.controlplane.sessions.SessionOutcomes.Outcome;
 import com.idleo.controlplane.sessions.SessionSettled;
+import com.idleo.controlplane.trust.ReportResolved;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.HashMap;
@@ -168,6 +169,35 @@ class NotificationDeliveryTests {
         assertThat(mail.sent().getFirst().to()).isEqualTo(renterEmail);
         assertThat(mail.sent().getFirst().subject()).isEqualTo("Fine-tune a model finished");
         assertThat(mail.sent().getFirst().text()).contains("It cost ₹0.09.");
+    }
+
+    @Test
+    void anAnsweredReportIsToldOnceWithWhatCameBackAndTheAdminsWords() {
+        var refunded = session("COMPLETED", null, null, true);
+        var declined = session("FAILED", "job_failed", null, true);
+        var refundedReport = UUID.randomUUID();
+
+        listeners.on(new ReportResolved(refundedReport, refunded, renter.id(), 150L, "The GPU ran at half speed."));
+        listeners.on(new ReportResolved(refundedReport, refunded, renter.id(), 150L, "The GPU ran at half speed."));
+        listeners.on(new ReportResolved(
+                UUID.randomUUID(), declined, renter.id(), null, "Your job's own code stopped with an error."));
+
+        var messages = inbox(renter.id());
+        assertThat(messages).hasSize(2);
+        assertThat(messages.getFirst())
+                .containsEntry("kind", "report-answered")
+                .containsEntry("title", "Your report was answered")
+                .containsEntry(
+                        "body",
+                        "We've given ₹1.50 back to your credit after your report on a Fine-tune a model session. It"
+                                + " doesn't expire. The GPU ran at half speed.")
+                .containsEntry("link", "/account/reports/");
+        assertThat(messages.get(1))
+                .containsEntry(
+                        "body",
+                        "We looked into your report on a Fine-tune a model session and didn't give anything back."
+                                + " Your job's own code stopped with an error.");
+        assertThat(mail.sent()).hasSize(2);
     }
 
     @Test

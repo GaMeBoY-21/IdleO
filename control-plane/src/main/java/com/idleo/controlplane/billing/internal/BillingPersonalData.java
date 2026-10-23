@@ -138,6 +138,11 @@ class BillingPersonalData implements PersonalData {
                                        r.ticket_number, r.decision, r.requested_at, r.finished_at
                                 from billing.credit_refunds r where r.user_id = :user order by r.requested_at
                                 """, params)),
+                new Part("money", "chargebacks", rows.list(jdbc, """
+                                select dispute_id, payment_id, amount_paise, currency, reason_code, status, respond_by,
+                                       frozen_paise, lost_paise, released_paise, outcome, opened_at, settled_at
+                                from billing.chargebacks where user_id = :user order by received_at
+                                """, params)),
                 new Part("money", "creditLots", rows.list(jdbc, """
                                 select id, kind, source_type, amount_paise, remaining_paise, expires_at, created_at
                                 from billing.credit_lots where user_id = :user order by created_at, id
@@ -183,6 +188,17 @@ class BillingPersonalData implements PersonalData {
     @Override
     public List<Blocker> blockers(UUID userId) {
         var blockers = new java.util.ArrayList<Blocker>(refunds.blockers(userId));
+        long disputed = jdbc.sql("""
+                        select coalesce(sum(amount_paise), 0) from billing.chargebacks
+                        where user_id = :user and outcome is null
+                        """).param("user", userId).query(Long.class).single();
+        if (disputed > 0) {
+            blockers.add(new Blocker(
+                    "chargeback-open",
+                    "Your bank is disputing " + Rupees.format(disputed)
+                            + " you paid us. The account can be deleted once" + " the dispute is settled.",
+                    disputed));
+        }
         var unpaid = unpaid(userId);
         if (unpaid > 0) {
             blockers.add(new Blocker(

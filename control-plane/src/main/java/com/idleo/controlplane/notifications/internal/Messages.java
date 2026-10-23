@@ -3,6 +3,7 @@ package com.idleo.controlplane.notifications.internal;
 import com.idleo.controlplane.Rupees;
 import com.idleo.controlplane.sessions.SessionOutcomes.Outcome;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -57,6 +58,18 @@ class Messages {
                 service(session) + ": " + why.sentence() + " It cost " + Rupees.format(chargedPaise) + ". "
                         + why.next(),
                 sessionLink(session.sessionId()));
+    }
+
+    /** An admin answered the renter's report: what was given back, if anything, and the admin's words. */
+    Message reportAnswered(Outcome session, @Nullable Long refundPaise, String reason) {
+        var which = session.serviceName() == null
+                ? "your report on a session"
+                : "your report on a " + session.serviceName() + " session";
+        var outcome = refundPaise == null
+                ? "We looked into " + which + " and didn't give anything back."
+                : "We've given " + Rupees.format(refundPaise) + " back to your credit after " + which
+                        + ". It doesn't expire.";
+        return new Message("Your report was answered", outcome + " " + reason, "/account/reports/");
     }
 
     Message lowCredit(Outcome session) {

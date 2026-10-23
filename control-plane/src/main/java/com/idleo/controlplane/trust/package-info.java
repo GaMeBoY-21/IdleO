@@ -28,14 +28,18 @@
  *   <li>{@code POST /v1/disputes {sessionId, reason, details?}}, with an {@code Idempotency-Key}: the renter's own
  *       ended session, within 7 days of it ending ({@code report-window-closed} after), one open report a session
  *       ({@code report-already-open}); the reason is {@code didnt_start}, {@code failed}, {@code slow}, {@code
- *       wrong_output}, {@code charged_wrong} or {@code other}, the details up to 2,000 characters. While it's open, the
+ *       host_stopped}, {@code wrong_output}, {@code charged_wrong} or {@code other}, the details up to 2,000 characters. While it's open, the
  *       session's host earnings are held from payout (billing's {@link com.idleo.controlplane.billing.PayoutHolds}).
  *   <li>{@code GET /v1/disputes?session=&cursor=&limit=} and {@code GET /v1/disputes/{id}}: the renter's reports,
  *       newest first, {@code open}, {@code refunded} or {@code not_refunded}, with our answer once resolved.
  *   <li>The admin console: {@code GET /admin/v1/disputes?state=} (open first, oldest first) and {@code
  *       /admin/v1/disputes/{id}} (the report, the session's end, what it cost and who kept what, from the ledger, and
  *       its rating); {@code POST /admin/v1/disputes/{id}/refund {amountPaise, reason}} and {@code /no-refund
- *       {reason}}, once each report, with a reason the renter reads. Audited in the same transaction.
+ *       {reason}}, once each report, with a reason the renter reads, and optionally {@code flagHost}: a mark on the
+ *       session's host's record that admins see ({@code GET /admin/v1/disputes/host-flags?host=}), for the host score to use.
+ *       Audited in the same transaction, which also publishes {@link ReportResolved} for the renter's email. {@code
+ *       GET /admin/v1/disputes/{id}/log} reads the session's log through sessions' {@code SessionLogsForReview},
+ *       each first page an audit row (ADR 0039).
  *   <li>A refund goes through billing's {@link com.idleo.controlplane.billing.SessionRefunds}: up to what the renter
  *       paid for the session net, from the platform's commission first and then the hosts' shares, in one balanced
  *       ledger transaction whose {@code txn_id} is a name-based UUID of the report.
