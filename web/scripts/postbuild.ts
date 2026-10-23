@@ -6,7 +6,12 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { SCREENS, SIGNED_IN_SCREENS } from "../src/screens.ts";
-import { contentSecurityPolicy, securityHeaders } from "../src/security/headers.ts";
+import {
+  checkoutSources,
+  contentSecurityPolicy,
+  creditHeaders,
+  securityHeaders,
+} from "../src/security/headers.ts";
 
 const dist = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}/`, import.meta.url));
 let html = readFileSync(`${dist}index.html`, "utf8");
@@ -16,6 +21,16 @@ const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/scrip
 );
 const hashes = inline.map((body) => `sha256-${createHash("sha256").update(body, "utf8").digest("base64")}`);
 const csp = contentSecurityPolicy(process.env, hashes);
+// The Credit page has a policy of its own, with Razorpay Checkout's origins, and is the only page that loads it
+// (ADR 0039); while collecting them (IDLEO_CHECKOUT_CSP=report-only) it allows Razorpay's domains and reports what the
+// strict policy would have blocked.
+const CREDIT = "/credit/";
+const creditCsp = contentSecurityPolicy(
+  process.env,
+  hashes,
+  checkoutSources(process.env, process.env.IDLEO_CHECKOUT_CSP === "report-only"),
+);
+const strictCreditCsp = contentSecurityPolicy(process.env, hashes, checkoutSources(process.env));
 
 if (html.includes('http-equiv="Content-Security-Policy"')) {
   throw new Error("dist/index.html already has a Content Security Policy; run vite build first");
@@ -68,7 +83,8 @@ for (const [path, module] of Object.entries(SCREENS)) {
   }
   const links = own.map((file) => `    <link rel="modulepreload" crossorigin href="/${file}">`).join("\n");
   mkdirSync(`${dist}${path}`, { recursive: true });
-  const page = links ? html.replace("</head>", `${links}\n  </head>`) : html;
+  const linked = links ? html.replace("</head>", `${links}\n  </head>`) : html;
+  const page = path === CREDIT ? linked.replace(`content="${csp}"`, `content="${creditCsp}"`) : linked;
   writeFileSync(`${dist}${path}index.html`, await withFrame(page, path));
 }
 writeFileSync(`${dist}404.html`, await withFrame(html, "/not-a-screen/"));
@@ -76,6 +92,11 @@ writeFileSync(`${dist}404.html`, await withFrame(html, "/not-a-screen/"));
 // a rewrite where the host has the rule (scripts/serve.ts reads this file; docs/runbooks/deployment.md names the rule).
 writeFileSync(`${dist}rewrites.json`, `${JSON.stringify({ "/link/": "/link/index.html" }, null, 2)}\n`);
 writeFileSync(`${dist}headers.json`, `${JSON.stringify(securityHeaders(csp), null, 2)}\n`);
+// The headers of a page that has its own, instead of headers.json's: the Credit page (docs/runbooks/deployment.md).
+writeFileSync(
+  `${dist}path-headers.json`,
+  `${JSON.stringify({ [CREDIT]: creditHeaders(process.env, creditCsp, strictCreditCsp) }, null, 2)}\n`,
+);
 // Source maps are never served (ADR 0036): every one leaves the build for <dist>-sourcemaps/, which the control plane
 // reads to name a JavaScript error's file and line. A build made to debug with them (IDLEO_SOURCEMAP=1) keeps them.
 const maps = fileURLToPath(new URL(`../${process.env.IDLEO_DIST ?? "dist"}-sourcemaps/`, import.meta.url));

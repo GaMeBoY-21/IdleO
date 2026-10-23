@@ -13,7 +13,7 @@ pnpm test
 production_env=(IDLEO_DEPLOYMENT=production IDLEO_SITE_URL=https://site.example.invalid IDLEO_APP_URL=https://app.example.invalid
   VITE_API_URL=https://api.example.invalid VITE_STORAGE_URL=https://storage.example.invalid VITE_AUTH=firebase
   VITE_FIREBASE_API_KEY=placeholder-not-a-key VITE_FIREBASE_AUTH_DOMAIN=placeholder.firebaseapp.com
-  VITE_FIREBASE_PROJECT_ID=placeholder)
+  VITE_FIREBASE_PROJECT_ID=placeholder VITE_CHECKOUT_URL=https://checkout.razorpay.com/v1/checkout.js)
 env "${production_env[@]}" pnpm build
 env "${production_env[@]}" pnpm build:site
 pnpm size

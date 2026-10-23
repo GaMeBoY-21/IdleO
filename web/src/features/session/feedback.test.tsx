@@ -183,11 +183,11 @@ describe("the report row on a session", () => {
 describe("the report sheet", () => {
   const open = () => render(<ReportSheet sessionId={SESSION} open onOpenChange={() => undefined} />);
 
-  it("lists the six reasons as options, and sends nothing until one is chosen", async () => {
+  it("lists the seven reasons as options, and sends nothing until one is chosen", async () => {
     open();
     const dialog = screen.getByRole("dialog", { name: "Report a problem" });
     const options = within(screen.getByRole("group", { name: "What went wrong" })).getAllByRole("button");
-    expect(options).toHaveLength(6);
+    expect(options).toHaveLength(7);
     expect(within(dialog).getByRole("button", { name: "Send report" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: /It was slow/ }));
     expect(within(dialog).getByRole("button", { name: "Send report" })).toBeEnabled();

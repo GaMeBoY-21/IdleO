@@ -176,6 +176,7 @@ export const adminDispute = (dispute: Dispute, renterId: string, session: data.S
             ratedAt: at(endedAt(session) + 2 * HOUR),
           }
         : null,
+    hostFlags: [],
   };
 };
 

@@ -19,7 +19,7 @@ function themeBoot(): Plugin {
  * first screen waits on. Modules only later screens use stay out of it.
  */
 const LATER =
-  /src\/(lib\/(bytes|endings|log-signals)|api\/(logs|stream|session-follower|useLiveSession)|components\/ui\/Inputs|components\/shell\/(UserMenu|AccountRail|AppearanceChoice))\./;
+  /src\/(lib\/(bytes|endings|log-signals)|api\/(logs|stream|session-follower|useLiveSession|wallet)|components\/ui\/Inputs|components\/shell\/(UserMenu|AccountRail|AppearanceChoice))\./;
 function shellChunk(id: string): string | undefined {
   if (LATER.test(id)) {
     return undefined;

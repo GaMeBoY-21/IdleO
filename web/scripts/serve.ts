@@ -1,5 +1,5 @@
 // Serves a build folder (dist/ for the app, dist-website/ for the website: IDLEO_DIST and PORT) the way a host or CDN
-// should (ADR 0018): the security headers from its headers.json on every response, a permanent redirect for each path
+// should (ADR 0018): the security headers from its headers.json on every response (a page in its path-headers.json gets its own), a permanent redirect for each path
 // in its redirects.json (the website's old landing page), a folder's index.html for its path, 404.html with a 404, text pre-compressed once (Brotli, else gzip)
 // as a CDN serves it, and long caching only for hashed assets. Used by the end-to-end test and Lighthouse;
 // production picks its host with deployment.
@@ -14,6 +14,13 @@ const port = Number(process.env.PORT ?? 3000);
 // This machine only, unless IDLEO_SERVE_HOST says otherwise (./start.sh --lan serves the website to the LAN with 0.0.0.0).
 const host = process.env.IDLEO_SERVE_HOST ?? "127.0.0.1";
 const headers = JSON.parse(readFileSync(join(dist, "headers.json"), "utf8")) as Record<string, string>;
+// A page with headers of its own (the Credit page's policy, ADR 0039) gets those instead.
+const pathHeaders = existsSync(join(dist, "path-headers.json"))
+  ? (JSON.parse(readFileSync(join(dist, "path-headers.json"), "utf8")) as Record<
+      string,
+      Record<string, string>
+    >)
+  : {};
 const rewrites = existsSync(join(dist, "rewrites.json"))
   ? (JSON.parse(readFileSync(join(dist, "rewrites.json"), "utf8")) as Record<string, string>)
   : {};
@@ -76,7 +83,7 @@ createServer((request, response) => {
   const rewritten = Object.entries(rewrites).find(([prefix]) => path.startsWith(prefix) && path !== prefix);
   let file = files.get(rewritten ? rewritten[1] : path.endsWith("/") ? `${path}index.html` : path);
   let status = 200;
-  if (!file || path === "/headers.json" || path === "/redirects.json" || path === "/rewrites.json") {
+  if (!file || ["/headers.json", "/path-headers.json", "/redirects.json", "/rewrites.json"].includes(path)) {
     file = files.get("/404.html")!;
     status = 404;
   }
@@ -85,7 +92,9 @@ createServer((request, response) => {
     file.br && accepts.includes("br") ? "br" : file.gzip && accepts.includes("gzip") ? "gzip" : null;
   const body = encoding === "br" ? file.br! : encoding === "gzip" ? file.gzip! : file.raw;
   response.writeHead(status, {
-    ...headers,
+    ...(status === 200
+      ? (pathHeaders[path] ?? pathHeaders[path.replace(/index\.html$/, "")] ?? headers)
+      : headers),
     "Content-Type": file.type,
     "Content-Length": body.length,
     "Cache-Control":

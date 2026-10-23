@@ -9,6 +9,7 @@ import { NotificationBell } from "./NotificationBell";
 import { AccountLink } from "./AccountLink";
 import { CreditChip } from "./CreditChip";
 import { FRAME } from "./Layout";
+import { AppLink } from "@/components/ui/AppLink";
 import { destinations, isCurrent, isFlow, phoneDestinations } from "./nav";
 import { UserMenuButton } from "./UserMenuButton";
 
@@ -41,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {destinations.map(({ href, label }) => {
               const current = isCurrent(pathname, href);
               return (
-                <Link
+                <AppLink
                   key={href}
                   href={href}
                   aria-current={current ? "page" : undefined}
@@ -53,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 >
                   {label}
-                </Link>
+                </AppLink>
               );
             })}
           </nav>
@@ -83,7 +84,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             const current = isCurrent(pathname, href);
             return (
               <li key={href} className="flex">
-                <Link
+                <AppLink
                   href={href}
                   aria-current={current ? "page" : undefined}
                   className={cn(
@@ -92,7 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 >
                   {label}
-                </Link>
+                </AppLink>
               </li>
             );
           })}

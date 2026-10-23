@@ -4,14 +4,14 @@ import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { Tile } from "@/components/ui/Tile";
-import { formatTime } from "@/lib/time";
+import { formatDay, formatTime } from "@/lib/time";
 
 /** Figures updated before this were restored from an earlier visit (src/api/persisted-cache.ts). */
 const PAGE_OPENED_AT = Date.now();
 
 /**
  * The renter's credit, as the big dark tile (web/DESIGN.md "Credit"): what they can spend now at 54 px, and under it
- * what's on hold and both together. A stale refresh is said once, at the top of the screen (staleSince), not here.
+ * what's on hold and both together, then how much of it was bought and how much is free (ADR 0039). A stale refresh is said once, at the top of the screen (staleSince), not here.
  */
 export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wallet>; wide?: boolean }) {
   // Figures kept from an earlier visit say when they're from until the fresh ones arrive.
@@ -49,6 +49,8 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
               note="Set aside while a session runs."
             />
             <Figure label="Total" paise={wallet.data.balancePaise} note="Available plus on hold." />
+            <Figure label="Bought" paise={wallet.data.boughtPaise} note="Spent after free credit." />
+            <Figure label="Free" paise={wallet.data.freePaise} note={freeNote(wallet.data)} />
           </dl>
         </>
       ) : wallet.isError ? (
@@ -63,6 +65,14 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
       )}
     </Tile>
   );
+}
+
+/** When the free credit runs out: the soonest expiry, or that it doesn't. */
+function freeNote(wallet: Wallet): string {
+  if (wallet.freePaise === 0) {
+    return "Spent first.";
+  }
+  return wallet.freeExpiresAt ? `Some expires ${formatDay(wallet.freeExpiresAt)}.` : "Never expires.";
 }
 
 function Figure({ label, paise, note }: { label: string; paise: number; note: string }) {
@@ -87,7 +97,7 @@ function CreditSkeleton() {
         <SkeletonLine size="caption" width="w-1/3" onDark />
       </div>
       <div className="grid grid-cols-2 gap-2.5">
-        {[0, 1].map((key) => (
+        {[0, 1, 2, 3].map((key) => (
           <div key={key} className="flex flex-col gap-0.5 rounded-control bg-dark-fg/10 px-4 py-3.5">
             <SkeletonLine size="small" width="w-1/2" onDark />
             <SkeletonLine size="option" width="w-2/3" onDark />

@@ -22,6 +22,7 @@ const production = {
   VITE_FIREBASE_API_KEY: "placeholder",
   VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
   VITE_FIREBASE_PROJECT_ID: "placeholder",
+  VITE_CHECKOUT_URL: "https://checkout.razorpay.com/v1/checkout.js",
 };
 
 describe("the build settings", () => {
@@ -77,6 +78,34 @@ describe("the build settings", () => {
     expect(buildSettingsProblems({ ...production, VITE_STORAGE_URL: "http://localhost:9100" })).toContain(
       "a production build needs https storage that isn't on this machine",
     );
+  });
+
+  it("load only Razorpay's own Checkout outside a local build, and enforce its policy in production", () => {
+    expect(
+      buildSettingsProblems({ ...local, VITE_CHECKOUT_URL: "http://localhost:8091/v1/checkout.js" }),
+    ).toEqual([]);
+    expect(buildSettingsProblems({ ...production, VITE_CHECKOUT_URL: undefined })).toContain(
+      "a production build needs VITE_CHECKOUT_URL=https://checkout.razorpay.com/v1/checkout.js, Razorpay's own Checkout",
+    );
+    expect(
+      buildSettingsProblems({
+        ...production,
+        VITE_CHECKOUT_URL: "https://checkout.example.invalid/v1/checkout.js",
+      }),
+    ).toHaveLength(1);
+    expect(buildSettingsProblems({ ...production, IDLEO_CHECKOUT_CSP: "report-only" })).toEqual([
+      "a production build enforces the Credit page's policy; IDLEO_CHECKOUT_CSP=report-only is for staging",
+    ]);
+    expect(
+      buildSettingsProblems({
+        ...production,
+        IDLEO_DEPLOYMENT: "staging",
+        IDLEO_CHECKOUT_CSP: "report-only",
+      }),
+    ).toEqual([]);
+    expect(buildSettingsProblems({ ...local, IDLEO_CHECKOUT_CSP: "off" })).toEqual([
+      "IDLEO_CHECKOUT_CSP must be enforce or report-only, not off",
+    ]);
   });
 
   it("need the chosen adapter's settings", () => {

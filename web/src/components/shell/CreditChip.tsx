@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { AppLink } from "@/components/ui/AppLink";
 import { useWallet } from "@/api/queries";
 import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -11,13 +11,13 @@ import { useAfterFirstScreen } from "@/lib/after-first-screen";
 export function CreditChip() {
   const wallet = useWallet(false, useAfterFirstScreen());
   return (
-    <Link
+    <AppLink
       href="/credit/"
       aria-label={wallet.data ? undefined : "Credit"}
       className="hidden min-h-touch min-w-24 items-center justify-center rounded-full bg-fill px-4 text-small font-bold tabular hover:bg-fill-selected md:flex"
     >
       <span className="sr-only">Available credit </span>
       {wallet.data ? <Money paise={wallet.data.availablePaise} /> : <Skeleton className="h-3 w-16" />}
-    </Link>
+    </AppLink>
   );
 }

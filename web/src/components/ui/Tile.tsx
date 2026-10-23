@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from "react";
-import { Link } from "wouter";
+import { AppLink } from "./AppLink";
 import { cn } from "@/lib/cn";
 
 /**
@@ -64,14 +64,14 @@ export function TileLink({
   children: ReactNode;
 }) {
   return (
-    <Link
+    <AppLink
       href={href}
       data-tile={tone}
       className={cn(tileClasses(tone, size), "tile-motion flex flex-col justify-between", className)}
       {...props}
     >
       {children}
-    </Link>
+    </AppLink>
   );
 }
 

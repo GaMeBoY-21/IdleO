@@ -13,8 +13,14 @@ import { RelativeTime } from "@/components/ui/Time";
 import { useNow } from "@/lib/clock";
 import { dayHeading, dayOf } from "@/lib/time";
 import { Tile } from "@/components/ui/Tile";
+import { useBillingDetails, useInvoices, useRefundRequests } from "@/api/wallet";
+import { useAfterPaint } from "@/lib/after-first-screen";
+import { AddCredit } from "./AddCredit";
+import { BillingDetailsTile } from "./BillingDetailsTile";
 import { CreditCard } from "./CreditCard";
-import { creditKind } from "@/lib/labels";
+import { Documents } from "./Documents";
+import { RefundTile } from "./RefundTile";
+import { creditKind } from "./kinds";
 import { cn } from "@/lib/cn";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
@@ -36,11 +42,18 @@ function byDay(entries: HistoryEntry[]): { day: string; first: string; entries: 
   return days;
 }
 
-/** The renter's credit, big, then every movement of it, newest first, a page at a time. */
+/**
+ * The renter's credit, big, the way to add more (ADR 0039), then every movement of it, newest first, a page at a time,
+ * and the documents for it. It is a page load of its own (AppLink), with the policy that lets Razorpay's Checkout run.
+ */
 export function CreditHistory() {
   useTitle("Credit");
   const wallet = useWallet();
   const history = useHistory();
+  const painted = useAfterPaint();
+  const details = useBillingDetails(painted);
+  const invoices = useInvoices(painted);
+  const refunds = useRefundRequests(painted);
   const entries = history.data?.pages.flatMap((page) => page.entries);
   const since = staleSince(wallet, history);
   const now = useNow("half-minute");
@@ -48,7 +61,22 @@ export function CreditHistory() {
   const Frame = wide ? Rail : Narrow;
 
   return (
-    <Frame title="Credit" summary={<CreditCard wallet={wallet} wide={wide} />}>
+    <Frame
+      title="Credit"
+      summary={
+        <>
+          <CreditCard wallet={wallet} wide={wide} />
+          <AddCredit details={details} />
+        </>
+      }
+      more={
+        <>
+          <BillingDetailsTile details={details} />
+          <RefundTile wallet={wallet} refunds={refunds} />
+        </>
+      }
+      documents={<Documents invoices={invoices} />}
+    >
       {since !== null && <StaleNotice updatedAt={since} />}
       <section aria-labelledby="history-title" className="flex flex-col gap-1">
         <SectionTitle id="history-title">History</SectionTitle>
@@ -125,28 +153,46 @@ export function CreditHistory() {
   );
 }
 
-function Narrow({ title, summary, children }: { title: string; summary: ReactNode; children: ReactNode }) {
+interface FrameProps {
+  title: string;
+  summary: ReactNode;
+  more: ReactNode;
+  documents: ReactNode;
+  children: ReactNode;
+}
+
+/** On a phone: the balance and Add credit first, then the history and the documents, then the rest. */
+function Narrow({ title, summary, more, documents, children }: FrameProps) {
   return (
     <Page title={title}>
       {summary}
       {children}
+      {documents}
+      {more}
     </Page>
   );
 }
 
 /**
- * From 768 px: the balance in the left rail's dark tile and the history beside it (web/DESIGN.md "Laptop layout"). On
- * a phone the balance is the first block of the page, under its title.
+ * From 768 px: the balance in the left rail's dark tile, Add credit, billing details and refunds under it, and the
+ * history and documents beside it (web/DESIGN.md "Laptop layout"). On a phone the balance is the first block of the
+ * page, under its title.
  */
-function Rail({ title, summary, children }: { title: string; summary: ReactNode; children: ReactNode }) {
+function Rail({ title, summary, more, documents, children }: FrameProps) {
   return (
     <RailColumns
       fit={false}
-      left={summary}
+      left={
+        <>
+          {summary}
+          {more}
+        </>
+      }
       right={
         <>
           <h1 className="sr-only">{title}</h1>
           {children}
+          {documents}
         </>
       }
     />

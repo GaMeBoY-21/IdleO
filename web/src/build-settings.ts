@@ -13,6 +13,16 @@ export interface BuildEnv {
   VITE_API_URL?: string | undefined;
   /** Object storage, which the browser uploads inputs to straight from the page (ADR 0019). */
   VITE_STORAGE_URL?: string | undefined;
+  /**
+   * Razorpay's Checkout script (ADR 0039): a deployed build must name Razorpay's own; a local one may name the fake
+   * Razorpay's, or leave it out (no payments).
+   */
+  VITE_CHECKOUT_URL?: string | undefined;
+  /**
+   * The Credit page's policy for Checkout's origins: `enforce` (the default), or `report-only` while collecting them in
+   * a real test-mode check, which staging may build and production never.
+   */
+  IDLEO_CHECKOUT_CSP?: string | undefined;
   /** Where the add-a-machine screen sends owners for the install steps; the repository's runbook if left out. */
   VITE_HOST_RUNBOOK_URL?: string | undefined;
   /** The public site's own address, for its sitemap and canonical links (ADR 0029); a local build may leave it out. */
@@ -27,6 +37,9 @@ export interface BuildEnv {
 }
 
 const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
+/** The one Checkout script a deployed build may load (https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/). */
+export const RAZORPAY_CHECKOUT_URL = "https://checkout.razorpay.com/v1/checkout.js";
 
 function isLocalOrPlain(url: string): boolean {
   try {
@@ -84,6 +97,19 @@ export function buildSettingsProblems(env: BuildEnv): string[] {
     problems.push("VITE_STORAGE_URL is missing");
   } else if (deployment !== "local" && isLocalOrPlain(env.VITE_STORAGE_URL)) {
     problems.push(`a ${deployment} build needs https storage that isn't on this machine`);
+  }
+  if (deployment !== "local" && env.VITE_CHECKOUT_URL !== RAZORPAY_CHECKOUT_URL) {
+    problems.push(
+      `a ${deployment} build needs VITE_CHECKOUT_URL=${RAZORPAY_CHECKOUT_URL}, Razorpay's own Checkout`,
+    );
+  }
+  const checkoutPolicy = env.IDLEO_CHECKOUT_CSP ?? "enforce";
+  if (!["enforce", "report-only"].includes(checkoutPolicy)) {
+    problems.push(`IDLEO_CHECKOUT_CSP must be enforce or report-only, not ${checkoutPolicy}`);
+  } else if (checkoutPolicy === "report-only" && deployment === "production") {
+    problems.push(
+      "a production build enforces the Credit page's policy; IDLEO_CHECKOUT_CSP=report-only is for staging",
+    );
   }
   problems.push(...siteSettingsProblems(env));
   if (auth === "oidc-mock" && (!env.VITE_OIDC_ISSUER || !env.VITE_OIDC_CLIENT_ID)) {

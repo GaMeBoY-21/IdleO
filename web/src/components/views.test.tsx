@@ -14,11 +14,14 @@ vi.mock("@/api/queries", async (original) => ({
 }));
 
 describe("the credit card", () => {
-  it("shows available, on hold and total, exactly", () => {
+  it("shows available, on hold, total, bought and free, exactly", () => {
     render(<CreditCard wallet={queryResult({ data: wallet })} />);
     expect(screen.getByText("₹462.12")).toBeInTheDocument();
     expect(screen.getByText("₹5.40")).toBeInTheDocument();
-    expect(screen.getByText("₹467.52")).toBeInTheDocument();
+    // The fixture's credit is all free, so the total and the free credit are the same figure.
+    expect(screen.getAllByText("₹467.52")).toHaveLength(2);
+    expect(screen.getByText("₹0.00")).toBeInTheDocument();
+    expect(screen.getByText("Never expires.")).toBeInTheDocument();
     expect(screen.getByText("What you can spend now.")).toBeInTheDocument();
   });
 
