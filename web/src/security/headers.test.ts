@@ -108,6 +108,8 @@ describe("the security headers", () => {
     for (const name of ["script-src", "frame-src", "connect-src", "img-src"]) {
       expect(directive(allowing, name)).toContain(CHECKOUT_COLLECTING);
     }
+    // A local build collects the same way, for the check on a Mac (docs/runbooks/payments.md).
+    expect(checkoutSources({ ...env, IDLEO_DEPLOYMENT: "local" }, true).frame).toEqual([CHECKOUT_COLLECTING]);
     const headers = creditHeaders(env, allowing, strict);
     expect(headers["Content-Security-Policy"]).toContain(CHECKOUT_COLLECTING);
     expect(headers["Content-Security-Policy-Report-Only"]).toBe(`${strict}; frame-ancestors 'none'`);

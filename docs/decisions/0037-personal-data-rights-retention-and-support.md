@@ -109,3 +109,13 @@ their ids.
 - Admins see ids where they saw emails in the records other modules keep (granted by, changed by); the audit log shows the
   email of an admin who still has an account.
 - Open question: which channel the Data Protection Board accepts reports by, and every LEGAL(confirm) value.
+
+## Addendum: bought credit at deletion (ADR 0039)
+
+Credit can now be bought, and bought credit is the person's money, so it is never forfeited. Before the erasure's blockers
+are asked, `PersonalData.beforeErasure` lets billing start a refund of everything left of the person's bought credit to
+the payments it came from (`CreditRefunds.forDeletion`, approving a request still waiting if there is one). The deletion
+then waits: `refund-in-progress` blocks it until every part is processed, and `refund-failed` until support has sorted out
+one Razorpay couldn't refund. An open chargeback (`chargeback-open`) blocks it too. Only free credit is forfeited, as
+before. The personal data map lists the new tables (billing details, invoices, refunds and their parts, top-ups and
+their failures, chargebacks, payment mismatches).

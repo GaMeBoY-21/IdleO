@@ -53,7 +53,7 @@ test("adds ₹500 by test UPI, said only once the server has it, with its receip
   const receipt = page.getByRole("button", { name: /^Download receipt / });
   await expect(receipt).toBeVisible({ timeout: 15_000 });
   const [download] = await Promise.all([page.waitForEvent("download"), receipt.click()]);
-  const pdf = readFileSync((await download.path()));
+  const pdf = readFileSync(await download.path());
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
   results.receipt = download.suggestedFilename();
 });

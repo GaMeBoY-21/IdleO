@@ -291,7 +291,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
       const row = page.getByRole("row").filter({ hasText: process.env.E2E_REFUND_NOTE! });
       await row.getByRole("button", { name: /^Approve/ }).click();
       const sheet = page.getByRole("dialog", { name: "Refund this bought credit?" });
-      await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200");
+      await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200.00");
       await sheet.getByLabel("Reason").fill("end-to-end refund approval");
       await sheet.getByRole("button", { name: "Refund", exact: true }).click();
       await expect(sheet).toBeHidden();

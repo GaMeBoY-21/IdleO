@@ -21,7 +21,8 @@ export function BillingDetailsTile({ details }: { details: UseQueryResult<Billin
         Billing details
       </h2>
       {details.data ? (
-        <DetailsForm key={JSON.stringify(details.data.details ?? null)} details={details.data} />
+        // Drawn once from what was loaded; a save updates the cache, and the form keeps its own words ("Saved.").
+        <DetailsForm details={details.data} />
       ) : details.isError ? (
         <ErrorState
           error={details.error}

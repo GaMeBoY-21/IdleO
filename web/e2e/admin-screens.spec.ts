@@ -464,7 +464,7 @@ test.describe("the console", () => {
     await capture(page, info, "admin-refunds");
     await page.getByRole("button", { name: /^Approve/ }).click();
     const sheet = page.getByRole("dialog", { name: "Refund this bought credit?" });
-    await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200");
+    await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200.00");
     await sheet.getByLabel("Amount in ₹").fill("1000");
     await sheet.getByLabel("Reason").fill("renter asked, credit unused");
     await sheet.getByRole("button", { name: "Refund", exact: true }).click();

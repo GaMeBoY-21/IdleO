@@ -406,7 +406,7 @@ test.describe("the account", () => {
     // On a laptop the rail names the person too, so the first of them.
     await expect(page.getByText("asha@example.com", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Google", { exact: true })).toBeVisible();
-    await expect(page.getByRole("switch")).toHaveCount(28);
+    await expect(page.getByRole("switch")).toHaveCount(data.notificationChoices().items.length * 2);
     for (const title of ["Host lost", "Payout sent or failed"]) {
       await expect(page.getByRole("switch", { name: `${title}: email` })).toBeDisabled();
     }
@@ -472,7 +472,7 @@ test.describe("the account", () => {
     await page.unrouteAll({ behavior: "ignoreErrors" });
     await fakeApi(page, signedIn());
     await page.getByRole("button", { name: "Try again" }).click();
-    await expect(page.getByRole("switch")).toHaveCount(28);
+    await expect(page.getByRole("switch")).toHaveCount(data.notificationChoices().items.length * 2);
   });
 
   test("with no kinds to choose", async ({ page }, info) => {
@@ -492,12 +492,12 @@ test.describe("the account", () => {
       }),
     );
     await signIn(page, "asha", "/account/");
-    await expect(page.getByRole("switch")).toHaveCount(28);
+    await expect(page.getByRole("switch")).toHaveCount(data.notificationChoices().items.length * 2);
     // The choices are fresh for 30 s; coming back to the tab later reads them again, and that read fails.
     await page.clock.setFixedTime(new Date(data.NOW.getTime() + 10 * 60_000));
     await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
     await expect(page.getByText(/Couldn't refresh/)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("switch")).toHaveCount(28);
+    await expect(page.getByRole("switch")).toHaveCount(data.notificationChoices().items.length * 2);
     await expectAccessible(page);
     await capture(page, info, "account-stale");
   });

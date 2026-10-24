@@ -27,18 +27,14 @@ type CheckoutSources = Readonly<Record<CheckoutDirective, readonly string[]>>;
 const NO_CHECKOUT: CheckoutSources = { script: [], frame: [], connect: [], img: [] };
 
 /**
- * The Credit page's Checkout origins (ADR 0039). A local build allows the fake Razorpay's origin, which serves the fake
- * Checkout and is where it pays; a deployed one, CHECKOUT_ORIGINS; and while collecting (`collecting`, from
- * IDLEO_CHECKOUT_CSP=report-only), all of Razorpay's domains, so Checkout runs while a report-only policy names what it
- * used. A build without a Checkout script allows nothing.
+ * The Credit page's Checkout origins (ADR 0039). While collecting (`collecting`, from IDLEO_CHECKOUT_CSP=report-only, a
+ * local or staging build's), all of Razorpay's domains, so Checkout runs while a report-only policy names what it used;
+ * otherwise a local build allows the fake Razorpay's origin, which serves the fake Checkout and is where it pays, and a
+ * deployed one CHECKOUT_ORIGINS. A build without a Checkout script allows nothing.
  */
 export function checkoutSources(env: BuildEnv, collecting = false): CheckoutSources {
   if (!env.VITE_CHECKOUT_URL) {
     return NO_CHECKOUT;
-  }
-  if ((env.IDLEO_DEPLOYMENT ?? "local") === "local") {
-    const fake = new URL(env.VITE_CHECKOUT_URL).origin;
-    return { script: [fake], frame: [], connect: [fake], img: [] };
   }
   if (collecting) {
     return {
@@ -47,6 +43,10 @@ export function checkoutSources(env: BuildEnv, collecting = false): CheckoutSour
       connect: [CHECKOUT_COLLECTING],
       img: [CHECKOUT_COLLECTING],
     };
+  }
+  if ((env.IDLEO_DEPLOYMENT ?? "local") === "local") {
+    const fake = new URL(env.VITE_CHECKOUT_URL).origin;
+    return { script: [fake], frame: [], connect: [fake], img: [] };
   }
   return CHECKOUT_ORIGINS;
 }

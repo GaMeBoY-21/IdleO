@@ -111,6 +111,7 @@ describe("adding credit", () => {
     checkout.pay.mockResolvedValue(answer);
     let confirm: (value: TopUp) => void = () => undefined;
     api.confirmTopUp.mockReturnValue(new Promise<TopUp>((resolve) => (confirm = resolve)));
+    api.fetchTopUp.mockResolvedValue(topUp("pending", 100_000));
     renderWith(<AddCredit details={queryResult({ data: withState })} />);
 
     await userEvent.click(screen.getByRole("button", { name: "₹1,000" }));
@@ -149,6 +150,26 @@ describe("adding credit", () => {
     ).toBeInTheDocument();
     expect(api.fetchTopUp.mock.calls.length).toBeGreaterThan(3);
 
+    api.fetchTopUp.mockResolvedValue(topUp("paid"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_500);
+    });
+    expect(screen.getByText("₹500.00 added.")).toBeInTheDocument();
+  });
+
+  it("says it's slow while the confirmation itself is slow, and adds it once the server has it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    api.orderTopUp.mockResolvedValue(topUp("pending"));
+    checkout.pay.mockResolvedValue(answer);
+    api.confirmTopUp.mockReturnValue(new Promise<TopUp>(() => undefined));
+    api.fetchTopUp.mockResolvedValue(topUp("pending"));
+    renderWith(<AddCredit details={queryResult({ data: withState })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Pay ₹500.00" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SLOW_AFTER_MS + 2_000);
+    });
+    expect(screen.getByText(/taking longer than usual to confirm it/)).toBeInTheDocument();
+    // The webhook credited it meanwhile: the server says so, though the confirmation never answered.
     api.fetchTopUp.mockResolvedValue(topUp("paid"));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_500);

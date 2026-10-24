@@ -46,19 +46,30 @@ export function usePay() {
   }, []);
 
   /**
-   * Asks the server until the top-up is paid or failed; slow after SLOW_AFTER_MS, still asking. `first` is the
-   * confirmation's answer: the top-up, null when it was lost, or why the server refused the payment as not this one.
+   * Asks the server every 2 s until the top-up is paid or failed, slow after SLOW_AFTER_MS, still asking, whether or not
+   * the confirmation has answered yet: the webhook may credit it first, and a slow confirmation is as slow to the
+   * renter as a slow payment. `first` is the confirmation's answer: the top-up, null when it was lost, or why the server
+   * refused the payment as not this one.
    */
   const follow = useCallback(
     async (topUp: TopUp, first: Promise<TopUp | null | { refused: string }>) => {
       const started = Date.now();
-      const answered = await first;
-      if (answered !== null && "refused" in answered) {
-        setPayment({ step: "failed", amountPaise: topUp.amountPaise, reason: answered.refused });
-        return;
-      }
-      let current = answered;
+      const confirmation: { refused?: string; answer?: TopUp; done?: boolean } = {};
+      const confirmed = first.then((answered) => {
+        if (answered !== null && "refused" in answered) {
+          confirmation.refused = answered.refused;
+        } else if (answered !== null) {
+          confirmation.answer = answered;
+        }
+        confirmation.done = true;
+      });
+      let current: TopUp | null = null;
       while (alive.current) {
+        if (confirmation.refused !== undefined) {
+          setPayment({ step: "failed", amountPaise: topUp.amountPaise, reason: confirmation.refused });
+          return;
+        }
+        current = confirmation.answer?.status === "paid" ? confirmation.answer : current;
         if (current?.status === "paid") {
           await refreshAfterTopUp(client);
           setPayment({ step: "added", amountPaise: topUp.amountPaise });
@@ -77,7 +88,14 @@ export function usePay() {
           amountPaise: topUp.amountPaise,
           slow: Date.now() - started >= SLOW_AFTER_MS,
         });
-        await new Promise((resolve) => setTimeout(resolve, TOP_UP_POLL_MS));
+        // The next look, or the confirmation's answer if it comes first.
+        const wait = new Promise((resolve) => setTimeout(resolve, TOP_UP_POLL_MS));
+        const answeredBefore = confirmation.done === true;
+        await (answeredBefore ? wait : Promise.race([wait, confirmed]));
+        if (!answeredBefore && confirmation.done === true) {
+          // It has just answered: read that answer first.
+          continue;
+        }
         current = await fetchTopUp(topUp.id).catch(() => current);
       }
     },
