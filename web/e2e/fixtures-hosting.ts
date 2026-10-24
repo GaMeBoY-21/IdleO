@@ -319,7 +319,7 @@ export const earnings: OwnerEarnings = {
     entries: earningsEntries.slice(0, 20),
     nextCursor: earningsEntries.length > 20 ? "page-2" : null,
   },
-  payoutsStart: "paid-pilot",
+  payoutsStart: "weekly",
 };
 
 /** An owner who has machines and has earned nothing yet. */
@@ -331,7 +331,7 @@ export const noEarnings: OwnerEarnings = {
   days: earnings.days.map((day) => ({ ...day, earnedPaise: 0 })),
   machines: [],
   history: { entries: [], nextCursor: null },
-  payoutsStart: "paid-pilot",
+  payoutsStart: "weekly",
 };
 
 /** Every machine above, by id, for a fake API that answers any of them. */

@@ -109,6 +109,14 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "nothing-to-refund":
     "Only credit you bought can go back, to where you paid from. Free credit can't be paid out.",
   "billing-details-required": "Choose your state first: it decides the GST on your invoice.",
+  "pan-required":
+    "You've bought a lot of credit this year: give your PAN in Hosting, Payout details, then buy more once it's verified.",
+  "payouts-unavailable": "UPI IDs can't be checked just now. Nothing changed; try again in a little while.",
+  "pan-not-verified": "Your PAN has to be verified first: a UPI ID is checked against the name on it.",
+  "pan-already-verified": "Your PAN is verified already. To change it, write to us from Help.",
+  "too-many-upi-checks": "That's a lot of checks today: each one asks your bank. Try again tomorrow.",
+  "upi-check-not-usable": "That check can't be used any more. Check the UPI ID again.",
+  "payout-in-progress": "A payout is on its way to your UPI ID. Wait for it to arrive first.",
   "storage-unavailable":
     "Our file storage can't be reached just now, so files can't be uploaded or read. Your sessions keep running. Try again in a minute.",
   "internal-error": "Something went wrong on our side. Try again in a moment.",

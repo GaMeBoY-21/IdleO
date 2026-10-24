@@ -641,3 +641,164 @@ export const receipt = {
 };
 
 export const invoices = { invoices: [receipt] };
+
+// Payouts (ADR 0040): a run, its payouts (one processed, one that failed), the balance against the next run, a PAN and
+// a UPI ID waiting for an admin, a clawback still owed, and the payout reconciliation with one item open. A payout's
+// net is its gross less its tax.
+export const PAYOUT_FAILED_ID = "01a1340a-0000-7000-8000-000000081002";
+export const PAYOUT_MISMATCH_ID = "01a1340a-0000-7000-8000-000000082001";
+export const CLAWBACK_ID = "01a1340a-0000-7000-8000-000000083001";
+export const UPI_REVIEW_ID = "01a1340a-0000-7000-8000-000000084001";
+
+const adminPayout = (
+  id: string,
+  gross: number,
+  tds: number,
+  status: string,
+  extra: Record<string, unknown> = {},
+) => ({
+  id,
+  userId: OWNER_ID,
+  runId: "01a1340a-0000-7000-8000-000000080001",
+  kind: "weekly",
+  grossPaise: gross,
+  tdsPaise: tds,
+  tdsSection: "194-O",
+  feePaise: 0,
+  netPaise: gross - tds,
+  status,
+  razorpayxId: `pout_${id.slice(-14).replaceAll("-", "")}`,
+  utr: status === "processed" ? "523223155921" : null,
+  statusReason: null,
+  statusDescription: null,
+  attempts: 1,
+  lastError: null,
+  createdAt: ago(3 * 24 * 60),
+  processedAt: status === "processed" ? ago(3 * 24 * 60 - 2) : null,
+  endedAt: null,
+  ...extra,
+});
+
+export const adminPayouts = {
+  runs: [
+    {
+      id: "01a1340a-0000-7000-8000-000000080001",
+      kind: "weekly",
+      payday: ago(3 * 24 * 60).slice(0, 10),
+      trigger: "weekly",
+      startedAt: ago(3 * 24 * 60),
+      finishedAt: ago(3 * 24 * 60 - 1),
+      owners: 2,
+      payouts: 2,
+      totalPaise: 12_800 + 9_600,
+      failure: null,
+    },
+  ],
+  payouts: [
+    adminPayout("01a1340a-0000-7000-8000-000000081001", 12_800, 0, "processed"),
+    adminPayout(PAYOUT_FAILED_ID, 9_600, 0, "failed", {
+      statusReason: "bank_account_closed",
+      statusDescription:
+        "Payout failed as the beneficiary account is closed. Please contact the beneficiary bank",
+    }),
+  ],
+  nextCursor: null,
+  balance: {
+    payday: later(3).slice(0, 10),
+    checkedAt: ago(10),
+    balancePaise: 5_000,
+    duePaise: 12_800,
+    isShort: true,
+    failure: null,
+  },
+  nextPayday: later(3),
+};
+
+export const payoutVerifications = {
+  pans: [
+    {
+      userId: OWNER_ID,
+      last4: "234F",
+      name: "Asha Rao",
+      holder: "individual",
+      state: "review",
+      checked: "not_checked",
+      verifier: "manual",
+      submittedAt: ago(60),
+      reason: null,
+    },
+  ],
+  upiIds: [
+    {
+      id: UPI_REVIEW_ID,
+      userId: RENTER_ID,
+      vpa: "ravi.k@okaxis",
+      registeredName: "R K SHARMA",
+      panName: "Ravi Kumar Sharma",
+      nameMatchScore: 42,
+      state: "review",
+      checkedAt: ago(30),
+      confirmedAt: ago(29),
+    },
+  ],
+};
+
+export const clawbacks = {
+  clawbacks: [
+    {
+      id: CLAWBACK_ID,
+      ownerId: OWNER_ID,
+      hostId: HOST_ID,
+      sessionId: SESSION_ID,
+      cause: "report_refund",
+      amountPaise: 800,
+      fromBalancePaise: 300,
+      owedPaise: 500,
+      recoveredPaise: 0,
+      waivedPaise: 0,
+      outstandingPaise: 500,
+      state: "owed",
+      createdAt: ago(120),
+      settledAt: null,
+      waivedBy: null,
+      waiveReason: null,
+    },
+  ],
+  nextCursor: null,
+};
+
+export const payoutReconciliation = {
+  runs: [
+    {
+      id: "01a1340a-0000-7000-8000-000000085001",
+      day: ago(24 * 60).slice(0, 10),
+      trigger: "nightly",
+      startedAt: ago(5 * 60),
+      finishedAt: ago(5 * 60 - 1),
+      payouts: 2,
+      found: 1,
+      open: 1,
+      failure: null,
+    },
+  ],
+  mismatches: [
+    {
+      id: PAYOUT_MISMATCH_ID,
+      kind: "missing_ours",
+      subject: "pout_Fx000000000099",
+      payoutId: null,
+      userId: null,
+      ourPaise: null,
+      theirPaise: 12_345,
+      ourStatus: null,
+      theirStatus: "processed",
+      detail: "RazorpayX has payout pout_Fx000000000099 of 12345 paise that isn't one of ours.",
+      state: "open",
+      foundAt: ago(5 * 60),
+      lastFoundAt: ago(5 * 60),
+      closedAt: null,
+      closedBy: null,
+      closeReason: null,
+    },
+  ],
+};

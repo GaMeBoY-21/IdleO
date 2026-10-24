@@ -17,6 +17,10 @@ import { Invites } from "./Invites";
 import { Invoices } from "./Invoices";
 import { Money } from "./Money";
 import { Payments } from "./Payments";
+import { Payouts } from "./Payouts";
+import { Verification } from "./Verification";
+import { Clawbacks } from "./Clawbacks";
+import { Tax } from "./Tax";
 import { Refunds } from "./Refunds";
 import { Review } from "./Review";
 import { Sessions } from "./Sessions";
@@ -40,6 +44,10 @@ export const ADMIN_SCREENS = [
   { href: "/admin/payments/", label: "Payments" },
   { href: "/admin/refunds/", label: "Refunds" },
   { href: "/admin/invoices/", label: "Invoices" },
+  { href: "/admin/payouts/", label: "Payouts" },
+  { href: "/admin/verification/", label: "Verification" },
+  { href: "/admin/clawbacks/", label: "Clawbacks" },
+  { href: "/admin/tax/", label: "Tax" },
   { href: "/admin/invites/", label: "Invites" },
   { href: "/admin/notices/", label: "Notices" },
   { href: "/admin/audit/", label: "Audit log" },
@@ -64,6 +72,10 @@ export function AdminConsole() {
           <Route path="/admin/refunds/" component={Refunds} />
           <Route path="/admin/invoices/" component={Invoices} />
           <Route path="/admin/chargebacks/" component={Chargebacks} />
+          <Route path="/admin/payouts/" component={Payouts} />
+          <Route path="/admin/verification/" component={Verification} />
+          <Route path="/admin/clawbacks/" component={Clawbacks} />
+          <Route path="/admin/tax/" component={Tax} />
           <Route path="/admin/invites/" component={Invites} />
           <Route path="/admin/audit/" component={Audit} />
         </Switch>

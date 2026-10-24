@@ -156,6 +156,7 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
             ? "A legal order requires it."
             : "Changed your mind? Cancel now, or with the link in our email, until then."}
         </p>
+        <Waits waits={standing.waits} />
         {!request.legalOrder && (
           <Button variant="secondary" busy={cancel.isPending} onClick={() => cancel.mutate()}>
             Don&apos;t delete my account
@@ -187,6 +188,7 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
           You give up <Money paise={loss.amountPaise} /> of free credit: it can&apos;t be paid out.
         </p>
       ))}
+      <Waits waits={standing.waits} />
       {blocked && (
         <div className="flex flex-col gap-1.5">
           <p className="text-small font-semibold">First, this has to end:</p>
@@ -194,7 +196,17 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
             {standing.blockers.map((blocker) => (
               <li key={`${blocker.code}${blocker.message}`} className={LINE}>
                 <span aria-hidden="true">·</span>
-                {blocker.message}
+                <span>
+                  {blocker.message}
+                  {blocker.code === "payout-method-needed" && (
+                    <>
+                      {" "}
+                      <Link className="font-semibold underline" href="/hosting/payout-details/">
+                        Payout details
+                      </Link>
+                    </>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -217,6 +229,32 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
       <p role="alert" className="min-h-4.5 text-caption text-danger">
         {error}
       </p>
+    </div>
+  );
+}
+
+/**
+ * What the erasure waits for once the wait is over (ADR 0040): a host's earnings paid to their UPI ID first, the part
+ * still in its dispute window on the date the server gives. The words and dates are the server's.
+ */
+function Waits({ waits }: { waits: DeletionStanding["waits"] }) {
+  if (waits.length === 0) {
+    return null;
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-small font-semibold">Before it&apos;s deleted:</p>
+      <ul className="flex flex-col gap-1.5">
+        {waits.map((wait) => (
+          <li key={wait.code} className={LINE}>
+            <span aria-hidden="true">·</span>
+            <span>
+              {wait.message}
+              {wait.until && <> Expected by {formatDay(wait.until)}.</>}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

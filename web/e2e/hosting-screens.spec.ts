@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as hosting from "./fixtures-hosting";
+import * as payouts from "./fixtures-payouts";
 import * as trust from "./fixtures-trust";
 import { hostingApi } from "./hosting-api";
 import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type Answer } from "./support";
@@ -400,7 +401,11 @@ test.describe("sessions it ran", () => {
 test.describe("earnings", () => {
   test("the totals, then every credit and giveback, newest first", async ({ page }, info) => {
     await open(page, "/hosting/earnings/");
-    await expect(page.getByText("During the free beta your earnings are recorded here.")).toBeVisible();
+    await expect(
+      page.getByText("Paid to your UPI ID every Monday, 7 days after each session."),
+    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Payouts" })).toContainText("Next payout");
+    await expect(page.getByRole("region", { name: "Payout history" })).toContainText("Didn't go through");
     await expect(page.getByText("Hours rented")).toBeVisible();
     await expect(page.getByText("Given back for lost time")).toBeVisible();
     await expect(page.getByRole("list", { name: "Each machine" })).toContainText("Old laptop (removed)");
@@ -442,6 +447,55 @@ test.describe("earnings", () => {
     await expect(page.getByRole("button", { name: "Try again" })).toBeVisible({ timeout: 15_000 });
     await expectAccessible(page);
     await capture(page, info, "earnings-error");
+  });
+});
+
+test.describe("payouts", () => {
+  test("say why a host can't be paid yet, and where to fix it", async ({ page }, info) => {
+    await open(page, "/hosting/earnings/", { "/v1/payouts/summary": { json: payouts.summaryNoPan } });
+    await expect(page.getByText("Add your PAN and a UPI ID to be paid.")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "earnings-payouts-blocked");
+  });
+
+  test("payout details: a PAN first, then a UPI ID checked with the bank's name, then used", async ({
+    page,
+  }, info) => {
+    await open(page, "/hosting/payout-details/", { "/v1/payout-details": { json: payouts.detailsNew } });
+    await expect(page.getByLabel("PAN", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Your UPI ID")).toBeDisabled();
+    await expectAccessible(page);
+    await capture(page, info, "payout-details-new");
+
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await fakeApi(page, api({ "/v1/payout-details": { json: payouts.detailsChecked } }));
+    await page.reload();
+    await expect(page.getByRole("status").filter({ hasText: "is registered to ASHA RAO" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Use this UPI ID" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "payout-details-checked");
+
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await fakeApi(page, api({ "/v1/payout-details": { json: payouts.detailsHeld } }));
+    await page.reload();
+    await expect(
+      page.getByText(/Your payout UPI ID was changed\. No payout goes to it before/),
+    ).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "payout-details-held");
+  });
+
+  test("payout details: loading and an error with a retry", async ({ page }, info) => {
+    await open(page, "/hosting/payout-details/", { "/v1/payout-details": "hold" });
+    await expect(page.getByRole("status", { name: "Loading your payout details" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "payout-details-loading");
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await fakeApi(page, api({ "/v1/payout-details": { status: 503 } }));
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible({ timeout: 15_000 });
+    await expectAccessible(page);
+    await capture(page, info, "payout-details-error");
   });
 });
 

@@ -11,16 +11,18 @@ import { cn } from "@/lib/cn";
 import { formatMinutes } from "@/lib/hosting";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
+import { useAfterPaint } from "@/lib/after-first-screen";
+import { PayoutHistory, PayoutsTile, StatementTile } from "./Payouts";
 
-const BETA_NOTE =
-  "During the free beta your earnings are recorded here. Weekly UPI payouts start with the paid pilot.";
+const PAYOUT_NOTE = "Paid to your UPI ID every Monday, 7 days after each session.";
 
 const ROW = "flex min-h-18 items-center gap-3 py-4";
 
 /**
  * Earnings across every machine (docs/design/hosting/earnings-phone.html): the total, this week and the time rented,
- * then every credit and every lost-time giveback, newest first, a page at a time. All of it is the ledger's. Payouts
- * aren't built: the note says they start with the paid pilot (ADR 0023).
+ * then every credit and every lost-time giveback, newest first, a page at a time. All of it is the ledger's. Below
+ * them, the payouts (ADR 0040): what's pending and available, the next payday, every payout and the year's statement,
+ * asked for after the first paint.
  */
 export function Earnings() {
   useTitle("Earnings");
@@ -31,6 +33,7 @@ export function Earnings() {
   const entries = earnings.data?.pages.flatMap((page) => page.history.entries);
   const since = staleSince(earnings);
   const wide = useWide();
+  const painted = useAfterPaint();
   const next = {
     has: earnings.hasNextPage,
     busy: earnings.isFetchingNextPage,
@@ -48,6 +51,8 @@ export function Earnings() {
       >
         <h1 className="sr-only">Earnings</h1>
         {since !== null && <StaleNotice updatedAt={since} />}
+        <PayoutsTile enabled={painted} />
+        <StatementTile enabled={painted} />
         {owner && entries ? (
           <History entries={entries} next={next} />
         ) : earnings.isError ? (
@@ -60,6 +65,7 @@ export function Earnings() {
         ) : (
           <HistorySkeleton />
         )}
+        <PayoutHistory enabled={painted} />
       </HostFlow>
     );
   }
@@ -70,7 +76,10 @@ export function Earnings() {
       {owner && entries ? (
         <>
           <Totals owner={owner} />
+          <PayoutsTile enabled={painted} />
+          <StatementTile enabled={painted} />
           <History entries={entries} next={next} />
+          <PayoutHistory enabled={painted} />
         </>
       ) : earnings.isError ? (
         <ErrorState
@@ -108,7 +117,7 @@ function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: bo
           <span className="tabular">{formatMinutes(owner.minutesRentedThisWeek)}</span>
         </Figure>
       </dl>
-      <p className="max-w-prose text-small text-dark-muted">{BETA_NOTE}</p>
+      <p className="max-w-prose text-small text-dark-muted">{PAYOUT_NOTE}</p>
       {owner.machines.length > 1 && (
         <ul aria-label="Each machine" className="flex flex-col divide-y divide-dark-fg/15">
           {owner.machines.map((machine) => (
@@ -184,7 +193,7 @@ function TotalsSkeleton() {
         <div className="skeleton-dark h-18 rounded-control" />
         <div className="skeleton-dark h-18 rounded-control" />
       </div>
-      <p className="max-w-prose text-small text-dark-muted">{BETA_NOTE}</p>
+      <p className="max-w-prose text-small text-dark-muted">{PAYOUT_NOTE}</p>
     </Tile>
   );
 }
@@ -218,7 +227,7 @@ function EarningsSkeleton() {
           <div className="skeleton-dark h-18 rounded-control" />
           <div className="skeleton-dark h-18 rounded-control" />
         </div>
-        <p className="max-w-prose text-small text-dark-muted">{BETA_NOTE}</p>
+        <p className="max-w-prose text-small text-dark-muted">{PAYOUT_NOTE}</p>
       </Tile>
       <Tile as="div" className="flex flex-col divide-y divide-divider px-4.5 py-0">
         {[0, 1, 2, 3].map((key) => (
@@ -257,6 +266,11 @@ function EntryRow({ entry }: { entry: EarningsEntry }) {
         <p className="text-small text-text-muted first-letter:uppercase xl:hidden">
           {entry.machineName} · <RelativeTime value={entry.createdAt} />
         </p>
+        {entry.kind === "recovered_after_payout" && (
+          <p className="text-small text-text-muted">
+            Taken from your unpaid earnings, never from your bank account
+          </p>
+        )}
         {entry.payoutHeld && (
           <p className="text-small font-semibold text-warning">Held from payout while a report is open</p>
         )}

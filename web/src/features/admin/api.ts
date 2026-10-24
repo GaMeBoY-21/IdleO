@@ -70,6 +70,11 @@ export type AdminChargeback = Schemas["AdminChargeback"];
 export type AdminCreditRefund = Schemas["AdminCreditRefund"];
 export type AdminInvoice = Schemas["AdminInvoice"];
 export type AdminHostFlag = Schemas["AdminHostFlag"];
+export type AdminPayout = Schemas["AdminPayout"];
+export type AdminPayoutMismatch = Schemas["AdminPayoutMismatch"];
+export type AdminPanReview = Schemas["AdminPanReview"];
+export type AdminUpiReview = Schemas["AdminUpiReview"];
+export type AdminClawback = Schemas["AdminClawback"];
 
 let onNotFound: () => void = () => undefined;
 

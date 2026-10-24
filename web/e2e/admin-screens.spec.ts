@@ -59,6 +59,10 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/chargebacks": { json: admin.chargebacks },
   [`/admin/v1/chargebacks/${admin.CHARGEBACK_ID}`]: { json: admin.chargeback },
   "/admin/v1/invoices": { json: admin.invoices },
+  "/admin/v1/payouts": { json: admin.adminPayouts },
+  "/admin/v1/payouts/reconciliation": { json: admin.payoutReconciliation },
+  "/admin/v1/payouts/verifications": { json: admin.payoutVerifications },
+  "/admin/v1/clawbacks": { json: admin.clawbacks },
   ...overrides,
 });
 
@@ -445,6 +449,86 @@ test.describe("the console", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Accept" }).click();
     await expect(page.getByRole("dialog")).toBeHidden();
     expect(accepted).toEqual({ reason: "Razorpay refunds it by itself" });
+  });
+
+  test("shows the runs, the payouts and the balance, and pays one person again with a reason", async ({
+    page,
+  }, info) => {
+    let retried: unknown = null;
+    await open(page, "/admin/payouts/", {
+      "/admin/v1/payouts/retry": (_call, request) => {
+        retried = request.postDataJSON();
+        return { json: { payout: null, notPaid: "ON_HOLD" } };
+      },
+    });
+    await expect(page.getByRole("table", { name: "Payouts" })).toContainText("bank_account_closed");
+    await expect(page.getByRole("table", { name: "Runs" }).first()).toContainText("weekly");
+    await expect(page.getByText("short")).toBeVisible();
+    await expect(page.getByRole("table", { name: "What disagrees" })).toContainText("RazorpayX paid it");
+    await expectAccessible(page);
+    await capture(page, info, "admin-payouts");
+    await page.getByRole("button", { name: /^Retry/ }).click();
+    await page
+      .getByRole("dialog", { name: "Pay one person now?" })
+      .getByLabel("Reason")
+      .fill("the bank is back up");
+    await page.getByRole("dialog").getByRole("button", { name: "Pay now" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect(retried).toEqual({ userId: admin.OWNER_ID, reason: "the bank is back up" });
+    await expect(page.getByText(/Not paid: their UPI ID changed/)).toBeVisible();
+  });
+
+  test("verifies a PAN and a UPI ID with reasons, and reads a PAN whole only with one", async ({
+    page,
+  }, info) => {
+    let verified: unknown = null;
+    await open(page, "/admin/verification/", {
+      [`/admin/v1/payouts/verifications/pans/${admin.OWNER_ID}/verify`]: (_call, request) => {
+        verified = request.postDataJSON();
+        return { json: { ...admin.payoutVerifications.pans[0], state: "verified" } };
+      },
+    });
+    await expect(page.getByRole("table", { name: "PANs waiting" })).toContainText("••••••234F");
+    await expect(page.getByRole("table", { name: "UPI IDs waiting" })).toContainText("R K SHARMA");
+    await expectAccessible(page);
+    await capture(page, info, "admin-verification");
+    await page.getByRole("button", { name: /^Verify/ }).click();
+    await page
+      .getByRole("dialog", { name: "Verify this PAN?" })
+      .getByLabel("Reason")
+      .fill("photo of the card matches");
+    await page.getByRole("dialog").getByRole("button", { name: "Verify" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect(verified).toEqual({ reason: "photo of the card matches" });
+  });
+
+  test("waives what a host still owes into chargeback losses, with a reason", async ({ page }, info) => {
+    let waived: unknown = null;
+    await open(page, "/admin/clawbacks/", {
+      [`/admin/v1/clawbacks/${admin.CLAWBACK_ID}/waive`]: (_call, request) => {
+        waived = request.postDataJSON();
+        return { json: { ...admin.clawbacks.clawbacks[0], state: "waived", outstandingPaise: 0 } };
+      },
+    });
+    await expect(page.getByRole("table", { name: "Clawbacks" })).toContainText("owed");
+    await expectAccessible(page);
+    await capture(page, info, "admin-clawbacks");
+    await page.getByRole("button", { name: /^Waive/ }).click();
+    await page
+      .getByRole("dialog", { name: "Waive what's still owed?" })
+      .getByLabel("Reason")
+      .fill("the host couldn't have known");
+    await page.getByRole("dialog").getByRole("button", { name: "Waive" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect(waived).toEqual({ reason: "the host couldn't have known" });
+  });
+
+  test("exports a quarter's tax deducted at source with a reason", async ({ page }, info) => {
+    await open(page, "/admin/tax/");
+    await expect(page.getByRole("heading", { level: 1, name: "Tax" })).toBeVisible();
+    await expect(page.getByLabel(/^Quarter/)).toHaveValue(/^\d{4}-\d{2}-Q[1-4]$/);
+    await expectAccessible(page);
+    await capture(page, info, "admin-tax");
   });
 
   test("approves a refund of bought credit, never more than the renter can have back", async ({

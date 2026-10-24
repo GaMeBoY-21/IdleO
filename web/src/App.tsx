@@ -47,6 +47,9 @@ const screens = {
   "/hosting/price/": screen(() => import("@/features/hosting/Price").then((m) => m.Price)),
   "/hosting/sessions/": screen(() => import("@/features/hosting/HostSessions").then((m) => m.HostSessions)),
   "/hosting/earnings/": screen(() => import("@/features/hosting/Earnings").then((m) => m.Earnings)),
+  "/hosting/payout-details/": screen(() =>
+    import("@/features/hosting/PayoutDetails").then((m) => m.PayoutDetails),
+  ),
   "/hosting/add/": screen(() => import("@/features/hosting/AddMachine").then((m) => m.AddMachine)),
   "/link/": screen(() => import("@/features/hosting/LinkApproval").then((m) => m.LinkApprovalScreen)),
   "/sign-in/": screen(() => import("@/features/sign-in/SignIn").then((m) => m.SignIn)),
@@ -100,6 +103,7 @@ const Machine = screens["/hosting/machine/"].Screen;
 const Price = screens["/hosting/price/"].Screen;
 const HostSessions = screens["/hosting/sessions/"].Screen;
 const Earnings = screens["/hosting/earnings/"].Screen;
+const PayoutDetails = screens["/hosting/payout-details/"].Screen;
 const AddMachine = screens["/hosting/add/"].Screen;
 const LinkApproval = screens["/link/"].Screen;
 const SignIn = screens["/sign-in/"].Screen;
@@ -121,7 +125,7 @@ const CliLogin = screens["/cli-login/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/|delete\/|help\/(ticket\/)?)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/|delete\/|help\/(ticket\/)?)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|payout-details\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -216,6 +220,7 @@ function SignedInArea() {
             <Route path="/hosting/price/" component={Price} />
             <Route path="/hosting/sessions/" component={HostSessions} />
             <Route path="/hosting/earnings/" component={Earnings} />
+            <Route path="/hosting/payout-details/" component={PayoutDetails} />
             <Route path="/hosting/add/" component={AddMachine} />
             <Route path="/link/:id/" component={LinkApproval} />
           </Switch>

@@ -75,9 +75,35 @@ export const deletionNone = (freshSignIn = true) => ({
   request: null,
   blockers: [],
   losses: [FORFEIT],
+  waits: [] as { code: string; message: string; amountPaise: number | null; until: string | null }[],
   waitingDays: 7,
   keptFor: KEPT_FOR,
   freshSignIn,
+});
+
+/**
+ * A host deleting their account (ADR 0040): what's available is paid when the wait ends, what's pending on its date.
+ * The figures are the payouts fixtures' own.
+ */
+export const deletionHost = () => ({
+  ...deletionNone(),
+  losses: [],
+  waits: [
+    {
+      code: "final-payout",
+      message:
+        "₹128.00 your machines earned is paid to your UPI ID when the waiting period ends, before the account is deleted.",
+      amountPaise: 12_800,
+      until: null,
+    },
+    {
+      code: "earnings-pending",
+      message:
+        "₹43.20 is still in its dispute window and is paid once it's available; the account is deleted after that.",
+      amountPaise: 4_320,
+      until: "2026-10-31T09:12:00Z",
+    },
+  ],
 });
 
 export const deletionBlocked = () => ({

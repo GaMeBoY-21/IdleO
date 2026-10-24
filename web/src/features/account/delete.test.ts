@@ -14,6 +14,7 @@ describe("deleting the account's periods", () => {
       request: null,
       blockers: [],
       losses: [],
+      waits: [],
       waitingDays: 7,
       freshSignIn: true,
       keptFor: { moneyRecordsDays: 3650, securityLogDays: 400, backupsDays: 14 },

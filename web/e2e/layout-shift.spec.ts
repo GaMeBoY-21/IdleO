@@ -45,6 +45,9 @@ const screens = [
     ready: () => "Fine-tuning · 18 min",
   },
   { name: "earnings", path: "/hosting/earnings/", ready: () => "Given back for lost time" },
+  // The payouts' tiles arrive after the paint, each drawn first at its own height (ADR 0040).
+  { name: "earnings, with payouts", path: "/hosting/earnings/", ready: () => "Didn't go through" },
+  { name: "payout details", path: "/hosting/payout-details/", ready: () => "Payouts go here" },
   { name: "account", path: "/account/", ready: () => "New device sign-in" },
   { name: "API keys", path: "/account/keys/", ready: () => "Dashboard" },
   { name: "reports", path: "/account/reports/", ready: () => "It ran at the speed of its GPU." },
