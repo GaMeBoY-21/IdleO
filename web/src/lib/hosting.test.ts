@@ -8,6 +8,7 @@ import {
   formatPauseEnd,
   machineState,
   pauseChoices,
+  renterPays,
   stepPrice,
   youKeep,
 } from "./hosting";
@@ -235,5 +236,22 @@ describe("the machine page's host app line", () => {
       "host app · up to date",
     );
     expect(releaseLine({ version: "0.2.0", setupSizeBytes: 9_800_000 })).toBe("v0.2.0 · 9.8 MB");
+  });
+});
+
+describe("what renters pay", () => {
+  it("is the price while no GST is charged, and the price with GST added once it is", () => {
+    expect(renterPays(12, 0)).toBe(720);
+    expect(renterPays(12, 18)).toBe(850);
+    // Half up, as the control plane rounds: 60 × 18% is 10.8 paise.
+    expect(renterPays(1, 18)).toBe(71);
+  });
+
+  it("never changes what the host keeps when GST is turned on", () => {
+    for (const price of [1, 7, 12, 18, 250, 1_000]) {
+      const before = youKeep(price);
+      expect(renterPays(price, 18)).toBeGreaterThan(renterPays(price, 0));
+      expect(youKeep(price)).toEqual(before);
+    }
   });
 });

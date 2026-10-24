@@ -67,6 +67,7 @@ mail_web_port="${LOCAL_MAIL_WEB_PORT:-8025}"
 web_port="${E2E_WEB_PORT:-3000}"
 firebase_web_port="${E2E_FIREBASE_WEB_PORT:-3001}"
 site_port="${E2E_SITE_PORT:-3002}"
+razorpay_port="${E2E_RAZORPAY_PORT:-8091}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
 # A short lease, so losing the host shows within seconds (production: 2 minutes, renewed every 30 s).
 lease_ttl="${E2E_LEASE_TTL:-10s}"
@@ -315,7 +316,7 @@ summary=()
 cleanup() {
   local status=$?
   set +e
-  for pid_file in "$out"/web-*.pid "$out"/proxy-*.pid; do
+  for pid_file in "$out"/web-*.pid "$out"/proxy-*.pid "$out"/fake-razorpay.pid; do
     [[ -f "$pid_file" ]] && kill -TERM "$(cat "$pid_file")" 2>/dev/null
   done
   for pid_file in "$out"/agent-*.pid; do
@@ -357,11 +358,14 @@ cleanup() {
   if pgrep -f "web/scripts/serve.ts" >/dev/null 2>&1; then
     leftovers+=" web"
   fi
+  if pgrep -f "razorpay.FakeRazorpayServer $razorpay_port" >/dev/null 2>&1; then
+    leftovers+=" fake-razorpay"
+  fi
   if [[ -n "$leftovers" ]]; then
     printf 'e2e: FAIL: still running after teardown:%s\n' "$leftovers" >&2
     status=1
   else
-    summary+=("teardown: nothing left running (containers, control plane, agents, web): PASS")
+    summary+=("teardown: nothing left running (containers, control plane, agents, web, fake Razorpay): PASS")
   fi
 
   if [[ ${#summary[@]} -gt 0 ]]; then
@@ -385,7 +389,7 @@ on_signal() {
 }
 trap on_signal INT TERM
 
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port" "$site_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port" "$site_port" "$razorpay_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, LOCAL_MAIL_SMTP_PORT, LOCAL_MAIL_WEB_PORT, E2E_WEB_PORT, E2E_FIREBASE_WEB_PORT or E2E_SITE_PORT"
   fi
@@ -434,6 +438,8 @@ stack_control_plane_settings() {
   export SESSIONS_STORAGE_GRANT_TTL=60s SESSIONS_STORAGE_REFRESH_CHECK_EVERY=1s
   export METERING_TICK_EVERY=1s METERING_REVIEW_AFTER=20s
 }
+log "starting the fake Razorpay"
+stack_start_fake_razorpay
 stack_start_control_plane
 
 started_at="$(now_ms)"
@@ -451,9 +457,9 @@ token="$(stack_token "$user")"
 #     journey that signs in as a new person and enters one; the admin's (8) and the privacy journey's (10) are
 #     taken by index.
 log "making invite codes for the run's accounts"
-ops create-invites --count 11 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 11))
-((${#invite_codes[@]} == 11)) || fail "create-invites didn't print 11 codes; see private/e2e/ops.log"
+ops create-invites --count 12 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 12))
+((${#invite_codes[@]} == 12)) || fail "create-invites didn't print 12 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -521,7 +527,7 @@ web_started="$(now_ms)"
 # The app and the website are two builds, each told the other's address (web/src/build-settings.ts).
 site_settings=(IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port")
 (cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port" VITE_AUTH=oidc-mock VITE_OIDC_ISSUER="$sign_in" \
-  VITE_OIDC_CLIENT_ID=idleo-local pnpm build) >>"$out/web-build.log" 2>&1 || fail "the web build failed; see private/e2e/web-build.log"
+  VITE_OIDC_CLIENT_ID=idleo-local VITE_CHECKOUT_URL="http://localhost:$razorpay_port/v1/checkout.js" pnpm build) >>"$out/web-build.log" 2>&1 || fail "the web build failed; see private/e2e/web-build.log"
 (cd web && env "${site_settings[@]}" IDLEO_DEPLOYMENT=local VITE_API_URL="$api" pnpm build:site) >>"$out/web-build.log" 2>&1 ||
   fail "the website's build failed; see private/e2e/web-build.log"
 if $web_only; then
@@ -1379,6 +1385,90 @@ scenario="privacy"
 scenario_privacy_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-privacy.txt"
 
+# Razorpay's signed webhook for a dispute ($1 the event, payment.dispute.created or .won, $2 the dispute's id, $3
+# Razorpay's payment id, $4 the disputed paise), built from Razorpay's documented sample (control-plane/src/test/
+# resources/razorpay/) with only its ids and amounts changed, signed with the fake's webhook secret, and sent to the
+# control plane as Razorpay sends it.
+razorpay_dispute() {
+  python3 - "$root/control-plane/src/test/resources/razorpay" "$api" "$@" <<'PY'
+import hashlib, hmac, json, sys, time, urllib.request, uuid
+samples, api, event, dispute_id, payment_id, amount = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], int(sys.argv[6])
+name = {"payment.dispute.created": "created", "payment.dispute.won": "won"}[event]
+root = json.load(open(f"{samples}/webhook-payment-dispute-{name}.json"))
+payment = root["payload"]["payment"]["entity"]
+payment["id"] = payment_id
+dispute = root["payload"]["dispute"]["entity"]
+dispute.update(id=dispute_id, payment_id=payment_id, amount=amount, respond_by=int(time.time()) + 5 * 86400)
+if isinstance(dispute.get("evidence"), dict):
+    dispute["evidence"]["amount"] = amount
+body = json.dumps(root).encode()
+signature = hmac.new(b"fake-razorpay-webhook-secret", body, hashlib.sha256).hexdigest()
+request = urllib.request.Request(f"{api}/v1/payments/razorpay/webhook", data=body, method="POST", headers={
+    "Content-Type": "application/json", "X-Razorpay-Signature": signature, "x-razorpay-event-id": f"evt_{uuid.uuid4().hex[:14]}"})
+assert urllib.request.urlopen(request, timeout=10).status == 200
+PY
+}
+
+# Money in, in a browser and through the fake Razorpay (web/e2e/payments-journey.spec.ts, ADR 0039): a person with no
+# free credit gives their state, adds ₹500 by test UPI, downloads its receipt, sees a payment fail, waits through a slow
+# confirmation for ₹100 more, and asks for ₹200 back. Then the database holds each payment credited once, by its lot,
+# with its receipt; a session the person books is paid from bought credit alone; and a chargeback on the ₹100 payment
+# freezes its part of the credit until it's won. The admin journey approves the refund and reconciles the day.
+scenario_payments_web() {
+  local report="$out/payments-journey.json" pay_user="$user-pay" pay_token rows charged small_payment session
+  pay_token="$(stack_token "$pay_user")"
+  [[ -n "$pay_token" ]] || fail "no token for the payments journey's person"
+  invite_next=11
+  activate_user "$pay_token"
+  stack_agree "$pay_token"
+  pay_user_id="$(token="$pay_token" api_get /v1/me | json_get .id)"
+  E2E_PAYMENTS_USER="$pay_user" E2E_PAYMENTS_REPORT="$report" SKIP_VISUAL=1 \
+    web_test --project=payments-journey --reporter=line >>"$out/payments-journey.log" 2>&1 ||
+    fail "the payments journeys failed; see private/e2e/payments-journey.log"
+  seconds_to_credit="$(json_get .secondsToCredit <"$report")"
+  rows="$(sql "select string_agg(amount_paise || ':' || status, ',' order by amount_paise, status)
+      from billing.topups where user_id = '$pay_user_id'")"
+  [[ "$rows" == "10000:failed,10000:paid,50000:paid" ]] || fail "the person's top-ups aren't ₹100 failed, ₹100 and ₹500 paid: $rows"
+  # Each paid top-up credited once: one ledger transaction, into its own bought lot, and one receipt.
+  [[ "$(sql "select count(distinct e.txn_id) || ':' || sum(e.amount_paise) from billing.ledger_entries e
+      join billing.topups t on t.id = e.ref_id
+      where t.user_id = '$pay_user_id' and e.ref_type = 'topup' and e.account = 'renter_purchased'")" == "2:60000" ]] ||
+    fail "the paid top-ups weren't credited once each to the person's bought credit"
+  [[ "$(sql "select count(*) || ':' || sum(amount_paise) from billing.credit_lots where user_id = '$pay_user_id' and kind = 'purchased'")" == "2:60000" ]] ||
+    fail "the person doesn't have two bought lots of ₹600 in all"
+  [[ "$(sql "select count(*) from billing.invoices where user_id = '$pay_user_id' and kind = 'receipt'")" == 2 ]] ||
+    fail "the paid top-ups don't have a receipt each"
+  note "payments: ₹500 added by test UPI, \"added\" shown $seconds_to_credit s after pressing Pay, once the server had the captured payment; its receipt downloaded as a PDF; a failed payment added nothing; a slow confirmation said so and added ₹100 once it was in; each paid top-up credited once, in its own bought lot, with its receipt: PASS"
+
+  # A session paid from bought credit alone: the person has no free credit.
+  session="$(token="$pay_token" user="$pay_user" book pay-session charged-run 10000)"
+  [[ -n "$session" ]] || fail "booking the session paid from bought credit failed"
+  token="$pay_token" await_state "$session" COMPLETED 300
+  await_closed "$session" 120
+  charged="$(token="$pay_token" api_get "/v1/sessions/$session" | json_get .chargedPaise)"
+  rows="$(sql "select string_agg(account || ':' || direction || ':' || amount, ',' order by account, direction) from (
+      select account, direction, sum(amount_paise) as amount from billing.ledger_entries
+      where ref_id = '$session' and owner_id = '$pay_user_id' and account in ('renter_wallet', 'renter_purchased')
+      group by account, direction) drawn")"
+  ((charged > 0)) && [[ "$rows" == "renter_purchased:debit:$charged" ]] ||
+    fail "the session wasn't paid from bought credit alone ($charged paise charged): $rows"
+  note "payments: session $session charged $charged paise, all of it from bought credit (renter_purchased), none from free: PASS"
+
+  # A chargeback on the ₹100 payment: its credit frozen, up to the ₹50 disputed, until Razorpay says it's won.
+  small_payment="$(sql "select payment_id from billing.topups where user_id = '$pay_user_id' and status = 'paid' and amount_paise = 10000")"
+  chargeback_dispute="disp_E2e$(date +%s | tail -c 11)"
+  razorpay_dispute payment.dispute.created "$chargeback_dispute" "$small_payment" 5000 ||
+    fail "the dispute webhook wasn't accepted"
+  [[ "$(sql "select frozen_paise || ':' || status from billing.chargebacks where dispute_id = '$chargeback_dispute'")" == "5000:open" ]] ||
+    fail "the chargeback didn't freeze ₹50 of the person's credit"
+  [[ "$(token="$pay_token" api_get /v1/wallet | json_get .frozenPaise)" == 5000 ]] || fail "the wallet doesn't say ₹50 is frozen"
+  note "payments: a chargeback on the ₹100 payment (Razorpay's documented payment.dispute.created, signed) froze ₹50 of the person's bought credit, and the wallet says so: PASS"
+}
+scenario="payments"
+: >"$out/summary-payments.txt"
+scenario_payments_web
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-payments.txt"
+
 # The renter CLI (cli/, ADR 0025) against this stack, as a person would use it: sign in (approved in the "browser" with
 # the account's own token, as the web page would), run the simulated fine-tune with a model folder and examples,
 # follow it to the end, read its logs, download the adapter, list and revoke keys, and sign out.
@@ -1640,7 +1730,8 @@ scenario_admin_web() {
 
   E2E_ADMIN_USER="$admin_user" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
     E2E_HOST_OWNER="$user" E2E_RUNNING_SINCE="$running_since" E2E_ADMIN_REPORT="$report" SKIP_VISUAL=1 \
-    E2E_TICKET_NUMBER="${ticket_number:-}" \
+    E2E_TICKET_NUMBER="${ticket_number:-}" E2E_REFUND_NOTE="end-to-end refund request" \
+    E2E_CHARGEBACK="${chargeback_dispute:-}" \
     web_test --project=admin-journey --reporter=line >>"$out/admin-journey.log" 2>&1 ||
     fail "the admin journeys failed; see private/e2e/admin-journey.log"
   note "admin journeys: $(grep -Eo '[0-9]+ passed' "$out/admin-journey.log" | tail -1) (a second factor enrolled from its QR code's secret and the dashboard reached, a pending host activated, ₹1.25 granted and found in the audit log, a running session force-stopped, rated and reported by its renter, and the report refunded): PASS"
@@ -1722,6 +1813,42 @@ assert sys.argv[2] not in json.dumps(earnings) and sys.argv[3] not in json.dumps
     "$owner_ledger" "$web_user" "$web_user_id" ||
     fail "the host owner's earnings don't show the refund, or don't equal the ledger"
   note "ratings and reports: session $session rated 3 stars with a comment and reported by its renter; the admin refunded $refund paise of $paid: $commission from the platform's commission, 1 from the host (one balanced transaction, charge now $((paid - refund))); the renter's credit and history, and the host owner's earnings (\"Refunded to renter\", -1 paise, equal to the ledger), show it: PASS"
+
+  # The report's refund is free credit that never expires (ADR 0039): its own lot, opened by the refund.
+  [[ "$(sql "select count(*) from billing.credit_lots l join billing.ledger_entries e on e.lot_id = l.id
+      where e.txn_id = '$refund_txn' and l.kind = 'free' and l.expires_at is null and l.amount_paise = $refund")" == 1 ]] ||
+    fail "the report's refund isn't a never-expiring free lot of $refund paise"
+  note "dispute give-back: the $refund paise refunded after the report are free credit in a lot of their own that never expires: PASS"
+
+  # Money in (ADR 0039): the refund of bought credit, approved in the console, went back to the payments it came from,
+  # newest first, each part processed once with a credit note; the chargeback was won and its credit came back; and
+  # the day's payments agree with Razorpay.
+  if [[ -n "${pay_user_id:-}" ]]; then
+    local parts frozen_after
+    rows="$(sql "select status || ':' || approved_paise from billing.credit_refunds where user_id = '$pay_user_id'")"
+    [[ "$rows" == "refunded:20000" ]] || fail "the ₹200 refund wasn't approved and refunded: $rows"
+    parts="$(sql "select string_agg(p.amount_paise || ':' || p.status, ',' order by p.created_at, p.amount_paise)
+        from billing.refund_parts p join billing.credit_refunds r on r.id = p.refund_id where r.user_id = '$pay_user_id'")"
+    [[ "$(sql "select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0)
+        from billing.ledger_entries where account = 'refunds_pending' and owner_id = '$pay_user_id'")" == 0 ]] ||
+      fail "the refund is still waiting in refunds_pending"
+    [[ "$(sql "select count(*) from billing.invoices where user_id = '$pay_user_id' and kind = 'credit_note'")" -ge 1 ]] ||
+      fail "the refund has no credit note"
+    [[ "$(sql "select count(*) from identity.audit_log where action = 'refund.approve' and target_id = '$pay_user_id' and actor_user_id = '$admin_id'")" == 1 ]] ||
+      fail "approving the refund wrote no audit row"
+    note "refund of bought credit: ₹200 approved in the console (one audit row), refunded to the payments it came from, newest first ($parts), each processed once, refunds_pending back to 0, with a credit note: PASS"
+    razorpay_dispute payment.dispute.won "$chargeback_dispute" \
+      "$(sql "select payment_id from billing.chargebacks where dispute_id = '$chargeback_dispute'")" 5000 ||
+      fail "the won dispute's webhook wasn't accepted"
+    frozen_after="$(sql "select outcome || ':' || frozen_paise || ':' || released_paise from billing.chargebacks where dispute_id = '$chargeback_dispute'")"
+    [[ "$frozen_after" == "won:0:5000" ]] || fail "the won chargeback didn't give the ₹50 back: $frozen_after"
+    note "chargeback: read with its evidence in the console, then won (payment.dispute.won), its ₹50 back with the person: PASS"
+    rows="$(sql "select found || ':' || open from billing.payment_reconciliation_runs where failure is null order by started_at desc limit 1")"
+    [[ "$rows" == "0:0" ]] || fail "the reconciliation found mismatches: $rows"
+    payment_mismatches="$(sql "select count(*) from billing.payment_mismatches where state = 'open'")"
+    [[ "$payment_mismatches" == 0 ]] || fail "$payment_mismatches payment mismatches are open"
+    note "payment reconciliation: today's payments and refunds compared with Razorpay from the console, 0 found, 0 open: PASS"
+  fi
 
   kill -TERM "$(cat "$out/agent-$n.pid")" 2>/dev/null
   wait "$(cat "$out/agent-$n.pid")" 2>/dev/null || true

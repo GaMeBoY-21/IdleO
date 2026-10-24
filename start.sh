@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The whole system on this machine, for local development only: the containers (PostgreSQL, Valkey, object storage,
 # the development sign-in server, Mailpit, and Grafana with its Prometheus, Loki and Tempo and the alerts' sender), the
-# control plane on the local profile, two laptops' fake GPUs, the web
+# fake Razorpay (payments with no real money, ADR 0039), the control plane on the local profile, two laptops' fake GPUs, the web
 # app's dev server and the public site. It never touches production settings or real money.
 #
 #   ./start.sh                  start everything, and open the website (Ctrl-C stops it all)
@@ -65,6 +65,7 @@ prometheus_port=9190
 alertmanager_port=9193
 web_port=3000
 site_port=3002
+razorpay_port=8091
 compose_project=idleo-local
 out="$root/logs"
 state="$root/private/local"
@@ -87,7 +88,7 @@ compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/con
 # Everything this script starts, by its pid file; the control plane's is a process group.
 stop_all() {
   local pid_file pid
-  for pid_file in "$state"/web.pid "$state"/site.pid "$state"/agent-*.pid; do
+  for pid_file in "$state"/web.pid "$state"/site.pid "$state"/agent-*.pid "$state"/fake-razorpay.pid; do
     [[ -f "$pid_file" ]] || continue
     pid="$(cat "$pid_file")"
     # The web dev server is a process group (pnpm, then Vite); the rest are single processes.
@@ -112,7 +113,7 @@ stop_all() {
 
 status() {
   local name pid_file
-  for name in control-plane web site agent-1 agent-2 agent-3; do
+  for name in control-plane fake-razorpay web site agent-1 agent-2 agent-3; do
     pid_file="$state/$name.pid"
     if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
       printf '  %-14s running (pid %s)\n' "$name" "$(cat "$pid_file")"
@@ -162,7 +163,7 @@ if ! rustup toolchain list | grep -q "^$rust_want"; then
     fail "Rust $rust_want couldn't be installed; see logs/rust-install.log"
 fi
 for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$site_port" \
-  "$grafana_port" "$prometheus_port" "$alertmanager_port"; do
+  "$grafana_port" "$prometheus_port" "$alertmanager_port" "$razorpay_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use. Stop what holds it (lsof -iTCP:$port -sTCP:LISTEN shows it), or ./start.sh --stop if it's an earlier start."
   fi
@@ -266,16 +267,21 @@ if $real_runner; then
   fi
 fi
 
+log "starting the fake Razorpay (logs/fake-razorpay.log)"
+stack_start_fake_razorpay
 log "starting the control plane (logs/control-plane.log)"
 stack_start_control_plane
 echo "$control_plane_pid" >"$state/control-plane.pid"
 
 # The website and the app each know the other's address (web/src/build-settings.ts: IDLEO_SITE_URL, IDLEO_APP_URL).
+# The Credit page pays through the fake Razorpay's Checkout (ADR 0039).
 web_env=(IDLEO_DEPLOYMENT=local VITE_API_URL="$api" VITE_STORAGE_URL="http://localhost:$storage_port"
-  IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port")
+  IDLEO_SITE_URL="http://localhost:$site_port" IDLEO_APP_URL="http://localhost:$web_port"
+  VITE_CHECKOUT_URL="http://localhost:$razorpay_port/v1/checkout.js")
 if $lan; then
   # The laptop's browser calls the API (the website's Download button) at the LAN address; so does this Mac's.
-  web_env+=(VITE_API_URL="http://$lan_ip:$http_port" VITE_STORAGE_URL="http://$lan_ip:$storage_port")
+  web_env+=(VITE_API_URL="http://$lan_ip:$http_port" VITE_STORAGE_URL="http://$lan_ip:$storage_port"
+    VITE_CHECKOUT_URL="http://$lan_ip:$razorpay_port/v1/checkout.js")
 fi
 if ! $real_sign_in; then
   # The mock sign-in, whatever web/.env.local says: the environment wins over .env files in Vite.

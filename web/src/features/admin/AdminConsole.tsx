@@ -7,13 +7,17 @@ import { ADMIN, adminApi, adminSession } from "./api";
 import { Audit } from "./Audit";
 import { Dashboard } from "./Dashboard";
 import { Abuse } from "./Abuse";
+import { Chargebacks } from "./Chargebacks";
 import { Disputes } from "./Disputes";
 import { Notices } from "./Notices";
 import { Tickets } from "./Tickets";
 import { Gate } from "./Gate";
 import { Hosts } from "./Hosts";
 import { Invites } from "./Invites";
+import { Invoices } from "./Invoices";
 import { Money } from "./Money";
+import { Payments } from "./Payments";
+import { Refunds } from "./Refunds";
 import { Review } from "./Review";
 import { Sessions } from "./Sessions";
 import { Users } from "./Users";
@@ -28,10 +32,14 @@ export const ADMIN_SCREENS = [
   { href: "/admin/hosts/", label: "Hosts" },
   { href: "/admin/sessions/", label: "Sessions" },
   { href: "/admin/review/", label: "Review queue" },
-  { href: "/admin/disputes/", label: "Disputes" },
+  { href: "/admin/disputes/", label: "Reports" },
+  { href: "/admin/chargebacks/", label: "Chargebacks" },
   { href: "/admin/abuse/", label: "Abuse" },
   { href: "/admin/tickets/", label: "Tickets" },
   { href: "/admin/money/", label: "Money" },
+  { href: "/admin/payments/", label: "Payments" },
+  { href: "/admin/refunds/", label: "Refunds" },
+  { href: "/admin/invoices/", label: "Invoices" },
   { href: "/admin/invites/", label: "Invites" },
   { href: "/admin/notices/", label: "Notices" },
   { href: "/admin/audit/", label: "Audit log" },
@@ -52,6 +60,10 @@ export function AdminConsole() {
           <Route path="/admin/tickets/" component={Tickets} />
           <Route path="/admin/notices/" component={Notices} />
           <Route path="/admin/money/" component={Money} />
+          <Route path="/admin/payments/" component={Payments} />
+          <Route path="/admin/refunds/" component={Refunds} />
+          <Route path="/admin/invoices/" component={Invoices} />
+          <Route path="/admin/chargebacks/" component={Chargebacks} />
           <Route path="/admin/invites/" component={Invites} />
           <Route path="/admin/audit/" component={Audit} />
         </Switch>

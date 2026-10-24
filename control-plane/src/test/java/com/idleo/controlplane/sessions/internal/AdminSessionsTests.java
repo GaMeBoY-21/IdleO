@@ -192,6 +192,31 @@ class AdminSessionsTests {
     }
 
     @Test
+    void anAdminReadsASessionsLogOnlyWithWhyAndEachReadIsAudited() throws Exception {
+        var admin = TestAdmins.signIn(mvc, jdbc, clock);
+        var booked = running();
+        var path = "/admin/v1/sessions/" + booked.sessionId() + "/log";
+        mvc.perform(admin.as(get(path))).andExpect(status().isBadRequest());
+        mvc.perform(admin.as(get(path).param("reason", "why"))).andExpect(status().isBadRequest());
+
+        var log = read(get(path).param("reason", "evidence for a chargeback"), admin);
+        assertThat(log.get("chunks").isArray()).isTrue();
+        assertThat(jdbc.queryForObject(
+                        "select reason from identity.audit_log where action = 'session.log_read' and target_id = ?",
+                        String.class,
+                        booked.sessionId().toString()))
+                .isEqualTo("evidence for a chargeback");
+        mvc.perform(admin.as(get("/admin/v1/sessions/" + java.util.UUID.randomUUID() + "/log")
+                        .param("reason", "evidence for a chargeback")))
+                .andExpect(status().isNotFound());
+        // A renter never reaches it.
+        mvc.perform(get(path)
+                        .param("reason", "evidence for a chargeback")
+                        .header("Authorization", booked.renter().bearer()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void findsSessionsByRenterHostAndState() throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
         var booked = running();

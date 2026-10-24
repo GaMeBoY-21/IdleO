@@ -505,3 +505,139 @@ export const abuseDetail = {
   paidPaise: 30 * PRICE,
   refundedPaise: null,
 };
+
+/*
+ * Money in (ADR 0039): one renter's ₹500 top-up by UPI, paid and receipted; ₹200 of it asked back; a chargeback on it
+ * for ₹150, frozen whole because the credit was still there; and one disagreement the reconciliation found. Every
+ * figure follows from the top-up.
+ */
+export const TOPUP_ID = "01a1340a-0000-7000-8000-000000071001";
+export const RECEIPT_ID = "01a1340a-0000-7000-8000-000000072001";
+export const REFUND_ID = "01a1340a-0000-7000-8000-000000073001";
+export const CHARGEBACK_ID = "01a1340a-0000-7000-8000-000000074001";
+export const MISMATCH_ID = "01a1340a-0000-7000-8000-000000075001";
+const TOPUP_PAISE = 50_000;
+const ASKED_BACK_PAISE = 20_000;
+const DISPUTED_PAISE = 15_000;
+
+export const payment = {
+  id: TOPUP_ID,
+  userId: RENTER_ID,
+  amountPaise: TOPUP_PAISE,
+  status: "paid",
+  orderId: "order_Fk000000000101",
+  paymentId: "pay_Fk000000000102",
+  method: "upi",
+  cardNetwork: null,
+  cardLast4: null,
+  failureReason: null,
+  creditedBy: "checkout",
+  invoiceId: RECEIPT_ID,
+  invoiceNumber: "IDL2627-000042",
+  createdAt: ago(3 * 24 * 60),
+  paidAt: ago(3 * 24 * 60 - 1),
+};
+
+export const payments = { payments: [payment] };
+
+export const paymentReconciliation = {
+  runs: [
+    {
+      id: "01a1340a-0000-7000-8000-000000076001",
+      day: ago(24 * 60).slice(0, 10),
+      trigger: "nightly",
+      startedAt: ago(5 * 60),
+      finishedAt: ago(5 * 60 - 1),
+      payments: 2,
+      refunds: 0,
+      found: 1,
+      open: 1,
+      failure: null,
+    },
+  ],
+  mismatches: [
+    {
+      id: MISMATCH_ID,
+      kind: "authorized_not_captured",
+      subject: "pay_Fk000000000201",
+      paymentId: "pay_Fk000000000201",
+      topUpId: null,
+      userId: RENTER_ID,
+      ourPaise: 10_000,
+      theirPaise: 10_000,
+      ourStatus: "pending",
+      theirStatus: "authorized",
+      detail:
+        "Authorised and not captured: check auto-capture in Razorpay's dashboard. Nothing is credited for it.",
+      state: "open",
+      foundAt: ago(5 * 60),
+      lastFoundAt: ago(5 * 60),
+      closedAt: null,
+      closedBy: null,
+      closeReason: null,
+    },
+  ],
+};
+
+export const creditRefund = {
+  id: REFUND_ID,
+  userId: RENTER_ID,
+  cause: "request",
+  status: "requested",
+  requestedPaise: ASKED_BACK_PAISE,
+  approvedPaise: null,
+  // What's left of the top-up once the session spent from it and the chargeback froze its part.
+  refundablePaise: TOPUP_PAISE - session.chargedPaise - DISPUTED_PAISE,
+  note: "I bought more than I need this month.",
+  ticketNumber: 17,
+  ticketId: "01a1340a-0000-7000-8000-000000077001",
+  decidedBy: null,
+  decision: null,
+  requestedAt: ago(26 * 60),
+  finishedAt: null,
+  parts: [],
+};
+
+export const creditRefunds = { refunds: [creditRefund] };
+
+export const chargeback = {
+  id: CHARGEBACK_ID,
+  disputeId: "disp_Fk000000000301",
+  paymentId: payment.paymentId,
+  userId: RENTER_ID,
+  amountPaise: DISPUTED_PAISE,
+  currency: "INR",
+  reasonCode: "goods_or_services_not_received_or_partially_received",
+  phase: "chargeback",
+  status: "open",
+  respondBy: later(1),
+  deductedPaise: 0,
+  frozenPaise: DISPUTED_PAISE,
+  lostPaise: null,
+  releasedPaise: null,
+  outcome: null,
+  openedAt: ago(2 * 60),
+  settledAt: null,
+  payment,
+  sessions: [{ sessionId: SESSION_ID, paidFromThisPaymentPaise: session.chargedPaise }],
+};
+
+export const chargebacks = { chargebacks: [chargeback] };
+
+export const receipt = {
+  userId: RENTER_ID,
+  invoice: {
+    id: RECEIPT_ID,
+    number: payment.invoiceNumber,
+    kind: "receipt",
+    title: "Receipt",
+    issuedAt: payment.paidAt,
+    taxablePaise: TOPUP_PAISE,
+    taxPaise: 0,
+    totalPaise: TOPUP_PAISE,
+    topUpId: TOPUP_ID,
+    creditNoteFor: null,
+  },
+};
+
+export const invoices = { invoices: [receipt] };

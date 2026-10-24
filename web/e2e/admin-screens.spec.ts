@@ -53,6 +53,12 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/tickets": { json: support.adminTickets() },
   [`/admin/v1/tickets/${support.PRIVACY_TICKET}`]: { json: support.adminThread() },
   [`/admin/v1/users/${data.me().id}/deletion`]: { json: support.adminDeletion() },
+  "/admin/v1/payments": { json: admin.payments },
+  "/admin/v1/payments/reconciliation": { json: admin.paymentReconciliation },
+  "/admin/v1/refunds": { json: admin.creditRefunds },
+  "/admin/v1/chargebacks": { json: admin.chargebacks },
+  [`/admin/v1/chargebacks/${admin.CHARGEBACK_ID}`]: { json: admin.chargeback },
+  "/admin/v1/invoices": { json: admin.invoices },
   ...overrides,
 });
 
@@ -142,7 +148,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(12);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(16);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -300,7 +306,7 @@ test.describe("the console", () => {
     await capture(page, info, "admin-review-empty");
   });
 
-  test("works the disputes queue: open reports first, then resolved ones", async ({ page }, info) => {
+  test("works the reports queue: open reports first, then resolved ones", async ({ page }, info) => {
     await open(page, "/admin/disputes/");
     const table = page.getByRole("table", { name: "Reports" });
     const rows = table.getByRole("row");
@@ -365,7 +371,7 @@ test.describe("the console", () => {
     await sheet.getByLabel("Amount in ₹").fill("0.50");
     await sheet.getByRole("button", { name: "Refund", exact: true }).click();
     await expect(sheet).toBeHidden();
-    expect(body).toEqual({ amountPaise: 50, reason: "The job failed on our host." });
+    expect(body).toEqual({ amountPaise: 50, reason: "The job failed on our host.", flagHost: false });
   });
 
   test("closes a report without a refund, with a reason the renter reads", async ({ page }) => {
@@ -383,7 +389,7 @@ test.describe("the console", () => {
     await sheet.getByLabel("Reason").fill("It ran out of memory: the model was too big.");
     await sheet.getByRole("button", { name: "Close without a refund" }).click();
     await expect(sheet).toBeHidden();
-    expect(body).toEqual({ reason: "It ran out of memory: the model was too big." });
+    expect(body).toEqual({ reason: "It ran out of memory: the model was too big.", flagHost: false });
   });
 
   test("shows a refunded report: who decided, and where the money came from", async ({ page }, info) => {
@@ -399,7 +405,7 @@ test.describe("the console", () => {
 
   test("while a report loads, and when it can't", async ({ page }, info) => {
     await open(page, "/admin/disputes/", { "/admin/v1/disputes": "hold" });
-    await expect(page.getByRole("status", { name: "Loading the disputes" })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Loading the reports" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "admin-disputes-loading");
   });
@@ -410,6 +416,136 @@ test.describe("the console", () => {
     await expect(page.getByRole("table", { name: "Ledger entries" })).toContainText("credit_grant");
     await expectAccessible(page);
     await capture(page, info, "admin-money");
+  });
+
+  test("finds a payment and shows what the reconciliation found, accepted with a reason", async ({
+    page,
+  }, info) => {
+    let accepted: unknown = null;
+    await open(page, "/admin/payments/", {
+      [`/admin/v1/payments/mismatches/${admin.MISMATCH_ID}/accept`]: (_call, request) => {
+        accepted = request.postDataJSON();
+        return { json: { ...admin.paymentReconciliation.mismatches[0], state: "accepted" } };
+      },
+    });
+    await expect(page.getByRole("table", { name: "What disagrees" })).toContainText(
+      "Authorised, not captured",
+    );
+    await expect(page.getByRole("table", { name: "Runs" })).toContainText("nightly");
+    await page.getByLabel("Renter's id, top-up id, order or payment id").fill(admin.payment.orderId);
+    await page.getByRole("button", { name: "Search" }).click();
+    await expect(page.getByRole("table", { name: "Top-ups" })).toContainText(admin.payment.paymentId);
+    await expectAccessible(page);
+    await capture(page, info, "admin-payments");
+    await page.getByRole("button", { name: /^Accept/ }).click();
+    await page
+      .getByRole("dialog", { name: "Accept this disagreement?" })
+      .getByLabel("Reason")
+      .fill("Razorpay refunds it by itself");
+    await page.getByRole("dialog").getByRole("button", { name: "Accept" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect(accepted).toEqual({ reason: "Razorpay refunds it by itself" });
+  });
+
+  test("approves a refund of bought credit, never more than the renter can have back", async ({
+    page,
+  }, info) => {
+    let approved: unknown = null;
+    await open(page, "/admin/refunds/", {
+      [`/admin/v1/refunds/${admin.REFUND_ID}/approve`]: (_call, request) => {
+        approved = request.postDataJSON();
+        return { json: { ...admin.creditRefund, status: "refunding" } };
+      },
+    });
+    const table = page.getByRole("table", { name: "Refunds of bought credit" });
+    await expect(table).toContainText("I bought more than I need this month.");
+    await expect(table).toContainText("message #17");
+    await expectAccessible(page);
+    await capture(page, info, "admin-refunds");
+    await page.getByRole("button", { name: /^Approve/ }).click();
+    const sheet = page.getByRole("dialog", { name: "Refund this bought credit?" });
+    await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200");
+    await sheet.getByLabel("Amount in ₹").fill("1000");
+    await sheet.getByLabel("Reason").fill("renter asked, credit unused");
+    await sheet.getByRole("button", { name: "Refund", exact: true }).click();
+    await expect(sheet).toContainText("can't be more than");
+    await sheet.getByLabel("Amount in ₹").fill("200");
+    await sheet.getByRole("button", { name: "Refund", exact: true }).click();
+    await expect(sheet).toBeHidden();
+    expect(approved).toEqual({ amountPaise: 20_000, reason: "renter asked, credit unused" });
+  });
+
+  test("lists chargebacks by the date evidence is due, and opens one with its evidence", async ({
+    page,
+  }, info) => {
+    await open(page, "/admin/chargebacks/");
+    await expect(page.getByRole("table", { name: "Chargebacks" })).toContainText("₹150.00");
+    await expectAccessible(page);
+    await capture(page, info, "admin-chargebacks");
+    await page.getByRole("link", { name: /Open chargeback/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Chargeback" })).toBeVisible();
+    await expect(page.getByText("Submit the evidence in Razorpay's dashboard")).toBeVisible();
+    await expect(page.getByRole("table", { name: "Sessions paid from this payment" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Read the log" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-chargeback");
+  });
+
+  test("finds a renter's documents and issues a credit note against one", async ({ page }, info) => {
+    let noted: unknown = null;
+    await open(page, "/admin/invoices/", {
+      [`/admin/v1/invoices/${admin.RECEIPT_ID}/credit-notes`]: (_call, request) => {
+        noted = request.postDataJSON();
+        return { json: admin.receipt };
+      },
+    });
+    await page.getByLabel("Or the renter's id").fill(admin.RENTER_ID);
+    await page.getByRole("button", { name: "Search" }).click();
+    await expect(page.getByRole("table", { name: "Invoices, receipts and credit notes" })).toContainText(
+      "IDL2627-000042",
+    );
+    await expectAccessible(page);
+    await capture(page, info, "admin-invoices");
+    await page.getByRole("button", { name: /^Credit note/ }).click();
+    const sheet = page.getByRole("dialog", { name: /Issue a credit note/ });
+    await sheet.getByLabel("Amount in ₹, GST included").fill("50");
+    await sheet.getByLabel("Reason").fill("charged for an hour that failed");
+    await sheet.getByRole("button", { name: "Issue the credit note" }).click();
+    await expect(sheet).toBeHidden();
+    expect(noted).toEqual({ amountPaise: 5_000, reason: "charged for an hour that failed" });
+  });
+
+  test("reads a reported session's log only once the admin has said why, and can flag the host", async ({
+    page,
+  }) => {
+    const report = trust.disputeOpen(data.failed);
+    let flagged: unknown = null;
+    await open(page, `/admin/disputes/?id=${report.id}`, {
+      [`/admin/v1/sessions/${data.failed.id}/log`]: (_call, request) => {
+        expect(new URL(request.url()).searchParams.get("reason")).toBe("judging the report on it");
+        return { json: { chunks: [{ attempt: 1, seq: 1, text: "epoch 1 loss 2.31\n" }], nextCursor: null } };
+      },
+      [`/admin/v1/disputes/${report.id}/no-refund`]: (_call, request) => {
+        flagged = request.postDataJSON();
+        return { json: trust.adminDispute({ ...report, state: "not_refunded" }, data.me().id, data.failed) };
+      },
+    });
+    await expect(page.getByText("epoch 1 loss")).toHaveCount(0);
+    await page.getByRole("button", { name: "Read the log" }).click();
+    await page
+      .getByRole("dialog", { name: "Read the session's log?" })
+      .getByLabel("Reason")
+      .fill("judging the report on it");
+    await page.getByRole("dialog").getByRole("button", { name: "Read it" }).click();
+    await expect(page.getByText("epoch 1 loss 2.31")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "The host's record" })).toBeVisible();
+    await page.getByRole("button", { name: "No refund" }).click();
+    const sheet = page.getByRole("dialog", { name: "Close this report without a refund?" });
+    await sheet.getByLabel(/Flag the host's record/).check();
+    await sheet.getByLabel("Reason").fill("The host stopped it twice.");
+    await sheet.getByRole("button", { name: "Close without a refund" }).click();
+    await expect(sheet).toBeHidden();
+    expect(flagged).toEqual({ reason: "The host stopped it twice.", flagHost: true });
   });
 
   test("makes invite codes and shows them once", async ({ page }, info) => {

@@ -34,12 +34,16 @@ export function recoveryDigits(typed: string): string {
 export const isRecoveryCode = (typed: string) => /^[A-HJ-NP-Z2-9]{10}$/.test(recoveryDigits(typed));
 
 /** A refund's amount: rupees and paise as typed, above zero and at most what the session cost; null when it may be sent. */
-export function refundProblem(paise: number | null, mostPaise: number): string | null {
+export function refundProblem(
+  paise: number | null,
+  mostPaise: number,
+  most = "the session cost, less anything given back before",
+): string | null {
   if (paise === null || paise <= 0) {
     return "Give an amount above ₹0, in rupees and paise, like 5 or 12.50.";
   }
   if (paise > mostPaise) {
-    return "A refund can't be more than the session cost, less anything given back before.";
+    return `A refund can't be more than ${most}.`;
   }
   return null;
 }

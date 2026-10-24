@@ -65,6 +65,11 @@ export type AuditEntry = Schemas["AuditEntry"];
 export type TicketStatus = Schemas["AdminAnswer"]["status"];
 export type AbuseSummary = Schemas["AbuseSummary"];
 export type AbuseDetail = Schemas["AbuseDetail"];
+export type AdminPaymentMismatch = Schemas["AdminPaymentMismatch"];
+export type AdminChargeback = Schemas["AdminChargeback"];
+export type AdminCreditRefund = Schemas["AdminCreditRefund"];
+export type AdminInvoice = Schemas["AdminInvoice"];
+export type AdminHostFlag = Schemas["AdminHostFlag"];
 
 let onNotFound: () => void = () => undefined;
 

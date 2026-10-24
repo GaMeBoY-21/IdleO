@@ -30,6 +30,16 @@ export function youKeep(pricePaisePerMin: number): { perHour: number; keep: numb
   return { perHour, keep, fee: perHour - keep };
 }
 
+/**
+ * What renters pay in an hour for a price (ADR 0039): the price, plus GST at `gstPercent` once the platform charges it,
+ * rounded half up to the paisa as the control plane's `Gst.taxOn` does. The host keeps a share of the price before GST
+ * (youKeep), so turning GST on changes what renters pay and never what the host earns.
+ */
+export function renterPays(pricePaisePerMin: number, gstPercent: number): number {
+  const perHour = pricePaisePerMin * 60;
+  return perHour + (gstPercent > 0 ? Math.floor((perHour * gstPercent + 50) / 100) : 0);
+}
+
 /** The temperature limit's range, as the API takes it. */
 export const TEMP_MIN = 60;
 export const TEMP_MAX = 95;

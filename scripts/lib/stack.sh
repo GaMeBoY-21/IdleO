@@ -5,7 +5,8 @@
 #
 # The caller sets, before sourcing: root (the repository), out (a gitignored folder for logs, and keys and pids unless
 # state names another),
-# http_port, grpc_port, sign_in_port, storage_port, mail_smtp_port, mail_web_port, web_port, compose_project. It
+# http_port, grpc_port, sign_in_port, storage_port, mail_smtp_port, mail_web_port, web_port, compose_project, and
+# razorpay_port for the fake Razorpay (stack_start_fake_razorpay; left unset, payments are off). It
 # defines log and fail (each script prints its own prefix), and may set operator_name, the name operator commands
 # record in the audit log. After sourcing, api, sign_in and agent are set.
 # shellcheck shell=bash
@@ -70,6 +71,12 @@ stack_start_control_plane() {
       IDLEO_RELEASE_PUBLIC_KEY="$(tr -d '[:space:]' <"$root/private/release-dev/release.pub")"
     fi
     export IDLEO_RELEASE_PUBLIC_KEY="${IDLEO_RELEASE_PUBLIC_KEY:-}" HOSTS_RELEASES_REFRESH_EVERY=10s
+    # Payments (ADR 0039) go to the fake Razorpay when the stack started one, with the fake's own test keys, which no
+    # real Razorpay account has; production refuses any API but Razorpay's (ProductionSettingsGuard).
+    if [[ -n "${razorpay_port:-}" ]]; then
+      export RAZORPAY_API_URL="http://localhost:$razorpay_port" RAZORPAY_KEY_ID=rzp_test_idleofake00001
+      export RAZORPAY_KEY_SECRET=fake-razorpay-key-secret RAZORPAY_WEBHOOK_SECRET=fake-razorpay-webhook-secret
+    fi
     if declare -F stack_control_plane_settings >/dev/null; then
       stack_control_plane_settings
     fi
@@ -77,6 +84,30 @@ stack_start_control_plane() {
   ) >"$out/control-plane.log" 2>&1 &
   control_plane_pid=$!
   set +m
+}
+
+# Starts the fake Razorpay (ADR 0039: control-plane/src/test/.../razorpay/FakeRazorpayServer.java) on $razorpay_port,
+# from the control plane's test classpath, so it's never in the control plane's jar: Razorpay's API from its documented
+# samples, the browser's fake Checkout at /v1/checkout.js, and Razorpay's webhooks to this stack's control plane. It
+# compiles the tests, so call it before stack_start_control_plane, never beside another Maven run. Sets
+# fake_razorpay_pid and writes $state/fake-razorpay.pid; logs to $out/fake-razorpay.log.
+stack_start_fake_razorpay() {
+  local classpath="$state/fake-razorpay.classpath"
+  (
+    cd "$root/control-plane"
+    ./mvnw -B -q test-compile dependency:build-classpath -Dmdep.includeScope=test -Dmdep.outputFile="$classpath"
+  ) >"$out/fake-razorpay-build.log" 2>&1 || fail "the fake Razorpay didn't build; see $logs_dir/fake-razorpay-build.log"
+  java -cp "$root/control-plane/target/test-classes:$(cat "$classpath")" \
+    com.idleo.controlplane.razorpay.FakeRazorpayServer "$razorpay_port" "$api/v1/payments/razorpay/webhook" \
+    >"$out/fake-razorpay.log" 2>&1 &
+  fake_razorpay_pid=$!
+  echo "$fake_razorpay_pid" >"$state/fake-razorpay.pid"
+  local deadline=$((SECONDS + 30))
+  until curl -fsS -o /dev/null "http://localhost:$razorpay_port/v1/checkout.js"; do
+    kill -0 "$fake_razorpay_pid" 2>/dev/null || fail "the fake Razorpay exited; see $logs_dir/fake-razorpay.log"
+    ((SECONDS < deadline)) || fail "the fake Razorpay didn't answer within 30 s; see $logs_dir/fake-razorpay.log"
+    sleep 0.5
+  done
 }
 
 # Starts compose.yaml's services (all, or the ones named) before the control plane does, with the settings the control plane

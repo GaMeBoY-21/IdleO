@@ -429,7 +429,9 @@ public final class FakeRazorpay implements AutoCloseable {
             var method = request.getMethod().getName();
             try {
                 if (path.startsWith("/_fake/") || path.equals("/v1/checkout.js")) {
-                    return browser(method, path, request.getBodyAsString());
+                    // The address the browser reached us at, so the fake Checkout pays here from another machine too.
+                    var host = request.getHeader("Host");
+                    return browser(method, path, request.getBodyAsString(), host == null ? url() : "http://" + host);
                 }
                 if (!authorised(request.getHeader("Authorization"))) {
                     return error(401, "Authentication failed");
@@ -549,14 +551,14 @@ public final class FakeRazorpay implements AutoCloseable {
         }
 
         /** The browser's fake Checkout, and what it calls; none of this is Razorpay's API. */
-        private ResponseDefinition browser(String method, String path, String body) {
+        private ResponseDefinition browser(String method, String path, String body, String self) {
             if (method.equals("OPTIONS")) {
                 return cors(aResponse().withStatus(204)).build();
             }
             if (path.equals("/v1/checkout.js")) {
                 try (InputStream in = FakeRazorpay.class.getResourceAsStream("/razorpay/fake-checkout.js")) {
                     var script = new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8)
-                            .replace("__FAKE_URL__", url());
+                            .replace("__FAKE_URL__", self);
                     return cors(aResponse()
                                     .withStatus(200)
                                     .withHeader("Content-Type", "text/javascript")

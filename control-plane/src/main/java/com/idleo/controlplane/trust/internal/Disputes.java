@@ -341,30 +341,6 @@ class Disputes {
         }));
     }
 
-    /**
-     * The session a report is about, for an admin to read its log (ADR 0039); {@code audited}: the first page, which
-     * writes the audit row naming the admin.
-     */
-    Optional<UUID> sessionForLog(UUID disputeId, boolean audited, AuditTrail.Actor actor) {
-        return Objects.requireNonNull(transactions.execute(status -> {
-            var sessionId = jdbc.sql("select session_id from trust.disputes where id = :id")
-                    .param("id", disputeId)
-                    .query(UUID.class)
-                    .optional();
-            if (audited && sessionId.isPresent()) {
-                audit.record(new AuditTrail.Entry(
-                        actor,
-                        "dispute.log_read",
-                        "dispute",
-                        disputeId.toString(),
-                        "read the session's log to judge the report",
-                        null,
-                        Map.of("sessionId", sessionId.get().toString())));
-            }
-            return sessionId;
-        }));
-    }
-
     private static String described(Dispute dispute) {
         return dispute.state().equals(REFUNDED)
                 ? "refunded " + Rupees.format(Objects.requireNonNull(dispute.refundPaise()))

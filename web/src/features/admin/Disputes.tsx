@@ -17,6 +17,7 @@ import {
   type AdminUsage,
 } from "./api";
 import { refundProblem, witnessSummary } from "./rules";
+import { SessionLog } from "./SessionLog";
 import {
   AdminPage,
   BackLink,
@@ -37,10 +38,11 @@ import {
 } from "./ui";
 
 /**
- * Disputes (ADR 0028): the renters' reports, open ones first and the oldest first. One opens with the session's
- * timeline, its minutes as both witnesses saw them, what it cost and who kept what, and the rating; it's resolved
- * once, with a refund (which comes out of the platform's commission first, then the host's share) or without, and a
- * reason the renter reads.
+ * Reports (ADR 0028, ADR 0039): the renters' reports on their sessions, open ones first and the oldest first. One opens
+ * with the session's timeline, its minutes as both witnesses saw them, what it cost and who kept what, the rating, its
+ * log (read with a reason, audited) and the host's record; it's resolved once, with a refund (free credit that never
+ * expires, out of the platform's commission first, then the host's share) or without, a reason the renter reads, and,
+ * if the host was at fault, a flag on the host's record.
  */
 export function Disputes() {
   const id = new URLSearchParams(useSearch()).get("id");
@@ -68,7 +70,7 @@ function DisputeQueue() {
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   return (
-    <AdminPage title="Disputes">
+    <AdminPage title="Reports">
       <div className="flex">
         <SmallSelect
           label="Show"
@@ -83,7 +85,7 @@ function DisputeQueue() {
       </div>
       <PagedView
         query={disputes}
-        what="the disputes"
+        what="the reports"
         items={(page) => page.disputes}
         empty={
           <Empty title={state === "resolved" ? "Nothing resolved yet" : "No reports to answer"}>
@@ -138,6 +140,7 @@ function DisputeRecord({ id }: { id: string }) {
   });
   const [action, setAction] = useState<"refund" | "none" | null>(null);
   const [rupees, setRupees] = useState("");
+  const [flagHost, setFlagHost] = useState(false);
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   const paise = parseRupees(rupees);
   return (
@@ -171,7 +174,10 @@ function DisputeRecord({ id }: { id: string }) {
               }
               confirm="Refund"
               extra={
-                <SmallField label="Amount in ₹" value={rupees} onChange={setRupees} inputMode="decimal" />
+                <>
+                  <SmallField label="Amount in ₹" value={rupees} onChange={setRupees} inputMode="decimal" />
+                  <FlagHost found={found} checked={flagHost} onChange={setFlagHost} />
+                </>
               }
               onConfirm={async (reason) => {
                 const problem = refundProblem(paise, found.session.paidPaise);
@@ -181,7 +187,7 @@ function DisputeRecord({ id }: { id: string }) {
                 await adminData(
                   adminApi.POST("/admin/v1/disputes/{id}/refund", {
                     params: { path: { id } },
-                    body: { amountPaise: paise, reason },
+                    body: { amountPaise: paise, reason, flagHost },
                   }),
                 );
                 await refresh();
@@ -193,17 +199,20 @@ function DisputeRecord({ id }: { id: string }) {
               title="Close this report without a refund?"
               change="No money moves. The renter reads your reason, so say what you found. The hold on the host's payout for this session ends."
               confirm="Close without a refund"
+              extra={<FlagHost found={found} checked={flagHost} onChange={setFlagHost} />}
               onConfirm={async (reason) => {
                 await adminData(
                   adminApi.POST("/admin/v1/disputes/{id}/no-refund", {
                     params: { path: { id } },
-                    body: { reason },
+                    body: { reason, flagHost },
                   }),
                 );
                 await refresh();
               }}
             />
             <Evidence found={found} />
+            <SessionLog sessionId={found.dispute.sessionId} purpose="judging this report" />
+            <HostRecord found={found} />
           </>
         )}
       </QueryView>
@@ -445,5 +454,68 @@ function Minutes({ usage }: { usage: AdminUsage }) {
         </Table>
       )}
     </>
+  );
+}
+
+/** Whether resolving the report also marks the host's record (ADR 0039); only a session that ran had a host. */
+function FlagHost({
+  found,
+  checked,
+  onChange,
+}: {
+  found: AdminDispute;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  if (found.session.hostId == null) {
+    return null;
+  }
+  return (
+    <label className="flex min-h-touch items-center gap-3 text-small">
+      <input
+        type="checkbox"
+        className="size-5"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      Flag the host&apos;s record: the host was at fault. Admins see it, and the host score uses it; the host
+      doesn&apos;t.
+    </label>
+  );
+}
+
+/** The session's host: its record, and every flag on it from earlier reports, the newest first. */
+function HostRecord({ found }: { found: AdminDispute }) {
+  const hostId = found.session.hostId;
+  if (hostId == null) {
+    return null;
+  }
+  return (
+    <Section title="The host's record">
+      <p className="text-small">
+        <Link href={`/admin/hosts/?id=${hostId}`} className="tabular underline-offset-4 hover:underline">
+          {hostId}
+        </Link>{" "}
+        has {found.hostFlags.length === 0 ? "no flags" : `${found.hostFlags.length} flag(s)`} from reports.
+      </p>
+      {found.hostFlags.length > 0 && (
+        <Table caption="Flags on the host's record" columns={["Flagged", "By", "Why", "Report"]}>
+          {found.hostFlags.map((flag) => (
+            <Row key={flag.id}>
+              <Cell>
+                <RelativeTime value={flag.createdAt} />
+              </Cell>
+              <Cell>{flag.flaggedBy}</Cell>
+              <Cell>{flag.reason}</Cell>
+              <Cell>
+                <RowLink href={`/admin/disputes/?id=${flag.disputeId}`}>
+                  Open<span className="sr-only"> report {flag.disputeId}</span>
+                </RowLink>
+              </Cell>
+            </Row>
+          ))}
+        </Table>
+      )}
+    </Section>
   );
 }

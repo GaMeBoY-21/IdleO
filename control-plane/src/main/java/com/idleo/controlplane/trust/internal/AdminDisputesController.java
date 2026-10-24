@@ -8,7 +8,6 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.billing.SessionRefunds;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
-import com.idleo.controlplane.sessions.SessionLogsForReview;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -51,7 +50,6 @@ class AdminDisputesController {
     private final SessionRefunds refunds;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
-    private final SessionLogsForReview logs;
 
     AdminDisputesController(
             Disputes disputes,
@@ -59,9 +57,7 @@ class AdminDisputesController {
             Ratings ratings,
             SessionRefunds refunds,
             AuditTrail audit,
-            JdbcClient jdbc,
-            SessionLogsForReview logs) {
-        this.logs = logs;
+            JdbcClient jdbc) {
         this.disputes = disputes;
         this.sessions = sessions;
         this.ratings = ratings;
@@ -128,12 +124,6 @@ class AdminDisputesController {
             AdminDisputeSession session,
             @Nullable AdminDisputeRating rating,
             List<AdminHostFlag> hostFlags) {}
-
-    /** A page of the session's log, as the renter reads it. */
-    record AdminDisputeLogChunk(int attempt, int seq, String text) {}
-
-    record AdminDisputeLog(
-            List<AdminDisputeLogChunk> chunks, @Nullable String nextCursor) {}
 
     /**
      * @param amountPaise refunded to the renter's credit: more than zero, at most what the session cost net
@@ -227,29 +217,6 @@ class AdminDisputesController {
                                 .toList()),
                 rated == null ? null : new AdminDisputeRating(rated.stars(), rated.comment(), rated.ratedAt()),
                 ended.hostId() == null ? List.of() : flags(ended.hostId()));
-    }
-
-    /**
-     * The session's log, for judging the report (ADR 0039): only through a report, and each first page an audit row
-     * naming the admin.
-     */
-    @GetMapping("/{id}/log")
-    AdminDisputeLog log(
-            @AuthenticationPrincipal CurrentUser admin,
-            @PathVariable UUID id,
-            @RequestParam(required = false) @Nullable String cursor,
-            @RequestParam(defaultValue = "200") int limit) {
-        if (limit < 1 || limit > 1000) {
-            throw ApiProblem.invalid("limit", "must be from 1 to 1000.");
-        }
-        var sessionId = disputes.sessionForLog(id, cursor == null, audit.admin(admin))
-                .orElseThrow(AdminDisputesController::notFound);
-        var page = logs.page(sessionId, cursor, limit);
-        return new AdminDisputeLog(
-                page.chunks().stream()
-                        .map(chunk -> new AdminDisputeLogChunk(chunk.attempt(), chunk.seq(), chunk.text()))
-                        .toList(),
-                page.nextCursor());
     }
 
     /** Every flag on a host's record, the newest first. */

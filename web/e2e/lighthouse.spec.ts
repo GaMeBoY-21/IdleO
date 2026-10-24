@@ -84,6 +84,8 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
       ["keys", true],
       // What the sessions and machines have told the person (ADR 0026).
       ["notifications", true],
+      // Credit, where renters pay (ADR 0039): a page load of its own, which loads Razorpay's Checkout only on Pay.
+      ["credit", true],
       // A laptop joining (ADR 0032): the page that explains it, and the page where its owner approves its link.
       ["add", true],
       ["link", true],
@@ -133,6 +135,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         account: "/account/",
         keys: "/account/keys/",
         notifications: "/notifications/",
+        credit: "/credit/",
         add: "/hosting/add/",
         link: `/link/${linkId}/`,
       }[name];
@@ -233,6 +236,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
     summary["book (mobile)"]!.inpMs = await typingInp(page);
     summary["session (mobile)"]!.inpMs = logsInpMs;
     summary["machine (mobile)"]!.inpMs = await hostingInp(page);
+    summary["credit (mobile)"]!.inpMs = await payInp(page);
     writeFileSync(".lighthouseci/summary.json", `${JSON.stringify(summary, null, 2)}\n`);
     console.table(summary);
     for (const [name, found] of Object.entries(summary)) {
@@ -243,7 +247,7 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         ).toBeLessThanOrEqual(DEVTOOLS_CEILING_MS);
       }
     }
-    for (const name of ["home", "book", "session", "machine"]) {
+    for (const name of ["home", "book", "session", "machine", "credit"]) {
       expect(
         summary[`${name} (mobile)`]!.inpMs,
         `${name}: interaction to next paint, ms`,
@@ -304,6 +308,25 @@ async function hostingInp(page: Page): Promise<number> {
   await page.getByLabel("Until I resume").check();
   await page.getByRole("button", { name: "Keep hosting" }).click();
   await page.getByRole("button", { name: /Rename or remove/ }).click();
+  return finish(page, cdp);
+}
+
+/**
+ * Paying on Credit (ADR 0039): its billing details saved, a pack chosen, Pay pressed, which loads Checkout's script then
+ * (the fake Razorpay's on this stack), its window opened and closed. The page itself is measured like every other;
+ * this is what pressing Pay costs.
+ */
+async function payInp(page: Page): Promise<number> {
+  const cdp = await measured(page, "/credit/");
+  await page.getByLabel("Your state").selectOption("29");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  await page.getByRole("button", { name: "₹1,000" }).click();
+  await page.getByRole("button", { name: "Pay ₹1,000.00" }).click();
+  const checkout = page.locator("[data-fake-checkout]");
+  await expect(checkout).toBeVisible({ timeout: 15_000 });
+  await checkout.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByText(/Paid through Razorpay/)).toBeVisible();
   return finish(page, cdp);
 }
 
@@ -408,8 +431,9 @@ async function interactionToNextPaint(page: Page): Promise<number> {
   await page.getByRole("menuitemradio", { name: "Dark" }).click();
   await page.getByRole("button", { name: "Your account and settings" }).click();
   await page.getByRole("menuitemradio", { name: "Match my device" }).click();
-  await page.getByRole("link", { name: "Credit" }).first().click();
-  await expect(page.getByRole("heading", { name: "Credit", level: 1 })).toBeVisible();
+  // Not Credit: it's a page load of its own (its own security policy, ADR 0039), which payInp measures.
+  await page.getByRole("link", { name: "Hosting" }).first().click();
+  await expect(page.getByRole("heading", { name: "Hosting", level: 1 })).toBeVisible();
   await page.getByRole("link", { name: "Home" }).first().click();
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
   return finish(page, cdp);

@@ -338,11 +338,11 @@ class DisputeTests {
         var sessionId = chargedSession();
         var id = reported(sessionId, "host_stopped", "It stopped halfway, twice.");
 
-        mvc.perform(admin.as(get("/admin/v1/disputes/" + id + "/log")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.chunks").isArray())
-                .andExpect(jsonPath("$.nextCursor").doesNotExist());
-        assertThat(audited("dispute.log_read", id)).isOne();
+        // Its log, read with why, audited once a read.
+        mvc.perform(admin.as(get("/admin/v1/sessions/" + sessionId + "/log?reason=x")))
+                .andExpect(jsonPath("$.type").value("/problems/validation-failed"));
+        mvc.perform(admin.as(get("/admin/v1/sessions/" + sessionId + "/log?reason=judging report " + id)))
+                .andExpect(status().isNotFound());
 
         mvc.perform(admin.as(body(
                         post("/admin/v1/disputes/" + id + "/refund"),

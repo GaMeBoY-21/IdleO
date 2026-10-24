@@ -205,7 +205,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
   });
 
   await test.step("the admin finds the report and refunds part of it, the commission first", async () => {
-    await go(page, "Disputes");
+    await go(page, "Reports");
     const row = page
       .getByRole("table", { name: "Reports" })
       .getByRole("row")
@@ -280,6 +280,40 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
         .fill("We've had a look at your request: your file is in Account, Your data.");
       await page.getByRole("button", { name: "Send the answer" }).click();
       await expect(page.getByText("We wrote", { exact: false }).first()).toBeVisible();
+    });
+  }
+
+  // Money in (ADR 0039): the payments journey's refund request approved, its chargeback's evidence read, and today's
+  // payments compared with Razorpay.
+  if (process.env.E2E_REFUND_NOTE) {
+    await test.step("a refund of bought credit is approved and goes back to where it was paid from", async () => {
+      await go(page, "Refunds");
+      const row = page.getByRole("row").filter({ hasText: process.env.E2E_REFUND_NOTE! });
+      await row.getByRole("button", { name: /^Approve/ }).click();
+      const sheet = page.getByRole("dialog", { name: "Refund this bought credit?" });
+      await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200");
+      await sheet.getByLabel("Reason").fill("end-to-end refund approval");
+      await sheet.getByRole("button", { name: "Refund", exact: true }).click();
+      await expect(sheet).toBeHidden();
+    });
+  }
+  if (process.env.E2E_CHARGEBACK) {
+    await test.step("a chargeback shows its evidence and the date it's due", async () => {
+      await go(page, "Chargebacks");
+      await page.getByRole("link", { name: `Open chargeback ${process.env.E2E_CHARGEBACK}` }).click();
+      await expect(page.getByRole("heading", { level: 1, name: "Chargeback" })).toBeVisible();
+      await expect(page.getByText("Submit the evidence in Razorpay's dashboard")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "The payment" })).toBeVisible();
+    });
+    await test.step("today's payments are compared with Razorpay, and nothing disagrees", async () => {
+      await go(page, "Payments");
+      await page.getByRole("button", { name: "Run a day now" }).click();
+      await confirmIn(page, "Compare a day with Razorpay now?", "Run it", "end-to-end reconciliation");
+      // The only run on this stack: the nightly one runs at 03:15.
+      await expect(page.getByRole("table", { name: "Runs" }).getByRole("row")).toHaveCount(2, {
+        timeout: 30_000,
+      });
+      await expect(page.getByText("Nothing open")).toBeVisible();
     });
   }
 

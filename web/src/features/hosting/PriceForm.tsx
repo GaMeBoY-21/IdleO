@@ -17,6 +17,7 @@ import {
   TEMP_MAX,
   TEMP_MIN,
   stepPrice,
+  renterPays,
   youKeep,
 } from "@/lib/hosting";
 import { formatPaiseRange } from "@/lib/money";
@@ -84,6 +85,7 @@ export function ListingFields({
     onChange?.();
   };
   const { keep, fee } = price === null ? { keep: 0, fee: 0 } : youKeep(price);
+  const gstPercent = band.data?.gstPercent ?? 0;
   return (
     <>
       <Tile as="section" aria-labelledby="price-title" className="flex flex-col gap-4">
@@ -150,6 +152,21 @@ export function ListingFields({
                 </span>
               ) : (
                 <Money paise={fee} />
+              )}
+            </dd>
+          </div>
+          {/* Always drawn, so nothing moves when the band says whether GST is charged (ADR 0039). */}
+          <div className="flex items-baseline justify-between gap-4 text-text-muted">
+            <dt>{gstPercent > 0 ? `Renters pay, with ${gstPercent}% GST` : "Renters pay"}</dt>
+            <dd className="w-24 text-right tabular">
+              {price === null ? (
+                <span className="block w-full">
+                  <SkeletonLine size="small" width="w-full" />
+                </span>
+              ) : (
+                <>
+                  <Money paise={renterPays(price, gstPercent)} /> an hour
+                </>
               )}
             </dd>
           </div>

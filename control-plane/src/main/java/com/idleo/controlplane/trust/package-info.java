@@ -37,9 +37,9 @@
  *       its rating); {@code POST /admin/v1/disputes/{id}/refund {amountPaise, reason}} and {@code /no-refund
  *       {reason}}, once each report, with a reason the renter reads, and optionally {@code flagHost}: a mark on the
  *       session's host's record that admins see ({@code GET /admin/v1/disputes/host-flags?host=}), for the host score to use.
- *       Audited in the same transaction, which also publishes {@link ReportResolved} for the renter's email. {@code
- *       GET /admin/v1/disputes/{id}/log} reads the session's log through sessions' {@code SessionLogsForReview},
- *       each first page an audit row (ADR 0039).
+ *       Audited in the same transaction, which also publishes {@link ReportResolved} for the renter's email. The
+ *       session's log is read from the sessions module's {@code GET /admin/v1/sessions/{id}/log}, with a reason,
+ *       audited (ADR 0039).
  *   <li>A refund goes through billing's {@link com.idleo.controlplane.billing.SessionRefunds}: up to what the renter
  *       paid for the session net, from the platform's commission first and then the hosts' shares, in one balanced
  *       ledger transaction whose {@code txn_id} is a name-based UUID of the report.

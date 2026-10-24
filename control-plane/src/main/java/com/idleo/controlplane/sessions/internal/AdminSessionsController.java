@@ -46,8 +46,15 @@ class AdminSessionsController {
     private final SessionForceStops forceStops;
     private final SessionCosts costs;
     private final AuditTrail audit;
+    private final SessionLogReviews logs;
 
-    AdminSessionsController(JdbcClient jdbc, SessionForceStops forceStops, SessionCosts costs, AuditTrail audit) {
+    AdminSessionsController(
+            JdbcClient jdbc,
+            SessionForceStops forceStops,
+            SessionCosts costs,
+            AuditTrail audit,
+            SessionLogReviews logs) {
+        this.logs = logs;
         this.jdbc = jdbc;
         this.forceStops = forceStops;
         this.costs = costs;
@@ -178,6 +185,37 @@ class AdminSessionsController {
                 .list();
         var cost = costs.of(id);
         return new AdminSession(summary, timeline, attempts, cost.chargedPaise(), cost.accruedPaise(), cost.closed());
+    }
+
+    /** A page of a session's log. */
+    record AdminSessionLogChunk(int attempt, int seq, String text) {}
+
+    record AdminSessionLog(
+            List<AdminSessionLogChunk> chunks, @Nullable String nextCursor) {}
+
+    /**
+     * A session's log (ADR 0039), to judge a report or gather a chargeback's evidence: {@code reason} (5 to 500
+     * characters) is why, and the first page is an audit row with it; {@code nextCursor} is null once there's nothing
+     * more now.
+     */
+    @GetMapping("/{id}/log")
+    AdminSessionLog log(
+            @AuthenticationPrincipal CurrentUser admin,
+            @PathVariable UUID id,
+            @RequestParam String reason,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(defaultValue = "200") int limit) {
+        var why = reason.strip();
+        if (why.length() < 5 || why.length() > 500) {
+            throw ApiProblem.invalid("reason", "must be 5 to 500 characters.");
+        }
+        var page = logs.read(id, cursor, Cursors.limit(limit, 1000), why, audit.admin(admin))
+                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no session " + id + "."));
+        return new AdminSessionLog(
+                page.chunks().stream()
+                        .map(chunk -> new AdminSessionLogChunk(chunk.attempt(), chunk.seq(), chunk.text()))
+                        .toList(),
+                page.more() ? SessionLogs.cursorAfter(page, cursor) : null);
     }
 
     /**
