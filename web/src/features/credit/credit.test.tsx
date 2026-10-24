@@ -224,7 +224,8 @@ describe("adding credit", () => {
 describe("billing details", () => {
   it("saves the state, a GSTIN in capitals and a business name", async () => {
     renderWith(<BillingDetailsTile details={queryResult({ data: withoutState })} />);
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    // The form is a file of its own, loaded once the details have arrived.
+    expect(await screen.findByRole("button", { name: "Save" })).toBeDisabled();
     await userEvent.selectOptions(screen.getByLabelText("Your state"), "29");
     await userEvent.type(screen.getByLabelText("GSTIN (optional)"), "29aagcb7383j1z4");
     await userEvent.type(screen.getByLabelText("Business name (optional)"), "Studio Asha");
@@ -275,7 +276,7 @@ describe("refunding unused credit", () => {
     );
     expect(screen.getByText(/₹200.00 of the credit you bought can go back/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Ask for a refund" }));
-    await userEvent.type(screen.getByLabelText("How much, in ₹"), "250");
+    await userEvent.type(await screen.findByLabelText("How much, in ₹"), "250");
     expect(screen.getByText("At most ₹200.00.")).toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText("How much, in ₹"));
     await userEvent.type(screen.getByLabelText(/Anything we should know/), "I bought too much");

@@ -1,5 +1,4 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { Download } from "lucide-react";
 import { useState } from "react";
 import { downloadInvoice, type Invoice } from "@/api/wallet";
 import { Button } from "@/components/ui/Button";
@@ -99,12 +98,12 @@ function DocumentRow({ invoice }: { invoice: Invoice }) {
       <Money paise={invoice.totalPaise} className="text-option font-semibold tabular" />
       <Button
         variant="secondary"
-        className="size-touch shrink-0 px-0"
+        className="shrink-0"
         busy={state === "busy"}
         aria-label={`Download ${invoice.title.toLowerCase()} ${invoice.number}`}
         onClick={() => void download()}
       >
-        {state !== "busy" && <Download aria-hidden="true" className="size-5" strokeWidth={1.75} />}
+        Download
       </Button>
     </li>
   );
