@@ -1,0 +1,65 @@
+{
+  "entity": "event",
+  "account_id": "acc_Pup4LDLiA1DssX",
+  "event": "payout.processed",
+  "contains": [
+    "payout"
+  ],
+  "payload": {
+    "payout": {
+      "entity": {
+        "id": "pout_R7ambiUdUvg6AD",
+        "entity": "payout",
+        "fund_account_id": "fa_R7amb4zOx1gJoF",
+        "fund_account": {
+          "id": "fa_R7amb4zOx1gJoF",
+          "entity": "fund_account",
+          "contact_id": "cont_R7ama5UMAMqHB2",
+          "account_type": "vpa",
+          "batch_id": null,
+          "vpa": {
+            "username": "exampleupi",
+            "handle": "ybl",
+            "address": "exampleupi@ybl"
+          },
+          "active": true,
+          "created_at": 1755693655
+        },
+        "amount": 100,
+        "currency": "INR",
+        "notes": {
+          "notes_key_1": "Chai Tea Latte",
+          "notes_key_2": "Cafe, decaf.",
+          "VPA_HANDLE": "ybl",
+          "payee_ifsc": "KKBK0000197",
+          "payee_bank_name": "Kotak Mahindra Bank"
+        },
+        "fees": 0,
+        "tax": 0,
+        "status": "processed",
+        "purpose": "payout",
+        "utr": "523223155921",
+        "mode": "UPI",
+        "reference_id": null,
+        "narration": "Payout to Acme Corp",
+        "batch_id": null,
+        "failure_reason": null,
+        "created_at": 1755693656,
+        "status_details": {
+          "reason": "payout_processed",
+          "description": "Payout is processed and the money has been credited into the beneficiary account.",
+          "source": "beneficiary_bank"
+        },
+        "error": {
+          "source": null,
+          "reason": null,
+          "description": null,
+          "code": "NA",
+          "step": "NA",
+          "metadata": {}
+        }
+      }
+    }
+  },
+  "created_at": 1755693679
+}

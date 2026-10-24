@@ -89,6 +89,13 @@ class CancelDeletion(BaseModel):
     token: Annotated[str, Field(max_length=100, min_length=0)]
 
 
+class CheckUpi(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    vpa: Annotated[str, Field(max_length=100, min_length=0)]
+
+
 class ConfirmDeletion(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -323,6 +330,20 @@ class ExportList(BaseModel):
         populate_by_name=True,
     )
     exports: list[Export]
+
+
+class Forfeit(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    statement: Annotated[str, Field(max_length=500, min_length=10)]
+
+
+class Forfeited(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int, Field(alias="amountPaise")]
 
 
 class GpuInfo(BaseModel):
@@ -640,6 +661,19 @@ class OwnerEarnings(BaseModel):
     week_starts_at: Annotated[AwareDatetime, Field(alias="weekStartsAt")]
 
 
+class PanView(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    decided_at: Annotated[AwareDatetime | None, Field(alias="decidedAt")] = None
+    holder: str
+    last4: str
+    name: str
+    reason: str | None = None
+    state: str
+    submitted_at: Annotated[AwareDatetime, Field(alias="submittedAt")]
+
+
 class ParamValue(RootModel[str | int | float | bool]):
     root: str | int | float | bool
 
@@ -663,6 +697,25 @@ class PauseRequest(BaseModel):
     until: AwareDatetime | None = None
 
 
+class PayoutView(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
+    ended_at: Annotated[AwareDatetime | None, Field(alias="endedAt")] = None
+    fee_paise: Annotated[int, Field(alias="feePaise")]
+    gross_paise: Annotated[int, Field(alias="grossPaise")]
+    id: UUID
+    kind: str
+    net_paise: Annotated[int, Field(alias="netPaise")]
+    processed_at: Annotated[AwareDatetime | None, Field(alias="processedAt")] = None
+    status: str
+    tds_paise: Annotated[int, Field(alias="tdsPaise")]
+    tds_section: Annotated[str, Field(alias="tdsSection")]
+    utr: str | None = None
+    why: str | None = None
+
+
 class PendingCliLogin(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -670,6 +723,17 @@ class PendingCliLogin(BaseModel):
     device_name: Annotated[str, Field(alias="deviceName")]
     expires_at: Annotated[AwareDatetime, Field(alias="expiresAt")]
     id: UUID
+
+
+class PendingEarning(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int, Field(alias="amountPaise")]
+    available_at: Annotated[AwareDatetime | None, Field(alias="availableAt")] = None
+    host_id: Annotated[UUID, Field(alias="hostId")]
+    machine_name: Annotated[str, Field(alias="machineName")]
+    session_id: Annotated[UUID, Field(alias="sessionId")]
 
 
 class PollCliLoginRequest(BaseModel):
@@ -788,6 +852,13 @@ class Type(Enum):
     field_problems_refund_already_requested = "/problems/refund-already-requested"
     field_problems_nothing_to_refund = "/problems/nothing-to-refund"
     field_problems_billing_details_required = "/problems/billing-details-required"
+    field_problems_pan_required = "/problems/pan-required"
+    field_problems_payouts_unavailable = "/problems/payouts-unavailable"
+    field_problems_pan_not_verified = "/problems/pan-not-verified"
+    field_problems_pan_already_verified = "/problems/pan-already-verified"
+    field_problems_too_many_upi_checks = "/problems/too-many-upi-checks"
+    field_problems_upi_check_not_usable = "/problems/upi-check-not-usable"
+    field_problems_payout_in_progress = "/problems/payout-in-progress"
     field_problems_host_busy = "/problems/host-busy"
     field_problems_host_removed = "/problems/host-removed"
     field_problems_host_no_gpu = "/problems/host-no-gpu"
@@ -1123,6 +1194,14 @@ class StopRequest(BaseModel):
     checkpoint_first: Annotated[bool | None, Field(alias="checkpointFirst")] = None
 
 
+class SubmitPan(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    name: Annotated[str, Field(max_length=85, min_length=0)]
+    pan: Annotated[str, Field(max_length=20, min_length=0)]
+
+
 class SupportMessage(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1290,6 +1369,22 @@ class UpdateMeRequest(BaseModel):
     display_name: Annotated[str, Field(alias="displayName", max_length=60, min_length=0)]
 
 
+class UpiView(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    checked_at: Annotated[AwareDatetime, Field(alias="checkedAt")]
+    confirmed_at: Annotated[AwareDatetime | None, Field(alias="confirmedAt")] = None
+    failure: str | None = None
+    hold_until: Annotated[AwareDatetime | None, Field(alias="holdUntil")] = None
+    id: UUID
+    name_match_score: Annotated[int | None, Field(alias="nameMatchScore")] = None
+    reason: str | None = None
+    registered_name: Annotated[str | None, Field(alias="registeredName")] = None
+    state: str
+    vpa: str | None = None
+
+
 class UploadFileRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1365,6 +1460,16 @@ class VramFromInputView(BaseModel):
     per_gb_mb: Annotated[int, Field(alias="perGbMb")]
 
 
+class Wait(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    amount_paise: Annotated[int | None, Field(alias="amountPaise")] = None
+    code: str
+    message: str
+    until: AwareDatetime | None = None
+
+
 class WalletResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1430,6 +1535,7 @@ class DeletionStanding(BaseModel):
     losses: list[Loss]
     request: DeletionRequest | None = None
     waiting_days: Annotated[int, Field(alias="waitingDays")]
+    waits: list[Wait]
 
 
 class DisputePage(BaseModel):
@@ -1533,6 +1639,49 @@ class NotificationChoices(BaseModel):
         populate_by_name=True,
     )
     items: list[NotificationItem]
+
+
+class PayoutDetails(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    change_hold_hours: Annotated[int, Field(alias="changeHoldHours")]
+    checks_per_day: Annotated[int, Field(alias="checksPerDay")]
+    in_review: Annotated[UpiView | None, Field(alias="inReview")] = None
+    in_use: Annotated[UpiView | None, Field(alias="inUse")] = None
+    latest_check: Annotated[UpiView | None, Field(alias="latestCheck")] = None
+    name_match_threshold: Annotated[int, Field(alias="nameMatchThreshold")]
+    pan: PanView | None = None
+    payouts_available: Annotated[bool, Field(alias="payoutsAvailable")]
+
+
+class PayoutPage(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    next_cursor: Annotated[str | None, Field(alias="nextCursor")] = None
+    payouts: list[PayoutView]
+
+
+class PayoutSummary(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    available_paise: Annotated[int, Field(alias="availablePaise")]
+    blocked_by: Annotated[str | None, Field(alias="blockedBy")] = None
+    financial_year: Annotated[str, Field(alias="financialYear")]
+    hold_until: Annotated[AwareDatetime | None, Field(alias="holdUntil")] = None
+    in_flight_paise: Annotated[int, Field(alias="inFlightPaise")]
+    minimum_paise: Annotated[int, Field(alias="minimumPaise")]
+    next_payout_at: Annotated[AwareDatetime, Field(alias="nextPayoutAt")]
+    owed_paise: Annotated[int, Field(alias="owedPaise")]
+    paid_paise: Annotated[int, Field(alias="paidPaise")]
+    payable_paise: Annotated[int, Field(alias="payablePaise")]
+    pending: list[PendingEarning]
+    pending_paise: Annotated[int, Field(alias="pendingPaise")]
+    statement_years: Annotated[list[str], Field(alias="statementYears")]
+    year_gross_paise: Annotated[int, Field(alias="yearGrossPaise")]
+    year_tds_paise: Annotated[int, Field(alias="yearTdsPaise")]
 
 
 class Point(BaseModel):

@@ -1,0 +1,41 @@
+{
+  "entity": "event",
+  "account_id": "acc_BfVUrG6tDiL7H0",
+  "event": "payout.failed",
+  "contains": [
+    "payout"
+  ],
+  "payload": {
+    "payout": {
+      "entity": {
+        "id": "pout_1Aa00000000001",
+        "entity": "payout",
+        "fund_account_id": "fa_1Aa00000000001",
+        "amount": 100,
+        "currency": "INR",
+        "notes": {
+          "note_key 1": "Tea. Earl Gray. Hot.",
+          "note_key 2": "Tea. Earl Gray. Decaf."
+        },
+        "fees": 0,
+        "tax": 0,
+        "status": "failed",
+        "purpose": "payout",
+        "utr": "qwer12ui3323a22d",
+        "mode": "IMPS",
+        "reference_id": null,
+        "narration": "Acme Fund Transfer",
+        "debit_account_number": "00228130001287",
+        "batch_id": null,
+        "status_details": {
+          "description": "Payout failed as the beneficiary account is closed. Please contact the beneficiary bank",
+          "source": "beneficiary_bank",
+          "reason": "bank_account_closed"
+        },
+        "created_at": 1580120202,
+        "fee_type": ""
+      }
+    }
+  },
+  "created_at": 1580120247
+}

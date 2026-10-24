@@ -103,8 +103,28 @@ Money records are kept for `legal.retention.money-records` (8 years, LEGAL(confi
 | `billing.credit_grants` | id, user_id, amount_paise, **reason**, granted_by, idempotency_key, txn_id, created_at | `user_id = :user` | money: creditGrants | Free credit given (granting-credits.md); the reason is an admin's text | Money record | Kept; the reason was written by an admin and must not name the person |
 | `billing.credit_grant_reversals` | id, grant_id, **reason**, reversed_by, txn_id, created_at | — | — | | Money record | Kept |
 | `billing.payout_holds` | dispute_id, session_id, held_at, released_at | `session_id in (:sessions)` | — | Earnings held while a report is open | Money record | Kept |
+| `billing.payout_sessions` | payout_id, host_id, session_id, amount_paise | `host_id in (:hosts)` | — | The sessions each payout paid a machine for, so a refund after it is a clawback (ADR 0040) | Money record | Kept: ids only |
+| `billing.clawbacks` | id, owner_id, host_id, session_id, cause, cause_txn_id, amount_paise, from_balance_paise, owed_paise, recovered_paise, waived_paise, state, created_at, settled_at, waived_by, **waive_reason** | `owner_id = :user` | — | Earnings refunded to a renter after they were paid out: what the balance covered, what's owed and recovered, what an admin waived (ADR 0040); the waive reason is an admin's text | Money record | Kept by id; what's still owed stays a receivable |
 | `billing.reconciliation_runs` | id, trigger, finished_at, ledger_debits_paise, ledger_credits_paise, mismatches | — | — | The nightly wallet check | `rule: reconciliation-runs` | Kept |
 | `billing.reconciliation_mismatches` | run_id, position, kind, user_id, wallet_paise, expected_paise | `user_id = :user` | — | | With its run | Kept |
+
+### payouts (money records)
+
+A host's PAN, where their payouts go and the payouts themselves (ADR 0040). The PAN and the payouts are what the tax filings need, so they're money records, kept by opaque id for `legal.retention.money-records` (8 years, LEGAL(confirm)); the UPI IDs and the names banks gave for them are cleared on erasure.
+
+| Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
+| --- | --- | --- | --- | --- | --- | --- |
+| `payouts.pans` | user_id, **pan_sealed**, **pan_last4**, **name**, holder, state, checked, verifier, submitted_at, decided_at, decided_by, **reason** | `user_id = :user` | money: pan | The PAN (sealed under `payouts.pan.key`, shown by its last four) and the name as on it: a host's before their first payout, a renter's before buying past `legal.payouts.renter-pan-above-paise` in a year; the tax deducted at source is filed under it | Money record (the tax filings), LEGAL(confirm) | Kept: a tax record, by opaque id |
+| `payouts.methods` | id, user_id, **vpa**, state, validation_id, fund_account_id, account_status, **registered_name**, name_match_score, **failure**, checked_at, confirmed_at, hold_until, ended_at, decided_by, **reason** | `user_id = :user` | hosting: payoutMethods | Each UPI ID the host checked, as RazorpayX checked it (the name the bank has for it), and where payouts go | Money record | Cleared: the UPI ID, the bank's name for it and the words about it; RazorpayX's ids stay |
+| `payouts.payouts` | id, user_id, run_id, kind, method_id, fund_account_id, gross_paise, tds_paise, fee_paise, net_paise, tds_section, tds_basis_points, financial_year, status, razorpayx_id, utr, status_reason, status_source, status_description, earned_since, attempts, last_error, created_at, sent_at, processed_at, ended_at, updated_at | `user_id = :user` | hosting: payouts | Each payout: gross, tax deducted, net, RazorpayX's status and the bank's reference | Money record | Kept: ids and amounts only |
+| `payouts.forfeits` | id, user_id, amount_paise, **statement**, created_at | `user_id = :user` | hosting: earningsGivenUp | Earnings given up in writing to delete an account without a payout method; the person's own words are the record of it | Money record | Kept: the written consent |
+| `payouts.final_payouts` | user_id, requested_at | `user_id = :user` | — | A deletion waiting for its final payout | Until the erasure | Deleted |
+| `payouts.runs` | id, kind, payday, trigger, started_at, finished_at, owners, payouts, total_paise, failure | — | — | Each weekly or admin's run | Money record | Kept: no person in it |
+| `payouts.events` | event_id, event, payout_id, validation_id, received_at | — | — | Each RazorpayX webhook handled, by its event id; RazorpayX's ids only, never the payload (which names the UPI ID) | Money record | Kept: no person in it |
+| `payouts.reconciliation_runs` | id, day, trigger, started_at, finished_at, payouts, found, open, failure | — | — | Each day RazorpayX's payouts were compared with ours | Money record | Kept: no person in it |
+| `payouts.mismatches` | id, kind, subject, payout_id, user_id, our_paise, their_paise, our_status, their_status, detail, state, first_run_id, last_run_id, found_at, last_found_at, closed_at, closed_by, **close_reason** | `user_id = :user` | — | What the payout reconciliation found wrong; the close reason is an admin's text | Money record | Kept by id |
+| `payouts.balance_checks` | id, payday, checked_at, balance_paise, due_paise, short, failure | — | — | RazorpayX's balance against the next run, the day before | Money record | Kept: no person in it |
+| `payouts.idempotency_keys` | user_id, idempotency_key, request_hash, state, response_status, response_location, **response_body**, locked_at, created_at, expires_at | `user_id = :user` | — | As identity's (a UPI ID check's answer) | `rule: idempotency-keys` | Deleted |
 
 ### privacy
 
@@ -196,6 +216,8 @@ Only state that may expire; never anything financial (ADR 0013).
 | --- | --- | --- | --- |
 | The sign-in provider (Firebase Authentication, Google Identity Platform) | Email, name, the provider account behind it, sign-in times and addresses | Google's terms | The identity is deleted through `SignInAccounts` (Admin API) |
 | The email provider (Resend) | Each email: address, subject, body | 30 days of logs (email.md) | Ages out |
+| RazorpayX (Razorpay's payouts, ADR 0040) | A host's contact (the name on their PAN, our opaque user id), their UPI ID and the bank's name for it, each payout | Razorpay's terms; the law's for payment records | Kept by RazorpayX as a payment record; our side clears the UPI ID |
+| A PAN provider (none chosen yet, ADR 0040) | Once one is: the PAN and the name, to check them | The provider's terms | Not sent anywhere until one is chosen |
 | The person's browser | Upload progress (IndexedDB: file names and parts' ETags), the sign-in SDK's own token store | Until they clear it | Theirs |
 | The command line and SDK (`idleo`) | The key (keychain or a 0600 file), uploads' progress, pending bookings | Until `logout` | Theirs |
 | A host's machine | While a session runs: the renter's inputs, scratch disk (encrypted, ADR 0038) and container | Deleted at session end | Nothing left |

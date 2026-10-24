@@ -15,6 +15,9 @@
  *   <li>{@code SessionLowOnCredit}: under 10 minutes of credit, once for each session.
  *   <li>{@code AttemptLost}: the renter's session is moving to another GPU; the machine's owner is told it went
  *       offline, and never who rented it.
+ *   <li>{@code PayoutSettled}, {@code PayoutMethodChanged} (payouts) and {@code EarningsClawedBack} (billing): a host's
+ *       payout reached their UPI ID or came back, their payout UPI ID changed ("Not you? Contact us."), or earnings
+ *       already paid out were refunded to a renter (ADR 0040). The locked payout kind: always in the app and by email.
  * </ul>
  *
  * <p>A person's choices (ADR 0024) decide each message: in the app, by email, both or neither, except the kinds

@@ -1,0 +1,27 @@
+{
+  "id": "pout_00000000000001",
+  "entity": "payout",
+  "fund_account_id": "fa_00000000000001",
+  "amount": 1000000,
+  "currency": "INR",
+  "notes": {
+    "note_key": "Beam me up Scotty"
+  },
+  "fees": 590,
+  "tax": 90,
+  "status": "processed",
+  "purpose": "payout",
+  "utr": null,
+  "mode": "NEFT",
+  "reference_id": "Acme Transaction ID 12345",
+  "narration": "Acme Corp Fund Transfer",
+  "debit_account_number": "002281300012871",
+  "batch_id": null,
+  "status_details": {
+    "description": "Payout is processed and the money has been credited into the beneficiaries account",
+    "source": "beneficiary_bank",
+    "reason": "payout_processed"
+  },
+  "created_at": 1545382870,
+  "fee_type": ""
+}

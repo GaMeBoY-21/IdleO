@@ -349,6 +349,36 @@ public final class People {
                         .content("{\"stateCode\":\"29\",\"gstin\":\"29AAGCB7383J1Z4\",\"businessName\":\"Studio "
                                 + marker + "\"}"))
                 .andExpect(status().isOk());
+        // Money out (ADR 0040): a PAN, and a UPI ID checked through the fake RazorpayX.
+        mvc.perform(put("/v1/payout-details/pan")
+                        .header("Authorization", user.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pan\":\"ABCPE4321F\",\"name\":\"Payee Person\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/v1/payout-details/upi-checks")
+                        .header("Authorization", user.bearer())
+                        .header("Idempotency-Key", "upi-" + marker)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vpa\":\"" + marker.replaceAll("[^A-Za-z0-9.-]", "") + "@okicici\"}"))
+                .andExpect(status().isCreated());
+        // A payout to it that failed, and earnings given up in writing: the payouts and the person's own words.
+        var method = jdbc.queryForObject("select id from payouts.methods where user_id = ?", UUID.class, me);
+        jdbc.update(
+                "insert into payouts.payouts (id, user_id, kind, method_id, fund_account_id, gross_paise, tds_paise,"
+                        + " fee_paise, net_paise, tds_section, tds_basis_points, financial_year, status, created_at,"
+                        + " updated_at) values (?, ?, 'weekly', ?, 'fa_fixture', 1000, 0, 0, 1000, '194-O', 10,"
+                        + " '2026-27', 'failed', ?, ?)",
+                IDS.generate(),
+                me,
+                method,
+                ts(now),
+                ts(now));
+        jdbc.update(
+                "insert into payouts.forfeits (id, user_id, amount_paise, statement, created_at) values (?, ?, 1, ?, ?)",
+                IDS.generate(),
+                me,
+                "I give up my earnings, " + marker,
+                ts(now));
         var razorpay = TestRazorpayConfiguration.RAZORPAY;
         var paidTopUp = JSON.readTree(mvc.perform(post("/v1/wallet/topups")
                         .header("Authorization", user.bearer())

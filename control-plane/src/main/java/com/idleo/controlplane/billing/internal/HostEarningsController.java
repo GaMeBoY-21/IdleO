@@ -16,7 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * What a host has earned (ADR 0017), for its owner only: the balance of its {@code host_payable} account, which
  * each settlement credits with the host's share and each refund of lost minutes debits, and those entries, newest
- * first. Nothing is paid out or held in escrow yet; payouts come with the payment partner.
+ * first; payouts and recoveries debit it too (ADR 0040), so the balance is what the machine has earned and not been
+ * paid.
  */
 @RestController
 class HostEarningsController {
@@ -62,6 +63,10 @@ class HostEarningsController {
             case SessionChargeService.CHARGE_REF -> "session_earning";
             case SessionChargeService.REFUND_REF -> "lost_minutes_refunded";
             case SessionRefundService.REFUND_REF -> "refunded_to_renter";
+            case HostPayoutService.PAYOUT_REF -> "paid_out";
+            case HostPayoutService.RETURNED_REF, HostPayoutService.REVERSED_REF -> "payout_returned";
+            case HostPayoutService.RECOVERED_REF, Clawbacks.CLAWBACK_REF -> "recovered";
+            case HostPayoutService.FORFEITED_REF -> "forfeited";
             default -> refType;
         };
     }

@@ -28,8 +28,18 @@ enum Account {
     GST_ON_UNUSED_CREDIT("gst_on_unused_credit", false, false),
     /** Free credit that expired unspent, the other side of what promotions cost. Raised by credits. */
     FREE_CREDIT_EXPIRED("free_credit_expired", false, true),
-    /** Expense: a lost chargeback the renter's credit didn't cover. Raised by debits. */
-    CHARGEBACK_LOSSES("chargeback_losses", false, false);
+    /** Expense: a lost chargeback the renter's credit didn't cover, and clawbacks an admin waived. Raised by debits. */
+    CHARGEBACK_LOSSES("chargeback_losses", false, false),
+    /** Liability: earnings on their way to the owner's UPI ID (ADR 0040), owned by the owner. Raised by credits. */
+    PAYOUTS_IN_FLIGHT("payouts_in_flight", true, true),
+    /** What has left our RazorpayX account for the owner, owned by the owner: their processed payouts. Raised by credits. */
+    PAYOUTS_PAID("payouts_paid", true, true),
+    /** Liability: tax deducted at source from payouts, owed to the government. Raised by credits. */
+    TDS_PAYABLE("tds_payable", false, true),
+    /** Asset: earnings refunded after they were paid out, owed back by the owner from later earnings. Raised by debits. */
+    HOST_RECEIVABLE("host_receivable", true, false),
+    /** Earnings an owner gave up in writing when deleting the account without a payout method. Raised by credits. */
+    EARNINGS_FORFEITED("earnings_forfeited", false, true);
 
     final String dbValue;
     /** Owned accounts belong to a renter or host; the platform's accounts have no owner. */

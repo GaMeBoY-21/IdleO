@@ -1,0 +1,47 @@
+{
+  "entity": "event",
+  "account_id": "acc_BfVUrG6tDiL7H0",
+  "event": "fund_account.validation.failed",
+  "contains": [
+    "fund_account.validation"
+  ],
+  "payload": {
+    "fund_account.validation": {
+      "entity": {
+        "id": "fav_Fa6RwlxjoX0xeO",
+        "entity": "fund_account.validation",
+        "fund_account": {
+          "id": "fa_Fa6Rq1WwNrpMoK",
+          "entity": "fund_account",
+          "contact_id": "cont_FYSVUV5EeJKkKb",
+          "account_type": "bank_account",
+          "bank_account": {
+            "name": "Gaurav Kumar",
+            "bank_name": "HDFC",
+            "ifsc": "HDFC0000053",
+            "account_number": "1121431121541121"
+          },
+          "batch_id": null,
+          "active": true,
+          "created_at": 1599652242
+        },
+        "status": "failed",
+        "amount": 127,
+        "currency": "INR",
+        "notes": {
+          "random_key_1": "Make it so.",
+          "random_key_2": "Tea. Earl Grey. Hot."
+        },
+        "results": {
+          "account_status": "",
+          "registered_name": "",
+          "details": "null",
+          "name_match_score": null
+        },
+        "created_at": 1599473659,
+        "utr": null
+      }
+    }
+  },
+  "created_at": 1599473661
+}

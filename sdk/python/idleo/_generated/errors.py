@@ -510,6 +510,62 @@ class BillingDetailsRequired(IdleoError):
     title = "Billing details needed"
 
 
+class PanRequired(IdleoError):
+    """Verified PAN needed (HTTP 409)."""
+
+    slug = "pan-required"
+    status = 409
+    title = "Verified PAN needed"
+
+
+class PayoutsUnavailable(IdleoError):
+    """Payouts unavailable (HTTP 503)."""
+
+    slug = "payouts-unavailable"
+    status = 503
+    title = "Payouts unavailable"
+
+
+class PanNotVerified(IdleoError):
+    """PAN not verified yet (HTTP 409)."""
+
+    slug = "pan-not-verified"
+    status = 409
+    title = "PAN not verified yet"
+
+
+class PanAlreadyVerified(IdleoError):
+    """PAN already verified (HTTP 409)."""
+
+    slug = "pan-already-verified"
+    status = 409
+    title = "PAN already verified"
+
+
+class TooManyUpiChecks(IdleoError):
+    """Too many UPI ID checks (HTTP 429)."""
+
+    slug = "too-many-upi-checks"
+    status = 429
+    title = "Too many UPI ID checks"
+
+
+class UpiCheckNotUsable(IdleoError):
+    """That check can't be used (HTTP 409)."""
+
+    slug = "upi-check-not-usable"
+    status = 409
+    title = "That check can't be used"
+
+
+class PayoutInProgress(IdleoError):
+    """A payout is on its way (HTTP 409)."""
+
+    slug = "payout-in-progress"
+    status = 409
+    title = "A payout is on its way"
+
+
 class HostBusy(IdleoError):
     """The host is running a session (HTTP 409)."""
 
@@ -718,6 +774,13 @@ __all__ = [
     "RefundAlreadyRequested",
     "NothingToRefund",
     "BillingDetailsRequired",
+    "PanRequired",
+    "PayoutsUnavailable",
+    "PanNotVerified",
+    "PanAlreadyVerified",
+    "TooManyUpiChecks",
+    "UpiCheckNotUsable",
+    "PayoutInProgress",
     "HostBusy",
     "HostRemoved",
     "HostNoGpu",
@@ -802,6 +865,13 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "refund-already-requested": RefundAlreadyRequested,
     "nothing-to-refund": NothingToRefund,
     "billing-details-required": BillingDetailsRequired,
+    "pan-required": PanRequired,
+    "payouts-unavailable": PayoutsUnavailable,
+    "pan-not-verified": PanNotVerified,
+    "pan-already-verified": PanAlreadyVerified,
+    "too-many-upi-checks": TooManyUpiChecks,
+    "upi-check-not-usable": UpiCheckNotUsable,
+    "payout-in-progress": PayoutInProgress,
     "host-busy": HostBusy,
     "host-removed": HostRemoved,
     "host-no-gpu": HostNoGpu,

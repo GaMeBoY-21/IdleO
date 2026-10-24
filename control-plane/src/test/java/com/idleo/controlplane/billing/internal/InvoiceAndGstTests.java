@@ -110,7 +110,9 @@ class InvoiceAndGstTests {
                         true,
                         mode,
                         false,
-                        base.numberPrefix()));
+                        base.numberPrefix()),
+                legal.payouts(),
+                legal.tds());
     }
 
     private Invoices invoices(Gst gst) {

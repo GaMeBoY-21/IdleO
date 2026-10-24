@@ -328,8 +328,8 @@ class TopUpTests {
                 Duration.ofSeconds(5));
         var body = "{\"entity\":\"event\",\"event\":\"payment.captured\"}"
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        var old = RazorpaySignatures.hmac("the-old-secret", body);
-        var fresh = RazorpaySignatures.hmac("the-new-secret", body);
+        var old = com.idleo.controlplane.RazorpayWebhookSignature.hmac("the-old-secret", body);
+        var fresh = com.idleo.controlplane.RazorpayWebhookSignature.hmac("the-new-secret", body);
         var during = new RazorpayWebhookController(
                 settings, null, null, java.time.Clock.fixed(now, java.time.ZoneOffset.UTC));
         var after = new RazorpayWebhookController(
@@ -339,7 +339,7 @@ class TopUpTests {
         assertThat(during.signed(body, old)).isTrue();
         assertThat(after.signed(body, fresh)).isTrue();
         assertThat(after.signed(body, old)).isFalse();
-        assertThat(during.signed(body, RazorpaySignatures.hmac("a-third-secret", body)))
+        assertThat(during.signed(body, com.idleo.controlplane.RazorpayWebhookSignature.hmac("a-third-secret", body)))
                 .isFalse();
     }
 

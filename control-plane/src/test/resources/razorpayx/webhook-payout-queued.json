@@ -1,0 +1,41 @@
+{
+  "entity": "event",
+  "account_id": "acc_BfVUrG6tDiL7H0",
+  "event": "payout.queued",
+  "contains": [
+    "payout"
+  ],
+  "payload": {
+    "payout": {
+      "entity": {
+        "id": "pout_1Aa00000000001",
+        "entity": "payout",
+        "fund_account_id": "fa_1Aa00000000001",
+        "amount": 286540,
+        "currency": "INR",
+        "notes": {
+          "note_key 1": "Tea. Earl Gray. Hot.",
+          "note_key 2": "Tea. Earl Gray. Decaf."
+        },
+        "fees": 0,
+        "tax": 0,
+        "status": "queued",
+        "purpose": "payout",
+        "utr": null,
+        "mode": "IMPS",
+        "reference_id": null,
+        "narration": "Acme Fund Transfer",
+        "debit_account_number": "null",
+        "batch_id": null,
+        "status_details": {
+          "description": "Payout is queued as there is insufficient balance in your business account to process the payout",
+          "source": "business",
+          "reason": "low_balance"
+        },
+        "created_at": 1580119445,
+        "fee_type": ""
+      }
+    }
+  },
+  "created_at": 1580119445
+}

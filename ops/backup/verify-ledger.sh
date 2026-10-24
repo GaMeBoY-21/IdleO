@@ -16,6 +16,10 @@
 #      is outside the balance, so with check 3 nothing frozen, refunding or reserved is ever more than the renter has.
 #  11. every paid top-up has exactly one credit to the renter's bought credit, and every processed refund part exactly
 #      one debit from refunds_pending (ADR 0039).
+#  12. nobody's payouts in flight are below zero (ADR 0040);
+#  13. each person's payouts_paid equals the sum of their processed payouts;
+#  14. a receivable is only ever recovered or waived, never paid out: no host_receivable in a payout's transaction,
+#      and nobody's receivable below zero.
 #
 #   ops/backup/verify-ledger.sh --container idleo-restore-<name>     a restored database (ops/backup/restore.sh)
 #   ops/backup/verify-ledger.sh --container <the live database's>    the live one
@@ -33,7 +37,7 @@ while (($#)); do
     --container) container="$2"; shift 2 ;;
     --user) user="$2"; shift 2 ;;
     --database) database="$2"; shift 2 ;;
-    -h | --help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "verify-ledger: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
@@ -85,6 +89,21 @@ checks=(
      where p.status = 'processed' and (select count(*) from billing.ledger_entries e
        where e.ref_type = 'credit_refund_processed' and e.ref_id = p.id and e.account = 'refunds_pending'
          and e.direction = 'debit') <> 1"
+  "no payout in flight below zero|select count(*) from (
+       select owner_id from billing.ledger_entries where account = 'payouts_in_flight' group by owner_id
+       having sum(case direction when 'credit' then amount_paise else -amount_paise end) < 0) negative"
+  "paid equals the sum of processed payouts|with paid as (
+       select owner_id, sum(case direction when 'credit' then amount_paise else -amount_paise end) as paise
+       from billing.ledger_entries where account = 'payouts_paid' group by owner_id),
+     processed as (
+       select user_id, sum(net_paise) as paise from payouts.payouts where status = 'processed' group by user_id)
+     select count(*) from paid full join processed on processed.user_id = paid.owner_id
+     where coalesce(paid.paise, 0) <> coalesce(processed.paise, 0)"
+  "a receivable is only recovered, never paid out|select (select count(*) from billing.ledger_entries
+       where account = 'host_receivable' and ref_type in ('payout', 'payout_paid', 'payout_returned', 'payout_reversed'))
+     + (select count(*) from (
+       select owner_id from billing.ledger_entries where account = 'host_receivable' group by owner_id
+       having sum(case direction when 'debit' then amount_paise else -amount_paise end) < 0) negative)"
 )
 
 failed=0

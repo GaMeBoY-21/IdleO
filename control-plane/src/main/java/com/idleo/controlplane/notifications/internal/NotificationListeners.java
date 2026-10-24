@@ -1,6 +1,9 @@
 package com.idleo.controlplane.notifications.internal;
 
+import com.idleo.controlplane.billing.EarningsClawedBack;
 import com.idleo.controlplane.hosts.HostOwners;
+import com.idleo.controlplane.payouts.PayoutMethodChanged;
+import com.idleo.controlplane.payouts.PayoutSettled;
 import com.idleo.controlplane.sessions.AttemptLost;
 import com.idleo.controlplane.sessions.SessionCosts;
 import com.idleo.controlplane.sessions.SessionLowOnCredit;
@@ -113,6 +116,39 @@ class NotificationListeners {
                 NotificationKind.REPORT_ANSWERED,
                 "report-answered:" + event.disputeId(),
                 messages.reportAnswered(session, event.refundPaise(), event.reason()));
+    }
+
+    /** A payout reached the host's UPI ID, or came back: once a payout (ADR 0040). */
+    @ApplicationModuleListener
+    void on(PayoutSettled event) {
+        var message = event.outcome().equals("processed")
+                ? messages.payoutProcessed(event.netPaise(), event.tdsPaise())
+                : messages.payoutReturned(
+                        event.netPaise(),
+                        event.outcome().equals("reversed"),
+                        java.util.Objects.requireNonNullElse(event.why(), "It's back in your earnings."));
+        notifier.tell(
+                event.userId(), NotificationKind.PAYOUT, "payout-" + event.outcome() + ":" + event.payoutId(), message);
+    }
+
+    /** The UPI ID payouts go to changed: told at once, by email too, so a change they didn't make is caught. */
+    @ApplicationModuleListener
+    void on(PayoutMethodChanged event) {
+        notifier.tell(
+                event.userId(),
+                NotificationKind.PAYOUT,
+                "payout-method-changed:" + event.methodId(),
+                messages.payoutMethodChanged(event.holdUntil()));
+    }
+
+    /** Earnings already paid out were refunded to a renter: the owner is told what was taken and what's owed. */
+    @ApplicationModuleListener
+    void on(EarningsClawedBack event) {
+        notifier.tell(
+                event.ownerId(),
+                NotificationKind.PAYOUT,
+                "clawback:" + event.clawbackId(),
+                messages.clawedBack(event.amountPaise(), event.owedPaise(), event.sessionId(), event.at()));
     }
 
     /** At most one message and one email for each session, however often its credit dips under 10 minutes. */

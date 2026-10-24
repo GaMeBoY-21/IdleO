@@ -105,6 +105,7 @@ class Deletions {
             @Nullable DeletionRequest request,
             List<PersonalData.Blocker> blockers,
             List<PersonalData.Loss> losses,
+            List<PersonalData.Wait> waits,
             Duration waitingPeriod) {}
 
     private Instant now() {
@@ -116,6 +117,7 @@ class Deletions {
                 latest(userId).orElse(null),
                 blockers(userId),
                 losses(userId),
+                waits(userId),
                 legal.erasure().waitingPeriod());
     }
 
@@ -128,6 +130,12 @@ class Deletions {
         var blockers = new ArrayList<PersonalData.Blocker>();
         modules.forEach(module -> blockers.addAll(module.blockers(userId)));
         return blockers;
+    }
+
+    private List<PersonalData.Wait> waits(UUID userId) {
+        var waits = new ArrayList<PersonalData.Wait>();
+        modules.forEach(module -> waits.addAll(module.waits(userId)));
+        return waits;
     }
 
     private List<PersonalData.Loss> losses(UUID userId) {

@@ -144,7 +144,12 @@ class KeyRouteTests {
                         "POST /v1/me/exports",
                         "POST /v1/me/deletion",
                         "POST /v1/me/deletion/confirm",
-                        "DELETE /v1/me/deletion");
+                        "DELETE /v1/me/deletion",
+                        // Where a host's payouts go, and giving earnings up (ADR 0040).
+                        "PUT /v1/payout-details/pan",
+                        "POST /v1/payout-details/upi-checks",
+                        "POST /v1/payout-details/upi-checks/{id}/confirm",
+                        "POST /v1/payouts/forfeit");
     }
 
     @Test
@@ -269,6 +274,9 @@ class KeyRouteTests {
             case "PUT /v1/hosts/{id}/listing" -> "{}";
             case "POST /v1/host-links/{id}/approve" -> "{\"name\":\"x\",\"batchPricePaisePerMin\":10}";
             case "PUT /v1/me/notifications" -> "{\"items\":[]}";
+            case "PUT /v1/payout-details/pan" -> "{\"pan\":\"ABCPE1234F\",\"name\":\"x\"}";
+            case "POST /v1/payout-details/upi-checks" -> "{\"vpa\":\"x@okicici\"}";
+            case "POST /v1/payouts/forfeit" -> "{\"statement\":\"I give up my earnings\"}";
             default -> "";
         };
     }

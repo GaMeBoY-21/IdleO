@@ -7,7 +7,6 @@ import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -364,9 +363,7 @@ class Invoices {
 
     /** The financial year, April to March in India's time: {@code 2026-27} for any day from 1 April 2026 to 31 March 2027. */
     static String financialYear(Instant at) {
-        var day = LocalDate.ofInstant(at, INDIA);
-        int start = day.getMonthValue() >= 4 ? day.getYear() : day.getYear() - 1;
-        return start + "-" + String.format("%02d", (start + 1) % 100);
+        return com.idleo.controlplane.FinancialYear.of(at).name();
     }
 
     private ObjectNode document(

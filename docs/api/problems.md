@@ -69,6 +69,13 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/refund-already-requested` | 409 | A refund is already on its way | One refund of bought credit at a time: the last one is still waiting for us or for your bank. |
 | `/problems/nothing-to-refund` | 422 | No bought credit to refund | Only credit you bought can go back, and only to where you paid from; free credit can't be paid out. |
 | `/problems/billing-details-required` | 409 | Billing details needed | Before your first top-up, say which state you're in (and, for a business invoice, your GSTIN): it decides the GST on your invoice. |
+| `/problems/pan-required` | 409 | Verified PAN needed | You've bought more credit this financial year than can be bought without a PAN. Give your PAN in Payout details and buy more once it's verified. |
+| `/problems/payouts-unavailable` | 503 | Payouts unavailable | UPI IDs can't be checked just now: payouts aren't set up here, or RazorpayX can't be reached. Nothing changed. Try again later. |
+| `/problems/pan-not-verified` | 409 | PAN not verified yet | A UPI ID is checked against the name on your PAN, so your PAN has to be verified first. |
+| `/problems/pan-already-verified` | 409 | PAN already verified | Your PAN is verified. To change it, write to us from Help. |
+| `/problems/too-many-upi-checks` | 429 | Too many UPI ID checks | Each check asks your bank, so a few a day are allowed. Retry-After says when the next may be made. |
+| `/problems/upi-check-not-usable` | 409 | That check can't be used | Only the latest check of an active UPI ID, made in the last hour, can become where payouts go. Check the UPI ID again. |
+| `/problems/payout-in-progress` | 409 | A payout is on its way | A payout to your UPI ID hasn't finished yet. Wait for it to arrive or come back first. |
 | `/problems/host-busy` | 409 | The host is running a session | A host can't be removed while it has a session that hasn't ended. Pause it so it takes no new work, and remove it when the session is over. |
 | `/problems/host-removed` | 410 | The host was removed | This host was removed and never comes back; add the machine again to rent it out. |
 | `/problems/host-no-gpu` | 409 | The host hasn't reported a GPU | A price can only be suggested once the host's agent has connected and reported its GPU. |

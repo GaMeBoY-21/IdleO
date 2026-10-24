@@ -24,7 +24,39 @@ public record LegalSettings(
         @NotNull @Valid Grievance grievance,
         @NotNull @Valid Credit credit,
         @NotNull @Valid TopUps topUps,
-        @NotNull @Valid Invoicing invoicing) {
+        @NotNull @Valid Invoicing invoicing,
+        @NotNull @Valid Payouts payouts,
+        @NotNull @Valid Tds tds) {
+
+    /**
+     * Paying hosts (ADR 0040): a session's earnings wait {@code disputeWindow} after its last charge before a payout may
+     * take them, so a renter's report can still reach them; a renter buying more than {@code renterPanAbovePaise} of
+     * credit in a financial year gives a verified PAN first.
+     */
+    public record Payouts(
+            @NotNull Duration disputeWindow, @Min(0) long renterPanAbovePaise) {}
+
+    /**
+     * Tax deducted at source from payouts (ADR 0040), every value the CA's to confirm and none of it in code: the section
+     * and its rate in basis points (10 is 0.1%), the rate and section when the host gave no PAN, and the gross a
+     * resident individual (or family) with a PAN earns in a financial year before anything is deducted. {@code
+     * payWithoutPan} lets a host with no verified PAN be paid at the no-PAN rate; off, they aren't paid. {@code
+     * confirmed} says the CA has confirmed all of it: the prod profile refuses live payouts without it.
+     */
+    public record Tds(
+            @NotBlank String section,
+
+            @Min(0) @jakarta.validation.constraints.Max(10_000)
+            int basisPoints,
+
+            @NotBlank String noPanSection,
+
+            @Min(0) @jakarta.validation.constraints.Max(10_000)
+            int noPanBasisPoints,
+
+            @Min(0) long individualThresholdPaise,
+            boolean payWithoutPan,
+            boolean confirmed) {}
 
     /**
      * Invoices and GST (ADR 0039), every value the CA's to confirm. With no {@code gstin} we aren't registered: no GST

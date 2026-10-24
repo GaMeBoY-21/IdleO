@@ -251,6 +251,47 @@ billing:
     abandon-after: 24h
     abandon-sweep-every: 10m
 
+# Paying hosts (ADR 0040, docs/runbooks/payouts.md); what the law decides is legal.payouts and legal.tds. Every Monday
+# at 10:00 in India, everyone with a checked UPI ID and at least minimum-paise available is paid; the day before, the
+# RazorpayX balance is checked against it; at 03:45 RazorpayX's payouts of the day before are reconciled with ours.
+# Payouts RazorpayX didn't accept are sent again every send-every; one with no news for poll-after is fetched. A changed
+# UPI ID holds payouts for change-hold; a name match below name-match-threshold goes to an admin; a person may check a
+# UPI ID checks-per-day times a day, and confirm a check within check-valid-for. RazorpayX's charge for a payout is
+# paid by IdleO (fees.paid-by: idleo) or the host (host, host-fee-paise a payout): Nikki's business decision.
+payouts:
+  minimum-paise: 10000
+  weekly-cron: "0 0 10 * * MON"
+  balance-check-cron: "0 0 10 * * SUN"
+  reconciliation-cron: "0 45 3 * * *"
+  reconciliation-count-every: 1m
+  zone: Asia/Kolkata
+  send-every: 1m
+  poll-after: 30m
+  poll-every: 5m
+  change-hold: 48h
+  name-match-threshold: 80
+  checks-per-day: 5
+  check-valid-for: 1h
+  fees:
+    paid-by: idleo
+    host-fee-paise: 0
+  # PANs are sealed under this key (32 bytes, base64, or file:…), from the environment only; checked online by
+  # verifier: manual (no provider chosen yet: an admin confirms each) or fake (tests and the local stack; the prod
+  # profile refuses it).
+  pan:
+    key: ${PAYOUTS_PAN_KEY:}
+    verifier: manual
+  # RazorpayX (docs/runbooks/payouts.md): keys from the environment only, apart from money in's. Without a key id,
+  # secret and account number, payouts are off. The prod profile refuses test keys, another API, and a missing webhook
+  # secret or account number; live keys are refused anywhere but prod.
+  razorpayx:
+    api-url: ${RAZORPAYX_API_URL:https://api.razorpay.com}
+    key-id: ${RAZORPAYX_KEY_ID:}
+    key-secret: ${RAZORPAYX_KEY_SECRET:}
+    webhook-secret: ${RAZORPAYX_WEBHOOK_SECRET:}
+    account-number: ${RAZORPAYX_ACCOUNT_NUMBER:}
+    timeout: 10s
+
 # Real visits' vitals and JavaScript errors (ADR 0036, BrowserVitals): the folder the web builds' source maps are
 # deployed to (never served), so an error is named by our own file and line. Without one, the browser's place is kept.
 vitals:
@@ -482,6 +523,26 @@ legal:
     new-account-age: 7d
     new-account-max-paise: 200000
     new-account-per-day-paise: 200000
+  # Paying hosts (ADR 0040): a session's earnings wait this long after its last charge before a payout takes them,
+  # so a renter's report (7 days, ADR 0028) can still reach them; renters buying more than this much credit in a
+  # financial year (₹2,00,000) give a verified PAN first. LEGAL(confirm)
+  payouts:
+    dispute-window: 7d
+    renter-pan-above-paise: 20000000
+  # Tax deducted at source from payouts (ADR 0040), every value the CA's to confirm: section 194-O of the Income-tax
+  # Act 1961 has an e-commerce operator deduct 0.1% of the gross (1% before 1 October 2024), 5% without a PAN (section
+  # 206AA), and nothing for a resident individual with a PAN whose gross in the year is up to ₹5,00,000. The
+  # Income-tax Act 2025 renumbers the sections: the section is a setting, never code. pay-without-pan pays a host with
+  # no verified PAN at the no-PAN rate (off: they aren't paid). confirmed: the CA has confirmed all of it; the prod
+  # profile refuses live payouts until it's true. LEGAL(confirm)
+  tds:
+    section: "194-O"
+    basis-points: 10
+    no-pan-section: "206AA"
+    no-pan-basis-points: 500
+    individual-threshold-paise: 50000000
+    pay-without-pan: false
+    confirmed: ${LEGAL_TDS_CONFIRMED:false}
   retention:
     # The security log (sign-ins, failures, key and admin events, deletion and export requests, with addresses):
     # at least a year. LEGAL(confirm)

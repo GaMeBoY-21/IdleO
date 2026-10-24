@@ -1,4 +1,4 @@
-package com.idleo.controlplane.identity.internal;
+package com.idleo.controlplane;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -8,16 +8,17 @@ import java.util.Base64;
 
 /**
  * A 256-bit key from the configuration: base64 of 32 bytes, or a {@code file:} location holding that (the local
- * stack's keys live under the gitignored private/dev-ca/, made by {@code scripts/dev-ca.sh}).
+ * stack's keys live under the gitignored private/dev-ca/, made by {@code scripts/dev-ca.sh}). The admin console's TOTP
+ * key, the codes' HMAC key and the PAN key (ADR 0040) are read here.
  */
-final class ConfiguredKeys {
+public final class ConfiguredKeys {
 
-    static final int KEY_BYTES = 32;
+    public static final int KEY_BYTES = 32;
 
     private ConfiguredKeys() {}
 
     /** The key's bytes; {@code setting} names it in the message when it can't be read. */
-    static byte[] read(String configured, String setting) {
+    public static byte[] read(String configured, String setting) {
         var text = configured.strip();
         if (text.startsWith("file:")) {
             try {

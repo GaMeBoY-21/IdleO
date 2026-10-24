@@ -82,3 +82,9 @@ identity:
     credentials: ${IDENTITY_PROVIDER_ADMIN_CREDENTIALS:}
   admin:
     totp-key: ${IDENTITY_ADMIN_TOTP_KEY}
+
+# The PAN key (ADR 0040, docs/runbooks/payouts.md): 32 bytes in base64, from the secret store. Without it, the
+# application doesn't start. PANs are checked by an admin until a provider is chosen (payouts.pan.verifier: manual).
+payouts:
+  pan:
+    key: ${PAYOUTS_PAN_KEY}

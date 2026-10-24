@@ -23,7 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * What a person has earned across every machine they own (ADR 0023), read only from the ledger's {@code host_payable}
  * entries, so it always matches the ledger and a lost-time giveback is a negative entry. Weeks run Monday to Sunday and
- * days end at midnight, in India (IST). Nothing is paid out yet: payouts start with the paid pilot.
+ * days end at midnight, in India (IST). What payouts move isn't earning and isn't listed here: the payouts module's
+ * {@code /v1/payouts} shows them (ADR 0040). A refund to a renter of earnings already paid out is labelled as recovered.
  */
 @RestController
 class OwnerEarningsController {
@@ -36,6 +37,7 @@ class OwnerEarningsController {
     private final OwnerEarningsQueries queries;
     private final EarningDetails details;
     private final PayoutHoldService holds;
+    private final Clawbacks clawbacks;
     private final Clock clock;
 
     OwnerEarningsController(
@@ -43,7 +45,9 @@ class OwnerEarningsController {
             OwnerEarningsQueries queries,
             EarningDetails details,
             PayoutHoldService holds,
+            Clawbacks clawbacks,
             Clock clock) {
+        this.clawbacks = clawbacks;
         this.owners = owners;
         this.queries = queries;
         this.details = details;
@@ -61,10 +65,12 @@ class OwnerEarningsController {
      * One ledger entry.
      *
      * @param amountPaise what it added to the host's earnings; negative for time given back or a refund
-     * @param label what to call it: the service's name, {@code Given back for lost time} or {@code Refunded to renter}
+     * @param label what to call it: the service's name, {@code Given back for lost time}, {@code Refunded to renter}, or
+     *     for earnings already paid out, {@code Recovered: refund for session 0193ab4c on 12 Nov}
      * @param serviceName the service, when the session's template is still in the catalog
      * @param minutes the minutes it was for (given back, for a giveback); 0 when not known, and for a refund
-     * @param kind {@code session_earning}, {@code lost_minutes_refunded} or {@code refunded_to_renter}
+     * @param kind {@code session_earning}, {@code lost_minutes_refunded}, {@code refunded_to_renter} or {@code
+     *     recovered_after_payout}
      * @param sessionId the session it came from, which carries no one's identity
      * @param payoutHeld a report about the session is open, so what it earned is held from payout until it's resolved
      *     (ADR 0028)
@@ -91,7 +97,7 @@ class OwnerEarningsController {
      * @param weekPaise earned since then
      * @param minutesRentedThisWeek minutes paid for since then, less minutes given back
      * @param days the last 7 days, oldest first, today last
-     * @param payoutsStart when payouts begin: {@code paid-pilot}
+     * @param payoutsStart how payouts are made: {@code weekly}, every Monday (ADR 0040)
      */
     record OwnerEarnings(
             long totalPaise,
@@ -129,7 +135,7 @@ class OwnerEarningsController {
                     days(firstDay, Map.of()),
                     List.of(),
                     new EarningsPage(List.of(), null),
-                    "paid-pilot");
+                    "weekly");
         }
         var totals = queries.totals(hostIds);
         var page = history(hostIds, names, cursor, limit);
@@ -150,7 +156,16 @@ class OwnerEarningsController {
                                 machine.id(), machine.name(), machine.removed(), totals.getOrDefault(machine.id(), 0L)))
                         .toList(),
                 page,
-                "paid-pilot");
+                "weekly");
+    }
+
+    private static final java.time.format.DateTimeFormatter DAY_MONTH =
+            java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.ENGLISH);
+
+    /** "Recovered: refund for session 0193ab4c on 12 Nov": a session by its id's first 8 characters, the day in IST. */
+    static String recovered(UUID sessionId, Instant at) {
+        return "Recovered: refund for session " + sessionId.toString().substring(0, 8) + " on "
+                + DAY_MONTH.format(at.atZone(IST));
     }
 
     private static List<EarningsDay> days(LocalDate first, Map<LocalDate, Long> earned) {
@@ -189,20 +204,28 @@ class OwnerEarningsController {
                 .toList());
         var held = holds.held(
                 shown.stream().map(OwnerEarningsQueries.Entry::refId).distinct().toList());
+        var clawed = clawbacks.byCause(shown.stream()
+                .filter(entry -> entry.refType().equals(SessionRefundService.REFUND_REF))
+                .map(OwnerEarningsQueries.Entry::txnId)
+                .distinct()
+                .toList());
         var entries = shown.stream()
                 .map(entry -> {
                     var detail = found.get(new EarningDetails.Key(entry.txnId(), entry.hostId()));
                     var service = detail == null ? null : detail.serviceName();
-                    var label = switch (entry.refType()) {
-                        case SessionChargeService.REFUND_REF -> GIVEN_BACK;
-                        case SessionRefundService.REFUND_REF -> REFUNDED;
-                        default -> service == null ? "Session" : service;
-                    };
+                    var clawback = clawed.get(List.of(entry.txnId(), entry.hostId()));
+                    var label = clawback != null
+                            ? recovered(entry.refId(), entry.createdAt())
+                            : switch (entry.refType()) {
+                                case SessionChargeService.REFUND_REF -> GIVEN_BACK;
+                                case SessionRefundService.REFUND_REF -> REFUNDED;
+                                default -> service == null ? "Session" : service;
+                            };
                     return new EarningsEntry(
                             entry.id(),
                             entry.hostId(),
                             names.getOrDefault(entry.hostId(), "Removed machine"),
-                            HostEarningsController.kind(entry.refType()),
+                            clawback != null ? "recovered_after_payout" : HostEarningsController.kind(entry.refType()),
                             label,
                             service,
                             detail == null ? 0 : detail.minutes(),

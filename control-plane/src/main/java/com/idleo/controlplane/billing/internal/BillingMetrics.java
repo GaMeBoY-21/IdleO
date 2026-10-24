@@ -16,6 +16,9 @@ import org.springframework.stereotype.Component;
  *   <li>{@code billing.ledger.transactions}: transactions posted, by {@code ref_type}; credit grants are
  *       {@code ref_type=credit_grant}.
  *   <li>{@code billing.reserved.paise}: credit held for sessions now, across every wallet.
+ *   <li>{@code billing.clawbacks} and {@code billing.clawbacks.paise}: refunds of earnings already paid out (ADR 0040),
+ *       by {@code outcome}: {@code covered} by the owner's balance, {@code owed} back from later earnings, or {@code
+ *       waived} by an admin.
  * </ul>
  *
  * Counted once each transaction has committed, so a meter never says more than the ledger does.
@@ -34,6 +37,21 @@ class BillingMetrics {
                                 .single())
                 .description("Credit held for sessions now, in paise, across every wallet")
                 .register(registry);
+    }
+
+    void clawedBack(long amountPaise, long owedPaise) {
+        com.idleo.controlplane.AfterCommit.run(() -> {
+            var outcome = owedPaise > 0 ? "owed" : "covered";
+            registry.counter("billing.clawbacks", "outcome", outcome).increment();
+            registry.counter("billing.clawbacks.paise", "outcome", outcome).increment(amountPaise);
+        });
+    }
+
+    void clawbackWaived(long amountPaise) {
+        com.idleo.controlplane.AfterCommit.run(() -> {
+            registry.counter("billing.clawbacks", "outcome", "waived").increment();
+            registry.counter("billing.clawbacks.paise", "outcome", "waived").increment(amountPaise);
+        });
     }
 
     void posted(LedgerTransaction transaction) {

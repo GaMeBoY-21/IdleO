@@ -1,0 +1,51 @@
+# Money out (ADR 0040, docs/runbooks/payouts.md): RazorpayX and our payouts agree, payouts go through, the balance
+# covers payday, and a payout a bank sent back is looked at the day it happens. Same format and rules as platform.yaml.
+groups:
+  - name: payouts
+    rules:
+      - alert: PayoutMismatch
+        # Any disagreement between RazorpayX's payouts and ours that nobody has closed. Every instance reads the same
+        # count from the database, so the largest is the count.
+        expr: max(payouts_reconciliation_open{job="control-plane"}) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | printf "%.0f" }} disagreements between RazorpayX and our payouts are open.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-mismatch
+
+      - alert: PayoutsFailing
+        # More than 20% of the payouts that ended in the last 6 hours failed, were rejected or cancelled, once at least
+        # 5 ended: the weekly run pays everyone at once, so one bad Monday is the window.
+        expr: |
+          (
+            sum(increase(payouts_status_total{job="control-plane", status=~"failed|rejected|cancelled"}[6h]))
+            /
+            sum(increase(payouts_status_total{job="control-plane", status=~"processed|failed|rejected|cancelled"}[6h]))
+          ) > 0.2
+          and
+          sum(increase(payouts_status_total{job="control-plane", status=~"processed|failed|rejected|cancelled"}[6h])) >= 5
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of the payouts that ended in the last 6 hours failed.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payouts-failing
+
+      - alert: PayoutBalanceLow
+        # The day before payday, RazorpayX's balance can't cover the run: payouts would queue until it's funded.
+        expr: max(payouts_balance_short{job="control-plane"}) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'RazorpayX''s balance can''t cover the next payout run; payouts will queue until it''s funded.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-balance-low
+
+      - alert: PayoutReversed
+        # A host's bank sent a payout back: the money is in their earnings again and their UPI ID is suspect.
+        expr: sum(increase(payouts_status_total{job="control-plane", status="reversed"}[1h])) > 0
+        labels:
+          severity: digest
+        annotations:
+          summary: 'A payout was sent back by a host''s bank in the last hour.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-reversed

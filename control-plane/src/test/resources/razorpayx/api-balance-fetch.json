@@ -1,0 +1,50 @@
+{
+  "entity": "collection",
+  "count": 4,
+  "items": [
+    {
+      "entity": "banking_balance",
+      "currency": "INR",
+      "account_number": "409001396356",
+      "account_type": "current_account",
+      "bank_name": "RBL Bank",
+      "bank_code": "RATN",
+      "amount": 186682638,
+      "available_amount": 186682638,
+      "refreshed_at": 1721889110
+    },
+    {
+      "entity": "banking_balance",
+      "currency": "INR",
+      "account_number": "002281300049209",
+      "account_type": "current_account",
+      "bank_name": "Yes Bank",
+      "bank_code": "YESB",
+      "amount": 10489829,
+      "available_amount": 186682638,
+      "refreshed_at": 1696419847
+    },
+    {
+      "entity": "banking_balance",
+      "currency": "INR",
+      "account_number": "002281300012871",
+      "account_type": "fixed_deposit",
+      "bank_name": "Yes Bank",
+      "bank_code": "YESB",
+      "amount": 10489829,
+      "available_amount": 186682638,
+      "refreshed_at": 1696419847
+    },
+    {
+      "entity": "banking_balance",
+      "currency": "INR",
+      "account_number": "984539953520846",
+      "account_type": "razorpayx_lite",
+      "bank_name": null,
+      "bank": null,
+      "amount": 1029,
+      "available_amount": 1029,
+      "refreshed_at": 1729847660
+    }
+  ]
+}

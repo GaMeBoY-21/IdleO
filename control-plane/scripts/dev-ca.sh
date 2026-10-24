@@ -43,11 +43,12 @@ if [[ -z "$openssl_bin" ]]; then
   exit 1
 fi
 
-# The admin console's TOTP key (ADR 0027) and the HMAC key for invite and recovery codes (ADR 0024), beside the CA:
-# kept across --force, since replacing them makes every admin's enrolment unreadable and every unused code worthless.
+# The admin console's TOTP key (ADR 0027), the HMAC key for invite and recovery codes (ADR 0024) and the key PANs are
+# sealed under (ADR 0040), beside the CA: kept across --force, since replacing them makes every admin's enrolment and
+# every PAN unreadable and every unused code worthless.
 make_admin_totp_key() {
   local name
-  for name in admin-totp.key invite-code.key; do
+  for name in admin-totp.key invite-code.key pan.key; do
     if [[ ! -s "$out/$name" ]]; then
       (umask 077 && mkdir -p "$out" && "$openssl_bin" rand -base64 32 > "$out/$name")
     fi
@@ -90,7 +91,7 @@ fi
 
 umask 077
 mkdir -p "$out"
-find "$out" -mindepth 1 ! -name admin-totp.key ! -name invite-code.key -delete
+find "$out" -mindepth 1 ! -name admin-totp.key ! -name invite-code.key ! -name pan.key -delete
 make_admin_totp_key
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

@@ -49,6 +49,12 @@ identity:
   admin:
     totp-key: file:../private/dev-ca/admin-totp.key
 
+# PANs (ADR 0040): sealed under a key scripts/dev-ca.sh makes beside the others, and checked by the fake PAN check.
+payouts:
+  pan:
+    key: file:../private/dev-ca/pan.key
+    verifier: fake
+
 # Object storage: MinIO from compose.yaml (ADR 0016). A fixed port, because the
 # grants agents get and renters' download links carry this endpoint.
 sessions:

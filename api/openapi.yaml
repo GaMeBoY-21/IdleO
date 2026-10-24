@@ -298,6 +298,79 @@ paths:
         idToken: []
       tags:
       - adminPayments
+  /admin/v1/clawbacks:
+    get:
+      operationId: adminClawbacksList
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+          default: owed
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminClawbackPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminClawbacks
+  /admin/v1/clawbacks/{id}/waive:
+    post:
+      operationId: adminClawbacksWaive
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminClawback"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminClawbacks
   /admin/v1/credit-grants:
     get:
       operationId: adminMoneyList
@@ -1166,6 +1239,411 @@ paths:
         idToken: []
       tags:
       - adminPayments
+  /admin/v1/payouts:
+    get:
+      operationId: adminPayoutsList
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+          default: all
+      - in: query
+        name: run
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayouts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/mismatches/{id}/accept:
+    post:
+      operationId: adminPayoutsAccept
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayoutMismatch"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/reconciliation:
+    get:
+      operationId: adminPayoutsReconciliation
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+          default: open
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayoutReconciliation"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+    post:
+      operationId: adminPayoutsReconcile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunPayoutReconciliation"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayoutReconciliationRun"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/retry:
+    post:
+      operationId: adminPayoutsRetry
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetryPayout"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRetryOutcome"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/runs:
+    post:
+      operationId: adminPayoutsRun
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayoutRun"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/tds-export:
+    post:
+      operationId: adminPayoutsTdsExport
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TdsExport"
+        required: true
+      responses:
+        "200":
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: The quarter's deductions as CSV
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/verifications:
+    get:
+      operationId: adminPayoutsVerifications
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVerifications"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/verifications/pans/{userId}/reject:
+    post:
+      operationId: adminPayoutsRejectPan
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPanReview"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/verifications/pans/{userId}/reveal:
+    post:
+      operationId: adminPayoutsRevealPan
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPanReveal"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/verifications/pans/{userId}/verify:
+    post:
+      operationId: adminPayoutsVerifyPan
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPanReview"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/verifications/upi-ids/{id}/approve:
+    post:
+      operationId: adminPayoutsApproveUpi
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUpiReview"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/verifications/upi-ids/{id}/reject:
+    post:
+      operationId: adminPayoutsRejectUpi
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUpiReview"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
   /admin/v1/ratings:
     get:
       operationId: adminRatingsList
@@ -3561,6 +4039,226 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - razorpayWebhook
+  /v1/payout-details:
+    get:
+      operationId: payoutDetailsGet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutDetails"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - payoutDetails
+  /v1/payout-details/pan:
+    put:
+      operationId: payoutDetailsSubmitPan
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitPan"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PanView"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - payoutDetails
+  /v1/payout-details/upi-checks:
+    post:
+      operationId: payoutDetailsCheck
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckUpi"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpiView"
+          description: "The check, with what RazorpayX said; a repeat with the same\
+            \ key returns the first response"
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - payoutDetails
+  /v1/payout-details/upi-checks/{id}/confirm:
+    post:
+      operationId: payoutDetailsConfirm
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpiView"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - payoutDetails
+  /v1/payouts:
+    get:
+      operationId: ownerPayoutsList
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - ownerPayouts
+  /v1/payouts/forfeit:
+    post:
+      operationId: ownerPayoutsForfeit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Forfeit"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Forfeited"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - ownerPayouts
+  /v1/payouts/razorpayx/webhook:
+    post:
+      operationId: razorpayXWebhookReceive
+      responses:
+        "200":
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - razorpayXWebhook
+  /v1/payouts/statement:
+    get:
+      operationId: ownerPayoutsStatement
+      parameters:
+      - in: query
+        name: year
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: format
+        required: false
+        schema:
+          type: string
+          default: pdf
+      responses:
+        "200":
+          content:
+            application/pdf:
+              schema:
+                type: string
+            text/csv:
+              schema:
+                type: string
+          description: "The year's statement, as a PDF or CSV"
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - ownerPayouts
+  /v1/payouts/summary:
+    get:
+      operationId: ownerPayoutsSummary
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutSummary"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - ownerPayouts
   /v1/price-band:
     get:
       operationId: priceBandForGpu
@@ -4788,6 +5486,34 @@ components:
       required:
       - message
       - status
+    AdminBalanceCheck:
+      type: object
+      properties:
+        balancePaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        checkedAt:
+          type: string
+          format: date-time
+        duePaise:
+          type: integer
+          format: int64
+        failure:
+          type:
+          - string
+          - "null"
+        isShort:
+          type: boolean
+        payday:
+          type: string
+          format: date
+      required:
+      - checkedAt
+      - duePaise
+      - isShort
+      - payday
     AdminChargeback:
       type: object
       properties:
@@ -4891,6 +5617,86 @@ components:
       required:
       - paidFromThisPaymentPaise
       - sessionId
+    AdminClawback:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        cause:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        fromBalancePaise:
+          type: integer
+          format: int64
+        hostId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        outstandingPaise:
+          type: integer
+          format: int64
+        owedPaise:
+          type: integer
+          format: int64
+        ownerId:
+          type: string
+          format: uuid
+        recoveredPaise:
+          type: integer
+          format: int64
+        sessionId:
+          type: string
+          format: uuid
+        settledAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        state:
+          type: string
+        waiveReason:
+          type:
+          - string
+          - "null"
+        waivedBy:
+          type:
+          - string
+          - "null"
+        waivedPaise:
+          type: integer
+          format: int64
+      required:
+      - amountPaise
+      - cause
+      - createdAt
+      - fromBalancePaise
+      - hostId
+      - id
+      - outstandingPaise
+      - owedPaise
+      - ownerId
+      - recoveredPaise
+      - sessionId
+      - state
+      - waivedPaise
+    AdminClawbackPage:
+      type: object
+      properties:
+        clawbacks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminClawback"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - clawbacks
     AdminCodeRequest:
       type: object
       properties:
@@ -5817,6 +6623,51 @@ components:
       - noticeId
       - sent
       - withoutAddress
+    AdminPanReveal:
+      type: object
+      properties:
+        pan:
+          type: string
+        userId:
+          type: string
+          format: uuid
+      required:
+      - pan
+      - userId
+    AdminPanReview:
+      type: object
+      properties:
+        checked:
+          type: string
+        holder:
+          type: string
+        last4:
+          type: string
+        name:
+          type: string
+        reason:
+          type:
+          - string
+          - "null"
+        state:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          format: uuid
+        verifier:
+          type: string
+      required:
+      - checked
+      - holder
+      - last4
+      - name
+      - state
+      - submittedAt
+      - userId
+      - verifier
     AdminPayment:
       type: object
       properties:
@@ -6025,6 +6876,284 @@ components:
       - id
       - startedAt
       - trigger
+    AdminPayout:
+      type: object
+      properties:
+        attempts:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        feePaise:
+          type: integer
+          format: int64
+        grossPaise:
+          type: integer
+          format: int64
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        lastError:
+          type:
+          - string
+          - "null"
+        netPaise:
+          type: integer
+          format: int64
+        processedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        razorpayxId:
+          type:
+          - string
+          - "null"
+        runId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        status:
+          type: string
+        statusDescription:
+          type:
+          - string
+          - "null"
+        statusReason:
+          type:
+          - string
+          - "null"
+        tdsPaise:
+          type: integer
+          format: int64
+        tdsSection:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        utr:
+          type:
+          - string
+          - "null"
+      required:
+      - attempts
+      - createdAt
+      - feePaise
+      - grossPaise
+      - id
+      - kind
+      - netPaise
+      - status
+      - tdsPaise
+      - tdsSection
+      - userId
+    AdminPayoutMismatch:
+      type: object
+      properties:
+        closeReason:
+          type:
+          - string
+          - "null"
+        closedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        closedBy:
+          type:
+          - string
+          - "null"
+        detail:
+          type: string
+        foundAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        lastFoundAt:
+          type: string
+          format: date-time
+        ourPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        ourStatus:
+          type:
+          - string
+          - "null"
+        payoutId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        state:
+          type: string
+        subject:
+          type: string
+        theirPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        theirStatus:
+          type:
+          - string
+          - "null"
+        userId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - detail
+      - foundAt
+      - id
+      - kind
+      - lastFoundAt
+      - state
+      - subject
+    AdminPayoutReconciliation:
+      type: object
+      properties:
+        mismatches:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPayoutMismatch"
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPayoutReconciliationRun"
+      required:
+      - mismatches
+      - runs
+    AdminPayoutReconciliationRun:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        failure:
+          type:
+          - string
+          - "null"
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        found:
+          type:
+          - integer
+          - "null"
+          format: int32
+        id:
+          type: string
+          format: uuid
+        open:
+          type:
+          - integer
+          - "null"
+          format: int32
+        payouts:
+          type:
+          - integer
+          - "null"
+          format: int32
+        startedAt:
+          type: string
+          format: date-time
+        trigger:
+          type: string
+      required:
+      - day
+      - id
+      - startedAt
+      - trigger
+    AdminPayoutRun:
+      type: object
+      properties:
+        failure:
+          type:
+          - string
+          - "null"
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        owners:
+          type:
+          - integer
+          - "null"
+          format: int32
+        payday:
+          type: string
+          format: date
+        payouts:
+          type:
+          - integer
+          - "null"
+          format: int32
+        startedAt:
+          type: string
+          format: date-time
+        totalPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        trigger:
+          type: string
+      required:
+      - id
+      - kind
+      - payday
+      - startedAt
+      - trigger
+    AdminPayouts:
+      type: object
+      properties:
+        balance:
+          oneOf:
+          - $ref: "#/components/schemas/AdminBalanceCheck"
+          - type: "null"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        nextPayday:
+          type: string
+          format: date-time
+        payouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPayout"
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPayoutRun"
+      required:
+      - nextPayday
+      - payouts
+      - runs
     AdminRating:
       type: object
       properties:
@@ -6178,6 +7307,17 @@ components:
       required:
       - amountPaise
       - reason
+    AdminRetryOutcome:
+      type: object
+      properties:
+        notPaid:
+          type:
+          - string
+          - "null"
+        payout:
+          oneOf:
+          - $ref: "#/components/schemas/AdminPayout"
+          - type: "null"
     AdminReviewDecision:
       type: object
       properties:
@@ -6691,6 +7831,47 @@ components:
       - outcome
       - reportedAt
       - version
+    AdminUpiReview:
+      type: object
+      properties:
+        checkedAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        nameMatchScore:
+          type:
+          - integer
+          - "null"
+          format: int32
+        panName:
+          type:
+          - string
+          - "null"
+        registeredName:
+          type:
+          - string
+          - "null"
+        state:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        vpa:
+          type:
+          - string
+          - "null"
+      required:
+      - checkedAt
+      - id
+      - state
+      - userId
     AdminUsage:
       type: object
       properties:
@@ -6823,6 +8004,20 @@ components:
             $ref: "#/components/schemas/AdminUser"
       required:
       - users
+    AdminVerifications:
+      type: object
+      properties:
+        pans:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPanReview"
+        upiIds:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUpiReview"
+      required:
+      - pans
+      - upiIds
     AdminWaiver:
       type: object
       properties:
@@ -7108,6 +8303,15 @@ components:
           minLength: 0
       required:
       - token
+    CheckUpi:
+      type: object
+      properties:
+        vpa:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - vpa
     CompleteUploadRequest:
       type: object
       properties:
@@ -7460,12 +8664,17 @@ components:
         waitingDays:
           type: integer
           format: int64
+        waits:
+          type: array
+          items:
+            $ref: "#/components/schemas/Wait"
       required:
       - blockers
       - freshSignIn
       - keptFor
       - losses
       - waitingDays
+      - waits
     Details:
       type: object
       properties:
@@ -7729,6 +8938,23 @@ components:
       - at
       - detail
       - step
+    Forfeit:
+      type: object
+      properties:
+        statement:
+          type: string
+          maxLength: 500
+          minLength: 10
+      required:
+      - statement
+    Forfeited:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+      required:
+      - amountPaise
     GpuAvailability:
       type: object
       properties:
@@ -8625,6 +9851,35 @@ components:
       - totalPaise
       - weekPaise
       - weekStartsAt
+    PanView:
+      type: object
+      properties:
+        decidedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        holder:
+          type: string
+        last4:
+          type: string
+        name:
+          type: string
+        reason:
+          type:
+          - string
+          - "null"
+        state:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+      required:
+      - holder
+      - last4
+      - name
+      - state
+      - submittedAt
     ParamValue:
       type:
       - string
@@ -8657,6 +9912,175 @@ components:
           - string
           - "null"
           format: date-time
+    PayoutDetails:
+      type: object
+      properties:
+        changeHoldHours:
+          type: integer
+          format: int64
+        checksPerDay:
+          type: integer
+          format: int32
+        inReview:
+          oneOf:
+          - $ref: "#/components/schemas/UpiView"
+          - type: "null"
+        inUse:
+          oneOf:
+          - $ref: "#/components/schemas/UpiView"
+          - type: "null"
+        latestCheck:
+          oneOf:
+          - $ref: "#/components/schemas/UpiView"
+          - type: "null"
+        nameMatchThreshold:
+          type: integer
+          format: int32
+        pan:
+          oneOf:
+          - $ref: "#/components/schemas/PanView"
+          - type: "null"
+        payoutsAvailable:
+          type: boolean
+      required:
+      - changeHoldHours
+      - checksPerDay
+      - nameMatchThreshold
+      - payoutsAvailable
+    PayoutPage:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        payouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PayoutView"
+      required:
+      - payouts
+    PayoutSummary:
+      type: object
+      properties:
+        availablePaise:
+          type: integer
+          format: int64
+        blockedBy:
+          type:
+          - string
+          - "null"
+        financialYear:
+          type: string
+        holdUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
+        inFlightPaise:
+          type: integer
+          format: int64
+        minimumPaise:
+          type: integer
+          format: int64
+        nextPayoutAt:
+          type: string
+          format: date-time
+        owedPaise:
+          type: integer
+          format: int64
+        paidPaise:
+          type: integer
+          format: int64
+        payablePaise:
+          type: integer
+          format: int64
+        pending:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingEarning"
+        pendingPaise:
+          type: integer
+          format: int64
+        statementYears:
+          type: array
+          items:
+            type: string
+        yearGrossPaise:
+          type: integer
+          format: int64
+        yearTdsPaise:
+          type: integer
+          format: int64
+      required:
+      - availablePaise
+      - financialYear
+      - inFlightPaise
+      - minimumPaise
+      - nextPayoutAt
+      - owedPaise
+      - paidPaise
+      - payablePaise
+      - pending
+      - pendingPaise
+      - statementYears
+      - yearGrossPaise
+      - yearTdsPaise
+    PayoutView:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        feePaise:
+          type: integer
+          format: int64
+        grossPaise:
+          type: integer
+          format: int64
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        netPaise:
+          type: integer
+          format: int64
+        processedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        status:
+          type: string
+        tdsPaise:
+          type: integer
+          format: int64
+        tdsSection:
+          type: string
+        utr:
+          type:
+          - string
+          - "null"
+        why:
+          type:
+          - string
+          - "null"
+      required:
+      - createdAt
+      - feePaise
+      - grossPaise
+      - id
+      - kind
+      - netPaise
+      - status
+      - tdsPaise
+      - tdsSection
     PendingCliLogin:
       type: object
       properties:
@@ -8672,6 +10096,30 @@ components:
       - deviceName
       - expiresAt
       - id
+    PendingEarning:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        availableAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        hostId:
+          type: string
+          format: uuid
+        machineName:
+          type: string
+        sessionId:
+          type: string
+          format: uuid
+      required:
+      - amountPaise
+      - hostId
+      - machineName
+      - sessionId
     Point:
       type: object
       properties:
@@ -8856,6 +10304,13 @@ components:
           - /problems/refund-already-requested
           - /problems/nothing-to-refund
           - /problems/billing-details-required
+          - /problems/pan-required
+          - /problems/payouts-unavailable
+          - /problems/pan-not-verified
+          - /problems/pan-already-verified
+          - /problems/too-many-upi-checks
+          - /problems/upi-check-not-usable
+          - /problems/payout-in-progress
           - /problems/host-busy
           - /problems/host-removed
           - /problems/host-no-gpu
@@ -9129,7 +10584,34 @@ components:
           minLength: 0
       required:
       - message
+    RetryPayout:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        userId:
+          type: string
+          format: uuid
+      required:
+      - reason
+      - userId
     RunPaymentReconciliation:
+      type: object
+      properties:
+        day:
+          type:
+          - string
+          - "null"
+          format: date
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - reason
+    RunPayoutReconciliation:
       type: object
       properties:
         day:
@@ -9551,6 +11033,20 @@ components:
           type:
           - boolean
           - "null"
+    SubmitPan:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 85
+          minLength: 0
+        pan:
+          type: string
+          maxLength: 20
+          minLength: 0
+      required:
+      - name
+      - pan
     SupportMessage:
       type: object
       properties:
@@ -9627,6 +11123,20 @@ components:
             $ref: "#/components/schemas/SupportTicket"
       required:
       - tickets
+    TdsExport:
+      type: object
+      properties:
+        quarter:
+          type: string
+          maxLength: 10
+          minLength: 10
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - quarter
+      - reason
     Telemetry:
       type: object
       properties:
@@ -9991,6 +11501,52 @@ components:
           minLength: 0
       required:
       - displayName
+    UpiView:
+      type: object
+      properties:
+        checkedAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        failure:
+          type:
+          - string
+          - "null"
+        holdUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        nameMatchScore:
+          type:
+          - integer
+          - "null"
+          format: int32
+        reason:
+          type:
+          - string
+          - "null"
+        registeredName:
+          type:
+          - string
+          - "null"
+        state:
+          type: string
+        vpa:
+          type:
+          - string
+          - "null"
+      required:
+      - checkedAt
+      - id
+      - state
     UploadDetail:
       type: object
       properties:
@@ -10150,6 +11706,26 @@ components:
       - baseMb
       - input
       - perGbMb
+    Wait:
+      type: object
+      properties:
+        amountPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        code:
+          type: string
+        message:
+          type: string
+        until:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - code
+      - message
     WalletResponse:
       type: object
       properties:

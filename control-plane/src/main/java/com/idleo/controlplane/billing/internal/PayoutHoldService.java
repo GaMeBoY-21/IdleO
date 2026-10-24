@@ -67,6 +67,24 @@ class PayoutHoldService implements PayoutHolds {
         return held;
     }
 
+    /** The sessions held now that any of these machines earned from (ADR 0040: their earnings wait for the report). */
+    Set<UUID> heldAmong(Collection<UUID> hostIds) {
+        var held = new HashSet<UUID>();
+        if (hostIds.isEmpty()) {
+            return held;
+        }
+        jdbc.sql("""
+                        select distinct h.session_id from billing.payout_holds h
+                        where h.released_at is null
+                          and exists (select 1 from billing.ledger_entries e
+                                      where e.ref_id = h.session_id and e.account = 'host_payable'
+                                        and e.owner_id in (:hostIds))
+                        """).param("hostIds", hostIds).query(rs -> {
+            held.add(rs.getObject("session_id", UUID.class));
+        });
+        return held;
+    }
+
     private Instant now() {
         return Instant.now(clock).truncatedTo(ChronoUnit.MICROS);
     }

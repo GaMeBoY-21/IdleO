@@ -56,6 +56,8 @@ class IdentitySecurityConfiguration {
                 paths.matcher(HttpMethod.POST, "/v1/email-events/resend"),
                 // Razorpay's webhooks (ADR 0039): X-Razorpay-Signature is its proof.
                 paths.matcher(HttpMethod.POST, "/v1/payments/razorpay/webhook"),
+                // RazorpayX's webhooks (ADR 0040): X-Razorpay-Signature under its own secret is its proof.
+                paths.matcher(HttpMethod.POST, "/v1/payouts/razorpayx/webhook"),
                 // What real visits meet, sent by the pages with navigator.sendBeacon, which carries no token (ADR
                 // 0036).
                 paths.matcher(HttpMethod.POST, "/v1/vitals"),

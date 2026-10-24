@@ -1,0 +1,41 @@
+{
+  "entity": "event",
+  "account_id": "acc_BfVUrG6tDiL7H0",
+  "event": "payout.pending",
+  "contains": [
+    "payout"
+  ],
+  "payload": {
+    "payout": {
+      "entity": {
+        "id": "pout_1Aa00000000001",
+        "entity": "payout",
+        "fund_account_id": "fa_1Aa00000000001",
+        "amount": 100,
+        "currency": "INR",
+        "notes": {
+          "note_key 1": "Tea. Earl Gray. Hot.",
+          "note_key 2": "Tea. Earl Gray. Decaf."
+        },
+        "fees": 0,
+        "tax": 0,
+        "status": "pending",
+        "purpose": "refund",
+        "utr": null,
+        "mode": "NEFT",
+        "reference_id": null,
+        "narration": "Test Fund Transfer",
+        "debit_account_number": "null",
+        "batch_id": null,
+        "status_details": {
+          "description": "Confirmation of the credit to the beneficiary is pending from HDFC bank. Please check the status after after 24th October 2021, 10:40 PM",
+          "source": "beneficiary_bank",
+          "reason": "beneficiary_bank_confirmation_pending"
+        },
+        "created_at": 1580808301,
+        "fee_type": ""
+      }
+    }
+  },
+  "created_at": 1580808301
+}

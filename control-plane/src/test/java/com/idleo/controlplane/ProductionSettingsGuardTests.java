@@ -32,6 +32,7 @@ class ProductionSettingsGuardTests {
                         "spring.mail.password=" + PRODUCTION_KEY,
                         "notifications.email.webhook-secret=whsec_" + PRODUCTION_KEY,
                         "identity.invite-code-key=" + PRODUCTION_KEY,
+                        "payouts.pan.key=" + PRODUCTION_KEY,
                         "identity.provider-admin.credentials=file:/run/secrets/identity-provider-admin.json",
                         "legal.grievance.name=Asha Rao",
                         "legal.grievance.email=grievance@idleo.in",
@@ -318,6 +319,46 @@ class ProductionSettingsGuardTests {
                     .withPropertyValues(setting[0])
                     .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
         }
+    }
+
+    @Test
+    void prodPaysOutOnlyWithLiveKeysAWebhookSecretAnAccountThePanKeyAndTheCasTds() {
+        var live = new String[] {
+            "identity.issuers[0].issuer-uri=" + GOOGLE,
+            "payouts.razorpayx.key-id=rzp_live_IdleoNotARealKey",
+            "payouts.razorpayx.key-secret=" + PRODUCTION_KEY,
+            "payouts.razorpayx.webhook-secret=" + PRODUCTION_KEY,
+            "payouts.razorpayx.account-number=409001396356",
+            "legal.tds.confirmed=true"
+        };
+        prod(live).run(context -> assertThat(context).hasNotFailed());
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context)
+                        .as("without RazorpayX, payouts are off")
+                        .hasNotFailed());
+        for (var setting : new String[][] {
+            {"payouts.razorpayx.key-id=rzp_test_IdleoNotARealKey", "payouts.razorpayx.key-id isn't a live key"},
+            {"payouts.razorpayx.webhook-secret=", "payouts.razorpayx.webhook-secret is missing"},
+            {"payouts.razorpayx.account-number=", "payouts.razorpayx.account-number is missing"},
+            {"payouts.razorpayx.api-url=http://localhost:8092", "payouts.razorpayx.api-url http://localhost:8092"},
+            {"legal.tds.confirmed=false", "legal.tds.confirmed is false"},
+            {"payouts.pan.key=", "payouts.pan.key is missing"},
+            {"payouts.pan.verifier=fake", "payouts.pan.verifier is fake"}
+        }) {
+            prod(live)
+                    .withPropertyValues(setting[0])
+                    .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+        }
+    }
+
+    @Test
+    void liveRazorpayXKeysAreRefusedOutsideProd() {
+        runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("local"))
+                .withPropertyValues("payouts.razorpayx.key-id=rzp_live_IdleoNotARealKey")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("RazorpayX's live keys outside the prod profile"));
     }
 
     @Test

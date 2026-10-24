@@ -105,6 +105,63 @@ class Messages {
                 "/hosting/machine/?id=" + hostId);
     }
 
+    /** A payout reached the host's UPI ID (ADR 0040). */
+    Message payoutProcessed(long netPaise, long tdsPaise) {
+        var tax = tdsPaise == 0
+                ? ""
+                : " " + Rupees.format(tdsPaise) + " was deducted as tax at source and is paid to the government in your"
+                        + " PAN's name.";
+        return new Message(
+                Rupees.format(netPaise) + " is on its way to your UPI ID",
+                "This week's payout left us for your UPI ID. Most banks show it within minutes." + tax,
+                EARNINGS);
+    }
+
+    /** A payout came back: it never left, or the bank sent it back (ADR 0040). {@code why} is the plain words. */
+    Message payoutReturned(long netPaise, boolean reversed, String why) {
+        return new Message(
+                reversed
+                        ? "Your bank sent back a payout of " + Rupees.format(netPaise)
+                        : "A payout of " + Rupees.format(netPaise) + " didn't go through",
+                why,
+                reversed ? PAYOUT_DETAILS : EARNINGS);
+    }
+
+    /** The UPI ID payouts go to changed: the next payout waits until {@code holdUntil} (ADR 0040). */
+    Message payoutMethodChanged(java.time.Instant holdUntil) {
+        return new Message(
+                "Your payout UPI ID was changed",
+                "Your payout UPI ID was changed. Not you? Contact us. No payout goes to the new UPI ID before "
+                        + HOLD_DAY.format(holdUntil) + ".",
+                PAYOUT_DETAILS);
+    }
+
+    /** Earnings already paid out were refunded to a renter after a report (ADR 0040); never names the renter. */
+    Message clawedBack(long amountPaise, long owedPaise, UUID sessionId, java.time.Instant at) {
+        var how = (owedPaise == 0
+                        ? "It was taken from your earnings that haven't been paid yet."
+                        : Rupees.format(amountPaise - owedPaise)
+                                + " was taken from your earnings that haven't been paid"
+                                + " yet, and " + Rupees.format(owedPaise) + " comes out of what you earn next, before"
+                                + " your next payout.")
+                + " Nothing is taken from your bank account.";
+        return new Message(
+                "Recovered: refund for session " + sessionId.toString().substring(0, 8) + " on "
+                        + RECOVERED_DAY.format(at),
+                "A renter's report about this session was decided in their favour after its earnings were paid out, so"
+                        + " your share of " + Rupees.format(amountPaise) + " was refunded to them. " + how,
+                EARNINGS);
+    }
+
+    private static final String EARNINGS = "/hosting/earnings/";
+    private static final String PAYOUT_DETAILS = "/hosting/payout-details/";
+    private static final java.time.format.DateTimeFormatter HOLD_DAY = java.time.format.DateTimeFormatter.ofPattern(
+                    "d MMMM, h:mm a", java.util.Locale.ENGLISH)
+            .withZone(java.time.ZoneId.of("Asia/Kolkata"));
+    private static final java.time.format.DateTimeFormatter RECOVERED_DAY =
+            java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.ENGLISH)
+                    .withZone(java.time.ZoneId.of("Asia/Kolkata"));
+
     private static String service(Outcome session) {
         return session.serviceName() == null ? SESSION_ENDED_FALLBACK : session.serviceName();
     }

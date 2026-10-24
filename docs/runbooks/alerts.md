@@ -196,3 +196,35 @@ Two alerts share this section.
 **Check first:** the admin console's Money, Chargebacks: the dispute, its due date, the payment, and the sessions its credit paid for, each with its metering and log.
 
 **Do:** docs/runbooks/payments.md, "Chargebacks": evidence is submitted in Razorpay's dashboard, never from here. Lost, the account is suspended pending review.
+
+## Payout mismatch
+
+**Means:** the payout reconciliation (ADR 0040) found RazorpayX and our payouts disagreeing, and nobody has closed the item. It runs every night at 03:45 India time for the day before, and when an admin presses Run in the console. Kinds: a payout RazorpayX made that isn't ours (`missing_ours`: someone paid from RazorpayX's dashboard), one we sent that RazorpayX doesn't have (`missing_theirs`), a different amount (`amount`), and one that ended differently (`status`). A payout ours was only behind on (a lost webhook) is moved on by the reconciliation itself and isn't an item.
+
+**Check first:** the admin console's Payouts, Reconciliation: each open item with both sides' amounts and statuses and RazorpayX's id. `payouts_reconciliation_open` is the count. Then RazorpayX's dashboard for that payout.
+
+**Do:** docs/runbooks/payouts.md, "Reconciliation", says what each kind needs. Never fix a payout by hand in the database: the ledger posting is what the money check reads. Once put right, the next run marks it fixed; an item that needs nothing (a test payout made from the dashboard) is accepted with a reason.
+
+## Payouts failing
+
+**Means:** more than 20% of the payouts that ended in the last 6 hours failed, were rejected or cancelled, once at least 5 ended. Each failed payout's money is already back in its host's earnings, and the next run tries again; nobody has lost money, but hosts are waiting.
+
+**Check first:** `payouts_status_total` by `status`, and the console's Payouts filtered to failed: RazorpayX's reason on each (`status_reason`, from its status details). One reason everywhere (`imps_not_allowed`, a bank down) points at RazorpayX or the banks; `insufficient` or account errors point at our RazorpayX account.
+
+**Do:** docs/runbooks/payouts.md, "When payouts fail". Pay one host again from the console (Retry) once the cause is fixed; the rest are paid by the next run.
+
+## Payout balance low
+
+**Means:** the day before payday, RazorpayX's available balance was less than the next run will pay. Payouts would queue at RazorpayX (`queue_if_low_balance`) until the account is funded, and hosts would wait.
+
+**Check first:** the console's Payouts, the balance line: what's due, what's there, and when it was checked. RazorpayX's dashboard for the balance itself.
+
+**Do:** fund the RazorpayX account from the company's current account before 10:00 India time on Monday (docs/runbooks/payouts.md, "Funding payouts"). The alert clears at the next check that finds enough, or once payday has passed.
+
+## Payout reversed
+
+**Means:** a host's bank sent a payout back after it left (`payout.reversed`). The money is in their earnings again, their UPI ID is marked suspect, and no payout goes to it until they check a UPI ID again; they were emailed.
+
+**Check first:** the console's Payouts filtered to reversed: the host, RazorpayX's reason. Several at once on one bank points at the bank, not the hosts.
+
+**Do:** nothing for one: the host checks their UPI ID and the next run pays them. Several: docs/runbooks/payouts.md, "Reversals".

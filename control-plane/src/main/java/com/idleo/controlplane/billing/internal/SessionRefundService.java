@@ -16,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Refunds for resolved reports (ADR 0028), from the session's own ledger entries: its settlements ({@code session}),
  * lost-time refunds ({@code session_refund}) and earlier report refunds ({@code dispute_refund}), all of which name
  * the session as their reference. What a report gives back is free credit in a lot of its own that never expires
- * (ADR 0039): the renter was wronged, so they don't lose it, and it can't be paid out as cash.
+ * (ADR 0039): the renter was wronged, so they don't lose it, and it can't be paid out as cash. A host's part of earnings
+ * already paid out is recovered from the host ({@link Clawbacks}, ADR 0040).
  */
 @Service
 class SessionRefundService implements SessionRefunds {
@@ -28,10 +29,12 @@ class SessionRefundService implements SessionRefunds {
 
     private final Ledger ledger;
     private final JdbcClient jdbc;
+    private final Clawbacks clawbacks;
 
-    SessionRefundService(Ledger ledger, JdbcClient jdbc) {
+    SessionRefundService(Ledger ledger, JdbcClient jdbc, Clawbacks clawbacks) {
         this.ledger = ledger;
         this.jdbc = jdbc;
+        this.clawbacks = clawbacks;
     }
 
     /** One account's net for the session: credits less debits. */
@@ -68,6 +71,10 @@ class SessionRefundService implements SessionRefunds {
             entries.add(LedgerEntry.debit(Account.HOST_PAYABLE, host.hostId(), host.amount()));
         }
         ledger.post(new LedgerTransaction(txnId, REFUND_REF, sessionId, entries));
+        // A host's part of earnings already paid out is a clawback (ADR 0040).
+        for (var host : split.fromHosts()) {
+            clawbacks.afterRefund(txnId, sessionId, host.hostId(), host.amount());
+        }
         return new Refund(txnId, split);
     }
 

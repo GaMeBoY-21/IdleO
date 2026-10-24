@@ -119,7 +119,7 @@ class OwnerEarningsApiTests {
         assertThat(result.get("totalPaise").asLong()).isEqualTo(ledgerNet(home, laptop));
         assertThat(result.get("totalPaise").asLong()).isEqualTo(8 + 4 - 1 + 16);
         assertThat(result.get("weekPaise").asLong()).isEqualTo(ledgerNet(home, laptop));
-        assertThat(result.get("payoutsStart").asString()).isEqualTo("paid-pilot");
+        assertThat(result.get("payoutsStart").asString()).isEqualTo("weekly");
         var machines = result.get("machines");
         assertThat(machines).hasSize(2);
         assertThat(machines.get(0).get("name").asString()).isEqualTo("Home desktop");

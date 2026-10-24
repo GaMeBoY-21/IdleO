@@ -1,11 +1,13 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.FinancialYear;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.Rupees;
+import com.idleo.controlplane.billing.VerifiedPans;
 import com.idleo.controlplane.identity.UserDirectory;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
@@ -63,6 +65,7 @@ class TopUps {
     private final Gst gst;
     private final Invoices invoices;
     private final BillingDetails billingDetails;
+    private final VerifiedPans pans;
 
     TopUps(
             RazorpayClient razorpay,
@@ -78,7 +81,9 @@ class TopUps {
             @Value("${billing.top-ups.abandon-after}") Duration abandonAfter,
             Gst gst,
             Invoices invoices,
-            BillingDetails billingDetails) {
+            BillingDetails billingDetails,
+            VerifiedPans pans) {
+        this.pans = pans;
         this.billingDetails = billingDetails;
         this.gst = gst;
         this.invoices = invoices;
@@ -215,6 +220,21 @@ class TopUps {
                     + " of bought credit; you can add "
                     + Rupees.format(Math.max(0, limits.maxBoughtBalancePaise() - bought))
                     + " now.");
+        }
+        // A renter buying a lot gives a verified PAN first (ADR 0040, legal.payouts.renter-pan-above-paise).
+        long thisYear = jdbc.sql("""
+                        select coalesce(sum(amount_paise), 0) from billing.topups
+                        where user_id = :userId and status = 'paid' and paid_at >= :since
+                        """)
+                .param("userId", userId)
+                .param("since", Timestamp.from(FinancialYear.of(clock.instant()).start()))
+                .query(Long.class)
+                .single();
+        if (thisYear + amount.value() > legal.payouts().renterPanAbovePaise() && !pans.verified(userId)) {
+            throw ApiProblem.of(
+                    Problem.PAN_REQUIRED,
+                    "Top-ups past " + Rupees.format(legal.payouts().renterPanAbovePaise())
+                            + " in a financial year need a verified PAN. Give yours in Payout details.");
         }
         var failures = jdbc.sql("""
                         select failed_at from billing.topup_failures

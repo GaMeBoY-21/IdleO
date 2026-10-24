@@ -365,6 +365,46 @@ public enum Problem {
             "Billing details needed",
             "Before your first top-up, say which state you're in (and, for a business invoice, your GSTIN): it "
                     + "decides the GST on your invoice."),
+    PAN_REQUIRED(
+            "pan-required",
+            HttpStatus.CONFLICT,
+            "Verified PAN needed",
+            "You've bought more credit this financial year than can be bought without a PAN. Give your PAN in Payout "
+                    + "details and buy more once it's verified."),
+
+    // Payouts (ADR 0040).
+    PAYOUTS_UNAVAILABLE(
+            "payouts-unavailable",
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Payouts unavailable",
+            "UPI IDs can't be checked just now: payouts aren't set up here, or RazorpayX can't be reached. Nothing "
+                    + "changed. Try again later."),
+    PAN_NOT_VERIFIED(
+            "pan-not-verified",
+            HttpStatus.CONFLICT,
+            "PAN not verified yet",
+            "A UPI ID is checked against the name on your PAN, so your PAN has to be verified first."),
+    PAN_ALREADY_VERIFIED(
+            "pan-already-verified",
+            HttpStatus.CONFLICT,
+            "PAN already verified",
+            "Your PAN is verified. To change it, write to us from Help."),
+    TOO_MANY_UPI_CHECKS(
+            "too-many-upi-checks",
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Too many UPI ID checks",
+            "Each check asks your bank, so a few a day are allowed. Retry-After says when the next may be made."),
+    UPI_CHECK_NOT_USABLE(
+            "upi-check-not-usable",
+            HttpStatus.CONFLICT,
+            "That check can't be used",
+            "Only the latest check of an active UPI ID, made in the last hour, can become where payouts go. Check the "
+                    + "UPI ID again."),
+    PAYOUT_IN_PROGRESS(
+            "payout-in-progress",
+            HttpStatus.CONFLICT,
+            "A payout is on its way",
+            "A payout to your UPI ID hasn't finished yet. Wait for it to arrive or come back first."),
 
     // Hosts.
     HOST_BUSY(

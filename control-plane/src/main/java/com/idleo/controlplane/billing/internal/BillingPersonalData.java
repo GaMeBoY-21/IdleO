@@ -20,8 +20,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * What billing holds about a person (ADR 0037, docs/reference/personal-data-map.md): their wallet, every ledger line of it,
  * the credit they were given, and as a host their earnings. Money records are kept by opaque id; erasure only
- * forfeits the free credit left in the wallet, through the ledger like every other movement. Unpaid earnings stop
- * an account being deleted until they're paid out.
+ * forfeits the free credit left in the wallet, through the ledger like every other movement. Unpaid earnings are paid
+ * out before the account goes, by the payouts module (ADR 0040).
  */
 @Component
 class BillingPersonalData implements PersonalData {
@@ -169,22 +169,6 @@ class BillingPersonalData implements PersonalData {
                                         """, Map.of("payable", Account.HOST_PAYABLE.dbValue, "hosts", hosts))));
     }
 
-    /** What the person's machines have earned and not been paid: credits less debits of their payable accounts. */
-    private long unpaid(UUID userId) {
-        var hosts = hosts(userId);
-        if (hosts.isEmpty()) {
-            return 0;
-        }
-        return jdbc.sql("""
-                        select coalesce(sum(case when direction = 'credit' then amount_paise else -amount_paise end), 0)
-                        from billing.ledger_entries where account = :payable and owner_id in (:hosts)
-                        """)
-                .param("payable", Account.HOST_PAYABLE.dbValue)
-                .param("hosts", hosts)
-                .query(Long.class)
-                .single();
-    }
-
     @Override
     public List<Blocker> blockers(UUID userId) {
         var blockers = new java.util.ArrayList<Blocker>(refunds.blockers(userId));
@@ -199,14 +183,7 @@ class BillingPersonalData implements PersonalData {
                             + " you paid us. The account can be deleted once" + " the dispute is settled.",
                     disputed));
         }
-        var unpaid = unpaid(userId);
-        if (unpaid > 0) {
-            blockers.add(new Blocker(
-                    "unpaid-earnings",
-                    "Your machines have earned " + Rupees.format(unpaid) + " that hasn't been paid out yet. "
-                            + "It's paid to you before your account is deleted: contact us and we'll arrange it.",
-                    unpaid));
-        }
+        // Earnings not paid out are the payouts module's: a final payout before the account goes (ADR 0040).
         return blockers;
     }
 

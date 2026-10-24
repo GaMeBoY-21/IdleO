@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.ConfiguredKeys;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;

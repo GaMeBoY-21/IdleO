@@ -51,6 +51,12 @@ identity:
   admin:
     totp-key: dGVzdHMtb25seS1hZG1pbi10b3RwLWtleS0zMmJ5dGU=
 
+# PANs sealed under the tests' committed key (the prod profile refuses it), checked by the fake (ADR 0040).
+payouts:
+  pan:
+    key: dGVzdHMtb25seS1wYXlvdXRzLXBhbi1rZXktMzJieXQ=
+    verifier: fake
+
 # Short enough to watch real Valkey expiry and the hello timeout in tests.
 agentgateway:
   allow-development-hosts: true

@@ -67,6 +67,21 @@ public interface PersonalData {
     }
 
     /**
+     * What the erasure waits for once the waiting period is over, said before the person confirms, with the date when
+     * there is one: their machines' earnings paid out to their UPI ID first (ADR 0040), the part still in its dispute
+     * window once it's available. Unlike a {@link Blocker}, it doesn't stop them asking.
+     */
+    record Wait(
+            String code,
+            String message,
+            @Nullable Long amountPaise,
+            @Nullable Instant until) {}
+
+    default List<Wait> waits(UUID userId) {
+        return List.of();
+    }
+
+    /**
      * The erasure's steps, in order (ADR 0037). A module does its part of each step it has a part in; the privacy
      * module runs the identity provider, the erased list and the last email itself.
      */

@@ -47,13 +47,15 @@ class DeletionController {
     record KeptFor(long moneyRecordsDays, long securityLogDays, long backupsDays) {}
 
     /**
-     * Where the person stands: their latest request, if any; what stops deletion now; what they'd give up; how long
-     * the wait is; and whether this sign-in is recent enough to ask ({@code freshSignIn}).
+     * Where the person stands: their latest request, if any; what stops deletion now; what they'd give up; what the
+     * erasure waits for after the wait, with its date (their earnings paid out first, ADR 0040); how long the wait is;
+     * and whether this sign-in is recent enough to ask ({@code freshSignIn}).
      */
     record DeletionStanding(
             Deletions.@Nullable DeletionRequest request,
             List<PersonalData.Blocker> blockers,
             List<PersonalData.Loss> losses,
+            List<PersonalData.Wait> waits,
             long waitingDays,
             KeptFor keptFor,
             boolean freshSignIn) {}
@@ -64,6 +66,7 @@ class DeletionController {
                 standing.request(),
                 standing.blockers(),
                 standing.losses(),
+                standing.waits(),
                 standing.waitingPeriod().toDays(),
                 new KeptFor(
                         legal.retention().moneyRecords().toDays(),

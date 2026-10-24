@@ -1,0 +1,85 @@
+# promtool test rules: the payouts alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../payouts.yaml
+evaluation_interval: 1m
+tests:
+  # Two instances read the same count: nothing while it's 0, the alert once one is open for 5 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'payouts_reconciliation_open{job="control-plane", instance="a"}'
+        values: '0x10 1x20'
+      - series: 'payouts_reconciliation_open{job="control-plane", instance="b"}'
+        values: '0x10 1x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PayoutMismatch
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: PayoutMismatch
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '1 disagreements between RazorpayX and our payouts are open.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-mismatch
+
+  # A Monday's run: 20 processed and 6 failed (23%) fires; 20 processed and 2 failed doesn't.
+  - interval: 10m
+    input_series:
+      - series: 'payouts_status_total{job="control-plane", instance="a", status="processed"}'
+        values: '0 5 10 20 20 20 20'
+      - series: 'payouts_status_total{job="control-plane", instance="a", status="failed"}'
+        values: '0 2 4 6 6 6 6'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: PayoutsFailing
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '23.08% of the payouts that ended in the last 6 hours failed.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payouts-failing
+  - interval: 10m
+    input_series:
+      - series: 'payouts_status_total{job="control-plane", instance="a", status="processed"}'
+        values: '0 5 10 20 20 20 20'
+      - series: 'payouts_status_total{job="control-plane", instance="a", status="failed"}'
+        values: '0 1 2 2 2 2 2'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: PayoutsFailing
+        exp_alerts: []
+
+  # Short the day before payday: the alert after 5 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'payouts_balance_short{job="control-plane", instance="a"}'
+        values: '0x5 1x20'
+      - series: 'payouts_balance_shortfall_paise{job="control-plane", instance="a"}'
+        values: '0x5 150000x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PayoutBalanceLow
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: PayoutBalanceLow
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'RazorpayX''s balance can''t cover the next payout run; payouts will queue until it''s funded.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-balance-low
+
+  # One reversal: a digest the same hour.
+  - interval: 1m
+    input_series:
+      - series: 'payouts_status_total{job="control-plane", instance="a", status="reversed"}'
+        values: '0x10 1x30'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: PayoutReversed
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: PayoutReversed
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: 'A payout was sent back by a host''s bank in the last hour.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-reversed

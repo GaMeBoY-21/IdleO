@@ -52,7 +52,10 @@ import org.springframework.stereotype.Component;
  *   <li>no backup storage to watch ({@code backups.storage.*}), one that is plain HTTP or on this machine, or
  *       {@code backups.create-bucket}, development's (ADR 0036);
  *   <li>Razorpay's test keys, an API other than Razorpay's (the fake), live keys without a webhook secret or without
- *       the GSTIN, legal name and address invoices carry, or TCS on (ADR 0039); and live keys anywhere but prod.
+ *       the GSTIN, legal name and address invoices carry, or TCS on (ADR 0039); and live keys anywhere but prod;
+ *   <li>RazorpayX's test keys, an API other than Razorpay's, keys without a webhook secret or account number, live keys
+ *       before the CA has confirmed the TDS settings ({@code legal.tds.confirmed}), no PAN key or the tests' one, or the
+ *       fake PAN check (ADR 0040); and RazorpayX's live keys anywhere but prod.
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -95,8 +98,11 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "backups.storage.secret-access-key");
 
     /** The keys whose committed test values production must never use. */
-    static final List<String> SECRET_KEYS =
-            List.of("identity.admin.totp-key", "identity.invite-code-key", "notifications.email.webhook-secret");
+    static final List<String> SECRET_KEYS = List.of(
+            "identity.admin.totp-key",
+            "identity.invite-code-key",
+            "notifications.email.webhook-secret",
+            "payouts.pan.key");
 
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
@@ -109,6 +115,15 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
                     .strip()
                     .startsWith("rzp_live_")) {
                 throw new IllegalStateException("Refusing to start with Razorpay's live keys outside the prod profile");
+            }
+            // Live RazorpayX keys move real money out: only production may hold them (ADR 0040).
+            if (Binder.get(environment)
+                    .bind("payouts.razorpayx.key-id", String.class)
+                    .orElse("")
+                    .strip()
+                    .startsWith("rzp_live_")) {
+                throw new IllegalStateException(
+                        "Refusing to start with RazorpayX's live keys outside the prod profile");
             }
             return;
         }
@@ -245,6 +260,7 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             problems.add("backups.create-bucket is true");
         }
         problems.addAll(paymentProblems(binder));
+        problems.addAll(payoutProblems(binder));
         new TreeMap<>(PRODUCTION_LIMITS).forEach((name, ceiling) -> {
             var value = binder.bind(name, Integer.class);
             if (value.isBound() && value.get() > ceiling) {
@@ -285,6 +301,45 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             if (binder.bind(field, String.class).orElse("").isBlank()) {
                 problems.add(field + " is missing, and live payments need it on their invoices");
             }
+        }
+        return problems;
+    }
+
+    /**
+     * Money out (ADR 0040): production may run without RazorpayX (payouts off), but always with a PAN key and never the
+     * fake PAN check; with a key, only live keys, Razorpay's own API, a webhook secret and the account to pay from, and
+     * only once the CA has confirmed the TDS settings.
+     */
+    static List<String> payoutProblems(Binder binder) {
+        var problems = new ArrayList<String>();
+        if (binder.bind("payouts.pan.key", String.class).orElse("").isBlank()) {
+            problems.add("payouts.pan.key is missing");
+        }
+        if (binder.bind("payouts.pan.verifier", String.class)
+                .orElse("manual")
+                .strip()
+                .equalsIgnoreCase("fake")) {
+            problems.add("payouts.pan.verifier is fake");
+        }
+        var apiUrl = binder.bind("payouts.razorpayx.api-url", String.class).orElse("https://api.razorpay.com");
+        if (!apiUrl.strip().replaceAll("/+$", "").equals("https://api.razorpay.com")) {
+            problems.add("payouts.razorpayx.api-url " + apiUrl + " isn't Razorpay's");
+        }
+        var keyId =
+                binder.bind("payouts.razorpayx.key-id", String.class).orElse("").strip();
+        if (keyId.isEmpty()) {
+            return problems;
+        }
+        if (!keyId.startsWith("rzp_live_")) {
+            problems.add("payouts.razorpayx.key-id isn't a live key");
+        }
+        for (var field : List.of("payouts.razorpayx.webhook-secret", "payouts.razorpayx.account-number")) {
+            if (binder.bind(field, String.class).orElse("").isBlank()) {
+                problems.add(field + " is missing");
+            }
+        }
+        if (!binder.bind("legal.tds.confirmed", Boolean.class).orElse(false)) {
+            problems.add("legal.tds.confirmed is false, and live payouts deduct tax only as the CA has confirmed");
         }
         return problems;
     }

@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "BAD_REQUEST_ERROR",
+    "description": "The selected account type is invalid.",
+    "source": "business",
+    "step": null,
+    "reason": "input_validation_failed",
+    "metadata": {},
+    "field": "account_type"
+  }
+}
