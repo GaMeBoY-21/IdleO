@@ -213,6 +213,23 @@ runs in Razorpay's test mode and no real money moves. The rules that bind every 
 Open question: the list above is what the documentation gives; it becomes final only after Nikki's real test-mode check
 (docs/runbooks/payments.md, "The real test-mode check").
 
+### The Credit page's speed
+
+- **Why it costs one more file:** a page load of its own, with its own policy, can't be drawn from code the app already
+  loaded. Opening Credit downloads the app's first load and Credit's own chunk: one more file than Home. On Lighthouse's
+  simulated phone, that file arrives on the same six connections as the rest, so the main script lands a round later:
+  2,104 ms against Home's 1,953 (measured by replaying Lighthouse's own simulation on the saved runs).
+- **With figures kept from an earlier visit** (how every screen is measured): the credit paints from them, and the
+  history and every other request start after the paint. That's 1,952 ms, inside the 2.0 s budget.
+- **With none kept:** the credit waits for `/v1/wallet`. Its preflight already runs beside the scripts, but the request
+  can't: it needs the ID token, which only the sign-in adapter holds, so it starts when the main script has run. That
+  makes about 2.4 s.
+- **Not done:** an early request from the page's HTML, a preload, or a second script that asks the adapter early. None
+  can send the bearer token without a second path to it (cookies are ruled out), and every path to the token stays in
+  `src/auth`.
+- **How it's measured:** the no-figure load is report-only, with a 2.5 s ceiling like Chrome's own throttling
+  (web/README.md, "Measuring Lighthouse").
+
 ### Testing without real money
 
 - **The fake:** a stateful fake Razorpay (`FakeRazorpay`), a WireMock extension on the control plane's **test** classpath

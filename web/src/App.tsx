@@ -6,16 +6,14 @@ import { RequireAuth } from "@/components/shell/RequireAuth";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Home } from "@/features/home/Home";
 import { agreeStep } from "@/features/after-sign-in";
-import { CliLogin } from "@/features/cli-login/CliLogin";
-import { Invite } from "@/features/invite/Invite";
-import { SignIn } from "@/features/sign-in/SignIn";
 import { SignInFrame } from "@/features/sign-in/SignInFrame";
 import { afterFirstScreen } from "@/lib/after-first-screen";
 import { NotFound } from "@/pages/NotFound";
 
 /**
- * The app's screens (ADR 0018). Home and sign-in, where every visit starts, are in the first load; every other
- * screen is its own chunk, fetched once the first screen has loaded, so moving between screens is still instant. URLs end in a slash: every
+ * The app's screens (ADR 0018). Home, where a signed-in visit starts, is in the first load; every other screen is its
+ * own chunk (sign-in, the CLI's and the invite step's too, so the signed-in first load doesn't carry them), fetched
+ * once the first screen has loaded, so moving between screens is still instant. URLs end in a slash: every
  * screen is a folder with an index.html that any static host serves (scripts/postbuild.ts, src/screens.ts).
  */
 /**
@@ -51,6 +49,7 @@ const screens = {
   "/hosting/earnings/": screen(() => import("@/features/hosting/Earnings").then((m) => m.Earnings)),
   "/hosting/add/": screen(() => import("@/features/hosting/AddMachine").then((m) => m.AddMachine)),
   "/link/": screen(() => import("@/features/hosting/LinkApproval").then((m) => m.LinkApprovalScreen)),
+  "/sign-in/": screen(() => import("@/features/sign-in/SignIn").then((m) => m.SignIn)),
   "/sign-in/finish/": screen(() => import("@/features/sign-in/FinishSignIn").then((m) => m.FinishSignIn)),
   "/welcome/": screen(() => import("@/features/home/Welcome").then((m) => m.Welcome)),
   "/agree/": screen(() => import("@/features/agree/Agree").then((m) => m.Agree)),
@@ -70,6 +69,8 @@ const screens = {
   "/notifications/": screen(() =>
     import("@/features/notifications/Notifications").then((m) => m.Notifications),
   ),
+  "/invite/": screen(() => import("@/features/invite/Invite").then((m) => m.Invite)),
+  "/cli-login/": screen(() => import("@/features/cli-login/CliLogin").then((m) => m.CliLogin)),
 };
 
 /**
@@ -101,6 +102,7 @@ const HostSessions = screens["/hosting/sessions/"].Screen;
 const Earnings = screens["/hosting/earnings/"].Screen;
 const AddMachine = screens["/hosting/add/"].Screen;
 const LinkApproval = screens["/link/"].Screen;
+const SignIn = screens["/sign-in/"].Screen;
 const FinishSignIn = screens["/sign-in/finish/"].Screen;
 const Welcome = screens["/welcome/"].Screen;
 const Agree = screens["/agree/"].Screen;
@@ -114,6 +116,8 @@ const HelpTicket = screens["/account/help/ticket/"].Screen;
 const ConfirmDeletion = screens["/account/delete/confirm/"].Screen;
 const CancelDeletion = screens["/account/delete/cancel/"].Screen;
 const Notifications = screens["/notifications/"].Screen;
+const Invite = screens["/invite/"].Screen;
+const CliLogin = screens["/cli-login/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
@@ -265,8 +269,6 @@ export function App() {
           <Agree />
         </SignedOutScreen>
       </Route>
-      {/* In the first load, not their own chunks: small, and drawn whole on the server, so a page opened on one
-          hydrates without a Suspense boundary to rebuild. */}
       <Route path="/invite/" component={Invite} />
       <Route path="/cli-login/" component={CliLogin} />
       {/* Signed in first, so the pre-rendered frame is this empty one, never the console's chunk. */}

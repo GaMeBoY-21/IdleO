@@ -49,8 +49,10 @@ function byDay(entries: HistoryEntry[]): { day: string; first: string; entries: 
 export function CreditHistory() {
   useTitle("Credit");
   const wallet = useWallet();
-  const history = useHistory();
   const painted = useAfterPaint();
+  // After the paint, like everything but the credit itself: a request started before it competes with the scripts
+  // the paint waits for (ADR 0018).
+  const history = useHistory(painted);
   const details = useBillingDetails(painted);
   const invoices = useInvoices(painted);
   const refunds = useRefundRequests(painted);

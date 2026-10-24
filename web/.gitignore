@@ -17,6 +17,7 @@ playwright-report/
 visual-baseline/
 .lighthouseci-desktop/
 .lighthouseci-devtools/
+.lighthouseci-first-visit/
 # ./start.sh builds the public site here, apart from a release build.
 dist-local/
 dist-site-local/

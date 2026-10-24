@@ -1114,12 +1114,12 @@ if $web_only; then
   lighthouse_kept="$root/private/logs/lighthouse-$(date '+%Y%m%d-%H%M%S')"
   lighthouse_failed=false
   if [[ -n "$measuring" ]]; then
-    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools && LIGHTHOUSE_THROTTLING="$measuring" \
+    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && LIGHTHOUSE_THROTTLING="$measuring" \
       LIGHTHOUSE_PAGES="${E2E_LIGHTHOUSE_PAGES:-home,hosting,add,link,book,session}" LIGHTHOUSE_RUNS="${E2E_LIGHTHOUSE_RUNS:-5}" \
       E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" API_URL="$api" SIGN_IN_URL="$sign_in" \
       pnpm exec playwright test --project=lighthouse --grep "the budgets hold on sign-in") >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
   else
-    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" \
+    (cd web && rm -rf .lighthouseci .lighthouseci-desktop .lighthouseci-devtools .lighthouseci-first-visit && E2E_LIGHTHOUSE_USER="$user-lighthouse" WEB_URL="$web_url" SITE_URL="$site_url" \
       API_URL="$api" SIGN_IN_URL="$sign_in" pnpm lighthouse) >"$out/web-lighthouse.log" 2>&1 || lighthouse_failed=true
   fi
   mkdir -p "$lighthouse_kept"
@@ -1127,6 +1127,7 @@ if $web_only; then
   cp -R web/.lighthouseci "$lighthouse_kept/mobile" 2>/dev/null || true
   cp -R web/.lighthouseci-desktop "$lighthouse_kept/desktop" 2>/dev/null || true
   cp -R web/.lighthouseci-devtools "$lighthouse_kept/devtools" 2>/dev/null || true
+  cp -R web/.lighthouseci-first-visit "$lighthouse_kept/first-visit" 2>/dev/null || true
   summary+=("lighthouse logs and reports kept in private/logs/${lighthouse_kept##*/}/")
   $lighthouse_failed && fail "a Lighthouse budget failed; see private/logs/${lighthouse_kept##*/}/web-lighthouse.log"
   if [[ -n "$measuring" ]]; then
@@ -1139,10 +1140,11 @@ for page, m in json.load(open("web/.lighthouseci/summary.json")).items():
     runs = m["lcpRunsMs"]
     lcp = "LCP %d ms" % m["lcpMs"] if len(runs) == 1 else "LCP %d ms (median of %s)" % (m["lcpMs"], ", ".join(map(str, runs)))
     real = ", Chrome's own throttling %d ms (median of %s, report only, ceiling 2500)" % (m["devtoolsLcpMs"], ", ".join(map(str, m["devtoolsRunsMs"]))) if "devtoolsLcpMs" in m else ""
-    print("%s: %s, TBT %d ms, CLS %s, accessibility %d%s%s" % (page, lcp, m["tbtMs"], m["cls"], m["accessibility"], inp, real))
+    first = ", no kept figures %d ms (median of %s, report only, ceiling 2500)" % (m["firstVisitLcpMs"], ", ".join(map(str, m["firstVisitRunsMs"]))) if "firstVisitLcpMs" in m else ""
+    print("%s: %s, TBT %d ms, CLS %s, accessibility %d%s%s%s" % (page, lcp, m["tbtMs"], m["cls"], m["accessibility"], inp, real, first))
 PY
 )
-    summary+=("lighthouse budgets (mobile, simulated throttling, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS; Chrome's own throttling is report-only, ceiling 2500 ms")
+    summary+=("lighthouse budgets (mobile, simulated throttling, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS; Chrome's own throttling, and Credit with no kept figures, are report-only, ceiling 2500 ms")
     # The public pages (ADR 0029), signed out, on their own stricter budgets.
     while IFS= read -r line; do summary+=("lighthouse public $line"); done < <(python3 - <<'PY'
 import json

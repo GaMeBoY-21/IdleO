@@ -122,6 +122,7 @@ jobs:
             web/.lighthouseci
             web/.lighthouseci-desktop
             web/.lighthouseci-devtools
+            web/.lighthouseci-first-visit
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 30

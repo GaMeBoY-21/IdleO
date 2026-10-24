@@ -32,6 +32,9 @@ function shellChunk(id: string): string | undefined {
     // The route a session's progress is drawn on, shared by Book's right panel and the session screen: another file,
     // and with it another round trip on a slow connection, if left apart (ADR 0031).
     /\/src\/features\/flow\/Route\./.test(id) ||
+    // What sign-in and the screen its email link opens share, its words and its form's loader: each screen is a chunk
+    // of its own, so they'd otherwise be a shared file beside both.
+    /\/src\/features\/sign-in\/(messages|LazyEmailForm)\./.test(id) ||
     // The words for every problem and the mutation code: shared by Book and the session screen, which would
     // otherwise each wait on another small file (ADR 0021).
     /query-core\/build\/modern\/mutationObserver|react-query\/build\/modern\/useMutation/.test(id) ||

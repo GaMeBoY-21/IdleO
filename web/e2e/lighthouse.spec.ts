@@ -40,6 +40,14 @@ const ONLY = process.env.LIGHTHOUSE_PAGES?.split(",").filter(Boolean) ?? null;
  */
 const DEVTOOLS_CEILING_MS = 2_500;
 const DEVTOOLS_RUNS = Number(process.env.LIGHTHOUSE_DEVTOOLS_RUNS ?? 3);
+/**
+ * Credit with no figures kept from an earlier visit, beside the asserted runs, which have them like every other screen:
+ * its largest paint is the available credit, which then waits for the wallet, and the wallet can't be asked for
+ * before the app's own script has run, since only the sign-in adapter holds the token (ADR 0039, "The Credit page's
+ * speed"). Report-only, the median of FIRST_VISIT_RUNS, but it must stay under this ceiling.
+ */
+const FIRST_VISIT_CEILING_MS = 2_500;
+const FIRST_VISIT_RUNS = Number(process.env.LIGHTHOUSE_FIRST_VISIT_RUNS ?? 3);
 /** Runs per screen on the mobile profile; the median is asserted. */
 const RUNS = Number(process.env.LIGHTHOUSE_RUNS ?? 3);
 
@@ -58,7 +66,14 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
     const page = context.pages()[0] ?? (await context.newPage());
     const summary: Record<
       string,
-      Measured & { lcpRunsMs: number[]; inpMs?: number; devtoolsLcpMs?: number; devtoolsRunsMs?: number[] }
+      Measured & {
+        lcpRunsMs: number[];
+        inpMs?: number;
+        devtoolsLcpMs?: number;
+        devtoolsRunsMs?: number[];
+        firstVisitLcpMs?: number;
+        firstVisitRunsMs?: number[];
+      }
     > = {};
     // Signed out first (Lighthouse resets storage for it), then signed in, with storage kept, for the rest. The
     // session screen shows a long run this user booked (the script gave it credit), live through all three runs;
@@ -146,11 +161,29 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
         // lhci reads .lighthouseci/lhr-<number>.json; the desktop reports are kept apart, for the record.
         const asserted = formFactor === "mobile" && name !== "session-link";
         const runs: Measured[] = [];
-        const coldStart = async () => {
+        const coldStart = async (forgetFigures = false) => {
           if (signedIn) {
             // This tab only signs in and books; left open on a screen it keeps polling (the bell asks for notifications
             // every 30 s), and each poll saves its own few figures over the ones the measured page kept for the next
             // run (the Hosting tab's machines), so a later run began cold.
+            if (forgetFigures) {
+              // The figures kept from earlier visits are idb-keyval's (src/api/persisted-cache.ts), deleted from a page
+              // of the app's own origin that asks for none (its 404).
+              await page.goto(`${WEB}/no-such-page/`);
+              await page.evaluate(
+                () =>
+                  new Promise<void>((resolve, reject) => {
+                    const opened = indexedDB.open("keyval-store");
+                    opened.onerror = () => reject(new Error(String(opened.error)));
+                    opened.onsuccess = () => {
+                      const tx = opened.result.transaction("keyval", "readwrite");
+                      tx.objectStore("keyval").delete("idleo.home-cache");
+                      tx.oncomplete = () => resolve();
+                      tx.onerror = () => reject(new Error(String(tx.error)));
+                    };
+                  }),
+              );
+            }
             await page.goto("about:blank");
             // A cold cache, as a first visit has; only the sign-in, in IndexedDB, is kept.
             const cdp = await context.newCDPSession(page);
@@ -158,6 +191,28 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
             await cdp.detach();
           }
         };
+        const firstVisit: number[] = [];
+        if (name === "credit" && asserted && !ONLY && THROTTLING === "simulate") {
+          // Before the asserted runs, so the last of these keeps the figures again for them and the screens after.
+          // Not in .lighthouseci/: lhci asserts every report there against the budget.
+          for (let run = 1; run <= FIRST_VISIT_RUNS; run++) {
+            await coldStart(true);
+            const first = await lighthouse(`${WEB}${path}`, {
+              port: PORT,
+              output: "json",
+              logLevel: "error",
+              onlyCategories: ["performance"],
+              disableStorageReset: signedIn,
+              throttlingMethod: THROTTLING,
+            });
+            if (!first) {
+              throw new Error(`Lighthouse returned nothing for ${name} with no kept figures`);
+            }
+            mkdirSync(".lighthouseci-first-visit", { recursive: true });
+            writeFileSync(`.lighthouseci-first-visit/${name}-${run}.json`, first.report as string);
+            firstVisit.push(Math.round(first.lhr.audits["largest-contentful-paint"]?.numericValue ?? -1));
+          }
+        }
         for (let run = 1; run <= (asserted ? RUNS : 1); run++) {
           await coldStart();
           const result = await lighthouse(
@@ -200,6 +255,9 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
           accessibility: median(runs.map((r) => r.accessibility)),
           performance: median(runs.map((r) => r.performance)),
           lcpRunsMs: runs.map((r) => r.lcpMs),
+          ...(firstVisit.length > 0
+            ? { firstVisitLcpMs: median(firstVisit), firstVisitRunsMs: firstVisit }
+            : {}),
         };
         if (asserted && !ONLY && THROTTLING === "simulate" && DEVTOOLS_RUNS > 0) {
           // Not in .lighthouseci/: lhci asserts every report there against the simulated budget.
@@ -245,6 +303,12 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
           found.devtoolsLcpMs,
           `${name}: largest contentful paint with Chrome's own throttling (report-only, ceiling ${DEVTOOLS_CEILING_MS} ms), runs ${found.devtoolsRunsMs?.join(" ")}`,
         ).toBeLessThanOrEqual(DEVTOOLS_CEILING_MS);
+      }
+      if (found.firstVisitLcpMs !== undefined) {
+        expect(
+          found.firstVisitLcpMs,
+          `${name}: largest contentful paint with no figures kept from an earlier visit (report-only, ceiling ${FIRST_VISIT_CEILING_MS} ms), runs ${found.firstVisitRunsMs?.join(" ")}`,
+        ).toBeLessThanOrEqual(FIRST_VISIT_CEILING_MS);
       }
     }
     for (const name of ["home", "book", "session", "machine", "credit"]) {

@@ -64,12 +64,12 @@ export const SCREENS: Record<string, string | null> = {
   "/hosting/add/": "src/features/hosting/AddMachine.tsx",
   // A link has its id in the address, /link/<id>/; the host answers every such address with this page (scripts/serve.ts).
   "/link/": "src/features/hosting/LinkApproval.tsx",
-  // The form loads just after the screen paints, not before (src/features/sign-in/LazyEmailForm.tsx).
-  "/sign-in/": null,
+  // Its form loads just after the screen paints, not before (src/features/sign-in/LazyEmailForm.tsx).
+  "/sign-in/": "src/features/sign-in/SignIn.tsx",
   "/sign-in/finish/": "src/features/sign-in/FinishSignIn.tsx",
   "/welcome/": "src/features/home/Welcome.tsx",
   "/agree/": "src/features/agree/Agree.tsx",
-  "/invite/": null,
+  "/invite/": "src/features/invite/Invite.tsx",
   "/account/": "src/features/account/Account.tsx",
   "/account/keys/": "src/features/account/ApiKeys.tsx",
   "/account/reports/": "src/features/account/Reports.tsx",
@@ -96,5 +96,5 @@ export const SCREENS: Record<string, string | null> = {
   "/admin/chargebacks/": "src/features/admin/AdminConsole.tsx",
   "/admin/invites/": "src/features/admin/AdminConsole.tsx",
   "/admin/audit/": "src/features/admin/AdminConsole.tsx",
-  "/cli-login/": null,
+  "/cli-login/": "src/features/cli-login/CliLogin.tsx",
 };
