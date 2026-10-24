@@ -101,11 +101,13 @@ test("a 10 MiB log streams in without slowing the screen", async ({ page, browse
     for (const key of ["PageUp", "PageUp", "ArrowUp", "PageDown", "End"]) {
       await page.keyboard.press(key);
     }
+    // "Jump to latest" only straight after "Show earlier", which keeps it shown until it's pressed: after End, it
+    // leaves once the panel hears the scroll reach the bottom, which on a slow CPU can be between seeing it and
+    // clicking it, and a click on a button that left waits for one that never comes. A click that can't happen
+    // fails in seconds, never at the test's timeout.
     if (await earlier.isVisible()) {
-      await earlier.click();
-    }
-    if (await latest.isVisible()) {
-      await latest.click();
+      await earlier.click({ timeout: 10_000 });
+      await latest.click({ timeout: 10_000 });
     }
     most = Math.max(most, await linesInPage());
     expect(Date.now() - started, "the whole log should arrive within two minutes").toBeLessThan(120_000);
