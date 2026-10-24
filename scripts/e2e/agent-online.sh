@@ -68,6 +68,7 @@ web_port="${E2E_WEB_PORT:-3000}"
 firebase_web_port="${E2E_FIREBASE_WEB_PORT:-3001}"
 site_port="${E2E_SITE_PORT:-3002}"
 razorpay_port="${E2E_RAZORPAY_PORT:-8091}"
+razorpayx_port="${E2E_RAZORPAYX_PORT:-8092}"
 startup_timeout="${E2E_STARTUP_TIMEOUT:-600}"
 # A short lease, so losing the host shows within seconds (production: 2 minutes, renewed every 30 s).
 lease_ttl="${E2E_LEASE_TTL:-10s}"
@@ -316,7 +317,7 @@ summary=()
 cleanup() {
   local status=$?
   set +e
-  for pid_file in "$out"/web-*.pid "$out"/proxy-*.pid "$out"/fake-razorpay.pid; do
+  for pid_file in "$out"/web-*.pid "$out"/proxy-*.pid "$out"/fake-razorpay.pid "$out"/fake-razorpayx.pid; do
     [[ -f "$pid_file" ]] && kill -TERM "$(cat "$pid_file")" 2>/dev/null
   done
   for pid_file in "$out"/agent-*.pid; do
@@ -361,11 +362,14 @@ cleanup() {
   if pgrep -f "razorpay.FakeRazorpayServer $razorpay_port" >/dev/null 2>&1; then
     leftovers+=" fake-razorpay"
   fi
+  if pgrep -f "razorpay.FakeRazorpayXServer $razorpayx_port" >/dev/null 2>&1; then
+    leftovers+=" fake-razorpayx"
+  fi
   if [[ -n "$leftovers" ]]; then
     printf 'e2e: FAIL: still running after teardown:%s\n' "$leftovers" >&2
     status=1
   else
-    summary+=("teardown: nothing left running (containers, control plane, agents, web, fake Razorpay): PASS")
+    summary+=("teardown: nothing left running (containers, control plane, agents, web, fake Razorpay and RazorpayX): PASS")
   fi
 
   if [[ ${#summary[@]} -gt 0 ]]; then
@@ -389,7 +393,7 @@ on_signal() {
 }
 trap on_signal INT TERM
 
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port" "$site_port" "$razorpay_port"; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$firebase_web_port" "$site_port" "$razorpay_port" "$razorpayx_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use; stop what holds it, or move the stack with E2E_HTTP_PORT, E2E_GRPC_PORT, LOCAL_SIGN_IN_PORT, LOCAL_STORAGE_PORT, LOCAL_MAIL_SMTP_PORT, LOCAL_MAIL_WEB_PORT, E2E_WEB_PORT, E2E_FIREBASE_WEB_PORT or E2E_SITE_PORT"
   fi
@@ -437,6 +441,9 @@ stack_control_plane_settings() {
   # 20 s after it ends, not 5 minutes, when it's still waiting on a minute only one witness saw.
   export SESSIONS_STORAGE_GRANT_TTL=60s SESSIONS_STORAGE_REFRESH_CHECK_EVERY=1s
   export METERING_TICK_EVERY=1s METERING_REVIEW_AFTER=20s
+  # Payouts (ADR 0040) on the run's clock: a 40 s dispute window, a ₹1 minimum, a 20 s hold after a change of UPI ID,
+  # and the erasure looking every 5 s, so the payee's final payout and erasure finish in the run.
+  export LEGAL_PAYOUTS_DISPUTEWINDOW=40s PAYOUTS_MINIMUMPAISE=100 PAYOUTS_CHANGEHOLD=20s PRIVACY_ERASURESWEEPEVERY=5s
 }
 log "starting the fake Razorpay"
 stack_start_fake_razorpay
@@ -457,9 +464,9 @@ token="$(stack_token "$user")"
 #     journey that signs in as a new person and enters one; the admin's (8) and the privacy journey's (10) are
 #     taken by index.
 log "making invite codes for the run's accounts"
-ops create-invites --count 12 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 12))
-((${#invite_codes[@]} == 12)) || fail "create-invites didn't print 12 codes; see private/e2e/ops.log"
+ops create-invites --count 14 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 14))
+((${#invite_codes[@]} == 14)) || fail "create-invites didn't print 14 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -1860,6 +1867,228 @@ scenario="admin"
 : >"$out/summary-admin.txt"
 scenario_admin_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-admin.txt"
+
+# Money out (ADR 0040, docs/runbooks/payouts.md), last, so the payouts it makes touch no earlier check of earnings
+# against the ledger. Every machine's dispute window is 40 s here (LEGAL_PAYOUTS_DISPUTEWINDOW), a change of UPI ID
+# holds payouts 20 s, and the fake RazorpayX moves each payout on by itself, steered by its UPI ID. The host's owner
+# verifies their PAN and UPI ID in a browser (web/e2e/payouts-journey.spec.ts); an admin runs the payouts now. Then:
+# a payout processed; one that failed and was paid again; one processed and then reversed by the bank, its UPI ID
+# checked again; a report refunded after its session was paid out, owed and recovered from the next earnings; a
+# second host who asks to delete their account and is paid at once by a final payout before it goes; the day's
+# payouts reconciled with RazorpayX (0 found); and the ledger's payout rules held.
+scenario_payouts() {
+  local admin_user="$user-payouts-admin" admin_token admin_session owner_id payout status rows session dispute
+  local earned_to_paid net retried owner2_token owner2_id host2 code n main_hosts=() id deadline before charged
+  admin_token="$(stack_token "$admin_user")"
+  [[ -n "$admin_token" ]] || fail "no token for the payouts admin"
+  invite_next=12
+  activate_user "$admin_token"
+  ops grant-admin "$admin_user@example.com" --reason "'End-to-end payouts'" || fail "grant-admin failed; see private/e2e/ops.log"
+  admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token")" || fail "no admin session for the payouts admin"
+  admin_post() {
+    curl -sf -X POST "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session" \
+      -H 'Content-Type: application/json' "${@:2}"
+  }
+  owner_id="$(api_get /v1/me | json_get .id)"
+  # Waits for the person's newest payout to reach $2 (or any of $2, separated by |), within $3 s; prints its id.
+  newest_payout() {
+    local deadline=$((SECONDS + $3)) found
+    while ((SECONDS < deadline)); do
+      found="$(sql "select id || ' ' || status from payouts.payouts where user_id = '$1' order by created_at desc limit 1")"
+      [[ " ${found#* } " =~ ^\ ($2)\ $ ]] && { printf '%s' "${found%% *}"; return 0; }
+      sleep 0.5
+    done
+    fail "the newest payout of $1 didn't reach $2 within $3 s (it's ${found:-none})"
+  }
+  # Uses UPI ID $1 for the main owner, through the API, with a fresh sign-in: a check, then a confirmation.
+  use_upi() {
+    local fresh check
+    fresh="$(stack_token "$user")"
+    check="$(curl -sf -X POST "$api/v1/payout-details/upi-checks" -H "Authorization: Bearer $fresh" \
+      -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-upi-$1\"" -d "{\"vpa\":\"$1\"}" | json_get .id)"
+    [[ -n "$check" ]] || fail "checking UPI ID $1 failed"
+    [[ "$(curl -sf -X POST "$api/v1/payout-details/upi-checks/$check/confirm" -H "Authorization: Bearer $fresh" | json_get .state)" == active ]] ||
+      fail "UPI ID $1 didn't become where payouts go"
+  }
+  # Books the 150 s charged run as the main renter at up to $2 paise a minute; waits for its settlement.
+  earn() {
+    local session
+    session="$(api_post /v1/sessions -H "Idempotency-Key: \"$user-$1\"" \
+      -d "{\"templateId\": \"charged-run\", \"maxPricePaisePerMin\": $2, \"maxSpendPaise\": 10000}" | json_get .id)"
+    [[ -n "$session" ]] || fail "booking $1 failed"
+    await_state "$session" COMPLETED 300
+    await_closed "$session" 120
+    printf '%s' "$session"
+  }
+  for id in $(api_get /v1/hosts | python3 -c 'import json, sys
+print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("removed")))'); do
+    main_hosts+=("$id")
+  done
+
+  # The owner verifies in a browser: a PAN, and a UPI ID checked with the bank's name for it.
+  E2E_PAYOUTS_USER="$user" E2E_PAYOUTS_STEP=verify SKIP_VISUAL=1 \
+    web_test --project=payouts-journey --reporter=line >>"$out/payouts-journey.log" 2>&1 ||
+    fail "the payouts journey (verify) failed; see private/e2e/payouts-journey.log"
+  [[ "$(sql "select state || ':' || pan_last4 from payouts.pans where user_id = '$owner_id'")" == "verified:321F" ]] ||
+    fail "the owner's PAN isn't verified"
+  [[ "$(sql "select count(*) from payouts.pans where user_id = '$owner_id' and encode(pan_sealed, 'escape') like '%ABCPE4321F%'")" == 0 ]] ||
+    fail "the PAN is stored in clear"
+  note "payouts: the owner gave a PAN (sealed; shown as ••••••321F) and checked a UPI ID in the browser, read the name the fake RazorpayX's bank check returned, and used it: PASS"
+
+  # Every machine prices a minute at 60 paise from here, so one session earns more than RazorpayX's ₹1 minimum.
+  for id in "${main_hosts[@]}"; do list_host "$id" 60; done
+
+  # 1. Processed: once the window has passed, Run now pays what's available.
+  session="$(earn payouts-first 100)"
+  sleep 41
+  admin_post /admin/v1/payouts/runs -d '{"reason":"End-to-end payout run"}' >/dev/null || fail "Run now failed"
+  payout="$(newest_payout "$owner_id" processed 60)"
+  read -r net earned_to_paid <<<"$(sql "select net_paise || ' ' || extract(epoch from processed_at - earned_since)::int
+      from payouts.payouts where id = '$payout'")"
+  [[ "$(sql "select sum(case direction when 'credit' then amount_paise else -amount_paise end) from billing.ledger_entries
+      where account = 'payouts_paid' and owner_id = '$owner_id'")" == "$net" ]] || fail "payouts_paid isn't the processed payout's net"
+  [[ "$(sql "select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0) from billing.ledger_entries
+      where account = 'payouts_in_flight' and owner_id = '$owner_id'")" == 0 ]] || fail "money is left in flight"
+  echo "$earned_to_paid" >"$out/payouts-earned-to-paid.txt"
+  note "payouts: Run now paid the owner $net paise for everything available, in flight before RazorpayX was asked and paid once processed (fake RazorpayX's payout.processed); $earned_to_paid s from the oldest earning to paid, with a 40 s window: PASS"
+
+  # 2. Failed, then paid again: a UPI ID whose payouts fail.
+  use_upi payoutfails@okicici
+  retried="$(admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" | json_get .notPaid)"
+  [[ "$retried" == ON_HOLD ]] || fail "a payout could go out within 20 s of the UPI ID changing ($retried)"
+  session="$(earn payouts-second 100)"
+  sleep 41
+  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
+  payout="$(newest_payout "$owner_id" failed 60)"
+  before="$(sql "select gross_paise from payouts.payouts where id = '$payout'")"
+  [[ "$(sql "select count(*) from billing.ledger_entries where ref_id = '$payout' and ref_type = 'payout_returned' and account = 'host_payable'")" -ge 1 ]] ||
+    fail "the failed payout's money didn't come back to the earnings"
+  # 3. Reversed: processed, then sent back by the bank; the UPI ID is suspect until checked again.
+  use_upi reversed@okicici
+  sleep 21
+  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
+  payout="$(newest_payout "$owner_id" reversed 60)"
+  [[ "$(sql "select gross_paise from payouts.payouts where id = '$payout'")" == "$before" ]] || fail "the retry didn't carry the failed payout's money"
+  [[ "$(sql "select state from payouts.methods where user_id = '$owner_id' and vpa = 'reversed@okicici'")" == suspect ]] ||
+    fail "the reversed payout's UPI ID isn't suspect"
+  use_upi e2e.host@okicici
+  sleep 21
+  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
+  payout="$(newest_payout "$owner_id" processed 60)"
+  [[ "$(sql "select gross_paise from payouts.payouts where id = '$payout'")" == "$before" ]] || fail "the last retry didn't pay the same money"
+  note "payouts: to a UPI ID whose payouts fail, held 20 s after the change, then failed and back in the earnings; paid again to one the bank reverses (processed, then reversed: back again, the UPI ID suspect); paid again to a good one, processed: $before paise each time, once: PASS"
+
+  # 4. A clawback: the session paid out above is reported and refunded; the host's share is owed and recovered.
+  dispute="$(api_post /v1/disputes -H "Idempotency-Key: \"$user-payouts-report\"" \
+    -d "{\"sessionId\":\"$session\",\"reason\":\"wrong_output\",\"details\":\"End-to-end clawback\"}" | json_get .id)"
+  [[ -n "$dispute" ]] || fail "reporting the paid-out session failed"
+  charged="$(api_get "/v1/sessions/$session" | json_get .chargedPaise)"
+  admin_post "/admin/v1/disputes/$dispute/refund" -d "{\"amountPaise\":$charged,\"reason\":\"End-to-end refund after the payout\"}" >/dev/null ||
+    fail "refunding the report failed"
+  rows="$(sql "select amount_paise || ':' || owed_paise || ':' || state from billing.clawbacks where owner_id = '$owner_id'")"
+  [[ "$rows" =~ ^[0-9]+:[0-9]+:owed$ ]] || fail "the refund after the payout isn't an owed clawback: $rows"
+  local owed="${rows#*:}"; owed="${owed%%:*}"
+  ((owed > 0)) || fail "nothing is owed after the clawback: $rows"
+  session="$(earn payouts-third 100)"
+  sleep 41
+  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end recovery\"}" >/dev/null || fail "retry failed"
+  [[ "$(sql "select state from billing.clawbacks where owner_id = '$owner_id'")" == recovered ]] || fail "the clawback wasn't recovered from the next earnings"
+  [[ "$(sql "select coalesce(sum(case direction when 'debit' then amount_paise else -amount_paise end), 0) from billing.ledger_entries
+      where account = 'host_receivable' and owner_id = '$owner_id'")" == 0 ]] || fail "the owner still owes after the recovery"
+  newest_payout "$owner_id" processed 60 >/dev/null
+  note "payouts: a report refunded after its session was paid out took the host's share back ($owed paise owed, never asked of the UPI ID), recovered from the next earnings before the next payout: PASS"
+
+  # The owner reads it in the browser: paid, recovered, the statement; then a change of UPI ID holds payouts.
+  E2E_PAYOUTS_USER="$user" E2E_PAYOUTS_STEP=paid SKIP_VISUAL=1 \
+    web_test --project=payouts-journey --reporter=line >>"$out/payouts-journey.log" 2>&1 ||
+    fail "the payouts journey (paid) failed; see private/e2e/payouts-journey.log"
+  note "payouts journey: Earnings shows the payout paid, the refund \"Recovered: refund for session …\", the year's statement as a PDF; a changed UPI ID shows the 48-hour hold's notice: PASS"
+
+  # 5. A host who deletes their account: earnings never stop the request; the erasure pays them first.
+  owner2_token="$(stack_token "$user-payee")"
+  invite_next=13
+  activate_user "$owner2_token"
+  owner2_id="$(token="$owner2_token" api_get /v1/me | json_get .id)"
+  host2="$(stack_register_host "$owner2_token" "End-to-end payee host" "$user-host-payee")"
+  code="$(stack_enrolment_code "$owner2_token" "$host2")"
+  n=$((agents + 2))
+  rm -rf "$out/agent-$n"
+  sed "s#agent-1#agent-$n#" "$out/agent-1.toml" >"$out/agent-$n.toml"
+  "$agent" --config "$out/agent-$n.toml" enrol --code "$code" >>"$out/agent-$n.log" 2>&1 ||
+    fail "enrolment of the payee's host failed; see private/e2e/agent-$n.log"
+  unset code
+  run_agent "$n"
+  deadline=$((SECONDS + 30))
+  until token="$owner2_token" host_online "$host2" true; do
+    ((SECONDS < deadline)) || fail "the payee's host didn't come online within 30 s"
+    sleep 0.5
+  done
+  ops activate-host --host "$host2" --reason "'End-to-end payee host'" || fail "activate-host failed; see private/e2e/ops.log"
+  token="$owner2_token" list_host "$host2" 60
+  for id in "${main_hosts[@]}"; do api_post "/v1/hosts/$id/pause" -d '{}' >/dev/null || fail "pausing $id failed"; done
+  session="$(earn payouts-payee 100)"
+  [[ "$(api_get "/v1/sessions/$session" | json_get .hostId)" == "$host2" ]] || fail "the payee's session ran elsewhere"
+  for id in "${main_hosts[@]}"; do api_post "/v1/hosts/$id/resume" >/dev/null || fail "resuming $id failed"; done
+  local fresh2 check2
+  fresh2="$(stack_token "$user-payee")"
+  curl -sf -X PUT "$api/v1/payout-details/pan" -H "Authorization: Bearer $fresh2" -H 'Content-Type: application/json' \
+    -d '{"pan":"ABCPE5555F","name":"Payee Host"}' >/dev/null || fail "the payee's PAN wasn't taken"
+  check2="$(curl -sf -X POST "$api/v1/payout-details/upi-checks" -H "Authorization: Bearer $fresh2" -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: \"$user-payee-upi\"" -d '{"vpa":"payee@okicici"}' | json_get .id)"
+  curl -sf -X POST "$api/v1/payout-details/upi-checks/$check2/confirm" -H "Authorization: Bearer $fresh2" >/dev/null ||
+    fail "the payee's UPI ID wasn't confirmed"
+  curl -sf -X POST "$api/v1/me/deletion" -H "Authorization: Bearer $fresh2" >"$out/payee-deletion.json" ||
+    fail "the payee's earnings stopped them asking to delete their account"
+  python3 - "$out/payee-deletion.json" <<'PY' || fail "the deletion screen doesn't say the earnings are paid first: $(cat "$out/payee-deletion.json")"
+import json, sys
+standing = json.load(open(sys.argv[1]))
+assert not standing["blockers"], standing["blockers"]
+assert any(wait["code"] in ("earnings-pending", "final-payout") for wait in standing["waits"]), standing["waits"]
+PY
+  sleep 41
+  admin_post "/admin/v1/users/$owner2_id/deletion/legal-order" -d '{"reason":"End-to-end deletion with a final payout"}' >/dev/null ||
+    fail "the legal order failed"
+  deadline=$((SECONDS + 180))
+  until [[ "$(sql "select state from privacy.deletion_requests where user_id = '$owner2_id' order by requested_at desc limit 1")" == erased ]]; do
+    ((SECONDS < deadline)) || fail "the payee's account wasn't erased within 3 minutes ($(sql "select state from privacy.deletion_requests where user_id = '$owner2_id'"))"
+    sleep 2
+  done
+  rows="$(sql "select kind || ':' || status from payouts.payouts where user_id = '$owner2_id'")"
+  [[ "$rows" == "final:processed" ]] || fail "the payee wasn't paid one final payout before the erasure: $rows"
+  [[ "$(sql "select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0) from billing.ledger_entries
+      where account = 'host_payable' and owner_id = '$host2'")" == 0 ]] || fail "the payee's machine still has unpaid earnings"
+  [[ "$(sql "select count(*) from payouts.methods where user_id = '$owner2_id' and vpa is not null")" == 0 ]] ||
+    fail "the erased payee's UPI ID is still kept"
+  [[ "$(sql "select count(*) from payouts.pans where user_id = '$owner2_id'")" == 1 ]] || fail "the erased payee's PAN isn't kept for the tax filings"
+  kill -TERM "$(cat "$out/agent-$n.pid")" 2>/dev/null || true
+  wait "$(cat "$out/agent-$n.pid")" 2>/dev/null || true
+  rm -f "$out/agent-$n.pid"
+  note "payouts: a host asked to delete their account with earnings pending (not stopped; told they're paid first); under a legal order the erasure paid them one final payout at once, outside the weekly run, processed before the account was erased; the PAN kept for tax, the UPI ID cleared: PASS"
+
+  # 6. RazorpayX against our payouts for today: nothing disagrees.
+  rows="$(admin_post /admin/v1/payouts/reconciliation -d "{\"day\":\"$(TZ=Asia/Kolkata date +%F)\",\"reason\":\"End-to-end reconciliation\"}" |
+    python3 -c 'import json, sys; r = json.load(sys.stdin); print(f"{r[\"payouts\"]}:{r[\"found\"]}:{r[\"open\"]}:{r[\"failure\"]}")')"
+  [[ "$rows" =~ ^[0-9]+:0:0:None$ ]] || fail "the payout reconciliation found disagreements (payouts:found:open:failure): $rows"
+  echo "${rows%%:*}" >"$out/payouts-reconciled.txt"
+  note "payout reconciliation: today's ${rows%%:*} RazorpayX payouts compared with ours, 0 found, 0 open: PASS"
+
+  # 7. The ledger's payout rules (ops/backup/verify-ledger.sh checks 12 to 14).
+  [[ "$(sql "select count(*) from (select owner_id from billing.ledger_entries where account = 'payouts_in_flight'
+      group by owner_id having sum(case direction when 'credit' then amount_paise else -amount_paise end) < 0) n")" == 0 ]] ||
+    fail "someone's payouts in flight are below zero"
+  [[ "$(sql "with paid as (select owner_id, sum(case direction when 'credit' then amount_paise else -amount_paise end) as p
+      from billing.ledger_entries where account = 'payouts_paid' group by owner_id),
+      processed as (select user_id, sum(net_paise) as p from payouts.payouts where status = 'processed' group by user_id)
+      select count(*) from paid full join processed on processed.user_id = paid.owner_id where coalesce(paid.p, 0) <> coalesce(processed.p, 0)")" == 0 ]] ||
+    fail "payouts_paid isn't the sum of processed payouts"
+  [[ "$(sql "select count(*) from billing.ledger_entries where account = 'host_receivable'
+      and ref_type in ('payout', 'payout_paid', 'payout_returned', 'payout_reversed')")" == 0 ]] || fail "a receivable was paid out"
+  note "payout ledger: nobody's in flight below zero, payouts_paid equals the processed payouts for everyone, no receivable paid out: PASS"
+}
+scenario="payouts"
+: >"$out/summary-payouts.txt"
+scenario_payouts
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-payouts.txt"
 fi
 
 # 9. The nightly wallet check, now: every wallet, reservation and hold matches the ledger.

@@ -6,7 +6,8 @@
 # The caller sets, before sourcing: root (the repository), out (a gitignored folder for logs, and keys and pids unless
 # state names another),
 # http_port, grpc_port, sign_in_port, storage_port, mail_smtp_port, mail_web_port, web_port, compose_project, and
-# razorpay_port for the fake Razorpay (stack_start_fake_razorpay; left unset, payments are off). It
+# razorpay_port for the fake Razorpay and razorpayx_port for the fake RazorpayX (stack_start_fake_razorpay; left
+# unset, payments and payouts are off). It
 # defines log and fail (each script prints its own prefix), and may set operator_name, the name operator commands
 # record in the audit log. After sourcing, api, sign_in and agent are set.
 # shellcheck shell=bash
@@ -77,6 +78,12 @@ stack_start_control_plane() {
       export RAZORPAY_API_URL="http://localhost:$razorpay_port" RAZORPAY_KEY_ID=rzp_test_idleofake00001
       export RAZORPAY_KEY_SECRET=fake-razorpay-key-secret RAZORPAY_WEBHOOK_SECRET=fake-razorpay-webhook-secret
     fi
+    # Payouts (ADR 0040) go to the fake RazorpayX the same way, with its own keys, webhook secret and account.
+    if [[ -n "${razorpayx_port:-}" ]]; then
+      export RAZORPAYX_API_URL="http://localhost:$razorpayx_port" RAZORPAYX_KEY_ID=rzp_test_idleofakex00001
+      export RAZORPAYX_KEY_SECRET=fake-razorpayx-key-secret RAZORPAYX_WEBHOOK_SECRET=fake-razorpayx-webhook-secret
+      export RAZORPAYX_ACCOUNT_NUMBER=7878780080316316
+    fi
     if declare -F stack_control_plane_settings >/dev/null; then
       stack_control_plane_settings
     fi
@@ -90,7 +97,9 @@ stack_start_control_plane() {
 # from the control plane's test classpath, so it's never in the control plane's jar: Razorpay's API from its documented
 # samples, the browser's fake Checkout at /v1/checkout.js, and Razorpay's webhooks to this stack's control plane. It
 # compiles the tests, so call it before stack_start_control_plane, never beside another Maven run. Sets
-# fake_razorpay_pid and writes $state/fake-razorpay.pid; logs to $out/fake-razorpay.log.
+# fake_razorpay_pid and writes $state/fake-razorpay.pid; logs to $out/fake-razorpay.log. With $razorpayx_port, the
+# fake RazorpayX too (ADR 0040, FakeRazorpayXServer), its payouts' webhooks to this stack: $state/fake-razorpayx.pid,
+# $out/fake-razorpayx.log.
 stack_start_fake_razorpay() {
   local classpath="$state/fake-razorpay.classpath"
   (
@@ -106,6 +115,17 @@ stack_start_fake_razorpay() {
   until curl -fsS -o /dev/null "http://localhost:$razorpay_port/v1/checkout.js"; do
     kill -0 "$fake_razorpay_pid" 2>/dev/null || fail "the fake Razorpay exited; see $logs_dir/fake-razorpay.log"
     ((SECONDS < deadline)) || fail "the fake Razorpay didn't answer within 30 s; see $logs_dir/fake-razorpay.log"
+    sleep 0.5
+  done
+  [[ -n "${razorpayx_port:-}" ]] || return 0
+  java -cp "$root/control-plane/target/test-classes:$(cat "$classpath")" \
+    com.idleo.controlplane.razorpay.FakeRazorpayXServer "$razorpayx_port" "$api/v1/payouts/razorpayx/webhook" \
+    >"$out/fake-razorpayx.log" 2>&1 &
+  echo "$!" >"$state/fake-razorpayx.pid"
+  # It answers every call without its keys with a 401: that's it up.
+  until [[ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$razorpayx_port/v1/banking_balances")" == 401 ]]; do
+    kill -0 "$(cat "$state/fake-razorpayx.pid")" 2>/dev/null || fail "the fake RazorpayX exited; see $logs_dir/fake-razorpayx.log"
+    ((SECONDS < deadline)) || fail "the fake RazorpayX didn't answer within 30 s; see $logs_dir/fake-razorpayx.log"
     sleep 0.5
   done
 }

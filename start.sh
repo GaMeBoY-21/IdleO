@@ -66,6 +66,7 @@ alertmanager_port=9193
 web_port=3000
 site_port=3002
 razorpay_port=8091
+razorpayx_port=8092
 compose_project=idleo-local
 out="$root/logs"
 state="$root/private/local"
@@ -88,7 +89,7 @@ compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/con
 # Everything this script starts, by its pid file; the control plane's is a process group.
 stop_all() {
   local pid_file pid
-  for pid_file in "$state"/web.pid "$state"/site.pid "$state"/agent-*.pid "$state"/fake-razorpay.pid; do
+  for pid_file in "$state"/web.pid "$state"/site.pid "$state"/agent-*.pid "$state"/fake-razorpay.pid "$state"/fake-razorpayx.pid; do
     [[ -f "$pid_file" ]] || continue
     pid="$(cat "$pid_file")"
     # The web dev server is a process group (pnpm, then Vite); the rest are single processes.
@@ -163,7 +164,7 @@ if ! rustup toolchain list | grep -q "^$rust_want"; then
     fail "Rust $rust_want couldn't be installed; see logs/rust-install.log"
 fi
 for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$web_port" "$site_port" \
-  "$grafana_port" "$prometheus_port" "$alertmanager_port" "$razorpay_port"; do
+  "$grafana_port" "$prometheus_port" "$alertmanager_port" "$razorpay_port" "$razorpayx_port"; do
   if port_in_use "$port"; then
     fail "port $port is already in use. Stop what holds it (lsof -iTCP:$port -sTCP:LISTEN shows it), or ./start.sh --stop if it's an earlier start."
   fi

@@ -106,6 +106,7 @@ It also prints the command for a new token; tokens last an hour. Any `client_id`
 | 8099 | The development sign-in server. The issuer URL in every token includes it, so it's fixed rather than random | `LOCAL_SIGN_IN_PORT` (compose and the `local` profile read the same variable) |
 | 1025, 8025 | Mailpit's SMTP port and its web view and API (ADR 0026) | `LOCAL_MAIL_SMTP_PORT`, `LOCAL_MAIL_WEB_PORT` (compose and the `local` profile read the same variables) |
 | 8091 | The fake Razorpay (ADR 0039): its API, its webhooks' sender and the fake Checkout the Credit page loads | `E2E_RAZORPAY_PORT` |
+| 8092 | The fake RazorpayX (ADR 0040): UPI ID checks and payouts, moved on by themselves, and their webhooks' sender (docs/runbooks/payouts.md, "The local stack") | `E2E_RAZORPAYX_PORT` |
 | 9100 | MinIO's S3 API. Agents' grants and renters' download links carry this endpoint, so it's fixed | `LOCAL_STORAGE_PORT` (compose and the `local` profile read the same variable) |
 
 PostgreSQL and Valkey get random ports. If a port is busy, the script stops before starting anything and names the port. A stack already started by `control-plane/scripts/run-local.sh` uses the same fixed ports, so stop it first.
