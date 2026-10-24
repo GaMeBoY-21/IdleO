@@ -1277,7 +1277,7 @@ expected = {h: int(v) for h, v in ledger.items() if h in hosts}
 machines = {m["hostId"]: m["earnedPaise"] for m in earnings["machines"]}
 assert earnings["totalPaise"] == sum(expected.values()) and earnings["totalPaise"] > 0, (earnings["totalPaise"], expected)
 assert {h: v for h, v in machines.items() if v} == {h: v for h, v in expected.items() if v}, (machines, expected)
-assert 0 < earnings["weekPaise"] <= earnings["totalPaise"] and earnings["payoutsStart"] == "paid-pilot", earnings
+assert 0 < earnings["weekPaise"] <= earnings["totalPaise"] and earnings["payoutsStart"] == "weekly", earnings
 assert "renter" not in json.dumps(earnings), earnings
 print(earnings["totalPaise"], sum(expected.values()))' "$ledger" "${host_ids[*]}" >"$out/earnings-check.txt" ||
     fail "GET /v1/earnings doesn't match the ledger: $earnings; ledger: $ledger"
@@ -1359,10 +1359,10 @@ while IFS= read -r line; do summary+=("$line"); done <"$out/summary-account.txt"
 
 # A person's own data in a browser (web/e2e/privacy-journey.spec.ts, ADR 0037): Your data's file made by the job,
 # emailed and downloaded; a message to support acknowledged with its number; the web journeys' renter, who owns a
-# machine with unpaid earnings by now, told why they can't delete yet; and a person of its own with nothing in the way
-# asking after a fresh sign-in, confirming from the email and cancelling from the next one's link. The database then
-# holds each step: a ready export, the request cancelled, the security log's rows, and the ticket the admin journey
-# answers.
+# machine with unpaid earnings and no UPI ID by now, told to add one or give them up first; and a person of its own
+# with nothing in the way asking after a fresh sign-in, confirming from the email and cancelling from the next one's
+# link. The database then holds each step: a ready export, the request cancelled, the security log's rows, and the
+# ticket the admin journey answers.
 scenario_privacy_web() {
   local report="$out/privacy-journey.json" privacy_user="$user-privacy" privacy_token privacy_user_id states events
   privacy_token="$(stack_token "$privacy_user")"
@@ -1387,7 +1387,7 @@ scenario_privacy_web() {
     fail "the security log lacks the export and deletion steps: $events"
   [[ "$(sql "select topic || ':' || status from support.tickets where number = $ticket_number")" == privacy:open ]] ||
     fail "ticket #$ticket_number isn't an open privacy request"
-  note "privacy journeys: $(grep -Eo '[0-9]+ passed' "$out/privacy-journey.log" | tail -1) (the file of everything made, emailed and downloaded; message #$ticket_number acknowledged by email; a host with unpaid earnings told why they can't delete yet; deletion confirmed from its email and cancelled from the next; the security log holds each step): PASS"
+  note "privacy journeys: $(grep -Eo '[0-9]+ passed' "$out/privacy-journey.log" | tail -1) (the file of everything made, emailed and downloaded; message #$ticket_number acknowledged by email; a host with unpaid earnings and no UPI ID told to add one or give them up first; deletion confirmed from its email and cancelled from the next; the security log holds each step): PASS"
 }
 scenario="privacy"
 : >"$out/summary-privacy.txt"
@@ -2023,8 +2023,8 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
     ((SECONDS < deadline)) || fail "the payee's host didn't come online within 30 s"
     sleep 0.5
   done
-  ops activate-host --host "$host2" --reason "'End-to-end payee host'" || fail "activate-host failed; see private/e2e/ops.log"
   token="$owner2_token" list_host "$host2" 60
+  ops activate-host --host "$host2" --reason "'End-to-end payee host'" || fail "activate-host failed; see private/e2e/ops.log"
   for id in "${main_hosts[@]}"; do api_post "/v1/hosts/$id/pause" -d '{}' >/dev/null || fail "pausing $id failed"; done
   session="$(earn payouts-payee 100)"
   [[ "$(api_get "/v1/sessions/$session" | json_get .hostId)" == "$host2" ]] || fail "the payee's session ran elsewhere"
@@ -2067,7 +2067,7 @@ PY
 
   # 6. RazorpayX against our payouts for today: nothing disagrees.
   rows="$(admin_post /admin/v1/payouts/reconciliation -d "{\"day\":\"$(TZ=Asia/Kolkata date +%F)\",\"reason\":\"End-to-end reconciliation\"}" |
-    python3 -c 'import json, sys; r = json.load(sys.stdin); print(f"{r[\"payouts\"]}:{r[\"found\"]}:{r[\"open\"]}:{r[\"failure\"]}")')"
+    python3 -c 'import json, sys; r = json.load(sys.stdin); print(":".join(str(r[k]) for k in ("payouts", "found", "open", "failure")))')"
   [[ "$rows" =~ ^[0-9]+:0:0:None$ ]] || fail "the payout reconciliation found disagreements (payouts:found:open:failure): $rows"
   echo "${rows%%:*}" >"$out/payouts-reconciled.txt"
   note "payout reconciliation: today's ${rows%%:*} RazorpayX payouts compared with ours, 0 found, 0 open: PASS"

@@ -12,6 +12,7 @@ import { Money } from "@/components/ui/Money";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { ErrorState, EmptyState } from "@/components/ui/States";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { useNow } from "@/lib/clock";
 import { cn } from "@/lib/cn";
 import { blockedWords, payoutStatus } from "@/lib/payouts";
 import { formatDateTime, formatDay } from "@/lib/time";
@@ -134,17 +135,23 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
 }
 
 export function SummarySkeleton() {
+  // The loaded tile's own structure, its figures waiting: the same title row, labels and lines, so the same height.
   return (
     <Tile className="flex flex-col gap-4 xl:p-7" role="status" aria-label="Loading your payouts">
       <div className="flex items-baseline justify-between gap-3">
-        <SkeletonLine size="option" width="w-1/3" />
+        <SectionTitle>Payouts</SectionTitle>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {[0, 1, 2, 3].map((key) => (
-          <div key={key} className="skeleton h-18 rounded-control" />
+      <dl className="grid grid-cols-2 gap-2">
+        {["Available", "Pending", "Next payout", "Tax deducted"].map((label) => (
+          <div key={label} className={FIGURE}>
+            <dt className="text-small text-text-muted">{label}</dt>
+            <dd className="text-option font-semibold">
+              <SkeletonLine size="option" width="w-2/3" />
+            </dd>
+          </div>
         ))}
-      </div>
-      <div className="min-h-9">
+      </dl>
+      <div className="flex min-h-9 flex-col gap-0.5 text-small">
         <SkeletonLine size="small" width="w-2/3" />
       </div>
       <div className="flex min-h-touch items-center">
@@ -256,7 +263,9 @@ export function PayoutRow({ payout }: { payout: PayoutView }) {
 export function Statement({ years }: { years: string[] | null }) {
   const [chosen, setChosen] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const year = chosen ?? years?.[0] ?? "";
+  // Until the years arrive, this financial year (the first the server lists), so the menu is as wide as it will be.
+  const now = useNow("half-minute");
+  const year = chosen ?? years?.[0] ?? financialYear(now);
   const download = (format: "pdf" | "csv") => {
     setFailed(false);
     downloadStatement(year, format).catch(() => setFailed(true));
@@ -277,7 +286,7 @@ export function Statement({ years }: { years: string[] | null }) {
         <label className="flex flex-col gap-2 text-small font-medium">
           Year
           <select
-            className="min-h-touch min-w-28 rounded-control bg-ground px-3 text-body"
+            className="min-h-touch rounded-control bg-ground px-3 text-body"
             value={year}
             disabled={years === null}
             onChange={(event) => setChosen(event.target.value)}
@@ -301,6 +310,13 @@ export function Statement({ years }: { years: string[] | null }) {
       </p>
     </Tile>
   );
+}
+
+/** India's financial year of a moment, `2026-27` from 1 April 2026 to 31 March 2027, as the server names it. */
+export function financialYear(at: number): string {
+  const india = new Date(at + 5.5 * 3_600_000);
+  const start = india.getUTCMonth() >= 3 ? india.getUTCFullYear() : india.getUTCFullYear() - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
 }
 
 /** The statement, with the years the summary names once it has arrived. */

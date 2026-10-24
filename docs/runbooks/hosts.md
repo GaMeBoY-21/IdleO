@@ -106,4 +106,4 @@ where account = 'host_payable'
 group by owner_id;
 ```
 
-The owner-wide total is the sum of this over the hosts the person owns, removed ones too. Nothing is paid out yet: payouts start with the paid pilot.
+The owner-wide total is the sum of this over the hosts the person owns, removed ones too. Payouts move it on to the owner's UPI ID weekly (ADR 0040, docs/runbooks/payouts.md); the earnings figures count only what sessions caused.

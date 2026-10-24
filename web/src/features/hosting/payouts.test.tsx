@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as data from "../../../e2e/fixtures-payouts";
 import { InUse, LatestCheck } from "./PayoutDetails";
-import { PayoutRow, Summary, SummarySkeleton } from "./Payouts";
+import { financialYear, PayoutRow, Summary, SummarySkeleton } from "./Payouts";
 import { BLOCKED, PAN_SHAPE, PAYOUT_STATUS, UPI_SHAPE } from "@/lib/payouts";
 import { formatPaise } from "@/lib/money";
 
@@ -142,5 +142,13 @@ describe("the payouts' words", () => {
     expect(data.summary.pendingPaise).toBe(
       data.pendingSessions.reduce((total, session) => total + session.amountPaise, 0),
     );
+  });
+});
+
+describe("the statement's year", () => {
+  it("is India's financial year, April to March", () => {
+    expect(financialYear(Date.parse("2026-03-31T18:29:00Z"))).toBe("2025-26");
+    expect(financialYear(Date.parse("2026-03-31T18:30:00Z"))).toBe("2026-27");
+    expect(financialYear(Date.parse("2027-01-15T00:00:00Z"))).toBe("2026-27");
   });
 });

@@ -462,7 +462,7 @@ test.describe("payouts", () => {
     page,
   }, info) => {
     await open(page, "/hosting/payout-details/", { "/v1/payout-details": { json: payouts.detailsNew } });
-    await expect(page.getByLabel("PAN", { exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "PAN", exact: true })).toBeVisible();
     await expect(page.getByLabel("Your UPI ID")).toBeDisabled();
     await expectAccessible(page);
     await capture(page, info, "payout-details-new");

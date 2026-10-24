@@ -104,12 +104,18 @@ test("a message to support is acknowledged by email with its number", async ({ p
   finish();
 });
 
-test("a host with earnings not paid out is told why their account can't be deleted yet", async ({ page }) => {
+test("a host with earnings and no UPI ID is told to add one, or give them up, before deleting", async ({
+  page,
+}) => {
   const finish = watchConsole(page);
   await signIn(page, who, "/account/delete/");
   await expect(
-    page.getByText(/Your machines have earned ₹[\d.,]+ that hasn't been paid out yet\./),
+    page.getByText(/Your machines have earned ₹[\d.,]+ that hasn't been paid out\. Add a UPI ID/),
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Payout details" })).toHaveAttribute(
+    "href",
+    "/hosting/payout-details/",
+  );
   await expect(page.getByRole("button", { name: "Delete my account", exact: true })).toBeDisabled();
   await expectAccessible(page);
   finish();

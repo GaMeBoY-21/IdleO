@@ -26,7 +26,7 @@ test("gives a PAN, checks a UPI ID with the bank's name for it, and uses it", as
   test.skip(step !== "verify");
   await signIn(page, who, "/hosting/payout-details/");
   await expect(page.getByRole("heading", { name: "Payout details", level: 1 })).toBeVisible();
-  await page.getByLabel("PAN", { exact: true }).fill("ABCPE4321F");
+  await page.getByRole("textbox", { name: "PAN", exact: true }).fill("ABCPE4321F");
   await page.getByLabel("Name exactly as on your PAN").fill("Nikki Host");
   await page.getByRole("button", { name: "Save PAN" }).click();
   await expect(page.getByText("Verified")).toBeVisible();
