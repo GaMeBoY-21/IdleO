@@ -17,11 +17,6 @@ export const config = {
     "https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/hosts.md",
   /** The public website's address (ADR 0029): the app has its own, and links to the website's pages by this. */
   siteUrl: (import.meta.env.IDLEO_SITE_URL || "http://localhost:3002").replace(/\/+$/, ""),
-  /**
-   * Razorpay's Checkout script (ADR 0039), loaded only when the renter presses Pay: Razorpay's own in a deployed
-   * build, the fake Razorpay's on the local stack, and none (no payments) when a local build leaves it out.
-   */
-  checkoutUrl: import.meta.env.VITE_CHECKOUT_URL ?? "",
   /** The release this build is (IDLEO_RELEASE), which real visits' vitals and errors name (ADR 0036). */
   release: import.meta.env.IDLEO_RELEASE || "development",
   firebase: {

@@ -1,4 +1,9 @@
-import { config } from "@/config";
+/**
+ * Razorpay's Checkout script (VITE_CHECKOUT_URL): Razorpay's own in a deployed build, the fake Razorpay's on the local
+ * stack, and none (no payments) when a local build leaves it out. Read here, not in config.ts, so it's in the Credit
+ * page's own file and never the first load's.
+ */
+const CHECKOUT_URL = import.meta.env.VITE_CHECKOUT_URL ?? "";
 
 /**
  * Razorpay's Standard Checkout (ADR 0039; https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/),
@@ -42,7 +47,7 @@ declare global {
 let loading: Promise<CheckoutConstructor> | null = null;
 
 /** Whether this build can take payments: it names a Checkout script (VITE_CHECKOUT_URL). */
-export const checkoutAvailable = (): boolean => config.checkoutUrl !== "";
+export const checkoutAvailable = (): boolean => CHECKOUT_URL !== "";
 
 /** Checkout's constructor, its script added to the page the first time it's asked for. */
 export function loadCheckout(): Promise<CheckoutConstructor> {
@@ -51,7 +56,7 @@ export function loadCheckout(): Promise<CheckoutConstructor> {
   }
   loading ??= new Promise<CheckoutConstructor>((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = config.checkoutUrl;
+    script.src = CHECKOUT_URL;
     script.async = true;
     script.onload = () => (window.Razorpay ? resolve(window.Razorpay) : reject(new CheckoutUnavailable()));
     script.onerror = () => {

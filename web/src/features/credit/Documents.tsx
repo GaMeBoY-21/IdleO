@@ -13,7 +13,8 @@ import { formatDay } from "@/lib/time";
 const ROW = "flex min-h-18 items-center gap-3 py-4";
 
 /**
- * Invoices, receipts and credit notes (ADR 0039), newest first, each a PDF fetched when the renter chooses Download:
+ * Invoices, receipts and credit notes (ADR 0039), newest first, in a box of one height above the history, each a PDF
+ * fetched when the renter chooses Download:
  * one for every top-up, one for every refund back to where it was paid from, and a monthly invoice for sessions when
  * GST is charged on use.
  */
@@ -21,46 +22,50 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
   return (
     <section aria-labelledby="documents-title" className="flex flex-col gap-1">
       <SectionTitle id="documents-title">Invoices and receipts</SectionTitle>
-      {invoices.data ? (
-        invoices.data.invoices.length === 0 ? (
-          <EmptyState title="Nothing yet">
-            Each time you add credit, its receipt is here to download.
-          </EmptyState>
+      {/* One height whatever it holds, three documents' worth, the rest scrolled to: nothing beside or below it moves
+          when they arrive (CLS 0). */}
+      <div className="h-documents overflow-y-auto rounded-tile">
+        {invoices.data ? (
+          invoices.data.invoices.length === 0 ? (
+            <EmptyState title="Nothing yet">
+              Each time you add credit, its receipt is here to download.
+            </EmptyState>
+          ) : (
+            <Tile as="div" className="px-4.5 py-0">
+              <ul className="flex flex-col divide-y divide-divider">
+                {invoices.data.invoices.map((invoice) => (
+                  <DocumentRow key={invoice.id} invoice={invoice} />
+                ))}
+              </ul>
+            </Tile>
+          )
+        ) : invoices.isError ? (
+          <ErrorState
+            error={invoices.error}
+            what="your invoices"
+            onRetry={() => void invoices.refetch()}
+            retrying={invoices.isFetching}
+          />
         ) : (
-          <Tile as="div" className="px-4.5 py-0">
-            <ul className="flex flex-col divide-y divide-divider">
-              {invoices.data.invoices.map((invoice) => (
-                <DocumentRow key={invoice.id} invoice={invoice} />
-              ))}
-            </ul>
-          </Tile>
-        )
-      ) : invoices.isError ? (
-        <ErrorState
-          error={invoices.error}
-          what="your invoices"
-          onRetry={() => void invoices.refetch()}
-          retrying={invoices.isFetching}
-        />
-      ) : (
-        <Tile
-          as="div"
-          className="flex flex-col divide-y divide-divider px-4.5 py-0"
-          role="status"
-          aria-label="Loading your invoices"
-        >
-          {[0, 1].map((key) => (
-            <div key={key} className={ROW}>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <SkeletonLine size="option" width="w-1/2" />
-                <SkeletonLine size="small" width="w-1/3" />
+          <Tile
+            as="div"
+            className="flex flex-col divide-y divide-divider px-4.5 py-0"
+            role="status"
+            aria-label="Loading your invoices"
+          >
+            {[0, 1].map((key) => (
+              <div key={key} className={ROW}>
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <SkeletonLine size="option" width="w-1/2" />
+                  <SkeletonLine size="small" width="w-1/3" />
+                </div>
+                <SkeletonLine size="option" width="w-1/5" />
+                <span aria-hidden="true" className="size-touch shrink-0" />
               </div>
-              <SkeletonLine size="option" width="w-1/5" />
-              <span aria-hidden="true" className="size-touch shrink-0" />
-            </div>
-          ))}
-        </Tile>
-      )}
+            ))}
+          </Tile>
+        )}
+      </div>
     </section>
   );
 }

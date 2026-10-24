@@ -199,6 +199,9 @@ export const spacing = {
   panel: 384,
   /** The outputs tile on a laptop: the same height loading and loaded, its files scrolling inside it. */
   outputs: 264,
+  /** Credit's invoices and receipts: three rows of 72 px and their lines, the same height loading and loaded, the rest
+   * scrolling inside it (ADR 0039). */
+  documents: 224,
   /** "Finding your GPU": the ring, and the grey disc around it. */
   "finding-ring": 88,
   finding: 168,

@@ -93,7 +93,10 @@ function CreditSkeleton() {
     <div className="flex flex-col gap-5" role="status" aria-label="Loading your credit">
       <div className="flex flex-col gap-1">
         <SkeletonLine size="small" width="w-1/4" onDark />
-        <SkeletonLine size="timer" width="w-1/2" onDark />
+        {/* The big figure's line: text-timer, and text-timer-lg from 1200 px, as the figure itself. */}
+        <div aria-hidden="true" className="flex h-14 items-center xl:h-15">
+          <div className="skeleton-dark h-12 w-1/2 rounded-control" />
+        </div>
         <SkeletonLine size="caption" width="w-1/3" onDark />
       </div>
       <div className="grid grid-cols-2 gap-2.5">

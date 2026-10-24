@@ -1,5 +1,6 @@
 import { expect, test, type Request } from "@playwright/test";
 import * as data from "./fixtures";
+import * as credit from "./fixtures-credit";
 import * as hosting from "./fixtures-hosting";
 import * as privacy from "./fixtures-privacy";
 import * as support from "./fixtures-support";
@@ -137,6 +138,10 @@ for (const screen of screens) {
         data.quoteAnswer(request.postDataJSON() as { maxSpendPaise: number; vramNeededMb?: number }),
       "/v1/sessions/[^/]+": { json: data.completed },
       "/v1/wallet/transactions": { json: data.history(0) },
+      // The Credit page's money in (ADR 0039), each arriving after the paint like the rest.
+      "/v1/wallet/billing-details": { json: credit.billingDetails },
+      "/v1/wallet/invoices": { json: credit.invoices },
+      "/v1/wallet/refund-requests": { json: credit.noRefunds },
     };
     // The screen's own answers first: the first route that matches a path wins.
     const answers: Record<string, Answer> = { ...("routes" in screen ? screen.routes : {}) };

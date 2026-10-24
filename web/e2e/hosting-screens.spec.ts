@@ -298,8 +298,10 @@ test.describe("price and limits", () => {
     page,
   }, info) => {
     await open(page, at(hosting.hostRunning));
-    await expect(page.getByText("₹10.80")).toBeVisible();
+    await expect(page.locator("output").getByText("₹10.80")).toBeVisible();
     await expect(page.getByText(/^You keep₹8\.64 an hour/)).toBeVisible();
+    // No GST is charged yet, so renters pay the price itself (ADR 0039).
+    await expect(page.getByText(/^Renters pay₹10\.80 an hour/)).toBeVisible();
     await expect(page.getByText(/Platform fee \(20%\)₹2\.16/)).toBeVisible();
     await expect(page.getByText(/Other RTX 4080 Laptops charge ₹9\.00–12\.00 an hour/)).toBeVisible();
     await expect(page.getByLabel("Pause above this temperature")).toHaveValue("85");
@@ -319,7 +321,7 @@ test.describe("price and limits", () => {
     });
     await page.getByRole("button", { name: "Raise the price by ₹0.60 an hour" }).click();
     await page.getByRole("button", { name: "Raise the price by ₹0.60 an hour" }).click();
-    await expect(page.getByText("₹12.00")).toBeVisible();
+    await expect(page.locator("output").getByText("₹12.00")).toBeVisible();
     await expect(page.getByText(/^You keep₹9\.60 an hour/)).toBeVisible();
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page).toHaveURL(/\/hosting\/machine\/\?id=/);

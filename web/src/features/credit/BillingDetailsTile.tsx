@@ -39,7 +39,10 @@ export function BillingDetailsTile({ details }: { details: UseQueryResult<Billin
               <div className="min-h-4.5" />
             </div>
           ))}
-          <SkeletonLine size="caption" width="w-3/4" />
+          <div className="flex min-h-9 flex-col">
+            <SkeletonLine size="caption" width="w-full" />
+            <SkeletonLine size="caption" width="w-1/2" />
+          </div>
           <div className="min-h-touch w-24 rounded-full bg-ground" />
         </div>
       )}
@@ -123,7 +126,8 @@ function DetailsForm({ details }: { details: BillingDetails }) {
         hint="As it should appear on the invoice."
         onChange={(event) => setBusinessName(event.target.value)}
       />
-      <p className="text-caption text-text-muted">
+      {/* Two lines, whichever it says, as its skeleton is. */}
+      <p className="min-h-9 text-caption text-text-muted">
         {details.gstPercent > 0
           ? `What you pay includes GST at ${details.gstPercent}%; your invoice shows it.`
           : "We aren't registered for GST yet, so you get a receipt, not a tax invoice."}

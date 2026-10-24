@@ -161,13 +161,13 @@ interface FrameProps {
   children: ReactNode;
 }
 
-/** On a phone: the balance and Add credit first, then the history and the documents, then the rest. */
+/** On a phone: the balance and Add credit first, then the documents and the history, then the rest. */
 function Narrow({ title, summary, more, documents, children }: FrameProps) {
   return (
     <Page title={title}>
       {summary}
-      {children}
       {documents}
+      {children}
       {more}
     </Page>
   );
@@ -175,7 +175,7 @@ function Narrow({ title, summary, more, documents, children }: FrameProps) {
 
 /**
  * From 768 px: the balance in the left rail's dark tile, Add credit, billing details and refunds under it, and the
- * history and documents beside it (web/DESIGN.md "Laptop layout"). On a phone the balance is the first block of the
+ * documents and history beside it (web/DESIGN.md "Laptop layout"). On a phone the balance is the first block of the
  * page, under its title.
  */
 function Rail({ title, summary, more, documents, children }: FrameProps) {
@@ -191,8 +191,8 @@ function Rail({ title, summary, more, documents, children }: FrameProps) {
       right={
         <>
           <h1 className="sr-only">{title}</h1>
-          {children}
           {documents}
+          {children}
         </>
       }
     />
