@@ -3,6 +3,7 @@
 //!
 //! - [`browser`]: opening an address in the person's default browser.
 //! - [`keys`]: the release key baked into this build, and what a development build refuses.
+//! - [`blocklist`]: the abuse blocklist as a signed file of its own, and which of two is newer.
 //! - [`manifest`]: the signed release manifest, verified with Ed25519.
 //! - [`version`]: comparing semantic versions.
 //! - [`download`]: downloading a release's file with resume, checked against its size and SHA-256.
@@ -17,6 +18,7 @@
 #![forbid(unsafe_code)]
 
 pub mod apps;
+pub mod blocklist;
 pub mod browser;
 pub mod channel;
 pub mod download;

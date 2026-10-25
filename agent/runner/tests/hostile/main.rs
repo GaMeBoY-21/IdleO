@@ -901,6 +901,78 @@ async fn a_listed_name_flags_and_a_listed_build_stops_whatever_it_is_called() {
     );
 }
 
+/// Not an attack: a newer abuse blocklist (ADR 0038) reaches a running distribution with no rebuild, judges a program that is
+/// already running, and is the last good copy a restarted runner starts from. A list that is older is refused.
+#[tokio::test]
+#[ignore = "needs the development distribution: agent/runner/tests/hostile/run.sh"]
+async fn a_newer_blocklist_reaches_a_running_distribution_without_a_rebuild_and_survives_a_restart() {
+    use jobcore::protocol::AbuseKind;
+    const SAVED: &str = "/var/lib/idleo/blocklist/current.json";
+    let h = Harness::new().await;
+    h.run(&Job::new("write_root")).await;
+    h.inside(&["rm", "-f", SAVED]);
+    let version = |link: &Link| {
+        let link = link.clone();
+        async move {
+            match link.request(Request::Hello).await {
+                Ok(Answer::Hello(hello)) => hello.blocklist_version,
+                other => panic!("{other:?}"),
+            }
+        }
+    };
+    let before = version(&h.link).await;
+    let issued = "2099-01-01T00:00:00Z";
+    assert!(before.as_str() < issued, "{before}");
+
+    // A program with a name that no list has is running, and nobody minds.
+    let mut named = Job::new("run_named");
+    named.env.insert("SESSION_PARAM_NAME".to_owned(), "idleo-liveminer".to_owned());
+    let (session, mut events) = h.begin(&named).await;
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    assert!(events.try_recv().is_err_and(|e| matches!(e, tokio::sync::broadcast::error::TryRecvError::Empty)));
+
+    // The list arrives while it runs: the program is judged by it, told and not stopped.
+    let newer = format!(
+        r#"{{"version":"{issued}","names":[{{"name":"idleo-liveminer","kind":"miner","source":"https://example.invalid/live"}}],"hashes":[],"pools":[]}}"#
+    );
+    assert!(
+        matches!(h.link.request(Request::Blocklist { file: newer.clone() }).await, Ok(Answer::Blocklist { version }) if version == issued)
+    );
+    let mut told = Vec::new();
+    let waited = Instant::now();
+    while told.is_empty() && waited.elapsed() < Duration::from_secs(40) {
+        if let Ok(Ok(RunnerEvent { session: who, event: Event::Abuse { kind, detail, stopped, .. }, .. })) =
+            tokio::time::timeout(Duration::from_millis(500), events.recv()).await
+            && who == session
+        {
+            told.push((kind, detail, stopped));
+        }
+    }
+    assert_eq!(told, [(AbuseKind::ProcessName, "idleo-liveminer".to_owned(), false)]);
+    let _ = h.link.request(Request::Stop { session: session.clone(), attempt: 1, grace_secs: 0 }).await;
+    let _ = h.finish(&session, events, Duration::from_secs(60)).await;
+
+    // An older list is refused and the one in use stays.
+    let older = r#"{"version":"2000-01-01","names":[],"hashes":[],"pools":[]}"#;
+    assert!(h.link.request(Request::Blocklist { file: older.to_owned() }).await.is_err());
+    assert_eq!(version(&h.link).await, issued);
+
+    // A restarted runner starts from the last good copy.
+    h.inside(&["systemctl", "restart", "idleo-runner"]);
+    let mut after = String::new();
+    for _ in 0..40 {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        if let Ok(Answer::Hello(hello)) = h.link.request(Request::Hello).await {
+            after = hello.blocklist_version;
+            break;
+        }
+    }
+    h.inside(&["rm", "-f", SAVED]);
+    h.inside(&["systemctl", "restart", "idleo-runner"]);
+    assert_eq!(after, issued, "the restarted runner lost the list it was given");
+    println!("WATCH blocklist: a newer list judged a running program, was refused when older, and survived a restart");
+}
+
 /// What a flood job printed: the number after `name=` in its verdict line.
 fn number_after(run: &Run, attack: &str, name: &str) -> f64 {
     let line = run.verdict(attack).map(|(_, detail)| detail).unwrap_or_default();

@@ -3,6 +3,7 @@
 mod support;
 
 mod backoff;
+mod blocklist;
 mod cli;
 mod enrolment;
 mod link;

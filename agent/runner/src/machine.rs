@@ -81,6 +81,11 @@ pub trait Container: Send + Sync {
     fn processes(&self, _with_hashes: bool) -> Fut<'_, Vec<crate::abuse::ProcessSeen>> {
         Box::pin(async { Vec::new() })
     }
+    /// The SHA-256 of one process's executable, worked out when asked: a process whose name is listed carries it, so an
+    /// admin who confirms the session can add the build to the list. `None` when it can't be read or is too large.
+    fn hash_of(&self, _pid: u32) -> Fut<'_, Option<String>> {
+        Box::pin(async { None })
+    }
     /// The mining-pool lookups the session's DNS forwarder has refused, one message each. Only the first call has them.
     fn take_lookups(&self) -> Option<mpsc::UnboundedReceiver<crate::dns::PoolLookup>> {
         None
@@ -161,10 +166,16 @@ pub trait Machine: Send + Sync + 'static {
     fn development(&self) -> bool {
         false
     }
-    /// The list of software and pools to look for in a session (ADR 0038): the one built into the runner, and, in a development
+    /// The list of software and pools to look for in a session (ADR 0038): the newest the runner holds, and, in a development
     /// distribution, the test entries its marker file names.
-    fn abuse_blocklist(&self) -> Arc<crate::abuse::Blocklist> {
-        Arc::new(crate::abuse::Blocklist::built_in())
+    fn abuse_blocklist(&self) -> Arc<crate::abuse::Blocklist>;
+    /// Takes a newer list the agent has verified (the signed file's exact text): refused if it can't be matched safely or isn't
+    /// newer than the one in use, kept as the last good copy otherwise. Returns the version now in use.
+    ///
+    /// # Errors
+    /// Why it was refused, in a line.
+    fn set_blocklist(&self, _file: &str) -> Result<String, String> {
+        Err("this runner can't take a blocklist".to_owned())
     }
     /// Sessions' leftovers from a runner that died: containers and scratch disks nobody holds. Run once at start-up.
     fn clean_up_leftovers(&self) -> Fut<'_, ()>;

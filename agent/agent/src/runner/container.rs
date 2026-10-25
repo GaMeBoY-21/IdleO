@@ -45,6 +45,8 @@ pub struct ContainerRunner {
     awake: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
     /// How much of the owner's upload a job may use (ADR 0038), told to the runner at every start.
     upload_cap: Arc<crate::fair_use::UploadCap>,
+    /// The newest abuse blocklist the agent has verified, to hand to the runner whenever it has an older one.
+    blocklist: Arc<std::sync::Mutex<Option<String>>>,
 }
 
 impl ContainerRunner {
@@ -57,6 +59,7 @@ impl ContainerRunner {
             gpu,
             awake: None,
             upload_cap: crate::fair_use::UploadCap::floor_only(crate::fair_use::DEFAULT_FLOOR_KBPS),
+            blocklist: Arc::default(),
         }
     }
 
@@ -288,6 +291,19 @@ impl crate::care::Distribution for RunnerDistribution {
     }
 }
 
+/// Gives the runner `file` if it is newer than the blocklist the runner reports using. A runner that refuses it keeps the one it
+/// has; a runner too old to know the request answers with a failure, which only the log hears of.
+async fn hand_over_blocklist(link: &Link, hello: &HelloAnswer, file: String) {
+    let Ok(version) = idleo_release::blocklist::version_of(file.as_bytes()) else { return };
+    if !idleo_release::blocklist::is_newer(&version, &hello.blocklist_version) {
+        return;
+    }
+    match link.request(Request::Blocklist { file }).await {
+        Ok(_) => tracing::info!(%version, "the job runner has the newer abuse blocklist"),
+        Err(failure) => tracing::warn!(%version, %failure, "the job runner didn't take the abuse blocklist"),
+    }
+}
+
 /// What has been told to the supervisor, so a repeated fact isn't told twice.
 #[derive(Default)]
 struct Told {
@@ -515,13 +531,32 @@ impl SessionRunner for ContainerRunner {
     }
 
     fn warm(&self) {
-        // The runner's first answer after a cold start comes when its distribution is up; asking is what starts it.
+        // The runner's first answer after a cold start comes when its distribution is up; asking is what starts it. Once
+        // it answers, a newer blocklist than its own is handed over, before the job starts.
         let link = self.link.clone();
+        let held = self.blocklist.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
         tokio::spawn(async move {
-            let _ = link.request(Request::Hello).await;
+            if let Ok(Answer::Hello(hello)) = link.request(Request::Hello).await
+                && let Some(file) = held
+            {
+                hand_over_blocklist(&link, &hello, file).await;
+            }
         });
         // And nothing is downloaded while a session starts.
         self.link.notify(Request::CancelPulls);
+    }
+
+    fn blocklist(&self, file: String) {
+        *self.blocklist.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(file.clone());
+        // The distribution is only woken for a session; one that is up takes the list now.
+        if self.is_awake() {
+            let link = self.link.clone();
+            tokio::spawn(async move {
+                if let Ok(Answer::Hello(hello)) = link.request(Request::Hello).await {
+                    hand_over_blocklist(&link, &hello, file).await;
+                }
+            });
+        }
     }
 
     fn stages_inputs(&self) -> bool {
@@ -608,6 +643,8 @@ mod tests {
         sessions: Arc<Mutex<Vec<SessionInfo>>>,
         say: mpsc::UnboundedSender<String>,
         refuse_start: Arc<Mutex<Option<Failure>>>,
+        /// The abuse blocklist version the scripted runner says it is using.
+        blocklist_version: Arc<Mutex<String>>,
     }
 
     impl Scripted {
@@ -615,9 +652,11 @@ mod tests {
             let requests: Arc<Mutex<Vec<Request>>> = Arc::default();
             let sessions: Arc<Mutex<Vec<SessionInfo>>> = Arc::default();
             let refuse_start: Arc<Mutex<Option<Failure>>> = Arc::default();
+            let blocklist_version: Arc<Mutex<String>> = Arc::new(Mutex::new("2026-10-22".to_owned()));
             let (say, speech) = mpsc::unbounded_channel::<String>();
             let speech = Arc::new(tokio::sync::Mutex::new(Some(speech)));
             let (seen, listed, refusing) = (Arc::clone(&requests), Arc::clone(&sessions), Arc::clone(&refuse_start));
+            let using = Arc::clone(&blocklist_version);
             let link = Link::new(Arc::new(move || {
                 let (agent_read, mut runner_write) = duplex(1 << 20);
                 let (runner_read, agent_write) = duplex(1 << 20);
@@ -639,6 +678,7 @@ mod tests {
                     }
                 });
                 let (seen, listed, refusing) = (Arc::clone(&seen), Arc::clone(&listed), Arc::clone(&refusing));
+                let using = Arc::clone(&using);
                 tokio::spawn(async move {
                     let mut lines = BufReader::new(runner_read).lines();
                     while let Ok(Some(line)) = lines.next_line().await {
@@ -648,6 +688,15 @@ mod tests {
                         seen.lock().unwrap().push(req.clone());
                         let reply = match req {
                             Request::List => Outcome::Ok(Answer::List { sessions: listed.lock().unwrap().clone() }),
+                            Request::Hello => Outcome::Ok(Answer::Hello(HelloAnswer {
+                                runner_version: "test".to_owned(),
+                                distro_version: "test".to_owned(),
+                                gpu: false,
+                                rules_loaded: true,
+                                scratch_free_bytes: 0,
+                                development: true,
+                                blocklist_version: using.lock().unwrap().clone(),
+                            })),
                             Request::Start(_) => match refusing.lock().unwrap().clone() {
                                 Some(failure) => Outcome::Err(failure),
                                 None => Outcome::Ok(Answer::Done),
@@ -659,7 +708,7 @@ mod tests {
                 });
                 Ok(Connection { reader: Box::pin(agent_read), writer: Box::pin(agent_write), keep: Box::new(()) })
             }));
-            (Self { requests, sessions, say, refuse_start }, ContainerRunner::new(link, true))
+            (Self { requests, sessions, say, refuse_start, blocklist_version }, ContainerRunner::new(link, true))
         }
 
         fn event(&self, event: Event) {
@@ -1045,5 +1094,59 @@ mod tests {
         assert!(ContainerRunner::wsl("Ubuntu").is_err());
         assert!(ContainerRunner::wsl("IdleO-").is_err());
         assert!(ContainerRunner::wsl("IdleO-0.1.0").is_ok());
+    }
+
+    fn blocklist_file(version: &str) -> String {
+        format!(r#"{{"version":"{version}","names":[],"hashes":[],"pools":[]}}"#)
+    }
+
+    #[tokio::test]
+    async fn a_newer_blocklist_is_given_to_a_runner_that_is_up_and_an_equal_or_older_one_is_not() {
+        let (scripted, runner) = Scripted::runner();
+        let newer = blocklist_file("2026-10-25T09:30:00Z");
+
+        runner.blocklist(newer.clone());
+        scripted
+            .wait_for("the blocklist", |seen| {
+                seen.iter().any(|r| matches!(r, Request::Blocklist { file } if *file == newer))
+            })
+            .await;
+
+        // The runner says it already uses that one: a second hand-over sends nothing.
+        *scripted.blocklist_version.lock().unwrap() = "2026-10-25T09:30:00Z".to_owned();
+        let before = scripted.requests().iter().filter(|r| matches!(r, Request::Blocklist { .. })).count();
+        runner.blocklist(newer);
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(scripted.requests().iter().filter(|r| matches!(r, Request::Blocklist { .. })).count(), before);
+
+        // And one older than the runner's own is never sent.
+        runner.blocklist(blocklist_file("2026-10-24"));
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(scripted.requests().iter().filter(|r| matches!(r, Request::Blocklist { .. })).count(), before);
+    }
+
+    #[tokio::test]
+    async fn a_sleeping_distribution_is_not_woken_for_a_blocklist_and_takes_it_when_a_session_wakes_it() {
+        let (scripted, runner) = Scripted::runner();
+        let runner = runner.with_awake(|| false);
+        let newer = blocklist_file("2026-10-25T09:30:00Z");
+
+        runner.blocklist(newer.clone());
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(
+            scripted.requests().is_empty(),
+            "nothing is sent to a distribution that is stopped: {:?}",
+            scripted.requests()
+        );
+
+        runner.warm();
+        scripted
+            .wait_for("the blocklist", |seen| {
+                seen.iter().any(|r| matches!(r, Request::Blocklist { file } if *file == newer))
+            })
+            .await;
+        let hello = scripted.requests().iter().position(|r| matches!(r, Request::Hello)).unwrap();
+        let list = scripted.requests().iter().position(|r| matches!(r, Request::Blocklist { .. })).unwrap();
+        assert!(hello < list, "the runner is asked what it has before it is given anything");
     }
 }

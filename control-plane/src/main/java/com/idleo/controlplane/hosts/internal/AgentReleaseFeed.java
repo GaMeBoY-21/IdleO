@@ -3,6 +3,8 @@ package com.idleo.controlplane.hosts.internal;
 import com.idleo.controlplane.SemanticVersion;
 import com.idleo.controlplane.hosts.AgentReleaseCached;
 import com.idleo.controlplane.hosts.AgentReleases;
+import com.idleo.controlplane.hosts.BlocklistCached;
+import com.idleo.controlplane.hosts.Blocklists;
 import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.time.Duration;
@@ -46,7 +48,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
  */
 @Service
 @EnableConfigurationProperties(AgentReleaseProperties.class)
-class AgentReleaseFeed implements AgentReleases, DisposableBean {
+class AgentReleaseFeed implements AgentReleases, Blocklists, DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(AgentReleaseFeed.class);
     static final String MANIFEST_KEY = ReleaseManifest.CHANNEL + "/latest.json";
@@ -63,6 +65,7 @@ class AgentReleaseFeed implements AgentReleases, DisposableBean {
     private final @Nullable S3Client s3;
     private final @Nullable S3Presigner presigner;
     private final AtomicReference<@Nullable ReleaseManifest> latest = new AtomicReference<>();
+    private final AtomicReference<@Nullable BlocklistFile> blocklist = new AtomicReference<>();
 
     AgentReleaseFeed(AgentReleaseProperties properties, JdbcClient jdbc, ApplicationEventPublisher events) {
         this.properties = properties;
@@ -103,6 +106,7 @@ class AgentReleaseFeed implements AgentReleases, DisposableBean {
         if (s3 == null || publicKey == null) {
             return;
         }
+        refreshBlocklist();
         byte[] manifest;
         byte[] signature;
         try {
@@ -116,6 +120,68 @@ class AgentReleaseFeed implements AgentReleases, DisposableBean {
             return;
         }
         accept(manifest, signature);
+    }
+
+    /** The abuse blocklist's own file, read like the manifest and cached on the same terms. */
+    private void refreshBlocklist() {
+        byte[] file;
+        byte[] signature;
+        try {
+            file = read(BlocklistFile.KEY);
+            signature = Base64.getDecoder()
+                    .decode(new String(read(BlocklistFile.SIGNATURE_KEY), StandardCharsets.US_ASCII).strip());
+        } catch (NoSuchKeyException none) {
+            log.debug("No abuse blocklist published yet ({} is missing)", BlocklistFile.KEY);
+            return;
+        } catch (SdkException | IllegalArgumentException e) {
+            log.warn("Couldn't read the abuse blocklist; keeping the last good one: {}", e.getMessage());
+            return;
+        }
+        acceptBlocklist(file, signature);
+    }
+
+    /**
+     * Verifies and caches an abuse blocklist read from the bucket. One that fails verification is logged as an error and
+     * ignored, and so is one older than the cached one (a replayed file); the last good one is kept. A newer one is
+     * announced ({@link BlocklistCached}) so connected agents are sent it.
+     */
+    void acceptBlocklist(byte[] file, byte[] signature) {
+        BlocklistFile verified;
+        try {
+            verified = BlocklistFile.verify(file, signature, Objects.requireNonNull(publicKey));
+        } catch (ReleaseManifest.Rejected e) {
+            log.error("Ignored an abuse blocklist that failed verification: {}", e.getMessage());
+            return;
+        }
+        var previous = blocklist.get();
+        if (previous != null && verified.version().compareTo(previous.version()) < 0) {
+            log.error(
+                    "Ignored abuse blocklist {}: it's older than the cached {} (a replayed file?)",
+                    verified.version(),
+                    previous.version());
+            return;
+        }
+        blocklist.set(verified);
+        if (previous == null || !Arrays.equals(previous.bytes(), verified.bytes())) {
+            log.info(
+                    "Cached abuse blocklist {} ({} learned builds)",
+                    verified.version(),
+                    verified.learned().size());
+            events.publishEvent(new BlocklistCached(verified.version()));
+        }
+    }
+
+    @Override
+    public Optional<Blocklists.Published> newerThan(String held) {
+        return Optional.ofNullable(blocklist.get())
+                .filter(file -> file.newerThan(held))
+                .map(file -> new Blocklists.Published(file.version(), file.bytes(), file.signature()));
+    }
+
+    @Override
+    public java.util.Set<String> learnedBuilds() {
+        var file = blocklist.get();
+        return file == null ? java.util.Set.of() : file.learned();
     }
 
     /** Verifies and caches a manifest read from the bucket. */

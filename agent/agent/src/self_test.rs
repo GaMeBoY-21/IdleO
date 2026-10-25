@@ -315,7 +315,7 @@ pub async fn run_with(
             (false, format!("the job runner {} couldn't run its checks: {why}", answer.runner_version))
         }
         (Some(Ok(answer)), _) => {
-            let failed: Vec<String> = ["sandbox_rules", "scratch_disk", "leftovers"]
+            let failed: Vec<String> = ["sandbox_rules", "scratch_disk", "leftovers", "abuse_blocklist"]
                 .iter()
                 .filter_map(|name| found(name).filter(|check| check.status != jobcore::protocol::CheckStatus::Passed))
                 .map(|check| format!("{}: {}", check.name, check.detail))
@@ -324,7 +324,7 @@ pub async fn run_with(
                 (
                     true,
                     format!(
-                        "answers (version {}), the sandbox's rules are loaded, a scratch disk can be made and removed, nothing is left from finished sessions",
+                        "answers (version {}), the sandbox's rules are loaded, a scratch disk can be made and removed, nothing is left from finished sessions, an abuse blocklist is loaded",
                         answer.runner_version
                     ),
                 )
@@ -520,6 +520,7 @@ mod tests {
                     rules_loaded: true,
                     scratch_free_bytes: 50_000_000_000,
                     development: false,
+                    blocklist_version: "2026-10-22".to_owned(),
                 }),
                 checks: vec![
                     check("sandbox_rules", CheckStatus::Passed, "loaded"),

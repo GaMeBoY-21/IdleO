@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use jobcore::manifest::Manifest;
 use jobcore::protocol::{
-    AbuseKind, AgentNotes, Body, Ended, Event, Frame, GrantWire, Grants, InputFile, Phase, ResumeFrom, Spec, Start,
-    code,
+    AbuseKind, AgentNotes, Answer, Body, Ended, Event, Frame, GrantWire, Grants, InputFile, Outcome, Phase, ResumeFrom,
+    Spec, Start, code,
 };
 use tokio::sync::broadcast;
 
@@ -275,7 +275,7 @@ async fn a_lease_nobody_renews_kills_the_job_and_one_that_is_renewed_keeps_it_ru
 fn list_with_a_build(sha256: &str) -> Arc<Blocklist> {
     Arc::new(
         Blocklist::parse(&format!(
-            r#"{{"version":"t","names":[{{"name":"xmrig","kind":"miner","source":"https://example.invalid/x"}}],
+            r#"{{"version":"2026-10-22","names":[{{"name":"xmrig","kind":"miner","source":"https://example.invalid/x"}}],
                "hashes":[{{"sha256":"{sha256}","name":"a listed build","kind":"miner","source":"https://example.invalid/x"}}],
                "pools":[{{"domain":"nanopool.org","source":"https://example.invalid/x"}}]}}"#
         ))
@@ -333,6 +333,73 @@ async fn a_listed_name_only_tells_an_admin_and_the_job_goes_on() {
 
     container.finish(0);
     assert_eq!(rig.ended(1).await, Ended::Succeeded, "and it finishes like any job");
+}
+
+#[tokio::test]
+async fn a_listed_name_tells_with_the_build_it_found_so_an_admin_can_list_it() {
+    let mut rig = rig();
+    *rig.machine.blocklist.lock().unwrap() = Some(list_with_a_build(&"e".repeat(64)));
+    rig.registry.start(start(1)).unwrap();
+    let container = rig.machine.container().await;
+    let build = "a".repeat(64);
+    container.can_hash(903, &build);
+
+    container.show_process(903, "xmrig", "xmrig", None);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let told: Vec<_> = rig
+        .events()
+        .into_iter()
+        .filter_map(|event| match event {
+            Event::Abuse { kind, sha256, stopped, .. } => Some((kind, sha256, stopped)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(told, [(AbuseKind::ProcessName, build, false)], "it tells, it doesn't stop, and it says which build");
+    assert!(rig.registry.list()[0].ended.is_none());
+}
+
+fn blocklist_request(file: &str) -> jobcore::protocol::Request {
+    jobcore::protocol::Request::Blocklist { file: file.to_owned() }
+}
+
+#[tokio::test]
+async fn a_list_handed_over_while_a_session_runs_is_looked_for_in_it_at_once() {
+    let mut rig = rig();
+    *rig.machine.blocklist.lock().unwrap() = Some(list_with_a_build(&"e".repeat(64)));
+    rig.registry.start(start(1)).unwrap();
+    let container = rig.machine.container().await;
+    container.show_process(910, "newminer", "newminer", None);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(abuse_events(&rig.events()).is_empty(), "not listed yet");
+
+    let newer = r#"{"version":"2026-10-25T09:30:00Z","names":[{"name":"newminer","kind":"miner","source":"https://example.invalid/n"}],
+                    "hashes":[],"pools":[]}"#;
+    assert!(matches!(
+        rig.registry.answer(blocklist_request(newer)).await,
+        Outcome::Ok(Answer::Blocklist { version }) if version == "2026-10-25T09:30:00Z"
+    ));
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    // The process that was already running is judged by the new list, and told once however often it is looked at.
+    assert_eq!(abuse_events(&rig.events()), [(AbuseKind::ProcessName, "newminer".to_owned(), false)]);
+}
+
+#[tokio::test]
+async fn a_list_that_is_older_or_unsafe_is_refused_and_the_one_in_use_stays() {
+    let rig = rig();
+    *rig.machine.blocklist.lock().unwrap() = Some(list_with_a_build(&"e".repeat(64)));
+    let older = r#"{"version":"1999-01-01","names":[],"hashes":[],"pools":[]}"#;
+    for bad in [older, "not json"] {
+        assert!(matches!(
+            rig.registry.answer(blocklist_request(bad)).await,
+            Outcome::Err(failure) if failure.code == code::BAD_REQUEST
+        ));
+    }
+    assert!(matches!(
+        rig.registry.answer(jobcore::protocol::Request::Hello).await,
+        Outcome::Ok(Answer::Hello(hello)) if hello.blocklist_version == "2026-10-22"
+    ));
 }
 
 #[tokio::test]

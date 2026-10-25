@@ -306,7 +306,14 @@ pub async fn run(mut options: RunOptions, mut shutdown: watch::Receiver<bool>) -
     let updating = options.updater.clone().map(|updater| {
         AbortOnDrop(tokio::spawn(install_when_idle(updater, Arc::clone(&options.host), sessions.clone())))
     });
+    // The abuse blocklist the agent last verified (ADR 0038) goes to the runner as it starts, if the runner is up and has an
+    // older one; a runner that is asleep takes it when a session wakes it.
+    let blocklist = crate::blocklist::Keeper::open(&options.data_dir);
+    if let (Some(file), Some(runner)) = (blocklist.file(), &options.runner) {
+        runner.blocklist(file);
+    }
     let mut manager = Manager {
+        blocklist,
         backoff: Backoff::new(options.timing.backoff_base, options.timing.backoff_cap),
         next_renewal_check: Instant::now(),
         readings,
@@ -322,6 +329,8 @@ pub async fn run(mut options: RunOptions, mut shutdown: watch::Receiver<bool>) -
 }
 
 struct Manager {
+    /// The newest verified abuse blocklist.
+    blocklist: crate::blocklist::Keeper,
     options: RunOptions,
     backoff: Backoff,
     next_renewal_check: Instant,
@@ -421,7 +430,7 @@ impl Manager {
         };
         let largest_gpu_vram_mb = gpus.iter().map(|gpu| gpu.vram_mb).max().unwrap_or(0);
         let (outbound, requests) = mpsc::channel(16);
-        let hello = hello(gpus, self.sessions.lock().running(), self.options.disk.free_mb());
+        let hello = hello(gpus, self.sessions.lock().running(), self.options.disk.free_mb(), self.blocklist.version());
         tracing::debug!(?hello, "sending Hello");
         // Hello goes in before the call starts: the control plane answers nothing until it has it.
         if outbound.send(envelope(AgentBody::Hello(hello))).await.is_err() {
@@ -609,6 +618,19 @@ impl Manager {
                     }
                     Ok(Some(OpenStreamResponse { body: Some(ServerBody::SpeedTestGrant(grant)), .. })) => {
                         self.options.host.speed_grant(grant);
+                    }
+                    Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::UpdateBlocklist(update)) })) => {
+                        let _ = outbound.send(ack_for(&message_id)).await;
+                        match self.blocklist.offer(&update) {
+                            Ok(Some(file)) => {
+                                tracing::info!(version = %update.version, "a newer abuse blocklist was verified and kept");
+                                if let Some(runner) = &self.options.runner {
+                                    runner.blocklist(file);
+                                }
+                            }
+                            Ok(None) => tracing::debug!(version = %update.version, "the abuse blocklist is already held"),
+                            Err(why) => tracing::warn!(version = %update.version, %why, "an abuse blocklist was refused"),
+                        }
                     }
                     Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::RunSelfTest(run)) })) => {
                         let _ = outbound.send(ack_for(&message_id)).await;
@@ -832,6 +854,7 @@ fn hello(
     gpus: Vec<GpuInfo>,
     running_sessions: Vec<agent_proto::v1::RunningSession>,
     free_disk_mb: Option<i32>,
+    blocklist_version: String,
 ) -> Hello {
     Hello {
         agent_version: AGENT_VERSION.to_owned(),
@@ -850,6 +873,7 @@ fn hello(
             .collect(),
         running_sessions,
         free_disk_mb,
+        blocklist_version,
     }
 }
 
@@ -919,6 +943,7 @@ fn log_unhandled(message: &OpenStreamResponse) {
         Some(ServerBody::HostStatus(_)) => "HostStatus",
         Some(ServerBody::SpeedTestGrant(_)) => "SpeedTestGrant",
         Some(ServerBody::RunSelfTest(_)) => "RunSelfTest",
+        Some(ServerBody::UpdateBlocklist(_)) => "UpdateBlocklist",
         None => "empty",
     };
     tracing::debug!(kind, message_id = %message.message_id, "message not handled by this agent version; ignored");

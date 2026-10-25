@@ -7,11 +7,14 @@ import com.idleo.controlplane.billing.HostEarnings;
 import com.idleo.controlplane.billing.HostEarningsChanged;
 import com.idleo.controlplane.hosts.AgentReleaseCached;
 import com.idleo.controlplane.hosts.AgentReleases;
+import com.idleo.controlplane.hosts.BlocklistCached;
+import com.idleo.controlplane.hosts.Blocklists;
 import com.idleo.controlplane.hosts.HostAgentRequests;
 import com.idleo.controlplane.hosts.HostStandingChanged;
 import com.idleo.controlplane.hosts.HostWork;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.AgentGateway.UpdateAgent;
+import gpu.agent.v1.AgentGateway.UpdateBlocklist;
 import gpu.agent.v1.Host.HostState;
 import gpu.agent.v1.Host.HostStatus;
 import java.util.List;
@@ -42,11 +45,13 @@ class HostStatusSender {
     private static final Logger log = LoggerFactory.getLogger(HostStatusSender.class);
     static final String HOST_STATUS = "host_status";
     static final String UPDATE_AGENT = "update_agent";
+    static final String UPDATE_BLOCKLIST = "update_blocklist";
 
     private final HostAgentRequests hosts;
     private final HostEarnings earnings;
     private final HostWork work;
     private final AgentReleases releases;
+    private final Blocklists blocklists;
     private final AgentCommands commands;
     private final ConnectedAgents connected;
     private final TransactionTemplate transactions;
@@ -56,6 +61,7 @@ class HostStatusSender {
             HostEarnings earnings,
             HostWork work,
             AgentReleases releases,
+            Blocklists blocklists,
             AgentCommands commands,
             ConnectedAgents connected,
             PlatformTransactionManager transactionManager) {
@@ -63,16 +69,18 @@ class HostStatusSender {
         this.earnings = earnings;
         this.work = work;
         this.releases = releases;
+        this.blocklists = blocklists;
         this.commands = commands;
         this.connected = connected;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
     /** Right after Welcome, before anything queued is delivered: where the host stands, and any update for it. */
-    void welcomed(UUID hostId, String agentVersion) {
+    void welcomed(UUID hostId, String agentVersion, String blocklistVersion) {
         transactions.executeWithoutResult(status -> {
             queueStatus(hostId);
             queueUpdate(hostId, agentVersion);
+            queueBlocklist(hostId, blocklistVersion);
         });
     }
 
@@ -110,6 +118,47 @@ class HostStatusSender {
                 log.warn("Couldn't offer release {} to host {}; its next connection will", event.version(), hostId, e);
             }
         }
+    }
+
+    /** A newer abuse blocklist on this instance (ADR 0038): sent to the agents whose streams it holds and whose runner has an older one. */
+    @EventListener
+    void on(BlocklistCached event) {
+        for (var hostId : connected.hostIds()) {
+            var stream = connected.get(hostId);
+            if (stream == null) {
+                continue;
+            }
+            try {
+                transactions.executeWithoutResult(status -> queueBlocklist(hostId, stream.blocklistVersion()));
+            } catch (RuntimeException e) {
+                log.warn(
+                        "Couldn't send abuse blocklist {} to host {}; its next connection will",
+                        event.version(),
+                        hostId,
+                        e);
+            }
+        }
+    }
+
+    /**
+     * Queues the list the host's runner doesn't have yet, in place of any earlier one, or withdraws one it no longer
+     * needs. The agent acks it, and uses it only if its signature verifies against the release key built into it.
+     */
+    private void queueBlocklist(UUID hostId, String held) {
+        var newer = blocklists.newerThan(held);
+        if (newer.isEmpty()) {
+            commands.withdrawFor(hostId, UPDATE_BLOCKLIST);
+            return;
+        }
+        var update = newer.get();
+        commands.replace(
+                hostId,
+                UPDATE_BLOCKLIST,
+                OpenStreamResponse.newBuilder()
+                        .setUpdateBlocklist(UpdateBlocklist.newBuilder()
+                                .setVersion(update.version())
+                                .setBlocklist(ByteString.copyFrom(update.blocklist()))
+                                .setSignature(ByteString.copyFrom(update.signature()))));
     }
 
     private void queueStatus(UUID hostId) {

@@ -590,6 +590,30 @@ class HostNoGpu(IdleoError):
     title = "The host hasn't reported a GPU"
 
 
+class HostOffline(IdleoError):
+    """The host isn't connected (HTTP 409)."""
+
+    slug = "host-offline"
+    status = 409
+    title = "The host isn't connected"
+
+
+class SelfTestRunning(IdleoError):
+    """A self-test is already running (HTTP 409)."""
+
+    slug = "self-test-running"
+    status = 409
+    title = "A self-test is already running"
+
+
+class SelfTestLimit(IdleoError):
+    """Too many self-tests today (HTTP 429)."""
+
+    slug = "self-test-limit"
+    status = 429
+    title = "Too many self-tests today"
+
+
 class PauseTooLong(IdleoError):
     """The pause is too long (HTTP 400)."""
 
@@ -784,6 +808,9 @@ __all__ = [
     "HostBusy",
     "HostRemoved",
     "HostNoGpu",
+    "HostOffline",
+    "SelfTestRunning",
+    "SelfTestLimit",
     "PauseTooLong",
     "NoAgentRelease",
     "InstallEventsFull",
@@ -875,6 +902,9 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "host-busy": HostBusy,
     "host-removed": HostRemoved,
     "host-no-gpu": HostNoGpu,
+    "host-offline": HostOffline,
+    "self-test-running": SelfTestRunning,
+    "self-test-limit": SelfTestLimit,
     "pause-too-long": PauseTooLong,
     "no-agent-release": NoAgentRelease,
     "install-events-full": InstallEventsFull,

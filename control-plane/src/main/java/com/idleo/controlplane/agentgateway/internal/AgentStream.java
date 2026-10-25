@@ -56,6 +56,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
     private @Nullable ScheduledFuture<?> helloTimer;
     private Set<String> gpuUuids = Set.of();
     private String agentVersion = "";
+    private String blocklistVersion = "";
     private boolean updateRequired;
     private @Nullable Instant lastSeenRecordedAt;
     private @Nullable Instant lastHeardAt;
@@ -81,6 +82,11 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
     /** The version the agent said in its Hello; empty until then. */
     synchronized String agentVersion() {
         return agentVersion;
+    }
+
+    /** The abuse blocklist version its runner said it uses in Hello (ADR 0038); empty until then, or if it has none. */
+    synchronized String blocklistVersion() {
+        return blocklistVersion;
     }
 
     synchronized void start() {
@@ -143,14 +149,16 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                 welcome(
                         valid.hello(),
                         request.getHello().getRunningSessionsList(),
-                        request.getHello().hasFreeDiskMb() ? request.getHello().getFreeDiskMb() : null);
+                        request.getHello().hasFreeDiskMb() ? request.getHello().getFreeDiskMb() : null,
+                        request.getHello().getBlocklistVersion());
         }
     }
 
     private void welcome(
             AgentMessages.ValidHello hello,
             java.util.List<RunningSession> running,
-            @org.jspecify.annotations.Nullable Integer freeDiskMb) {
+            @org.jspecify.annotations.Nullable Integer freeDiskMb,
+            String heldBlocklist) {
         services.reports().recordHello(hostId, hello.hello());
         var properties = services.properties();
         // The owner's listing sets the temperature cap (ADR 0015); config is the default until they list.
@@ -167,6 +175,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             }
             gpuUuids = hello.gpuUuids();
             agentVersion = hello.hello().agentVersion();
+            blocklistVersion = heldBlocklist;
             updateRequired = hello.version().compareTo(services.minimumAgentVersion()) < 0;
             lastSeenRecordedAt = Instant.now(services.clock());
             lastHeardAt = lastSeenRecordedAt;
@@ -213,7 +222,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         }
         // Where the host stands, for its tray, and any update it should have (ADR 0034), queued before delivery.
         try {
-            services.hostStatus().welcomed(hostId, hello.hello().agentVersion());
+            services.hostStatus().welcomed(hostId, hello.hello().agentVersion(), heldBlocklist);
         } catch (RuntimeException e) {
             log.warn("Couldn't queue host {}'s status after Welcome; the next change will", hostId, e);
         }

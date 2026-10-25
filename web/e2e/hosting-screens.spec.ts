@@ -247,23 +247,28 @@ test.describe("one machine", () => {
     await expectAccessible(page);
   });
 
-  test("Run self-test: a failure says what the check found; loading and an error with a retry", async ({
-    page,
-  }, info) => {
+  test("Run self-test: a failure says what the check found", async ({ page }, info) => {
     await open(page, at(hosting.hostIdle), {
       "/v1/hosts/[^/]+/self-test": { json: hosting.selfTestFailed },
     });
     const panel = page.getByRole("region", { name: "Self-test" });
     await expect(panel.getByText(/^A check failed/)).toBeVisible();
     await expect(panel.getByText("lockdown failed: it did not answer")).toBeVisible();
+    await expectAccessible(page);
     await capture(page, info, "machine-self-test-failed");
+  });
 
+  test("Run self-test: loading", async ({ page }, info) => {
     await open(page, at(hosting.hostIdle), { "/v1/hosts/[^/]+/self-test": "hold" });
     await expect(page.getByRole("status", { name: "Loading the self-test" })).toBeVisible();
     await capture(page, info, "machine-self-test-loading");
+  });
 
+  test("Run self-test: an error, with a retry", async ({ page }, info) => {
     await open(page, at(hosting.hostIdle), { "/v1/hosts/[^/]+/self-test": { status: 500 } });
+    const panel = page.getByRole("region", { name: "Self-test" });
     await expect(panel.getByRole("button", { name: /Try again/ })).toBeVisible();
+    await expectAccessible(page);
     await capture(page, info, "machine-self-test-error");
   });
 
@@ -373,7 +378,9 @@ test.describe("one machine", () => {
     await page.getByRole("button", { name: /Rename or remove/ }).click();
     await page.getByRole("button", { name: "Remove this machine" }).click();
     await page.getByRole("button", { name: "Remove Nikki's ROG Strix" }).click();
-    await expect(page.getByRole("alert")).toContainText("This machine is running a session.");
+    await expect(page.getByRole("alert")).toContainText(
+      "This machine is running a session, so that waits until it ends.",
+    );
     await expectAccessible(page);
     await capture(page, info, "machine-remove-busy");
   });

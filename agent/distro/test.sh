@@ -102,6 +102,9 @@ done
 diff <(in_image cat /usr/local/share/idleo/sandbox.nft) agent/distro/sandbox.nft >/dev/null &&
   pass "the sandbox's rules in the image are agent/distro/sandbox.nft" || fail "the sandbox's rules in the image are agent/distro/sandbox.nft"
 # The rules file is valid nftables (a syntax check, which changes nothing), with its hash filled in as the runner does it.
+diff <(in_image cat /usr/local/share/idleo/blocklist.json) agent/distro/blocklist.json >/dev/null &&
+  pass "the abuse blocklist in the image is agent/distro/blocklist.json" || fail "the abuse blocklist in the image is agent/distro/blocklist.json"
+
 if in_image sh -c 'sed "s/@HASH@/0/" /usr/local/share/idleo/sandbox.nft | nft -c -f -' >"$out/nft-check.txt" 2>&1; then
   pass "the rules file passes nft's own check"
 else

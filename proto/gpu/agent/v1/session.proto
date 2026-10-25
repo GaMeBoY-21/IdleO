@@ -496,7 +496,10 @@ message AbuseSignal {
   // The process's name or the pool's domain from the blocklist, at most 200
   // characters; empty for connection drops.
   string detail = 4;
-  // The executable's SHA-256, 64 lower-case hex digits, for KIND_PROCESS_HASH.
+  // The executable's SHA-256, 64 lower-case hex digits, for KIND_PROCESS_HASH,
+  // and for KIND_PROCESS_NAME when the runner could read the executable, so an
+  // admin who confirms the session can add that build to the blocklist. Empty
+  // otherwise.
   string sha256 = 5;
   // For KIND_CONNECTION_DROPS, how many new connections were dropped in all.
   int64 count = 6;

@@ -52,7 +52,7 @@ trap 'rm -rf "$context"; docker rm -f "idleo-distro-export-$$" >/dev/null 2>&1 |
 # The build context is only what the image copies in, so nothing else in the repository can reach it.
 cp "$distro/Dockerfile" "$distro/wsl.conf" "$distro/verify-lockdown.sh" "$distro/sandbox.nft" \
   "$distro/import-images.sh" "$distro/idleo-images.service" "$distro/idleo-sandbox.service" \
-  "$distro/idleo-runner.service" "$context/"
+  "$distro/idleo-runner.service" "$distro/blocklist.json" "$context/"
 cp "$root/phase0/wsl/gpu-common.sh" "$context/"
 # idleo-runner is built inside the image from the agent workspace's own source (ADR 0035): the build context holds it and the
 # protocol files its build needs, without build output.

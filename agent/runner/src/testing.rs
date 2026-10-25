@@ -60,6 +60,8 @@ pub struct FakeContainer {
     refused: Mutex<Option<mpsc::UnboundedReceiver<PoolLookup>>>,
     /// What its network has carried and the fair-use limits have dropped, in all.
     traffic: Mutex<Traffic>,
+    /// The executables' hashes the container can work out when asked, by pid.
+    hashes: Mutex<std::collections::HashMap<u32, String>>,
 }
 
 impl FakeContainer {
@@ -72,6 +74,12 @@ impl FakeContainer {
             exe_name: exe_name.to_owned(),
             sha256: sha256.map(str::to_owned),
         });
+    }
+
+    /// What the container can say an executable's SHA-256 is when asked for it, as `hash_of` does for a process whose name is
+    /// listed.
+    pub fn can_hash(&self, pid: u32, sha256: &str) {
+        self.hashes.lock().unwrap().insert(pid, sha256.to_owned());
     }
 
     /// The job looks up a mining pool's domain and the forwarder refuses it.
@@ -107,6 +115,11 @@ impl Container for FakeContainer {
     fn processes(&self, _with_hashes: bool) -> Fut<'_, Vec<ProcessSeen>> {
         let processes = self.processes.lock().unwrap().clone();
         Box::pin(async move { processes })
+    }
+
+    fn hash_of(&self, pid: u32) -> Fut<'_, Option<String>> {
+        let hash = self.hashes.lock().unwrap().get(&pid).cloned();
+        Box::pin(async move { hash })
     }
 
     fn take_lookups(&self) -> Option<mpsc::UnboundedReceiver<PoolLookup>> {
@@ -246,6 +259,7 @@ impl Machine for FakeMachine {
                 rules_loaded: self.sandbox.lock().unwrap().is_ok(),
                 scratch_free_bytes: self.scratch_free.load(Ordering::SeqCst),
                 development: self.development.load(Ordering::SeqCst),
+                blocklist_version: self.abuse_blocklist().version().to_owned(),
             }
         })
     }
@@ -305,6 +319,7 @@ impl Machine for FakeMachine {
                 refuse,
                 refused: Mutex::new(Some(refused)),
                 traffic: Mutex::new(Traffic::default()),
+                hashes: Mutex::new(std::collections::HashMap::new()),
                 plan,
                 signals: Mutex::new(Vec::new()),
                 removed: AtomicBool::new(false),
@@ -321,6 +336,16 @@ impl Machine for FakeMachine {
 
     fn abuse_blocklist(&self) -> Arc<Blocklist> {
         self.blocklist.lock().unwrap().clone().unwrap_or_else(|| Arc::new(Blocklist::built_in()))
+    }
+
+    fn set_blocklist(&self, file: &str) -> Result<String, String> {
+        let incoming = Blocklist::parse(file)?;
+        if incoming.version() < self.abuse_blocklist().version() {
+            return Err("older than the one in use".to_owned());
+        }
+        let version = incoming.version().to_owned();
+        *self.blocklist.lock().unwrap() = Some(Arc::new(incoming));
+        Ok(version)
     }
 
     fn self_check<'a>(&'a self, _cuda_image: Option<&'a str>, _quick: bool) -> Fut<'a, Vec<Check>> {

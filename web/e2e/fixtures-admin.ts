@@ -56,6 +56,7 @@ export const renter = {
   admin: false,
   apiKeys: 1,
   inviteNote: "Pune pilot students",
+  suspensionCause: null as string | null,
 };
 
 export const admin = {
@@ -541,6 +542,60 @@ export const abuseDetail = {
   paidPaise: 30 * PRICE,
   refundedPaise: null,
 };
+
+/*
+ * A confirmed review whose runner flagged a program by name and worked out its build (ADR 0038, ADR 0041): the admin can add
+ * that build to the blocklist. And one already waiting, which the published list does not name yet, and one it does.
+ */
+export const ABUSE_LEARNABLE_ID = "01a1340a-0000-7000-8000-00000000e004";
+export const LEARNABLE_BUILD = "b".repeat(64);
+const abuseLearnable = abuseSummary(ABUSE_LEARNABLE_ID, "confirmed", ["process_name"], "none", 300, {
+  resolution: "It really was a miner.",
+});
+export const abuseLearnableDetail = {
+  item: abuseLearnable,
+  signals: [
+    {
+      kind: "process_name",
+      detail: "renamedminer",
+      sha256: LEARNABLE_BUILD,
+      count: 0,
+      stopped: false,
+      at: ago(310),
+    },
+  ],
+  behaviour: [],
+  notes: [],
+  paidPaise: 30 * PRICE,
+  refundedPaise: null,
+};
+export const blocklistAdditions = {
+  additions: [
+    {
+      id: "01a1340a-0000-7000-8000-00000000f001",
+      itemId: "01a1340a-0000-7000-8000-00000000e00a",
+      sha256: "a".repeat(64),
+      name: "oldminer",
+      kind: "miner",
+      reason: "Seen mining on two hosts.",
+      addedBy: ADMIN_ID,
+      createdAt: ago(3 * 24 * 60),
+      published: true,
+    },
+    {
+      id: "01a1340a-0000-7000-8000-00000000f002",
+      itemId: "01a1340a-0000-7000-8000-00000000e00b",
+      sha256: "c".repeat(64),
+      name: "cracker",
+      kind: "password_cracker",
+      reason: "A password cracker, run on a host's GPU.",
+      addedBy: ADMIN_ID,
+      createdAt: ago(60),
+      published: false,
+    },
+  ],
+};
+export const noBlocklistAdditions = { additions: [] };
 
 /*
  * Money in (ADR 0039): one renter's ₹500 top-up by UPI, paid and receipted; ₹200 of it asked back; a chargeback on it

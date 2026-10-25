@@ -5,6 +5,8 @@
 //! - `manifest …`: writes `latest.json` for a release from its files (their sizes and SHA-256).
 //! - `sign --key <path> <manifest>`: the only command that reads a private key; writes `<manifest>.sig`.
 //! - `verify --public <path> <manifest>`: checks a manifest and its `.sig`, as the app will.
+//! - `blocklist …`: writes the abuse blocklist for the feed (ADR 0038): the distribution's list, a version that is now, and
+//!   the builds admins confirmed as abuse. It is signed with `sign` like a manifest, and checked with `verify-blocklist`.
 //! - `upload …`: puts files in the release bucket (S3: MinIO locally, R2 in production), keys from the environment.
 #![forbid(unsafe_code)]
 
@@ -16,6 +18,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use clap::{Parser, Subcommand};
 use ed25519_dalek::{Signer, SigningKey};
+use idleo_release::blocklist;
 use idleo_release::download::{hex, sha256_file};
 use idleo_release::manifest::{self, Artifact, CHANNEL, Distro, Manifest};
 use rusty_s3::{Bucket, Credentials, S3Action, UrlStyle};
@@ -82,6 +85,30 @@ enum Command {
         /// The manifest.
         manifest: PathBuf,
     },
+    /// Write the abuse blocklist for the feed: the distribution's list with a version of now and the builds admins confirmed.
+    Blocklist {
+        /// The distribution's list, which every other entry comes from.
+        #[arg(long, default_value = "agent/distro/blocklist.json")]
+        base: PathBuf,
+        /// The builds to add, as the control plane's `export-blocklist-additions` prints them: a JSON array of
+        /// `{sha256, name, kind, item}`.
+        #[arg(long)]
+        additions: Option<PathBuf>,
+        /// The version: when it was issued, like 2026-10-25T09:30:00Z. Now, unless a test says.
+        #[arg(long)]
+        version: Option<String>,
+        /// Where to write it.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Check a blocklist and its `.sig` against a public key, as the agent will.
+    VerifyBlocklist {
+        /// The public key file.
+        #[arg(long)]
+        public: PathBuf,
+        /// The blocklist.
+        blocklist: PathBuf,
+    },
     /// Put files in the release bucket, with keys from `IDLEO_RELEASE_S3_ACCESS_KEY_ID` and
     /// `IDLEO_RELEASE_S3_SECRET_ACCESS_KEY`.
     Upload {
@@ -117,6 +144,10 @@ fn main() -> ExitCode {
             }
             Command::Sign { key, manifest } => sign(&key, &manifest),
             Command::Verify { public, manifest } => verify(&public, &manifest),
+            Command::Blocklist { base, additions, version, out } => {
+                write_blocklist(&base, additions.as_deref(), version.as_deref(), &out)
+            }
+            Command::VerifyBlocklist { public, blocklist } => verify_blocklist(&public, &blocklist),
             Command::Upload { endpoint, bucket, region, create_bucket, files } => {
                 upload(&endpoint, &bucket, &region, create_bucket, &files).await
             }
@@ -243,6 +274,40 @@ fn verify(public: &Path, manifest_path: &Path) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
     let verified = manifest::verify(&bytes, &signature, &key).map_err(|e| e.to_string())?;
     println!("{} {} verifies ({}% rollout).", manifest_path.display(), verified.version, verified.rollout_percent);
+    Ok(())
+}
+
+/// Writes the blocklist for the feed ([`blocklist::merge`]).
+fn write_blocklist(base: &Path, additions: Option<&Path>, version: Option<&str>, out: &Path) -> Result<(), String> {
+    let version = match version {
+        Some(version) => version.to_owned(),
+        None => OffsetDateTime::now_utc()
+            .replace_nanosecond(0)
+            .map_err(|e| e.to_string())?
+            .format(&time::format_description::well_known::Rfc3339)
+            .map_err(|e| e.to_string())?,
+    };
+    let base_bytes = std::fs::read(base).map_err(|e| format!("{}: {e}", base.display()))?;
+    let added =
+        additions.map(|path| std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))).transpose()?;
+    let text = blocklist::merge(&base_bytes, added.as_deref(), &version)?;
+    std::fs::write(out, text).map_err(|e| format!("{}: {e}", out.display()))?;
+    println!("Wrote {} as version {version}.", out.display());
+    Ok(())
+}
+
+fn verify_blocklist(public: &Path, blocklist_path: &Path) -> Result<(), String> {
+    let key = STANDARD
+        .decode(std::fs::read_to_string(public).map_err(|e| format!("{}: {e}", public.display()))?.trim())
+        .map_err(|_| "the public key isn't base64".to_owned())?;
+    let key: [u8; 32] = key.try_into().map_err(|_| "the public key isn't 32 bytes".to_owned())?;
+    let bytes = std::fs::read(blocklist_path).map_err(|e| format!("{}: {e}", blocklist_path.display()))?;
+    let signature = manifest::decode_signature(
+        &std::fs::read_to_string(sig_path(blocklist_path)).map_err(|e| format!("the signature: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    let version = blocklist::verify(&bytes, &signature, &key).map_err(|e| e.to_string())?;
+    println!("{} {version} verifies.", blocklist_path.display());
     Ok(())
 }
 

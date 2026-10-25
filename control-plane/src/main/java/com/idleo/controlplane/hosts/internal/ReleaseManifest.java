@@ -63,11 +63,12 @@ record ReleaseManifest(
     private static final byte[] ED25519_SPKI_PREFIX = HexFormat.of().parseHex("302a300506032b6570032100");
 
     /**
-     * Verifies {@code signature} over {@code bytes} with {@code publicKey}, then reads and checks the fields.
+     * Checks that {@code signature} (the raw 64 bytes) is the release key's Ed25519 signature over exactly {@code bytes}: the
+     * one check behind the manifest and the abuse blocklist, which are signed the same way (ADR 0034).
      *
-     * @throws Rejected if the signature doesn't verify or a field is missing or out of range
+     * @throws Rejected if it doesn't verify
      */
-    static ReleaseManifest verify(byte[] bytes, byte[] signature, PublicKey publicKey) throws Rejected {
+    static void verifySignature(byte[] bytes, byte[] signature, PublicKey publicKey) throws Rejected {
         try {
             var verifier = Signature.getInstance("Ed25519");
             verifier.initVerify(publicKey);
@@ -78,6 +79,15 @@ record ReleaseManifest(
         } catch (GeneralSecurityException e) {
             throw new Rejected("the signature couldn't be checked: " + e.getMessage());
         }
+    }
+
+    /**
+     * Verifies {@code signature} over {@code bytes} with {@code publicKey}, then reads and checks the fields.
+     *
+     * @throws Rejected if the signature doesn't verify or a field is missing or out of range
+     */
+    static ReleaseManifest verify(byte[] bytes, byte[] signature, PublicKey publicKey) throws Rejected {
+        verifySignature(bytes, signature, publicKey);
         JsonNode root;
         try {
             root = JSON.readTree(bytes);

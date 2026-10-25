@@ -131,14 +131,52 @@ class AdminAbuseController {
         }
     }
 
+    /**
+     * Adding a program's build to the blocklist from a confirmed item: {@code sha256} is one this item's flagged program
+     * showed, {@code kind} what it is for.
+     */
+    record BlocklistAdd(
+            @NotBlank @Size(min = 64, max = 64) @Schema(description = "64 lower-case hex digits")
+            String sha256,
+
+            @NotBlank @Schema(allowableValues = {"miner", "password_cracker"})
+            String kind,
+
+            @NotBlank @Size(min = 5, max = 500) @NoContactDetails
+            String reason) {
+
+        BlocklistAdd {
+            reason = reason == null ? null : reason.strip();
+        }
+    }
+
+    /** A build waiting to go on the signed blocklist, and whether the published list names it yet. */
+    record BlocklistAddition(
+            UUID id,
+            UUID itemId,
+            String sha256,
+            String name,
+
+            @Schema(allowableValues = {"miner", "password_cracker"})
+            String kind,
+
+            String reason,
+            UUID addedBy,
+            Instant createdAt,
+            boolean published) {}
+
+    record BlocklistAdditionList(List<BlocklistAddition> additions) {}
+
     private final AbuseReviews reviews;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
+    private final LearnedBuilds blocklist;
 
-    AdminAbuseController(AbuseReviews reviews, AuditTrail audit, JdbcClient jdbc) {
+    AdminAbuseController(AbuseReviews reviews, AuditTrail audit, JdbcClient jdbc, LearnedBuilds blocklist) {
         this.reviews = reviews;
         this.audit = audit;
         this.jdbc = jdbc;
+        this.blocklist = blocklist;
     }
 
     /** {@code state} is {@code open} (the default), {@code confirmed}, {@code cleared} or {@code all}; oldest first. */
@@ -244,6 +282,65 @@ class AdminAbuseController {
             @Valid @RequestBody AdminReason request) {
         settled(reviews.clear(id, request.reason(), audit.admin(admin)));
         return get(id);
+    }
+
+    /**
+     * Adds the build of a program this confirmed item flagged to the blocklist, with the admin's reason, audited. The
+     * signed file is made offline with the release key ({@code scripts/release/blocklist.sh}); until it is published the
+     * build shows as waiting. 409 {@code action-refused} unless the item is confirmed and this build is one it saw.
+     */
+    @PostMapping("/{id}/blocklist")
+    BlocklistAdditionList addToBlocklist(
+            @AuthenticationPrincipal CurrentUser admin,
+            @PathVariable UUID id,
+            @Valid @RequestBody BlocklistAdd request) {
+        if (!request.sha256().matches("[0-9a-f]{64}")) {
+            throw ApiProblem.invalid("sha256", "must be 64 lower-case hex digits.");
+        }
+        if (!List.of("miner", "password_cracker").contains(request.kind())) {
+            throw ApiProblem.invalid("kind", "must be miner or password_cracker.");
+        }
+        switch (blocklist.add(id, request.sha256(), request.kind(), request.reason(), audit.admin(admin), admin.id())) {
+            case LearnedBuilds.Result.Done _ -> {
+                // Listed with the rest.
+            }
+            case LearnedBuilds.Result.NotFound _ -> throw notFound();
+            case LearnedBuilds.Result.Refused refused -> throw ApiProblem.of(Problem.ACTION_REFUSED, refused.why());
+        }
+        return additions();
+    }
+
+    /** Every build waiting to go on the blocklist, newest first, and whether the published list names it. */
+    @GetMapping("/blocklist-additions")
+    BlocklistAdditionList additions() {
+        return new BlocklistAdditionList(blocklist.list().stream()
+                .map(addition -> new BlocklistAddition(
+                        addition.id(),
+                        addition.itemId(),
+                        addition.sha256(),
+                        addition.name(),
+                        addition.kind(),
+                        addition.reason(),
+                        addition.addedBy(),
+                        addition.createdAt(),
+                        addition.published()))
+                .toList());
+    }
+
+    /** Takes a build back off: the next signed file leaves it out. Audited with the admin's reason. */
+    @PostMapping("/blocklist-additions/{additionId}/remove")
+    BlocklistAdditionList removeFromBlocklist(
+            @AuthenticationPrincipal CurrentUser admin,
+            @PathVariable UUID additionId,
+            @Valid @RequestBody AdminReason request) {
+        switch (blocklist.remove(additionId, request.reason(), audit.admin(admin))) {
+            case LearnedBuilds.Result.Done _ -> {
+                // Gone from the list.
+            }
+            case LearnedBuilds.Result.NotFound _ -> throw ApiProblem.of(Problem.NOT_FOUND, "There's no such entry.");
+            case LearnedBuilds.Result.Refused refused -> throw ApiProblem.of(Problem.ACTION_REFUSED, refused.why());
+        }
+        return additions();
     }
 
     /** Adds a note to the item. */

@@ -8,8 +8,10 @@
 //! - a lookup of a **mining pool's domain** (or any name below it) is answered `NXDOMAIN` and **flagged**; a second one in the
 //!   same session **stops** it.
 //!
-//! The list is one versioned data file in the repository, `agent/runner/abuse/blocklist.json`, each entry with its source,
-//! built into the runner so it ships with the distribution. A hash only catches a build that was never changed: anyone can
+//! The list is one versioned data file, `agent/distro/blocklist.json` in the repository, each entry with its source. A copy
+//! ships inside the distribution (`/usr/local/share/idleo/blocklist.json`), and a newer one arrives on its own, signed with
+//! the release key and handed over by the agent ([`crate::blocklist_store`]), so a wrong entry can be pulled within a day
+//! without a new distribution. A hash only catches a build that was never changed: anyone can
 //! recompile an open-source miner. That is why a name flags, why the DNS check exists, and why the behaviour reported every
 //! minute (`Event::Behavior`) reaches an admin who decides. A miner that uses DNS-over-HTTPS or a raw address on port 443 beats
 //! the DNS check too; the review queue is for what the rest cannot be sure of.
@@ -21,8 +23,9 @@ use std::collections::{HashMap, HashSet};
 use jobcore::protocol::AbuseKind;
 use serde::Deserialize;
 
-/// The list, as the repository keeps it.
-pub const BUILT_IN: &str = include_str!("../abuse/blocklist.json");
+/// The list, as the repository keeps it, for tests; a running runner reads the distribution's copy.
+#[cfg(test)]
+pub const BUILT_IN: &str = include_str!("../../distro/blocklist.json");
 
 /// What a listed program is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -43,6 +46,19 @@ struct File {
     names: Vec<NameEntry>,
     hashes: Vec<HashEntry>,
     pools: Vec<PoolEntry>,
+    /// Builds an admin confirmed as abuse from a review item (no public source, so no https address): the item is the source.
+    #[serde(default)]
+    learned: Vec<LearnedEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LearnedEntry {
+    sha256: String,
+    name: String,
+    kind: Kind,
+    /// The review item it was learned from.
+    item: String,
 }
 
 #[derive(Deserialize)]
@@ -78,6 +94,9 @@ pub enum Finding {
         name: String,
         /// What it is for.
         kind: Kind,
+        /// The executable's SHA-256 if it has been worked out, so an admin who confirms the session can add this build to
+        /// the list. It never changes the verdict: a name only tells.
+        sha256: Option<String>,
     },
     /// Its executable is a listed build: the session is stopped.
     Hash {
@@ -115,13 +134,20 @@ pub struct Blocklist {
 }
 
 impl Blocklist {
-    /// The list built into this runner.
+    /// The list in the repository.
     ///
     /// # Panics
-    /// Never in a release: a test parses it, so a malformed file doesn't build into a runner that would panic.
+    /// Never: a test parses it.
+    #[cfg(test)]
     #[must_use]
     pub fn built_in() -> Self {
         Self::parse(BUILT_IN).expect("the built-in blocklist is valid")
+    }
+
+    /// A list with nothing in it, which a runner holds only until it has loaded one (and says so: [`Self::version`] is empty).
+    #[must_use]
+    pub fn empty() -> Self {
+        Self { version: String::new(), names: HashMap::new(), hashes: HashMap::new(), pools: Vec::new() }
     }
 
     /// Parses a list, refusing what can't be matched safely or isn't sourced.
@@ -158,6 +184,29 @@ impl Blocklist {
                 return Err(format!("{}: every entry names its source, an https address", entry.name));
             }
             hashes.insert(entry.sha256, (entry.name, entry.kind));
+        }
+        for entry in file.learned {
+            let item_ok = !entry.item.is_empty()
+                && entry.item.len() <= 64
+                && entry.item.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-');
+            if entry.sha256.len() != 64
+                || !entry.sha256.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(format!("{}: a SHA-256 is 64 lower-case hex digits", entry.name));
+            }
+            if !item_ok || entry.name.is_empty() || entry.name.len() > 100 {
+                return Err(format!(
+                    "{:?}: a learned entry names the program and the review item it came from",
+                    entry.name
+                ));
+            }
+            hashes.insert(entry.sha256, (entry.name, entry.kind));
+        }
+        if file.version.is_empty()
+            || file.version.len() > 20
+            || !file.version.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'-' | b':' | b'T' | b'Z'))
+        {
+            return Err(format!("{:?} isn't a version (a date, or the time it was issued)", file.version));
         }
         let mut pools = Vec::new();
         for entry in file.pools {
@@ -238,7 +287,7 @@ impl Blocklist {
             // `comm` is cut to 15 characters; a name is listed as it fits there.
             let candidate: String = candidate.chars().take(15).collect();
             if let Some(kind) = self.names.get(&candidate) {
-                return Some(Finding::Name { name: candidate, kind: *kind });
+                return Some(Finding::Name { name: candidate, kind: *kind, sha256: process.sha256.clone() });
             }
         }
         None
@@ -263,7 +312,7 @@ pub struct Report {
     pub kind: AbuseKind,
     /// The process's name or the pool's domain.
     pub detail: String,
-    /// The executable's SHA-256, for a hash.
+    /// The executable's SHA-256, for a hash, and for a name when it could be read.
     pub sha256: String,
     /// Dropped connections in all, for [`AbuseKind::ConnectionDrops`].
     pub count: u64,
@@ -286,12 +335,12 @@ impl Judge {
     /// A process matched the list.
     pub fn process(&mut self, finding: &Finding) -> Verdict {
         match finding {
-            Finding::Name { name, .. } => {
+            Finding::Name { name, sha256, .. } => {
                 if self.told.insert(format!("name:{name}")) {
                     Verdict::Flag(Report {
                         kind: AbuseKind::ProcessName,
                         detail: name.clone(),
-                        sha256: String::new(),
+                        sha256: sha256.clone().unwrap_or_default(),
                         count: 0,
                     })
                 } else {
@@ -340,7 +389,7 @@ mod tests {
     use super::*;
 
     fn name_finding(name: &str) -> Finding {
-        Finding::Name { name: name.to_owned(), kind: Kind::Miner }
+        Finding::Name { name: name.to_owned(), kind: Kind::Miner, sha256: None }
     }
 
     #[test]
@@ -410,6 +459,61 @@ mod tests {
     }
 
     #[test]
+    fn a_name_that_tells_carries_the_build_it_found_so_an_admin_can_list_it() {
+        let mut judge = Judge::default();
+        let found = Finding::Name { name: "totallyfine".to_owned(), kind: Kind::Miner, sha256: Some("e".repeat(64)) };
+        match judge.process(&found) {
+            Verdict::Flag(report) => {
+                assert_eq!((report.kind, report.detail.as_str()), (AbuseKind::ProcessName, "totallyfine"));
+                assert_eq!(report.sha256, "e".repeat(64));
+            }
+            other => panic!("{other:?}"),
+        }
+        let unread = Finding::Name { name: "xmrig".to_owned(), kind: Kind::Miner, sha256: None };
+        assert!(matches!(judge.process(&unread), Verdict::Flag(Report { sha256, .. }) if sha256.is_empty()));
+    }
+
+    fn list_with(extra: &str) -> String {
+        format!(r#"{{"version":"2026-10-25T09:30:00Z","names":[],"hashes":[],"pools":[]{extra}}}"#)
+    }
+
+    #[test]
+    fn a_learned_build_stops_a_session_like_any_listed_hash_without_needing_a_public_source() {
+        let sha = "c".repeat(64);
+        let list = Blocklist::parse(&list_with(&format!(
+            r#","learned":[{{"sha256":"{sha}","name":"a renamed miner","kind":"miner","item":"01a1-0000-7000-8000-000000000001"}}]"#
+        )))
+        .unwrap();
+        assert!(list.has_hashes());
+        assert!(matches!(
+            list.check(&process("python3", "python3", Some(&sha))),
+            Some(Finding::Hash { name, .. }) if name == "a renamed miner"
+        ));
+    }
+
+    #[test]
+    fn a_learned_entry_must_be_a_hash_with_a_name_and_the_item_it_came_from() {
+        for bad in [
+            r#"{"sha256":"abc","name":"x","kind":"miner","item":"01a1"}"#,
+            r#"{"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","name":"","kind":"miner","item":"01a1"}"#,
+            r#"{"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","name":"x","kind":"miner","item":""}"#,
+            r#"{"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","name":"x","kind":"miner","item":"not an id!"}"#,
+        ] {
+            assert!(Blocklist::parse(&list_with(&format!(r#","learned":[{bad}]"#))).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_list_needs_a_version_that_is_a_date_or_the_time_it_was_issued() {
+        for bad in ["", "soon", "2026/10/25", "2026-10-25 09:30:00", "2026-10-25T09:30:00+05:30"] {
+            let text = format!(r#"{{"version":"{bad}","names":[],"hashes":[],"pools":[]}}"#);
+            assert!(Blocklist::parse(&text).is_err(), "{bad:?}");
+        }
+        assert!(Blocklist::parse(&list_with("")).is_ok());
+        assert_eq!(Blocklist::empty().version(), "", "a list not loaded yet says so");
+    }
+
+    #[test]
     fn the_list_in_the_repository_is_valid_sourced_and_versioned() {
         let list = Blocklist::built_in();
         let (names, hashes, pools) = list.counts();
@@ -441,7 +545,7 @@ mod tests {
     fn a_listed_build_is_found_by_its_hash_whatever_it_is_called() {
         let hash = "a".repeat(64);
         let json = format!(
-            r#"{{"version":"t","names":[],"hashes":[{{"sha256":"{hash}","name":"xmrig 6.21","kind":"miner","source":"https://example.invalid/release"}}],"pools":[]}}"#
+            r#"{{"version":"2026-10-22","names":[],"hashes":[{{"sha256":"{hash}","name":"xmrig 6.21","kind":"miner","source":"https://example.invalid/release"}}],"pools":[]}}"#
         );
         let list = Blocklist::parse(&json).unwrap();
         assert!(list.has_hashes());
@@ -471,7 +575,7 @@ mod tests {
 
     #[test]
     fn a_bad_entry_is_refused_rather_than_matching_wrongly() {
-        let with = |entry: &str| format!(r#"{{"version":"t","names":[{entry}],"hashes":[],"pools":[]}}"#);
+        let with = |entry: &str| format!(r#"{{"version":"2026-10-22","names":[{entry}],"hashes":[],"pools":[]}}"#);
         assert!(
             Blocklist::parse(&with(r#"{"name":"xmrig","kind":"miner","source":"https://example.invalid/x"}"#)).is_ok()
         );
@@ -487,13 +591,13 @@ mod tests {
         }
         let hash = |sha: &str| {
             format!(
-                r#"{{"version":"t","names":[],"hashes":[{{"sha256":"{sha}","name":"x","kind":"miner","source":"https://example.invalid/x"}}],"pools":[]}}"#
+                r#"{{"version":"2026-10-22","names":[],"hashes":[{{"sha256":"{sha}","name":"x","kind":"miner","source":"https://example.invalid/x"}}],"pools":[]}}"#
             )
         };
         assert!(Blocklist::parse(&hash(&"a".repeat(63))).is_err() && Blocklist::parse(&hash(&"A".repeat(64))).is_err());
         let pool = |domain: &str| {
             format!(
-                r#"{{"version":"t","names":[],"hashes":[],"pools":[{{"domain":"{domain}","source":"https://example.invalid/x"}}]}}"#
+                r#"{{"version":"2026-10-22","names":[],"hashes":[],"pools":[{{"domain":"{domain}","source":"https://example.invalid/x"}}]}}"#
             )
         };
         assert!(Blocklist::parse(&pool("nanopool.org")).is_ok());

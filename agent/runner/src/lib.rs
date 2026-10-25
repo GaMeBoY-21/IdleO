@@ -11,6 +11,7 @@
 
 pub mod abuse;
 pub mod attach;
+pub mod blocklist_store;
 pub mod container;
 pub mod crypto;
 pub mod dns;

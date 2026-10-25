@@ -27,6 +27,7 @@ use tokio::process::Command;
 use tokio::sync::{mpsc, watch};
 
 use crate::abuse::{Blocklist, ProcessSeen};
+use crate::blocklist_store::BlocklistStore;
 use crate::container::{self, NAMESPACE, Plan};
 use crate::crypto;
 use crate::dns::{Forwarder, PoolLookup};
@@ -83,6 +84,10 @@ pub struct Paths {
     pub nerdctl_data: PathBuf,
     /// Where device-mapper's devices are, to find an encrypted volume a crashed runner left open.
     pub mapper: PathBuf,
+    /// The abuse blocklist the agent last handed over, kept across restarts.
+    pub blocklist_saved: PathBuf,
+    /// The abuse blocklist that ships in the distribution.
+    pub blocklist_distro: PathBuf,
 }
 
 impl Default for Paths {
@@ -94,6 +99,8 @@ impl Default for Paths {
             content: PathBuf::from("/var/lib/containerd/io.containerd.content.v1.content"),
             nerdctl_data: PathBuf::from("/var/lib/nerdctl"),
             mapper: PathBuf::from("/dev/mapper"),
+            blocklist_saved: PathBuf::from("/var/lib/idleo/blocklist/current.json"),
+            blocklist_distro: PathBuf::from(crate::blocklist_store::DISTRO_COPY),
         }
     }
 }
@@ -114,6 +121,8 @@ pub struct Nerdctl {
     held_scratch: Arc<Mutex<HashSet<String>>>,
     /// Whether this kernel can encrypt a scratch disk, found once by making a small encrypted volume (ADR 0038).
     encryption: tokio::sync::OnceCell<Result<(), String>>,
+    /// The abuse blocklist in use and its last good copy (ADR 0038): [`Nerdctl::load_blocklist`] loads it at start.
+    blocklist: BlocklistStore,
 }
 
 struct Finished {
@@ -187,6 +196,7 @@ impl Nerdctl {
     #[must_use]
     pub fn new(paths: Paths) -> Self {
         Self {
+            blocklist: BlocklistStore::new(paths.blocklist_saved.clone(), paths.blocklist_distro.clone()),
             paths,
             slots: Arc::default(),
             ooms: Arc::default(),
@@ -195,6 +205,15 @@ impl Nerdctl {
             held_scratch: Arc::default(),
             encryption: tokio::sync::OnceCell::new(),
         }
+    }
+
+    /// Loads the abuse blocklist (ADR 0038): the newer of the distribution's copy and the last good one handed over. Without
+    /// one the runner doesn't serve, rather than judge sessions by nothing.
+    ///
+    /// # Errors
+    /// If there is no list to load.
+    pub fn load_blocklist(&self) -> Result<String, String> {
+        self.blocklist.load()
     }
 
     /// Whether this is a development distribution.
@@ -754,6 +773,7 @@ impl Machine for Nerdctl {
                 rules_loaded: self.sandbox_ready().await.is_ok(),
                 scratch_free_bytes: Self::free_bytes(&self.paths.state),
                 development: Self::development(),
+                blocklist_version: self.blocklist.get().version().to_owned(),
             }
         })
     }
@@ -933,13 +953,17 @@ impl Machine for Nerdctl {
 
     fn abuse_blocklist(&self) -> Arc<Blocklist> {
         // A development distribution's marker may add test entries (read each time, so a test can change them); a release
-        // distribution has no marker and so only the list built into the runner.
+        // distribution has no marker and so only the list in use.
         let marker = if Self::development() {
             std::fs::read_to_string(DEVELOPMENT_MARKER).unwrap_or_default()
         } else {
             String::new()
         };
-        Arc::new(Blocklist::built_in().with_test_entries(&marker))
+        Arc::new(self.blocklist.get().as_ref().clone().with_test_entries(&marker))
+    }
+
+    fn set_blocklist(&self, file: &str) -> Result<String, String> {
+        self.blocklist.update(file)
     }
 
     fn clean_up_leftovers(&self) -> Fut<'_, ()> {
@@ -1137,6 +1161,10 @@ impl Container for NerdctlContainer {
             }
             seen
         })
+    }
+
+    fn hash_of(&self, pid: u32) -> Fut<'_, Option<String>> {
+        Box::pin(self.executable_hash(pid))
     }
 
     fn take_lookups(&self) -> Option<mpsc::UnboundedReceiver<PoolLookup>> {

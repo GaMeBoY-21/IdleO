@@ -82,3 +82,40 @@ was compiled into the runner, so a wrong entry could only leave with a new distr
   and the owner's line for a minute. Only the control plane stops it overlapping a session; the agent also refuses
   when one runs, but an offer accepted during a run is not declined. Open question: whether the agent should decline
   offers while a requested self-test runs.
+
+## The blocklist as a signed file of its own, and a hold on payouts
+
+### The blocklist
+
+- **Its own signed file.** `agent/distro/blocklist.json` is still the one source, but it is no longer compiled into the
+  runner. A copy ships in every distribution (`/usr/local/share/idleo/blocklist.json`), and a newer one is published as
+  `stable/blocklist.json` and `.sig` in the release bucket, signed with the same Ed25519 key and flow as the app's manifest
+  (ADR 0034) and with a version of its own: when it was issued (`2026-10-25T09:30:00Z`; the distribution's copy carries a
+  plain date). Both sort as text, so "newer" is a string comparison in the agent, the runner and the control plane.
+- **Delivery over the stream, not polling.** The control plane's release feed reads the file with the manifest, serves it
+  only if the signature verifies and it is not older than the cached one, and sends `UpdateBlocklist` to an agent whose
+  `Hello.blocklist_version` is older after Welcome, and to connected agents when it caches a newer one. The agent trusts it
+  only if it verifies against the release key built into it and is newer than the one it holds, keeps it, and hands it to its
+  runner over the runner protocol (`Request::Blocklist`) whenever the runner has an older one; the runner keeps the last
+  good copy and falls back to the distribution's. A bad entry is therefore pulled within the feed's refresh (minutes) for
+  connected agents and at the next connection for the rest, which is faster than the day the plan asked for. The agent does
+  not poll over HTTP: it would need the control plane's REST address in its config, and the stream already reaches it.
+- **Never silently weaker.** A runner with neither copy does not serve; its self-test fails (`abuse_blocklist`). A list that
+  does not parse, or is not newer, is refused and the one in use stays.
+- **Learning.** The runner hashes the executable of a program whose *name* is listed, and the signal carries the hash. A name
+  still only flags. When an admin confirms the review, "Add this program's hash to the blocklist" records the build, with a
+  kind and the admin's reason, audited, in `trust.blocklist_additions`. The control plane never holds the signing key, so
+  `export-blocklist-additions` prints the builds, `scripts/release/blocklist.sh` merges them into the file as `learned`
+  entries (the review item is their source, not an https address), signs and publishes it, and the screen shows a build as
+  published once the feed names it. "Take back" leaves a build out of the next file.
+
+### Payouts
+
+- **Held for host misconduct.** The admin chooses a cause when suspending (`host_misconduct` or `other`, stored in
+  `identity.users.suspension_cause` and in the audit row). For `host_misconduct` no payout is made until the suspension is
+  lifted: the weekly run, Run now, a retry and the final payout before a deletion all pass over the account, and the earnings
+  wait in full. Any other suspension, and a hold by the abuse watch, leaves payouts as they were.
+- **The restore drill makes real payout activity** before its backup (a payout paid, one failed and returned, a refund after a
+  payout that becomes a clawback) and fails if the restored database lacks it, so `verify-ledger.sh`'s payout rules run on
+  real rows.
+- **A Money dashboard** in Grafana (`ops/grafana/dashboards/idleo-money.json`).

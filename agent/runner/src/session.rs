@@ -444,6 +444,10 @@ impl Registry {
             Request::SelfCheck { cuda_image, quick } => {
                 Outcome::Ok(Answer::SelfCheck { checks: self.self_check(cuda_image.as_deref(), quick).await })
             }
+            Request::Blocklist { file } => match self.machine.set_blocklist(&file) {
+                Ok(version) => Outcome::Ok(Answer::Blocklist { version }),
+                Err(why) => Outcome::Err(Failure::new(code::BAD_REQUEST, why)),
+            },
         }
     }
 
@@ -660,10 +664,11 @@ impl Registry {
         let mut killed = false;
         // What the runner looks for while the job runs (ADR 0038): listed software among its processes, and lookups of a
         // mining pool; and, every minute, what it did, for an admin who has to decide what the rest cannot.
-        let blocklist = self.machine.abuse_blocklist();
         let mut lookups = container.take_lookups();
         let mut judge = abuse::Judge::default();
         let mut seen_processes: HashSet<(u32, u64)> = HashSet::new();
+        // The version of the list the processes seen so far were judged by: a newer list judges them all again.
+        let mut judged_by = String::new();
         let mut look = tokio::time::interval(self.tick * 2);
         let mut minute = tokio::time::interval(self.tick * 60);
         minute.tick().await;
@@ -673,14 +678,25 @@ impl Registry {
             tokio::select! {
                 exited = &mut exit => break exited,
                 _ = look.tick(), if !killed => {
+                    // The newest list each time, so an entry that arrives while a session runs is looked for in it too.
+                    let blocklist = self.machine.abuse_blocklist();
+                    if blocklist.version() != judged_by {
+                        judged_by = blocklist.version().to_owned();
+                        seen_processes.clear();
+                    }
                     for process in container.processes(blocklist.has_hashes()).await {
                         if seen_processes.insert((process.pid, process.started))
-                            && let Some(finding) = blocklist.check(&process)
-                            && Self::act(&judge.process(&finding), emitter, log)
+                            && let Some(mut finding) = blocklist.check(&process)
                         {
-                            cause = Some(Interrupt::Abuse);
-                            container.signal("KILL").await;
-                            killed = true;
+                            // A listed name only tells, but carries the build, so an admin can list it if they confirm.
+                            if let abuse::Finding::Name { sha256: build @ None, .. } = &mut finding {
+                                *build = container.hash_of(process.pid).await;
+                            }
+                            if Self::act(&judge.process(&finding), emitter, log) {
+                                cause = Some(Interrupt::Abuse);
+                                container.signal("KILL").await;
+                                killed = true;
+                            }
                         }
                     }
                 }

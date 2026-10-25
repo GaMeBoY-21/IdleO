@@ -64,10 +64,33 @@ honest, say): clear every item it stopped (that reinstates each account and refu
 
 ## Changing the blocklist
 
-The list is data: `agent/runner/abuse/blocklist.json`, with its `version`. Each entry names its **source**: a program or a
-pool's own site or release page. It is read into the runner when it is built, so a new list is a **new distribution**
-(`agent/distro/VERSION`), delivered like any release (the manifest's `distro`, ADR 0034). A laptop uses the list of the
-distribution it runs.
+The list is data: `agent/distro/blocklist.json`, with its `version`. Each entry names its **source**: a program or a
+pool's own site or release page. A copy ships inside every distribution (`/usr/local/share/idleo/blocklist.json`), and a
+**newer one is published on its own**, signed with the release key like the app's manifest (ADR 0034, ADR 0041), as
+`stable/blocklist.json` and `stable/blocklist.json.sig` in the release bucket. The control plane reads that file every few
+minutes, serves it only if its signature verifies and it isn't older than the one it holds, and sends it over each agent's
+stream (when the agent connects, and to connected agents when it is newer); the agent uses it only if it verifies against
+the release key built into it, and hands it to its runner, which keeps the last good copy and judges sessions by the
+newest it has, a program that is already running included. So **a bad entry is pulled within minutes of publishing, with no
+new distribution**; a laptop that was off gets the list when it next connects. A version is when the list was issued
+(`2026-10-25T09:30:00Z`; the copy in a distribution carries a plain date).
+
+**Publishing.** `scripts/release/blocklist.sh` (`--dev` for the local stack) merges `agent/distro/blocklist.json` with the
+builds admins have confirmed (below), gives the result the version of now, signs it with `idleo-release sign` (the
+production key at `$IDLEO_RELEASE_KEY`, which only that command reads), checks it as an agent will
+(`idleo-release verify-blocklist`) and uploads both files. To **pull an entry**, take it out of
+`agent/distro/blocklist.json` (or, for a learned build, take it back in the admin console's Abuse screen), and run the
+script again: the new list is newer, so every agent takes it. Edit the file in the repository too, so the next
+distribution carries the same list.
+
+**Learning a build.** The runner works out the executable's SHA-256 for a program whose *name* is listed, and sends it with
+the flag (a name still only tells; it never stops a session). When an admin **confirms** the review, the Abuse screen
+offers "Add this program's hash to the blocklist" for each such build: a kind (miner or password cracker) and a reason,
+audited (`abuse.add_to_blocklist`). The build then shows under "Blocklist additions" as waiting. `export-blocklist-additions`
+(an operator command, run like the others: docs/runbooks/granting-credits.md shows how) prints the array that `scripts/release/blocklist.sh --additions`
+reads; once the published list names a build, the screen says so. "Take back" (audited, `abuse.remove_from_blocklist`)
+leaves a build out of the next file. A learned entry has no public source: the review item it came from is its source,
+and the runner stops a session whose program has exactly that build, whatever it is called.
 
 1. **Names and pool domains.** Edit the file: add `{ "name": "…", "kind": "miner" | "password_cracker", "source": "https://…" }` or
    `{ "domain": "…", "source": "https://…" }`. A name is lower-case, at most 15 characters (what Linux keeps of a program's name), and matched against a running program's name; a domain matches itself and
@@ -79,10 +102,11 @@ distribution it runs.
    (the `source` must be an https address; a hash is 64 lower-case hex digits).
    Do it on a machine that isn't a laptop that hosts. As of 2026-10-22 the list has **no hashes**: nothing stops on a hash
    alone until someone fills them in.
-3. Bump `version`, then run `cargo test -p runner abuse` from `agent/` (the file must parse, every entry needs a source, and a
-   release distribution takes no test entries).
-4. Build and ship a distribution: `scripts/build-distro.sh`, then a release (`scripts/release/publish.sh`), with a small
-   rollout first. Watch **Abuse** and the `AbuseStops` alert for honest renters being stopped; if one is, clear it and pull the entry.
+3. Bump `version` (a date), then run `cargo test -p runner abuse` from `agent/` (the file must parse, every entry needs a
+   source, and a release distribution takes no test entries).
+4. Publish it: `scripts/release/blocklist.sh`. Watch **Abuse** and the `AbuseStops` alert for honest renters being stopped; if
+   one is, clear it, pull the entry and publish again. The next distribution (`scripts/build-distro.sh`, then
+   `scripts/release/publish.sh`) carries the same file.
 
 ## Testing it yourself
 

@@ -43,7 +43,7 @@ message OpenStreamRequest {
     // One minute of usage. Acked.
     UsageReport usage_report = 14;
     // Acknowledges a StartSession, StopSession, UpdateAgent,
-    // RefreshCredentials, HostStatus or RunSelfTest.
+    // RefreshCredentials, HostStatus, RunSelfTest or UpdateBlocklist.
     Ack ack = 15;
     // The agent's self-test results. Acked.
     SelfTestReport self_test_report = 16;
@@ -98,6 +98,8 @@ message OpenStreamResponse {
     SpeedTestGrant speed_test_grant = 19;
     // Run the full self-test now. Acked.
     RunSelfTest run_self_test = 20;
+    // A newer abuse blocklist, signed with the release key. Acked.
+    UpdateBlocklist update_blocklist = 21;
   }
 }
 
@@ -121,6 +123,10 @@ message Hello {
   // host's room from the moment it connects. Absent when the agent couldn't
   // read it.
   optional int32 free_disk_mb = 6;
+  // The version of the abuse blocklist the agent's job runner is using, so the
+  // control plane sends a newer one only. Empty when the agent has no runner
+  // yet, and from agents older than this field.
+  string blocklist_version = 7;
 }
 
 // Rules the control plane sets for this agent.
@@ -205,6 +211,26 @@ message UpdateAgent {
   // manifest's size and SHA-256 are the check.
   // Empty is invalid; the receiver rejects the message.
   string distro_url = 8;
+}
+
+// Control plane to agent: a newer abuse blocklist (ADR 0038), as its own signed
+// file in the release feed, so a wrong entry can be pulled within a day without
+// a new distribution. Acked when received. Sent once per connection when the
+// agent's Hello says it has an older one, and to connected agents when the
+// control plane reads a newer one from the feed. The agent uses it only if the
+// signature verifies against the release key built into it and its version is
+// newer than the one its runner holds; the runner keeps the last good copy.
+message UpdateBlocklist {
+  // The list's version: a date, or the time it was issued, like
+  // "2026-10-25T09:30:00Z". Mirrors the file's.
+  // Empty is invalid; the receiver rejects the message.
+  string version = 1;
+  // The list, JSON, exactly as signed.
+  // Empty is invalid; the receiver rejects the message.
+  bytes blocklist = 2;
+  // The Ed25519 signature over `blocklist`.
+  // Empty is invalid; the receiver rejects the message.
+  bytes signature = 3;
 }
 
 // Asks for a fresh client certificate.

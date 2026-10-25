@@ -598,4 +598,175 @@ class AbuseReviewTests {
                 .as("a minute's numbers are kept 90 days")
                 .isZero();
     }
+
+    // ---- Learning a build from a confirmed item (ADR 0038, ADR 0041) ----
+
+    private static final String BUILD = "b".repeat(64);
+
+    @Autowired
+    LearnedBuilds learned;
+
+    @Autowired
+    org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
+
+    @Autowired
+    TransactionTemplate txTemplate;
+
+    @Autowired
+    com.idleo.controlplane.identity.AuditTrail audit;
+
+    @Autowired
+    com.idleo.controlplane.IdGenerator ids;
+
+    /** A session whose runner flagged a program by name, and told which build it was. */
+    private UUID flagged(String name, String sha256) {
+        var session = runCode();
+        reviews.onAbuse(
+                hostId,
+                AbuseSignal.newBuilder()
+                        .setSessionId(session.toString())
+                        .setAttempt(1)
+                        .setKind(AbuseSignal.Kind.KIND_PROCESS_NAME)
+                        .setDetail(name)
+                        .setSha256(sha256)
+                        .build());
+        return itemOf(session);
+    }
+
+    private ResultActions addBuild(UUID item, String sha256, String kind, String reason) throws Exception {
+        return admin(
+                "blocklist",
+                item,
+                "{\"sha256\":\"%s\",\"kind\":\"%s\",\"reason\":\"%s\"}".formatted(sha256, kind, reason));
+    }
+
+    private void confirmed(UUID item) throws Exception {
+        admin("confirm", item, "{\"ban\":false,\"reason\":\"It really was a miner.\"}")
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void aFlaggedProgramsBuildCanBeAddedFromAConfirmedItemAndIsAuditedWithTheAdminsReason() throws Exception {
+        var item = flagged("renamedminer", BUILD);
+        confirmed(item);
+
+        addBuild(item, BUILD, "miner", "Seen mining on two hosts.")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.additions.length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.additions[?(@.sha256 == '" + BUILD + "')].name")
+                        .value("renamedminer"))
+                .andExpect(jsonPath("$.additions[?(@.sha256 == '" + BUILD + "')].published")
+                        .value(false));
+
+        assertThat(jdbc.queryForObject(
+                        "select reason from identity.audit_log where action = 'abuse.add_to_blocklist' and target_id = ?",
+                        String.class,
+                        item.toString()))
+                .isEqualTo("Seen mining on two hosts.");
+        assertThat(learned.export())
+                .anySatisfy(entry -> assertThat(entry)
+                        .containsEntry("sha256", BUILD)
+                        .containsEntry("name", "renamedminer")
+                        .containsEntry("kind", "miner")
+                        .containsEntry("item", item.toString()));
+        mvc.perform(admin.as(get("/admin/v1/abuse/blocklist-additions"))).andExpect(status().isOk());
+    }
+
+    @Test
+    void onlyAConfirmedItemAndOnlyABuildItSawCanBeAdded() throws Exception {
+        var item = flagged("someminer", "e".repeat(64));
+
+        // Not settled yet.
+        addBuild(item, "e".repeat(64), "miner", "Looks like one.")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("/problems/action-refused"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("confirmed")));
+        confirmed(item);
+        // A build the review never saw.
+        addBuild(item, "f".repeat(64), "miner", "A guess.").andExpect(status().isConflict());
+        // Invalid input.
+        addBuild(item, "not-a-hash", "miner", "A guess.").andExpect(status().isBadRequest());
+        addBuild(item, "e".repeat(64), "worm", "A guess.").andExpect(status().isBadRequest());
+        addBuild(item, "e".repeat(64), "miner", "no").andExpect(status().isBadRequest());
+        assertThat(learned.export()).noneSatisfy(entry -> assertThat(entry).containsEntry("sha256", "f".repeat(64)));
+    }
+
+    @Test
+    void aBuildAlreadyOnTheListOrAlreadyAddedIsRefused() throws Exception {
+        var session = runCode();
+        reviews.onAbuse(hostId, signal(session, AbuseSignal.Kind.KIND_PROCESS_HASH, "a listed build", true));
+        var stopped = itemOf(session);
+        // A listed build's own hash is already on the list.
+        jdbc.update(
+                "insert into trust.abuse_signals (id, item_id, kind, detail, sha256, count, stopped, at)"
+                        + " values (?, ?, 'process_name', 'x', ?, 0, false, now())",
+                UUID.randomUUID(),
+                stopped,
+                "a".repeat(64));
+        jdbc.update(
+                "update trust.abuse_signals set sha256 = ? where item_id = ? and kind = 'process_hash'",
+                "a".repeat(64),
+                stopped);
+        confirmed(stopped);
+        addBuild(stopped, "a".repeat(64), "miner", "Already there.")
+                .andExpect(status().isConflict())
+                .andExpect(
+                        jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("already on the blocklist")));
+
+        var item = flagged("twice", "9".repeat(64));
+        confirmed(item);
+        addBuild(item, "9".repeat(64), "miner", "First time.").andExpect(status().isOk());
+        addBuild(item, "9".repeat(64), "miner", "Second time.")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("already waiting")));
+    }
+
+    @Test
+    void takingABuildBackOffIsAuditedAndLeavesItOutOfWhatIsExported() throws Exception {
+        var item = flagged("wrongcall", "8".repeat(64));
+        confirmed(item);
+        addBuild(item, "8".repeat(64), "miner", "We thought so.").andExpect(status().isOk());
+        var addition = jdbc.queryForObject(
+                "select id from trust.blocklist_additions where sha256 = ?", UUID.class, "8".repeat(64));
+
+        mvc.perform(admin.as(body(
+                        post("/admin/v1/abuse/blocklist-additions/" + addition + "/remove"),
+                        "{\"reason\":\"It was a fine program.\"}")))
+                .andExpect(status().isOk());
+
+        assertThat(learned.export()).noneSatisfy(entry -> assertThat(entry).containsEntry("sha256", "8".repeat(64)));
+        assertThat(audited("abuse.remove_from_blocklist", item)).isOne();
+        mvc.perform(admin.as(body(
+                        post("/admin/v1/abuse/blocklist-additions/" + addition + "/remove"),
+                        "{\"reason\":\"Again, by mistake.\"}")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void aBuildShowsAsPublishedOnceTheSignedFileNamesIt() throws Exception {
+        var item = flagged("liveminer", "7".repeat(64));
+        confirmed(item);
+        addBuild(item, "7".repeat(64), "miner", "Seen twice.").andExpect(status().isOk());
+        assertThat(learned.list())
+                .filteredOn(a -> a.sha256().equals("7".repeat(64)))
+                .allMatch(a -> !a.published());
+
+        // The same service, reading a feed that now names the build (the application's own feed is left alone).
+        var feed = new com.idleo.controlplane.hosts.Blocklists() {
+            @Override
+            public java.util.Optional<Published> newerThan(String held) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.Set<String> learnedBuilds() {
+                return java.util.Set.of("7".repeat(64));
+            }
+        };
+        var reading = new LearnedBuilds(jdbcClient, txTemplate, reviews, audit, feed, ids, clock);
+
+        assertThat(reading.list())
+                .filteredOn(a -> a.sha256().equals("7".repeat(64)))
+                .allMatch(a -> a.published());
+    }
 }

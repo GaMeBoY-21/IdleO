@@ -90,6 +90,29 @@ public final class TestHosts {
         return open(TestAgent.enrol(mvc, grpcPort), grpcPort, "0.1.0", gpuUuids);
     }
 
+    /** Enrols a host whose agent's runner says it uses the abuse blocklist {@code blocklistVersion} (empty for none). */
+    public static ConnectedHost connectWithBlocklist(MockMvc mvc, int grpcPort, String blocklistVersion)
+            throws Exception {
+        var agent = TestAgent.enrol(mvc, grpcPort);
+        var channel = agent.channel(grpcPort);
+        var stream = TestAgent.open(channel);
+        stream.send(TestAgent.helloWithBlocklist(
+                gpu.agent.v1.Telemetry.OperatingSystem.OPERATING_SYSTEM_WINDOWS,
+                "0.1.0",
+                blocklistVersion,
+                TestAgent.GPU_A));
+        assertThat(stream.next(Duration.ofSeconds(5)).hasWelcome())
+                .as("Welcome")
+                .isTrue();
+        return new ConnectedHost(
+                agent,
+                stream,
+                channel,
+                Thread.ofVirtual().start(() -> {}),
+                new java.util.concurrent.atomic.AtomicInteger(TestAgent.FREE_DISK_MB),
+                new java.util.concurrent.atomic.AtomicReference<>(java.util.List.of()));
+    }
+
     /** Enrols a host whose agent says it runs {@code agentVersion}, and connects it with one GPU. */
     public static ConnectedHost connectAs(MockMvc mvc, int grpcPort, String agentVersion) throws Exception {
         return open(TestAgent.enrol(mvc, grpcPort), grpcPort, agentVersion);

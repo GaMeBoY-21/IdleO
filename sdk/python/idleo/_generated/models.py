@@ -592,6 +592,14 @@ class Loss(BaseModel):
     message: str
 
 
+class Lowers(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    count: int | None = None
+    kind: str
+
+
 class NewTicket(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -862,6 +870,9 @@ class Type(Enum):
     field_problems_host_busy = "/problems/host-busy"
     field_problems_host_removed = "/problems/host-removed"
     field_problems_host_no_gpu = "/problems/host-no-gpu"
+    field_problems_host_offline = "/problems/host-offline"
+    field_problems_self_test_running = "/problems/self-test-running"
+    field_problems_self_test_limit = "/problems/self-test-limit"
     field_problems_pause_too_long = "/problems/pause-too-long"
     field_problems_no_agent_release = "/problems/no-agent-release"
     field_problems_install_events_full = "/problems/install-events-full"
@@ -987,6 +998,14 @@ class ReleaseUrls(BaseModel):
     setup: str
 
 
+class Reliability(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    label: str
+    lowers: list[Lowers]
+
+
 class RenameRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1006,6 +1025,37 @@ class Reply(BaseModel):
         populate_by_name=True,
     )
     message: Annotated[str, Field(max_length=5000, min_length=0)]
+
+
+class SelfTestCheck(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    detail: str
+    name: str
+    passed: bool
+    took_ms: Annotated[int, Field(alias="tookMs")]
+
+
+class SelfTestRunView(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    by_admin: Annotated[bool, Field(alias="byAdmin")]
+    checks: list[SelfTestCheck]
+    finished_at: Annotated[AwareDatetime | None, Field(alias="finishedAt")] = None
+    id: UUID
+    refused: str | None = None
+    requested_at: Annotated[AwareDatetime, Field(alias="requestedAt")]
+    state: str
+
+
+class SelfTestWhyNot(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: str
+    message: str
 
 
 class Icon(Enum):
@@ -1595,6 +1645,7 @@ class HostResponse(BaseModel):
     paused: bool
     paused_until: Annotated[AwareDatetime | None, Field(alias="pausedUntil")] = None
     rating: Rating | None = None
+    reliability: Reliability
     status: str
     update_required: Annotated[bool, Field(alias="updateRequired")]
     update_waiting: Annotated[bool, Field(alias="updateWaiting")]
@@ -1716,6 +1767,18 @@ class RefundList(BaseModel):
     )
     refundable_paise: Annotated[int, Field(alias="refundablePaise")]
     requests: list[RefundView]
+
+
+class SelfTestStatus(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    can_run: Annotated[bool, Field(alias="canRun")]
+    per_day: Annotated[int, Field(alias="perDay")]
+    retry_at: Annotated[AwareDatetime | None, Field(alias="retryAt")] = None
+    run: SelfTestRunView | None = None
+    used_today: Annotated[int, Field(alias="usedToday")]
+    why_not: Annotated[SelfTestWhyNot | None, Field(alias="whyNot")] = None
 
 
 class SessionList(BaseModel):

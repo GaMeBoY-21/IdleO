@@ -47,6 +47,61 @@ paths:
         idToken: []
       tags:
       - adminAbuse
+  /admin/v1/abuse/blocklist-additions:
+    get:
+      operationId: adminAbuseAdditions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlocklistAdditionList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
+  /admin/v1/abuse/blocklist-additions/{additionId}/remove:
+    post:
+      operationId: adminAbuseRemoveFromBlocklist
+      parameters:
+      - in: path
+        name: additionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlocklistAdditionList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
   /admin/v1/abuse/{id}:
     get:
       operationId: adminAbuseGet
@@ -63,6 +118,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AbuseDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAbuse
+  /admin/v1/abuse/{id}/blocklist:
+    post:
+      operationId: adminAbuseAddToBlocklist
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlocklistAdd"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlocklistAdditionList"
           description: OK
         default:
           content:
@@ -2740,7 +2829,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminReason"
+              $ref: "#/components/schemas/SuspendRequest"
         required: true
       responses:
         "200":
@@ -8169,6 +8258,13 @@ components:
           format: date-time
         status:
           type: string
+        suspensionCause:
+          type:
+          - string
+          - "null"
+          enum:
+          - host_misconduct
+          - other
       required:
       - admin
       - apiKeys
@@ -8478,6 +8574,75 @@ components:
       required:
       - code
       - message
+    BlocklistAdd:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - miner
+          - password_cracker
+          minLength: 1
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        sha256:
+          type: string
+          description: 64 lower-case hex digits
+          maxLength: 64
+          minLength: 64
+      required:
+      - kind
+      - reason
+      - sha256
+    BlocklistAddition:
+      type: object
+      properties:
+        addedBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - miner
+          - password_cracker
+        name:
+          type: string
+        published:
+          type: boolean
+        reason:
+          type: string
+        sha256:
+          type: string
+      required:
+      - addedBy
+      - createdAt
+      - id
+      - itemId
+      - kind
+      - name
+      - published
+      - reason
+      - sha256
+    BlocklistAdditionList:
+      type: object
+      properties:
+        additions:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlocklistAddition"
+      required:
+      - additions
     CancelDeletion:
       type: object
       properties:
@@ -11424,6 +11589,22 @@ components:
             $ref: "#/components/schemas/SupportTicket"
       required:
       - tickets
+    SuspendRequest:
+      type: object
+      properties:
+        cause:
+          type:
+          - string
+          - "null"
+          enum:
+          - host_misconduct
+          - other
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - reason
     TdsExport:
       type: object
       properties:

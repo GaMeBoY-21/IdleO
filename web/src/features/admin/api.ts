@@ -72,6 +72,7 @@ export type AdminChargeback = Schemas["AdminChargeback"];
 export type AdminCreditRefund = Schemas["AdminCreditRefund"];
 export type AdminInvoice = Schemas["AdminInvoice"];
 export type AdminHostFlag = Schemas["AdminHostFlag"];
+export type BlocklistAddition = Schemas["BlocklistAddition"];
 export type AdminPayout = Schemas["AdminPayout"];
 export type AdminPayoutMismatch = Schemas["AdminPayoutMismatch"];
 export type AdminPanReview = Schemas["AdminPanReview"];

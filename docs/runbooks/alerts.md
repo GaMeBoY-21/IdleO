@@ -158,7 +158,7 @@ Two alerts share this section.
 
 **Means:** more than 3 sessions in an hour, across the fleet, were stopped by their host's runner for running software no renter may run on a host's GPU (ADR 0038): a build on the blocklist by its hash, or a second look-up of a mining pool's domain. Each one suspended its renter's account until an admin has looked at it. Many at once means an attack (someone with several accounts), or a bad entry on the blocklist stopping honest renters.
 
-**Check first:** the admin console's Abuse, open items, newest first. Which signals? One kind from many different renters and many different hosts points at an entry in `agent/runner/abuse/blocklist.json` (a domain that is not only a pool's, say). The same renter again and again, or one host's sessions only, points at a person or a machine. `trust_abuse_stops_total` by `kind` is on the Marketplace dashboard.
+**Check first:** the admin console's Abuse, open items, newest first. Which signals? One kind from many different renters and many different hosts points at an entry in `agent/distro/blocklist.json` (or a learned build) (a domain that is not only a pool's, say). The same renter again and again, or one host's sessions only, points at a person or a machine. `trust_abuse_stops_total` by `kind` is on the Marketplace dashboard.
 
 **Do:**
 - A bad entry: clear every item it stopped (that reinstates the account and refunds the session), then take the entry out and ship a new distribution (docs/runbooks/abuse.md, "Changing the blocklist"). Until the runner updates, the same stops go on happening on laptops that haven't.

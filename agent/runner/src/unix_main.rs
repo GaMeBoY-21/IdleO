@@ -64,6 +64,8 @@ fn development_localhost() -> Option<std::net::SocketAddr> {
 async fn serve() -> Result<(), String> {
     tracing_subscriber::fmt().with_writer(std::io::stderr).with_ansi(false).init();
     let machine = Arc::new(Nerdctl::new(Paths::default()));
+    let blocklist = machine.load_blocklist()?;
+    tracing::info!(%blocklist, "the abuse blocklist is loaded");
     machine.prepare_networks()?;
     machine.watch_oom_events();
     idleo_runner::machine::Machine::clean_up_leftovers(machine.as_ref()).await;

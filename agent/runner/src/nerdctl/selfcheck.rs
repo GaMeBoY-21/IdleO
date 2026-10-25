@@ -44,12 +44,32 @@ impl Nerdctl {
             self.encryption_check().await,
             self.scratch_check().await,
             self.leftovers_check().await,
+            self.blocklist_check(),
         ];
         if !quick {
             checks.push(self.network_check().await);
             checks.push(self.cuda_check(cuda_image).await);
         }
         checks
+    }
+
+    /// `abuse_blocklist` (ADR 0038): the runner has a list to judge sessions by. Without one it would judge them by nothing, so
+    /// it says so; it also reports the version, which is how a newer list is seen to have arrived.
+    fn blocklist_check(&self) -> Check {
+        let list = self.blocklist.get();
+        if list.version().is_empty() {
+            return check(
+                "abuse_blocklist",
+                CheckStatus::Failed,
+                "no blocklist is loaded, so sessions would be judged by nothing",
+            );
+        }
+        let (names, hashes, pools) = list.counts();
+        check(
+            "abuse_blocklist",
+            CheckStatus::Passed,
+            format!("version {}: {names} names, {hashes} builds and {pools} pools", list.version()),
+        )
     }
 
     /// Nothing is left from finished sessions: no container, process, mount, loop device, scratch file or session network that no

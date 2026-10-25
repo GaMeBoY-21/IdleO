@@ -1348,6 +1348,40 @@ scenario_hosting_web() {
 scenario_hosting_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-hosting.txt"
 
+# Host quality (ADR 0041), with the real agents: the owner asks a host for its full self-test from the API (the web app's
+# button), the agent runs it and every check reaches the run before the run ends; the machine's reliability is a word
+# the owner reads; and the sessions the hosts have finished by now have given them a score the admin's numbers come from.
+scenario_host_quality() {
+  local host="${host_ids[0]}" run deadline state checks scored
+  run="$(api_post "/v1/hosts/$host/self-tests" -H "Idempotency-Key: \"$user-self-test\"")" ||
+    fail "asking host $host for a self-test failed (is it online and idle?)"
+  [[ "$(json_get .run.state <<<"$run")" == running ]] || fail "the self-test didn't start: $run"
+  deadline=$((SECONDS + 120))
+  until state="$(api_get "/v1/hosts/$host/self-test" | json_get .run.state)" && [[ "$state" == passed || "$state" == failed ]]; do
+    ((SECONDS < deadline)) || fail "the self-test didn't end within 2 minutes (it's $state)"
+    sleep 1
+  done
+  [[ "$state" == passed ]] || fail "the self-test ended $state"
+  checks="$(api_get "/v1/hosts/$host/self-test" | python3 -c 'import json, sys
+run = json.load(sys.stdin)["run"]
+assert run["finishedAt"], run
+names = [check["name"] for check in run["checks"]]
+assert len(names) == len(set(names)) and "disk" in names and "gpu_visible" in names, names
+print(len(names))')" || fail "the run's checks aren't each of the agent's, once"
+  [[ "$(sql "select count(*) from hosts.self_test_runs where host_id = '$host' and state = 'passed'")" == 1 ]] ||
+    fail "the finished run isn't recorded once"
+  [[ "$(sql "select count(*) from hosts.self_test_results where host_id = '$host' and passed")" -ge 1 ]] ||
+    fail "the self-test isn't in the host's record for its score"
+  [[ "$(api_get "/v1/hosts/$host" | json_get .reliability.label)" =~ ^(good|fair|new)$ ]] || fail "the machine page has no reliability word"
+  scored="$(sql "select count(*) from hosts.host_scores where sessions_finished >= 1")"
+  ((scored >= 1)) || fail "no host has a score from the sessions it finished"
+  note "host quality: a real agent ran the self-test the owner asked for ($checks checks, each once, then the report), the run and its pass are recorded once; the machine page's reliability is a word; $scored host(s) have a score made of finished sessions: PASS"
+}
+scenario="host-quality"
+: >"$out/summary-host-quality.txt"
+scenario_host_quality
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-host-quality.txt"
+
 # Access by invitation and the account in a browser (web/e2e/account-journey.spec.ts, ADR 0024): a new person signs in
 # and is asked for a code, a wrong one is refused, the script's spare one lets them in, a code works once, and Account
 # saves a name and a choice that survive a reload, shows the locked kinds locked, and signs out.

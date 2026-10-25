@@ -8,7 +8,14 @@ import { RelativeTime } from "@/components/ui/Time";
 import { problemMessage } from "@/lib/problems";
 import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
-import { ADMIN, adminApi, adminData, type AbuseDetail, type AbuseSummary } from "./api";
+import {
+  ADMIN,
+  adminApi,
+  adminData,
+  type AbuseDetail,
+  type AbuseSummary,
+  type BlocklistAddition,
+} from "./api";
 import {
   AdminPage,
   BackLink,
@@ -139,11 +146,166 @@ function AbuseQueue() {
           </Table>
         )}
       </PagedView>
+      <WaitingBuilds />
     </AdminPage>
   );
 }
 
 type Decision = "confirm" | "ban" | "clear" | null;
+
+/** What a listed program is for, as the blocklist file says it. */
+const KINDS: [string, string][] = [
+  ["miner", "A cryptocurrency miner"],
+  ["password_cracker", "A password cracker"],
+];
+
+/**
+ * The builds of flagged programs that a confirmed review saw, each with "Add to the blocklist": the runner worked out the
+ * executable's SHA-256 when the program's name was listed, so an admin who confirms the session can list that exact build
+ * and stop it by hash under any name (ADR 0038, ADR 0041).
+ */
+function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string }) {
+  const client = useQueryClient();
+  const additions = useQuery({
+    queryKey: [ADMIN, "blocklist-additions"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/abuse/blocklist-additions")),
+  });
+  const [adding, setAdding] = useState<{ sha256: string; name: string } | null>(null);
+  const [kind, setKind] = useState("miner");
+  if (found.item.state !== "confirmed") {
+    return null;
+  }
+  const builds = found.signals.filter((signal) => signal.kind === "process_name" && signal.sha256 !== "");
+  if (builds.length === 0) {
+    return (
+      <Section title="Blocklist">
+        <Empty title="No build to add">
+          The runner couldn&apos;t read the executable of the program it flagged, so there&apos;s no hash to
+          list.
+        </Empty>
+      </Section>
+    );
+  }
+  const waiting = new Set(additions.data?.additions.map((entry) => entry.sha256));
+  return (
+    <Section title="Blocklist">
+      <ul className="flex flex-col gap-3 text-small">
+        {builds.map((signal) => (
+          <li key={signal.sha256} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="font-medium">{signal.detail}</span>
+            <span className="tabular break-all text-text-muted">{signal.sha256}</span>
+            {waiting.has(signal.sha256) ? (
+              <Pill tone="plain">On the list to publish</Pill>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() => setAdding({ sha256: signal.sha256, name: signal.detail })}
+              >
+                Add this program&apos;s hash to the blocklist
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {adding !== null && (
+        <ActionSheet
+          open
+          onOpenChange={(next) => !next && setAdding(null)}
+          title={`Add ${adding.name}'s build to the blocklist?`}
+          change={`From the next signed blocklist, a session whose program has this exact build (${adding.sha256.slice(0, 12)}…) is stopped, whatever it is called. The file is signed offline with the release key and published by an operator; until then it is waiting.`}
+          confirm="Add to the blocklist"
+          extra={<SmallSelect label="What it is" value={kind} onChange={setKind} options={KINDS} />}
+          onConfirm={async (reason) => {
+            await adminData(
+              adminApi.POST("/admin/v1/abuse/{id}/blocklist", {
+                params: { path: { id: itemId } },
+                body: {
+                  sha256: adding.sha256,
+                  kind: kind === "password_cracker" ? "password_cracker" : "miner",
+                  reason,
+                },
+              }),
+            );
+            await client.invalidateQueries({ queryKey: [ADMIN] });
+          }}
+        />
+      )}
+    </Section>
+  );
+}
+
+/** Builds waiting to go on the signed blocklist, and which the published list already names; each can be taken back. */
+function WaitingBuilds() {
+  const client = useQueryClient();
+  const additions = useQuery({
+    queryKey: [ADMIN, "blocklist-additions"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/abuse/blocklist-additions")),
+  });
+  const [removing, setRemoving] = useState<BlocklistAddition | null>(null);
+  return (
+    <Section title="Blocklist additions">
+      <QueryView
+        query={additions}
+        what="the blocklist additions"
+        isEmpty={(data) => data.additions.length === 0}
+        empty={
+          <Empty title="Nothing waiting">
+            A build you add from a confirmed review shows here until the signed blocklist names it.
+          </Empty>
+        }
+      >
+        {(data) => (
+          <Table
+            caption="Blocklist additions"
+            columns={["Program", "Build", "What it is", "Reason", "Added", "State", ""]}
+          >
+            {data.additions.map((entry) => (
+              <Row key={entry.id}>
+                <Cell>{entry.name}</Cell>
+                <Cell className="tabular break-all">{entry.sha256.slice(0, 16)}…</Cell>
+                <Cell>{KINDS.find(([value]) => value === entry.kind)?.[1] ?? entry.kind}</Cell>
+                <Cell>{entry.reason}</Cell>
+                <Cell>
+                  <RelativeTime value={entry.createdAt} />
+                </Cell>
+                <Cell>{entry.published ? "In the published list" : "Waiting to be published"}</Cell>
+                <Cell>
+                  <Button variant="secondary" onClick={() => setRemoving(entry)}>
+                    Take back
+                    <span className="sr-only"> {entry.name}</span>
+                  </Button>
+                </Cell>
+              </Row>
+            ))}
+          </Table>
+        )}
+      </QueryView>
+      {removing !== null && (
+        <ActionSheet
+          open
+          onOpenChange={(next) => !next && setRemoving(null)}
+          title={`Take ${removing.name}'s build off the blocklist?`}
+          change={
+            removing.published
+              ? "It is in the published list. The next signed list leaves it out once an operator publishes again, and every agent takes that list like any newer one."
+              : "It is not published yet: it is simply left out of the next signed list."
+          }
+          confirm="Take it back"
+          destructive
+          onConfirm={async (reason) => {
+            await adminData(
+              adminApi.POST("/admin/v1/abuse/blocklist-additions/{additionId}/remove", {
+                params: { path: { additionId: removing.id } },
+                body: { reason },
+              }),
+            );
+            await client.invalidateQueries({ queryKey: [ADMIN] });
+          }}
+        />
+      )}
+    </Section>
+  );
+}
 
 function AbuseRecord({ id }: { id: string }) {
   const client = useQueryClient();
@@ -221,6 +383,7 @@ function AbuseRecord({ id }: { id: string }) {
                 await refresh();
               }}
             />
+            <LearnableBuilds found={found} itemId={id} />
             <Section title="Add a note">
               <form
                 noValidate

@@ -68,8 +68,9 @@ it is called protection. A determined renter can still reach a pool by IP addres
 is open); what we do about that is look at the behaviour and the reports. These checks make mining a deliberate act that
 is logged and costs the renter their account, which is the deterrent.
 
-**The blocklist** is data, not code: `agent/runner/abuse/blocklist.json`, baked into the runner, so a new list is a new
-distribution (docs/runbooks/abuse.md, "Changing the blocklist"). Every entry names its source. It holds 13 program names
+**The blocklist** is data, not code: `agent/distro/blocklist.json` (first baked into the runner, so a new list was a new
+distribution; ADR 0041 made it a signed file of its own, delivered without one: docs/runbooks/abuse.md, "Changing the
+blocklist"). Every entry names its source. It holds 13 program names
 (miners and password crackers), 18 pool domains, each taken from the pool's or project's own site, and **no hashes**.
 Hashes need the executables of each release, from each project's official release page, hashed and then deleted, never
 run, never committed. I did not do that in this round: fetching and handling live miner and cracker binaries is a step to be

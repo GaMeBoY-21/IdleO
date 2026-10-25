@@ -8,14 +8,21 @@ import { useNow } from "@/lib/clock";
 import { appLine, machineState, rupeesAnHour } from "@/lib/hosting";
 import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
+import { lazy, Suspense } from "react";
 import { HostFlow } from "@/components/shell/HostFlow";
+import { useAfterPaint } from "@/lib/after-first-screen";
 import { MachineChip } from "./MachineChip";
 import { GpuLine, PrivacyLine, RatingLine, ReliabilityLine, RightNow } from "./MachineFigures";
 import { MachineLink } from "./MachineLink";
 import { ManageMachine } from "./ManageMachine";
 import { PauseControl } from "./PauseControl";
-import { SelfTestPanel } from "./SelfTestPanel";
 import { useHostId } from "@/lib/use-host-id";
+
+// Run self-test is the last thing on the page and not needed for its first paint: its code and its request wait for the
+// paint, like the Credit page's forms, so they never compete with what the paint waits for (ADR 0018).
+const SelfTestPanel = lazy(() =>
+  import("./SelfTestPanel").then((module) => ({ default: module.SelfTestPanel })),
+);
 
 /** Figures updated before this were restored from an earlier visit (src/api/persisted-cache.ts). */
 const PAGE_OPENED_AT = Date.now();
@@ -23,13 +30,15 @@ const PAGE_OPENED_AT = Date.now();
 /**
  * One machine (designed for the phone first): in the dark tile its state, name and rating, then its GPU with
  * temperature and use against the limit, what it's running now and what that has earned so far, the privacy line, rows
- * to its price and limits, the sessions it ran, and renaming or removing it; and, at the foot, Pause hosting or Resume.
- * Between them, Run self-test and how reliable the machine has been.
+ * to its price and limits, the sessions it ran, and renaming or removing it; and, at the foot, Pause hosting or Resume,
+ * then Run self-test, last so what it shows as it loads and runs moves nothing. The dark tile also says how reliable the
+ * machine has been.
  */
 export function Machine() {
   const id = useHostId();
   const host = useHost(id);
   const now = useNow("half-minute");
+  const painted = useAfterPaint();
   useTitle(host.data?.name ?? "Machine");
   const since = staleSince(host);
 
@@ -102,7 +111,6 @@ export function Machine() {
       <GpuLine host={machine} />
       <RightNow host={machine} />
       <PrivacyLine host={machine} />
-      <SelfTestPanel host={machine} />
       <div className="flex flex-col gap-2.5 xl:col-span-2">
         <MachineLink
           href={`/hosting/price/?id=${machine.id}`}
@@ -123,6 +131,14 @@ export function Machine() {
       <div className="mt-auto xl:col-span-2">
         <PauseControl host={machine} />
       </div>
+      {/* Last, so that its answer arriving, and the list of checks a run shows, move nothing below it (layout shift 0). */}
+      {painted && (
+        <div className="xl:col-span-2">
+          <Suspense fallback={null}>
+            <SelfTestPanel host={machine} />
+          </Suspense>
+        </div>
+      )}
     </HostFlow>
   );
 }

@@ -182,6 +182,13 @@ pub enum Request {
         #[serde(default)]
         quick: bool,
     },
+    /// A newer abuse blocklist (ADR 0038), already verified against the release key by the agent: the signed file's exact
+    /// bytes as text. The runner reads it again itself, refuses what it can't match safely or what isn't newer than the one
+    /// it holds, and keeps the last good copy.
+    Blocklist {
+        /// The list's JSON.
+        file: String,
+    },
 }
 
 /// A grant of storage access, as the runner holds it: in memory only, never in the container, a file or a log.
@@ -378,6 +385,11 @@ pub enum Answer {
         /// Each check and how it went.
         checks: Vec<Check>,
     },
+    /// Answer to [`Request::Blocklist`]: the version now in use.
+    Blocklist {
+        /// The list's version.
+        version: String,
+    },
 }
 
 /// Who the runner is.
@@ -395,6 +407,9 @@ pub struct HelloAnswer {
     pub scratch_free_bytes: u64,
     /// Whether this is a development distribution: a plain-HTTP registry and CPU-only jobs are allowed.
     pub development: bool,
+    /// The version of the abuse blocklist in use, so the agent hands over a newer one only (empty from an older runner).
+    #[serde(default)]
+    pub blocklist_version: String,
 }
 
 /// One check of a self-check.

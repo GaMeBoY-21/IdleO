@@ -188,12 +188,24 @@ public final class TestAgent {
     /** The GPU every test agent reports. */
     public static final String GPU_MODEL = "NVIDIA GeForce RTX 4080 Laptop GPU";
 
+    /**
+     * The blocklist version test agents say their runner uses unless a test says otherwise: so far ahead that no list the
+     * feed holds is newer, and only the tests of the blocklist's delivery are sent one.
+     */
+    public static final String FAR_FUTURE_BLOCKLIST = "9999-12-31";
+
     public static OpenStreamRequest hello(OperatingSystem os, String agentVersion, String... gpuUuids) {
+        return helloWithBlocklist(os, agentVersion, FAR_FUTURE_BLOCKLIST, gpuUuids);
+    }
+
+    public static OpenStreamRequest helloWithBlocklist(
+            OperatingSystem os, String agentVersion, String blocklistVersion, String... gpuUuids) {
         var hello = Hello.newBuilder()
                 .setAgentVersion(agentVersion)
                 .setOs(os)
                 .setOsVersion(os == OperatingSystem.OPERATING_SYSTEM_MACOS ? "macOS 26.0" : "Windows 11 26100")
-                .setFreeDiskMb(FREE_DISK_MB);
+                .setFreeDiskMb(FREE_DISK_MB)
+                .setBlocklistVersion(blocklistVersion);
         for (var uuid : gpuUuids) {
             hello.addGpus(GpuInfo.newBuilder()
                     .setUuid(uuid)
