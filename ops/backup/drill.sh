@@ -2,7 +2,9 @@
 # The restore drill (ADR 0036, docs/runbooks/backups.md "The drill"): proves the backups restore, to the second, and
 # measures what a loss costs. Each run, on a fresh stack of its own (compose project idleo-drill, its own ports):
 #
-#   1. real activity: an account with credit, a host with a fake GPU, a session charged and the host earning;
+#   1. real activity: an account with credit, a host with a fake GPU, a session charged and the host earning, and the
+#      host's payouts through the fake RazorpayX (ADR 0040): one paid, one that failed and came back, and a refund after
+#      a payout that took money back (a clawback), so the money check's payout rules run on real rows;
 #   2. a full backup (ops/backup/backup-now.sh), then more activity;
 #   3. a moment T, taken with every table locked so nothing commits across it, and each table's checksum at T;
 #   4. more activity, then the database lost: killed (SIGKILL, as a dead disk or droplet) and its volume deleted;
@@ -46,6 +48,8 @@ storage_port=19200
 mail_smtp_port=11125
 mail_web_port=18125
 web_port=13100
+razorpay_port=18191
+razorpayx_port=18192
 compose_project=idleo-drill
 operator_name=restore-drill
 out="$root/logs/drill"
@@ -59,7 +63,7 @@ mkdir -p "$out" "$state"
 # shellcheck source=scripts/lib/stack.sh
 . "$root/scripts/lib/stack.sh"
 
-for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" 15100; do
+for port in "$http_port" "$grpc_port" "$sign_in_port" "$storage_port" "$mail_smtp_port" "$mail_web_port" "$razorpay_port" "$razorpayx_port" 15100; do
   port_in_use "$port" && fail "port $port is in use; is another drill running? (docker compose -p $compose_project ps)"
 done
 "$root/control-plane/scripts/dev-ca.sh" >>"$out/dev-ca.log" 2>&1 || fail "the development CA couldn't be made"
@@ -76,6 +80,10 @@ psql_in() { docker exec -i "$1" psql -X -v ON_ERROR_STOP=1 -U controlplane -d co
 teardown() {
   [[ -f "$state/agent-1.pid" ]] && kill -TERM "$(cat "$state/agent-1.pid")" 2>/dev/null || true
   rm -f "$state/agent-1.pid"
+  for fake in fake-razorpay fake-razorpayx; do
+    [[ -f "$state/$fake.pid" ]] && kill -TERM "$(cat "$state/$fake.pid")" 2>/dev/null || true
+    rm -f "$state/$fake.pid"
+  done
   if [[ -n "${control_plane_pid:-}" ]]; then
     kill -TERM -- "-$control_plane_pid" 2>/dev/null || true
     for _ in $(seq 1 60); do kill -0 "$control_plane_pid" 2>/dev/null || break; sleep 0.5; done
@@ -108,19 +116,41 @@ checksums_sql() {
 
 session_for() {
   # Books the 20-second smoke test as the renter, then waits for it to end and settle; prints its id.
-  local id state deadline=$((SECONDS + 240))
+  local id outcome deadline=$((SECONDS + 240))
   id="$(curl -sS --fail-with-body -X POST "$api/v1/sessions" -H "Authorization: Bearer $renter_token" -H 'Content-Type: application/json' \
     -H "Idempotency-Key: drill-$run-$1" \
-    -d '{"templateId": "cuda-smoke-test", "maxPricePaisePerMin": 20, "maxSpendPaise": 1000}' | json_get .id)" ||
+    -d '{"templateId": "cuda-smoke-test", "maxPricePaisePerMin": 300, "maxSpendPaise": 1000}' | json_get .id)" ||
     fail "booking session $1 failed"
-  until state="$(curl -sf "$api/v1/sessions/$id" -H "Authorization: Bearer $renter_token" |
+  until outcome="$(curl -sf "$api/v1/sessions/$id" -H "Authorization: Bearer $renter_token" |
     python3 -c 'import json, sys; s = json.load(sys.stdin); print(s["state"] if s["settled"] else "")')" &&
-    [[ "$state" == COMPLETED ]]; do
-    [[ "$state" == FAILED || "$state" == NO_HOST_FREE ]] && fail "session $1 ended $state"
+    [[ "$outcome" == COMPLETED ]]; do
+    [[ "$outcome" == FAILED || "$outcome" == NO_HOST_FREE ]] && fail "session $1 ended $outcome"
     ((SECONDS < deadline)) || fail "session $1 didn't complete and settle in 4 minutes"
     sleep 1
   done
   printf '%s' "$id"
+}
+
+# Waits for a person's newest payout to reach $2 (or any of $2, separated by |), within $3 s; prints its id.
+newest_payout() {
+  local deadline=$((SECONDS + $3)) found
+  while ((SECONDS < deadline)); do
+    found="$(psql_in "$database" -c "select id || ' ' || status from payouts.payouts where user_id = '$1' order by created_at desc limit 1")"
+    [[ " ${found#* } " =~ ^\ ($2)\ $ ]] && { printf '%s' "${found%% *}"; return 0; }
+    sleep 0.5
+  done
+  fail "the newest payout of $1 didn't reach $2 within $3 s (it's ${found:-none})"
+}
+
+# Uses UPI ID $1 for the drill's host owner through the API, with a fresh sign-in: a check, then a confirmation.
+use_upi() {
+  local fresh check
+  fresh="$(stack_token "drill-owner")"
+  check="$(curl -sf -X POST "$api/v1/payout-details/upi-checks" -H "Authorization: Bearer $fresh" \
+    -H 'Content-Type: application/json' -H "Idempotency-Key: \"drill-$run-upi-$1\"" -d "{\"vpa\":\"$1\"}" | json_get .id)"
+  [[ -n "$check" ]] || fail "checking UPI ID $1 failed"
+  [[ "$(curl -sf -X POST "$api/v1/payout-details/upi-checks/$check/confirm" -H "Authorization: Bearer $fresh" | json_get .state)" == active ]] ||
+    fail "UPI ID $1 didn't become where payouts go"
 }
 
 grant() {
@@ -147,6 +177,8 @@ for run in $(seq 1 "$runs"); do
     export SESSIONS_LEASES_LAPSE_SWEEP_EVERY=1s METERING_TICK_EVERY=1s METERING_REVIEW_AFTER=20s
     # A deletion's wait, and the job that erases, in seconds instead of days (ADR 0037).
     export LEGAL_ERASURE_WAITING_PERIOD=3s PRIVACY_ERASURE_SWEEP_EVERY=1s
+    # Payouts (ADR 0040) on the drill's clock: a 10 s dispute window, a ₹1 minimum, a 3 s hold after a change of UPI ID.
+    export LEGAL_PAYOUTS_DISPUTEWINDOW=10s PAYOUTS_MINIMUMPAISE=100 PAYOUTS_CHANGEHOLD=3s
     # The database archives to this stack's MinIO, encrypted with the development key; the control plane watches it.
     export LOCAL_BACKUP_PREFIX="s3://idleo-backups/$prefix"
     export LOCAL_BACKUP_PUBLIC_KEY="$root/private/backup-dev/backup.pub.asc"
@@ -154,6 +186,7 @@ for run in $(seq 1 "$runs"); do
     export BACKUPS_STORAGE_PREFIX="$prefix" BACKUPS_STORAGE_REGION=us-east-1
     export BACKUPS_STORAGE_ACCESS_KEY_ID=local-storage-root BACKUPS_STORAGE_SECRET_ACCESS_KEY=local-only-not-a-secret
   }
+  stack_start_fake_razorpay
   stack_start_control_plane
   stack_await_control_plane 600
   stack_await_sign_in
@@ -184,7 +217,7 @@ SQL
   stack_enrol_agent 1 "$(stack_enrolment_code "$owner_token" "$host_id")"
   curl -sf -X PUT "$api/v1/hosts/$host_id/listing" -H "Authorization: Bearer $owner_token" \
     -H 'Content-Type: application/json' \
-    -d '{"batchPricePaisePerMin": 12, "gpuTempCapC": 85, "maxConcurrentSessions": 1, "keepFreeGb": 10}' >/dev/null ||
+    -d '{"batchPricePaisePerMin": 200, "gpuTempCapC": 85, "maxConcurrentSessions": 1, "keepFreeGb": 10}' >/dev/null ||
     fail "the host's price couldn't be set"
   stack_run_agent 1 --fake-gpu-model "RTX 4060 Laptop" --fake-gpu-vram-mb 8188 --fake-free-disk-mb 200000
   deadline=$((SECONDS + 60))
@@ -197,14 +230,48 @@ SQL
   # Someone who will ask to be deleted after T.
   erasee="drill-erasee-$run"
   erasee_id="$(curl -sf "$api/v1/me" -H "Authorization: Bearer $(stack_token "$erasee")" | json_get .id)"
-  session_for 1 >/dev/null
-  log "run $run: activity made; taking a full backup"
+  first_session="$(session_for 1)"
+
+  # The host's payouts, through the fake RazorpayX: the owner's PAN and a UPI ID, an admin's Run now, a payout that fails and
+  # comes back, and a report refunded after its session was paid out, which takes the host's share back as a clawback.
+  owner_id="$(curl -sf "$api/v1/me" -H "Authorization: Bearer $owner_token" | json_get .id)"
+  admin_token="$(stack_token "drill-admin")"
+  curl -sf "$api/v1/me" -H "Authorization: Bearer $admin_token" >/dev/null || fail "the drill's admin couldn't sign in"
+  ops grant-admin "drill-admin@example.com" --reason "'Restore drill payouts'" || fail "grant-admin failed; see logs/drill/ops.log"
+  admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token")" || fail "no admin session for the drill's admin"
+  admin_post() {
+    curl -sf -X POST "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session" \
+      -H 'Content-Type: application/json' "${@:2}"
+  }
+  fresh_owner="$(stack_token "drill-owner")"
+  curl -sf -X PUT "$api/v1/payout-details/pan" -H "Authorization: Bearer $fresh_owner" -H 'Content-Type: application/json' \
+    -d '{"pan":"ABCPE4321F","name":"Drill Owner"}' >/dev/null || fail "the owner's PAN wasn't taken"
+  use_upi drill.host@okicici
+  sleep 12
+  admin_post /admin/v1/payouts/runs -d '{"reason":"Restore drill payout run"}' >/dev/null || fail "Run now failed"
+  newest_payout "$owner_id" processed 60 >/dev/null
+  use_upi payoutfails@okicici
+  sleep 4
+  session_for 2 >/dev/null
+  sleep 12
+  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"Restore drill retry\"}" >/dev/null || fail "retry failed"
+  newest_payout "$owner_id" failed 60 >/dev/null
+  dispute="$(curl -sf -X POST "$api/v1/disputes" -H "Authorization: Bearer $renter_token" -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: drill-$run-report" \
+    -d "{\"sessionId\":\"$first_session\",\"reason\":\"wrong_output\",\"details\":\"Restore drill clawback\"}" | json_get .id)"
+  [[ -n "$dispute" ]] || fail "reporting the paid-out session failed"
+  charged="$(curl -sf "$api/v1/sessions/$first_session" -H "Authorization: Bearer $renter_token" | json_get .chargedPaise)"
+  admin_post "/admin/v1/disputes/$dispute/refund" -d "{\"amountPaise\":$charged,\"reason\":\"Restore drill refund after the payout\"}" >/dev/null ||
+    fail "refunding the report failed"
+  [[ "$(psql_in "$database" -c "select count(*) from billing.clawbacks where owner_id = '$owner_id'")" -ge 1 ]] ||
+    fail "the refund after the payout made no clawback"
+  log "run $run: activity made, with a payout paid, one failed and a clawback; taking a full backup"
 
   # 2. A full backup, then more activity.
   backup_report="$("$root/ops/backup/backup-now.sh" --container "$database")" || fail "the full backup failed"
   log "run $run: ${backup_report%%$'\n'*}"
   grant 3000 after-backup
-  session_for 2 >/dev/null
+  session_for 3 >/dev/null
 
   # 3. T: every table locked (in share mode, so nothing commits across T), T read, every table's checksum taken.
   tables="$(psql_in "$database" -c "$tables_sql" | paste -sd, -)"
@@ -239,7 +306,7 @@ SQL
     sleep 1
   done
   log "run $run: $erasee erased after T"
-  late_session="$(session_for 3)"
+  late_session="$(session_for 4)"
   # T can be restored to once the WAL segment holding it is archived: within a minute (archive_timeout).
   deadline=$((SECONDS + 150))
   until [[ "$(psql_in "$database" -c "select coalesce(last_archived_wal, '') >= '$wal_at_t' from pg_stat_archiver")" == t ]]; do
@@ -286,6 +353,11 @@ SQL
     fail "the restored database still holds the person erased after T"
   "$root/ops/backup/verify-ledger.sh" --container "$restored" >"$state/verify-ledger.log" ||
     fail "the money check failed on the restored database: $(cat "$state/verify-ledger.log")"
+  # The payout rules ran on real rows: a payout paid, one failed, and a clawback, all in the restored database.
+  [[ "$(psql_in "$restored" -c "select count(*) filter (where status = 'processed') || ':' || count(*) filter (where status = 'failed')
+      from payouts.payouts where user_id = '$owner_id'")" =~ ^[1-9][0-9]*:[1-9][0-9]*$ &&
+    "$(psql_in "$restored" -c "select count(*) from billing.clawbacks where owner_id = '$owner_id'")" -ge 1 ]] ||
+    fail "the restored database lacks the drill's payouts: the money check ran on nothing"
   # The money check must catch a wallet changed behind the ledger's back.
   psql_in "$restored" -c "update billing.wallets set balance_paise = balance_paise + 1
     where user_id = (select user_id from billing.wallets order by user_id limit 1)" >/dev/null

@@ -3,10 +3,14 @@ package com.idleo.controlplane.identity.internal;
 import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -38,7 +42,8 @@ class AdminUsersController {
                    exists (select 1 from identity.admins a where a.user_id = u.id) as admin,
                    (select count(*) from identity.api_keys k where k.user_id = u.id and k.revoked_at is null)
                        as api_keys,
-                   (select i.note from identity.invite_codes i where i.used_by = u.id) as invite_note
+                   (select i.note from identity.invite_codes i where i.used_by = u.id) as invite_note,
+                   u.suspension_cause
             from identity.users u
             """;
 
@@ -65,7 +70,26 @@ class AdminUsersController {
             @Nullable Instant lastSignInAt,
             boolean admin,
             long apiKeys,
-            @Nullable String inviteNote) {}
+            @Nullable String inviteNote,
+
+            @Schema(allowableValues = {"host_misconduct", "other"}) @Nullable
+            String suspensionCause) {}
+
+    /**
+     * Suspending: why, in words for the audit log, and the cause, which decides whether the account's payouts are held:
+     * {@code host_misconduct} holds them until the suspension is lifted, {@code other} (the default) leaves them being paid.
+     */
+    record SuspendRequest(
+            @NotBlank @Size(min = 5, max = 500) @NoContactDetails
+            String reason,
+
+            @Schema(allowableValues = {"host_misconduct", "other"}) @Nullable
+            String cause) {
+
+        SuspendRequest {
+            reason = reason == null ? null : reason.strip();
+        }
+    }
 
     record AdminUserPage(List<AdminUser> users, @Nullable String nextCursor) {}
 
@@ -110,9 +134,14 @@ class AdminUsersController {
     AdminUser suspend(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
-            @Valid @RequestBody AdminReason request) {
+            @Valid @RequestBody SuspendRequest request) {
         find(id);
-        refusing(() -> suspensions.suspend(id, request.reason(), audit.admin(admin)));
+        var cause = switch (request.cause() == null ? "other" : request.cause()) {
+            case "host_misconduct" -> UserSuspensions.Cause.HOST_MISCONDUCT;
+            case "other" -> UserSuspensions.Cause.OTHER;
+            default -> throw ApiProblem.invalid("cause", "must be host_misconduct or other.");
+        };
+        refusing(() -> suspensions.suspend(id, request.reason(), audit.admin(admin), cause));
         return find(id);
     }
 
@@ -192,6 +221,7 @@ class AdminUsersController {
                 lastSignIn == null ? null : lastSignIn.toInstant(),
                 rs.getBoolean("admin"),
                 rs.getLong("api_keys"),
-                rs.getString("invite_note"));
+                rs.getString("invite_note"),
+                rs.getString("suspension_cause"));
     }
 }

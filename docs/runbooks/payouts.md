@@ -106,6 +106,16 @@ host is told RazorpayX's reason in plain words. The next run tries again. To pay
 Payouts, Retry, with their user id and a reason. Never retry a payout by editing the database: each payout is a ledger
 posting that `verify-ledger.sh` checks.
 
+## Suspended hosts
+
+An admin who suspends an account (Users, Suspend) says **why**: *misconduct as a host* or *anything else* (ADR 0041). For
+misconduct as a host, **no payout is made to that account** (the weekly run, Run now, a retry and the final payout before a
+deletion all pass over it) until the suspension is lifted; the earnings keep accruing and are paid, in full, at the next run
+after Reinstate. For any other reason, and for an account the abuse watch held, payouts go on as before. The cause is in the
+suspension's audit row (`user.suspend`, `after.cause`) beside the admin's reason, and the Users screen says "Suspended for:
+Misconduct as a host" while it holds. A held account's payouts show as `ACCOUNT_HELD` where an admin's retry says why
+nothing was paid.
+
 ## Reversals
 
 A reversed payout came back from the bank, even after it was processed. Its money is back in the host's earnings, and
@@ -149,6 +159,14 @@ Each quarter, the console's Tax: the quarter (`2026-27-Q3` is October to Decembe
 payout that didn't come back, deducted in the quarter: the host's whole PAN and name, the section and rate, gross, tax,
 net and the dates. It's audited, because it holds every PAN; send it to the CA through the company's secure channel,
 never email. Hosts download their own yearly statement (PDF or CSV) from Hosting, Earnings.
+
+## The Money dashboard
+
+Grafana's **Money** dashboard (`ops/grafana/dashboards/idleo-money.json`) reads this module's meters and billing's: top-ups
+paid and failed by method and the seconds to credit, refunds processed and failed, chargebacks by event, payouts by status and
+the days from the oldest earning to paid, what was paid and clawed back in rupees, the RazorpayX balance, and both nightly
+reconciliations. The two reconciliation tiles and the signature tile must be 0; the alerts in `ops/alerts/payments.yaml` and
+`payouts.yaml` page on the same meters.
 
 ## Going live
 

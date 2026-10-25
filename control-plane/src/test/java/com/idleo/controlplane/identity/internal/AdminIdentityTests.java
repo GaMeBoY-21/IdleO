@@ -158,7 +158,8 @@ class AdminIdentityTests {
     void aSuspensionAndItsAuditRowRollBackTogether() throws Exception {
         var renter = TestUsers.signUp(mvc);
         transactions.executeWithoutResult(status -> {
-            suspensions.suspend(renter.id(), "rolled back", AuditTrail.Actor.operator("tester"));
+            suspensions.suspend(
+                    renter.id(), "rolled back", AuditTrail.Actor.operator("tester"), UserSuspensions.Cause.OTHER);
             assertThat(auditRows("user.suspend", renter.id().toString())).isOne();
             status.setRollbackOnly();
         });

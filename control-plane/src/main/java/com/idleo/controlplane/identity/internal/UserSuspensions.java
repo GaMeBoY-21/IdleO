@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.identity.AccountHolds;
+import com.idleo.controlplane.identity.AccountStandings;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -19,7 +20,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * active again. Only an active account is suspended: a waiting one can do nothing yet. Each change is audited.
  */
 @Service
-class UserSuspensions implements AccountHolds {
+class UserSuspensions implements AccountHolds, AccountStandings {
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -45,11 +46,42 @@ class UserSuspensions implements AccountHolds {
         }
     }
 
-    Change suspend(UUID userId, String reason, AuditTrail.Actor actor) {
+    /** Why an admin suspends: misconduct as a host holds the account's payouts; anything else doesn't. */
+    enum Cause {
+        HOST_MISCONDUCT("host_misconduct"),
+        OTHER("other");
+
+        private final String dbValue;
+
+        Cause(String dbValue) {
+            this.dbValue = dbValue;
+        }
+
+        String dbValue() {
+            return dbValue;
+        }
+    }
+
+    Change suspend(UUID userId, String reason, AuditTrail.Actor actor, Cause cause) {
         if (userId.equals(actor.userId())) {
             throw new Refused("An admin can't suspend their own account.");
         }
-        return change(userId, Set.of(UserStatus.ACTIVE), UserStatus.SUSPENDED, "user.suspend", reason, actor);
+        return change(
+                userId,
+                Set.of(UserStatus.ACTIVE),
+                UserStatus.SUSPENDED,
+                "user.suspend",
+                reason,
+                actor,
+                cause.dbValue());
+    }
+
+    @Override
+    public boolean payoutsHeld(UUID userId) {
+        return jdbc.sql("""
+                        select exists (select 1 from identity.users
+                                       where id = :id and status = 'suspended' and suspension_cause = 'host_misconduct')
+                        """).param("id", userId).query(Boolean.class).single();
     }
 
     /** Reinstate on the Users page: a suspended account, never a banned one (that is the review item's to lift). */
@@ -90,6 +122,18 @@ class UserSuspensions implements AccountHolds {
     /** Empty when there's no such user. */
     private Change change(
             UUID userId, Set<UserStatus> from, UserStatus to, String action, String reason, AuditTrail.Actor actor) {
+        return change(userId, from, to, action, reason, actor, null);
+    }
+
+    /** As above, recording {@code cause} when the account becomes suspended, and forgetting it when it stops being. */
+    private Change change(
+            UUID userId,
+            Set<UserStatus> from,
+            UserStatus to,
+            String action,
+            String reason,
+            AuditTrail.Actor actor,
+            @org.jspecify.annotations.Nullable String cause) {
         if (reason == null || reason.isBlank()) {
             throw new Refused("A reason is required.");
         }
@@ -112,8 +156,13 @@ class UserSuspensions implements AccountHolds {
                         }
                         + ".");
             }
-            jdbc.sql("update identity.users set status = :to, updated_at = :now, version = version + 1 where id = :id")
+            jdbc.sql("""
+                            update identity.users
+                            set status = :to, suspension_cause = :cause, updated_at = :now, version = version + 1
+                            where id = :id
+                            """)
                     .param("to", to.dbValue())
+                    .param("cause", to == UserStatus.SUSPENDED ? cause : null)
                     .param("now", Timestamp.from(Instant.now(clock)))
                     .param("id", userId)
                     .update();
@@ -124,7 +173,9 @@ class UserSuspensions implements AccountHolds {
                     userId.toString(),
                     reason,
                     Map.of("status", current.dbValue()),
-                    Map.of("status", to.dbValue())));
+                    to == UserStatus.SUSPENDED && cause != null
+                            ? Map.of("status", to.dbValue(), "cause", cause)
+                            : Map.of("status", to.dbValue())));
             return new Change(userId, current.dbValue(), to.dbValue(), true);
         }));
     }

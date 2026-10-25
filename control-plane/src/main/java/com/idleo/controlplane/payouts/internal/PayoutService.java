@@ -5,6 +5,7 @@ import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.billing.HostPayouts;
+import com.idleo.controlplane.identity.AccountStandings;
 import com.idleo.controlplane.payouts.PayoutSettled;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -65,6 +66,7 @@ class PayoutService {
     private final Clock clock;
     private final ApplicationEventPublisher events;
     private final PayoutsMetrics metrics;
+    private final AccountStandings standings;
 
     PayoutService(
             JdbcClient jdbc,
@@ -79,7 +81,9 @@ class PayoutService {
             IdGenerator ids,
             Clock clock,
             ApplicationEventPublisher events,
-            PayoutsMetrics metrics) {
+            PayoutsMetrics metrics,
+            AccountStandings standings) {
+        this.standings = standings;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ledger = ledger;
@@ -131,6 +135,8 @@ class PayoutService {
     /** Why a person can't be paid now, for the run's log and the admin's retry. */
     enum NotPaid {
         NO_METHOD,
+        /** Suspended for misconduct as a host (ADR 0041): nothing is paid until the suspension is lifted. */
+        ACCOUNT_HELD,
         ON_HOLD,
         NO_PAN,
         IN_PROGRESS,
@@ -152,6 +158,9 @@ class PayoutService {
                             .query((rs, n) -> null)
                             .list();
                     var now = now();
+                    if (standings.payoutsHeld(userId)) {
+                        return new Outcome(null, NotPaid.ACCOUNT_HELD);
+                    }
                     var method = methods.inUse(userId).orElse(null);
                     if (method == null
                             || method.fundAccountId() == null

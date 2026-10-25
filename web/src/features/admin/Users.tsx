@@ -125,6 +125,8 @@ function UserRecord({ id }: { id: string }) {
     queryFn: () => adminData(adminApi.GET("/admin/v1/credit-grants", { params: { query: { user: id } } })),
   });
   const [action, setAction] = useState<Action | null>(null);
+  // Why an account is suspended decides whether its payouts are held (ADR 0041).
+  const [cause, setCause] = useState("other");
   const [rupees, setRupees] = useState("");
   const [key, setKey] = useState("");
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
@@ -134,6 +136,9 @@ function UserRecord({ id }: { id: string }) {
     if (next === "grant") {
       setRupees("");
       setKey(crypto.randomUUID());
+    }
+    if (next === "suspend") {
+      setCause("other");
     }
     setAction(next);
   };
@@ -167,6 +172,11 @@ function UserRecord({ id }: { id: string }) {
                   </span>,
                 ],
                 ["Invited with", found.inviteNote ?? "—"],
+                ...(found.status === "suspended" && found.suspensionCause === "host_misconduct"
+                  ? ([
+                      ["Suspended for", "Misconduct as a host: their payouts are held until it is lifted"],
+                    ] as [string, string][])
+                  : []),
               ]}
             />
             <div className="flex flex-wrap gap-2">
@@ -208,17 +218,30 @@ function UserRecord({ id }: { id: string }) {
               }
               confirm={action === "unsuspend" ? "Reinstate" : "Suspend"}
               destructive={action === "suspend"}
+              extra={
+                action === "suspend" ? (
+                  <SmallSelect
+                    label="Why"
+                    value={cause}
+                    onChange={setCause}
+                    options={[
+                      ["other", "Anything else: their payouts carry on"],
+                      ["host_misconduct", "Misconduct as a host: hold their payouts"],
+                    ]}
+                  />
+                ) : null
+              }
               onConfirm={async (reason) => {
                 await adminData(
-                  adminApi.POST(
-                    action === "unsuspend"
-                      ? "/admin/v1/users/{id}/unsuspend"
-                      : "/admin/v1/users/{id}/suspend",
-                    {
-                      params: { path: { id } },
-                      body: { reason },
-                    },
-                  ),
+                  action === "unsuspend"
+                    ? adminApi.POST("/admin/v1/users/{id}/unsuspend", {
+                        params: { path: { id } },
+                        body: { reason },
+                      })
+                    : adminApi.POST("/admin/v1/users/{id}/suspend", {
+                        params: { path: { id } },
+                        body: { reason, cause: cause === "host_misconduct" ? "host_misconduct" : "other" },
+                      }),
                 );
                 await refresh();
               }}

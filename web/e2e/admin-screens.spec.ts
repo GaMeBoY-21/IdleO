@@ -52,6 +52,8 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/audit": { json: admin.audit },
   "/admin/v1/abuse": { json: admin.abuseQueue },
   [`/admin/v1/abuse/${admin.ABUSE_OPEN_ID}`]: { json: admin.abuseDetail },
+  [`/admin/v1/abuse/${admin.ABUSE_LEARNABLE_ID}`]: { json: admin.abuseLearnableDetail },
+  "/admin/v1/abuse/blocklist-additions": { json: admin.blocklistAdditions },
   "/admin/v1/tickets": { json: support.adminTickets() },
   [`/admin/v1/tickets/${support.PRIVACY_TICKET}`]: { json: support.adminThread() },
   [`/admin/v1/users/${data.me().id}/deletion`]: { json: support.adminDeletion() },
@@ -236,7 +238,39 @@ test.describe("the console", () => {
     await sheet.getByLabel("Reason").fill("card testing from this account");
     await sheet.getByRole("button", { name: "Suspend" }).click();
     await expect(sheet).toBeHidden();
-    expect(sent).toEqual({ reason: "card testing from this account" });
+    expect(sent).toEqual({ reason: "card testing from this account", cause: "other" });
+  });
+
+  test("suspending for misconduct as a host says its payouts are held, and a held user shows why", async ({
+    page,
+  }, info) => {
+    let sent: unknown = null;
+    await open(page, `/admin/users/?id=${admin.RENTER_ID}`, {
+      [`/admin/v1/users/${admin.RENTER_ID}/suspend`]: (_call, request) => {
+        sent = request.postDataJSON();
+        return { json: { ...admin.renter, status: "suspended", suspensionCause: "host_misconduct" } };
+      },
+    });
+    await page.getByRole("button", { name: "Suspend" }).click();
+    const sheet = page.getByRole("dialog", { name: `Suspend ${admin.renter.email}?` });
+    await sheet.getByLabel("Why").selectOption("host_misconduct");
+    await sheet.getByLabel("Reason").fill("ran renters' jobs on someone else's machine");
+    await expectAccessible(page);
+    await capture(page, info, "admin-user-suspend-host");
+    await sheet.getByRole("button", { name: "Suspend" }).click();
+    await expect(sheet).toBeHidden();
+    expect(sent).toEqual({ reason: "ran renters' jobs on someone else's machine", cause: "host_misconduct" });
+  });
+
+  test("a user suspended for misconduct as a host says why", async ({ page }) => {
+    await open(page, `/admin/users/?id=${admin.RENTER_ID}`, {
+      [`/admin/v1/users/${admin.RENTER_ID}`]: {
+        json: { ...admin.renter, status: "suspended", suspensionCause: "host_misconduct" },
+      },
+    });
+    await expect(
+      page.getByText("Misconduct as a host: their payouts are held until it is lifted"),
+    ).toBeVisible();
   });
 
   test("opens a pending host, and shows the server's reason when activating is refused", async ({
@@ -273,7 +307,7 @@ test.describe("the console", () => {
         return { json: admin.hostSelfTest };
       },
     });
-    const score = page.getByRole("heading", { name: "Host score" }).locator("xpath=..");
+    const score = page.locator("section", { has: page.getByRole("heading", { name: "Host score" }) });
     await expect(score).toContainText("0.812 (good)");
     await expect(score).toContainText("0.740, 64 Mbit/s");
     await expect(score).toContainText("14 finished, 1 lost to the host");
@@ -762,6 +796,69 @@ test.describe("abuse reviews", () => {
     await page.getByLabel("Reason").fill("a miner, seen by two people");
     await page.getByRole("button", { name: "Confirm and ban" }).last().click();
     await expect.poll(() => confirmed).toMatchObject({ ban: true, reason: "a miner, seen by two people" });
+  });
+
+  test("lists the builds waiting to go on the signed blocklist, and takes one back with a reason", async ({
+    page,
+  }, info) => {
+    let removed: Record<string, unknown> | null = null;
+    await open(page, "/admin/abuse/", {
+      "/admin/v1/abuse/blocklist-additions/01a1340a-0000-7000-8000-00000000f002/remove": (call, request) => {
+        removed = request.postDataJSON() as Record<string, unknown>;
+        return { json: admin.noBlocklistAdditions };
+      },
+    });
+    const table = page.getByRole("table", { name: "Blocklist additions" });
+    await expect(table).toContainText("oldminer");
+    await expect(table).toContainText("In the published list");
+    await expect(table).toContainText("Waiting to be published");
+    await expectAccessible(page);
+    await capture(page, info, "admin-abuse-blocklist");
+    await table.getByRole("button", { name: /Take back cracker/ }).click();
+    await page.getByLabel("Reason").fill("it was a fine program");
+    await page.getByRole("button", { name: "Take it back" }).last().click();
+    await expect.poll(() => removed).toMatchObject({ reason: "it was a fine program" });
+  });
+
+  test("shows an empty list of additions in words", async ({ page }) => {
+    await open(page, "/admin/abuse/", {
+      "/admin/v1/abuse/blocklist-additions": { json: admin.noBlocklistAdditions },
+    });
+    await expect(page.getByText("Nothing waiting")).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  test("adds a flagged program's build to the blocklist from a confirmed review, after a reason", async ({
+    page,
+  }, info) => {
+    let added: Record<string, unknown> | null = null;
+    await open(page, `/admin/abuse/?id=${admin.ABUSE_LEARNABLE_ID}`, {
+      [`/admin/v1/abuse/${admin.ABUSE_LEARNABLE_ID}/blocklist`]: (call, request) => {
+        added = request.postDataJSON() as Record<string, unknown>;
+        return { json: admin.blocklistAdditions };
+      },
+    });
+    await expect(page.getByText("renamedminer").first()).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-abuse-learn");
+    await page.getByRole("button", { name: /Add this program's hash to the blocklist/ }).click();
+    const sheet = page.getByRole("dialog", { name: /Add renamedminer's build to the blocklist\?/ });
+    await sheet.getByLabel("What it is").selectOption("password_cracker");
+    await sheet.getByLabel("Reason").fill("seen mining on two hosts");
+    await sheet.getByRole("button", { name: "Add to the blocklist" }).click();
+    await expect
+      .poll(() => added)
+      .toMatchObject({
+        sha256: admin.LEARNABLE_BUILD,
+        kind: "password_cracker",
+        reason: "seen mining on two hosts",
+      });
+  });
+
+  test("an open review offers no blocklist action", async ({ page }) => {
+    await open(page, `/admin/abuse/?id=${admin.ABUSE_OPEN_ID}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Abuse review" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Add this program's hash/ })).toHaveCount(0);
   });
 
   test("a note needs five characters, then is kept", async ({ page }) => {

@@ -14,6 +14,7 @@ import com.idleo.controlplane.billing.HostPayouts;
 import com.idleo.controlplane.billing.PayoutHolds;
 import com.idleo.controlplane.razorpay.FakeRazorpayX;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
@@ -188,6 +190,125 @@ class PayoutsTests {
         // An event from before it ended, arriving late, changes nothing.
         payees.webhook(RAZORPAYX.event("payout.initiated", sent.razorpayxId()));
         assertThat(payouts.find(payout.id()).orElseThrow().status()).isEqualTo("processed");
+    }
+
+    @Autowired
+    com.idleo.controlplane.identity.AccountHolds accountHolds;
+
+    @Autowired
+    com.idleo.controlplane.identity.AccountStandings standings;
+
+    @Autowired
+    TransactionTemplate transactionTemplate;
+
+    @Autowired
+    com.idleo.controlplane.identity.AuditTrail audit;
+
+    private ResultActions suspend(UUID user, String cause, String reason) throws Exception {
+        var admin = TestAdmins.signIn(mvc, jdbc, clock, Duration.ofDays(3_000));
+        var body = cause == null
+                ? "{\"reason\":\"" + reason + "\"}"
+                : "{\"reason\":\"" + reason + "\",\"cause\":\"" + cause + "\"}";
+        return mvc.perform(admin.as(post("/admin/v1/users/" + user + "/suspend")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)));
+    }
+
+    private void reinstate(UUID user) throws Exception {
+        var admin = TestAdmins.signIn(mvc, jdbc, clock, Duration.ofDays(3_000));
+        mvc.perform(admin.as(post("/admin/v1/users/" + user + "/unsuspend")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Looked into it, all fine.\"}")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void aHostSuspendedForMisconductAsAHostIsNotPaidUntilTheSuspensionIsLifted() throws Exception {
+        var owner = payees.earningAndVerified(2_000);
+        clock.advance(PAST_WINDOW);
+        suspend(owner.id(), "host_misconduct", "Ran renters' jobs on someone else's machine.")
+                .andExpect(status().isOk())
+                .andExpect(
+                        org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.suspensionCause")
+                                .value("host_misconduct"));
+
+        var held = payouts.create(owner.id(), "weekly", null, Paise.of(100));
+        assertThat(held.payout()).isNull();
+        assertThat(held.notPaid()).isEqualTo(PayoutService.NotPaid.ACCOUNT_HELD);
+        assertThat(payouts.create(owner.id(), "final", null, Paise.of(100)).notPaid())
+                .as("a final payout is held too")
+                .isEqualTo(PayoutService.NotPaid.ACCOUNT_HELD);
+        // The earnings are not lost: they wait, in full, and are paid once the suspension is lifted.
+        assertThat(ledger.position(owner.id()).availablePaise()).isEqualTo(1_600);
+        // The cause is in the audit row of the suspension, with the admin's words.
+        assertThat(jdbc.queryForObject(
+                        "select after ->> 'cause' from identity.audit_log where action = 'user.suspend' and target_id = ?",
+                        String.class,
+                        owner.id().toString()))
+                .isEqualTo("host_misconduct");
+
+        reinstate(owner.id());
+        assertThat(standings.payoutsHeld(owner.id())).isFalse();
+        var outcome = payouts.create(owner.id(), "weekly", null, Paise.of(100));
+        assertThat(outcome.notPaid()).isNull();
+        assertThat(outcome.payout().grossPaise()).isEqualTo(1_600);
+    }
+
+    @Test
+    void anAccountSuspendedForAnyOtherReasonIsStillPaid() throws Exception {
+        var plain = payees.earningAndVerified(2_000);
+        var withCause = payees.earningAndVerified(2_000);
+        var byTheWatch = payees.earningAndVerified(2_000);
+        clock.advance(PAST_WINDOW);
+        suspend(plain.id(), null, "Spam from this account.").andExpect(status().isOk());
+        suspend(withCause.id(), "other", "Card testing from this account.").andExpect(status().isOk());
+        transactionTemplate.executeWithoutResult(status -> accountHolds.hold(
+                byTheWatch.id(),
+                "A session was stopped.",
+                com.idleo.controlplane.identity.AuditTrail.Actor.system("abuse-watch")));
+
+        for (var owner : List.of(plain, withCause, byTheWatch)) {
+            assertThat(standings.payoutsHeld(owner.id())).isFalse();
+            var outcome = payouts.create(owner.id(), "weekly", null, Paise.of(100));
+            assertThat(outcome.notPaid()).isNull();
+            assertThat(outcome.payout().grossPaise()).isEqualTo(1_600);
+        }
+    }
+
+    @Test
+    void theWeeklyRunPassesOverAHeldAccountAndPaysTheOthers() throws Exception {
+        var held = payees.earningAndVerified(200_000);
+        var fine = payees.earningAndVerified(200_000);
+        clock.advance(PAST_WINDOW);
+        suspend(held.id(), "host_misconduct", "Ran renters' jobs on someone else's machine.")
+                .andExpect(status().isOk());
+
+        clock.advance(Duration.ofDays(900));
+        runs.weekly();
+
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from payouts.payouts where user_id = ?", Integer.class, held.id()))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from payouts.payouts where user_id = ?", Integer.class, fine.id()))
+                .isOne();
+    }
+
+    @Test
+    void aSuspensionCauseIsOnlyKeptWhileTheAccountIsSuspended() throws Exception {
+        var owner = payees.earningAndVerified(2_000);
+        suspend(owner.id(), "host_misconduct", "Ran renters' jobs on someone else's machine.")
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject(
+                        "select suspension_cause from identity.users where id = ?", String.class, owner.id()))
+                .isEqualTo("host_misconduct");
+
+        reinstate(owner.id());
+
+        assertThat(jdbc.queryForObject(
+                        "select suspension_cause from identity.users where id = ?", String.class, owner.id()))
+                .isNull();
+        suspend(owner.id(), "bogus", "Some reason here.").andExpect(status().isBadRequest());
     }
 
     @Test

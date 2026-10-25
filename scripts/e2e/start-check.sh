@@ -66,10 +66,10 @@ sys.exit(0 if host["online"] and host["status"] == "pending" else 1)'; do
   sleep 1
 done
 
-# Monitoring (ADR 0036): the three dashboards are loaded, and the control plane's meters reach Prometheus (sent once a
+# Monitoring (ADR 0036): the four dashboards are loaded, and the control plane's meters reach Prometheus (sent once a
 # minute, so the first may take that long).
 dashboards="$(curl -sf "http://localhost:3300/api/search?tag=idleo" | python3 -c 'import json, sys; print(len(json.load(sys.stdin)))')"
-[[ "$dashboards" == 3 ]] || fail "Grafana has $dashboards of the 3 dashboards"
+[[ "$dashboards" == 4 ]] || fail "Grafana has $dashboards of the 4 dashboards"
 deadline=$((SECONDS + 150))
 until curl -sf "http://localhost:9190/api/v1/query" --data-urlencode 'query=count(jvm_memory_used_bytes{service_name="control-plane"})' |
   python3 -c 'import json, sys; sys.exit(0 if json.load(sys.stdin)["data"]["result"] else 1)'; do
