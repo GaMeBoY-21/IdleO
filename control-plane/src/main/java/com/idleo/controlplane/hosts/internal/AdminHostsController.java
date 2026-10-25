@@ -43,6 +43,8 @@ class AdminHostsController {
     private final HostPresence presence;
     private final HostTelemetry telemetry;
     private final AuditTrail audit;
+    private final HostScoreService scores;
+    private final SelfTestRuns selfTests;
     private final JsonMapper json = JsonMapper.builder().build();
     private static final TypeReference<List<AdminSelfTestCheck>> SELF_TEST_CHECKS = new TypeReference<>() {};
 
@@ -53,7 +55,11 @@ class AdminHostsController {
             HostCertificateService certificates,
             HostPresence presence,
             HostTelemetry telemetry,
-            AuditTrail audit) {
+            AuditTrail audit,
+            HostScoreService scores,
+            SelfTestRuns selfTests) {
+        this.scores = scores;
+        this.selfTests = selfTests;
         this.jdbc = jdbc;
         this.hosts = hosts;
         this.activation = activation;
@@ -109,6 +115,29 @@ class AdminHostsController {
             List<AdminSelfTestCheck> checks,
             Instant reportedAt) {}
 
+    /**
+     * The host score in numbers (docs/plan/execution-plan.md "Host score"), as of {@code computedAt}: {@code
+     * reliability} and {@code bandwidth} from 0 to 1, the scheduler's two inputs; what reliability was made of (the
+     * session and self-test records, each a Bayesian average over the last 30 days, and the {@code penalty} taken off
+     * for upheld reports and admin flags, with their counts); and {@code speedKbps}, the mean of the last upload and
+     * download. Empty until the first is worked out.
+     */
+    record AdminScore(
+            double reliability,
+            double bandwidth,
+            double sessionScore,
+            double selfTestScore,
+            double penalty,
+            int sessionsFinished,
+            int sessionsLost,
+            int selfTestsPassed,
+            int selfTestsFailed,
+            int reportsUpheld,
+            int flags,
+            @Nullable Integer speedKbps,
+            String label,
+            Instant computedAt) {}
+
     /** How the latest update offered to the host went: {@code outcome} is installed, rolled_back, failed_verify or failed_download. */
     record AdminUpdateResult(String version, String outcome, String detail, Instant reportedAt) {}
 
@@ -137,7 +166,8 @@ class AdminHostsController {
             List<AdminHostStatusChange> statusHistory,
             HostTelemetry.Telemetry telemetry,
             @Nullable AdminSelfTest selfTest,
-            @Nullable AdminUpdateResult lastUpdate) {}
+            @Nullable AdminUpdateResult lastUpdate,
+            @Nullable AdminScore score) {}
 
     /**
      * {@code query} is part of a host's name, or a whole host or owner id; {@code status} is pending, verified, active,
@@ -231,6 +261,24 @@ class AdminHostsController {
         return find(id);
     }
 
+    /** The host's newest self-test run and whether another can start (the same as the owner's page). */
+    @GetMapping("/{id}/self-test")
+    SelfTestRuns.SelfTestStatus selfTest(@PathVariable UUID id) {
+        find(id);
+        return selfTests.status(id);
+    }
+
+    /** Asks the host's agent to run its full self-test now. Audited, with the admin's reason. */
+    @PostMapping("/{id}/self-tests")
+    SelfTestRuns.SelfTestStatus runSelfTest(
+            @AuthenticationPrincipal CurrentUser admin,
+            @PathVariable UUID id,
+            @Valid @RequestBody AdminReason request) {
+        find(id);
+        selfTests.start(id, SelfTestRuns.Requester.admin(admin.id(), audit.admin(admin), request.reason()));
+        return selfTests.status(id);
+    }
+
     /** Revokes every certificate the host has: its agent is cut off until its owner enrols it again. */
     @PostMapping("/{id}/revoke-certificates")
     AdminHost revokeCertificates(
@@ -320,7 +368,31 @@ class AdminHostsController {
                 history,
                 telemetry.of(id),
                 selfTest,
-                lastUpdate);
+                lastUpdate,
+                score(id));
+    }
+
+    private @Nullable AdminScore score(UUID id) {
+        var stored = scores.stored(List.of(id)).get(id);
+        if (stored == null) {
+            return null;
+        }
+        var b = stored.breakdown();
+        return new AdminScore(
+                b.reliability(),
+                stored.bandwidth(),
+                b.sessionScore(),
+                b.selfTestScore(),
+                b.penalty(),
+                b.sessionsFinished(),
+                b.sessionsLost(),
+                b.selfTestsPassed(),
+                b.selfTestsFailed(),
+                b.reportsUpheld(),
+                b.flags(),
+                stored.speedKbps(),
+                b.label().name().toLowerCase(java.util.Locale.ROOT),
+                stored.computedAt());
     }
 
     private static void refusing(Supplier<?> action) {

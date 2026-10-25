@@ -132,21 +132,23 @@ class Presence implements HostPresence, AgentPresence {
             int netUpKbps,
             @Nullable Integer freeDiskMb,
             String gpusJson,
+            List<String> cachedImages,
             Instant heartbeatAt) {
 
         /** Every field; free disk is empty until a heartbeat reports it. */
         Map<String, String> fields() {
-            return Map.of(
-                    "free_disk_mb", freeDiskMb == null ? "" : Integer.toString(freeDiskMb),
-                    "connection_id", connectionId.toString(),
-                    "instance_id", instanceId.toString(),
-                    "connected_at", connectedAt.toString(),
-                    "agent_version", agentVersion,
-                    "update_required", Boolean.toString(updateRequired),
-                    "owner_active", Boolean.toString(ownerActive),
-                    "net_up_kbps", Integer.toString(netUpKbps),
-                    "gpus", gpusJson,
-                    "heartbeat_at", heartbeatAt.toString());
+            return Map.ofEntries(
+                    Map.entry("cached_images", String.join(",", cachedImages)),
+                    Map.entry("free_disk_mb", freeDiskMb == null ? "" : Integer.toString(freeDiskMb)),
+                    Map.entry("connection_id", connectionId.toString()),
+                    Map.entry("instance_id", instanceId.toString()),
+                    Map.entry("connected_at", connectedAt.toString()),
+                    Map.entry("agent_version", agentVersion),
+                    Map.entry("update_required", Boolean.toString(updateRequired)),
+                    Map.entry("owner_active", Boolean.toString(ownerActive)),
+                    Map.entry("net_up_kbps", Integer.toString(netUpKbps)),
+                    Map.entry("gpus", gpusJson),
+                    Map.entry("heartbeat_at", heartbeatAt.toString()));
         }
     }
 
@@ -212,7 +214,10 @@ class Presence implements HostPresence, AgentPresence {
                 Boolean.parseBoolean(text(fields, "owner_active")),
                 freeDisk.isEmpty() ? null : Integer.valueOf(freeDisk),
                 List.copyOf(temps),
-                List.copyOf(readings));
+                List.copyOf(readings),
+                text(fields, "cached_images").isEmpty()
+                        ? List.of()
+                        : List.of(text(fields, "cached_images").split(",")));
     }
 
     private static String text(Map<?, ?> fields, String name) {

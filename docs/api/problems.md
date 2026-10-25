@@ -79,6 +79,9 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/host-busy` | 409 | The host is running a session | A host can't be removed while it has a session that hasn't ended. Pause it so it takes no new work, and remove it when the session is over. |
 | `/problems/host-removed` | 410 | The host was removed | This host was removed and never comes back; add the machine again to rent it out. |
 | `/problems/host-no-gpu` | 409 | The host hasn't reported a GPU | A price can only be suggested once the host's agent has connected and reported its GPU. |
+| `/problems/host-offline` | 409 | The host isn't connected | This machine isn't connected right now. Open IdleO on it, then try again. |
+| `/problems/self-test-running` | 409 | A self-test is already running | This machine is already running a self-test. Wait for it to finish. |
+| `/problems/self-test-limit` | 429 | Too many self-tests today | This machine has run its self-test 6 times in the last 24 hours. Try again later. |
 | `/problems/pause-too-long` | 400 | The pause is too long | A pause with an end must end within 7 days from now. Pause until you resume it for longer. |
 | `/problems/no-agent-release` | 404 | No release yet | The Windows app hasn't been released yet, so there's nothing to download. Try again later. |
 | `/problems/install-events-full` | 422 | Too many events for this install | One install can send at most 200 events in all. Nothing from this request was kept. |

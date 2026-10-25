@@ -142,6 +142,7 @@ impl Care {
     /// Runs until the process ends.
     pub async fn run(self, host: Arc<Host>, sessions: Shared) {
         let mut done = load(&self.data_dir, &self.distro_version);
+        host.set_cached_images(&done);
         let mut idle_since: Option<Instant> = None;
         let mut retry_at: Option<Instant> = None;
         let mut ticks = tokio::time::interval(self.timing.tick);
@@ -167,6 +168,7 @@ impl Care {
                         Fetched::Done => {
                             done.insert(image);
                             save(&self.data_dir, &self.distro_version, &done);
+                            host.set_cached_images(&done);
                         }
                         Fetched::Stopped => {}
                         Fetched::Failed(why) => {
@@ -360,6 +362,34 @@ mod tests {
         let remembered: Done =
             serde_json::from_str(&std::fs::read_to_string(done_path(rig.dir.path())).unwrap()).unwrap();
         assert_eq!(remembered.images, BTreeSet::from([image(1), image(3)]));
+        running.abort();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn what_is_downloaded_is_what_the_heartbeat_says_is_cached() {
+        let (rig, care) = rig(12_000, &[(1, 8_000), (2, 24_000)]);
+        let digest = |n: u8| format!("sha256:{}", format!("{n:02x}").repeat(32));
+        assert_eq!(rig.host.cached_images(), Vec::<String>::new());
+        let (host, sessions) = (Arc::clone(&rig.host), rig.sessions.clone());
+        let running = tokio::spawn(care.run(host, sessions));
+
+        tokio::time::sleep(Duration::from_secs(70)).await;
+
+        assert_eq!(rig.host.cached_images(), [digest(1)], "only what's here, not the image that doesn't fit");
+        running.abort();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn images_remembered_from_before_are_cached_from_the_start() {
+        let (rig, care) = rig(12_000, &[(1, 8_000)]);
+        save(rig.dir.path(), "0.1.0", &BTreeSet::from([image(1)]));
+        let (host, sessions) = (Arc::clone(&rig.host), rig.sessions.clone());
+        let running = tokio::spawn(care.run(host, sessions));
+
+        tokio::time::sleep(Duration::from_secs(2)).await;
+
+        assert_eq!(rig.host.cached_images(), [format!("sha256:{}", "01".repeat(32))]);
+        assert!(rig.distribution.pulled.lock().unwrap().is_empty(), "nothing is downloaded twice");
         running.abort();
     }
 

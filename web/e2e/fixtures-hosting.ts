@@ -188,6 +188,7 @@ const base = (machine: { id: string; name: string; price: number }): Host => ({
   currentSession: null,
   gpus: [gpu("NVIDIA GeForce RTX 4080 Laptop GPU", 12282)],
   listing: listing(machine.price),
+  reliability: { label: "good", lowers: [] },
   createdAt: "2026-09-20T10:00:00Z",
 });
 
@@ -228,6 +229,15 @@ export const hostOffline: Host = {
   online: false,
   onlineSince: null,
   lastSeenAt: ago(3 * HOUR),
+  // Lost two sessions with its app offline and failed a self-test; renters' reports counted too.
+  reliability: {
+    label: "fair",
+    lowers: [
+      { kind: "sessions_lost", count: 2 },
+      { kind: "self_tests_failed", count: 1 },
+      { kind: "reports", count: null },
+    ],
+  },
 };
 export const hostUpdate: Host = { ...base(ROG), id: id(0xb006), name: "Office PC", updateRequired: true };
 /** Just added: connected, with no price yet, and waiting for our checks. */
@@ -238,8 +248,110 @@ export const hostNew: Host = {
   status: "pending",
   listing: null,
   onlineSince: ago(MINUTE),
+  reliability: { label: "new", lowers: [] },
 };
 export const hosts = { hosts: [hostRunning, hostPaused] };
+
+/** The names the app gives its checks, in the order it runs them (src/lib/hosting.ts SELF_TEST_CHECKS). */
+const SELF_TEST_NAMES = [
+  "distro_registered",
+  "lockdown_config",
+  "gpu_visible",
+  "container_runtime",
+  "runner",
+  "scratch_encryption",
+  "gpu_in_container",
+  "lockdown",
+  "network_lockdown",
+  "disk",
+  "storage_speed",
+] as const;
+
+const selfTestCheck = (name: string, passed = true) => ({
+  name,
+  passed,
+  detail: passed ? `${name} found nothing wrong` : `${name} failed: it did not answer`,
+  tookMs: 400,
+});
+
+const selfTestRun = (
+  state: "running" | "passed" | "failed" | "refused" | "timed_out",
+  checks: number,
+  extra: { refused?: string; failedAt?: string } = {},
+) => ({
+  id: id(0xc001),
+  state,
+  requestedAt: ago(2 * MINUTE),
+  byAdmin: false,
+  checks: SELF_TEST_NAMES.slice(0, checks).map((name) => selfTestCheck(name, name !== extra.failedAt)),
+  refused: extra.refused ?? null,
+  finishedAt: state === "running" || state === "timed_out" ? null : ago(MINUTE),
+});
+
+/** GET /v1/hosts/{id}/self-test: the machine's newest run from the web app, and whether another can start. */
+export const selfTestNever = {
+  run: null,
+  canRun: true,
+  whyNot: null,
+  usedToday: 0,
+  perDay: 6,
+  retryAt: null,
+};
+export const selfTestStarted = {
+  run: selfTestRun("running", 0),
+  canRun: false,
+  whyNot: {
+    code: "self-test-running",
+    message: "A self-test is already running on this machine. Wait for it to finish.",
+  },
+  usedToday: 1,
+  perDay: 6,
+  retryAt: null,
+};
+export const selfTestHalfWay = { ...selfTestStarted, run: selfTestRun("running", 5) };
+export const selfTestPassed = {
+  run: selfTestRun("passed", SELF_TEST_NAMES.length),
+  canRun: true,
+  whyNot: null,
+  usedToday: 1,
+  perDay: 6,
+  retryAt: null,
+};
+export const selfTestFailed = {
+  ...selfTestPassed,
+  run: selfTestRun("failed", SELF_TEST_NAMES.length, { failedAt: "lockdown" }),
+};
+export const selfTestRefused = {
+  ...selfTestPassed,
+  run: selfTestRun("refused", 0, { refused: "session_running" }),
+};
+export const selfTestTimedOut = { ...selfTestPassed, run: selfTestRun("timed_out", 2) };
+export const selfTestOffline = {
+  ...selfTestNever,
+  canRun: false,
+  whyNot: {
+    code: "host-offline",
+    message: "This machine isn't connected right now. Open IdleO on it, then try again.",
+  },
+};
+export const selfTestBusy = {
+  ...selfTestNever,
+  canRun: false,
+  whyNot: {
+    code: "host-busy",
+    message: "A renter's session is running on this machine. The self-test can run when it ends.",
+  },
+};
+export const selfTestLimit = {
+  ...selfTestPassed,
+  canRun: false,
+  whyNot: {
+    code: "self-test-limit",
+    message: "This machine has run its self-test 6 times in the last 24 hours. Try again later.",
+  },
+  usedToday: 6,
+  retryAt: ago(-5 * HOUR),
+};
 export const noHosts = { hosts: [] };
 
 /** Other hosts with the same GPU charge ₹9.00 to ₹12.00 an hour: 15 to 20 paise a minute (docs/design/hosting/price-phone.html). */

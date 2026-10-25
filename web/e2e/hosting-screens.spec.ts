@@ -162,6 +162,111 @@ test.describe("one machine", () => {
     await capture(page, info, "machine-running");
   });
 
+  test("how reliable it has been, in a word, and what lowers it", async ({ page }, info) => {
+    await open(page, at(hosting.hostRunning));
+    await expect(page.getByText(/^Reliability: Good/)).toBeVisible();
+    await expect(page.getByRole("list", { name: "What lowers it" })).toHaveCount(0);
+    await page.goto(at(hosting.hostOffline));
+    await expect(page.getByText(/^Reliability: Fair/)).toBeVisible();
+    const lowers = page.getByRole("list", { name: "What lowers it" });
+    await expect(lowers).toContainText("2 sessions were lost here in the last 30 days");
+    await expect(lowers).toContainText("1 self-test in the last 30 days had a check that failed");
+    await expect(lowers).toContainText("Renters' reports about sessions here counted against it");
+    await page.goto(at(hosting.hostNew));
+    await expect(page.getByText(/^Reliability: New/)).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "machine-reliability");
+  });
+
+  test("Run self-test: each check shows as it arrives, then the result", async ({ page }, info) => {
+    let reads = 0;
+    let started = 0;
+    await open(page, at(hosting.hostIdle), {
+      "/v1/hosts/[^/]+/self-test": () => {
+        reads += 1;
+        // Before the press: never run. After it: nothing yet, then half way, then done.
+        return {
+          json:
+            started === 0
+              ? hosting.selfTestNever
+              : reads < 3
+                ? hosting.selfTestStarted
+                : reads < 5
+                  ? hosting.selfTestHalfWay
+                  : hosting.selfTestPassed,
+        };
+      },
+      "/v1/hosts/[^/]+/self-tests": () => {
+        started += 1;
+        return { json: hosting.selfTestStarted, status: 202 };
+      },
+    });
+    const panel = page.getByRole("region", { name: "Self-test" });
+    await expect(panel.getByText("Not run from here yet.")).toBeVisible();
+    await expect(panel.getByText("Up to 6 a day.")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "machine-self-test");
+
+    await panel.getByRole("button", { name: "Run self-test" }).click();
+    await expect(panel.getByRole("list", { name: "Checks" }).getByRole("listitem")).toHaveCount(11);
+    await expect(panel.getByRole("button", { name: "Run self-test" })).toBeDisabled();
+    await expect(panel.getByText(/^Running · \d+ of 11 checks done/)).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "machine-self-test-running");
+    await expect(panel.getByText(/^Passed/)).toBeVisible({ timeout: 15_000 });
+    await expect(panel.getByRole("button", { name: "Run self-test" })).toBeEnabled();
+    await expect(panel.getByText("IdleO's Linux is installed")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "machine-self-test-passed");
+  });
+
+  test("Run self-test says why it can't: offline, busy, the day's six used up, and a refusal", async ({
+    page,
+  }, info) => {
+    const answers: Record<string, unknown> = {
+      offline: hosting.selfTestOffline,
+      busy: hosting.selfTestBusy,
+      limit: hosting.selfTestLimit,
+    };
+    let which = "offline";
+    await open(page, at(hosting.hostIdle), {
+      "/v1/hosts/[^/]+/self-test": () => ({ json: answers[which] }),
+      "/v1/hosts/[^/]+/self-tests": { status: 409, problem: "host-offline" },
+    });
+    const panel = page.getByRole("region", { name: "Self-test" });
+    await expect(panel.getByRole("button", { name: "Run self-test" })).toBeDisabled();
+    await expect(panel.getByText(/isn't connected right now/)).toBeVisible();
+    await capture(page, info, "machine-self-test-offline");
+    which = "busy";
+    await page.reload();
+    await expect(panel.getByText(/A renter's session is running on this machine/)).toBeVisible();
+    which = "limit";
+    await page.reload();
+    await expect(panel.getByText(/6 times in the last 24 hours/)).toBeVisible();
+    await expect(panel.getByRole("list", { name: "Checks" })).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  test("Run self-test: a failure says what the check found; loading and an error with a retry", async ({
+    page,
+  }, info) => {
+    await open(page, at(hosting.hostIdle), {
+      "/v1/hosts/[^/]+/self-test": { json: hosting.selfTestFailed },
+    });
+    const panel = page.getByRole("region", { name: "Self-test" });
+    await expect(panel.getByText(/^A check failed/)).toBeVisible();
+    await expect(panel.getByText("lockdown failed: it did not answer")).toBeVisible();
+    await capture(page, info, "machine-self-test-failed");
+
+    await open(page, at(hosting.hostIdle), { "/v1/hosts/[^/]+/self-test": "hold" });
+    await expect(page.getByRole("status", { name: "Loading the self-test" })).toBeVisible();
+    await capture(page, info, "machine-self-test-loading");
+
+    await open(page, at(hosting.hostIdle), { "/v1/hosts/[^/]+/self-test": { status: 500 } });
+    await expect(panel.getByRole("button", { name: /Try again/ })).toBeVisible();
+    await capture(page, info, "machine-self-test-error");
+  });
+
   test("idle, with nothing to show under Right now", async ({ page }, info) => {
     await open(page, at(hosting.hostIdle));
     await expect(page.getByText(/Nothing is running/)).toBeVisible();

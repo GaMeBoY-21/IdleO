@@ -107,6 +107,11 @@ class HostLosses implements SessionReconciliation {
             return false;
         }
         store.endAttempt(sessionId, session.attempt());
+        jdbc.sql("update sessions.attempts set lost_reason = :reason where session_id = :id and attempt = :attempt")
+                .param("reason", reason)
+                .param("id", sessionId)
+                .param("attempt", session.attempt())
+                .update();
         meters.counter("sessions.hosts.lost", "reason", reason).increment();
         if (session.attempt() >= maxLostAttempts) {
             store.transition(sessionId, SessionEvent.LOST_REPEATEDLY, "host_lost_repeatedly", null, SessionStore.KEEP);

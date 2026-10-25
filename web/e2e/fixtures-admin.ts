@@ -157,7 +157,42 @@ export const host = {
     reportedAt: string;
   } | null,
   lastUpdate: null as { version: string; outcome: string; detail: string; reportedAt: string } | null,
+  // The host score in numbers: what the scheduler ranks it by (docs/plan/execution-plan.md "Host score").
+  score: {
+    reliability: 0.812,
+    bandwidth: 0.74,
+    sessionScore: 0.861,
+    selfTestScore: 0.667,
+    penalty: 0.1,
+    sessionsFinished: 14,
+    sessionsLost: 1,
+    selfTestsPassed: 3,
+    selfTestsFailed: 0,
+    reportsUpheld: 1,
+    flags: 0,
+    speedKbps: 64_000,
+    label: "good",
+    computedAt: ago(250),
+  } as {
+    reliability: number;
+    bandwidth: number;
+    sessionScore: number;
+    selfTestScore: number;
+    penalty: number;
+    sessionsFinished: number;
+    sessionsLost: number;
+    selfTestsPassed: number;
+    selfTestsFailed: number;
+    reportsUpheld: number;
+    flags: number;
+    speedKbps: number | null;
+    label: string;
+    computedAt: string;
+  } | null,
 };
+
+/** GET /admin/v1/hosts/{id}/self-test: nothing run from the web app yet, and the button is on. */
+export const hostSelfTest = { run: null, canRun: true, whyNot: null, usedToday: 0, perDay: 6, retryAt: null };
 
 export const pendingHost = {
   ...host,
@@ -168,6 +203,7 @@ export const pendingHost = {
   pricePaisePerMin: 10,
   createdAt: ago(40),
   statusHistory: [],
+  score: null,
   selfTest: {
     passed: false,
     distroVersion: "0.1.0",

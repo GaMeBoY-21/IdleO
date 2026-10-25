@@ -1,5 +1,6 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.hosts.HostAgentReports;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
@@ -8,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -33,10 +35,23 @@ class HostAgentReportService implements HostAgentReports {
     private final HostLinkProperties settings;
     private final JsonMapper json = JsonMapper.builder().build();
     private final HostMetrics metrics;
+    private final SelfTestRuns runs;
+    private final IdGenerator ids;
+    private final HostScoreService scores;
 
     HostAgentReportService(
-            JdbcClient jdbc, Clock clock, HostActivation activation, HostLinkProperties settings, HostMetrics metrics) {
+            JdbcClient jdbc,
+            Clock clock,
+            HostActivation activation,
+            HostLinkProperties settings,
+            HostMetrics metrics,
+            SelfTestRuns runs,
+            IdGenerator ids,
+            HostScoreService scores) {
+        this.scores = scores;
         this.metrics = metrics;
+        this.runs = runs;
+        this.ids = ids;
         this.jdbc = jdbc;
         this.clock = clock;
         this.activation = activation;
@@ -49,15 +64,16 @@ class HostAgentReportService implements HostAgentReports {
         jdbc.sql("""
                         insert into hosts.self_tests
                             (host_id, passed, distro_version, agent_version, checks, reported_at,
-                             upload_kbps, upload_cap_kbps)
+                             upload_kbps, upload_cap_kbps, download_kbps)
                         values (:hostId, :passed, :distro, (select agent_version from hosts.hosts where id = :hostId),
-                                cast(:checks as jsonb), :now, :upload, :cap)
+                                cast(:checks as jsonb), :now, :upload, :cap, :download)
                         on conflict (host_id) do update
                         set passed = excluded.passed, distro_version = excluded.distro_version,
                             agent_version = excluded.agent_version, checks = excluded.checks,
                             reported_at = excluded.reported_at,
                             upload_kbps = coalesce(excluded.upload_kbps, hosts.self_tests.upload_kbps),
-                            upload_cap_kbps = coalesce(excluded.upload_cap_kbps, hosts.self_tests.upload_cap_kbps)
+                            upload_cap_kbps = coalesce(excluded.upload_cap_kbps, hosts.self_tests.upload_cap_kbps),
+                            download_kbps = coalesce(excluded.download_kbps, hosts.self_tests.download_kbps)
                         """)
                 .param("hostId", hostId)
                 .param("passed", selfTest.passed())
@@ -67,7 +83,22 @@ class HostAgentReportService implements HostAgentReports {
                 // Nothing measured is null, and a later self-test that measured nothing keeps what was known.
                 .param("upload", selfTest.uploadKbps() > 0 ? selfTest.uploadKbps() : null)
                 .param("cap", selfTest.uploadCapKbps() > 0 ? selfTest.uploadCapKbps() : null)
+                .param("download", selfTest.downloadKbps() > 0 ? selfTest.downloadKbps() : null)
                 .update();
+        // The pass rate of the last days is part of the host score; hosts.self_tests keeps only the latest self-test.
+        jdbc.sql("""
+                        insert into hosts.self_test_results (id, host_id, passed, reported_at)
+                        values (:id, :hostId, :passed, :now)
+                        """)
+                .param("id", ids.newId())
+                .param("hostId", hostId)
+                .param("passed", selfTest.passed())
+                .param("now", now)
+                .update();
+        if (selfTest.runId() != null) {
+            runs.finished(hostId, selfTest.runId(), selfTest.passed(), selfTest.checks());
+        }
+        scores.refresh(hostId);
         metrics.selfTest(selfTest);
         if (!selfTest.passed() || !settings.autoActivate()) {
             return;
@@ -84,6 +115,12 @@ class HostAgentReportService implements HostAgentReports {
                 log.warn("Host {} passed its self-test but can't be activated: {}", hostId, refused.getMessage());
             }
         }
+    }
+
+    @Override
+    public void recordSelfTestProgress(
+            UUID hostId, UUID runId, HostAgentReports.@Nullable SelfTestCheck check, @Nullable String refused) {
+        runs.progress(hostId, runId, check, refused);
     }
 
     @Override

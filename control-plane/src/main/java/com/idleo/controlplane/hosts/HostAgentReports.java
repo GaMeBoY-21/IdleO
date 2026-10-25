@@ -29,22 +29,41 @@ public interface HostAgentReports {
      */
     void recordSelfTest(UUID hostId, SelfTest selfTest);
 
+    /**
+     * Records that a requested self-test ({@code runId}, from {@link HostSelfTests}) has finished one more check, or
+     * that the agent refused it ({@code refused} is its code). Ignored for a run that isn't this host's, or is over.
+     */
+    void recordSelfTestProgress(UUID hostId, UUID runId, @Nullable SelfTestCheck check, @Nullable String refused);
+
     /** Records how an update went, the latest per version; a version rolled back is never offered to the host again. */
     void recordUpdateResult(UUID hostId, String version, UpdateOutcome outcome, String detail);
 
     /**
-     * A self-test: every check that ran, whether all passed, and the distro's version (empty without one); {@code
+     * A self-test: every check that ran, whether all passed, and the distro's version (empty without one); {@code downloadKbps}
+     * is how fast the machine downloaded in the same check, {@code runId} the requested run it answers, if any; {@code
      * uploadKbps} is how fast the machine uploaded to our storage and {@code uploadCapKbps} the most a job may upload at
      * once on it (ADR 0038), both in kbit/s and 0 when this self-test didn't measure the speed.
      */
     record SelfTest(
-            boolean passed, String distroVersion, List<SelfTestCheck> checks, int uploadKbps, int uploadCapKbps) {
+            boolean passed,
+            String distroVersion,
+            List<SelfTestCheck> checks,
+            int uploadKbps,
+            int uploadCapKbps,
+            int downloadKbps,
+            @Nullable UUID runId) {
 
         public SelfTest {
             checks = List.copyOf(checks);
         }
 
-        /** A self-test that measured no upload speed. */
+        /** A self-test the agent ran on its own that measured an upload speed and no download speed. */
+        public SelfTest(
+                boolean passed, String distroVersion, List<SelfTestCheck> checks, int uploadKbps, int uploadCapKbps) {
+            this(passed, distroVersion, checks, uploadKbps, uploadCapKbps, 0, null);
+        }
+
+        /** A self-test that measured no speed. */
         public SelfTest(boolean passed, String distroVersion, List<SelfTestCheck> checks) {
             this(passed, distroVersion, checks, 0, 0);
         }

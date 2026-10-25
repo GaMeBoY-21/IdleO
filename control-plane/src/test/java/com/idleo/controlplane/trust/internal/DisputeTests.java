@@ -74,6 +74,9 @@ class DisputeTests {
     @Autowired
     SessionCharges charges;
 
+    @Autowired
+    com.idleo.controlplane.hosts.HostTrustSignals trustSignals;
+
     private EndedSessions ended;
     private TestUsers.TestUser renter;
     private TestUsers.TestUser owner;
@@ -370,6 +373,37 @@ class DisputeTests {
         // The host's owner sees nothing of it.
         mvc.perform(get("/admin/v1/disputes/host-flags?host=" + hostId).header("Authorization", owner.bearer()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void anUpheldReportAndTheFlagAreWhatLowerAHostsScoreAndNothingElseIs() throws Exception {
+        var since = clock.instant().minus(Duration.ofDays(30));
+        var refundedFlagged = reported(chargedSession(), "host_stopped", "It stopped halfway.");
+        var refundedOnly = reported(chargedSession(), "slow", "It crawled.");
+        var notRefunded = reported(chargedSession(), "other", "Not sure.");
+        var open = reported(chargedSession(), "failed", "It failed.");
+        mvc.perform(admin.as(body(
+                        post("/admin/v1/disputes/" + refundedFlagged + "/refund"),
+                        "{\"amountPaise\":120,\"reason\":\"The host stopped it.\",\"flagHost\":true}")))
+                .andExpect(status().isOk());
+        refund(refundedOnly, 60, "It was slow.");
+        mvc.perform(admin.as(body(
+                        post("/admin/v1/disputes/" + notRefunded + "/no-refund"), "{\"reason\":\"Nothing wrong.\"}")))
+                .andExpect(status().isOk());
+
+        var signals = trustSignals.since(List.of(hostId), since);
+
+        assertThat(signals)
+                .extracting(com.idleo.controlplane.hosts.HostTrustSignals.Signal::kind)
+                .containsExactlyInAnyOrder(
+                        com.idleo.controlplane.hosts.HostTrustSignals.Kind.UPHELD_REPORT,
+                        com.idleo.controlplane.hosts.HostTrustSignals.Kind.UPHELD_REPORT,
+                        com.idleo.controlplane.hosts.HostTrustSignals.Kind.FLAG);
+        assertThat(signals).allSatisfy(signal -> assertThat(signal.hostId()).isEqualTo(hostId));
+        assertThat(open).isNotNull();
+        // Marks older than the window don't count.
+        assertThat(trustSignals.since(List.of(hostId), clock.instant().plus(Duration.ofDays(1))))
+                .isEmpty();
     }
 
     @Test

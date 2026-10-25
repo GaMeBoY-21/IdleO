@@ -278,6 +278,7 @@ mod tests {
             facts: Vec::new(),
             upload_kbps: None,
             upload_cap_kbps: None,
+            download_kbps: None,
         };
         assert!(!serde_json::to_string(&report).unwrap().contains("facts"));
         let old = r#"{"checks":[],"passed":false,"distro_version":"0.1.0"}"#;

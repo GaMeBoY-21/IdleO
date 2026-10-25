@@ -28,8 +28,10 @@ class SchedulableHostService implements SchedulableHosts {
                         select * from (
                             select distinct on (h.id) h.id, l.price_paise_per_min, h.gpu_temp_cap_c, g.gpu_uuid,
                                    g.vram_mb, g.model, h.keep_free_gb,
-                                   h.paused_at is not null and (h.paused_until is null or h.paused_until > :now) as paused
+                                   h.paused_at is not null and (h.paused_until is null or h.paused_until > :now) as paused,
+                                   coalesce(sc.reliability, 0.5) as reliability, coalesce(sc.bandwidth, 0.5) as bandwidth
                             from hosts.hosts h
+                            left join hosts.host_scores sc on sc.host_id = h.id
                             join hosts.price_listings l on l.host_id = h.id and l.workload_type = 'batch'
                             join hosts.host_gpus g on g.host_id = h.id and g.gone_at is null
                             where h.status = 'active' and l.price_paise_per_min <= :maxPrice
@@ -48,7 +50,9 @@ class SchedulableHostService implements SchedulableHosts {
                         rs.getInt("vram_mb"),
                         rs.getString("model"),
                         rs.getInt("keep_free_gb") * 1024,
-                        rs.getBoolean("paused")))
+                        rs.getBoolean("paused"),
+                        rs.getDouble("reliability"),
+                        rs.getDouble("bandwidth")))
                 .list();
     }
 

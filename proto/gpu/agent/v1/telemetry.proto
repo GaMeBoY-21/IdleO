@@ -68,4 +68,9 @@ message Heartbeat {
   // its inputs and scratch disk. Absent when the agent couldn't read it, and
   // from agents older than this field; the scheduler then offers nothing.
   optional int32 free_disk_mb = 5;
+  // The job images already on the machine, as digests ("sha256:..."), so the
+  // scheduler can prefer a host whose cache holds the template's image. The
+  // agent lists the ones it has downloaded for this version of its Linux
+  // distribution; empty when none, and from agents older than this field.
+  repeated string cached_images = 6;
 }

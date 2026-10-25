@@ -43,7 +43,7 @@ message OpenStreamRequest {
     // One minute of usage. Acked.
     UsageReport usage_report = 14;
     // Acknowledges a StartSession, StopSession, UpdateAgent,
-    // RefreshCredentials or HostStatus.
+    // RefreshCredentials, HostStatus or RunSelfTest.
     Ack ack = 15;
     // The agent's self-test results. Acked.
     SelfTestReport self_test_report = 16;
@@ -59,6 +59,9 @@ message OpenStreamRequest {
     // The runner saw something in a session an admin should look at, or
     // stopped it for that. Acked.
     AbuseSignal abuse_signal = 21;
+    // One check of a requested self-test ended, or the agent won't run it.
+    // Acked.
+    SelfTestProgress self_test_progress = 22;
   }
 }
 
@@ -84,7 +87,8 @@ message OpenStreamResponse {
     // Install a newer agent build. Acked.
     UpdateAgent update_agent = 15;
     // Acknowledges an OfferReply, SessionStatus, UsageReport,
-    // SelfTestReport, SetPause, Leave, UpdateResult or AbuseSignal.
+    // SelfTestReport, SelfTestProgress, SetPause, Leave, UpdateResult or
+    // AbuseSignal.
     Ack ack = 16;
     // Fresh storage credentials for a running attempt. Acked.
     RefreshCredentials refresh_credentials = 17;
@@ -92,6 +96,8 @@ message OpenStreamResponse {
     HostStatus host_status = 18;
     // The answer to SpeedTestRequest. Not acked.
     SpeedTestGrant speed_test_grant = 19;
+    // Run the full self-test now. Acked.
+    RunSelfTest run_self_test = 20;
   }
 }
 

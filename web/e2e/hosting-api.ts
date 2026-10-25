@@ -24,6 +24,8 @@ export function hostingApi(): Record<string, Answer> {
     "/v1/payout-details": { json: payouts.detailsActive },
     "/v1/hosts/[^/]+/telemetry": (_call, request) => ({ json: hosting.telemetryOf(machine(request)!) }),
     "/v1/hosts/[^/]+/price-band": { json: hosting.priceBand },
+    // No run from this page yet, unless a screen says otherwise: the button is on.
+    "/v1/hosts/[^/]+/self-test": { json: hosting.selfTestNever },
     "/v1/hosts/[^/]+/sessions": (_call, request) => ({ json: hosting.hostSessionsPage(idOf(request)) }),
     "/v1/hosts/[^/]+": (_call, request) => {
       const found = machine(request);

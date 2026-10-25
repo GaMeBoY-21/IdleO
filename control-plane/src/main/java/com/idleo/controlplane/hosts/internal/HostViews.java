@@ -21,6 +21,15 @@ class HostViews {
 
     record GpuResponse(String model, int vramMb, boolean gone) {}
 
+    /** One thing that lowers a machine's reliability: {@code kind} and, where it's a count, how many. */
+    record Lowers(String kind, @Nullable Integer count) {}
+
+    /**
+     * How reliable the machine has been, in a word for its owner: {@code label} is good, fair or new (little to go
+     * on yet), {@code lowers} what is holding it down. Never says which renter reported, or that an admin marked it.
+     */
+    record Reliability(String label, List<Lowers> lowers) {}
+
     /**
      * A host as its owner sees it. {@code online} is whether its agent has a live stream now; {@code
      * lastSeenAt} is when the agent was last seen, to the minute. {@code paused} is true from the owner's pause until
@@ -50,6 +59,7 @@ class HostViews {
             HostListings.@Nullable Listing listing,
             HostRatings.@Nullable Rating rating,
             @Nullable Integer uploadCapKbps,
+            Reliability reliability,
             Instant createdAt) {}
 
     private final HostService hosts;
@@ -58,6 +68,7 @@ class HostViews {
     private final HostWork work;
     private final HostRatings ratings;
     private final AgentReleaseFeed releases;
+    private final HostScoreService scores;
     private final Clock clock;
 
     HostViews(
@@ -67,7 +78,9 @@ class HostViews {
             HostWork work,
             HostRatings ratings,
             AgentReleaseFeed releases,
+            HostScoreService scores,
             Clock clock) {
+        this.scores = scores;
         this.hosts = hosts;
         this.listings = listings;
         this.presence = presence;
@@ -98,6 +111,7 @@ class HostViews {
         var current = work.current(ids);
         var rated = ids.isEmpty() ? Map.<UUID, HostRatings.Rating>of() : ratings.of(ids);
         var caps = hosts.uploadCaps(ids);
+        var scored = scores.stored(ids);
         var now = Instant.now(clock);
         return list.stream()
                 .map(host -> {
@@ -124,9 +138,29 @@ class HostViews {
                             listings.listing(host.id()).orElse(null),
                             rated.get(host.id()),
                             caps.get(host.id()),
+                            reliability(scored.get(host.id())),
                             host.createdAt());
                 })
                 .toList();
+    }
+
+    /** A machine with no score yet is new, with nothing holding it down. */
+    static Reliability reliability(HostScoreService.@Nullable Stored stored) {
+        if (stored == null) {
+            return new Reliability("new", List.of());
+        }
+        var b = stored.breakdown();
+        var lowers = new java.util.ArrayList<Lowers>();
+        if (b.sessionsLost() > 0) {
+            lowers.add(new Lowers("sessions_lost", b.sessionsLost()));
+        }
+        if (b.selfTestsFailed() > 0) {
+            lowers.add(new Lowers("self_tests_failed", b.selfTestsFailed()));
+        }
+        if (b.reportsUpheld() + b.flags() > 0) {
+            lowers.add(new Lowers("reports", null));
+        }
+        return new Reliability(b.label().name().toLowerCase(java.util.Locale.ROOT), List.copyOf(lowers));
     }
 
     static ApiProblem notFound() {

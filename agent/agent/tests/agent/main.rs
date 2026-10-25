@@ -9,6 +9,7 @@ mod link;
 mod offers;
 mod renewal;
 mod secrets;
+mod self_test;
 mod sessions;
 mod stream;
 mod trust;

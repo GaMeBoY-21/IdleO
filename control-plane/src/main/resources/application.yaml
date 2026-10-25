@@ -187,6 +187,11 @@ hosts:
   link:
     web-app-url: ${HOSTS_LINK_WEB_APP_URL:${IDENTITY_WEB_APP_URL:http://localhost:3000}}
   auto-activate: false
+  # The host score (docs/plan/execution-plan.md "Host score"): every host's score is worked out afresh once a day, and a
+  # host's again after each of its sessions ends or is lost.
+  score:
+    refresh-cron: "0 30 3 * * *"
+    zone: Asia/Kolkata
   # The Windows app's signed release feed (ADR 0034): stable/latest.json and its .sig in the releases bucket of the
   # object storage sessions use, read every refresh-every and served only if its Ed25519 signature verifies against
   # public-key (the raw key in base64; agent/release-keys/release.pub in production). With no public key the feed is
@@ -472,6 +477,9 @@ retention:
     # the nightly wallet check's results.
     offers: 365d
     install-events: 365d
+    # Each self-test's outcome (the host score reads the last 30 days) and each run asked for in the web app.
+    self-test-results: 60d
+    self-test-runs: 30d
     notifications: 365d
     event-publications: 7d
     reconciliation-runs: 365d

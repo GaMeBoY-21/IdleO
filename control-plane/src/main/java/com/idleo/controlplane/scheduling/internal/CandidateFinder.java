@@ -38,8 +38,9 @@ class CandidateFinder {
      * @param free it could take a session now: not paused, online, current, owner away, every GPU below its cap, at
      *     least the disk asked for free beyond what its owner keeps (a host that hasn't reported its free disk has
      *     none), no live session
+     * @param cachedImages the job images already on its machine, as digests, from its last heartbeat
      */
-    record Looked(SchedulableHosts.Candidate candidate, boolean online, boolean free) {}
+    record Looked(SchedulableHosts.Candidate candidate, boolean online, boolean free, List<String> cachedImages) {}
 
     /** Each listed host, with whether it's online and free for a session that needs {@code diskNeededMb}. */
     List<Looked> look(List<SchedulableHosts.Candidate> listed, int diskNeededMb) {
@@ -60,7 +61,11 @@ class CandidateFinder {
                             && agent.freeDiskMb() != null
                             && agent.freeDiskMb() - candidate.keepFreeMb() >= diskNeededMb
                             && !busy.contains(candidate.hostId());
-                    return new Looked(candidate, agent != null && !candidate.paused(), free);
+                    return new Looked(
+                            candidate,
+                            agent != null && !candidate.paused(),
+                            free,
+                            agent == null ? List.of() : agent.cachedImages());
                 })
                 .toList();
     }
@@ -68,22 +73,36 @@ class CandidateFinder {
     /** Free hosts at or under {@code maxPricePaisePerMin} with at least {@code vramNeededMb} and {@code diskNeededMb}. */
     List<SchedulableHosts.Candidate> free(
             int maxPricePaisePerMin, int vramNeededMb, int diskNeededMb, Collection<UUID> excluded) {
-        var listed = hosts.batchCandidates(maxPricePaisePerMin, vramNeededMb).stream()
-                .filter(candidate -> !excluded.contains(candidate.hostId()))
-                .toList();
-        return look(listed, diskNeededMb).stream()
-                .filter(Looked::free)
+        return freeLooked(maxPricePaisePerMin, vramNeededMb, diskNeededMb, excluded).stream()
                 .map(Looked::candidate)
                 .toList();
     }
 
+    private List<Looked> freeLooked(
+            int maxPricePaisePerMin, int vramNeededMb, int diskNeededMb, Collection<UUID> excluded) {
+        var listed = hosts.batchCandidates(maxPricePaisePerMin, vramNeededMb).stream()
+                .filter(candidate -> !excluded.contains(candidate.hostId()))
+                .toList();
+        return look(listed, diskNeededMb).stream().filter(Looked::free).toList();
+    }
+
     /** Candidates, best first. */
     List<Scoring.Scored> find(SessionBookings.BookingRequest request, Collection<UUID> alreadyOffered) {
-        return free(request.maxPricePaisePerMin(), request.vramNeededMb(), request.diskNeededMb(), alreadyOffered)
+        var digest = Scoring.digest(request.spec().getImage());
+        return freeLooked(request.maxPricePaisePerMin(), request.vramNeededMb(), request.diskNeededMb(), alreadyOffered)
                 .stream()
-                .map(candidate -> new Scoring.Scored(
-                        new Scoring.Candidate(candidate.hostId(), candidate.pricePaisePerMin(), candidate.gpuUuid()),
-                        Scoring.score(candidate.pricePaisePerMin(), request.maxPricePaisePerMin())))
+                .map(looked -> {
+                    var candidate = looked.candidate();
+                    return new Scoring.Scored(
+                            new Scoring.Candidate(
+                                    candidate.hostId(), candidate.pricePaisePerMin(), candidate.gpuUuid()),
+                            Scoring.score(
+                                    candidate.pricePaisePerMin(),
+                                    request.maxPricePaisePerMin(),
+                                    candidate.reliability(),
+                                    candidate.bandwidth(),
+                                    looked.cachedImages().contains(digest)));
+                })
                 .sorted(Scoring.BEST_FIRST)
                 .toList();
     }

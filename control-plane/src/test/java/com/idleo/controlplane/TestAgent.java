@@ -214,6 +214,11 @@ public final class TestAgent {
     }
 
     public static OpenStreamRequest heartbeat(String gpuUuid, int tempC, int utilPct, int freeDiskMb) {
+        return heartbeat(gpuUuid, tempC, utilPct, freeDiskMb, java.util.List.of());
+    }
+
+    public static OpenStreamRequest heartbeat(
+            String gpuUuid, int tempC, int utilPct, int freeDiskMb, java.util.List<String> cachedImages) {
         return request()
                 .setHeartbeat(Heartbeat.newBuilder()
                         .addGpus(GpuTelemetry.newBuilder()
@@ -224,7 +229,8 @@ public final class TestAgent {
                                 .setPowerW(95))
                         .setNetUpKbps(20000)
                         .setOwnerActive(false)
-                        .setFreeDiskMb(freeDiskMb))
+                        .setFreeDiskMb(freeDiskMb)
+                        .addAllCachedImages(cachedImages))
                 .build();
     }
 

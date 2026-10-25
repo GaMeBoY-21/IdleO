@@ -64,6 +64,41 @@ pub struct Check {
     pub took_ms: u64,
 }
 
+impl Check {
+    /// As the protocol carries it.
+    #[must_use]
+    pub fn to_message(&self) -> agent_proto::v1::SelfTestCheck {
+        agent_proto::v1::SelfTestCheck {
+            name: self.name.clone(),
+            passed: self.passed,
+            detail: self.detail.clone(),
+            took: prost_types::Duration::try_from(Duration::from_millis(self.took_ms)).ok(),
+        }
+    }
+}
+
+/// Told of each check as it ends, so a requested self-test shows them one by one.
+pub type CheckSink<'a> = dyn Fn(&Check) + Send + Sync + 'a;
+
+/// The checks so far, each passed to the sink as it is added.
+struct Collected<'a> {
+    list: Vec<Check>,
+    sink: Option<&'a CheckSink<'a>>,
+}
+
+impl<'a> Collected<'a> {
+    fn new(sink: Option<&'a CheckSink<'a>>) -> Self {
+        Self { list: Vec::new(), sink }
+    }
+
+    fn push(&mut self, check: Check) {
+        if let Some(sink) = self.sink {
+            sink(&check);
+        }
+        self.list.push(check);
+    }
+}
+
 /// A self-test's results, also `self-test --json`'s output.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Report {
@@ -83,27 +118,29 @@ pub struct Report {
     /// What jobs may use of it: half, never under the config's floor, in kbit/s; present with `upload_kbps`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upload_cap_kbps: Option<u32>,
+    /// What the speed check measured this laptop's download from our storage to be, in kbit/s, when it ran.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download_kbps: Option<u32>,
 }
 
 impl Report {
     /// As the protocol carries it.
     #[must_use]
     pub fn to_message(&self) -> agent_proto::v1::SelfTestReport {
+        self.to_message_for("")
+    }
+
+    /// As the protocol carries it, answering the requested run `run_id` (empty for a self-test the agent ran on its own).
+    #[must_use]
+    pub fn to_message_for(&self, run_id: &str) -> agent_proto::v1::SelfTestReport {
         agent_proto::v1::SelfTestReport {
-            checks: self
-                .checks
-                .iter()
-                .map(|check| agent_proto::v1::SelfTestCheck {
-                    name: check.name.clone(),
-                    passed: check.passed,
-                    detail: check.detail.clone(),
-                    took: prost_types::Duration::try_from(Duration::from_millis(check.took_ms)).ok(),
-                })
-                .collect(),
+            checks: self.checks.iter().map(Check::to_message).collect(),
             passed: self.passed,
             distro_version: self.distro_version.clone(),
             upload_kbps: self.upload_kbps.unwrap_or(0),
             upload_cap_kbps: self.upload_cap_kbps.unwrap_or(0),
+            download_kbps: self.download_kbps.unwrap_or(0),
+            run_id: run_id.to_owned(),
         }
     }
 }
@@ -115,6 +152,8 @@ pub struct Speed {
     pub detail: String,
     /// How fast it uploaded, in kbit/s: what jobs' upload is capped by (ADR 0038).
     pub up_kbps: u32,
+    /// How fast it downloaded, in kbit/s: the host score's bandwidth is made of both directions.
+    pub down_kbps: u32,
 }
 
 /// The storage speed check: the running agent asks the control plane for a grant over its stream, writes and reads
@@ -177,18 +216,31 @@ pub struct Environment {
     pub min_upload_kbps: u32,
 }
 
-#[allow(clippy::too_many_lines)] // The checks in the order they run, each with its own words: clearer whole than split.
 /// Runs the self-test. `quick` leaves out the slow checks; `speed` is the storage speed check, only in the running,
 /// linked agent.
 pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn SpeedCheck>) -> Report {
+    run_with(environment, quick, speed, None).await
+}
+
+#[allow(clippy::too_many_lines)] // The checks in the order they run, each with its own words: clearer whole than split.
+/// [`run`], telling `sink` of each check as it ends.
+pub async fn run_with(
+    environment: &Environment,
+    quick: bool,
+    speed: Option<&dyn SpeedCheck>,
+    sink: Option<&CheckSink<'_>>,
+) -> Report {
     if let Some(why) = &environment.skip {
         let checks = names(quick, speed.is_some())
             .into_iter()
             .map(|name| Check { name: name.to_owned(), passed: true, detail: format!("skipped: {why}"), took_ms: 0 })
-            .collect();
-        return finish(checks, String::new(), None, 0);
+            .collect::<Vec<_>>();
+        if let Some(sink) = sink {
+            checks.iter().for_each(sink);
+        }
+        return finish(checks, String::new(), (None, None), 0);
     }
-    let mut checks = Vec::new();
+    let mut checks = Collected::new(sink);
     let Some(version) = environment.distro_version.clone() else {
         checks.push(Check {
             name: "distro_registered".to_owned(),
@@ -196,7 +248,7 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
             detail: "no IdleO distribution is installed".to_owned(),
             took_ms: 0,
         });
-        return finish(checks, String::new(), None, 0);
+        return finish(checks.list, String::new(), (None, None), 0);
     };
     let name = idleo_release::manifest::distro_name(&version);
     let wsl = Wsl::new(Arc::clone(&environment.wsl));
@@ -207,8 +259,8 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
         Ok(None) => (false, format!("{name} isn't registered")),
         Err(e) => (false, e.to_string()),
     }));
-    if !checks[0].passed {
-        return finish(checks, version, None, 0);
+    if !checks.list[0].passed {
+        return finish(checks.list, version, (None, None), 0);
     }
     checks.push(timed("lockdown_config", || match wsl.exec(&name, "cat", &["/etc/wsl.conf"]) {
         Ok(output) if output.ok() && output.stdout == WSL_CONF => (true, "matches agent/distro/wsl.conf".to_owned()),
@@ -343,18 +395,20 @@ pub async fn run(environment: &Environment, quick: bool, speed: Option<&dyn Spee
         Err(e) => (false, format!("free space couldn't be read: {e}")),
     }));
     let mut upload_kbps = None;
+    let mut download_kbps = None;
     if !quick && let Some(speed) = speed {
         let started = Instant::now();
         let (passed, detail) = match speed.measure().await {
             Ok(found) => {
                 upload_kbps = Some(found.up_kbps);
+                download_kbps = Some(found.down_kbps);
                 (true, found.detail)
             }
             Err(e) => (false, e),
         };
         checks.push(Check { name: "storage_speed".to_owned(), passed, detail, took_ms: millis(started) });
     }
-    finish(checks, version, upload_kbps, environment.min_upload_kbps)
+    finish(checks.list, version, (upload_kbps, download_kbps), environment.min_upload_kbps)
 }
 
 fn names(quick: bool, speed: bool) -> Vec<&'static str> {
@@ -376,7 +430,12 @@ fn names(quick: bool, speed: bool) -> Vec<&'static str> {
     names
 }
 
-fn finish(checks: Vec<Check>, distro_version: String, upload_kbps: Option<u32>, floor_kbps: u32) -> Report {
+fn finish(
+    checks: Vec<Check>,
+    distro_version: String,
+    (upload_kbps, download_kbps): (Option<u32>, Option<u32>),
+    floor_kbps: u32,
+) -> Report {
     let passed = !checks.is_empty() && checks.iter().all(|check| check.passed);
     Report {
         checks,
@@ -385,6 +444,7 @@ fn finish(checks: Vec<Check>, distro_version: String, upload_kbps: Option<u32>, 
         facts: Vec::new(),
         upload_kbps,
         upload_cap_kbps: upload_kbps.map(|measured| crate::fair_use::cap_kbps(measured, floor_kbps)),
+        download_kbps,
     }
 }
 
@@ -548,7 +608,9 @@ mod tests {
 
     impl SpeedCheck for FastLine {
         fn measure(&self) -> Pin<Box<dyn Future<Output = Result<Speed, String>> + Send + '_>> {
-            Box::pin(async { Ok(Speed { detail: "up 48 Mbit/s, down 96 Mbit/s".to_owned(), up_kbps: 48_000 }) })
+            Box::pin(async {
+                Ok(Speed { detail: "up 48 Mbit/s, down 96 Mbit/s".to_owned(), up_kbps: 48_000, down_kbps: 96_000 })
+            })
         }
     }
 
@@ -601,6 +663,43 @@ mod tests {
         let quick = run(&environment(&fake, 120), true, Some(&FastLine)).await;
         assert_eq!((quick.upload_kbps, quick.upload_cap_kbps), (None, None));
         assert_eq!((quick.to_message().upload_kbps, quick.to_message().upload_cap_kbps), (0, 0));
+    }
+
+    #[tokio::test]
+    async fn the_report_also_says_how_fast_it_downloads() {
+        let fake = healthy();
+        let report = run(&environment(&fake, 120), false, Some(&FastLine)).await;
+        assert_eq!(report.download_kbps, Some(96_000));
+        assert_eq!(report.to_message().download_kbps, 96_000);
+
+        let quick = run(&environment(&fake, 120), true, Some(&FastLine)).await;
+        assert_eq!((quick.download_kbps, quick.to_message().download_kbps), (None, 0));
+    }
+
+    #[tokio::test]
+    async fn a_requested_run_hears_of_each_check_as_it_ends_and_its_message_carries_the_run_id() {
+        let fake = healthy();
+        let heard = std::sync::Mutex::new(Vec::new());
+        let sink = |check: &Check| heard.lock().unwrap().push(check.name.clone());
+
+        let report = run_with(&environment(&fake, 120), false, Some(&FastLine), Some(&sink)).await;
+
+        let names: Vec<_> = report.checks.iter().map(|check| check.name.clone()).collect();
+        assert_eq!(*heard.lock().unwrap(), names, "every check, once, in the order it ran");
+        assert_eq!(report.to_message_for("run-1").run_id, "run-1");
+        assert_eq!(report.to_message().run_id, "", "a self-test the agent ran on its own answers no request");
+    }
+
+    #[tokio::test]
+    async fn a_run_that_stops_early_has_still_told_the_sink_what_it_found() {
+        let fake = FakeWsl::ready();
+        let heard = std::sync::Mutex::new(Vec::new());
+        let sink = |check: &Check| heard.lock().unwrap().push((check.name.clone(), check.passed));
+
+        let report = run_with(&environment(&fake, 120), false, None, Some(&sink)).await;
+
+        assert!(!report.passed);
+        assert_eq!(*heard.lock().unwrap(), [("distro_registered".to_owned(), false)]);
     }
 
     #[tokio::test]

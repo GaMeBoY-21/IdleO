@@ -423,6 +423,21 @@ public enum Problem {
             HttpStatus.CONFLICT,
             "The host hasn't reported a GPU",
             "A price can only be suggested once the host's agent has connected and reported its GPU."),
+    HOST_OFFLINE(
+            "host-offline",
+            HttpStatus.CONFLICT,
+            "The host isn't connected",
+            "This machine isn't connected right now. Open IdleO on it, then try again."),
+    SELF_TEST_RUNNING(
+            "self-test-running",
+            HttpStatus.CONFLICT,
+            "A self-test is already running",
+            "This machine is already running a self-test. Wait for it to finish."),
+    SELF_TEST_LIMIT(
+            "self-test-limit",
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Too many self-tests today",
+            "This machine has run its self-test 6 times in the last 24 hours. Try again later."),
     PAUSE_TOO_LONG(
             "pause-too-long",
             HttpStatus.BAD_REQUEST,

@@ -14,7 +14,7 @@ use agent_proto::v1::open_stream_request::Body as AgentBody;
 use agent_proto::v1::open_stream_response::Body as ServerBody;
 use agent_proto::v1::{
     Ack, GpuTelemetry, Heartbeat, Hello, Offer, OfferDeclineReason, OfferReply, OpenStreamRequest, OpenStreamResponse,
-    RenewCertificateRequest, Welcome,
+    RenewCertificateRequest, SelfTestProgress, Welcome,
 };
 use rustls::RootCertStore;
 use time::OffsetDateTime;
@@ -117,6 +117,9 @@ pub struct RunOptions {
     /// The self-test, full or quick; with it the agent serves its local channel, sends a self-test after its first
     /// Welcome when this version and distro haven't reported one, and confirms an update's trial.
     pub self_test: Option<local::SelfTestFn>,
+    /// The full self-test the web app can ask for (`RunSelfTest`), each check sent as it ends; `None` for an agent that
+    /// can't run one, which refuses.
+    pub requested_self_test: Option<local::RequestedSelfTestFn>,
     /// The clock leases and offer expiries count on: one that keeps counting during sleep.
     pub lease_clock: Arc<dyn LeaseClock>,
     /// What runs sessions; `None` for an agent that can't run any yet, which declines offers.
@@ -310,6 +313,7 @@ pub async fn run(mut options: RunOptions, mut shutdown: watch::Receiver<bool>) -
         sessions,
         options,
         welcomed_once: false,
+        requested_runs: RequestedRuns::default(),
     };
     let result = manager.run(&mut shutdown).await;
     drop((sampler, watching, serving, updating, caring));
@@ -325,6 +329,17 @@ struct Manager {
     sessions: Shared,
     /// Whether this process has been welcomed before: its first Welcome may send a self-test.
     welcomed_once: bool,
+    /// The self-tests the web app asked for.
+    requested_runs: RequestedRuns,
+}
+
+/// The self-tests asked for in the web app: one at a time, and each run id answered once however often it is resent.
+#[derive(Default)]
+struct RequestedRuns {
+    /// Run ids already answered or started.
+    seen: std::collections::HashSet<String>,
+    /// Whether one is running now.
+    running: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl Manager {
@@ -477,6 +492,7 @@ impl Manager {
                         owner_active: self.owner_active(),
                         sessions: self.sessions.lock().running(),
                         free_disk_mb: self.options.disk.free_mb(),
+                        cached_images: self.options.host.cached_images(),
                     };
                     // A send fails only once the stream has ended; the next read says why.
                     let _ = outbound.send(envelope(AgentBody::Heartbeat(heartbeat))).await;
@@ -594,6 +610,10 @@ impl Manager {
                     Ok(Some(OpenStreamResponse { body: Some(ServerBody::SpeedTestGrant(grant)), .. })) => {
                         self.options.host.speed_grant(grant);
                     }
+                    Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::RunSelfTest(run)) })) => {
+                        let _ = outbound.send(ack_for(&message_id)).await;
+                        self.run_requested_self_test(&run.run_id);
+                    }
                     Ok(Some(message)) => log_unhandled(&message),
                     Ok(None) => return Outcome::Ended {
                         reason: EndReason::Failed("the control plane closed the stream".to_owned()),
@@ -670,6 +690,58 @@ impl Manager {
             tracing::info!(passed = report.passed, "self-test done; reporting it");
             host.queue(AgentBody::SelfTestReport(report.to_message()), Kind::SelfTest);
             let _ = std::fs::write(&marker, format!("{stamp}\n"));
+        });
+    }
+
+    /// The web app asked for the full self-test: each check is sent as it ends, then the report, all carrying `run_id`.
+    /// Refused, with the reason, while a session runs or another requested run is going; a resent command for a run
+    /// already started is ignored.
+    fn run_requested_self_test(&mut self, run_id: &str) {
+        if Uuid::parse_str(run_id).is_err() || !self.requested_runs.seen.insert(run_id.to_owned()) {
+            return;
+        }
+        let host = Arc::clone(&self.options.host);
+        let refuse = |why: &str| {
+            host.queue(
+                AgentBody::SelfTestProgress(SelfTestProgress {
+                    run_id: run_id.to_owned(),
+                    check: None,
+                    refused: why.to_owned(),
+                }),
+                Kind::SelfTest,
+            );
+        };
+        let Some(run) = self.options.requested_self_test.clone() else {
+            refuse("session_running");
+            return;
+        };
+        if !self.sessions.lock().running().is_empty() {
+            refuse("session_running");
+            return;
+        }
+        if self.requested_runs.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            refuse("already_running");
+            return;
+        }
+        let running = Arc::clone(&self.requested_runs.running);
+        let run_id = run_id.to_owned();
+        tokio::spawn(async move {
+            let progress_host = Arc::clone(&host);
+            let progress_id = run_id.clone();
+            let sink: Arc<crate::self_test::CheckSink<'static>> = Arc::new(move |check| {
+                progress_host.queue(
+                    AgentBody::SelfTestProgress(SelfTestProgress {
+                        run_id: progress_id.clone(),
+                        check: Some(check.to_message()),
+                        refused: String::new(),
+                    }),
+                    Kind::SelfTest,
+                );
+            });
+            let report = run(sink).await;
+            tracing::info!(passed = report.passed, %run_id, "the requested self-test is done; reporting it");
+            host.queue(AgentBody::SelfTestReport(report.to_message_for(&run_id)), Kind::SelfTest);
+            running.store(false, std::sync::atomic::Ordering::SeqCst);
         });
     }
 
@@ -846,6 +918,7 @@ fn log_unhandled(message: &OpenStreamResponse) {
         Some(ServerBody::RefreshCredentials(_)) => "RefreshCredentials",
         Some(ServerBody::HostStatus(_)) => "HostStatus",
         Some(ServerBody::SpeedTestGrant(_)) => "SpeedTestGrant",
+        Some(ServerBody::RunSelfTest(_)) => "RunSelfTest",
         None => "empty",
     };
     tracing::debug!(kind, message_id = %message.message_id, "message not handled by this agent version; ignored");

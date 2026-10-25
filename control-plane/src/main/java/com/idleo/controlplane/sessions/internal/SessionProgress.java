@@ -37,6 +37,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 class SessionProgress implements SessionStatuses {
 
+    /** The code the agent gives a STOPPED status when the owner took the machine back, with a checkpoint saved. */
+    static final String OWNER_RETURNED = "owner_returned";
+
     private static final Logger log = LoggerFactory.getLogger(SessionProgress.class);
     private static final Pattern ERROR_CODE = Pattern.compile("[a-z0-9_]{1,64}");
     private static final int BATCH = 50;
@@ -128,7 +131,10 @@ class SessionProgress implements SessionStatuses {
             case SESSION_STATE_FAILED -> failed(session, errorCode(status));
             // The agent fenced the attempt itself, or its owner took the machine back: the host is lost.
             case SESSION_STATE_LEASE_EXPIRED -> losses.lost(sessionId, "lease_expired_on_host");
-            case SESSION_STATE_STOPPED -> losses.lost(sessionId, "stopped_on_host");
+            case SESSION_STATE_STOPPED ->
+                losses.lost(
+                        sessionId,
+                        OWNER_RETURNED.equals(status.getError().getCode()) ? OWNER_RETURNED : "stopped_on_host");
             default -> {
                 // PREPARING changes nothing here.
             }

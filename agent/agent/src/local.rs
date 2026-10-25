@@ -34,6 +34,11 @@ pub const LONGEST_PAUSE: Duration = Duration::from_hours(7 * 24);
 /// Runs the self-test, full or `quick`, and returns its report.
 pub type SelfTestFn = Arc<dyn Fn(bool) -> Pin<Box<dyn Future<Output = Report> + Send>> + Send + Sync>;
 
+/// Runs the full self-test the web app asked for, telling the sink of each check as it ends, and returns its report.
+pub type RequestedSelfTestFn = Arc<
+    dyn Fn(Arc<crate::self_test::CheckSink<'static>>) -> Pin<Box<dyn Future<Output = Report> + Send>> + Send + Sync,
+>;
+
 /// What a request needs.
 #[derive(Clone)]
 pub struct Context {
@@ -277,6 +282,7 @@ mod tests {
                     facts: Vec::new(),
                     upload_kbps: None,
                     upload_cap_kbps: None,
+                    download_kbps: None,
                 }
             })
         });

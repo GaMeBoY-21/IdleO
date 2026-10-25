@@ -434,6 +434,7 @@ impl TestServer {
             host: Host::new(Arc::new(Owner(false)), data_dir.to_owned(), true),
             updater: None,
             self_test: None,
+            requested_self_test: None,
             lease_clock: Arc::new(SystemLeaseClock),
             runner: Some(Arc::new(TestRunner::default())),
             timing,

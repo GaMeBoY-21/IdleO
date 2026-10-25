@@ -5,7 +5,7 @@ import { Button, buttonClasses } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { ActionSheet } from "./ActionSheet";
-import { ADMIN, adminApi, adminData, type AdminHost } from "./api";
+import { ADMIN, adminApi, adminData, type AdminHost, type AdminScore, type AdminSelfTestStatus } from "./api";
 import {
   AdminPage,
   BackLink,
@@ -101,6 +101,73 @@ function HostSearch() {
   );
 }
 
+/** The host score in numbers (the control plane's hosts module): what the scheduler ranks it by, and what it is made of. */
+function HostScore({ score }: { score: AdminScore | null }) {
+  return (
+    <Section title="Host score">
+      {score === null ? (
+        <Empty title="No score yet">
+          It is worked out each night and after each of its sessions ends. Until then it counts as average
+          (0.5).
+        </Empty>
+      ) : (
+        <Fields
+          items={[
+            ["Reliability", `${score.reliability.toFixed(3)} (${score.label})`],
+            [
+              "Bandwidth",
+              `${score.bandwidth.toFixed(3)}${score.speedKbps ? `, ${Math.round(score.speedKbps / 1000)} Mbit/s` : ", not measured"}`,
+            ],
+            [
+              "Sessions, 30 days",
+              `${score.sessionsFinished} finished, ${score.sessionsLost} lost to the host`,
+            ],
+            ["Session score", score.sessionScore.toFixed(3)],
+            ["Self-tests, 30 days", `${score.selfTestsPassed} passed, ${score.selfTestsFailed} failed`],
+            ["Self-test score", score.selfTestScore.toFixed(3)],
+            ["Upheld reports", String(score.reportsUpheld)],
+            ["Admin flags", String(score.flags)],
+            ["Taken off", score.penalty.toFixed(3)],
+            ["Worked out", <RelativeTime key="at" value={score.computedAt} />],
+          ]}
+        />
+      )}
+    </Section>
+  );
+}
+
+/** The newest self-test run from the web app, each check as it arrived. */
+function SelfTestRun({ status }: { status: AdminSelfTestStatus | null }) {
+  const run = status?.run;
+  if (!run) {
+    return null;
+  }
+  const words: Record<string, string> = {
+    running: "running",
+    passed: "passed",
+    failed: "a check failed",
+    refused: `the app wouldn't run it (${run.refused ?? "refused"})`,
+    timed_out: "the app didn't answer in time",
+  };
+  return (
+    <Section title="Self-test asked for here">
+      <Table
+        caption={`Asked for ${run.byAdmin ? "by an admin" : "by its owner"}: ${words[run.state] ?? run.state}`}
+        columns={["Check", "Result", "What it found", "Took"]}
+      >
+        {run.checks.map((check) => (
+          <Row key={check.name}>
+            <Cell className="tabular">{check.name}</Cell>
+            <Cell>{check.passed ? "passed" : "failed"}</Cell>
+            <Cell>{check.detail}</Cell>
+            <Cell className="tabular">{check.tookMs} ms</Cell>
+          </Row>
+        ))}
+      </Table>
+    </Section>
+  );
+}
+
 function HostStatus({ status }: { status: string }) {
   return (
     <Pill
@@ -113,7 +180,7 @@ function HostStatus({ status }: { status: string }) {
   );
 }
 
-type Action = "activate" | "suspend" | "revoke-certificates";
+type Action = "activate" | "suspend" | "revoke-certificates" | "run-self-test";
 
 /** How an update offered to the host ended, in words. */
 const UPDATE_OUTCOMES: Record<string, string> = {
@@ -141,6 +208,13 @@ const ACTIONS: Record<
       `${host.name} goes from ${host.status} to suspended: no new sessions, and its agent is refused at its next connection.`,
     destructive: true,
   },
+  "run-self-test": {
+    title: "Run a self-test on",
+    confirm: "Run self-test",
+    change: (host) =>
+      `${host.name}'s app runs its full self-test now and sends each check as it ends. It takes a minute or two; it can't run while a session does, and a machine gets 6 a day.`,
+    destructive: false,
+  },
   "revoke-certificates": {
     title: "Revoke the certificates of",
     confirm: "Revoke certificates",
@@ -156,6 +230,11 @@ function HostRecord({ id }: { id: string }) {
     queryKey: [ADMIN, "host", id],
     queryFn: () => adminData(adminApi.GET("/admin/v1/hosts/{id}", { params: { path: { id } } })),
     refetchInterval: 15_000,
+  });
+  const selfTest = useQuery({
+    queryKey: [ADMIN, "host", id, "self-test"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/hosts/{id}/self-test", { params: { path: { id } } })),
+    refetchInterval: (query) => (query.state.data?.run?.state === "running" ? 2_000 : false),
   });
   const [action, setAction] = useState<Action | null>(null);
   return (
@@ -249,10 +328,22 @@ function HostRecord({ id }: { id: string }) {
               >
                 Revoke certificates
               </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setAction("run-self-test")}
+                disabled={!selfTest.data?.canRun}
+              >
+                Run self-test
+              </Button>
               <Link href={`/admin/sessions/?host=${found.id}`} className={buttonClasses("secondary")}>
                 Sessions it ran
               </Link>
             </div>
+            {selfTest.data && !selfTest.data.canRun && selfTest.data.whyNot ? (
+              <p className="text-small text-text-muted">{selfTest.data.whyNot.message}</p>
+            ) : null}
+            <HostScore score={found.score ?? null} />
+            <SelfTestRun status={selfTest.data ?? null} />
             <Section title="Self-test">
               {found.selfTest ? (
                 <Table
@@ -288,7 +379,9 @@ function HostRecord({ id }: { id: string }) {
                       ? "/admin/v1/hosts/{id}/activate"
                       : action === "suspend"
                         ? "/admin/v1/hosts/{id}/suspend"
-                        : "/admin/v1/hosts/{id}/revoke-certificates";
+                        : action === "run-self-test"
+                          ? "/admin/v1/hosts/{id}/self-tests"
+                          : "/admin/v1/hosts/{id}/revoke-certificates";
                   await adminData(adminApi.POST(path, { params: { path: { id } }, body: { reason } }));
                   await client.invalidateQueries({ queryKey: [ADMIN] });
                 }}

@@ -26,7 +26,8 @@ public final class TestHosts {
 
     /**
      * A connected host: its agent, its open stream, the stream's channel, and a heartbeat every half second
-     * that keeps its presence alive, reporting {@code freeDiskMb} (plenty, unless a test says otherwise). Disconnect it
+     * that keeps its presence alive, reporting {@code freeDiskMb} (plenty, unless a test says otherwise) and {@code
+     * cachedImages} (none, unless a test says otherwise). Disconnect it
      * when done.
      */
     public record ConnectedHost(
@@ -34,7 +35,8 @@ public final class TestHosts {
             TestAgent.Stream stream,
             ManagedChannel channel,
             Thread heartbeats,
-            java.util.concurrent.atomic.AtomicInteger freeDiskMb) {
+            java.util.concurrent.atomic.AtomicInteger freeDiskMb,
+            java.util.concurrent.atomic.AtomicReference<java.util.List<String>> cachedImages) {
 
         public UUID id() {
             return agent.hostId;
@@ -109,17 +111,18 @@ public final class TestHosts {
         assertThat(welcome.hasWelcome()).as("Welcome").isTrue();
         var gpu = gpuUuids.length == 0 ? TestAgent.GPU_A : gpuUuids[0];
         var freeDiskMb = new java.util.concurrent.atomic.AtomicInteger(TestAgent.FREE_DISK_MB);
+        var cachedImages = new java.util.concurrent.atomic.AtomicReference<java.util.List<String>>(java.util.List.of());
         var heartbeats = Thread.ofVirtual().start(() -> {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
-                    stream.send(TestAgent.heartbeat(gpu, 60, 5, freeDiskMb.get()));
+                    stream.send(TestAgent.heartbeat(gpu, 60, 5, freeDiskMb.get(), cachedImages.get()));
                     Thread.sleep(500);
                 }
             } catch (InterruptedException | RuntimeException stopped) {
                 // Disconnected.
             }
         });
-        return new ConnectedHost(agent, stream, channel, heartbeats, freeDiskMb);
+        return new ConnectedHost(agent, stream, channel, heartbeats, freeDiskMb, cachedImages);
     }
 
     /** Sets the host's listing as its owner. */

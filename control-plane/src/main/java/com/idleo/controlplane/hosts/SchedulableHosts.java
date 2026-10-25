@@ -12,6 +12,9 @@ public interface SchedulableHosts {
      *
      * @param keepFreeMb the disk its owner keeps free for themselves, in MB (ADR 0023)
      * @param paused its owner paused it, and the pause hasn't ended: no new offers
+     * @param reliability its host score's reliability, 0 to 1; 0.5 until it has one (docs/plan/execution-plan.md "Host
+     *     score")
+     * @param bandwidth its line's speed against the fleet's 90th percentile, 0 to 1; 0.5 until its speed is measured
      */
     record Candidate(
             UUID hostId,
@@ -21,7 +24,9 @@ public interface SchedulableHosts {
             int gpuVramMb,
             String gpuModel,
             int keepFreeMb,
-            boolean paused) {}
+            boolean paused,
+            double reliability,
+            double bandwidth) {}
 
     /**
      * Active hosts listed for batch work at or under {@code maxPricePaisePerMin}, whose largest reported GPU

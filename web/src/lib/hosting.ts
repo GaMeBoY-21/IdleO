@@ -40,6 +40,57 @@ export function renterPays(pricePaisePerMin: number, gstPercent: number): number
   return perHour + (gstPercent > 0 ? Math.floor((perHour * gstPercent + 50) / 100) : 0);
 }
 
+/**
+ * What the self-test checks, in the words an owner reads, in the order the app runs them. A requested run shows all of
+ * these from the start, each waiting until its result arrives, so the list never grows under the person's eyes.
+ */
+export const SELF_TEST_CHECKS: ReadonlyArray<readonly [name: string, label: string]> = [
+  ["distro_registered", "IdleO's Linux is installed"],
+  ["lockdown_config", "Its settings keep jobs away from your files"],
+  ["gpu_visible", "Your GPU is visible inside it"],
+  ["container_runtime", "Containers can start"],
+  ["runner", "The job runner is ready"],
+  ["scratch_encryption", "Job disks are encrypted"],
+  ["gpu_in_container", "A job can use your GPU"],
+  ["lockdown", "Jobs can't reach your computer"],
+  ["network_lockdown", "Jobs can't reach your home network"],
+  ["disk", "There's enough free disk"],
+  ["storage_speed", "The line to IdleO's storage is fast enough"],
+];
+
+/** Why the app wouldn't run a requested self-test, from its code. */
+export function selfTestRefusal(code: string | null | undefined): string {
+  return code === "session_running"
+    ? "A renter's session started on this machine, so the app didn't run it."
+    : "The app was already running one.";
+}
+
+/**
+ * How reliable a machine has been, in a word and what holds it down (the control plane's host score). `lowers` comes
+ * from the server as kinds; a count is how many in the last 30 days. Never says who reported, or that an admin did.
+ */
+export function reliabilityWord(label: Host["reliability"]["label"]): string {
+  return label === "good" ? "Good" : label === "fair" ? "Fair" : "New";
+}
+
+export function reliabilityLowers(lowers: Host["reliability"]["lowers"]): string[] {
+  return lowers.map((entry) => {
+    const count = entry.count ?? 0;
+    switch (entry.kind) {
+      case "sessions_lost":
+        return count === 1
+          ? "1 session was lost here in the last 30 days (the app went offline or stopped)."
+          : `${count} sessions were lost here in the last 30 days (the app went offline or stopped).`;
+      case "self_tests_failed":
+        return count === 1
+          ? "1 self-test in the last 30 days had a check that failed."
+          : `${count} self-tests in the last 30 days had a check that failed.`;
+      default:
+        return "Renters' reports about sessions here counted against it.";
+    }
+  });
+}
+
 /** The temperature limit's range, as the API takes it. */
 export const TEMP_MIN = 60;
 export const TEMP_MAX = 95;

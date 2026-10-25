@@ -447,7 +447,10 @@ class HostAgentChannelTests {
                     clock,
                     activation,
                     new HostLinkProperties(linkProperties.link(), true),
-                    context.getBean(HostMetrics.class));
+                    context.getBean(HostMetrics.class),
+                    context.getBean(SelfTestRuns.class),
+                    context.getBean(com.idleo.controlplane.IdGenerator.class),
+                    context.getBean(HostScoreService.class));
             after.recordSelfTest(host.id(), new HostAgentReports.SelfTest(false, "0.1.0", List.of()));
             assertThat(hostStatus(host.id())).isEqualTo("pending");
             after.recordSelfTest(host.id(), passed);

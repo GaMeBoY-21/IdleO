@@ -10,10 +10,11 @@ import { formatTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { HostFlow } from "@/components/shell/HostFlow";
 import { MachineChip } from "./MachineChip";
-import { GpuLine, PrivacyLine, RatingLine, RightNow } from "./MachineFigures";
+import { GpuLine, PrivacyLine, RatingLine, ReliabilityLine, RightNow } from "./MachineFigures";
 import { MachineLink } from "./MachineLink";
 import { ManageMachine } from "./ManageMachine";
 import { PauseControl } from "./PauseControl";
+import { SelfTestPanel } from "./SelfTestPanel";
 import { useHostId } from "@/lib/use-host-id";
 
 /** Figures updated before this were restored from an earlier visit (src/api/persisted-cache.ts). */
@@ -23,6 +24,7 @@ const PAGE_OPENED_AT = Date.now();
  * One machine (designed for the phone first): in the dark tile its state, name and rating, then its GPU with
  * temperature and use against the limit, what it's running now and what that has earned so far, the privacy line, rows
  * to its price and limits, the sessions it ran, and renaming or removing it; and, at the foot, Pause hosting or Resume.
+ * Between them, Run self-test and how reliable the machine has been.
  */
 export function Machine() {
   const id = useHostId();
@@ -92,6 +94,7 @@ export function Machine() {
             )}
           </p>
           <RatingLine host={machine} />
+          <ReliabilityLine host={machine} />
         </Tile>
       }
     >
@@ -99,6 +102,7 @@ export function Machine() {
       <GpuLine host={machine} />
       <RightNow host={machine} />
       <PrivacyLine host={machine} />
+      <SelfTestPanel host={machine} />
       <div className="flex flex-col gap-2.5 xl:col-span-2">
         <MachineLink
           href={`/hosting/price/?id=${machine.id}`}

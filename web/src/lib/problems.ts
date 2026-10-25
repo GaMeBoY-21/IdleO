@@ -82,7 +82,10 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "too-many-streams":
     "Too many sessions are open live in your other tabs. Close some; this page checks every few seconds meanwhile.",
   "host-busy":
-    "This machine is running a session. Pause it so it takes no new work, and remove it when the session is over.",
+    "This machine is running a session, so that waits until it ends. To remove a machine, pause it first so it takes no new work.",
+  "host-offline": "This machine isn't connected right now. Open IdleO on it, then try again.",
+  "self-test-running": "A self-test is already running on this machine. Wait for it to finish.",
+  "self-test-limit": "This machine has run its self-test 6 times in the last 24 hours. Try again later.",
   "host-removed": "This machine was removed. Add it again to rent it out.",
   "host-no-gpu": "This machine hasn't reported its GPU yet. Wait for it to connect, then try again.",
   "pause-too-long": "A pause can last 7 days at most. Choose a shorter one, or pause until you resume.",

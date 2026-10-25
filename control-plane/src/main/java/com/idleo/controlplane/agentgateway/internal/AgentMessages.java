@@ -7,6 +7,7 @@ import com.idleo.controlplane.hosts.HostAgentReports.SelfTest;
 import com.idleo.controlplane.hosts.HostAgentReports.SelfTestCheck;
 import com.idleo.controlplane.hosts.HostAgentReports.UpdateOutcome;
 import gpu.agent.v1.AgentGateway.Hello;
+import gpu.agent.v1.Host.SelfTestProgress;
 import gpu.agent.v1.Host.SelfTestReport;
 import gpu.agent.v1.Host.UpdateResult;
 import gpu.agent.v1.Session.SessionState;
@@ -124,6 +125,22 @@ final class AgentMessages {
             }
         }
         return Optional.empty();
+    }
+
+    private static final java.util.regex.Pattern IMAGE_DIGEST = java.util.regex.Pattern.compile("sha256:[0-9a-f]{64}");
+    /** The most cached images a heartbeat is believed to list; the catalog has a handful. */
+    static final int MAX_CACHED_IMAGES = 64;
+
+    /**
+     * The digests a heartbeat says are on the machine. An entry that isn't a digest, or past the first {@link
+     * #MAX_CACHED_IMAGES}, is dropped rather than failing the heartbeat, which also keeps the host alive.
+     */
+    static java.util.List<String> cachedImages(Heartbeat heartbeat) {
+        return heartbeat.getCachedImagesList().stream()
+                .filter(image -> IMAGE_DIGEST.matcher(image).matches())
+                .distinct()
+                .limit(MAX_CACHED_IMAGES)
+                .toList();
     }
 
     /** Why a SessionStatus breaks the protocol, or empty if it's well formed. */
@@ -254,16 +271,68 @@ final class AgentMessages {
         }
         if (report.getUploadKbps() > MAX_KBPS
                 || report.getUploadCapKbps() > MAX_KBPS
+                || report.getDownloadKbps() > MAX_KBPS
                 || report.getUploadKbps() < 0
-                || report.getUploadCapKbps() < 0) {
-            return new SelfTestResult.Invalid("an upload speed over " + MAX_KBPS + " kbit/s");
+                || report.getUploadCapKbps() < 0
+                || report.getDownloadKbps() < 0) {
+            return new SelfTestResult.Invalid("a speed over " + MAX_KBPS + " kbit/s");
+        }
+        UUID runId = null;
+        if (!report.getRunId().isEmpty()) {
+            runId = uuid(report.getRunId());
+            if (runId == null) {
+                return new SelfTestResult.Invalid("run_id isn't a UUID");
+            }
         }
         return new SelfTestResult.Valid(new SelfTest(
                 report.getPassed(),
                 cut(report.getDistroVersion()),
                 checks,
                 report.getUploadKbps(),
-                report.getUploadCapKbps()));
+                report.getUploadCapKbps(),
+                report.getDownloadKbps(),
+                runId));
+    }
+
+    /** A requested self-test's progress, or why it isn't valid. */
+    sealed interface ProgressResult {
+        record Valid(
+                UUID runId,
+                @Nullable SelfTestCheck check,
+                @Nullable String refused) implements ProgressResult {}
+
+        record Invalid(String reason) implements ProgressResult {}
+    }
+
+    static ProgressResult validate(SelfTestProgress progress) {
+        var runId = uuid(progress.getRunId());
+        if (runId == null) {
+            return new ProgressResult.Invalid("run_id isn't a UUID");
+        }
+        if (progress.hasCheck() == !progress.getRefused().isEmpty()) {
+            return new ProgressResult.Invalid("exactly one of check and refused");
+        }
+        if (!progress.getRefused().isEmpty()) {
+            return new ProgressResult.Valid(runId, null, cut(progress.getRefused()));
+        }
+        var check = progress.getCheck();
+        if (check.getName().isBlank() || check.getName().length() > 60) {
+            return new ProgressResult.Invalid("a check needs a name of at most 60 characters");
+        }
+        long tookMs = check.hasTook()
+                ? Math.max(
+                        0, check.getTook().getSeconds() * 1000 + check.getTook().getNanos() / 1_000_000)
+                : 0;
+        return new ProgressResult.Valid(
+                runId, new SelfTestCheck(check.getName(), check.getPassed(), cut(check.getDetail()), tookMs), null);
+    }
+
+    private static @Nullable UUID uuid(String text) {
+        try {
+            return UUID.fromString(text);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /** The outcome of a valid UpdateResult, or empty if it's invalid. */

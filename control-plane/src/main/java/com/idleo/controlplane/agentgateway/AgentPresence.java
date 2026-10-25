@@ -30,6 +30,8 @@ public interface AgentPresence {
      *     agent couldn't read it
      * @param gpuTempsC the latest temperature of each GPU, empty before the first heartbeat
      * @param gpus the latest reading of each GPU, empty before the first heartbeat
+     * @param cachedImages the job images already on the machine, as digests ("sha256:..."), from the last heartbeat;
+     *     empty before the first, or when the agent reports none
      * @param connectedAt when its current stream opened
      */
     record LiveAgent(
@@ -39,7 +41,8 @@ public interface AgentPresence {
             boolean ownerActive,
             @Nullable Integer freeDiskMb,
             List<Integer> gpuTempsC,
-            List<GpuReading> gpus) {
+            List<GpuReading> gpus,
+            List<String> cachedImages) {
 
         /** The reading of one of its GPUs, if the last heartbeat had one. */
         public Optional<GpuReading> gpu(String gpuUuid) {

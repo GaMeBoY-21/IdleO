@@ -510,6 +510,15 @@ async fn run_command(
     let environment = Arc::new(self_test_environment);
     let speed =
         Arc::new(StorageSpeed::new(Arc::clone(&host), http.clone(), Arc::clone(&lease_clock), Arc::clone(&upload_cap)));
+    let requested_environment = Arc::clone(&environment);
+    let requested_speed = Arc::clone(&speed);
+    let requested_self_test: crate::local::RequestedSelfTestFn = Arc::new(move |sink| {
+        let environment = Arc::clone(&requested_environment);
+        let speed = Arc::clone(&requested_speed);
+        Box::pin(
+            async move { self_test::run_with(&environment, false, Some(speed.as_ref()), Some(sink.as_ref())).await },
+        )
+    });
     let self_test: SelfTestFn = Arc::new(move |quick| {
         let environment = Arc::clone(&environment);
         let speed = Arc::clone(&speed);
@@ -561,6 +570,7 @@ async fn run_command(
         host,
         updater: updater.clone(),
         self_test: Some(self_test),
+        requested_self_test: Some(requested_self_test),
         lease_clock,
         runner,
         care,

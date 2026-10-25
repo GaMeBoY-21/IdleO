@@ -24,6 +24,8 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/hosts": { json: admin.hosts },
   [`/admin/v1/hosts/${admin.HOST_ID}`]: { json: admin.host },
   [`/admin/v1/hosts/${admin.PENDING_HOST_ID}`]: { json: admin.pendingHost },
+  [`/admin/v1/hosts/${admin.HOST_ID}/self-test`]: { json: admin.hostSelfTest },
+  [`/admin/v1/hosts/${admin.PENDING_HOST_ID}/self-test`]: { json: admin.hostSelfTest },
   "/admin/v1/sessions": { json: admin.sessions },
   [`/admin/v1/sessions/${admin.SESSION_ID}`]: { json: admin.session },
   "/admin/v1/review-minutes": { json: admin.reviewMinutes },
@@ -259,6 +261,49 @@ test.describe("the console", () => {
     await expect(sheet.getByRole("alert")).toContainText("A fixture error.");
     await expectAccessible(page);
     await capture(page, info, "admin-host-refused");
+  });
+
+  test("shows a host's score in numbers, and runs a self-test on it with a reason", async ({
+    page,
+  }, info) => {
+    let sent: unknown = null;
+    await open(page, `/admin/hosts/?id=${admin.HOST_ID}`, {
+      [`/admin/v1/hosts/${admin.HOST_ID}/self-tests`]: (_call, request) => {
+        sent = request.postDataJSON();
+        return { json: admin.hostSelfTest };
+      },
+    });
+    const score = page.getByRole("heading", { name: "Host score" }).locator("xpath=..");
+    await expect(score).toContainText("0.812 (good)");
+    await expect(score).toContainText("0.740, 64 Mbit/s");
+    await expect(score).toContainText("14 finished, 1 lost to the host");
+    await expect(score).toContainText("Upheld reports");
+    await expectAccessible(page);
+    await capture(page, info, "admin-host-score");
+
+    await page.getByRole("button", { name: "Run self-test" }).click();
+    const sheet = page.getByRole("dialog", { name: `Run a self-test on ${admin.host.name}?` });
+    await sheet.getByLabel("Reason").fill("after a driver update");
+    await sheet.getByRole("button", { name: "Run self-test" }).click();
+    await expect(sheet).toBeHidden();
+    expect(sent).toEqual({ reason: "after a driver update" });
+  });
+
+  test("a host with no score yet says so, and the button says why when the host can't run one", async ({
+    page,
+  }) => {
+    await open(page, `/admin/hosts/?id=${admin.PENDING_HOST_ID}`, {
+      [`/admin/v1/hosts/${admin.PENDING_HOST_ID}/self-test`]: {
+        json: {
+          ...admin.hostSelfTest,
+          canRun: false,
+          whyNot: { code: "host-offline", message: "This machine isn't connected right now." },
+        },
+      },
+    });
+    await expect(page.getByText("No score yet")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run self-test" })).toBeDisabled();
+    await expect(page.getByText("This machine isn't connected right now.")).toBeVisible();
   });
 
   test("lists hosts", async ({ page }, info) => {

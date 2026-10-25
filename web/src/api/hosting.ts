@@ -19,6 +19,8 @@ export type OwnerEarnings = components["schemas"]["OwnerEarnings"];
 export type EarningsEntry = components["schemas"]["EarningsEntry"];
 export type HostLink = components["schemas"]["LinkResponse"];
 export type LatestRelease = components["schemas"]["LatestRelease"];
+export type SelfTestStatus = components["schemas"]["SelfTestStatus"];
+export type SelfTestRun = components["schemas"]["SelfTestRunView"];
 
 /**
  * The owner's side of the cache (ADR 0023): their machines, what each is doing, what they have earned. The same rules
@@ -29,11 +31,14 @@ export type LatestRelease = components["schemas"]["LatestRelease"];
 export const HOSTS_POLL_MS = 5_000;
 export const HOST_SESSIONS_PAGE = 20;
 export const EARNINGS_PAGE = 20;
+/** A requested self-test is read again this often while it runs, so each check shows soon after it ends. */
+export const SELF_TEST_POLL_MS = 2_000;
 
 export const hostKeys = {
   hosts: ["hosts"] as const,
   host: (id: string) => ["host", id] as const,
   telemetry: (id: string) => ["host", id, "telemetry"] as const,
+  selfTest: (id: string) => ["host", id, "self-test"] as const,
   priceBand: (id: string) => ["host", id, "price-band"] as const,
   sessions: (id: string) => ["host", id, "sessions"] as const,
   earnings: ["earnings"] as const,
@@ -113,6 +118,35 @@ export function useTelemetry(id: string, enabled = true) {
     queryFn: () => data(api.GET("/v1/hosts/{id}/telemetry", { params: { path: { id } } })),
     refetchInterval: HOSTS_POLL_MS,
     staleTime: HOSTS_POLL_MS,
+  });
+}
+
+/**
+ * The machine's newest self-test run from this page and whether another can start now (and if not, why). Read again
+ * every 2 s while a run is going: each check shows as it arrives.
+ */
+export function useSelfTest(id: string, enabled = true) {
+  return useQuery({
+    queryKey: hostKeys.selfTest(id),
+    enabled,
+    queryFn: () => data(api.GET("/v1/hosts/{id}/self-test", { params: { path: { id } } })),
+    refetchInterval: (query) => (query.state.data?.run?.state === "running" ? SELF_TEST_POLL_MS : false),
+  });
+}
+
+/** "Run self-test": asks the machine's app to run its full self-test now. */
+export function useRunSelfTest(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      data(
+        api.POST("/v1/hosts/{id}/self-tests", {
+          params: { path: { id }, header: { "Idempotency-Key": crypto.randomUUID() } },
+        }),
+      ),
+    onSuccess: (status) => client.setQueryData(hostKeys.selfTest(id), status),
+    // Whatever the answer, the page's idea of whether it can run is read again.
+    onError: () => void client.invalidateQueries({ queryKey: hostKeys.selfTest(id) }),
   });
 }
 

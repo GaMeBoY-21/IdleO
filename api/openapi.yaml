@@ -796,6 +796,68 @@ paths:
         idToken: []
       tags:
       - adminHosts
+  /admin/v1/hosts/{id}/self-test:
+    get:
+      operationId: adminHostsSelfTest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelfTestStatus"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminHosts
+  /admin/v1/hosts/{id}/self-tests:
+    post:
+      operationId: adminHostsRunSelfTest
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelfTestStatus"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminHosts
   /admin/v1/hosts/{id}/suspend:
     post:
       operationId: adminHostsSuspend
@@ -3635,6 +3697,64 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - hostLifecycle
+  /v1/hosts/{id}/self-test:
+    get:
+      operationId: hostSelfTestGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelfTestStatus"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostSelfTest
+  /v1/hosts/{id}/self-tests:
+    post:
+      operationId: hostSelfTestStart
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - hostSelfTest
   /v1/hosts/{id}/telemetry:
     get:
       operationId: hostTelemetryGet
@@ -6166,6 +6286,10 @@ components:
           - string
           - "null"
           format: date-time
+        score:
+          oneOf:
+          - $ref: "#/components/schemas/AdminScore"
+          - type: "null"
         selfTest:
           oneOf:
           - $ref: "#/components/schemas/AdminSelfTest"
@@ -7407,6 +7531,66 @@ components:
           - "null"
       required:
       - minutes
+    AdminScore:
+      type: object
+      properties:
+        bandwidth:
+          type: number
+          format: double
+        computedAt:
+          type: string
+          format: date-time
+        flags:
+          type: integer
+          format: int32
+        label:
+          type: string
+        penalty:
+          type: number
+          format: double
+        reliability:
+          type: number
+          format: double
+        reportsUpheld:
+          type: integer
+          format: int32
+        selfTestScore:
+          type: number
+          format: double
+        selfTestsFailed:
+          type: integer
+          format: int32
+        selfTestsPassed:
+          type: integer
+          format: int32
+        sessionScore:
+          type: number
+          format: double
+        sessionsFinished:
+          type: integer
+          format: int32
+        sessionsLost:
+          type: integer
+          format: int32
+        speedKbps:
+          type:
+          - integer
+          - "null"
+          format: int32
+      required:
+      - bandwidth
+      - computedAt
+      - flags
+      - label
+      - penalty
+      - reliability
+      - reportsUpheld
+      - selfTestScore
+      - selfTestsFailed
+      - selfTestsPassed
+      - sessionScore
+      - sessionsFinished
+      - sessionsLost
     AdminSelfTest:
       type: object
       properties:
@@ -9142,6 +9326,8 @@ components:
           oneOf:
           - $ref: "#/components/schemas/Rating"
           - type: "null"
+        reliability:
+          $ref: "#/components/schemas/Reliability"
         status:
           type: string
         updateRequired:
@@ -9160,6 +9346,7 @@ components:
       - name
       - online
       - paused
+      - reliability
       - status
       - updateRequired
       - updateWaiting
@@ -9651,6 +9838,18 @@ components:
       - amountPaise
       - code
       - message
+    Lowers:
+      type: object
+      properties:
+        count:
+          type:
+          - integer
+          - "null"
+          format: int32
+        kind:
+          type: string
+      required:
+      - kind
     MeResponse:
       type: object
       properties:
@@ -10314,6 +10513,9 @@ components:
           - /problems/host-busy
           - /problems/host-removed
           - /problems/host-no-gpu
+          - /problems/host-offline
+          - /problems/self-test-running
+          - /problems/self-test-limit
           - /problems/pause-too-long
           - /problems/no-agent-release
           - /problems/install-events-full
@@ -10555,6 +10757,18 @@ components:
       - app
       - distro
       - setup
+    Reliability:
+      type: object
+      properties:
+        label:
+          type: string
+        lowers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lowers"
+      required:
+      - label
+      - lowers
     RenameRequest:
       type: object
       properties:
@@ -10657,6 +10871,93 @@ components:
           - "null"
       required:
       - events
+    SelfTestCheck:
+      type: object
+      properties:
+        detail:
+          type: string
+        name:
+          type: string
+        passed:
+          type: boolean
+        tookMs:
+          type: integer
+          format: int64
+      required:
+      - detail
+      - name
+      - passed
+      - tookMs
+    SelfTestRunView:
+      type: object
+      properties:
+        byAdmin:
+          type: boolean
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SelfTestCheck"
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        refused:
+          type:
+          - string
+          - "null"
+        requestedAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+      required:
+      - byAdmin
+      - checks
+      - id
+      - requestedAt
+      - state
+    SelfTestStatus:
+      type: object
+      properties:
+        canRun:
+          type: boolean
+        perDay:
+          type: integer
+          format: int32
+        retryAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        run:
+          oneOf:
+          - $ref: "#/components/schemas/SelfTestRunView"
+          - type: "null"
+        usedToday:
+          type: integer
+          format: int32
+        whyNot:
+          oneOf:
+          - $ref: "#/components/schemas/SelfTestWhyNot"
+          - type: "null"
+      required:
+      - canRun
+      - perDay
+      - usedToday
+    SelfTestWhyNot:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required:
+      - code
+      - message
     ServiceResponse:
       type: object
       properties:

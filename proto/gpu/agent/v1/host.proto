@@ -27,6 +27,12 @@ message SelfTestReport {
   // under the machine's floor (`min_upload_kbps`, 5,000 by default), in
   // kbit/s; 0 together with `upload_kbps`. The web app tells the owner.
   uint32 upload_cap_kbps = 5;
+  // How fast the machine downloaded from our storage in the same speed
+  // check, in kbit/s; 0 when the check didn't run in this self-test.
+  uint32 download_kbps = 6;
+  // The run this report answers, from RunSelfTest; empty for a self-test the
+  // agent ran on its own.
+  string run_id = 7;
 }
 
 // One named check of a self-test.
@@ -41,6 +47,31 @@ message SelfTestCheck {
   string detail = 3;
   // How long it took.
   google.protobuf.Duration took = 4;
+}
+
+// Control plane to agent: run the full self-test now and report it, when
+// the host's owner or an admin asked for it in the web app. Acked when
+// received. The agent sends a SelfTestProgress for each check as it ends and
+// then a SelfTestReport carrying `run_id`; or one SelfTestProgress with
+// `refused` set, when it won't run it.
+message RunSelfTest {
+  // Names the run in every message that answers it: a UUIDv7 in canonical
+  // text form.
+  // Empty is invalid; the receiver rejects the message.
+  string run_id = 1;
+}
+
+// Agent to control plane: one check of a requested self-test has ended, or
+// the agent won't run it. Acked. The web app shows each as it arrives.
+message SelfTestProgress {
+  // The run it belongs to, as in RunSelfTest.
+  // Empty is invalid; the receiver rejects the message.
+  string run_id = 1;
+  // The check that just ended. Absent when the run was refused.
+  optional SelfTestCheck check = 2;
+  // Why the agent won't run it, as a code: "session_running" or
+  // "already_running". Empty when the run goes ahead.
+  string refused = 3;
 }
 
 // Agent to control plane: its owner paused or resumed hosting from the tray.

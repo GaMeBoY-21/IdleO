@@ -77,6 +77,8 @@ struct Inner {
     prefetch_images: Vec<(String, i32)>,
     /// Where downloading them stands, for the tray.
     prefetch: Option<Prefetch>,
+    /// The digests (`sha256:...`) of the job images already on the machine, which every heartbeat tells the scheduler.
+    cached_images: Vec<String>,
     /// Waiting for the control plane's speed-check grant.
     speed: Option<tokio::sync::oneshot::Sender<agent_proto::v1::SpeedTestGrant>>,
 }
@@ -126,6 +128,7 @@ impl Host {
             speed: None,
             prefetch_images: Vec::new(),
             prefetch: None,
+            cached_images: Vec::new(),
         };
         let (status, _) =
             watch::channel(Self::status_of(&inner, runner_installed, app_url.as_deref(), OffsetDateTime::now_utc()));
@@ -151,6 +154,22 @@ impl Host {
     #[must_use]
     pub fn prefetch_images(&self) -> Vec<(String, i32)> {
         self.lock().prefetch_images.clone()
+    }
+
+    /// The job images now on the machine, by the image references the control plane named: the heartbeat reports their
+    /// digests, so a renter whose template uses one is matched with this host first.
+    pub fn set_cached_images<'a>(&self, images: impl IntoIterator<Item = &'a String>) {
+        let mut digests: Vec<String> =
+            images.into_iter().filter_map(|image| image.split_once('@').map(|(_, digest)| digest.to_owned())).collect();
+        digests.sort();
+        digests.dedup();
+        self.lock().cached_images = digests;
+    }
+
+    /// The digests of the job images on the machine.
+    #[must_use]
+    pub fn cached_images(&self) -> Vec<String> {
+        self.lock().cached_images.clone()
     }
 
     /// Where downloading job images stands, for the tray.
@@ -545,6 +564,24 @@ mod tests {
         host.on_host_status(&HostStatus { state: HostState::PendingApproval.into(), ..HostStatus::default() });
         assert_eq!(host.status().link_state, LinkState::PendingApproval);
         assert_eq!(host.status().state, channel::State::Available);
+    }
+
+    #[test]
+    fn the_heartbeat_names_cached_images_by_digest_only() {
+        let (host, _dir) = host();
+        assert_eq!(host.cached_images(), Vec::<String>::new(), "nothing is cached before anything is downloaded");
+
+        let a = format!("registry.example/pytorch@sha256:{}", "ab".repeat(32));
+        let b = format!("other.example/cuda@sha256:{}", "cd".repeat(32));
+        let same_as_a_elsewhere = format!("mirror.example/pytorch@sha256:{}", "ab".repeat(32));
+        host.set_cached_images(&[b.clone(), a.clone(), same_as_a_elsewhere, "not-pinned".to_owned()]);
+
+        assert_eq!(
+            host.cached_images(),
+            [format!("sha256:{}", "ab".repeat(32)), format!("sha256:{}", "cd".repeat(32))]
+        );
+        host.set_cached_images(&[]);
+        assert_eq!(host.cached_images(), Vec::<String>::new());
     }
 
     #[test]

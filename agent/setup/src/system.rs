@@ -442,6 +442,7 @@ pub mod fake {
                 facts,
                 upload_kbps: None,
                 upload_cap_kbps: None,
+                download_kbps: None,
             })
         }
 

@@ -61,6 +61,7 @@ impl SpeedCheck for StorageSpeed {
                 return Err(format!("{} bytes came back, not {SPEED_TEST_BYTES}", back.len()));
             }
             let up_kbps = kbit_per_second(SPEED_TEST_BYTES, up);
+            let down_kbps = kbit_per_second(SPEED_TEST_BYTES, down);
             self.upload_cap.measured(up_kbps);
             Ok(Speed {
                 detail: format!(
@@ -69,6 +70,7 @@ impl SpeedCheck for StorageSpeed {
                     mbit_per_second(SPEED_TEST_BYTES, down)
                 ),
                 up_kbps,
+                down_kbps,
             })
         })
     }

@@ -115,6 +115,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             case USAGE_REPORT -> onUsageReport(request);
             case ACK -> onAck(request.getAck().getAckedMessageId());
             case SELF_TEST_REPORT -> onSelfTestReport(request);
+            case SELF_TEST_PROGRESS -> onSelfTestProgress(request);
             case SET_PAUSE -> onSetPause(request);
             case LEAVE -> onLeave(request);
             case UPDATE_RESULT -> onUpdateResult(request);
@@ -185,7 +186,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             replaced.close(Status.ABORTED.withDescription("Replaced by a newer connection."), "replaced");
         }
         try {
-            services.presence().register(snapshot(false, 0, freeDiskMb, List.of()));
+            services.presence().register(snapshot(false, 0, freeDiskMb, List.of(), List.of()));
         } catch (RuntimeException valkeyDown) {
             log.warn("Could not record presence for host {}: {}", hostId, valkeyDown.toString());
         }
@@ -384,6 +385,28 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
     }
 
     /**
+     * One check of a requested self-test, or its refusal: handed to the hosts module, which shows it to whoever asked,
+     * then acked. One that breaks the protocol is counted and dropped.
+     */
+    private void onSelfTestProgress(OpenStreamRequest request) {
+        switch (AgentMessages.validate(request.getSelfTestProgress())) {
+            case AgentMessages.ProgressResult.Invalid invalid -> {
+                log.warn("Invalid SelfTestProgress from host {}: {}", hostId, invalid.reason());
+                services.metrics().unhandledMessage("invalid_self_test_progress");
+            }
+            case AgentMessages.ProgressResult.Valid valid -> {
+                try {
+                    services.reports().recordSelfTestProgress(hostId, valid.runId(), valid.check(), valid.refused());
+                } catch (RuntimeException e) {
+                    log.warn("Couldn't record host {}'s self-test progress; it will resend", hostId, e);
+                    return;
+                }
+                ack(request);
+            }
+        }
+    }
+
+    /**
      * The owner paused or resumed from the tray (ADR 0034): the same pause as the web app's, through the hosts module,
      * then acked. A pause the hosts module refuses (more than 7 days, say) is acked too, since sending it again can't
      * help, and the agent is told where the host still stands.
@@ -543,7 +566,8 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                             heartbeat.getOwnerActive(),
                             heartbeat.getNetUpKbps(),
                             heartbeat.hasFreeDiskMb() ? heartbeat.getFreeDiskMb() : null,
-                            readings))) {
+                            readings,
+                            AgentMessages.cachedImages(heartbeat)))) {
                 // Another connection, perhaps on another instance, owns the host now.
                 close(Status.ABORTED.withDescription("Replaced by a newer connection."), "replaced");
                 return;
@@ -664,7 +688,8 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
             boolean ownerActive,
             int netUpKbps,
             @org.jspecify.annotations.Nullable Integer freeDiskMb,
-            List<Map<String, Object>> readings) {
+            List<Map<String, Object>> readings,
+            List<String> cachedImages) {
         return new Presence.Snapshot(
                 hostId,
                 connectionId,
@@ -676,6 +701,7 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
                 netUpKbps,
                 freeDiskMb,
                 services.json().writeValueAsString(readings),
+                cachedImages,
                 Instant.now(services.clock()));
     }
 }

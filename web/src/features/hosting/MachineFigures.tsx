@@ -4,7 +4,7 @@ import { Money } from "@/components/ui/Money";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
-import { COMMISSION_PERCENT, uploadLine } from "@/lib/hosting";
+import { COMMISSION_PERCENT, reliabilityLowers, reliabilityWord, uploadLine } from "@/lib/hosting";
 import { gpuName, gigabytes } from "@/lib/gpu";
 
 /**
@@ -76,6 +76,30 @@ export function RatingLine({ host }: { host: Host }) {
         `Ratings appear after ${RATINGS_SHOWN_FROM} sessions.`
       )}
     </p>
+  );
+}
+
+/**
+ * How reliable this machine has been (the control plane's host score, which also helps renters' jobs find it): "Reliability:
+ * Good", "Fair" or "New" while there's little to go on, and what is holding it down in plain sentences. The word comes
+ * with the machine, so it arrives with the rest of the tile and moves nothing. Renters never see it.
+ */
+export function ReliabilityLine({ host }: { host: Host }) {
+  const lowers = reliabilityLowers(host.reliability.lowers);
+  return (
+    <div className="flex flex-col gap-1 text-small text-dark-muted">
+      <p>
+        Reliability:{" "}
+        <span className="font-semibold text-dark-fg">{reliabilityWord(host.reliability.label)}</span>
+      </p>
+      {lowers.length > 0 && (
+        <ul className="flex flex-col gap-0.5" aria-label="What lowers it">
+          {lowers.map((sentence) => (
+            <li key={sentence}>{sentence}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

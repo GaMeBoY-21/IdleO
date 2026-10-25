@@ -133,7 +133,13 @@ class HostsPersonalData implements PersonalData {
                         .params(params)
                         .update();
                 for (var table : List.of(
-                        "hosts.host_gpus", "hosts.self_tests", "hosts.update_results", "hosts.enrolment_codes")) {
+                        "hosts.host_gpus",
+                        "hosts.self_tests",
+                        "hosts.self_test_results",
+                        "hosts.self_test_runs",
+                        "hosts.host_scores",
+                        "hosts.update_results",
+                        "hosts.enrolment_codes")) {
                     jdbc.sql("delete from " + table + " where " + ofTheirHosts)
                             .params(params)
                             .update();
