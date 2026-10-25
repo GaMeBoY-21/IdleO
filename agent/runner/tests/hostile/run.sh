@@ -14,6 +14,9 @@
 # It needs Docker, the sealed image (scripts/build-distro.sh) and the internet (HTTPS to a public address is the positive
 # control that makes a "blocked" mean something, and the fair-use tests flood a public speed-test address: speed.cloudflare.com).
 set -euo pipefail
+. "$(dirname "$0")/../../../../scripts/lib/quiet.sh"
+quiet_entry hostile "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 
 cd "$(dirname "$0")/../../../.."
 root="$(pwd)"

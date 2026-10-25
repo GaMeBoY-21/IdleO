@@ -3,6 +3,9 @@
 # budget, and a production build refusing the local sign-in adapter (.github/workflows/web.yml's checks job runs
 # this; so does scripts/check-all.sh). The browser checks are scripts/e2e/agent-online.sh --web.
 set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry web "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 cd "$(dirname "$0")/../../web"
 pnpm install --frozen-lockfile
 pnpm audit --audit-level high

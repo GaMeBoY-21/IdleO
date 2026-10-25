@@ -20,6 +20,10 @@
 #   ops/backup/drill.sh --runs 3      three in a row, each on a fresh stack
 #   ops/backup/drill.sh --keep        leave the last run's stack and restored databases up to look at
 set -euo pipefail
+[[ " $* " == *" --keep "* ]] && IDLEO_VERBOSE=1
+. "$(dirname "$0")/../../scripts/lib/quiet.sh"
+quiet_entry drill "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 
 cd "$(dirname "$0")/../.."
 root="$(pwd)"

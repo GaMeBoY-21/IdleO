@@ -4,6 +4,9 @@
 # CPU fine-tune and a Run-your-code project, stopped by SIGTERM, resumed and finished. It downloads a few GB, so there is no
 # CI job for it yet; scripts/check-all.sh runs it unless given --no-images.
 set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry images "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 cd "$(dirname "$0")/../.."
 agent/images/pytorch/test.sh --dev
 exec agent/images/pytorch/test.sh

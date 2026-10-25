@@ -4,6 +4,9 @@
 # terminal", and check nothing it started is left (processes, containers, ports). CI runs it after the e2e
 # (.github/workflows/e2e.yml); so does scripts/check-all.sh's e2e suite.
 set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry start-check "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 
 cd "$(dirname "$0")/../.."
 root="$(pwd)"

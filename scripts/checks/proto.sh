@@ -2,6 +2,9 @@
 # The agent protocol's checks: lint, format and build; the breaking-change check against main when there is one
 # (.github/workflows/proto.yml runs this; so does scripts/check-all.sh).
 set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry proto "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 cd "$(dirname "$0")/../../proto"
 buf lint
 test -z "$(buf format -d)" || { buf format -d; echo "proto: buf format would change files (buf format -w)"; exit 1; }

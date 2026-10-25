@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # The host agent's checks (.github/workflows/agent.yml runs this; so does scripts/check-all.sh).
 set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry agent "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 cd "$(dirname "$0")/../../agent"
 # build: format, lint and test (each OS in CI), then the Windows lint from this machine when cargo-xwin is there; deny:
 # licences and advisories, for every target and for the Windows app alone (CI runs them through cargo-deny's action);

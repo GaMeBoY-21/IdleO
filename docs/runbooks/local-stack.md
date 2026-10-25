@@ -20,7 +20,7 @@
 
 ## Every check, locally
 
-`scripts/check-all.sh` runs every workflow's checks on this machine, the same steps CI runs (`scripts/checks/<suite>.sh` and the end-to-end script): agent, cli, control-plane, proto, sdk, web, web-browser (every screen, axe, the journeys, Lighthouse and the performance spec) and e2e (with `start-check.sh`). `scripts/check-all.sh web e2e` runs just those. Each suite logs to `logs/check-all/`, and the summary says which passed and how long each took. Run it before every push; while CI minutes are short, it is the gate.
+`scripts/check-all.sh` runs every workflow's checks on this machine, the same steps CI runs (`scripts/checks/<suite>.sh` and the end-to-end script): agent, cli, control-plane, proto, sdk, web, web-browser (every screen, axe, the journeys, Lighthouse and the performance spec) and e2e (with `start-check.sh`). `scripts/check-all.sh web e2e` runs just those. The output is quiet: one line per suite (name, PASS or FAIL, time), the whole output in `private/logs/<date-time>/<suite>.log`, and on a FAIL the last 40 lines and the log's path; `--verbose` prints everything as it runs (the e2e script, the drill and the hostile tests are quiet the same way when run alone; CI, where `CI` is set, stays verbose). While working, `scripts/check-changed.sh` runs only the suites the files changed since `origin/main` touch (`--list` shows which; the map is `scripts/lib/suites.sh`). Run `check-all.sh` once, before every push; while CI minutes are short, it is the gate.
 
 ## What it does
 

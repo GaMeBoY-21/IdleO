@@ -45,6 +45,11 @@
 # first; otherwise every picture must match, and a new or changed picture fails until accepted with
 # E2E_UPDATE_SNAPSHOTS=all (Playwright's --update-snapshots; web/README.md "Screenshots").
 set -euo pipefail
+# --keep-running is for looking at by hand, so it prints everything.
+[[ "${1:-}" == --keep-running ]] && IDLEO_VERBOSE=1
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry e2e "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 
 cd "$(dirname "$0")/../.."
 root="$(pwd)"

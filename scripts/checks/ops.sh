@@ -4,6 +4,9 @@
 # (amtool), the dashboards are valid JSON on the one data source variable and read only our own meters' labels, and
 # the scripts parse. Every tool is the image development already runs, pinned.
 set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry ops "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
 lgtm=grafana/otel-lgtm:0.35.0@sha256:2de1094c593c671cbfca878a28ffcd7e46ff5e32f2ce966c0cf33003f6cf4266

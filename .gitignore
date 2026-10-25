@@ -58,6 +58,6 @@ phase0/qlora-test/work/
 .ruff_cache/
 .mypy_cache/
 
-# ./start.sh and scripts/check-all.sh write their logs here
+# ./start.sh writes its logs here (the checks' go to private/logs/)
 /logs/
 dist/

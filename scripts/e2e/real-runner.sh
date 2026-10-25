@@ -23,6 +23,9 @@
 # port 5000 (the registry). It uses its own ports and compose project, so it can run beside a stack on the usual ones (not beside
 # ./start.sh --real-runner, which owns the registry and the distribution). Everything it writes is under private/real-runner/.
 set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry real-runner "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
