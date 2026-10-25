@@ -82,7 +82,7 @@ ops/backup/drill.sh            # one run, about 5 minutes
 ops/backup/drill.sh --runs 3   # three, each on a fresh stack
 ```
 
-`scripts/check-all.sh` runs it once (`--no-drill` leaves it out). The loss comes a random 0 to 59 seconds after T's WAL was archived, as a real one would land anywhere in archiving's cycle.
+It stops its fake Razorpay and RazorpayX on exit, Ctrl-C, terminate and hang-up (a trap), and also any left by an earlier drill that was killed outright, so no port stays held; `--keep` is the only way to leave the stack up. `scripts/check-all.sh` runs it once (`--no-drill` leaves it out). The loss comes a random 0 to 59 seconds after T's WAL was archived, as a real one would land anywhere in archiving's cycle.
 
 Measured on the development Mac, 2026-10-21, with `archive_timeout = 30`, three runs in a row, each on a fresh stack (63 tables, about 35 MB of data):
 

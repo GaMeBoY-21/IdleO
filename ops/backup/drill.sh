@@ -77,13 +77,25 @@ database="$compose_project-postgres-1"
 storage_root=(--user local-storage-root:local-only-not-a-secret --aws-sigv4 "aws:amz:us-east-1:s3")
 psql_in() { docker exec -i "$1" psql -X -v ON_ERROR_STOP=1 -U controlplane -d controlplane -At "${@:2}"; }
 
-teardown() {
-  [[ -f "$state/agent-1.pid" ]] && kill -TERM "$(cat "$state/agent-1.pid")" 2>/dev/null || true
-  rm -f "$state/agent-1.pid"
+# Stops the fake Razorpay and RazorpayX, however the drill ends: by the pids it wrote, and then whatever still listens on their two
+# ports and is one of them (a drill killed before it wrote a pid, or whose state folder was wiped, leaves one holding the port).
+stop_fakes() {
+  local fake pid port
   for fake in fake-razorpay fake-razorpayx; do
     [[ -f "$state/$fake.pid" ]] && kill -TERM "$(cat "$state/$fake.pid")" 2>/dev/null || true
     rm -f "$state/$fake.pid"
   done
+  for port in "$razorpay_port" "$razorpayx_port"; do
+    for pid in $(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true); do
+      ps -o command= -p "$pid" 2>/dev/null | grep -q 'controlplane.razorpay.FakeRazorpay' && kill -TERM "$pid" 2>/dev/null || true
+    done
+  done
+}
+
+teardown() {
+  [[ -f "$state/agent-1.pid" ]] && kill -TERM "$(cat "$state/agent-1.pid")" 2>/dev/null || true
+  rm -f "$state/agent-1.pid"
+  stop_fakes
   if [[ -n "${control_plane_pid:-}" ]]; then
     kill -TERM -- "-$control_plane_pid" 2>/dev/null || true
     for _ in $(seq 1 60); do kill -0 "$control_plane_pid" 2>/dev/null || break; sleep 0.5; done
@@ -96,7 +108,11 @@ teardown() {
   done
   compose down --volumes --remove-orphans >>"$out/compose.log" 2>&1 || true
 }
+# On exit, and on Ctrl-C, a terminate or a hang-up: the signals end the script through `exit`, so the EXIT trap always runs and
+# no fake is left holding a port. (--keep leaves the stack up on purpose.)
 trap 'if ! $keep; then teardown; fi' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
 
 # The tables a restore must bring back exactly: every table but the drill's own ticker.
 tables_sql="select format('%I.%I', schemaname, tablename) from pg_tables
