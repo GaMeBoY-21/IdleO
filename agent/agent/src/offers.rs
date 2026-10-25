@@ -12,6 +12,8 @@ pub struct OfferFacts {
     pub shutting_down: bool,
     /// The agent has a session runner at all.
     pub can_run: bool,
+    /// A self-test the owner or an admin asked for is running.
+    pub self_test_running: bool,
     /// Sessions running now, and the most the control plane allows (`Welcome.policy`).
     pub running_sessions: i32,
     pub max_concurrent_sessions: i32,
@@ -40,6 +42,9 @@ pub fn decide(facts: &OfferFacts) -> Result<(), OfferDeclineReason> {
     if !facts.can_run {
         return Err(OfferDeclineReason::InsufficientResources);
     }
+    if facts.self_test_running {
+        return Err(OfferDeclineReason::SelfTestRunning);
+    }
     if facts.running_sessions >= facts.max_concurrent_sessions {
         return Err(OfferDeclineReason::AtCapacity);
     }
@@ -63,6 +68,7 @@ mod tests {
         expired: false,
         shutting_down: false,
         can_run: true,
+        self_test_running: false,
         running_sessions: 0,
         max_concurrent_sessions: 1,
         owner_active: false,
@@ -84,6 +90,7 @@ mod tests {
             (OfferFacts { expired: true, ..FITS }, OfferDeclineReason::Expired),
             (OfferFacts { shutting_down: true, ..FITS }, OfferDeclineReason::ShuttingDown),
             (OfferFacts { can_run: false, ..FITS }, OfferDeclineReason::InsufficientResources),
+            (OfferFacts { self_test_running: true, ..FITS }, OfferDeclineReason::SelfTestRunning),
             (OfferFacts { running_sessions: 1, ..FITS }, OfferDeclineReason::AtCapacity),
             (OfferFacts { owner_active: true, ..FITS }, OfferDeclineReason::OwnerActive),
             (OfferFacts { hottest_gpu_c: Some(85), ..FITS }, OfferDeclineReason::TooHot),

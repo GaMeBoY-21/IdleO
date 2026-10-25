@@ -139,9 +139,10 @@ COPY --from=fetch /out/nerdctl /usr/local/bin/nerdctl
 COPY --from=fetch /out/cni/ /opt/cni/bin/
 COPY --from=runner /out/idleo-runner /usr/local/bin/idleo-runner
 COPY sandbox.nft /usr/local/share/idleo/sandbox.nft
-# The abuse blocklist (ADR 0038) the runner starts from; a newer one, signed and handed over by the agent, replaces it without a new
-# distribution, and the runner keeps the last good copy in /var/lib/idleo/blocklist/.
-COPY blocklist.json /usr/local/share/idleo/blocklist.json
+# The abuse blocklist (ADR 0038) the runner starts from, with its signature and the release key that checks it: the runner uses a
+# list only if its signature verifies. A newer one, signed and handed over by the agent, replaces it without a new distribution,
+# and the runner keeps the last good copy in /var/lib/idleo/blocklist/.
+COPY blocklist.json blocklist.json.sig release.pub /usr/local/share/idleo/
 COPY idleo-sandbox.service idleo-runner.service /etc/systemd/system/
 RUN mkdir -p /etc/systemd/system/multi-user.target.wants /etc/idleo /var/lib/idleo \
     && ln -s /etc/systemd/system/idleo-sandbox.service /etc/systemd/system/multi-user.target.wants/idleo-sandbox.service \

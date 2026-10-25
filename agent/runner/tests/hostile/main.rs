@@ -901,6 +901,22 @@ async fn a_listed_name_flags_and_a_listed_build_stops_whatever_it_is_called() {
     );
 }
 
+/// The development release key signs a list the way the release script does (the key `scripts/release/dev-key.sh` makes, whose
+/// public half the development distribution carries as its release key).
+fn signed_by_the_development_key(file: &str) -> Vec<u8> {
+    use base64::Engine;
+    use ed25519_dalek::{Signer, SigningKey};
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../private/release-dev/release.key");
+    let text = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("{} can't be read (scripts/release/dev-key.sh makes it): {e}", path.display()));
+    let seed: [u8; 32] = base64::engine::general_purpose::STANDARD
+        .decode(text.trim())
+        .expect("the development key is base64")
+        .try_into()
+        .expect("the development key is a 32-byte seed");
+    SigningKey::from_bytes(&seed).sign(file.as_bytes()).to_bytes().to_vec()
+}
+
 /// Not an attack: a newer abuse blocklist (ADR 0038) reaches a running distribution with no rebuild, judges a program that is
 /// already running, and is the last good copy a restarted runner starts from. A list that is older is refused.
 #[tokio::test]
@@ -910,7 +926,9 @@ async fn a_newer_blocklist_reaches_a_running_distribution_without_a_rebuild_and_
     const SAVED: &str = "/var/lib/idleo/blocklist/current.json";
     let h = Harness::new().await;
     h.run(&Job::new("write_root")).await;
-    h.inside(&["rm", "-f", SAVED]);
+    h.inside(&["rm", "-f", SAVED, &format!("{SAVED}.sig")]);
+    // No test entries from an earlier test: the only list is the one under test.
+    h.list_for_tests(&[]);
     let version = |link: &Link| {
         let link = link.clone();
         async move {
@@ -929,14 +947,23 @@ async fn a_newer_blocklist_reaches_a_running_distribution_without_a_rebuild_and_
     named.env.insert("SESSION_PARAM_NAME".to_owned(), "idleo-liveminer".to_owned());
     let (session, mut events) = h.begin(&named).await;
     tokio::time::sleep(Duration::from_secs(5)).await;
-    assert!(events.try_recv().is_err_and(|e| matches!(e, tokio::sync::broadcast::error::TryRecvError::Empty)));
+    // State and log events come as it starts; what must not come is a word about abuse.
+    while let Ok(RunnerEvent { session: who, event, .. }) = events.try_recv() {
+        assert!(!(who == session && matches!(event, Event::Abuse { .. })), "told of abuse before the list: {event:?}");
+    }
 
     // The list arrives while it runs: the program is judged by it, told and not stopped.
     let newer = format!(
         r#"{{"version":"{issued}","names":[{{"name":"idleo-liveminer","kind":"miner","source":"https://example.invalid/live"}}],"hashes":[],"pools":[]}}"#
     );
+    // Unsigned, and signed then changed, it is refused; the runner takes the agent's word for nothing.
+    assert!(h.link.request(Request::Blocklist { file: newer.clone(), signature: Vec::new() }).await.is_err());
+    let signature = signed_by_the_development_key(&newer);
+    let changed = newer.replace("idleo-liveminer", "idleo-othername");
+    assert!(h.link.request(Request::Blocklist { file: changed, signature: signature.clone() }).await.is_err());
+    assert_eq!(version(&h.link).await, before, "a refused list changes nothing");
     assert!(
-        matches!(h.link.request(Request::Blocklist { file: newer.clone() }).await, Ok(Answer::Blocklist { version }) if version == issued)
+        matches!(h.link.request(Request::Blocklist { file: newer.clone(), signature }).await, Ok(Answer::Blocklist { version }) if version == issued)
     );
     let mut told = Vec::new();
     let waited = Instant::now();
@@ -954,7 +981,8 @@ async fn a_newer_blocklist_reaches_a_running_distribution_without_a_rebuild_and_
 
     // An older list is refused and the one in use stays.
     let older = r#"{"version":"2000-01-01","names":[],"hashes":[],"pools":[]}"#;
-    assert!(h.link.request(Request::Blocklist { file: older.to_owned() }).await.is_err());
+    let signature = signed_by_the_development_key(older);
+    assert!(h.link.request(Request::Blocklist { file: older.to_owned(), signature }).await.is_err());
     assert_eq!(version(&h.link).await, issued);
 
     // A restarted runner starts from the last good copy.
@@ -967,7 +995,7 @@ async fn a_newer_blocklist_reaches_a_running_distribution_without_a_rebuild_and_
             break;
         }
     }
-    h.inside(&["rm", "-f", SAVED]);
+    h.inside(&["rm", "-f", SAVED, &format!("{SAVED}.sig")]);
     h.inside(&["systemctl", "restart", "idleo-runner"]);
     assert_eq!(after, issued, "the restarted runner lost the list it was given");
     println!("WATCH blocklist: a newer list judged a running program, was refused when older, and survived a restart");

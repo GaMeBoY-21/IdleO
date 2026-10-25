@@ -153,8 +153,12 @@ case "$cmd" in
     docker buildx build --progress=plain --target runner-binary --output "type=local,dest=$context/out" "$context" \
       >"$context/build.log" 2>&1 || { tail -40 "$context/build.log" >&2; die "the runner didn't build"; }
     docker cp "$context/out/idleo-runner" "$name:/usr/local/bin/idleo-runner.new"
-    # The abuse blocklist the runner starts from (ADR 0038), which an older development image doesn't carry.
-    docker cp agent/distro/blocklist.json "$name:/usr/local/share/idleo/blocklist.json"
+    # The abuse blocklist the runner starts from (ADR 0038), signed, and the key that checks it; an older development image
+    # doesn't carry them.
+    scripts/release/sign-distro-blocklist.sh "$context/list"
+    for file in blocklist.json blocklist.json.sig release.pub; do
+      docker cp "$context/list/$file" "$name:/usr/local/share/idleo/$file"
+    done
     inside bash -c 'systemctl stop idleo-runner.service; mv /usr/local/bin/idleo-runner.new /usr/local/bin/idleo-runner; systemctl start idleo-runner.service'
     for _ in $(seq 1 300); do answers && break; sleep 0.2; done
     answers || die "the runner didn't come back"

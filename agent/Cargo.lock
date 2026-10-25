@@ -3138,6 +3138,8 @@ name = "runner"
 version = "0.1.0"
 dependencies = [
  "agent-proto",
+ "base64 0.22.1",
+ "ed25519-dalek",
  "getrandom 0.4.3",
  "jobcore",
  "prost-types",

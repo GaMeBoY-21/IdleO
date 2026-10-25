@@ -52,3 +52,55 @@ async fn hello_says_which_blocklist_the_agent_holds_and_a_list_it_cannot_verify_
 
     assert!(!dir.path().join("blocklist.json").exists(), "a list that doesn't verify is never kept");
 }
+
+fn update(version: &str, list: &[u8], signature: Vec<u8>) -> OpenStreamResponse {
+    OpenStreamResponse {
+        message_id: Uuid::now_v7().to_string(),
+        body: Some(ServerBody::UpdateBlocklist(UpdateBlocklist {
+            version: version.to_owned(),
+            blocklist: list.to_vec(),
+            signature,
+        })),
+    }
+}
+
+/// The stream only delivers a list: whatever it sends has to verify against the release key built into the agent. Unsigned,
+/// signed by another key, and signed then changed all come out the same: acked (so it isn't resent), never kept, never given
+/// to the runner (which is handed a list only after the agent has kept it).
+#[tokio::test]
+async fn an_unsigned_foreign_signed_or_tampered_list_sent_over_the_stream_is_refused() {
+    use ed25519_dalek::{Signer, SigningKey};
+
+    let server = TestServer::tcp().await;
+    server.behave(|b| b.default_stream = Stream::Scripted);
+    let dir = tempfile::tempdir().unwrap();
+    server.enrol(dir.path()).await;
+    let (options, mut events) = server.run_options(dir.path(), timing());
+    let (_stop, _agent) = spawn_agent(options);
+    next_event(&mut events, |e| matches!(e, Event::Welcomed { .. })).await;
+
+    let version = "2026-10-25T09:30:00Z";
+    let list = format!(r#"{{"version":"{version}","names":[],"hashes":[],"pools":["pool.example.org"]}}"#).into_bytes();
+    let other = SigningKey::from_bytes(&[9; 32]);
+    let mut tampered = list.clone();
+    tampered.extend_from_slice(b" ");
+    let attempts = [
+        ("unsigned", update(version, &list, Vec::new())),
+        ("signed by another key", update(version, &list, other.sign(&list).to_bytes().to_vec())),
+        ("changed after signing", update(version, &tampered, other.sign(&list).to_bytes().to_vec())),
+    ];
+    for (what, message) in attempts {
+        let id = message.message_id.clone();
+        server.send(message).await;
+        server
+            .wait_until(Duration::from_secs(5), |r| {
+                r.connections[0]
+                    .messages
+                    .iter()
+                    .any(|(_, m)| matches!(&m.body, Some(Body::Ack(ack)) if ack.acked_message_id == id))
+            })
+            .await;
+        assert!(!dir.path().join("blocklist.json").exists(), "a list that is {what} was kept");
+        assert!(!dir.path().join("blocklist.json.sig").exists(), "a list that is {what} was kept");
+    }
+}

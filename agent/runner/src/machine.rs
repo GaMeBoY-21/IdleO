@@ -169,12 +169,13 @@ pub trait Machine: Send + Sync + 'static {
     /// The list of software and pools to look for in a session (ADR 0038): the newest the runner holds, and, in a development
     /// distribution, the test entries its marker file names.
     fn abuse_blocklist(&self) -> Arc<crate::abuse::Blocklist>;
-    /// Takes a newer list the agent has verified (the signed file's exact text): refused if it can't be matched safely or isn't
-    /// newer than the one in use, kept as the last good copy otherwise. Returns the version now in use.
+    /// Takes a newer list (the signed file's exact text and its signature): refused if the signature doesn't verify against the
+    /// release key, it can't be matched safely or isn't newer than the one in use, kept as the last good copy otherwise.
+    /// Returns the version now in use.
     ///
     /// # Errors
     /// Why it was refused, in a line.
-    fn set_blocklist(&self, _file: &str) -> Result<String, String> {
+    fn set_blocklist(&self, _file: &str, _signature: &[u8]) -> Result<String, String> {
         Err("this runner can't take a blocklist".to_owned())
     }
     /// Sessions' leftovers from a runner that died: containers and scratch disks nobody holds. Run once at start-up.

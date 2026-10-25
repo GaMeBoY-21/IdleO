@@ -444,7 +444,7 @@ impl Registry {
             Request::SelfCheck { cuda_image, quick } => {
                 Outcome::Ok(Answer::SelfCheck { checks: self.self_check(cuda_image.as_deref(), quick).await })
             }
-            Request::Blocklist { file } => match self.machine.set_blocklist(&file) {
+            Request::Blocklist { file, signature } => match self.machine.set_blocklist(&file, &signature) {
                 Ok(version) => Outcome::Ok(Answer::Blocklist { version }),
                 Err(why) => Outcome::Err(Failure::new(code::BAD_REQUEST, why)),
             },
@@ -504,6 +504,11 @@ impl Registry {
         let mut timings = Timings::default();
         if let Err(why) = self.machine.check_sandbox().await {
             return failed(code::SANDBOX_NOT_READY, why);
+        }
+        // With no blocklist whose signature verified, the runner would judge the session by nothing: no job starts, nothing is
+        // pulled or made, and the renter isn't charged (the host's fault, ADR 0038).
+        if self.machine.abuse_blocklist().version().is_empty() {
+            return failed(code::SANDBOX_NOT_READY, "the runner holds no abuse blocklist whose signature verified yet");
         }
         if self.machine.development() {
             // What the sessions before this one left in the distribution (nothing, if the runner cleans up after them), said in this

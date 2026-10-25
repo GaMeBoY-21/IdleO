@@ -22,6 +22,7 @@ const SIGNATURE: &str = "blocklist.json.sig";
 struct Held {
     version: String,
     file: String,
+    signature: Vec<u8>,
 }
 
 /// The newest verified list, kept across restarts.
@@ -46,7 +47,7 @@ impl Keeper {
         let held = std::fs::read(dir.join(FILE)).ok().zip(std::fs::read(dir.join(SIGNATURE)).ok()).and_then(
             |(file, signature)| {
                 let version = (keeper.verify)(&file, &signature).ok()?;
-                Some(Held { version, file: String::from_utf8(file).ok()? })
+                Some(Held { version, file: String::from_utf8(file).ok()?, signature })
             },
         );
         *keeper.held.lock().unwrap_or_else(PoisonError::into_inner) = held;
@@ -63,18 +64,22 @@ impl Keeper {
             .map_or_else(String::new, |held| held.version.clone())
     }
 
-    /// The list held, as signed.
+    /// The list held, as signed, and its signature: what the runner is given, which verifies it again itself.
     #[must_use]
-    pub fn file(&self) -> Option<String> {
-        self.held.lock().unwrap_or_else(PoisonError::into_inner).as_ref().map(|held| held.file.clone())
+    pub fn signed(&self) -> Option<(String, Vec<u8>)> {
+        self.held
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .map(|held| (held.file.clone(), held.signature.clone()))
     }
 
     /// Takes the control plane's list if it verifies, says what it is, and is newer than the one held; keeps it. Returns the
-    /// list to hand to the runner, or `None` when it changes nothing (one already held, or a resend).
+    /// list and its signature to hand to the runner, or `None` when it changes nothing (one already held, or a resend).
     ///
     /// # Errors
     /// Why it was refused: its signature, its version, or that it is older than the one held.
-    pub fn offer(&self, update: &UpdateBlocklist) -> Result<Option<String>, String> {
+    pub fn offer(&self, update: &UpdateBlocklist) -> Result<Option<(String, Vec<u8>)>, String> {
         let version = (self.verify)(&update.blocklist, &update.signature).map_err(|e| e.to_string())?;
         if version != update.version {
             return Err(format!("the message says {} but the list is {version}", update.version));
@@ -90,8 +95,8 @@ impl Keeper {
             }
         }
         self.keep(&update.signature, &update.blocklist)?;
-        *held = Some(Held { version, file: file.clone() });
-        Ok(Some(file))
+        *held = Some(Held { version, file: file.clone(), signature: update.signature.clone() });
+        Ok(Some((file, update.signature.clone())))
     }
 
     /// The signature first and the list second, each whole or not at all; a pair that doesn't match is not read back.
@@ -144,7 +149,8 @@ mod tests {
         let file = list("2026-10-25T09:30:00Z");
         let handed = keeper.offer(&update(&signing, "2026-10-25T09:30:00Z", &file)).unwrap();
 
-        assert_eq!(handed.as_deref(), Some(String::from_utf8(file).unwrap().as_str()));
+        let signature = signing.sign(&file).to_bytes().to_vec();
+        assert_eq!(handed, Some((String::from_utf8(file).unwrap(), signature)));
         assert_eq!(keeper.version(), "2026-10-25T09:30:00Z");
         // A restarted agent finds it, verified again.
         assert_eq!(super::tests::keeper(dir.path(), public).version(), "2026-10-25T09:30:00Z");

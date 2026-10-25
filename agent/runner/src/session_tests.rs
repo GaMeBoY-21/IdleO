@@ -360,7 +360,7 @@ async fn a_listed_name_tells_with_the_build_it_found_so_an_admin_can_list_it() {
 }
 
 fn blocklist_request(file: &str) -> jobcore::protocol::Request {
-    jobcore::protocol::Request::Blocklist { file: file.to_owned() }
+    jobcore::protocol::Request::Blocklist { file: file.to_owned(), signature: vec![1; 64] }
 }
 
 #[tokio::test]
@@ -400,6 +400,41 @@ async fn a_list_that_is_older_or_unsafe_is_refused_and_the_one_in_use_stays() {
         rig.registry.answer(jobcore::protocol::Request::Hello).await,
         Outcome::Ok(Answer::Hello(hello)) if hello.blocklist_version == "2026-10-22"
     ));
+}
+
+#[tokio::test]
+async fn a_list_without_a_signature_is_refused_and_the_one_in_use_stays() {
+    let rig = rig();
+    let newer = r#"{"version":"2026-10-25T09:30:00Z","names":[],"hashes":[],"pools":[]}"#;
+    let unsigned = jobcore::protocol::Request::Blocklist { file: newer.to_owned(), signature: Vec::new() };
+    assert!(matches!(
+        rig.registry.answer(unsigned).await,
+        Outcome::Err(failure) if failure.code == code::BAD_REQUEST
+    ));
+    assert!(matches!(
+        rig.registry.answer(jobcore::protocol::Request::Hello).await,
+        Outcome::Ok(Answer::Hello(hello)) if hello.blocklist_version == "2026-10-22"
+    ));
+}
+
+#[tokio::test]
+async fn a_runner_holding_no_verified_blocklist_starts_no_job_until_it_is_handed_one() {
+    let rig = rig();
+    *rig.machine.blocklist.lock().unwrap() = Some(Arc::new(Blocklist::empty()));
+    rig.registry.start(start(1)).unwrap();
+    let ended = rig.ended(1).await;
+    assert_eq!(failed_code(&ended), code::SANDBOX_NOT_READY, "{ended:?}");
+    assert!(
+        rig.machine.containers.lock().unwrap().is_empty() && rig.machine.scratches_made.lock().unwrap().is_empty(),
+        "nothing was made for it"
+    );
+
+    let first = r#"{"version":"2026-10-25T09:30:00Z","names":[],"hashes":[],"pools":[]}"#;
+    assert!(matches!(rig.registry.answer(blocklist_request(first)).await, Outcome::Ok(Answer::Blocklist { .. })));
+    rig.registry.start(start(2)).unwrap();
+    let container = rig.machine.container().await;
+    container.finish(0);
+    rig.ended(2).await;
 }
 
 #[tokio::test]

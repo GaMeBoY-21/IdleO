@@ -137,9 +137,10 @@ pub trait SessionRunner: Send + Sync {
     /// stopped distribution, so the job's first line isn't waiting on a cold start).
     fn warm(&self) {}
 
-    /// A newer abuse blocklist the agent has verified (ADR 0038): the signed file's exact text. The container runner keeps it
-    /// and gives it to `idleo-runner` when its distribution is up, and before a session starts.
-    fn blocklist(&self, _file: String) {}
+    /// A newer abuse blocklist the agent has verified (ADR 0038): the signed file's exact text and its signature. The container
+    /// runner keeps them and gives them to `idleo-runner` when its distribution is up, and before a session starts; the runner
+    /// verifies the signature again itself.
+    fn blocklist(&self, _file: String, _signature: Vec<u8>) {}
 
     /// The control plane renewed an attempt's lease: it may run `ttl` more from now.
     fn renew(&self, _session_id: Uuid, _attempt: i32, _ttl: Duration) {}

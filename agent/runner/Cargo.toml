@@ -18,6 +18,8 @@ path = "src/main.rs"
 
 [dependencies]
 agent-proto = { path = "../agent-proto" }
+base64 = "0.22.1"
+ed25519-dalek = "3.0.0"
 getrandom = "0.4.3"
 jobcore = { path = "../jobcore" }
 prost-types = "0.14.4"

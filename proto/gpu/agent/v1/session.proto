@@ -260,6 +260,9 @@ enum OfferDeclineReason {
   OFFER_DECLINE_REASON_SHUTTING_DOWN = 5;
   // The offer had already expired when the agent looked at it.
   OFFER_DECLINE_REASON_EXPIRED = 6;
+  // A self-test the owner or an admin asked for is running; the agent takes
+  // no session until it is done, and the scheduler moves on to another host.
+  OFFER_DECLINE_REASON_SELF_TEST_RUNNING = 7;
 }
 
 // Agent to control plane: the answer to an Offer. Acked.

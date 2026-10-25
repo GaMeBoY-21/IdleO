@@ -36,6 +36,9 @@ pub const RUNNER_PATH: &str = "/usr/local/bin/idleo-runner";
 /// How often an attempt is compared with the runner's own account of it.
 const RECONCILE_EVERY: Duration = Duration::from_secs(5);
 
+/// An abuse blocklist's exact text and its signature, as the runner is given them.
+type SignedBlocklist = (String, Vec<u8>);
+
 /// The runner that runs sessions in containers.
 #[derive(Clone)]
 pub struct ContainerRunner {
@@ -46,7 +49,7 @@ pub struct ContainerRunner {
     /// How much of the owner's upload a job may use (ADR 0038), told to the runner at every start.
     upload_cap: Arc<crate::fair_use::UploadCap>,
     /// The newest abuse blocklist the agent has verified, to hand to the runner whenever it has an older one.
-    blocklist: Arc<std::sync::Mutex<Option<String>>>,
+    blocklist: Arc<std::sync::Mutex<Option<SignedBlocklist>>>,
 }
 
 impl ContainerRunner {
@@ -291,14 +294,15 @@ impl crate::care::Distribution for RunnerDistribution {
     }
 }
 
-/// Gives the runner `file` if it is newer than the blocklist the runner reports using. A runner that refuses it keeps the one it
-/// has; a runner too old to know the request answers with a failure, which only the log hears of.
-async fn hand_over_blocklist(link: &Link, hello: &HelloAnswer, file: String) {
+/// Gives the runner `file` and its signature if it is newer than the blocklist the runner reports using (or the runner reports
+/// none: it then starts no job until it has one). A runner that refuses it keeps the one it has; a runner too old to know the
+/// request answers with a failure, which only the log hears of.
+async fn hand_over_blocklist(link: &Link, hello: &HelloAnswer, file: String, signature: Vec<u8>) {
     let Ok(version) = idleo_release::blocklist::version_of(file.as_bytes()) else { return };
-    if !idleo_release::blocklist::is_newer(&version, &hello.blocklist_version) {
+    if !hello.blocklist_version.is_empty() && !idleo_release::blocklist::is_newer(&version, &hello.blocklist_version) {
         return;
     }
-    match link.request(Request::Blocklist { file }).await {
+    match link.request(Request::Blocklist { file, signature }).await {
         Ok(_) => tracing::info!(%version, "the job runner has the newer abuse blocklist"),
         Err(failure) => tracing::warn!(%version, %failure, "the job runner didn't take the abuse blocklist"),
     }
@@ -537,23 +541,24 @@ impl SessionRunner for ContainerRunner {
         let held = self.blocklist.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
         tokio::spawn(async move {
             if let Ok(Answer::Hello(hello)) = link.request(Request::Hello).await
-                && let Some(file) = held
+                && let Some((file, signature)) = held
             {
-                hand_over_blocklist(&link, &hello, file).await;
+                hand_over_blocklist(&link, &hello, file, signature).await;
             }
         });
         // And nothing is downloaded while a session starts.
         self.link.notify(Request::CancelPulls);
     }
 
-    fn blocklist(&self, file: String) {
-        *self.blocklist.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(file.clone());
+    fn blocklist(&self, file: String, signature: Vec<u8>) {
+        *self.blocklist.lock().unwrap_or_else(std::sync::PoisonError::into_inner) =
+            Some((file.clone(), signature.clone()));
         // The distribution is only woken for a session; one that is up takes the list now.
         if self.is_awake() {
             let link = self.link.clone();
             tokio::spawn(async move {
                 if let Ok(Answer::Hello(hello)) = link.request(Request::Hello).await {
-                    hand_over_blocklist(&link, &hello, file).await;
+                    hand_over_blocklist(&link, &hello, file, signature).await;
                 }
             });
         }
@@ -1105,24 +1110,38 @@ mod tests {
         let (scripted, runner) = Scripted::runner();
         let newer = blocklist_file("2026-10-25T09:30:00Z");
 
-        runner.blocklist(newer.clone());
+        runner.blocklist(newer.clone(), vec![7; 64]);
         scripted
             .wait_for("the blocklist", |seen| {
-                seen.iter().any(|r| matches!(r, Request::Blocklist { file } if *file == newer))
+                seen.iter().any(|r| matches!(r, Request::Blocklist { file, signature } if *file == newer && *signature == vec![7; 64]))
             })
             .await;
 
         // The runner says it already uses that one: a second hand-over sends nothing.
         *scripted.blocklist_version.lock().unwrap() = "2026-10-25T09:30:00Z".to_owned();
         let before = scripted.requests().iter().filter(|r| matches!(r, Request::Blocklist { .. })).count();
-        runner.blocklist(newer);
+        runner.blocklist(newer, vec![7; 64]);
         tokio::time::sleep(Duration::from_millis(200)).await;
         assert_eq!(scripted.requests().iter().filter(|r| matches!(r, Request::Blocklist { .. })).count(), before);
 
         // And one older than the runner's own is never sent.
-        runner.blocklist(blocklist_file("2026-10-24"));
+        runner.blocklist(blocklist_file("2026-10-24"), vec![7; 64]);
         tokio::time::sleep(Duration::from_millis(200)).await;
         assert_eq!(scripted.requests().iter().filter(|r| matches!(r, Request::Blocklist { .. })).count(), before);
+    }
+
+    #[tokio::test]
+    async fn a_runner_that_reports_no_blocklist_is_given_any_list_the_agent_holds() {
+        let (scripted, runner) = Scripted::runner();
+        *scripted.blocklist_version.lock().unwrap() = String::new();
+        let list = blocklist_file("2026-10-22");
+
+        runner.blocklist(list.clone(), vec![7; 64]);
+        scripted
+            .wait_for("the blocklist", |seen| {
+                seen.iter().any(|r| matches!(r, Request::Blocklist { file, .. } if *file == list))
+            })
+            .await;
     }
 
     #[tokio::test]
@@ -1131,7 +1150,7 @@ mod tests {
         let runner = runner.with_awake(|| false);
         let newer = blocklist_file("2026-10-25T09:30:00Z");
 
-        runner.blocklist(newer.clone());
+        runner.blocklist(newer.clone(), vec![7; 64]);
         tokio::time::sleep(Duration::from_millis(200)).await;
         assert!(
             scripted.requests().is_empty(),
@@ -1142,7 +1161,7 @@ mod tests {
         runner.warm();
         scripted
             .wait_for("the blocklist", |seen| {
-                seen.iter().any(|r| matches!(r, Request::Blocklist { file } if *file == newer))
+                seen.iter().any(|r| matches!(r, Request::Blocklist { file, .. } if *file == newer))
             })
             .await;
         let hello = scripted.requests().iter().position(|r| matches!(r, Request::Hello)).unwrap();

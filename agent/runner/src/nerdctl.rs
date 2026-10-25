@@ -86,8 +86,10 @@ pub struct Paths {
     pub mapper: PathBuf,
     /// The abuse blocklist the agent last handed over, kept across restarts.
     pub blocklist_saved: PathBuf,
-    /// The abuse blocklist that ships in the distribution.
+    /// The abuse blocklist that ships in the distribution, with its signature beside it.
     pub blocklist_distro: PathBuf,
+    /// The release key the blocklist's signature is checked against.
+    pub blocklist_key: PathBuf,
 }
 
 impl Default for Paths {
@@ -101,6 +103,7 @@ impl Default for Paths {
             mapper: PathBuf::from("/dev/mapper"),
             blocklist_saved: PathBuf::from("/var/lib/idleo/blocklist/current.json"),
             blocklist_distro: PathBuf::from(crate::blocklist_store::DISTRO_COPY),
+            blocklist_key: PathBuf::from(crate::blocklist_store::RELEASE_KEY),
         }
     }
 }
@@ -196,7 +199,11 @@ impl Nerdctl {
     #[must_use]
     pub fn new(paths: Paths) -> Self {
         Self {
-            blocklist: BlocklistStore::new(paths.blocklist_saved.clone(), paths.blocklist_distro.clone()),
+            blocklist: BlocklistStore::new(
+                paths.blocklist_saved.clone(),
+                paths.blocklist_distro.clone(),
+                paths.blocklist_key.clone(),
+            ),
             paths,
             slots: Arc::default(),
             ooms: Arc::default(),
@@ -207,11 +214,11 @@ impl Nerdctl {
         }
     }
 
-    /// Loads the abuse blocklist (ADR 0038): the newer of the distribution's copy and the last good one handed over. Without
-    /// one the runner doesn't serve, rather than judge sessions by nothing.
+    /// Loads the abuse blocklist (ADR 0038): the newer of the distribution's copy and the last good one handed over, each only
+    /// if its signature verifies. Without one the runner holds no list and starts no job until the agent hands it one.
     ///
     /// # Errors
-    /// If there is no list to load.
+    /// If there is no list that verifies.
     pub fn load_blocklist(&self) -> Result<String, String> {
         self.blocklist.load()
     }
@@ -962,8 +969,8 @@ impl Machine for Nerdctl {
         Arc::new(self.blocklist.get().as_ref().clone().with_test_entries(&marker))
     }
 
-    fn set_blocklist(&self, file: &str) -> Result<String, String> {
-        self.blocklist.update(file)
+    fn set_blocklist(&self, file: &str, signature: &[u8]) -> Result<String, String> {
+        self.blocklist.update(file, signature)
     }
 
     fn clean_up_leftovers(&self) -> Fut<'_, ()> {

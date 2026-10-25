@@ -97,11 +97,20 @@ was compiled into the runner, so a wrong entry could only leave with a new distr
   `Hello.blocklist_version` is older after Welcome, and to connected agents when it caches a newer one. The agent trusts it
   only if it verifies against the release key built into it and is newer than the one it holds, keeps it, and hands it to its
   runner over the runner protocol (`Request::Blocklist`) whenever the runner has an older one; the runner keeps the last
-  good copy and falls back to the distribution's. A bad entry is therefore pulled within the feed's refresh (minutes) for
+  good copy and falls back to the distribution's signed copy. A bad entry is therefore pulled within the feed's refresh (minutes) for
   connected agents and at the next connection for the rest, which is faster than the day the plan asked for. The agent does
   not poll over HTTP: it would need the control plane's REST address in its config, and the stream already reaches it.
-- **Never silently weaker.** A runner with neither copy does not serve; its self-test fails (`abuse_blocklist`). A list that
-  does not parse, or is not newer, is refused and the one in use stays.
+- **Never silently weaker.** A runner that holds no list whose signature verified starts no job (`sandbox_not_ready`, the
+  host's fault: nothing is pulled or made, the renter is not charged) and its self-test fails (`abuse_blocklist`). A list
+  that does not verify, does not parse, or is not newer, is refused and the one in use stays.
+- **The stream only delivers; the signature decides.** The agent verifies a list against the release key built into it. The
+  runner does not take the agent's word: it verifies the signature again against the release key in its own image
+  (`/usr/local/share/idleo/release.pub`), for a list the agent hands over, for its saved last good copy at every start, and for
+  the distribution's own copy, which ships signed (`blocklist.json.sig`, made by `scripts/release/sign-distro-blocklist.sh`:
+  the development key for a development image, `$IDLEO_RELEASE_KEY` for a release). Unsigned, signed by another key, and signed
+  then changed are all refused, in the agent (tests/agent/blocklist.rs) and in the runner (blocklist_store.rs, the hostile
+  test). The distribution's copy is a fallback only as a signed file: the image has no list the runner takes on trust. The
+  distribution is 0.3.0 because the runner inside changed.
 - **Learning.** The runner hashes the executable of a program whose *name* is listed, and the signal carries the hash. A name
   still only flags. When an admin confirms the review, "Add this program's hash to the blocklist" records the build, with a
   kind and the admin's reason, audited, in `trust.blocklist_additions`. The control plane never holds the signing key, so

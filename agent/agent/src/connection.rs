@@ -309,8 +309,8 @@ pub async fn run(mut options: RunOptions, mut shutdown: watch::Receiver<bool>) -
     // The abuse blocklist the agent last verified (ADR 0038) goes to the runner as it starts, if the runner is up and has an
     // older one; a runner that is asleep takes it when a session wakes it.
     let blocklist = crate::blocklist::Keeper::open(&options.data_dir);
-    if let (Some(file), Some(runner)) = (blocklist.file(), &options.runner) {
-        runner.blocklist(file);
+    if let (Some((file, signature)), Some(runner)) = (blocklist.signed(), &options.runner) {
+        runner.blocklist(file, signature);
     }
     let mut manager = Manager {
         blocklist,
@@ -547,6 +547,7 @@ impl Manager {
                             expired,
                             shutting_down: *shutdown.borrow() || updating,
                             can_run,
+                            self_test_running: self.requested_runs.running.load(std::sync::atomic::Ordering::SeqCst),
                             running_sessions,
                             max_concurrent_sessions: policy.max_concurrent_sessions,
                             owner_active,
@@ -622,10 +623,10 @@ impl Manager {
                     Ok(Some(OpenStreamResponse { message_id, body: Some(ServerBody::UpdateBlocklist(update)) })) => {
                         let _ = outbound.send(ack_for(&message_id)).await;
                         match self.blocklist.offer(&update) {
-                            Ok(Some(file)) => {
+                            Ok(Some((file, signature))) => {
                                 tracing::info!(version = %update.version, "a newer abuse blocklist was verified and kept");
                                 if let Some(runner) = &self.options.runner {
-                                    runner.blocklist(file);
+                                    runner.blocklist(file, signature);
                                 }
                             }
                             Ok(None) => tracing::debug!(version = %update.version, "the abuse blocklist is already held"),

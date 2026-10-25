@@ -338,7 +338,11 @@ impl Machine for FakeMachine {
         self.blocklist.lock().unwrap().clone().unwrap_or_else(|| Arc::new(Blocklist::built_in()))
     }
 
-    fn set_blocklist(&self, file: &str) -> Result<String, String> {
+    fn set_blocklist(&self, file: &str, signature: &[u8]) -> Result<String, String> {
+        // The fake machine has no key; it refuses an empty signature as the real one refuses an unsigned list.
+        if signature.is_empty() {
+            return Err("the blocklist has no valid signature".to_owned());
+        }
         let incoming = Blocklist::parse(file)?;
         if incoming.version() < self.abuse_blocklist().version() {
             return Err("older than the one in use".to_owned());

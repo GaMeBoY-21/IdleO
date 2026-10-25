@@ -11,6 +11,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
+# shellcheck source=scripts/lib/toolchains.sh
+. "$root/scripts/lib/toolchains.sh"
 quick=false
 [[ "${1:-}" == "--quick" ]] && quick=true
 failed=0
@@ -104,6 +106,14 @@ diff <(in_image cat /usr/local/share/idleo/sandbox.nft) agent/distro/sandbox.nft
 # The rules file is valid nftables (a syntax check, which changes nothing), with its hash filled in as the runner does it.
 diff <(in_image cat /usr/local/share/idleo/blocklist.json) agent/distro/blocklist.json >/dev/null &&
   pass "the abuse blocklist in the image is agent/distro/blocklist.json" || fail "the abuse blocklist in the image is agent/distro/blocklist.json"
+# The runner uses a list only if its signature verifies, so the image's own copy has one that verifies against the key beside it.
+listdir="$(mktemp -d)"
+for file in blocklist.json blocklist.json.sig release.pub; do in_image cat "/usr/local/share/idleo/$file" >"$listdir/$file" 2>/dev/null || true; done
+(cd agent && cargo build --release --locked --quiet -p release --bin idleo-release) &&
+  agent/target/release/idleo-release verify-blocklist --public "$listdir/release.pub" "$listdir/blocklist.json" >/dev/null 2>&1 &&
+  pass "the abuse blocklist in the image has a signature that verifies against the image's release key" ||
+  fail "the abuse blocklist in the image has a signature that verifies against the image's release key"
+rm -rf "$listdir"
 
 if in_image sh -c 'sed "s/@HASH@/0/" /usr/local/share/idleo/sandbox.nft | nft -c -f -' >"$out/nft-check.txt" 2>&1; then
   pass "the rules file passes nft's own check"

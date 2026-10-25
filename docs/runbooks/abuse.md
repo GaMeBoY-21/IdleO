@@ -65,14 +65,17 @@ honest, say): clear every item it stopped (that reinstates each account and refu
 ## Changing the blocklist
 
 The list is data: `agent/distro/blocklist.json`, with its `version`. Each entry names its **source**: a program or a
-pool's own site or release page. A copy ships inside every distribution (`/usr/local/share/idleo/blocklist.json`), and a
+pool's own site or release page. A signed copy ships inside every distribution (`/usr/local/share/idleo/blocklist.json` and `.sig`, made when the image is built,
+with the release key beside them), and a
 **newer one is published on its own**, signed with the release key like the app's manifest (ADR 0034, ADR 0041), as
 `stable/blocklist.json` and `stable/blocklist.json.sig` in the release bucket. The control plane reads that file every few
 minutes, serves it only if its signature verifies and it isn't older than the one it holds, and sends it over each agent's
 stream (when the agent connects, and to connected agents when it is newer); the agent uses it only if it verifies against
-the release key built into it, and hands it to its runner, which keeps the last good copy and judges sessions by the
-newest it has, a program that is already running included. So **a bad entry is pulled within minutes of publishing, with no
-new distribution**; a laptop that was off gets the list when it next connects. A version is when the list was issued
+the release key built into it, and hands it with its signature to its runner, which verifies it again against the key in its
+own image, keeps the last good copy and judges sessions by the newest it has, a program that is already running included. So **a bad entry is pulled within minutes of publishing, with no
+new distribution**; a laptop that was off gets the list when it next connects. A runner that holds no list whose signature
+verifies starts no job (`sandbox_not_ready`; the host's fault, so the renter is not charged) until its agent hands it one; if
+a host reports that, check that its agent has connected and that the release key in the image is the one that signs the feed. A version is when the list was issued
 (`2026-10-25T09:30:00Z`; the copy in a distribution carries a plain date).
 
 **Publishing.** `scripts/release/blocklist.sh` (`--dev` for the local stack) merges `agent/distro/blocklist.json` with the

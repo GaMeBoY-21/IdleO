@@ -6,13 +6,13 @@ use std::time::Duration;
 
 use agent_proto::v1::open_stream_request::Body;
 use agent_proto::v1::open_stream_response::Body as ServerBody;
-use agent_proto::v1::{OpenStreamRequest, OpenStreamResponse, RunSelfTest};
+use agent_proto::v1::{OfferDeclineReason, OpenStreamRequest, OpenStreamResponse, RunSelfTest};
 use idleo_agent::connection::Event;
 use idleo_agent::local::RequestedSelfTestFn;
 use idleo_agent::self_test::{Check, Report};
 use uuid::Uuid;
 
-use crate::support::{Stream, TestServer, messages, next_event, spawn_agent, timing};
+use crate::support::{Stream, TestServer, messages, next_event, offer, spawn_agent, timing};
 
 fn check(name: &str, passed: bool) -> Check {
     Check { name: name.to_owned(), passed, detail: format!("{name} found"), took_ms: 250 }
@@ -214,6 +214,66 @@ async fn a_machine_running_a_session_refuses_it() {
         .await;
 
     assert!(!sent(&server).iter().any(|m| matches!(m.body, Some(Body::SelfTestReport(_)))), "nothing was run");
+}
+
+/// The reply to the offer with this id, once it has arrived.
+async fn reply_to(server: &TestServer, offer_id: &str) -> agent_proto::v1::OfferReply {
+    let has = |r: &crate::support::Recorded| {
+        r.connections[0]
+            .messages
+            .iter()
+            .any(|(_, m)| matches!(&m.body, Some(Body::OfferReply(reply)) if reply.offer_id == offer_id))
+    };
+    server.wait_until(Duration::from_secs(5), has).await;
+    sent(server)
+        .into_iter()
+        .find_map(|m| match m.body {
+            Some(Body::OfferReply(reply)) if reply.offer_id == offer_id => Some(reply),
+            _ => None,
+        })
+        .unwrap()
+}
+
+fn offer_with_id(server_offer: OpenStreamResponse) -> (String, OpenStreamResponse) {
+    let Some(ServerBody::Offer(inner)) = &server_offer.body else { unreachable!() };
+    (inner.offer_id.clone(), server_offer)
+}
+
+#[tokio::test]
+async fn offers_are_declined_while_a_requested_self_test_runs_and_taken_again_after() {
+    let server = TestServer::tcp().await;
+    server.behave(|b| b.default_stream = Stream::Scripted);
+    let dir = tempfile::tempdir().unwrap();
+    server.enrol(dir.path()).await;
+    let (mut options, mut events) = server.run_options(dir.path(), timing());
+    let release = Arc::new(AtomicBool::new(false));
+    options.requested_self_test = Some(requested(Arc::clone(&release)));
+    let (_stop, _agent) = spawn_agent(options);
+    next_event(&mut events, |e| matches!(e, Event::Welcomed { .. })).await;
+    let run_id = Uuid::now_v7().to_string();
+    server.send(run_self_test(&run_id)).await;
+    server
+        .wait_until(Duration::from_secs(5), |r| {
+            r.connections[0].messages.iter().any(|(_, m)| matches!(&m.body, Some(Body::SelfTestProgress(_))))
+        })
+        .await;
+
+    let (during, message) = offer_with_id(offer(1024, Duration::from_secs(10)));
+    server.send(message).await;
+    let declined = reply_to(&server, &during).await;
+    assert!(!declined.accepted);
+    assert_eq!(declined.decline_reason(), OfferDeclineReason::SelfTestRunning);
+
+    release.store(true, Ordering::SeqCst);
+    server
+        .wait_until(Duration::from_secs(5), |r| {
+            r.connections[0].messages.iter().any(|(_, m)| matches!(&m.body, Some(Body::SelfTestReport(_))))
+        })
+        .await;
+    let (after, message) = offer_with_id(offer(1024, Duration::from_secs(10)));
+    server.send(message).await;
+    let taken = reply_to(&server, &after).await;
+    assert!(taken.accepted, "the test is over, so the machine takes work again");
 }
 
 #[tokio::test(start_paused = true)]

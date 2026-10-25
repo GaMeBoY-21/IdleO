@@ -182,12 +182,16 @@ pub enum Request {
         #[serde(default)]
         quick: bool,
     },
-    /// A newer abuse blocklist (ADR 0038), already verified against the release key by the agent: the signed file's exact
-    /// bytes as text. The runner reads it again itself, refuses what it can't match safely or what isn't newer than the one
-    /// it holds, and keeps the last good copy.
+    /// A newer abuse blocklist (ADR 0038): the signed file's exact bytes as text and its signature. The agent has verified
+    /// it against the release key, and the runner does so again with the key in its own image before anything else: a list
+    /// without a signature that verifies is refused. It also refuses what it can't match safely or what isn't newer than the
+    /// one it holds, and keeps the last good copy.
     Blocklist {
         /// The list's JSON.
         file: String,
+        /// The raw Ed25519 signature over `file`'s bytes (64 bytes). Absent from an older agent, which the runner refuses.
+        #[serde(default)]
+        signature: Vec<u8>,
     },
 }
 

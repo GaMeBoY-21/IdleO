@@ -162,6 +162,26 @@ class BookingTests {
     }
 
     @Test
+    void aHostRunningARequestedSelfTestDeclinesAndTheSchedulerMovesOn() throws Exception {
+        var testing = host(1);
+        var other = host(2);
+        var renter = renter(50_000);
+
+        var id = book(renter, 5);
+        var first = testing.awaitOffer(WAIT);
+        testing.reply(first.getOfferId(), false, OfferDeclineReason.OFFER_DECLINE_REASON_SELF_TEST_RUNNING);
+        other.awaitOffer(WAIT);
+
+        var matched = awaitState(renter, id, "MATCHED");
+        assertThat(matched.get("hostId").asString()).isEqualTo(other.id().toString());
+        assertThat(jdbc.queryForObject(
+                        "select decline_reason from scheduling.offers where id = ?::uuid",
+                        String.class,
+                        first.getOfferId()))
+                .isEqualTo("self_test_running");
+    }
+
+    @Test
     void threeDeclinesMeanNoHostIsFreeAndTheHoldIsReleased() throws Exception {
         var a = host(1);
         var b = host(2);

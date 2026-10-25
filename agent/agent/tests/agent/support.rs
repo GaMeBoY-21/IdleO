@@ -679,7 +679,7 @@ impl AgentGatewayService for Service {
 }
 
 /// An offer for the smoke template, as the scheduler sends it.
-fn offer(vram_needed_mb: i32, expires_in: Duration) -> OpenStreamResponse {
+pub fn offer(vram_needed_mb: i32, expires_in: Duration) -> OpenStreamResponse {
     OpenStreamResponse {
         message_id: Uuid::now_v7().to_string(),
         body: Some(ServerBody::Offer(Offer {
