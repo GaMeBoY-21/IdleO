@@ -1,0 +1,43 @@
+# cargo deny check: supply-chain rules for the image scanner, which reads strangers' images on our server.
+
+[graph]
+# Check every platform the scanner is built for, not just the one running the check.
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin"]
+all-features = true
+
+[advisories]
+# Every RustSec advisory fails the check, including unmaintained and unsound crates, unless an
+# entry below ignores it with a reason.
+version = 2
+yanked = "deny"
+unmaintained = "all"
+ignore = []
+
+[licenses]
+# Permissive licences only: no GPL, LGPL, AGPL or other copyleft in the scanner.
+version = 2
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.93
+
+[licenses.private]
+# Our own crates aren't published and carry no licence field.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Path dependencies between our own unpublished crates carry no version.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

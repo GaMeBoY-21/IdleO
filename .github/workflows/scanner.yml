@@ -1,0 +1,57 @@
+name: scanner
+
+on:
+  push:
+    branches: [main]
+    paths: ["scanner/**", ".github/workflows/scanner.yml", "scripts/checks/scanner.sh"]
+  pull_request:
+    paths: ["scanner/**", ".github/workflows/scanner.yml", "scripts/checks/scanner.sh"]
+  workflow_dispatch:
+
+# A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # The scanner runs on our Linux server only.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scanner
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Installs the toolchain pinned in scanner/rust-toolchain.toml, with rustfmt and clippy.
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: scanner
+      # The same checks as scripts/check-all.sh runs on a laptop.
+      - name: Format, lint and test
+        shell: bash
+        working-directory: .
+        run: scripts/checks/scanner.sh build
+      - name: The container builds, read-only, as 10001
+        shell: bash
+        working-directory: .
+        run: scripts/checks/scanner.sh image
+      - name: Nothing generated is tracked
+        shell: bash
+        run: test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }
+
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: scanner/Cargo.toml
+          command: check
+          arguments: --all-features
