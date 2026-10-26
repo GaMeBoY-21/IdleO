@@ -142,6 +142,7 @@ impl Nerdctl {
                 max_runtime_secs: 60,
                 checkpoint_interval_secs: 0,
                 gpu,
+                ..Spec::default()
             },
             work: scratch.work.clone(),
             input: scratch.input.clone(),

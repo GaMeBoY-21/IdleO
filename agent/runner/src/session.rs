@@ -409,7 +409,7 @@ impl Registry {
         let mut cancelled = self.pulls.subscribe();
         cancelled.mark_unchanged();
         tokio::select! {
-            result = self.machine.ensure_image(image, progress) => {
+            result = self.machine.ensure_image(image, progress, None) => {
                 result.map_err(|why| Failure::new(code::IMAGE_PULL_FAILED, why))
             }
             _ = cancelled.changed() => Err(Failure::new(code::IMAGE_PULL_FAILED, "the download was stopped for a session that is starting")),
@@ -476,8 +476,49 @@ impl Registry {
         if let Some(scratch) = held.scratch.take() {
             self.machine.remove_scratch(&scratch).await;
         }
+        if let Some(image) = held.own_image.take() {
+            self.machine.remove_image(&image).await;
+        }
         *entry.refresh.lock().unwrap_or_else(PoisonError::into_inner) = None;
         ended
+    }
+
+    /// Pulls the attempt's image. A renter's own image (ADR 0042) is pulled with its login, if it's private, its progress
+    /// told as the session's own pull events against its checked size, and within its time limit, after which the attempt
+    /// fails `image_pull_timed_out`, before minute 0.
+    async fn pull_image(&self, emitter: &Emitter, start: &Start) -> Result<(), Ended> {
+        let spec = &start.spec;
+        let progress: Progress = if spec.own_image {
+            let emitter = emitter.clone();
+            let image = spec.image.clone();
+            let total = spec.image_size_bytes;
+            Arc::new(move |done, reported| {
+                emitter.send(Event::Pull {
+                    image: image.clone(),
+                    done_bytes: done,
+                    total_bytes: if total > 0 { total } else { reported },
+                });
+            })
+        } else {
+            Arc::new(|_, _| {})
+        };
+        let login = if spec.own_image { start.registry.as_ref() } else { None };
+        let pulling = self.machine.ensure_image(&spec.image, progress, login);
+        let result = if spec.own_image && spec.pull_timeout_secs > 0 {
+            let limit = Duration::from_secs(spec.pull_timeout_secs);
+            match tokio::time::timeout(limit, pulling).await {
+                Ok(result) => result,
+                Err(_) => {
+                    return Err(failed(
+                        code::IMAGE_PULL_TIMED_OUT,
+                        format!("the image didn't finish downloading within {} minutes", limit.as_secs().div_ceil(60)),
+                    ));
+                }
+            }
+        } else {
+            pulling.await
+        };
+        result.map_err(|why| failed(code::IMAGE_PULL_FAILED, why))
     }
 
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // One attempt's whole context, and its phases in a straight line, each with its guard and timing in view.
@@ -549,10 +590,21 @@ impl Registry {
 
         timings.sandbox = began.elapsed();
         let mark = std::time::Instant::now();
-        if let Err(why) = step!(self.machine.ensure_image(&start.spec.image, Arc::new(|_, _| {}))) {
-            return failed(code::IMAGE_PULL_FAILED, why);
+        if start.spec.own_image {
+            // A renter's own image may hold their code, and the image store isn't encrypted: it goes when the attempt does,
+            // whatever happens from here (ADR 0042).
+            held.own_image = Some(start.spec.image.clone());
+        }
+        let pulled = step!(self.pull_image(emitter, start));
+        if let Err(ended) = pulled {
+            return ended;
         }
         timings.image = mark.elapsed();
+        // The download is neither charged (minute 0 is when the job starts) nor counted against the job's maximum runtime.
+        {
+            let mut state = emitter.entry.state();
+            state.runtime_deadline += timings.image;
+        }
         let mark = std::time::Instant::now();
         let key = format!("{}-{}", start.session, start.attempt);
         let scratch = match step!(self.machine.make_scratch(&key, start.spec.scratch_mb)) {
@@ -901,6 +953,8 @@ fn invalid_input_said(work: &std::path::Path) -> Option<String> {
 struct Held {
     scratch: Option<Scratch>,
     container: Option<Arc<dyn Container>>,
+    /// A renter's own image, deleted when the attempt ends (ADR 0042).
+    own_image: Option<String>,
     timings: Arc<Mutex<Option<Timings>>>,
 }
 

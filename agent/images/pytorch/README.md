@@ -5,7 +5,7 @@ in this image is a model, and no job script here downloads one.
 
 | What | Why |
 | --- | --- |
-| `nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04`, pinned by digest | CUDA 12.8 is the first with Blackwell (RTX 50) support, and every CUDA 12.x application runs on drivers from 527.41 (Windows) by minor version compatibility: `MIN_NVIDIA_DRIVER` in `agent/release/src/drivers.rs` says where this is sourced. cuDNN comes with the base. |
+| `nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04`, pinned by digest | CUDA 12.8 is the first with Blackwell (RTX 50) support, and every CUDA 12.x application runs on drivers from 527.41 (Windows) by minor version compatibility: `min_nvidia_driver()` in `agent/release/src/drivers.rs`, from `api/cuda-drivers.json`, says where this is sourced. cuDNN comes with the base. |
 | Python 3.12, PyTorch 2.11.0 for CUDA 12.8 (`+cu128`), transformers, peft, trl, accelerate, datasets, bitsandbytes, safetensors, sentencepiece, tokenizers, numpy, scipy, pandas, scikit-learn, tqdm, huggingface_hub | The common AI libraries. `requirements.lock` pins every package with the hash of every wheel; the image installs with `pip install --require-hashes --only-binary=:all:`, so it is the same bytes every build. PyPI's newest torch is built for CUDA 13 (needing a newer driver than we ask for) and the cu128 index stops at 2.11.0, so that is the pin. |
 | No compiler, no `sudo`, no SSH | Wheels only, installed in a build stage; nothing a job could build with is left. |
 | User 10001, home and caches under `/work` | The container's root is read-only; `/work` (the session's scratch disk) is the one writable place besides `/tmp`. |

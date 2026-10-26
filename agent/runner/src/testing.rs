@@ -198,6 +198,11 @@ pub type StartHook = Box<dyn Fn(&Plan) + Send>;
 pub struct FakeMachine {
     pub sandbox: Mutex<Result<(), String>>,
     pub image: Mutex<Result<(), String>>,
+    /// How long a pull takes.
+    pub pull_takes: Mutex<Duration>,
+    /// The logins images were pulled with, and the images removed.
+    pub pulled_with: Mutex<Vec<(String, Option<String>)>>,
+    pub images_removed: Mutex<Vec<String>>,
     /// What starting a container does: nothing wrong, or this failure.
     pub start: Mutex<Option<StartError>>,
     /// The list of software and pools to look for; the one built into the runner unless a test sets its own.
@@ -219,6 +224,9 @@ impl FakeMachine {
         Arc::new(Self {
             sandbox: Mutex::new(Ok(())),
             image: Mutex::new(Ok(())),
+            pull_takes: Mutex::new(Duration::ZERO),
+            pulled_with: Mutex::new(Vec::new()),
+            images_removed: Mutex::new(Vec::new()),
             start: Mutex::new(None),
             blocklist: Mutex::new(None),
             scratch_free: AtomicU64::new(10 * 1024 * 1024 * 1024),
@@ -269,9 +277,27 @@ impl Machine for FakeMachine {
         Box::pin(async move { result })
     }
 
-    fn ensure_image<'a>(&'a self, _image: &'a str, _progress: Progress) -> Fut<'a, Result<(), String>> {
+    fn ensure_image<'a>(
+        &'a self,
+        image: &'a str,
+        progress: Progress,
+        login: Option<&'a jobcore::protocol::RegistryLogin>,
+    ) -> Fut<'a, Result<(), String>> {
         let result = self.image.lock().unwrap().clone();
-        Box::pin(async move { result })
+        let takes = *self.pull_takes.lock().unwrap();
+        self.pulled_with.lock().unwrap().push((image.to_owned(), login.map(|l| format!("{}:{}", l.username, l.token))));
+        Box::pin(async move {
+            if !takes.is_zero() {
+                progress(1, 0);
+                tokio::time::sleep(takes).await;
+            }
+            result
+        })
+    }
+
+    fn remove_image<'a>(&'a self, image: &'a str) -> Fut<'a, ()> {
+        self.images_removed.lock().unwrap().push(image.to_owned());
+        Box::pin(async {})
     }
 
     fn make_scratch<'a>(&'a self, key: &'a str, _scratch_mb: u32) -> Fut<'a, Result<Scratch, String>> {

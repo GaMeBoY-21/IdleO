@@ -519,7 +519,8 @@ def outlive_session():
 
 def write_inputs():
     breaches = []
-    base = "/work/input/data"
+    # The template's input is `data`; run as a renter's own image (ADR 0042) it is `files`, and the run says so.
+    base = os.environ.get("SESSION_PARAM_INPUT_BASE", "/work/input/data")
     try:
         content = open(f"{base}/hello.txt").read()
         print(f"CONTROL read {content!r}", flush=True)

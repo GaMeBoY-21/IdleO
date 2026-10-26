@@ -143,8 +143,17 @@ pub trait Machine: Send + Sync + 'static {
     /// Whether the sandbox's rules are loaded, as this runner's version of them, with the addresses that depend on the
     /// network refreshed. A job never starts without it.
     fn check_sandbox(&self) -> Fut<'_, Result<(), String>>;
-    /// Makes sure the image is in containerd's store, pulling it if it isn't, reporting `(done, total)` bytes.
-    fn ensure_image<'a>(&'a self, image: &'a str, progress: Progress) -> Fut<'a, Result<(), String>>;
+    /// Makes sure the image is in containerd's store, pulling it if it isn't, reporting `(done, total)` bytes; a renter's own
+    /// private image is pulled with `login` (ADR 0042), which never reaches an environment or a log.
+    fn ensure_image<'a>(
+        &'a self,
+        image: &'a str,
+        progress: Progress,
+        login: Option<&'a jobcore::protocol::RegistryLogin>,
+    ) -> Fut<'a, Result<(), String>>;
+    /// Deletes an image from containerd's store, with what only it held: a renter's own image when its attempt ends (ADR
+    /// 0042). Safe to call again, and for an image that never came down.
+    fn remove_image<'a>(&'a self, image: &'a str) -> Fut<'a, ()>;
     /// Makes and mounts a scratch disk of `scratch_mb`, owned by the job's user, with its folders in place.
     fn make_scratch<'a>(&'a self, key: &'a str, scratch_mb: u32) -> Fut<'a, Result<Scratch, String>>;
     /// Bytes free on the scratch disk.

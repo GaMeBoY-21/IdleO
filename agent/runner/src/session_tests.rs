@@ -57,6 +57,11 @@ fn start(attempt: i32) -> Start {
             max_runtime_secs: 60,
             checkpoint_interval_secs: 0,
             gpu: false,
+            entrypoint: Vec::new(),
+            working_dir: String::new(),
+            own_image: false,
+            pull_timeout_secs: 0,
+            image_size_bytes: 0,
         },
         attempt_prefix: prefix(attempt),
         grants: Grants { attempt: grant(&[&prefix(attempt)], true), read: None },
@@ -64,6 +69,7 @@ fn start(attempt: i32) -> Start {
         inputs: vec![],
         lease_ttl_secs: 60,
         agent: AgentNotes { minute_index_base: 0, gpus: vec!["GPU-1".to_owned()] },
+        registry: None,
         upload_cap_kbps: 0,
     }
 }
@@ -717,4 +723,64 @@ async fn a_development_distribution_tells_each_sessions_log_what_the_sessions_be
             None => assert!(!log.contains("finished sessions"), "a release distribution says nothing: {log}"),
         }
     }
+}
+
+fn own_image_start(attempt: i32) -> Start {
+    let mut own = start(attempt);
+    own.spec.image = format!("ghcr.io/renter/job@sha256:{DIGEST}");
+    own.spec.own_image = true;
+    own.spec.pull_timeout_secs = 1;
+    own.spec.image_size_bytes = 8_400_000_000;
+    own.spec.entrypoint = vec!["/bin/sh".to_owned(), "-c".to_owned()];
+    own.spec.args = vec!["python train.py".to_owned()];
+    own.spec.working_dir = "/app".to_owned();
+    own.registry =
+        Some(jobcore::protocol::RegistryLogin { username: "renter".to_owned(), token: "ghp_test".to_owned() });
+    own
+}
+
+#[tokio::test]
+async fn a_renters_own_image_is_pulled_with_its_login_reported_as_the_sessions_pull_and_deleted_after() {
+    let mut rig = rig();
+    *rig.machine.pull_takes.lock().unwrap() = Duration::from_millis(50);
+    rig.registry.start(own_image_start(1)).unwrap();
+    let container = rig.machine.container().await;
+    container.finish(0);
+    assert!(matches!(rig.ended(1).await, Ended::Succeeded));
+    let pulled = rig.machine.pulled_with.lock().unwrap().clone();
+    assert_eq!(pulled, [(format!("ghcr.io/renter/job@sha256:{DIGEST}"), Some("renter:ghp_test".to_owned()))]);
+    assert_eq!(*rig.machine.images_removed.lock().unwrap(), [format!("ghcr.io/renter/job@sha256:{DIGEST}")]);
+    let pulls: Vec<(u64, u64)> = rig
+        .events()
+        .into_iter()
+        .filter_map(|event| match event {
+            Event::Pull { done_bytes, total_bytes, .. } => Some((done_bytes, total_bytes)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(pulls, [(1, 8_400_000_000)], "counted against the size its check found");
+}
+
+#[tokio::test]
+async fn our_own_images_are_kept_and_pulled_without_a_login() {
+    let rig = rig();
+    let mut ours = start(1);
+    ours.registry = Some(jobcore::protocol::RegistryLogin { username: "x".to_owned(), token: "y".to_owned() });
+    rig.registry.start(ours).unwrap();
+    rig.machine.container().await.finish(0);
+    rig.ended(1).await;
+    assert_eq!(rig.machine.pulled_with.lock().unwrap()[0].1, None, "a login only ever goes with a renter's own image");
+    assert!(rig.machine.images_removed.lock().unwrap().is_empty(), "the cache keeps ours");
+}
+
+#[tokio::test]
+async fn a_pull_past_its_time_limit_fails_before_minute_0_and_the_partial_image_is_deleted() {
+    let mut rig = rig();
+    *rig.machine.pull_takes.lock().unwrap() = Duration::from_secs(5);
+    rig.registry.start(own_image_start(1)).unwrap();
+    let ended = rig.ended(1).await;
+    assert_eq!(failed_code(&ended), code::IMAGE_PULL_TIMED_OUT);
+    assert!(rig.machine.containers.lock().unwrap().is_empty(), "no job ever started, so no minute was charged");
+    assert!(!rig.events().iter().any(|event| matches!(event, Event::State { phase: Phase::Running })));
+    assert_eq!(rig.machine.images_removed.lock().unwrap().len(), 1);
 }

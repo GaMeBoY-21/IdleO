@@ -47,8 +47,8 @@ HELLO = b"hello from the renter\n"
 
 
 class Stack:
-    def __init__(self, api, key, cli):
-        self.api, self.key, self.cli = api.rstrip("/"), key, cli
+    def __init__(self, api, key, cli, image=None):
+        self.api, self.key, self.cli, self.image = api.rstrip("/"), key, cli, image
 
     def call(self, method, path, body=None):
         request = urllib.request.Request(
@@ -65,9 +65,20 @@ class Stack:
             raise SystemExit(f"{method} {path} answered {e.code}: {e.read().decode()[:300]}")
 
     def book(self, attack, input_path=None, max_runtime=None):
-        command = [self.cli, "--json", "run", TEMPLATE, "--param", f"attack={attack}", "--max-spend", "5", "--detach"]
-        if input_path:
-            command += ["--input", f"data={input_path}"]
+        if self.image:
+            # As a renter's own image (ADR 0042): the same job, started by the renter's command, with its input named `files`.
+            shell = (
+                f"SESSION_PARAM_ATTACK={attack} SESSION_PARAM_INPUT_BASE=/work/input/files SESSION_PARAM_PIDS_LIMIT=512 "
+                "exec python3 -u /opt/hostile/hostile.py"
+            )
+            command = [self.cli, "--json", "run", "custom-image", "--image", self.image, "--param", f"command={shell}", "--max-spend", "5", "--detach"]
+            if input_path:
+                # The template's `files` input is a folder: the one holding the file the attack reads.
+                command += ["--input", f"files={os.path.dirname(input_path)}"]
+        else:
+            command = [self.cli, "--json", "run", TEMPLATE, "--param", f"attack={attack}", "--max-spend", "5", "--detach"]
+            if input_path:
+                command += ["--input", f"data={input_path}"]
         if max_runtime:
             command += ["--max-runtime", max_runtime]
         done = subprocess.run(command, capture_output=True, text=True, env={**os.environ, "IDLEO_API_URL": self.api, "IDLEO_API_KEY": self.key})
@@ -118,12 +129,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", required=True, help="the host's id: the linked laptop, from the Hosting screen")
     ap.add_argument("--api", default=os.environ.get("IDLEO_API_URL", "http://localhost:8080"))
+    ap.add_argument("--image", help="run the hostile job as this checked custom image of the key's owner (ADR 0042) instead of the hostile-test template")
     ap.add_argument("--cli", default=os.path.join(os.path.dirname(__file__), "../../../../cli/target/release/idleo"))
     args = ap.parse_args()
     key = os.environ.get("IDLEO_API_KEY")
     if not key:
         raise SystemExit("IDLEO_API_KEY names a full API key of the host's owner (Account, API keys, in the web app)")
-    stack = Stack(args.api, key, os.path.abspath(args.cli))
+    stack = Stack(args.api, key, os.path.abspath(args.cli), args.image)
 
     hosts = stack.call("GET", "/v1/hosts")["hosts"]
     chosen = next((h for h in hosts if h["id"] == args.host), None)
@@ -145,8 +157,8 @@ def main():
                 f.write(HELLO)
             print("| # | Attempt | Result |\n| --- | --- | --- |")
             for number, name, attack in TESTS:
-                if number in NOT_HERE:
-                    row(number, name, "N/A", NOT_HERE[number])
+                if number in NOT_HERE or (stack.image and number in SMALL_LIMITS):
+                    row(number, name, "N/A", NOT_HERE.get(number) or SMALL_LIMITS[number])
                     nas += 1
                     continue
                 ended, log = stack.attack(
@@ -165,6 +177,14 @@ def main():
     print(f"\nhostile (laptop): {passes + fails + nas} rows, {passes} PASS, {nas} N/A, {fails} FAIL")
     sys.exit(1 if fails or passes + fails + nas != 16 else 0)
 
+
+# Through a renter's own image (--image, ADR 0042) the limits are the template's production ones, not the hostile template's small
+# ones, so the two attacks that must hit a small limit can't be made to: a memory bomb would have to pass 12 GB, and the Docker VM
+# this runs in has less, so the attack would take the stack down with it. Their verdicts are the hostile template's (scenario 5).
+SMALL_LIMITS = {
+    8: "through a renter's own image the memory limit is the production 12 GB, more than this machine's Docker VM has; the same attack against the hostile template's 512 MB is row 08 of the template run",
+    9: "through a renter's own image the scratch disk is the production 20 GB; the same attack against the hostile template's 64 MB is row 09 of the template run",
+}
 
 LEFT = "idleo-runner (development): left from finished sessions: "
 NOTHING_LEFT = "idleo-runner (development): nothing is left from finished sessions"

@@ -2,7 +2,7 @@
 //! or the restart WSL may need picks up where it stopped.
 //!
 //! 1. `checks`: the release (its signature checked), Windows 10 22H2 or later, an NVIDIA RTX GPU with 8 GB, a driver
-//!    at or above `MIN_NVIDIA_DRIVER`, virtualization on, 40 GB free plus the 20 GB a host keeps, and plugged in
+//!    at or above `drivers::min_nvidia_driver()`, virtualization on, 40 GB free plus the 20 GB a host keeps, and plugged in
 //!    (a warning only). Each problem gets its one screen and one button; most check again every 10 seconds and carry
 //!    on by themselves.
 //! 2. `wsl`: WSL ready, updated, or turned on, with the one restart it may need.

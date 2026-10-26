@@ -21,6 +21,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use jobcore::protocol::RegistryLogin;
 use jobcore::protocol::{Check, HelloAnswer};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
@@ -108,6 +109,62 @@ impl Default for Paths {
     }
 }
 
+/// A private registry's login, written for one pull: `/run/idleo/pull/<id>/config.json`, 0600 in a 0700 folder on the
+/// distribution's memory-backed `/run`, deleted when this is dropped.
+struct PullLogin {
+    folder: PathBuf,
+}
+
+impl PullLogin {
+    const ROOT: &'static str = "/run/idleo/pull";
+
+    fn write(image: &str, login: &RegistryLogin) -> Result<Self, String> {
+        use std::io::Write as _;
+        use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+        let folder = PathBuf::from(Self::ROOT).join(uuid::Uuid::now_v7().to_string());
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&folder)
+            .map_err(|e| format!("the pull's login folder couldn't be made: {e}"))?;
+        let this = Self { folder };
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(this.folder.join("config.json"))
+            .map_err(|e| format!("the pull's login couldn't be written: {e}"))?;
+        file.write_all(pull_config(image, login).as_bytes())
+            .map_err(|e| format!("the pull's login couldn't be written: {e}"))?;
+        Ok(this)
+    }
+}
+
+impl Drop for PullLogin {
+    fn drop(&mut self) {
+        if let Err(e) = std::fs::remove_dir_all(&self.folder) {
+            tracing::warn!(error = %e, "a pull's login folder couldn't be deleted");
+        }
+    }
+}
+
+/// A Docker config naming the image's registry with the login: Docker Hub under each name it goes by.
+fn pull_config(image: &str, login: &RegistryLogin) -> String {
+    use base64::Engine as _;
+    let first = image.split('/').next().unwrap_or_default();
+    let registry =
+        if image.contains('/') && (first.contains(['.', ':']) || first == "localhost") { first } else { "docker.io" };
+    let hosts: Vec<&str> = if registry == "docker.io" {
+        vec!["https://index.docker.io/v1/", "docker.io", "registry-1.docker.io"]
+    } else {
+        vec![registry]
+    };
+    let auth = base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", login.username, login.token));
+    let auths: serde_json::Map<String, serde_json::Value> =
+        hosts.into_iter().map(|host| (host.to_owned(), serde_json::json!({ "auth": auth }))).collect();
+    serde_json::json!({ "auths": auths }).to_string()
+}
+
 /// The distribution this runner is in.
 pub struct Nerdctl {
     paths: Paths,
@@ -160,9 +217,21 @@ impl Finished {
 /// Runs `program` with `args`, writing `stdin` to its standard input (then closing it) when there is one: the only way a
 /// scratch disk's key ever reaches `cryptsetup`.
 async fn run(program: &str, args: &[&str], stdin: Option<&[u8]>, limit: Duration) -> Result<Finished, String> {
+    run_with(program, args, stdin, limit, &[]).await
+}
+
+/// [`run`], with `env` set for the program only: never for the runner itself.
+async fn run_with(
+    program: &str,
+    args: &[&str],
+    stdin: Option<&[u8]>,
+    limit: Duration,
+    env: &[(&str, &std::ffi::OsStr)],
+) -> Result<Finished, String> {
     let mut command = Command::new(program);
     command
         .args(args)
+        .envs(env.iter().copied())
         .env("PATH", "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin")
         .env("CNI_PATH", "/opt/cni/bin")
         // There's no udev in the distribution: device-mapper makes its own device nodes instead of waiting for it.
@@ -257,6 +326,27 @@ impl Nerdctl {
         std::fs::create_dir_all(&folder).map_err(|e| format!("the registry's config folder couldn't be made: {e}"))?;
         let config = format!(
             "server = \"http://{real}\"\n\n[host.\"http://{real}\"]\n  capabilities = [\"pull\", \"resolve\"]\n"
+        );
+        std::fs::write(folder.join("hosts.toml"), config)
+            .map_err(|e| format!("the registry's config couldn't be written: {e}"))
+    }
+
+    /// A development distribution's other registries named by `host:port` or an address (the end-to-end test's private one, ADR
+    /// 0042): containerd is told to speak plain HTTP to it, in its registry config, as it is for the logical development registry.
+    /// `nerdctl pull --insecure-registry` alone doesn't make this containerd fall back from HTTPS. Only where [`Self::insecure`]
+    /// allows it, which needs the development marker only root can make.
+    fn allow_plain_http(image: &str) -> Result<(), String> {
+        if !Self::insecure(image) {
+            return Ok(());
+        }
+        let Some(registry) = image.split('/').next() else { return Ok(()) };
+        if !registry.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b':')) {
+            return Err("the registry's name isn't one a registry config can be written for".to_owned());
+        }
+        let folder = PathBuf::from("/etc/containerd/certs.d").join(registry);
+        std::fs::create_dir_all(&folder).map_err(|e| format!("the registry's config folder couldn't be made: {e}"))?;
+        let config = format!(
+            "server = \"http://{registry}\"\n\n[host.\"http://{registry}\"]\n  capabilities = [\"pull\", \"resolve\"]\n"
         );
         std::fs::write(folder.join("hosts.toml"), config)
             .map_err(|e| format!("the registry's config couldn't be written: {e}"))
@@ -789,20 +879,30 @@ impl Machine for Nerdctl {
         Box::pin(self.sandbox_ready())
     }
 
-    fn ensure_image<'a>(&'a self, image: &'a str, progress: Progress) -> Fut<'a, Result<(), String>> {
+    fn ensure_image<'a>(
+        &'a self,
+        image: &'a str,
+        progress: Progress,
+        login: Option<&'a RegistryLogin>,
+    ) -> Fut<'a, Result<(), String>> {
         Box::pin(async move {
             if Self::image_present(image).await {
                 return Ok(());
             }
             Self::map_development_registry(image)?;
+            Self::allow_plain_http(image)?;
+            // A private image's login (ADR 0042): a Docker config only root can read, on a memory-backed folder, named to
+            // nerdctl by DOCKER_CONFIG for this one pull and deleted after it, so the token is in no environment and on no disk.
+            let config = login.map(|login| PullLogin::write(image, login)).transpose()?;
+            let env: Vec<(&str, &std::ffi::OsStr)> =
+                config.iter().map(|config| ("DOCKER_CONFIG", config.folder.as_os_str())).collect();
             let before = self.downloaded();
             let mut args = vec!["--namespace", NAMESPACE, "pull", "--quiet"];
-            if Self::insecure(image) {
-                args.push("--insecure-registry");
-            }
+            // Plain HTTP for a development registry is the registry config written above (`allow_plain_http`), not nerdctl's
+            // `--insecure-registry`, which makes it ignore that config and try HTTPS first.
             args.push(image);
-            tracing::info!(image, ?args, "pulling an image");
-            let pulling = run("nerdctl", &args, None, PULL_TIMEOUT);
+            tracing::info!(image, ?args, private = login.is_some(), "pulling an image");
+            let pulling = run_with("nerdctl", &args, None, PULL_TIMEOUT, &env);
             tokio::pin!(pulling);
             let mut ticks = tokio::time::interval(Duration::from_secs(1));
             let result = loop {
@@ -812,7 +912,23 @@ impl Machine for Nerdctl {
                 }
             };
             let out = result?;
+            // The login's folder goes when `config` does, at the end of this pull.
             if out.ok { Ok(()) } else { Err(out.why("pulling the image")) }
+        })
+    }
+
+    fn remove_image<'a>(&'a self, image: &'a str) -> Fut<'a, ()> {
+        Box::pin(async move {
+            // What only this image held goes with it: containerd collects its unreferenced layers and snapshots at once.
+            match nerdctl(&["rmi", image]).await {
+                Ok(out) if out.ok || !Self::image_present(image).await => {
+                    tracing::info!(image, "deleted a renter's own image");
+                }
+                Ok(out) => {
+                    tracing::warn!(image, why = %out.why("deleting the image"), "a renter's own image wasn't deleted");
+                }
+                Err(why) => tracing::warn!(image, %why, "a renter's own image wasn't deleted"),
+            }
         })
     }
 
@@ -1304,6 +1420,19 @@ fn oom_kills(events: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pulls_login_names_the_images_registry_and_docker_hub_by_each_of_its_names() {
+        let login = RegistryLogin { username: "renter".to_owned(), token: "ghp_x".to_owned() };
+        let ghcr: serde_json::Value = serde_json::from_str(&pull_config("ghcr.io/me/job@sha256:ab", &login)).unwrap();
+        assert_eq!(ghcr["auths"].as_object().unwrap().keys().collect::<Vec<_>>(), ["ghcr.io"]);
+        assert_eq!(ghcr["auths"]["ghcr.io"]["auth"], "cmVudGVyOmdocF94");
+        let hub: serde_json::Value = serde_json::from_str(&pull_config("pytorch/pytorch@sha256:ab", &login)).unwrap();
+        assert!(hub["auths"].get("https://index.docker.io/v1/").is_some() && hub["auths"].get("docker.io").is_some());
+        let local: serde_json::Value =
+            serde_json::from_str(&pull_config("localhost:5001/me/job@sha256:ab", &login)).unwrap();
+        assert!(local["auths"].get("localhost:5001").is_some());
+    }
 
     #[test]
     fn a_scratch_disk_keeps_room_for_what_the_job_prints() {

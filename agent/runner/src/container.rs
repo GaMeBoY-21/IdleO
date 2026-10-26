@@ -61,7 +61,8 @@ pub struct Plan {
     pub slots: Vec<String>,
     /// Whether this is a development distribution, which may run a job without a GPU.
     pub development: bool,
-    /// An entrypoint in place of the image's, for the self-test's throwaway containers only; never set for a job.
+    /// An entrypoint in place of the image's, for the self-test's throwaway containers only; never set for a job, whose own
+    /// is the spec's.
     pub entrypoint: Option<String>,
 }
 
@@ -152,6 +153,16 @@ fn create_arguments_unchecked(plan: &Plan) -> Result<Vec<String>, Refused> {
     if spec.memory_mb == 0 || spec.cpu_millicores == 0 || spec.pids_limit == 0 || spec.scratch_mb == 0 {
         return Err(Refused("a resource limit in the spec is zero".to_owned()));
     }
+    if !spec.working_dir.is_empty()
+        && (!spec.working_dir.starts_with('/')
+            || spec.working_dir.split('/').any(|part| part == "..")
+            || spec.working_dir.contains(['\0', '\n']))
+    {
+        return Err(Refused("the working directory isn't an absolute path in the image".to_owned()));
+    }
+    if spec.entrypoint.iter().chain(&spec.args).any(|arg| arg.contains('\0')) {
+        return Err(Refused("an argument holds a NUL".to_owned()));
+    }
     let mut args: Vec<String> = Vec::new();
     let mut add = |flags: &[&str]| args.extend(flags.iter().map(|flag| (*flag).to_owned()));
     add(&["--namespace", NAMESPACE, "create", "--pull", "never"]);
@@ -184,14 +195,22 @@ fn create_arguments_unchecked(plan: &Plan) -> Result<Vec<String>, Refused> {
     if spec.gpu {
         args.extend(["--gpus".to_owned(), "all".to_owned()]);
     }
-    args.extend(["--workdir".to_owned(), WORK.to_owned()]);
-    if let Some(entrypoint) = &plan.entrypoint {
-        args.extend(["--entrypoint".to_owned(), entrypoint.clone()]);
+    let workdir = if spec.working_dir.is_empty() { WORK } else { spec.working_dir.as_str() };
+    args.extend(["--workdir".to_owned(), workdir.to_owned()]);
+    // The self-test's own entrypoint, or the spec's: a renter's own image run with a command they typed (ADR 0042).
+    let (entrypoint, entrypoint_args) = match (&plan.entrypoint, spec.entrypoint.split_first()) {
+        (Some(own), _) => (Some(own.clone()), &[][..]),
+        (None, Some((first, rest))) => (Some(first.clone()), rest),
+        (None, None) => (None, &[][..]),
+    };
+    if let Some(entrypoint) = entrypoint {
+        args.extend(["--entrypoint".to_owned(), entrypoint]);
     }
     for (name, value) in environment(plan) {
         args.extend(["--env".to_owned(), format!("{name}={value}")]);
     }
     args.push(spec.image.clone());
+    args.extend(entrypoint_args.iter().cloned());
     args.extend(spec.args.iter().cloned());
     Ok(args)
 }
@@ -225,6 +244,11 @@ mod tests {
                 max_runtime_secs: 600,
                 checkpoint_interval_secs: 120,
                 gpu: true,
+                entrypoint: Vec::new(),
+                working_dir: String::new(),
+                own_image: false,
+                pull_timeout_secs: 0,
+                image_size_bytes: 0,
             },
             work: PathBuf::from("/var/lib/idleo/mnt/s-1/work"),
             input: PathBuf::from("/var/lib/idleo/mnt/s-1/input"),
@@ -366,6 +390,38 @@ mod tests {
         let mut unpinned = plan();
         unpinned.spec.image = "ubuntu:24.04".to_owned();
         assert!(create_arguments(&unpinned).is_err());
+    }
+
+    #[test]
+    fn a_renters_own_image_runs_their_command_with_its_shell_in_its_own_working_directory_and_the_same_sandbox() {
+        let mut own = plan();
+        own.spec.image = format!("ghcr.io/renter/job@sha256:{DIGEST}");
+        own.spec.entrypoint = vec!["/bin/sh".to_owned(), "-c".to_owned()];
+        own.spec.args = vec!["python train.py --epochs 3".to_owned()];
+        own.spec.working_dir = "/app".to_owned();
+        own.spec.own_image = true;
+        let args = create_arguments(&own).unwrap();
+        assert!(has(&args, &["--entrypoint", "/bin/sh"]) && has(&args, &["--workdir", "/app"]));
+        assert_eq!(
+            &args[args.len() - 3..],
+            [format!("ghcr.io/renter/job@sha256:{DIGEST}"), "-c".to_owned(), "python train.py --epochs 3".to_owned()]
+        );
+        for pair in [&["--user", "10001:10001"][..], &["--cap-drop", "ALL"], &["--pull", "never"]] {
+            assert!(has(&args, pair), "{pair:?}");
+        }
+        assert!(args.contains(&"--read-only".to_owned()));
+        // The image's own entrypoint and command: no --entrypoint, nothing after the image.
+        let mut its_own = own.clone();
+        its_own.spec.entrypoint.clear();
+        its_own.spec.args.clear();
+        let args = create_arguments(&its_own).unwrap();
+        assert!(!args.contains(&"--entrypoint".to_owned()));
+        assert_eq!(args.last().unwrap(), &format!("ghcr.io/renter/job@sha256:{DIGEST}"));
+        for bad in ["app", "/app/../../etc", "/a\nb"] {
+            let mut odd = own.clone();
+            odd.spec.working_dir = bad.to_owned();
+            assert!(create_arguments(&odd).is_err(), "{bad}");
+        }
     }
 
     #[test]

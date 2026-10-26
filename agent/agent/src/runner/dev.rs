@@ -127,12 +127,27 @@ impl SessionRunner for DevRunner {
     }
 }
 
+/// How long the development runner simulates a renter's own image for.
+const OWN_IMAGE_DURATION: Duration = Duration::from_secs(30);
+
+/// How long to run, and which service's simulation, from the spec's arguments. A renter's own image (ADR 0042) has their
+/// command, not ours: simulated as a plain job, its image checked for real on our server all the same.
+fn what_to_simulate(job: &Job) -> Result<(Duration, Option<Kind>), Stop> {
+    let invalid_args = |message| Stop::Failed { code: "invalid_args", message };
+    if job.spec.own_image {
+        job.logs.line(format!("idleo development runner: simulating the renter's own image {}", job.spec.image));
+        return Ok((OWN_IMAGE_DURATION, None));
+    }
+    Ok((
+        duration_from_args(&job.spec.args).map_err(invalid_args)?,
+        arg_value(&job.spec.args, "--simulate").map(str::parse::<Kind>).transpose().map_err(invalid_args)?,
+    ))
+}
+
 async fn run(job: &Job, reports: &mpsc::UnboundedSender<Report>) -> Result<(), Stop> {
     let _ = reports.send(Report::State(SessionState::Preparing));
     job.logs.line(format!("starting session {} attempt {}", job.session_id, job.attempt));
-    let invalid_args = |message| Stop::Failed { code: "invalid_args", message };
-    let duration = duration_from_args(&job.spec.args).map_err(invalid_args)?;
-    let kind = arg_value(&job.spec.args, "--simulate").map(str::parse::<Kind>).transpose().map_err(invalid_args)?;
+    let (duration, kind) = what_to_simulate(job)?;
     let seen = observe(job, kind.is_none()).await?;
     let simulation = kind.map(|kind| simulation(job, kind, &seen));
     for line in simulation.iter().flat_map(Simulation::opening) {

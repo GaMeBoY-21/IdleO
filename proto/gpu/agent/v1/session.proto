@@ -93,6 +93,27 @@ message SessionSpec {
   // Hard cap on how long this attempt may run, whatever the lease says.
   // Absent or zero is invalid; the receiver rejects the message.
   google.protobuf.Duration max_runtime = 11;
+  // Replaces the image's entrypoint when not empty: for a renter's own image
+  // run with a command they typed, ["/bin/sh", "-c"] with the command as the
+  // one argument. Empty keeps the image's own entrypoint.
+  repeated string entrypoint = 12;
+  // The job's working directory. Empty is /work, the scratch disk; a
+  // renter's own image runs in its own working directory, read from its
+  // config when it was checked (ADR 0042).
+  string working_dir = 13;
+  // A renter's own image (ADR 0042), checked on our server before it was
+  // offered: pulled when the attempt starts, with
+  // Credentials.registry_username and registry_token if it's private,
+  // within image_pull_timeout, never pre-downloaded, and deleted from the
+  // machine when the attempt ends, since it may hold the renter's code.
+  bool own_image = 14;
+  // How long pulling a renter's own image may take before the attempt fails
+  // with "image_pull_timed_out", before minute 0, so nothing is charged.
+  // Absent for our own images, which the runner's own limit covers.
+  google.protobuf.Duration image_pull_timeout = 15;
+  // The image's compressed size in bytes, as checked: what its download
+  // counts up to. Zero when not known.
+  int64 image_size_bytes = 16;
 }
 
 // What a StorageGrant allows.
@@ -149,7 +170,9 @@ message Credentials {
   reserved 2, 3, 4, 5;
 
   // Token for pulling SessionSpec.image from the registry. Used once, when
-  // the attempt starts. secret: never log.
+  // the attempt starts, and only for a renter's own image from a private
+  // registry (ADR 0042): read-only, given by the renter. Never put in an
+  // environment, a file that outlives the pull, or a log. secret: never log.
   string registry_token = 1;
   // Read-write on this attempt's own prefix only,
   // "sessions/{session_id}/attempt-{n}/", where the agent writes checkpoints
@@ -162,6 +185,9 @@ message Credentials {
   // StartSession.resume_from, if any. Absent when there's neither.
   // secret: never log.
   StorageGrant read_grant = 7;
+  // The user name that goes with registry_token; empty when there's no
+  // token. secret: never log.
+  string registry_username = 8;
 }
 
 // Names one completed checkpoint: the folder prefix + seq + "/" in the
@@ -217,6 +243,11 @@ message RunningSession {
   // "sessions/{session_id}/attempt-{n}/logs/{seq}.log", seqs counting from
   // 1. Zero means none yet. The control plane only ever raises it.
   int32 latest_log_seq = 4;
+  // While PREPARING pulls a renter's own image (ADR 0042): bytes downloaded
+  // so far, for "Downloading your image · 3.1 of 8.4 GB". Zero otherwise.
+  int64 image_done_bytes = 5;
+  // The image's size, the download's total; zero when not known.
+  int64 image_total_bytes = 6;
 }
 
 // A short error: a code plus a one-line message. Never container logs or

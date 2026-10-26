@@ -25,6 +25,8 @@ pub const MAX_LINE_BYTES: usize = 4 * 1024 * 1024;
 pub mod code {
     /// The image couldn't be pulled or isn't pinned by digest.
     pub const IMAGE_PULL_FAILED: &str = "image_pull_failed";
+    /// A renter's own image didn't finish downloading within its time limit (ADR 0042): before minute 0, so uncharged.
+    pub const IMAGE_PULL_TIMED_OUT: &str = "image_pull_timed_out";
     /// An input or the resume checkpoint couldn't be staged, or isn't valid.
     pub const INVALID_INPUT: &str = "invalid_input";
     /// The sandbox's network rules aren't loaded, so no job runs.
@@ -294,7 +296,7 @@ pub struct ResumeFrom {
 }
 
 /// What to run, and within what.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Spec {
     /// The image, pinned by digest: `registry/name@sha256:...`.
     pub image: String,
@@ -319,6 +321,39 @@ pub struct Spec {
     pub checkpoint_interval_secs: u64,
     /// Whether the job has a GPU (`--gpus all`). False only in a development build, which the runner checks.
     pub gpu: bool,
+    /// In place of the image's entrypoint when not empty: `["/bin/sh", "-c"]` for a renter's own image run with the command
+    /// they typed (ADR 0042). Empty keeps the image's own.
+    #[serde(default)]
+    pub entrypoint: Vec<String>,
+    /// The job's working directory; empty is `/work`. A renter's own image runs in its own.
+    #[serde(default)]
+    pub working_dir: String,
+    /// A renter's own image (ADR 0042): pulled within `pull_timeout_secs` with the start's registry login, and deleted from
+    /// the machine when the attempt ends, since it may hold the renter's code.
+    #[serde(default)]
+    pub own_image: bool,
+    /// How long pulling a renter's own image may take; 0 for the runner's own limit.
+    #[serde(default)]
+    pub pull_timeout_secs: u64,
+    /// The image's compressed size, what its download counts up to; 0 when not known.
+    #[serde(default)]
+    pub image_size_bytes: u64,
+}
+
+/// A private registry's read-only login for one pull (ADR 0042): in the runner's memory only, written for the pull into a
+/// file only root can read on a memory-backed folder and deleted after it, never in an environment or a log.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegistryLogin {
+    /// The user name.
+    pub username: String,
+    /// The read-only token.
+    pub token: String,
+}
+
+impl fmt::Debug for RegistryLogin {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RegistryLogin").finish_non_exhaustive()
+    }
 }
 
 /// An attempt to run.
@@ -348,6 +383,9 @@ pub struct Start {
     /// agent's floor (ADR 0038). Zero is "not said": the runner uses its default.
     #[serde(default)]
     pub upload_cap_kbps: u32,
+    /// The login a renter's own private image is pulled with (ADR 0042); none for a public one and for our images.
+    #[serde(default)]
+    pub registry: Option<RegistryLogin>,
 }
 
 /// What the agent keeps in the runner, to pick an attempt up again after it restarts.
@@ -553,7 +591,8 @@ pub enum Event {
         /// New connections the fair-use limit dropped in the minute.
         conn_drops: u64,
     },
-    /// Progress of a [`Request::Pull`], which has no session: `session` is empty.
+    /// Progress of a pull: of a [`Request::Pull`], with no session (`session` empty), or of a renter's own image at its
+    /// attempt's start, with the session.
     Pull {
         /// The image.
         image: String,
@@ -690,6 +729,11 @@ mod tests {
                 max_runtime_secs: 600,
                 checkpoint_interval_secs: 300,
                 gpu: true,
+                entrypoint: vec!["/bin/sh".to_owned(), "-c".to_owned()],
+                working_dir: "/app".to_owned(),
+                own_image: true,
+                pull_timeout_secs: 1200,
+                image_size_bytes: 8_400_000_000,
             },
             attempt_prefix: "sessions/s/attempt-2/".to_owned(),
             grants: Grants { attempt: grant(), read: None },
@@ -703,6 +747,7 @@ mod tests {
             lease_ttl_secs: 120,
             agent: AgentNotes { minute_index_base: 3, gpus: vec!["GPU-1".to_owned()] },
             upload_cap_kbps: 12_500,
+            registry: Some(RegistryLogin { username: "renter".to_owned(), token: "ghp_token-never-logged".to_owned() }),
         }
     }
 
@@ -792,6 +837,16 @@ mod tests {
         assert!(!printed.contains("never-logged"), "{printed}");
         let start = format!("{:?}", start());
         assert!(!start.contains("never-logged"), "{start}");
+    }
+
+    #[test]
+    fn an_older_agents_start_reads_as_our_own_image_with_no_login() {
+        let line = r#"{"v":1,"request":{"id":1,"req":{"type":"start","session":"s","attempt":1,"spec":{"image":"r/i@sha256:1","memory_mb":1,"cpu_millicores":1,"pids_limit":1,"scratch_mb":1,"max_runtime_secs":1,"gpu":true},"attempt_prefix":"p/","grants":{"attempt":{"endpoint":"e","bucket":"b","access_key_id":"a","secret_access_key":"s","session_token":"t","prefixes":[],"writable":true,"expires_in_secs":1}},"lease_ttl_secs":1,"agent":{"minute_index_base":0}}}}"#;
+        let Body::Request { req: Request::Start(start), .. } = Frame::decode(line).unwrap().body else {
+            panic!("not a start")
+        };
+        assert!(!start.spec.own_image && start.spec.entrypoint.is_empty() && start.spec.working_dir.is_empty());
+        assert!(start.registry.is_none());
     }
 
     #[test]

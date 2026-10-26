@@ -73,6 +73,13 @@ pub enum Report {
     State(SessionState),
     /// Checkpoint `seq` is complete: its `_COMPLETE` marker is written.
     Checkpoint(i32),
+    /// How far a renter's own image has come down, before the job starts (ADR 0042): it goes in the next heartbeats.
+    ImagePull {
+        /// Bytes so far.
+        done_bytes: u64,
+        /// Bytes in all; 0 when not known.
+        total_bytes: u64,
+    },
     /// The job exited 0 and its outputs, with their marker, are uploaded.
     Succeeded,
     /// Asked to stop, the job wrote its last checkpoint (if it could) and stopped.

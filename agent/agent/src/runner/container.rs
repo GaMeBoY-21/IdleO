@@ -23,8 +23,8 @@ use agent_proto::v1::{Credentials, SessionState};
 use jobcore::link::{Link, RunnerEvent};
 use jobcore::logs::LogEvent;
 use jobcore::protocol::{
-    AgentNotes, Answer, Check, Ended, Event, Failure, GrantWire, Grants, HelloAnswer, InputFile, Phase, Request,
-    ResumeFrom, SessionInfo, Spec, Start, code,
+    AgentNotes, Answer, Check, Ended, Event, Failure, GrantWire, Grants, HelloAnswer, InputFile, Phase, RegistryLogin,
+    Request, ResumeFrom, SessionInfo, Spec, Start, code,
 };
 use tokio::sync::{broadcast, mpsc, watch};
 use uuid::Uuid;
@@ -212,6 +212,14 @@ impl ContainerRunner {
                     .and_then(|interval| Duration::try_from(interval).ok())
                     .map_or(0, |interval| interval.as_secs()),
                 gpu: self.gpu,
+                entrypoint: spec.entrypoint.clone(),
+                working_dir: spec.working_dir.clone(),
+                own_image: spec.own_image,
+                pull_timeout_secs: spec
+                    .image_pull_timeout
+                    .and_then(|limit| Duration::try_from(limit).ok())
+                    .map_or(0, |limit| limit.as_secs()),
+                image_size_bytes: u64::try_from(spec.image_size_bytes).unwrap_or(0),
             },
             attempt_prefix: job.attempt_prefix.clone(),
             grants: Grants {
@@ -232,6 +240,11 @@ impl ContainerRunner {
             lease_ttl_secs: u32::try_from(job.lease_ttl.as_secs()).unwrap_or(u32::MAX),
             agent: AgentNotes { minute_index_base: job.minute_index_base, gpus: job.gpus.clone() },
             upload_cap_kbps: self.upload_cap.kbps(),
+            // A renter's own private image's login (ADR 0042), given to the runner for its one pull, never printed.
+            registry: (spec.own_image && !credentials.registry_token.is_empty()).then(|| RegistryLogin {
+                username: credentials.registry_username.clone(),
+                token: credentials.registry_token.clone(),
+            }),
         })
     }
 }
@@ -352,7 +365,10 @@ impl Told {
             Event::Behavior { net_out_bytes, net_in_bytes, printed_lines, conn_drops } => {
                 let _ = reports.send(Report::Behavior { net_out_bytes, net_in_bytes, printed_lines, conn_drops });
             }
-            Event::Pull { .. } => {}
+            // The attempt's own image coming down (ADR 0042); a pre-download has no session and never reaches here.
+            Event::Pull { done_bytes, total_bytes, .. } => {
+                let _ = reports.send(Report::ImagePull { done_bytes, total_bytes });
+            }
         }
         false
     }

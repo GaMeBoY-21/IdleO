@@ -142,6 +142,11 @@ impl Harness {
                 max_runtime_secs: job.max_runtime_secs,
                 checkpoint_interval_secs: 0,
                 gpu: false,
+                entrypoint: Vec::new(),
+                working_dir: String::new(),
+                own_image: false,
+                pull_timeout_secs: 0,
+                image_size_bytes: 0,
             },
             attempt_prefix: prefix.clone(),
             grants: Grants {
@@ -153,6 +158,7 @@ impl Harness {
             lease_ttl_secs: 600,
             agent: AgentNotes { minute_index_base: 0, gpus: vec![] },
             upload_cap_kbps: job.upload_cap_kbps,
+            registry: None,
         }
     }
 

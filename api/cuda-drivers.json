@@ -1,0 +1,13 @@
+{
+  "_about": "The oldest NVIDIA Windows driver each CUDA major version runs on, by minor version compatibility: an application built with CUDA X.y runs on any driver from X.0's on. The one copy of the rule: agent/release/src/drivers.rs (setup's driver check, MIN_NVIDIA_DRIVER for our job image) and the control plane's CudaDrivers (matching a renter's own image to a host's driver) both read this file. WSL 2 uses the Windows driver.",
+  "sources": [
+    "https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html",
+    "https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/"
+  ],
+  "job_image_cuda": "12.8",
+  "majors": [
+    { "cuda": 11, "windows_min_driver": "452.39", "note": "CUDA 11.x minor version compatibility: >=452.39 on Windows" },
+    { "cuda": 12, "windows_min_driver": "527.41", "note": "CUDA 12.0 GA on Windows: >=527.41 (12.x needs >=525)" },
+    { "cuda": 13, "windows_min_driver": "580.00", "note": "CUDA 13.x needs the R580 branch or newer" }
+  ]
+}

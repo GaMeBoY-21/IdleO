@@ -696,6 +696,7 @@ pub fn offer(vram_needed_mb: i32, expires_in: Duration) -> OpenStreamResponse {
                 scratch_mb: 1024,
                 checkpoint_interval: Some(prost_types::Duration { seconds: 300, nanos: 0 }),
                 max_runtime: Some(prost_types::Duration { seconds: 300, nanos: 0 }),
+                ..SessionSpec::default()
             }),
             expires_in: Some(prost_types::Duration::try_from(expires_in).unwrap()),
         })),

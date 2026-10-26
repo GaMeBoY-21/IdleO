@@ -94,8 +94,15 @@ struct Attempt {
     number: i32,
     /// The lease's end, on the lease clock.
     deadline: Duration,
-    /// The hard cap from `max_runtime`, on the lease clock.
+    /// The hard cap from `max_runtime`, on the lease clock: counted from the `StartSession`, then again from the job's first
+    /// RUNNING, so a renter's own image's download doesn't count (ADR 0042). The runner enforces the exact limit; this is
+    /// the agent's own backstop.
     runtime_cap: Duration,
+    /// `max_runtime` itself, for counting it again from the first RUNNING; zero for an adopted attempt, whose cap the
+    /// runner's account already gives.
+    max_runtime: Duration,
+    /// A renter's own image's download while PREPARING: bytes so far, and in all (ADR 0042).
+    image_pull: (i64, i64),
     fence: Fence,
     tasks: Vec<AbortHandle>,
     state: SessionState,
@@ -159,6 +166,8 @@ impl Attempt {
             number,
             deadline: at,
             runtime_cap: at,
+            max_runtime: Duration::ZERO,
+            image_pull: (0, 0),
             fence: Fence::new(),
             tasks: Vec::new(),
             state: SessionState::Preparing,
@@ -300,6 +309,8 @@ impl Supervisor {
                 attempt: attempt.number,
                 state: attempt.state.into(),
                 latest_log_seq: attempt.latest_log_seq,
+                image_done_bytes: attempt.image_pull.0,
+                image_total_bytes: attempt.image_pull.1,
             })
             .collect();
         running.sort_by(|a, b| a.session_id.cmp(&b.session_id));
@@ -433,6 +444,8 @@ impl Supervisor {
                 number: start.attempt,
                 deadline: received_at + lease_ttl,
                 runtime_cap: received_at + max_runtime,
+                max_runtime,
+                image_pull: (0, 0),
                 fence,
                 tasks,
                 state: SessionState::Preparing,
@@ -637,6 +650,8 @@ impl Supervisor {
                     number: found.attempt,
                     deadline: now + found.lease_remaining,
                     runtime_cap: now + found.runtime_remaining,
+                    max_runtime: Duration::ZERO,
+                    image_pull: (0, 0),
                     fence,
                     tasks,
                     state: found.state,
@@ -831,9 +846,18 @@ impl Supervisor {
             Reported::Report(Report::State(state)) => {
                 attempt.state = state;
                 if state == SessionState::Running && attempt.running_since.is_none() {
-                    attempt.running_since = Some(self.clock.now());
+                    let now = self.clock.now();
+                    attempt.running_since = Some(now);
+                    attempt.runtime_cap = attempt.runtime_cap.max(now + attempt.max_runtime);
+                    attempt.image_pull = (0, 0);
                 }
                 self.queue_status(tagged.session_id, None, None);
+            }
+            Reported::Report(Report::ImagePull { done_bytes, total_bytes }) => {
+                if attempt.state == SessionState::Preparing {
+                    let bytes = |n: u64| i64::try_from(n).unwrap_or(i64::MAX);
+                    attempt.image_pull = (bytes(done_bytes), bytes(total_bytes));
+                }
             }
             Reported::Report(Report::Checkpoint(seq)) => {
                 attempt.latest_seq = attempt.latest_seq.max(seq);
