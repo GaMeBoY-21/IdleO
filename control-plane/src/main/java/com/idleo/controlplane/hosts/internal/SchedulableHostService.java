@@ -27,7 +27,7 @@ class SchedulableHostService implements SchedulableHosts {
         return jdbc.sql("""
                         select * from (
                             select distinct on (h.id) h.id, l.price_paise_per_min, h.gpu_temp_cap_c, g.gpu_uuid,
-                                   g.vram_mb, g.model, h.keep_free_gb,
+                                   g.vram_mb, g.model, g.driver_version, h.keep_free_gb,
                                    h.paused_at is not null and (h.paused_until is null or h.paused_until > :now) as paused,
                                    coalesce(sc.reliability, 0.5) as reliability, coalesce(sc.bandwidth, 0.5) as bandwidth
                             from hosts.hosts h
@@ -52,7 +52,8 @@ class SchedulableHostService implements SchedulableHosts {
                         rs.getInt("keep_free_gb") * 1024,
                         rs.getBoolean("paused"),
                         rs.getDouble("reliability"),
-                        rs.getDouble("bandwidth")))
+                        rs.getDouble("bandwidth"),
+                        rs.getString("driver_version")))
                 .list();
     }
 

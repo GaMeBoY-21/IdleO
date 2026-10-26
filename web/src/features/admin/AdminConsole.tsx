@@ -20,6 +20,7 @@ import { Payments } from "./Payments";
 import { Payouts } from "./Payouts";
 import { Verification } from "./Verification";
 import { Clawbacks } from "./Clawbacks";
+import { Images } from "./Images";
 import { Tax } from "./Tax";
 import { Refunds } from "./Refunds";
 import { Review } from "./Review";
@@ -39,6 +40,7 @@ export const ADMIN_SCREENS = [
   { href: "/admin/disputes/", label: "Reports" },
   { href: "/admin/chargebacks/", label: "Chargebacks" },
   { href: "/admin/abuse/", label: "Abuse" },
+  { href: "/admin/images/", label: "Images" },
   { href: "/admin/tickets/", label: "Tickets" },
   { href: "/admin/money/", label: "Money" },
   { href: "/admin/payments/", label: "Payments" },
@@ -65,6 +67,7 @@ export function AdminConsole() {
           <Route path="/admin/review/" component={Review} />
           <Route path="/admin/disputes/" component={Disputes} />
           <Route path="/admin/abuse/" component={Abuse} />
+          <Route path="/admin/images/" component={Images} />
           <Route path="/admin/tickets/" component={Tickets} />
           <Route path="/admin/notices/" component={Notices} />
           <Route path="/admin/money/" component={Money} />

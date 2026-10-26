@@ -59,6 +59,7 @@ const screens = {
   "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
   "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
   "/account/reports/": screen(() => import("@/features/account/Reports").then((m) => m.Reports)),
+  "/account/images/": screen(() => import("@/features/account/MyImages").then((m) => m.MyImages)),
   "/account/data/": screen(() => import("@/features/account/YourData").then((m) => m.YourData)),
   "/account/help/": screen(() => import("@/features/help/Help").then((m) => m.Help)),
   "/account/help/ticket/": screen(() => import("@/features/help/HelpTicket").then((m) => m.HelpTicket)),
@@ -113,6 +114,7 @@ const Agree = screens["/agree/"].Screen;
 const Account = screens["/account/"].Screen;
 const ApiKeys = screens["/account/keys/"].Screen;
 const Reports = screens["/account/reports/"].Screen;
+const MyImages = screens["/account/images/"].Screen;
 const YourData = screens["/account/data/"].Screen;
 const DeleteAccount = screens["/account/delete/"].Screen;
 const Help = screens["/account/help/"].Screen;
@@ -125,7 +127,7 @@ const CliLogin = screens["/cli-login/"].Screen;
 
 /** The signed-in screens' paths: one frame around all of them, which stays put while the content changes. */
 const SIGNED_IN =
-  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|data\/|delete\/|help\/(ticket\/)?)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|payout-details\/|add\/)?)?$/;
+  /^\/(credit\/|session\/|sessions\/|book\/|files\/|account\/(keys\/|reports\/|images\/|data\/|delete\/|help\/(ticket\/)?)?|notifications\/|link\/([^/]+\/)?|hosting\/(machine\/|price\/|sessions\/|earnings\/|payout-details\/|add\/)?)?$/;
 
 function SignedOutScreen({ children }: { children: ReactNode }) {
   return (
@@ -210,6 +212,7 @@ function SignedInArea() {
             <Route path="/account/" component={Account} />
             <Route path="/account/keys/" component={ApiKeys} />
             <Route path="/account/reports/" component={Reports} />
+            <Route path="/account/images/" component={MyImages} />
             <Route path="/account/data/" component={YourData} />
             <Route path="/account/delete/" component={DeleteAccount} />
             <Route path="/account/help/" component={Help} />

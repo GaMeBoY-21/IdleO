@@ -14,6 +14,7 @@ import { summaryRows } from "./YourRequest";
 
 const fineTune = data.templateList.find((template) => template.id === "qlora-finetune")!;
 const runCode = data.templateList.find((template) => template.id === "run-python")!;
+const ownImage = data.templateList.find((template) => template.id === "custom-image")!;
 
 /** A generated piece of the screen, inside a form holding the template's defaults; `values` reads it back. */
 function Form({
@@ -141,5 +142,26 @@ describe("a service's screen, from its template", () => {
       ["GPU memory you need", "8 GB"],
       ["You get", "whatever your code writes to outputs/"],
     ]);
+  });
+});
+
+describe("the template that runs the renter's own image", () => {
+  it("asks for the image first, then its own steps, numbered on", () => {
+    const steps = stepsOf(ownImage);
+    expect(steps[0]).toEqual({ kind: "image", number: 1 });
+    expect(steps.map((step) => step.number)).toEqual(steps.map((_, i) => i + 1));
+    expect(steps.some((step) => step.kind === "input" && step.input.name === "files")).toBe(true);
+    expect(stepsOf(runCode).some((step) => step.kind === "image")).toBe(false);
+  });
+
+  it("can't be requested without a checked image, and sends the one chosen", async () => {
+    const { bookSchema, toRequest } = await import("./form");
+    const values = defaultValues(ownImage);
+    expect(bookSchema(ownImage).safeParse(values).success).toBe(false);
+    const chosen = { ...values, imageId: "01a1765a-0000-7000-8000-000000000001" };
+    expect(bookSchema(ownImage).safeParse(chosen).success).toBe(true);
+    expect(toRequest(ownImage, chosen, {}).imageId).toBe("01a1765a-0000-7000-8000-000000000001");
+    expect(toRequest(runCode, { ...defaultValues(runCode), imageId: "x" }, {})).not.toHaveProperty("imageId");
+    expect(summaryRows(ownImage, chosen, {})[0]).toEqual(["Image", "Your checked image"]);
   });
 });

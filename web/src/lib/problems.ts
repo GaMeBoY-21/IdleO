@@ -114,6 +114,10 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "billing-details-required": "Choose your state first: it decides the GST on your invoice.",
   "pan-required":
     "You've bought a lot of credit this year: give your PAN in Hosting, Payout details, then buy more once it's verified.",
+  "verified-pan-required":
+    "Your own images are for renters with a verified PAN. Give yours in Hosting, Payout details, then check your image.",
+  "image-not-ready": "Your image's check hasn't finished, so it can't be booked yet.",
+  "image-blocked": "Your image didn't pass its check, so it can't run here. My images says why.",
   "payouts-unavailable": "UPI IDs can't be checked just now. Nothing changed; try again in a little while.",
   "pan-not-verified": "Your PAN has to be verified first: a UPI ID is checked against the name on it.",
   "pan-already-verified": "Your PAN is verified already. To change it, write to us from Help.",

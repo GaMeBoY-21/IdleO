@@ -269,6 +269,8 @@
                 <targetPath>api</targetPath>
                 <includes>
                     <include>endings.json</include>
+                    <!-- The NVIDIA driver each CUDA version needs, shared with the agent (ADR 0042). -->
+                    <include>cuda-drivers.json</include>
                 </includes>
             </resource>
         </resources>

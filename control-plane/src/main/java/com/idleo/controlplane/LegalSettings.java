@@ -116,7 +116,8 @@ public record LegalSettings(
             @NotNull Duration backups,
             @NotNull Duration supportTickets,
             @NotNull Duration behaviour,
-            @NotNull Duration abuseReviews) {}
+            @NotNull Duration abuseReviews,
+            @NotNull Duration registryTokens) {}
 
     /** How soon a privacy request or a grievance is answered: at most 90 days, whatever the setting. */
     public record Support(@NotNull @DurationMax(days = 90) Duration responseDue) {}

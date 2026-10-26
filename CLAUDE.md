@@ -38,6 +38,7 @@ The full rules, area by area, are in [docs/reference/conventions.md](docs/refere
 - API errors only as `ApiProblem.of(Problem.X, detail)` from the catalog; another person's resource is `not-found`, never 403.
 - Development-only behaviour is a setting, never a code path, and every new one goes into `ProductionSettingsGuard`.
 - Keeping a new kind of personal data updates docs/reference/personal-data-map.md in the same commit (ADR 0037).
+- Renters' own images (ADR 0042): checked by `scanner/` before they reach a host; every verdict is the control plane's `ImageJudge`; a check that doesn't finish is never a pass. See "Renters' own images".
 - Agent (Rust): `#![forbid(unsafe_code)]` except agent-windows; leases count on `LeaseClock`; never fall back to fake telemetry silently. `.proto` changes are additive; generated code is never committed. Windows app, runner, sandbox and release rules: "The Windows app", "The container runner".
 - Web app: every screen has loading, empty, error and stale states; money only through `formatPaise`; colours and sizes only from design tokens; sign-in SDKs only in `web/src/auth/`. The performance and accessibility budgets (web/README.md) are never loosened without Nikki's say: stop and report with numbers. See "Web app".
 - Razorpay and RazorpayX are test mode only (ADRs 0039, 0040).
@@ -64,6 +65,6 @@ The full rules, area by area, are in [docs/reference/conventions.md](docs/refere
 
 ## Checks
 - `scripts/check-changed.sh`: only the suites the files changed since origin/main touch (`--list` shows which). `scripts/check-all.sh`: every suite. Both print one line per suite, keep the whole output in `private/logs/<date-time>/<suite>.log` and show a failed suite's last 40 lines; `--verbose` prints everything. The path-to-suite map is `scripts/lib/suites.sh`.
-- Suites: agent, cli, control-plane, ops, drill, proto, distro, images, sdk, web, web-browser, e2e. Change a check in scripts/checks/<suite>.sh, once; CI calls the same scripts.
+- Suites: agent, cli, scanner, control-plane, ops, drill, proto, distro, images, sdk, web, web-browser, e2e. Change a check in scripts/checks/<suite>.sh, once; CI calls the same scripts.
 - CI is costly: push once at the end of a round, after check-all.sh is green.
 - Control plane: `./mvnw verify` from control-plane/ (`./mvnw spotless:apply` fixes formatting). Everything else: docs/reference/commands.md.

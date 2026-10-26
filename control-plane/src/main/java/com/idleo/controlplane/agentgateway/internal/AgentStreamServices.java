@@ -5,6 +5,7 @@ import com.idleo.controlplane.SemanticVersion;
 import com.idleo.controlplane.agentgateway.ImagesToPrefetch;
 import com.idleo.controlplane.agentgateway.OfferReplies;
 import com.idleo.controlplane.agentgateway.SessionCredentials;
+import com.idleo.controlplane.agentgateway.SessionImagePulls;
 import com.idleo.controlplane.agentgateway.SessionLogProgress;
 import com.idleo.controlplane.agentgateway.SessionReconciliation;
 import com.idleo.controlplane.agentgateway.SessionSignals;
@@ -34,6 +35,7 @@ class AgentStreamServices implements DisposableBean {
     private final ObjectProvider<OfferReplies> offerReplies;
     private final ObjectProvider<SessionStatuses> sessionStatuses;
     private final ObjectProvider<SessionLogProgress> logProgress;
+    private final ObjectProvider<SessionImagePulls> imagePulls;
     private final ObjectProvider<SessionReconciliation> reconciliation;
     private final ObjectProvider<SessionCredentials> credentials;
     private final ObjectProvider<UsageReports> usageReports;
@@ -65,6 +67,7 @@ class AgentStreamServices implements DisposableBean {
             ObjectProvider<OfferReplies> offerReplies,
             ObjectProvider<SessionStatuses> sessionStatuses,
             ObjectProvider<SessionLogProgress> logProgress,
+            ObjectProvider<SessionImagePulls> imagePulls,
             ObjectProvider<SessionReconciliation> reconciliation,
             ObjectProvider<SessionCredentials> credentials,
             ObjectProvider<UsageReports> usageReports,
@@ -88,6 +91,7 @@ class AgentStreamServices implements DisposableBean {
         this.offerReplies = offerReplies;
         this.sessionStatuses = sessionStatuses;
         this.logProgress = logProgress;
+        this.imagePulls = imagePulls;
         this.reconciliation = reconciliation;
         this.credentials = credentials;
         this.usageReports = usageReports;
@@ -141,6 +145,11 @@ class AgentStreamServices implements DisposableBean {
     @Nullable
     SessionLogProgress logProgress() {
         return logProgress.getIfAvailable();
+    }
+
+    @Nullable
+    SessionImagePulls imagePulls() {
+        return imagePulls.getIfAvailable();
     }
 
     @Nullable

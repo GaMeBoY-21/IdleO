@@ -10,7 +10,11 @@ type Template = components["schemas"]["TemplateResponse"];
 
 /** A template in a few words: "At least 8 GB · about 45 min". */
 const facts = (template: Template) =>
-  [`At least ${gigabytes(template.minVramMb)}`, aboutRuntime(template.typicalRuntimeSeconds)]
+  [
+    template.ownImage ? "Your own container image, checked first" : null,
+    `At least ${gigabytes(template.minVramMb)}`,
+    aboutRuntime(template.typicalRuntimeSeconds),
+  ]
     .filter(Boolean)
     .join(" · ");
 

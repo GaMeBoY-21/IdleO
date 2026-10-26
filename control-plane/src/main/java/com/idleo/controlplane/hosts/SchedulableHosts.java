@@ -15,6 +15,7 @@ public interface SchedulableHosts {
      * @param reliability its host score's reliability, 0 to 1; 0.5 until it has one (docs/plan/execution-plan.md "Host
      *     score")
      * @param bandwidth its line's speed against the fleet's 90th percentile, 0 to 1; 0.5 until its speed is measured
+     * @param gpuDriverVersion that GPU's NVIDIA driver, as its agent reported it ({@code 572.16}); null if it hasn't
      */
     record Candidate(
             UUID hostId,
@@ -26,7 +27,8 @@ public interface SchedulableHosts {
             int keepFreeMb,
             boolean paused,
             double reliability,
-            double bandwidth) {}
+            double bandwidth,
+            @org.jspecify.annotations.Nullable String gpuDriverVersion) {}
 
     /**
      * Active hosts listed for batch work at or under {@code maxPricePaisePerMin}, whose largest reported GPU

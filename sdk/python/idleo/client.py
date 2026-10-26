@@ -34,7 +34,11 @@ from idleo._notebook import Status
 from idleo._problem import IdleoError, NetworkError, ServerError, UsageError
 from idleo._resume import PendingKeys, ResumeStore
 from idleo._upload import Uploaded, Uploader
+from idleo.images import Image, Images
 from idleo.session import Session
+
+#: An image to run: one of yours, or its id.
+ImageArg = Image | str | uuid.UUID
 
 #: How many times a booking is tried when the answer doesn't come, always with the same key.
 BOOKING_TRIES = 3
@@ -111,6 +115,7 @@ class Sessions:
         max_runtime: int | timedelta | None = None,
         progress: bool | None = None,
         max_spend: int | None = None,
+        image: ImageArg | None = None,
     ) -> Session:
         """Uploads the inputs and books the session; it doesn't wait for it (use `wait()` and `logs()`).
 
@@ -119,6 +124,7 @@ class Sessions:
         you made before. `max_spend_paise` is the most the session may cost, in paise (`200_00` is ₹200); the
         template's usual budget if left out. `max_runtime` is seconds or a timedelta. `progress` shows the upload as it
         goes: by default only in a notebook. `max_spend` is the old name of `max_spend_paise`, kept for one release.
+        `image` is your own image, or its id, for the `custom-image` template: checked and ready (`client.images`).
         """
         budget = _budget(max_spend_paise, max_spend)
 
@@ -130,7 +136,9 @@ class Sessions:
             return uuid.UUID(done.id)
 
         found = self._templates.get(template)
-        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, budget, max_runtime, upload)
+        request, asked = self._request(
+            found, inputs, params, presets, gpu_memory_gb, budget, max_runtime, upload, image
+        )
         return self._book(request, asked, kept)
 
     def create(
@@ -144,6 +152,7 @@ class Sessions:
         max_spend_paise: int | None = None,
         max_runtime: int | timedelta | None = None,
         max_spend: int | None = None,
+        image: ImageArg | None = None,
     ) -> Session:
         """Books a session without uploading anything: each input is an https:// link or the id of an upload made
         with `client.uploads.upload()`. It doesn't follow the session either. The arguments are `run()`'s."""
@@ -153,7 +162,9 @@ class Sessions:
             raise UsageError(f"{name} is a path on this computer; use sessions.run() to upload it, or uploads.upload()")
 
         found = self._templates.get(template)
-        request, asked = self._request(found, inputs, params, presets, gpu_memory_gb, budget, max_runtime, refuse)
+        request, asked = self._request(
+            found, inputs, params, presets, gpu_memory_gb, budget, max_runtime, refuse, image
+        )
         return self._book(request, asked, [])
 
     def get(self, session_id: str | uuid.UUID) -> Session:
@@ -190,6 +201,7 @@ class Sessions:
         max_spend_paise: int | None,
         max_runtime: int | timedelta | None,
         upload: Callable[[str, Path], uuid.UUID],
+        image: ImageArg | None = None,
     ) -> tuple[CreateSessionRequest, str]:
         """Everything is checked against the template first; only then is anything uploaded, in the order the
         template names its inputs. Returns the request and what was asked for (`_run_args.asked_for`)."""
@@ -217,7 +229,13 @@ class Sessions:
             elif isinstance(value, args.Upload):
                 booked[name] = {"uploadId": str(upload(name, value.path))}
         request.inputs = booked
-        return request, args.asked_for(template.id, given, typed, answers, spend, runtime, vram)
+        asked = args.asked_for(template.id, given, typed, answers, spend, runtime, vram)
+        image_id = _image_id(template, image)
+        if image_id is not None:
+            request.image_id = image_id
+            # The renter's own image is part of what was asked for; without one the key is as it always was.
+            asked += f"|image={image_id}"
+        return request, asked
 
     def _book(self, request: CreateSessionRequest, asked: str, kept: builtins.list[Uploaded]) -> Session:
         """`POST /v1/sessions`, keeping its Idempotency-Key, from what was `asked` for, until the API answers, and
@@ -248,6 +266,24 @@ class Sessions:
             else:
                 answered()
                 return Session(self._transport, data)
+
+
+def _image_id(template: TemplateResponse, image: ImageArg | None) -> uuid.UUID | None:
+    """The renter's own image for a template that runs one (ADR 0042); none for any other."""
+    if not template.own_image:
+        if image is not None:
+            raise UsageError(f"{template.id} runs its own image; leave out image=")
+        return None
+    if image is None:
+        raise UsageError(
+            f"{template.id} runs your own image: check one with client.images.submit(...).wait(), then pass image="
+        )
+    if isinstance(image, Image):
+        return image.id
+    try:
+        return image if isinstance(image, uuid.UUID) else uuid.UUID(str(image))
+    except ValueError:
+        raise UsageError(f"{image!r} isn't an image id; see client.images.list()") from None
 
 
 def _budget(max_spend_paise: int | None, max_spend: int | None) -> int | None:
@@ -288,6 +324,7 @@ class Client:
         self.templates = Templates(self._transport)
         self.uploads = Uploads(self._transport, ResumeStore(directory))
         self.sessions = Sessions(self._transport, directory, self.templates, self.uploads)
+        self.images = Images(self._transport)
 
     def me(self) -> MeResponse:
         """Who you're signed in as."""

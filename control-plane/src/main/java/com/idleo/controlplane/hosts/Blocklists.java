@@ -7,7 +7,8 @@ import java.util.Set;
  * The abuse blocklist as a signed file of its own in the release feed (ADR 0038, ADR 0041): the newest the hosts module
  * has read from the {@code releases} bucket and verified against the release key. The agent gateway asks it, once per
  * connection and whenever a new one is cached ({@link BlocklistCached}), what to send an agent whose runner holds an older
- * one; the trust module asks which builds the published list already carries.
+ * one; the trust module asks which builds the published list already carries; the images module matches renters' own
+ * images against every program it lists (ADR 0042).
  */
 public interface Blocklists {
 
@@ -38,4 +39,18 @@ public interface Blocklists {
 
     /** The SHA-256 of every build the published list names as learned from a review item, lower-case hex. */
     Set<String> learnedBuilds();
+
+    /**
+     * Every program the cached list names by its executable's SHA-256 (its {@code hashes} and its {@code learned}
+     * builds), lower-case hex, with the list's version.
+     */
+    record Programs(String version, Set<String> sha256) {
+
+        public Programs {
+            sha256 = Set.copyOf(sha256);
+        }
+    }
+
+    /** The programs of the newest list cached; empty while none has been verified. */
+    Optional<Programs> programs();
 }

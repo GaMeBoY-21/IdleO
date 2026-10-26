@@ -2,6 +2,7 @@ package com.idleo.controlplane.notifications.internal;
 
 import com.idleo.controlplane.billing.EarningsClawedBack;
 import com.idleo.controlplane.hosts.HostOwners;
+import com.idleo.controlplane.images.ImageBlocked;
 import com.idleo.controlplane.payouts.PayoutMethodChanged;
 import com.idleo.controlplane.payouts.PayoutSettled;
 import com.idleo.controlplane.sessions.AttemptLost;
@@ -101,6 +102,18 @@ class NotificationListeners {
             notifier.tell(session.renterId(), NotificationKind.NO_HOST_FREE, key, messages.noHostFree(session));
         } else if ("FAILED".equals(session.state())) {
             notifier.tell(session.renterId(), NotificationKind.SESSION_FAILED, key, messages.failed(session, 0));
+        }
+    }
+
+    /** A renter's own image was blocked after its check: each owner once, for each of their images of it (ADR 0042). */
+    @ApplicationModuleListener
+    void on(ImageBlocked event) {
+        for (var image : event.images()) {
+            notifier.tell(
+                    image.ownerId(),
+                    NotificationKind.IMAGE_BLOCKED,
+                    "image-blocked:" + image.imageId(),
+                    messages.imageBlocked(image.reference(), event.reason()));
         }
     }
 

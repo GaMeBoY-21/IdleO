@@ -103,6 +103,7 @@ idleo run <TEMPLATE> [OPTIONS]
 | `--gpu-memory <SIZE>` | GPU memory, like 12GB, when the template asks. |
 | `--max-runtime <DURATION>` | The longest it may run, like 90m or 2h. |
 | `--detach` | Book and print the session's id, without following it. |
+| `--image <IMAGE_ID>` | Your own image to run, by its id from `images` (for `custom-image`): checked and ready. |
 
 ## `idleo ls`
 
@@ -219,6 +220,54 @@ Revoke a key by its id.
 
 ```
 idleo keys revoke <ID>
+```
+
+| Argument | What it does |
+| --- | --- |
+| `<ID>` | . |
+
+## `idleo images`
+
+Your own container images, and the check each passes before it can run.
+
+```
+idleo images [COMMAND]
+```
+
+### `idleo images submit`
+
+Check an image so you can run it: a tag or a digest, like `ghcr.io/you/train:v3`. Needs a verified PAN.
+
+```
+idleo images submit <REFERENCE> [OPTIONS]
+```
+
+| Argument | What it does |
+| --- | --- |
+| `<REFERENCE>` | The image's reference. |
+| `--username <USERNAME>` | A private registry's user name; its read-only token comes from `IDLEO_REGISTRY_TOKEN` or `--token-stdin`. |
+| `--token-stdin` | Read the registry's token from standard input instead of `IDLEO_REGISTRY_TOKEN`. |
+| `--wait` | Wait for the check, showing its progress, then print what it found. |
+
+### `idleo images show`
+
+One image: its check, what it found, and its warnings.
+
+```
+idleo images show <ID> [OPTIONS]
+```
+
+| Argument | What it does |
+| --- | --- |
+| `<ID>` | . |
+| `--wait` | Wait until its check is done. |
+
+### `idleo images remove`
+
+Remove an image, and its registry token unless another of your images uses it.
+
+```
+idleo images remove <ID>
 ```
 
 | Argument | What it does |

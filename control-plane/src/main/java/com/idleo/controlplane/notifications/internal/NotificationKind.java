@@ -26,6 +26,7 @@ enum NotificationKind {
     REPORT_ANSWERED("report-answered", "Report answered", "It's about money you were charged.", true),
     TOP_UP_CONFIRMED("top-up-confirmed", "Top-up confirmed", "Top-ups are your money.", true),
     NEW_DEVICE_SIGN_IN("new-device-sign-in", "New device sign-in", "It protects your account.", true),
+    IMAGE_BLOCKED("image-blocked", "Your image blocked", "It's about what may run on other people's machines.", true),
     ACCOUNT_AND_DATA("account-and-data", "Your account and data", "It's about your account and your data.", true);
 
     private final String slug;

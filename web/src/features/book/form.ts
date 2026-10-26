@@ -36,6 +36,8 @@ export interface BookValues {
   otherBudget: boolean;
   runtimeHours: string;
   runtimeMinutes: string;
+  /** The renter's own checked image, for the template that runs one (ADR 0042); "" until one is chosen. */
+  imageId: string;
 }
 
 /** Each input's upload, by name; null where nothing is chosen. */
@@ -63,6 +65,7 @@ export function defaultValues(template: Template): BookValues {
     budget: rupeeInput(budgetOf(template).initial),
     otherBudget: false,
     ...runtimeParts(template.defaultMaxRuntimeSeconds),
+    imageId: "",
   };
 }
 
@@ -100,6 +103,8 @@ export function valuesFrom(template: Template, session: Session): BookValues {
     budget: rupeeInput(session.maxSpendPaise),
     otherBudget: !chips.includes(session.maxSpendPaise),
     ...runtimeParts(Math.min(session.maxRuntimeSeconds, template.maxRuntimeCapSeconds)),
+    // Run again runs the same image as checked; the booking says so if it can't any more.
+    imageId: session.imageId ?? "",
   };
 }
 
@@ -150,6 +155,9 @@ export function bookSchema(template: Template) {
           z.refine((value) => (parseRupees(value) ?? 0) >= 1, "Enter a budget in rupees, at least ₹0.01."),
         ),
       otherBudget: z.boolean(),
+      imageId: z
+        .string()
+        .check(z.refine((value) => !template.ownImage || value !== "", "Choose one of your checked images.")),
       runtimeHours: z
         .string()
         .check(z.refine((value) => value === "" || WHOLE.test(value), "Enter whole hours.")),
@@ -225,5 +233,6 @@ export function toRequest(template: Template, values: BookValues, uploads: Uploa
     maxPricePaisePerMin: values.maxPerHour.trim() === "" ? null : (paisePerMinute(values.maxPerHour) ?? 1),
     maxSpendPaise: parseRupees(values.budget) ?? 1,
     maxRuntimeSeconds: runtimeSeconds(values),
+    ...(template.ownImage && values.imageId !== "" ? { imageId: values.imageId } : {}),
   };
 }

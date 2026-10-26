@@ -5,13 +5,13 @@
 # A suite's checks are scripts/checks/<suite>.sh, except drill, web-browser and e2e (suite_command). Its paths follow
 # the workflows' `paths:` filters (.github/workflows/*.yml), so a change runs what CI would run for it.
 
-ALL_SUITES=(agent cli control-plane ops drill proto distro images sdk web web-browser e2e)
+ALL_SUITES=(agent cli scanner control-plane ops drill proto distro images sdk web web-browser e2e)
 
 # suite_command SUITE: runs the suite, from the repository root, and returns its status.
 suite_command() {
   local root="$1" suite="$2"
   case "$suite" in
-    agent | cli | control-plane | ops | proto | distro | images | sdk | web) "$root/scripts/checks/$suite.sh" ;;
+    agent | cli | scanner | control-plane | ops | proto | distro | images | sdk | web) "$root/scripts/checks/$suite.sh" ;;
     drill) "$root/ops/backup/drill.sh" ;;
     web-browser) "$root/scripts/e2e/agent-online.sh" --web ;;
     e2e) "$root/scripts/e2e/agent-online.sh" && "$root/scripts/e2e/real-runner.sh" && "$root/scripts/e2e/start-check.sh" ;;
@@ -32,10 +32,12 @@ suites_for_path() {
     agent/*) echo agent e2e ;;
     cli/src/error.rs) echo cli sdk e2e ;;
     cli/*) echo cli e2e ;;
+    scanner/*) echo scanner e2e ;;
     control-plane/*) echo control-plane e2e ;;
     # A change to the agent protocol reaches both ends.
     proto/*) echo proto agent control-plane e2e ;;
     # The API contract is read by the control plane, both clients and the web app.
+    api/cuda-drivers.json) echo agent control-plane e2e ;;
     api/*) echo control-plane cli sdk web e2e ;;
     templates/*) echo control-plane web e2e ;;
     web/*) echo web web-browser ;;

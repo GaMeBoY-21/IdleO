@@ -22,13 +22,16 @@ import org.jspecify.annotations.Nullable;
  * @param vramFromInput how the GPU memory a session needs grows with the renter's uploaded model; null when it
  *     doesn't
  * @param youGet what the renter gets back, in a few words, for the booking screen's summary; null if it doesn't say
+ * @param image the container image, pinned by digest; null for a template that runs the renter's own image
+ * @param ownImage the session runs the renter's own image, checked before it was booked (ADR 0042), named by the
+ *     booking's {@code imageId}; the template gives everything else
  */
 public record Template(
         String id,
         String service,
         String name,
         String description,
-        String image,
+        @Nullable String image,
         List<String> args,
         int minVramMb,
         Duration defaultMaxRuntime,
@@ -45,7 +48,8 @@ public record Template(
         List<Long> budgetChips,
         @Nullable Long defaultBudget,
         @Nullable VramFromInput vramFromInput,
-        @Nullable String youGet) {
+        @Nullable String youGet,
+        boolean ownImage) {
 
     public Template {
         args = List.copyOf(args);

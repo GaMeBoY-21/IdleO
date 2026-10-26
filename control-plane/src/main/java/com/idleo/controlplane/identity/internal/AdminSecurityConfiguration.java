@@ -56,7 +56,8 @@ class AdminSecurityConfiguration {
     }
 
     @Bean
-    @Order(Ordered.HIGHEST_PRECEDENCE)
+    // After only the scanner's chain (images' ScannerAccess), which answers everything on its own port first.
+    @Order(Ordered.HIGHEST_PRECEDENCE + 1)
     SecurityFilterChain adminSecurityFilterChain(
             HttpSecurity http,
             IdTokenAuthentication idTokens,

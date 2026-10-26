@@ -90,6 +90,19 @@ export function Account() {
                 strokeWidth={1.75}
               />
             </Link>
+            <Link href="/account/images/" className={`${ROW} hover:bg-ground md:hidden`}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-option font-semibold">My images</p>
+                <p className="text-small text-text-muted">
+                  Your own container images, and what their checks found
+                </p>
+              </div>
+              <ChevronRight
+                aria-hidden="true"
+                className="size-5 shrink-0 text-text-muted"
+                strokeWidth={1.75}
+              />
+            </Link>
             <Link href="/account/reports/" className={`${ROW} hover:bg-ground md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">Reports</p>

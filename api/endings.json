@@ -100,6 +100,14 @@
       "sentence": "The job's software couldn't be downloaded on the host.",
       "next": "This was a problem on our side or the host's connection, not yours. Run it again; you weren't charged for the attempt that failed to start."
     },
+    "image_pull_timed_out": {
+      "sentence": "Your image didn't finish downloading on the host in time.",
+      "next": "You weren't charged: the download never counts. Run it again, or make your image smaller (bring models and data as inputs) so it downloads faster."
+    },
+    "image_blocked": {
+      "sentence": "Your image was blocked before the session started, so it was cancelled.",
+      "next": "You weren't charged. Account, My images says why."
+    },
     "invalid_input": {
       "sentence": "The job couldn't use what it was given.",
       "next": "Read the last lines of its log, which say what is wrong with your input, fix it, and run it again."

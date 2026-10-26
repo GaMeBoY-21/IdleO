@@ -65,6 +65,7 @@ esac
 
 http_port="${E2E_HTTP_PORT:-8080}"
 grpc_port="${E2E_GRPC_PORT:-9443}"
+scanner_port="${E2E_SCANNER_PORT:-8295}"
 sign_in_port="${LOCAL_SIGN_IN_PORT:-8099}"
 storage_port="${LOCAL_STORAGE_PORT:-9100}"
 mail_smtp_port="${LOCAL_MAIL_SMTP_PORT:-1025}"
@@ -347,7 +348,7 @@ cleanup() {
     wait "$control_plane_pid" 2>/dev/null
   fi
   log "removing the compose services"
-  COMPOSE_PROJECT_NAME="$compose_project" docker compose -f control-plane/compose.yaml down --volumes --remove-orphans \
+  COMPOSE_PROJECT_NAME="$compose_project" docker compose -f control-plane/compose.yaml --profile scanner down --volumes --remove-orphans \
     >>"$out/compose.log" 2>&1
 
   # Nothing this script started may still be running.

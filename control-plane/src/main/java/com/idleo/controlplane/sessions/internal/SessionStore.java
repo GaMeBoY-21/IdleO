@@ -81,7 +81,8 @@ class SessionStore {
             @Nullable String errorCode,
             Map<String, Object> params,
             Map<String, String> presets,
-            List<Input> inputs) {
+            List<Input> inputs,
+            @Nullable UUID imageId) {
 
         Session {
             params = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(params));
@@ -151,10 +152,10 @@ class SessionStore {
                             (id, renter_id, host_id, type, state, attempt, template_id, image_digest, vram_needed_mb,
                              max_price_paise_per_min, price_paise_per_min, max_spend_paise, max_runtime_seconds,
                              idempotency_key, request_hash, state_changed_at, version, created_at, params,
-                             presets)
+                             presets, image_id)
                         values (:id, :renterId, null, :type, :state, 1, :templateId, :image, :vram,
                                 :maxPrice, null, :maxSpend, :maxRuntime, :key, :hash, :now, 0, :now,
-                                cast(:params as jsonb), cast(:presets as jsonb))
+                                cast(:params as jsonb), cast(:presets as jsonb), :imageId)
                         on conflict (renter_id, idempotency_key) do nothing
                         """)
                 .param("id", session.id())
@@ -172,6 +173,7 @@ class SessionStore {
                 .param("now", Timestamp.from(session.createdAt()))
                 .param("params", PARAMS.writeValueAsString(session.params()))
                 .param("presets", PARAMS.writeValueAsString(session.presets()))
+                .param("imageId", session.imageId())
                 .update();
         if (inserted == 1) {
             for (var input : session.inputs()) {
@@ -408,7 +410,8 @@ class SessionStore {
                 rs.getString("error_code"),
                 params(rs.getString("params")),
                 presets(rs.getString("presets")),
-                inputs(rs.getString("inputs_json")));
+                inputs(rs.getString("inputs_json")),
+                rs.getObject("image_id", UUID.class));
     }
 
     @SuppressWarnings("unchecked")

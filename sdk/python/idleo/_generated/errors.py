@@ -518,6 +518,30 @@ class PanRequired(IdleoError):
     title = "Verified PAN needed"
 
 
+class VerifiedPanRequired(IdleoError):
+    """Verify your PAN to use your own image (HTTP 403)."""
+
+    slug = "verified-pan-required"
+    status = 403
+    title = "Verify your PAN to use your own image"
+
+
+class ImageNotReady(IdleoError):
+    """Image not checked yet (HTTP 409)."""
+
+    slug = "image-not-ready"
+    status = 409
+    title = "Image not checked yet"
+
+
+class ImageBlocked(IdleoError):
+    """Image blocked (HTTP 422)."""
+
+    slug = "image-blocked"
+    status = 422
+    title = "Image blocked"
+
+
 class PayoutsUnavailable(IdleoError):
     """Payouts unavailable (HTTP 503)."""
 
@@ -799,6 +823,9 @@ __all__ = [
     "NothingToRefund",
     "BillingDetailsRequired",
     "PanRequired",
+    "VerifiedPanRequired",
+    "ImageNotReady",
+    "ImageBlocked",
     "PayoutsUnavailable",
     "PanNotVerified",
     "PanAlreadyVerified",
@@ -893,6 +920,9 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "nothing-to-refund": NothingToRefund,
     "billing-details-required": BillingDetailsRequired,
     "pan-required": PanRequired,
+    "verified-pan-required": VerifiedPanRequired,
+    "image-not-ready": ImageNotReady,
+    "image-blocked": ImageBlocked,
     "payouts-unavailable": PayoutsUnavailable,
     "pan-not-verified": PanNotVerified,
     "pan-already-verified": PanAlreadyVerified,

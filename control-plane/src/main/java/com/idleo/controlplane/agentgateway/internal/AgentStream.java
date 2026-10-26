@@ -595,6 +595,33 @@ final class AgentStream implements StreamObserver<OpenStreamRequest> {
         }
         recordSeenAtMostOncePerMinute();
         reportLogProgress(heartbeat);
+        reportImagePulls(heartbeat);
+    }
+
+    /** How far each attempt downloading the renter's own image has got (ADR 0042); a failure waits for the next heartbeat. */
+    private void reportImagePulls(Heartbeat heartbeat) {
+        var pulls = services.imagePulls();
+        if (pulls == null) {
+            return;
+        }
+        for (var running : heartbeat.getSessionsList()) {
+            if (running.getImageTotalBytes() <= 0 && running.getImageDoneBytes() <= 0) {
+                continue;
+            }
+            try {
+                pulls.onImagePull(
+                        hostId,
+                        UUID.fromString(running.getSessionId()),
+                        running.getAttempt(),
+                        Math.max(0, running.getImageDoneBytes()),
+                        Math.max(0, running.getImageTotalBytes()));
+            } catch (RuntimeException e) {
+                log.warn(
+                        "Couldn't record image download progress for session {}; the next heartbeat carries it",
+                        running.getSessionId(),
+                        e);
+            }
+        }
     }
 
     /** How far each running attempt's logs have uploaded (ADR 0019); a failure waits for the next heartbeat. */

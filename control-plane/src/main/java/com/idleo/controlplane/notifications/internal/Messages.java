@@ -169,4 +169,16 @@ class Messages {
     private static String sessionLink(UUID sessionId) {
         return "/session/?id=" + sessionId;
     }
+
+    /** A renter's own image blocked after its check (ADR 0042): what, why, and that nothing not started was charged. */
+    Message imageBlocked(String reference, String reason) {
+        var why = "admin".equals(reason)
+                ? "We've blocked it. If you think it's a mistake, write to us from Help."
+                : "A newer check found software in it that isn't allowed on IdleO (the acceptable use policy).";
+        return new Message(
+                "Your image was blocked",
+                reference + " can't run on IdleO any more. " + why
+                        + " Sessions of it that hadn't started were cancelled, and you weren't charged for them.",
+                "/account/images/");
+    }
 }

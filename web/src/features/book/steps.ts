@@ -8,11 +8,13 @@ export type PresetOption = components["schemas"]["PresetOption"];
 
 /**
  * A service's booking screen as the catalog describes it (ADR 0022, docs/design/redesign/book-finetune-laptop.html),
- * so nothing is written by hand per service: one numbered step per input, then each plain question in the catalog's
+ * so nothing is written by hand per service: the renter's own image first, for the template that runs one (ADR 0042),
+ * then one numbered step per input, then each plain question in the catalog's
  * order (a preset's option cards, a basic parameter, or the GPU memory the job needs); then the budget, and the one
  * "Advanced" row holding every advanced parameter with its default.
  */
 export type Step =
+  | { kind: "image"; number: number }
   | { kind: "input"; number: number; input: TemplateInput }
   | {
       kind: "preset";
@@ -26,7 +28,11 @@ export type Step =
   | { kind: "gpu"; number: number; label: string; help: string | null; choicesGb: number[] };
 
 export function stepsOf(template: Template): Step[] {
-  const steps: Step[] = template.inputs.map((input, i) => ({ kind: "input", number: i + 1, input }));
+  // The renter's own image comes first, for the template that runs one (ADR 0042).
+  const steps: Step[] = template.ownImage ? [{ kind: "image", number: 1 }] : [];
+  for (const input of template.inputs) {
+    steps.push({ kind: "input", number: steps.length + 1, input });
+  }
   for (const question of template.questions) {
     const number = steps.length + 1;
     const help = question.help ?? null;

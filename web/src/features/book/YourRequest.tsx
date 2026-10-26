@@ -40,6 +40,8 @@ export function summaryRows(template: Template, values: BookValues, uploads: Upl
       const value = values.params[step.param.name];
       const text = typeof value === "boolean" ? (value ? "Yes" : "No") : (value ?? "").trim();
       rows.push([rowLabel(step.label), text === "" ? "Not given yet" : text]);
+    } else if (step.kind === "image") {
+      rows.push(["Image", values.imageId === "" ? "Not chosen yet" : "Your checked image"]);
     } else {
       rows.push([rowLabel(step.label), values.gpuGb === "" ? "Not chosen" : `${values.gpuGb} GB`]);
     }

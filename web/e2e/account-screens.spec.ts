@@ -438,6 +438,7 @@ test.describe("the account", () => {
       "API keys",
       "My files",
       "Reports",
+      "My images",
       "Your data",
       "Help",
     ]);

@@ -62,7 +62,8 @@ class TemplateCatalog {
             "budget_chips",
             "default_budget",
             "vram_from_input",
-            "you_get");
+            "you_get",
+            "own_image");
     private static final Set<String> SERVICE_FIELDS =
             Set.of("id", "name", "tagline", "running_label", "icon", "hidden");
 
@@ -172,9 +173,20 @@ class TemplateCatalog {
             throw new IllegalStateException("Template id " + id + " must be lowercase letters, digits and hyphens.");
         }
         known(fields, TEMPLATE_FIELDS, where);
-        var image = text(fields, "image", where);
-        if (!PINNED_IMAGE.matcher(image).matches()) {
-            throw new IllegalStateException(where + ": the image must be pinned by digest (@sha256:...).");
+        // A template that runs the renter's own image (ADR 0042) names none, and gives the image no arguments: the
+        // renter's
+        // command, or the image's own, is what runs.
+        boolean ownImage = flag(fields, "own_image", where);
+        String image = null;
+        if (ownImage) {
+            if (fields.containsKey("image") || fields.containsKey("args")) {
+                throw new IllegalStateException(where + ": a template with own_image names no image and no args.");
+            }
+        } else {
+            image = text(fields, "image", where);
+            if (!PINNED_IMAGE.matcher(image).matches()) {
+                throw new IllegalStateException(where + ": the image must be pinned by digest (@sha256:...).");
+            }
         }
         var defaultMaxRuntime = duration(fields, "default_max_runtime", where);
         var maxRuntimeCap = duration(fields, "max_runtime_cap", where);
@@ -210,6 +222,7 @@ class TemplateCatalog {
                 budget == null ? List.of() : budget.chips(),
                 budget == null ? null : budget.defaultChip(),
                 CatalogInputs.vramFromInput(fields, inputs, where),
-                optionalText(fields, "you_get", where));
+                optionalText(fields, "you_get", where),
+                ownImage);
     }
 }

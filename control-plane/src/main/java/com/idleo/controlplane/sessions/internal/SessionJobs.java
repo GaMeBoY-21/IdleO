@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.images.CheckedImages;
 import com.idleo.controlplane.sessions.Template;
 import gpu.agent.v1.Session.InputRef;
 import gpu.agent.v1.Session.SessionSpec;
@@ -20,24 +21,52 @@ class SessionJobs {
     private final TemplateCatalog catalog;
     private final UploadStore uploads;
     private final UploadFileStore files;
+    private final CheckedImages images;
 
-    SessionJobs(TemplateCatalog catalog, UploadStore uploads, UploadFileStore files) {
+    SessionJobs(TemplateCatalog catalog, UploadStore uploads, UploadFileStore files, CheckedImages images) {
         this.catalog = catalog;
         this.uploads = uploads;
         this.files = files;
+        this.images = images;
     }
 
     Optional<Template> template(SessionStore.Session session) {
         return catalog.find(session.templateId());
     }
 
+    /**
+     * The session's spec; none when its template is gone, or its own image (ADR 0042) can't run any more (blocked since it
+     * was booked).
+     */
     Optional<SessionSpec> spec(SessionStore.Session session) {
-        return catalog.find(session.templateId())
-                .map(template -> SessionSpecs.batch(
-                        template,
-                        session.vramNeededMb(),
-                        Duration.ofSeconds(session.maxRuntimeSeconds()),
-                        SessionParams.env(session.params(), session.inputs())));
+        return catalog.find(session.templateId()).flatMap(template -> {
+            var maxRuntime = Duration.ofSeconds(session.maxRuntimeSeconds());
+            var env = SessionParams.env(session.params(), session.inputs());
+            if (!template.ownImage()) {
+                return Optional.of(SessionSpecs.batch(template, session.vramNeededMb(), maxRuntime, env));
+            }
+            return image(session)
+                    .map(image -> SessionSpecs.ownImage(
+                            template,
+                            image,
+                            session.vramNeededMb(),
+                            maxRuntime,
+                            env,
+                            session.params(),
+                            images.pullTimeLimit()));
+        });
+    }
+
+    /** The renter's own image the session runs, while it may run. */
+    Optional<CheckedImages.Image> image(SessionStore.Session session) {
+        return session.imageId() == null ? Optional.empty() : images.runnable(session.imageId());
+    }
+
+    /** What a session's own image takes on its host's disk, downloaded and unpacked; 0 for any other session. */
+    long imageBytes(SessionStore.Session session) {
+        return image(session)
+                .map(image -> image.compressedBytes() + image.unpackedBytes())
+                .orElse(0L);
     }
 
     /** The session's uploaded inputs, by input name. */

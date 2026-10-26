@@ -104,3 +104,27 @@ tests:
       - eval_time: 90m
         alertname: AbuseStops
         exp_alerts: []
+  # The oldest image check's age climbs past 30 minutes and stays: fires after 5 minutes over. A check done in 20: never.
+  - interval: 1m
+    input_series:
+      - series: 'images_checks_backlog_seconds{job="control-plane", instance="a"}'
+        values: '0+120x25'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: ImageCheckBacklog
+        exp_alerts: []
+      - eval_time: 21m
+        alertname: ImageCheckBacklog
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'The oldest image check has waited 42m 0s.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-check-backlog
+  - interval: 1m
+    input_series:
+      - series: 'images_checks_backlog_seconds{job="control-plane", instance="a"}'
+        values: '0+60x20 0x20'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: ImageCheckBacklog
+        exp_alerts: []

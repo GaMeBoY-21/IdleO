@@ -21,6 +21,8 @@ public interface SessionBookings {
      * @param attempt the attempt being booked: 1, and one more after each lost host
      * @param spec what it runs, as the agent's Offer and StartSession carry it
      * @param diskNeededMb the free disk a host needs for its uploaded inputs and scratch disk, with a margin
+     * @param cudaNeeded the CUDA version the renter's own image needs ({@code 12.4}, ADR 0042): only a host whose GPU's
+     *     driver runs it is offered the session; null when it says none, and for every other session
      */
     record BookingRequest(
             UUID sessionId,
@@ -32,7 +34,8 @@ public interface SessionBookings {
             int vramNeededMb,
             int diskNeededMb,
             int maxPricePaisePerMin,
-            long maxSpendPaise) {}
+            long maxSpendPaise,
+            @org.jspecify.annotations.Nullable String cudaNeeded) {}
 
     Optional<BookingRequest> bookingRequest(UUID sessionId);
 

@@ -981,6 +981,140 @@ paths:
         idToken: []
       tags:
       - adminHosts
+  /admin/v1/images:
+    get:
+      operationId: adminImagesList
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminImagePage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminImages
+  /admin/v1/images/{id}:
+    get:
+      operationId: adminImagesGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminImageDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminImages
+  /admin/v1/images/{id}/block:
+    post:
+      operationId: adminImagesBlock
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminImageDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminImages
+  /admin/v1/images/{id}/unblock:
+    post:
+      operationId: adminImagesUnblock
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminImageDetail"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminImages
   /admin/v1/installs:
     get:
       operationId: adminInstallsInstalls
@@ -3869,6 +4003,132 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - hostTelemetry
+  /v1/images:
+    get:
+      operationId: imageMine
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - image
+    post:
+      operationId: imageSubmit
+      parameters:
+      - description: "A unique key for this create request, 1 to 255 visible ASCII\
+          \ characters. A repeat returns the first response; the same key with a different\
+          \ body is refused."
+        in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewImage"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageResponse"
+          description: "The image, its check queued"
+          headers:
+            Location:
+              description: The image's URL
+              schema:
+                type: string
+              style: simple
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - image
+  /v1/images/{id}:
+    delete:
+      operationId: imageRemove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - image
+    get:
+      operationId: imageOne
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - image
+  /v1/images/{id}/vulnerabilities:
+    get:
+      operationId: imageVulnerabilities
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VulnerabilityList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - image
   /v1/me:
     get:
       operationId: meGet
@@ -6573,6 +6833,122 @@ components:
       - online
       - ownerId
       - status
+    AdminImage:
+      type: object
+      properties:
+        checkedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        compressedBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        critical:
+          type:
+          - integer
+          - "null"
+          format: int32
+        digest:
+          type:
+          - string
+          - "null"
+        high:
+          type:
+          - integer
+          - "null"
+          format: int32
+        id:
+          type: string
+          format: uuid
+        privateRegistry:
+          type: boolean
+        reason:
+          type:
+          - string
+          - "null"
+        reference:
+          type: string
+        secrets:
+          type: integer
+          format: int32
+        state:
+          type: string
+          enum:
+          - queued
+          - checking
+          - ready
+          - blocked
+          - failed
+        userId:
+          type: string
+          format: uuid
+      required:
+      - createdAt
+      - id
+      - privateRegistry
+      - reference
+      - secrets
+      - state
+      - userId
+    AdminImageDetail:
+      type: object
+      properties:
+        blockedBy:
+          type:
+          - string
+          - "null"
+        blockedFile:
+          type:
+          - string
+          - "null"
+        blocklistVersion:
+          type:
+          - string
+          - "null"
+        cudaNeeded:
+          type:
+          - string
+          - "null"
+        detail:
+          type:
+          - string
+          - "null"
+        executables:
+          type: integer
+          format: int32
+        image:
+          $ref: "#/components/schemas/AdminImage"
+        submissions:
+          type: integer
+          format: int32
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageWarning"
+      required:
+      - executables
+      - image
+      - submissions
+      - warnings
+    AdminImagePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminImage"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - items
     AdminInstall:
       type: object
       properties:
@@ -8782,6 +9158,11 @@ components:
     CreateSessionRequest:
       type: object
       properties:
+        imageId:
+          type:
+          - string
+          - "null"
+          format: uuid
         inputs:
           type:
           - object
@@ -9578,6 +9959,190 @@ components:
       required:
       - max
       - min
+    ImageDownload:
+      type: object
+      properties:
+        doneBytes:
+          type: integer
+          format: int64
+        totalBytes:
+          type: integer
+          format: int64
+      required:
+      - doneBytes
+      - totalBytes
+    ImageList:
+      type: object
+      properties:
+        canUse:
+          type: boolean
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageResponse"
+        platform:
+          type: string
+        whyNot:
+          type:
+          - string
+          - "null"
+      required:
+      - canUse
+      - images
+      - platform
+    ImageProgress:
+      type: object
+      properties:
+        doneBytes:
+          type: integer
+          format: int64
+        phase:
+          type: string
+          enum:
+          - downloading
+          - reading
+          - scanning
+          - blocklist
+        totalBytes:
+          type: integer
+          format: int64
+      required:
+      - doneBytes
+      - phase
+      - totalBytes
+    ImageResponse:
+      type: object
+      properties:
+        checkedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        detail:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        privateRegistry:
+          type: boolean
+        progress:
+          oneOf:
+          - $ref: "#/components/schemas/ImageProgress"
+          - type: "null"
+        reason:
+          type:
+          - string
+          - "null"
+          enum:
+          - wrong_platform
+          - too_large
+          - too_many_layers
+          - too_large_unpacked
+          - unsafe_path
+          - unpack_failed
+          - pull_failed
+          - blocklisted
+          - admin
+          - not_checked
+        reference:
+          type: string
+        result:
+          oneOf:
+          - $ref: "#/components/schemas/ImageResult"
+          - type: "null"
+        state:
+          type: string
+          enum:
+          - queued
+          - checking
+          - ready
+          - blocked
+          - failed
+      required:
+      - createdAt
+      - id
+      - privateRegistry
+      - reference
+      - state
+    ImageResult:
+      type: object
+      properties:
+        checkedAt:
+          type: string
+          format: date-time
+        cmd:
+          type: array
+          items:
+            type: string
+        compressedBytes:
+          type: integer
+          format: int64
+        cudaNeeded:
+          type:
+          - string
+          - "null"
+        digest:
+          type: string
+        entrypoint:
+          type: array
+          items:
+            type: string
+        hasShell:
+          type: boolean
+        layers:
+          type: integer
+          format: int32
+        pinnedReference:
+          type: string
+        unpackedBytes:
+          type: integer
+          format: int64
+        user:
+          type:
+          - string
+          - "null"
+        vulnerabilities:
+          $ref: "#/components/schemas/VulnerabilityCounts"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageWarning"
+        workingDir:
+          type:
+          - string
+          - "null"
+      required:
+      - checkedAt
+      - cmd
+      - compressedBytes
+      - digest
+      - entrypoint
+      - hasShell
+      - layers
+      - pinnedReference
+      - unpackedBytes
+      - vulnerabilities
+      - warnings
+    ImageWarning:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+          - secret
+          - vulnerabilities
+          - root_user
+          - no_shell
+        message:
+          type: string
+      required:
+      - code
+      - message
     InboxItem:
       type: object
       properties:
@@ -10053,6 +10618,29 @@ components:
       - signInMethods
       - status
       - unreadNotifications
+    NewImage:
+      type: object
+      properties:
+        reference:
+          type: string
+          example: pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+          maxLength: 512
+          minLength: 0
+        registryToken:
+          type:
+          - string
+          - "null"
+          description: A read-only token. Never shown back.
+          maxLength: 4096
+          minLength: 0
+        registryUsername:
+          type:
+          - string
+          - "null"
+          maxLength: 255
+          minLength: 0
+      required:
+      - reference
     NewTicket:
       type: object
       properties:
@@ -10669,6 +11257,9 @@ components:
           - /problems/nothing-to-refund
           - /problems/billing-details-required
           - /problems/pan-required
+          - /problems/verified-pan-required
+          - /problems/image-not-ready
+          - /problems/image-blocked
           - /problems/payouts-unavailable
           - /problems/pan-not-verified
           - /problems/pan-already-verified
@@ -11336,6 +11927,17 @@ components:
         id:
           type: string
           format: uuid
+        image:
+          type: string
+        imageDownload:
+          oneOf:
+          - $ref: "#/components/schemas/ImageDownload"
+          - type: "null"
+        imageId:
+          type:
+          - string
+          - "null"
+          format: uuid
         inputs:
           type: object
           additionalProperties:
@@ -11389,6 +11991,7 @@ components:
       - createdAt
       - events
       - id
+      - image
       - inputs
       - lowCredit
       - maxPricePaisePerMin
@@ -11809,7 +12412,9 @@ components:
         id:
           type: string
         image:
-          type: string
+          type:
+          - string
+          - "null"
         inputs:
           type: array
           items:
@@ -11822,6 +12427,8 @@ components:
           format: int32
         name:
           type: string
+        ownImage:
+          type: boolean
         params:
           type: array
           items:
@@ -11850,11 +12457,11 @@ components:
       - defaultMaxRuntimeSeconds
       - description
       - id
-      - image
       - inputs
       - maxRuntimeCapSeconds
       - minVramMb
       - name
+      - ownImage
       - params
       - questions
       - service
@@ -12188,6 +12795,66 @@ components:
       - baseMb
       - input
       - perGbMb
+    VulnerabilityCounts:
+      type: object
+      properties:
+        critical:
+          type: integer
+          format: int32
+        high:
+          type: integer
+          format: int32
+        low:
+          type: integer
+          format: int32
+        medium:
+          type: integer
+          format: int32
+      required:
+      - critical
+      - high
+      - low
+      - medium
+    VulnerabilityEntry:
+      type: object
+      properties:
+        fixed:
+          type: string
+        id:
+          type: string
+        installed:
+          type: string
+        packageName:
+          type: string
+        severity:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          - UNKNOWN
+        title:
+          type: string
+      required:
+      - fixed
+      - id
+      - installed
+      - packageName
+      - severity
+      - title
+    VulnerabilityList:
+      type: object
+      properties:
+        counts:
+          $ref: "#/components/schemas/VulnerabilityCounts"
+        vulnerabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/VulnerabilityEntry"
+      required:
+      - counts
+      - vulnerabilities
     Wait:
       type: object
       properties:

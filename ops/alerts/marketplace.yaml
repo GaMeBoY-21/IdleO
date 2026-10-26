@@ -40,6 +40,17 @@ groups:
         annotations:
           summary: 'More than half the connected agents dropped in 5 minutes; {{ $value }} are left.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#agents-dropped
+      - alert: ImageCheckBacklog
+        # A renter's own image (ADR 0042) has waited more than 30 minutes for its check: the scanner is down, stuck or
+        # behind. The gauge is the age of the oldest check still queued or being checked; any instance says it.
+        expr: max(images_checks_backlog_seconds{job="control-plane"}) > 1800
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'The oldest image check has waited {{ $value | humanizeDuration }}.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-check-backlog
+
       - alert: AbuseStops
         # More than 3 sessions stopped by their host's runner for software no renter may run (ADR 0038) in an hour, across the fleet:
         # an attack, or a bad blocklist entry stopping honest renters.

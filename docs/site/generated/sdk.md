@@ -81,7 +81,7 @@ took.
 
 Booking, finding and following sessions.
 
-### `client.sessions.run(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend_paise: int | None = None, max_runtime: int | timedelta | None = None, progress: bool | None = None, max_spend: int | None = None) -> Session`
+### `client.sessions.run(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend_paise: int | None = None, max_runtime: int | timedelta | None = None, progress: bool | None = None, max_spend: int | None = None, image: ImageArg | None = None) -> Session`
 
 Uploads the inputs and books the session; it doesn't wait for it (use `wait()` and `logs()`).
 
@@ -90,8 +90,9 @@ kept, carried on if a first try was cut off), an https:// link the job fetches i
 you made before. `max_spend_paise` is the most the session may cost, in paise (`200_00` is ₹200); the
 template's usual budget if left out. `max_runtime` is seconds or a timedelta. `progress` shows the upload as it
 goes: by default only in a notebook. `max_spend` is the old name of `max_spend_paise`, kept for one release.
+`image` is your own image, or its id, for the `custom-image` template: checked and ready (`client.images`).
 
-### `client.sessions.create(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend_paise: int | None = None, max_runtime: int | timedelta | None = None, max_spend: int | None = None) -> Session`
+### `client.sessions.create(template: str, *, inputs: Mapping[str, str | Path | UUID] | None = None, params: Mapping[str, Any] | None = None, presets: Mapping[str, str] | None = None, gpu_memory_gb: int | None = None, max_spend_paise: int | None = None, max_runtime: int | timedelta | None = None, max_spend: int | None = None, image: ImageArg | None = None) -> Session`
 
 Books a session without uploading anything: each input is an https:// link or the id of an upload made
 with `client.uploads.upload()`. It doesn't follow the session either. The arguments are `run()`'s.
@@ -280,6 +281,9 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `NothingToRefund` | `nothing-to-refund` | 422 | 1 |
 | `BillingDetailsRequired` | `billing-details-required` | 409 | 1 |
 | `PanRequired` | `pan-required` | 409 | 1 |
+| `VerifiedPanRequired` | `verified-pan-required` | 403 | 1 |
+| `ImageNotReady` | `image-not-ready` | 409 | 1 |
+| `ImageBlocked` | `image-blocked` | 422 | 1 |
 | `PayoutsUnavailable` | `payouts-unavailable` | 503 | 1 |
 | `PanNotVerified` | `pan-not-verified` | 409 | 1 |
 | `PanAlreadyVerified` | `pan-already-verified` | 409 | 1 |

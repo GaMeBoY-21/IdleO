@@ -84,6 +84,9 @@ class SessionViews {
      * @param params its parameters, with presets and the template's defaults filled in
      * @param presets the option chosen for each of its template's preset questions
      * @param inputs what it reads, by the template's input names, in the template's order
+     * @param imageId the renter's own image it runs (ADR 0042); null for a template with its own
+     * @param image the image it runs, pinned by digest
+     * @param imageDownload while PROVISIONING, how far its host has got downloading the renter's own image; null otherwise
      */
     record SessionResponse(
             UUID id,
@@ -113,7 +116,13 @@ class SessionViews {
             Map<String, Object> params,
 
             Map<String, String> presets,
-            Map<String, SessionInputView> inputs) {}
+            Map<String, SessionInputView> inputs,
+            @Nullable UUID imageId,
+            String image,
+            @Nullable ImageDownload imageDownload) {}
+
+    /** The renter's own image coming down to its host, before minute 0 (never charged). */
+    record ImageDownload(long doneBytes, long totalBytes) {}
 
     SessionResponse of(SessionStore.Session session) {
         var costs = this.costs.getIfAvailable();
@@ -149,7 +158,22 @@ class SessionViews {
                 checkpoints(session.id()),
                 params(session),
                 session.presets(),
-                inputs(session));
+                inputs(session),
+                session.imageId(),
+                session.imageDigest(),
+                session.state() == SessionState.PROVISIONING && session.imageId() != null ? download(session) : null);
+    }
+
+    private @Nullable ImageDownload download(SessionStore.Session session) {
+        return jdbc.sql("""
+                        select image_done_bytes, image_total_bytes from sessions.attempts
+                        where session_id = :id and attempt = :attempt
+                        """)
+                .param("id", session.id())
+                .param("attempt", session.attempt())
+                .query((rs, n) -> new ImageDownload(rs.getLong(1), rs.getLong(2)))
+                .optional()
+                .orElse(null);
     }
 
     /** The session's inputs in its template's order. */

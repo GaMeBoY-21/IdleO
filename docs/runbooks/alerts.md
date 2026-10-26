@@ -154,6 +154,17 @@ Two alerts share this section.
 
 **Do:** answer it. A request to see or download one's data: the ticket's "Start an export" (the person gets it by email). A request to delete: tell them Account, Your data, Delete my account, or what stops it (the ticket shows where their deletion stands); never skip the wait unless a legal order says so. A correction we can't make in the app (an email address): make it, and say so. Then resolve the ticket with the answer.
 
+## Image check backlog
+
+**Means:** a renter's own image (ADR 0042) has waited more than 30 minutes for its check. Renters see "Checking your image" and can't book it until the check completes: a check that doesn't finish is never a pass. The scanner (scanner/, its own container) is down, stuck on one check, out of disk, or behind a burst of submissions.
+
+**Check first:** `docker ps` and `docker logs scanner` on the server: is it running, and what does its last "a check ended" line say? `images_checks_waiting` and `images_checks_ended_total` by `outcome` on the Marketplace dashboard: many waiting and none ending is a scanner that isn't working; a few ending slowly is a busy one. `df -h` on the scanner's scratch volume (it refuses a check it hasn't room for, and says so).
+
+**Do:**
+- Scanner down or stuck: `docker restart scanner`. Its claims lapse after `images.claim-lasts` and the checks are claimed again; after `images.check-attempts` tries a check ends as not checked, and the renter is told to check it again.
+- Out of disk: a check's folder is deleted when it ends, so a full disk is another process's or a check still running; delete what isn't the scanner's.
+- Just behind: let it catch up, or run a second scanner (each claims its own checks); the server's room is in ADR 0042.
+
 ## Abuse stops
 
 **Means:** more than 3 sessions in an hour, across the fleet, were stopped by their host's runner for running software no renter may run on a host's GPU (ADR 0038): a build on the blocklist by its hash, or a second look-up of a mining pool's domain. Each one suspended its renter's account until an admin has looked at it. Many at once means an attack (someone with several accounts), or a bad entry on the blocklist stopping honest renters.

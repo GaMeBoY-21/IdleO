@@ -61,7 +61,8 @@ class SessionParamsTests {
             List.of(),
             null,
             null,
-            null);
+            null,
+            false);
 
     private static Map<String, Object> values(Object... pairs) {
         var values = new HashMap<String, Object>();

@@ -150,6 +150,7 @@ class CreateSessionRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
+    image_id: Annotated[UUID | None, Field(alias="imageId")] = None
     inputs: dict[str, Any] | None = None
     max_price_paise_per_min: Annotated[int | None, Field(alias="maxPricePaisePerMin", ge=1)] = None
     max_runtime_seconds: Annotated[int | None, Field(alias="maxRuntimeSeconds", ge=1)] = None
@@ -419,6 +420,66 @@ class HourlyPriceRange(BaseModel):
     min: int
 
 
+class ImageDownload(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    done_bytes: Annotated[int, Field(alias="doneBytes")]
+    total_bytes: Annotated[int, Field(alias="totalBytes")]
+
+
+class Phase(Enum):
+    downloading = "downloading"
+    reading = "reading"
+    scanning = "scanning"
+    blocklist = "blocklist"
+
+
+class ImageProgress(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    done_bytes: Annotated[int, Field(alias="doneBytes")]
+    phase: Phase
+    total_bytes: Annotated[int, Field(alias="totalBytes")]
+
+
+class Reason(Enum):
+    wrong_platform = "wrong_platform"
+    too_large = "too_large"
+    too_many_layers = "too_many_layers"
+    too_large_unpacked = "too_large_unpacked"
+    unsafe_path = "unsafe_path"
+    unpack_failed = "unpack_failed"
+    pull_failed = "pull_failed"
+    blocklisted = "blocklisted"
+    admin = "admin"
+    not_checked = "not_checked"
+
+
+class State(Enum):
+    queued = "queued"
+    checking = "checking"
+    ready = "ready"
+    blocked = "blocked"
+    failed = "failed"
+
+
+class Code(Enum):
+    secret = "secret"
+    vulnerabilities = "vulnerabilities"
+    root_user = "root_user"
+    no_shell = "no_shell"
+
+
+class ImageWarning(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    code: Code
+    message: str
+
+
 class InboxItem(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -598,6 +659,30 @@ class Lowers(BaseModel):
     )
     count: int | None = None
     kind: str
+
+
+class NewImage(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    reference: Annotated[
+        str,
+        Field(
+            examples=["pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"],
+            max_length=512,
+            min_length=0,
+        ),
+    ]
+    registry_token: Annotated[
+        str | None,
+        Field(
+            alias="registryToken",
+            description="A read-only token. Never shown back.",
+            max_length=4096,
+            min_length=0,
+        ),
+    ] = None
+    registry_username: Annotated[str | None, Field(alias="registryUsername", max_length=255, min_length=0)] = None
 
 
 class NewTicket(BaseModel):
@@ -861,6 +946,9 @@ class Type(Enum):
     field_problems_nothing_to_refund = "/problems/nothing-to-refund"
     field_problems_billing_details_required = "/problems/billing-details-required"
     field_problems_pan_required = "/problems/pan-required"
+    field_problems_verified_pan_required = "/problems/verified-pan-required"
+    field_problems_image_not_ready = "/problems/image-not-ready"
+    field_problems_image_blocked = "/problems/image-blocked"
     field_problems_payouts_unavailable = "/problems/payouts-unavailable"
     field_problems_pan_not_verified = "/problems/pan-not-verified"
     field_problems_pan_already_verified = "/problems/pan-already-verified"
@@ -1162,6 +1250,9 @@ class SessionResponse(BaseModel):
     gpu: SessionGpu | None = None
     host_id: Annotated[UUID | None, Field(alias="hostId")] = None
     id: UUID
+    image: str
+    image_download: Annotated[ImageDownload | None, Field(alias="imageDownload")] = None
+    image_id: Annotated[UUID | None, Field(alias="imageId")] = None
     inputs: dict[str, SessionInputView]
     low_credit: Annotated[bool, Field(alias="lowCredit")]
     max_price_paise_per_min: Annotated[int, Field(alias="maxPricePaisePerMin")]
@@ -1510,6 +1601,44 @@ class VramFromInputView(BaseModel):
     per_gb_mb: Annotated[int, Field(alias="perGbMb")]
 
 
+class VulnerabilityCounts(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    critical: int
+    high: int
+    low: int
+    medium: int
+
+
+class Severity(Enum):
+    critical = "CRITICAL"
+    high = "HIGH"
+    medium = "MEDIUM"
+    low = "LOW"
+    unknown = "UNKNOWN"
+
+
+class VulnerabilityEntry(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    fixed: str
+    id: str
+    installed: str
+    package_name: Annotated[str, Field(alias="packageName")]
+    severity: Severity
+    title: str
+
+
+class VulnerabilityList(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    counts: VulnerabilityCounts
+    vulnerabilities: list[VulnerabilityEntry]
+
+
 class Wait(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1650,6 +1779,26 @@ class HostResponse(BaseModel):
     update_required: Annotated[bool, Field(alias="updateRequired")]
     update_waiting: Annotated[bool, Field(alias="updateWaiting")]
     upload_cap_kbps: Annotated[int | None, Field(alias="uploadCapKbps")] = None
+
+
+class ImageResult(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    checked_at: Annotated[AwareDatetime, Field(alias="checkedAt")]
+    cmd: list[str]
+    compressed_bytes: Annotated[int, Field(alias="compressedBytes")]
+    cuda_needed: Annotated[str | None, Field(alias="cudaNeeded")] = None
+    digest: str
+    entrypoint: list[str]
+    has_shell: Annotated[bool, Field(alias="hasShell")]
+    layers: int
+    pinned_reference: Annotated[str, Field(alias="pinnedReference")]
+    unpacked_bytes: Annotated[int, Field(alias="unpackedBytes")]
+    user: str | None = None
+    vulnerabilities: VulnerabilityCounts
+    warnings: list[ImageWarning]
+    working_dir: Annotated[str | None, Field(alias="workingDir")] = None
 
 
 class InvoiceList(BaseModel):
@@ -1814,11 +1963,12 @@ class TemplateResponse(BaseModel):
     default_max_runtime_seconds: Annotated[int, Field(alias="defaultMaxRuntimeSeconds")]
     description: str
     id: str
-    image: str
+    image: str | None = None
     inputs: list[TemplateInput]
     max_runtime_cap_seconds: Annotated[int, Field(alias="maxRuntimeCapSeconds")]
     min_vram_mb: Annotated[int, Field(alias="minVramMb")]
     name: str
+    own_image: Annotated[bool, Field(alias="ownImage")]
     params: list[TemplateParam]
     questions: list[TemplateQuestion]
     service: str
@@ -1887,9 +2037,35 @@ class HostList(BaseModel):
     hosts: list[HostResponse]
 
 
+class ImageResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    checked_at: Annotated[AwareDatetime | None, Field(alias="checkedAt")] = None
+    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
+    detail: str | None = None
+    id: UUID
+    private_registry: Annotated[bool, Field(alias="privateRegistry")]
+    progress: ImageProgress | None = None
+    reason: Reason | None = None
+    reference: str
+    result: ImageResult | None = None
+    state: State
+
+
 class TemplateList(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
     services: list[ServiceResponse]
     templates: list[TemplateResponse]
+
+
+class ImageList(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    can_use: Annotated[bool, Field(alias="canUse")]
+    images: list[ImageResponse]
+    platform: str
+    why_not: Annotated[str | None, Field(alias="whyNot")] = None

@@ -3,6 +3,7 @@ package com.idleo.controlplane.scheduling.internal;
 import com.idleo.controlplane.sessions.PriceCeilings;
 import java.util.List;
 import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,8 +21,8 @@ class FittingPrices implements PriceCeilings {
     }
 
     @Override
-    public OptionalInt highestFitting(int vramNeededMb, int diskNeededMb) {
-        return candidates.free(Integer.MAX_VALUE, vramNeededMb, diskNeededMb, List.of()).stream()
+    public OptionalInt highestFitting(int vramNeededMb, int diskNeededMb, @Nullable String cudaNeeded) {
+        return candidates.free(Integer.MAX_VALUE, vramNeededMb, diskNeededMb, cudaNeeded, List.of()).stream()
                 .mapToInt(candidate -> candidate.pricePaisePerMin())
                 .max();
     }

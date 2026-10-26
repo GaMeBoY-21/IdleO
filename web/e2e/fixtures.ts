@@ -181,6 +181,7 @@ const BUDGET = { budgetChips: [5_000, 10_000, 50_000], defaultBudgetPaise: 10_00
 export const templateList: Template[] = [
   {
     id: "qlora-finetune",
+    ownImage: false,
     service: "fine-tune",
     name: "Fine-tune your model (LoRA)",
     description: "Bring your model and your examples; you get back a LoRA adapter for your model.",
@@ -289,6 +290,7 @@ export const templateList: Template[] = [
   },
   {
     id: "run-python",
+    ownImage: false,
     service: "run-code",
     name: "Run your Python project",
     description:
@@ -353,7 +355,63 @@ export const templateList: Template[] = [
     youGet: "whatever your code writes to outputs/",
   },
   {
+    id: "custom-image",
+    ownImage: true,
+    service: "run-code",
+    name: "Use my own image",
+    description:
+      "Bring your own container image; we check it, run your command (or the image's own) on a GPU, and you get back what it writes to /work/outputs.",
+    image: null,
+    minVramMb: 4_096,
+    defaultMaxRuntimeSeconds: 10_800,
+    maxRuntimeCapSeconds: 43_200,
+    typicalRuntimeSeconds: null,
+    params: [
+      {
+        name: "command",
+        label: "Command",
+        help: "What to run in your image, with /bin/sh -c, from its own working directory. Leave it empty to run the image's own entrypoint and command.",
+        type: "string",
+        group: "basic",
+        required: false,
+        defaultValue: null,
+        maxLength: 1000,
+        choices: [],
+      },
+    ],
+    inputs: [
+      {
+        name: "files",
+        label: "Your files",
+        help: "A folder your job reads, if it needs one. It's at /work/input/files/ (SESSION_INPUT_FILES_DIR).",
+        kind: "folder",
+        upload: true,
+        link: false,
+        required: false,
+        maxSizeBytes: 40 * GIB,
+        mustContain: [],
+      },
+    ],
+    questions: [
+      question("command", "Command"),
+      {
+        kind: "gpu_memory",
+        name: null,
+        label: "GPU memory you need",
+        help: null,
+        options: [],
+        defaultOption: null,
+        param: null,
+        choicesGb: [8, 12, 16, 24],
+        defaultGb: 8,
+      },
+    ],
+    ...BUDGET,
+    youGet: "whatever your job writes to /work/outputs",
+  },
+  {
     id: "echo-input",
+    ownImage: false,
     service: "diagnostics",
     name: "Echo an input",
     description: "Reads its input and parameters back, proving the job saw them exactly.",
@@ -406,6 +464,7 @@ export const templateList: Template[] = [
   },
   {
     id: "cuda-smoke-test",
+    ownImage: false,
     service: "diagnostics",
     name: "CUDA smoke test",
     description: "Checks the GPU answers and CUDA works, in about 20 seconds.",
@@ -620,6 +679,7 @@ function build(spec: Spec): Built {
       attempt: spec.moved ? 2 : 1,
       errorCode: spec.state === "FAILED" ? (spec.errorCode ?? spec.endReason ?? "job_failed") : null,
       templateId: template.id,
+      image: template.image ?? "ghcr.io/asha/train@sha256:" + "a".repeat(64),
       hostId: started !== null && live ? "01a11300-0000-7000-8000-0000000000aa" : null,
       pricePaisePerMin: spec.state === "REQUESTED" || spec.state === "NO_HOST_FREE" ? null : price,
       maxPricePaisePerMin: maxPrice,

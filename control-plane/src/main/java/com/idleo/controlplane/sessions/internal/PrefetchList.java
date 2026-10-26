@@ -27,7 +27,8 @@ class PrefetchList implements ImagesToPrefetch {
                 .toList();
         var least = new LinkedHashMap<String, Integer>();
         for (var template : catalog.all()) {
-            if (visible.contains(template.service())) {
+            // A renter's own image is never fetched ahead (ADR 0042): it's pulled for its session and deleted after.
+            if (visible.contains(template.service()) && template.image() != null) {
                 least.merge(template.image(), template.minVramMb(), Math::min);
             }
         }

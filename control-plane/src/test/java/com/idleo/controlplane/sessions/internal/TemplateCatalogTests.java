@@ -497,7 +497,7 @@ class TemplateCatalogTests {
                     .as("development.yaml's %s", service.id())
                     .isEqualTo(service);
             assertThat(development.templates().values())
-                    .filteredOn(template -> template.service().equals(service.id()))
+                    .filteredOn(template -> template.service().equals(service.id()) && !template.ownImage())
                     .singleElement()
                     .satisfies(template -> {
                         assertThat(template.args()).containsSubsequence("--simulate", service.id());
@@ -510,6 +510,33 @@ class TemplateCatalogTests {
                 .filter(service -> production.services().containsKey(service.id()))
                 .forEach(service ->
                         assertThat(service).isEqualTo(production.services().get(service.id())));
+        // The renter's own image (ADR 0042) is the same template everywhere: its image is checked for real on any
+        // stack.
+        assertThat(development.templates().get("custom-image"))
+                .isEqualTo(production.templates().get("custom-image"));
+    }
+
+    /** A template that runs the renter's own image names none and passes it no arguments (ADR 0042). */
+    @Test
+    void theOwnImageTemplateNamesNoImage() throws Exception {
+        TemplateCatalog.Parsed production;
+        try (var in = Files.newInputStream(Path.of("../templates/catalog.yaml"))) {
+            production = TemplateCatalog.read(in);
+        }
+        var own = production.templates().get("custom-image");
+        assertThat(own.ownImage()).isTrue();
+        assertThat(own.image()).isNull();
+        assertThat(own.args()).isEmpty();
+        assertThat(own.service()).isEqualTo("run-code");
+        assertThat(own.params()).extracting(Template.Param::name).containsExactly(OwnImageJobs.COMMAND);
+        assertThat(own.params().getFirst().defaultValue())
+                .as("empty runs the image's own")
+                .isNull();
+        assertThat(parse(entry("own_image=true;image=<none>")).get("smoke").ownImage())
+                .isTrue();
+        for (var bad : new String[] {"own_image=true", "own_image=true;image=<none>;args=[x]"}) {
+            assertThatThrownBy(() -> parse(entry(bad))).hasMessageContaining("own_image names no image and no args");
+        }
     }
 
     /**
@@ -539,7 +566,10 @@ class TemplateCatalogTests {
                         .filter(service -> !service.hidden())
                         .toList());
         assertThat(real.services().get("developer-tests").hidden()).isTrue();
-        assertThat(real.templates()).containsOnlyKeys("fine-tune-qlora", "run-your-code", "hostile-test");
+        assertThat(real.templates())
+                .containsOnlyKeys("fine-tune-qlora", "run-your-code", "custom-image", "hostile-test");
+        assertThat(real.templates().get("custom-image"))
+                .isEqualTo(production.templates().get("custom-image"));
         var pairs = java.util.Map.of("fine-tune-qlora", "fine-tune-simulated", "run-your-code", "run-code-simulated");
         pairs.forEach((realId, simulatedId) -> {
             var a = real.templates().get(realId);

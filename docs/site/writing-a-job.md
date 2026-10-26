@@ -90,6 +90,24 @@ out.mkdir(parents=True, exist_ok=True)
 
 You are only charged for minutes your job ran on a GPU while it was held for you, by the minute, up to the spending cap you set. Nothing runs, and nothing is charged, after it ends.
 
+## Bring your own image
+
+If your code already lives in a container image with its libraries and CUDA baked in, you can run that image instead of ours: Book, Run your code, **Use my own image**. You need a verified PAN first (Hosting, Payout details); until then the page says so.
+
+1. **Give its reference**, a tag or a digest: `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime`, `ghcr.io/you/train:v3`, `nvcr.io/nvidia/pytorch:24.10-py3`. From a private registry, give a user name and a **read-only** token that can read only that repository. We keep the token sealed, use it only to download your image, and delete it after 30 days unused. The host your session runs on receives it for that one download.
+2. **We check it** on our server before it can reach anyone's machine, usually in a few minutes. It must be `linux/amd64`, at most 15 GB compressed and 127 layers. It's blocked if it can't be downloaded or read, or if any program in any layer is on our list of software that isn't allowed (the acceptable use policy). You also see, without being blocked: its known vulnerabilities (with the full list), anything that looks like a secret baked into it ("Your image seems to contain an AWS key in /app/.env. Anyone with this image can read it."), and whether it runs as root.
+3. **Book it**, with a command or without one. A command runs with `/bin/sh -c` in your image's own working directory; left empty, your image's own entrypoint and command run.
+
+What it runs on, and how:
+
+- **The image you checked, exactly.** We resolve your tag to a digest when we check it, and every session runs that digest. Pushing to the tag again changes nothing until you check it again.
+- **A host whose driver runs your CUDA.** We read the CUDA version your image needs (`NVIDIA_REQUIRE_CUDA`, else `CUDA_VERSION`) and only offer your session to GPUs whose driver supports it. An image that names no CUDA version runs anywhere.
+- **The same sandbox as every job:** user 10001 (not root, whatever your `USER` says), a read-only root file system with a writable `/tmp` and `/work`, no capabilities, and only the internet. Write to `/work` (and your outputs to `$SESSION_OUTPUT_DIR`), not into your image's own folders. Everything under "What your code is given" and "Checkpoints" above holds: `SESSION_*` variables, your files in `/work/input/files/`, checkpoints and outputs.
+- **Downloaded at the start, never charged.** The session shows "Downloading your image · 3.1 of 8.4 GB" first. The download isn't charged and doesn't count against your maximum time. If it doesn't finish within 20 minutes the session ends, uncharged. Bring models and data as inputs rather than baking them in: a smaller image starts sooner.
+- **Deleted from the host afterwards.** Your image may hold your code, so it's removed from the host's machine when the session ends. A run again downloads it again.
+
+If a newer check of our list blocks an image you've already checked, it can't start new sessions, sessions of it that hadn't started are cancelled without charge, and we tell you. Account, My images lists your images, what each check found, and lets you remove one.
+
 ## Seeing what happened
 
 `idleo logs <session>` (or the Logs on the session's page) shows the log; `idleo outputs <session> --download <folder>` fetches the outputs. The [command line](/docs/cli/) and the [Python SDK](/docs/sdk/) do the same from your scripts.

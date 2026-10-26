@@ -16,8 +16,9 @@ import tools.jackson.databind.json.JsonMapper;
  *     is newer
  * @param bytes the list exactly as signed, which is what agents verify again
  * @param learned the SHA-256 of each build an admin confirmed from a review item
+ * @param programs the SHA-256 of every program the list names by hash: its {@code hashes} and its {@code learned}
  */
-record BlocklistFile(String version, byte[] bytes, byte[] signature, Set<String> learned) {
+record BlocklistFile(String version, byte[] bytes, byte[] signature, Set<String> learned, Set<String> programs) {
 
     static final String KEY = ReleaseManifest.CHANNEL + "/blocklist.json";
     static final String SIGNATURE_KEY = KEY + ".sig";
@@ -33,6 +34,7 @@ record BlocklistFile(String version, byte[] bytes, byte[] signature, Set<String>
         bytes = bytes.clone();
         signature = signature.clone();
         learned = Set.copyOf(learned);
+        programs = Set.copyOf(programs);
     }
 
     @Override
@@ -73,7 +75,15 @@ record BlocklistFile(String version, byte[] bytes, byte[] signature, Set<String>
             }
             learned.add(sha256);
         }
-        return new BlocklistFile(version, bytes, signature, learned);
+        var programs = new HashSet<>(learned);
+        for (var entry : root.path("hashes")) {
+            var sha256 = entry.path("sha256").asString("");
+            if (!SHA256.matcher(sha256).matches()) {
+                throw new ReleaseManifest.Rejected("a hashes entry's sha256 isn't 64 lower-case hex digits");
+            }
+            programs.add(sha256);
+        }
+        return new BlocklistFile(version, bytes, signature, learned, programs);
     }
 
     static boolean isVersion(String text) {

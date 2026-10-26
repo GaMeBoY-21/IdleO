@@ -62,6 +62,42 @@ services:
       - registry-data:/var/lib/registry
     ports:
       - "${LOCAL_REGISTRY_BIND:-127.0.0.1}:${LOCAL_REGISTRY_PORT:-5000}:5000"
+    # Also on the scanner's own network, under the name a development distribution maps to it, so a renter's own image
+    # pushed here (registry.idleo.test:5000/...) is checked by the scanner and pulled by the runner by one reference.
+    networks:
+      default: {}
+      scanner:
+        aliases: [registry.idleo.test]
+  scanner:
+    # The image scanner (scanner/, ADR 0042): checks renters' own images before they reach a host. As in production, it
+    # runs as 10001 on a read-only root with every capability dropped and limits of its own, writes only its scratch and
+    # Trivy's cache, and holds no database address or storage key: it's on a network of its own with only the
+    # development registry, and reaches the control plane's internal port (images.scanner.port, on this machine) with
+    # its token. Started by the stack scripts (stack_start_scanner), never by the control plane.
+    build: ../scanner
+    image: idleo-scanner:development
+    profiles: [scanner]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 256
+    tmpfs:
+      - /tmp:size=64m
+    environment:
+      SCANNER_CONTROL_PLANE: http://host.docker.internal:${IMAGES_SCANNER_PORT:-8095}/
+      SCANNER_TOKEN: ${IMAGES_SCANNER_TOKEN:-}
+      SCANNER_ALLOW_PRIVATE: ${SCANNER_ALLOW_PRIVATE:-registry.idleo.test}
+      SCANNER_POLL_SECONDS: "1"
+      SCANNER_TRIVY_OFFLINE: ${SCANNER_TRIVY_OFFLINE:-0}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - scanner-scratch:/scratch
+      - idleo-trivy-cache:/cache
+    networks: [scanner]
   sign-in:
     # A development sign-in server (navikt/mock-oauth2-server) issuing ID tokens
     # shaped like Identity Platform's for invented users (ADR 0013). The local
@@ -119,3 +155,11 @@ services:
 
 volumes:
   registry-data:
+  scanner-scratch:
+  # Trivy's vulnerability database, kept across stacks so each doesn't download it again (stack_start_scanner makes it).
+  idleo-trivy-cache:
+    external: true
+
+networks:
+  default: {}
+  scanner: {}

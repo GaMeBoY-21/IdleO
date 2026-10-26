@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.images.CheckedImages;
 import com.idleo.controlplane.sessions.SessionBookings;
 import java.util.Collection;
 import java.util.HashSet;
@@ -50,7 +51,10 @@ class SessionBookingService implements SessionBookings {
                                 session.vramNeededMb(),
                                 diskNeededMb(session),
                                 session.maxPricePaisePerMin(),
-                                session.maxSpendPaise())));
+                                session.maxSpendPaise(),
+                                jobs.image(session)
+                                        .map(CheckedImages.Image::cudaNeeded)
+                                        .orElse(null))));
     }
 
     private int diskNeededMb(SessionStore.Session session) {
@@ -58,8 +62,9 @@ class SessionBookingService implements SessionBookings {
         return SessionDisk.neededMb(
                 template,
                 jobs.uploads(session).stream()
-                        .mapToLong(named -> named.upload().sizeBytes())
-                        .sum());
+                                .mapToLong(named -> named.upload().sizeBytes())
+                                .sum()
+                        + jobs.imageBytes(session));
     }
 
     @Override

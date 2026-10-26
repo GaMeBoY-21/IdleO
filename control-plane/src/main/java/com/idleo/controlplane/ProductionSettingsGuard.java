@@ -55,7 +55,9 @@ import org.springframework.stereotype.Component;
  *       the GSTIN, legal name and address invoices carry, or TCS on (ADR 0039); and live keys anywhere but prod;
  *   <li>RazorpayX's test keys, an API other than Razorpay's, keys without a webhook secret or account number, live keys
  *       before the CA has confirmed the TDS settings ({@code legal.tds.confirmed}), no PAN key or the tests' one, or the
- *       fake PAN check (ADR 0040); and RazorpayX's live keys anywhere but prod.
+ *       fake PAN check (ADR 0040); and RazorpayX's live keys anywhere but prod;
+ *   <li>an {@code images.platform} other than linux/amd64, any {@code images.dev-registries}, or no scanner token or
+ *       registry-token key, or the tests' (ADR 0042).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -102,7 +104,9 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "identity.admin.totp-key",
             "identity.invite-code-key",
             "notifications.email.webhook-secret",
-            "payouts.pan.key");
+            "payouts.pan.key",
+            "images.scanner.token",
+            "images.registry-token.key");
 
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
@@ -261,6 +265,7 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         }
         problems.addAll(paymentProblems(binder));
         problems.addAll(payoutProblems(binder));
+        problems.addAll(imageProblems(binder));
         new TreeMap<>(PRODUCTION_LIMITS).forEach((name, ceiling) -> {
             var value = binder.bind(name, Integer.class);
             if (value.isBound() && value.get() > ceiling) {
@@ -301,6 +306,32 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             if (binder.bind(field, String.class).orElse("").isBlank()) {
                 problems.add(field + " is missing, and live payments need it on their invoices");
             }
+        }
+        return problems;
+    }
+
+    /**
+     * Renters' own images (ADR 0042): only linux/amd64, no development registry at a private address, and the scanner's
+     * token and the registry tokens' key both set.
+     */
+    static List<String> imageProblems(Binder binder) {
+        var problems = new ArrayList<String>();
+        var platform = binder.bind("images.platform", String.class)
+                .orElse("linux/amd64")
+                .strip();
+        if (!platform.equals("linux/amd64")) {
+            problems.add("images.platform is " + platform + ", not linux/amd64");
+        }
+        if (!binder.bind("images.dev-registries", Bindable.listOf(String.class))
+                .orElse(List.of())
+                .isEmpty()) {
+            problems.add("images.dev-registries names development registries");
+        }
+        if (binder.bind("images.scanner.token", String.class).orElse("").strip().length() < 32) {
+            problems.add("images.scanner.token is missing or shorter than 32 characters");
+        }
+        if (binder.bind("images.registry-token.key", String.class).orElse("").isBlank()) {
+            problems.add("images.registry-token.key is missing");
         }
         return problems;
     }

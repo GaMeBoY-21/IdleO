@@ -5,6 +5,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 pub mod docs;
+pub mod images;
 pub mod keys;
 pub mod login;
 pub mod outputs;

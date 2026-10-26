@@ -72,6 +72,10 @@ stack_start_control_plane() {
       IDLEO_RELEASE_PUBLIC_KEY="$(tr -d '[:space:]' <"$root/private/release-dev/release.pub")"
     fi
     export IDLEO_RELEASE_PUBLIC_KEY="${IDLEO_RELEASE_PUBLIC_KEY:-}" HOSTS_RELEASES_REFRESH_EVERY=10s
+    # The image scanner's internal API (ADR 0042): this stack's own port, and the token scripts/dev-ca.sh made, which
+    # stack_start_scanner gives the scanner too. A Mac's development distribution runs arm64 images.
+    export IMAGES_SCANNER_PORT="${scanner_port:-8095}" IMAGES_SCANNER_TOKEN="$(stack_scanner_token)"
+    [[ "$(uname -m)" == arm64 ]] && export IMAGES_PLATFORM=linux/arm64
     # Payments (ADR 0039) go to the fake Razorpay when the stack started one, with the fake's own test keys, which no
     # real Razorpay account has; production refuses any API but Razorpay's (ProductionSettingsGuard).
     if [[ -n "${razorpay_port:-}" ]]; then
@@ -128,6 +132,23 @@ stack_start_fake_razorpay() {
     ((SECONDS < deadline)) || fail "the fake RazorpayX didn't answer within 30 s; see $logs_dir/fake-razorpayx.log"
     sleep 0.5
   done
+}
+
+# The scanner's token for this machine's stacks (made by control-plane/scripts/dev-ca.sh beside the development CA).
+stack_scanner_token() {
+  tr -d '[:space:]' <"$root/private/dev-ca/scanner.token"
+}
+
+# Starts the image scanner (ADR 0042, compose.yaml's scanner) for this stack: built from scanner/ (cached when unchanged),
+# talking to this stack's control plane on $scanner_port. Trivy's database is downloaded once into a volume every stack
+# shares. Logs: docker logs <project>-scanner-1.
+stack_start_scanner() {
+  docker volume create idleo-trivy-cache >/dev/null
+  (
+    export COMPOSE_PROJECT_NAME="$compose_project" IMAGES_SCANNER_PORT="${scanner_port:-8095}"
+    export IMAGES_SCANNER_TOKEN="$(stack_scanner_token)"
+    docker compose -f "$root/control-plane/compose.yaml" --profile scanner up -d --build scanner
+  )
 }
 
 # Starts compose.yaml's services (all, or the ones named) before the control plane does, with the settings the control plane

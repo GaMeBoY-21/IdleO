@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as data from "./fixtures";
 import * as admin from "./fixtures-admin";
+import * as images from "./fixtures-images";
 import * as support from "./fixtures-support";
 import * as trust from "./fixtures-trust";
 import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
@@ -54,6 +55,7 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   [`/admin/v1/abuse/${admin.ABUSE_OPEN_ID}`]: { json: admin.abuseDetail },
   [`/admin/v1/abuse/${admin.ABUSE_LEARNABLE_ID}`]: { json: admin.abuseLearnableDetail },
   "/admin/v1/abuse/blocklist-additions": { json: admin.blocklistAdditions },
+  "/admin/v1/images": { json: images.adminImages() },
   "/admin/v1/tickets": { json: support.adminTickets() },
   [`/admin/v1/tickets/${support.PRIVACY_TICKET}`]: { json: support.adminThread() },
   [`/admin/v1/users/${data.me().id}/deletion`]: { json: support.adminDeletion() },
@@ -156,7 +158,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(20);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(21);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -935,5 +937,36 @@ test.describe("tickets and notices", () => {
     await page.getByRole("button", { name: "Send it" }).click();
     await expect(page.getByText("Emailed to 1.")).toBeVisible();
     expect(sent).toMatchObject({ userIds: [data.me().id], subject: "About your account" });
+  });
+});
+
+test.describe("renters' own images", () => {
+  test("lists every submission with what its check found, and blocks one after a reason", async ({
+    page,
+  }, info) => {
+    let blocked: Record<string, unknown> | null = null;
+    await open(page, "/admin/images/", {
+      [`/admin/v1/images/${images.readyImage.id}/block`]: (_call, request) => {
+        blocked = request.postDataJSON() as Record<string, unknown>;
+        return { json: {}, status: 204 };
+      },
+    });
+    await expect(page.getByRole("heading", { level: 1, name: "Images" })).toBeVisible();
+    const table = page.getByRole("table", { name: "Images" });
+    await expect(table).toContainText("ghcr.io/asha/train:v3");
+    await expect(table).toContainText("private registry");
+    await expect(table).toContainText("blocklisted");
+    await expectAccessible(page);
+    await capture(page, info, "admin-images");
+    await table.getByRole("button", { name: new RegExp(`Block ${images.readyImage.id}`) }).click();
+    await page.getByLabel("Reason").fill("a renter reported it as a miner");
+    await page.getByRole("button", { name: "Block", exact: true }).last().click();
+    await expect.poll(() => blocked).toMatchObject({ reason: "a renter reported it as a miner" });
+  });
+
+  test("says when no image has been submitted", async ({ page }) => {
+    await open(page, "/admin/images/", { "/admin/v1/images": { json: { items: [], nextCursor: null } } });
+    await expect(page.getByText("Nothing here")).toBeVisible();
+    await expectAccessible(page);
   });
 });

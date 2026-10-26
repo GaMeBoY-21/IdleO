@@ -64,8 +64,8 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 
 | Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
 | --- | --- | --- | --- | --- | --- | --- |
-| `sessions.sessions` | id, renter_id, host_id, type, state, attempt, template_id, image_digest, vram_needed_mb, max_price_paise_per_min, price_paise_per_min, max_spend_paise, max_runtime_seconds, lease_expires_at, idempotency_key, request_hash, state_changed_at, version, created_at, started_at, error_code, **params**, **presets**, checkpoints_deleted_at, files_deleted_at | `renter_id = :user` | sessions: sessions | A session: what ran, on which host, at what price; the parameters are the renter's | A money record: `legal.retention.money-records` | Cleared: parameters and presets emptied, the request's key and hash replaced; kept as a money record |
-| `sessions.attempts` | session_id, attempt, host_id, **gpu_uuids**, command_id, minute_index_base, resume_from_attempt, resume_from_seq, start_delivered_at, created_at, running_at, ended_at, price_paise_per_min, stop_requested_at, stop_reason, stop_deadline, grants_minted_at, refresh_queued_at, latest_log_seq, lost_reason | `session_id in (:sessions)` | — | Each attempt's host and times, the basis of a charge | A money record | Kept: no personal data but the GPUs' uuids, emptied when their machines' owner is erased |
+| `sessions.sessions` | id, renter_id, host_id, type, state, attempt, template_id, image_digest, vram_needed_mb, max_price_paise_per_min, price_paise_per_min, max_spend_paise, max_runtime_seconds, lease_expires_at, idempotency_key, request_hash, state_changed_at, version, created_at, started_at, error_code, **params**, **presets**, checkpoints_deleted_at, files_deleted_at, image_id | `renter_id = :user` | sessions: sessions | A session: what ran, on which host, at what price; the parameters are the renter's | A money record: `legal.retention.money-records` | Cleared: parameters and presets emptied, the request's key and hash replaced; kept as a money record |
+| `sessions.attempts` | session_id, attempt, host_id, **gpu_uuids**, command_id, minute_index_base, resume_from_attempt, resume_from_seq, start_delivered_at, created_at, running_at, ended_at, price_paise_per_min, stop_requested_at, stop_reason, stop_deadline, grants_minted_at, refresh_queued_at, latest_log_seq, lost_reason, image_done_bytes, image_total_bytes | `session_id in (:sessions)` | — | Each attempt's host and times, the basis of a charge | A money record | Kept: no personal data but the GPUs' uuids, emptied when their machines' owner is erased |
 | `sessions.session_events` | id, session_id, from_state, to_state, reason, at | `session_id in (:sessions)` | sessions: timeline | The session's timeline | A money record | Kept |
 | `sessions.lease_coverage` | id, session_id, attempt, covered_from, covered_until | `session_id in (:sessions)` | — | The control plane's witness of each minute (ADR 0017) | A money record | Kept |
 | `sessions.checkpoints` | id, session_id, attempt, object_key, step, created_at, completed_at | `session_id in (:sessions)` | files: sessionFiles | Where a checkpoint is | With its objects: `rule: checkpoints` | Deleted with the objects |
@@ -164,6 +164,18 @@ A host's PAN, where their payouts go and the payouts themselves (ADR 0040). The 
 | `notifications.preferences` | user_id, kind, email, in_app, updated_at | `user_id = :user` | messages: choices | What the person chose to be told | The account's life | Deleted |
 | `notifications.email_suppressions` | **address_hash**, reason, event_id, created_at | `address_hash = :address_hash` | — | Addresses that bounced or complained, as SHA-256 only | Until cleared by hand (email.md) | Deleted for the person's address |
 
+### images
+
+Renters' own container images (ADR 0042). A private image's file paths and config are the renter's, so what a check found is theirs too while only their image names its digest.
+
+| Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
+| --- | --- | --- | --- | --- | --- | --- |
+| `images.images` | id, user_id, **reference**, registry, repository, login_id, private, digest, state, reason, detail, attempts, claimed_by, claim_expires_at, phase, done_bytes, total_bytes, created_at, updated_at, checked_at, last_used_at | `user_id = :user` | files: images | Each image a renter submitted, its check and the digest that is the only thing a session of it runs | `rule: images`: 180 days after it was last booked or checked | Deleted |
+| `images.registry_logins` | id, user_id, registry, **username**, **sealed_token**, created_at, last_used_at | `user_id = :user` | files: registryLogins | A private registry's read-only token, sealed under `images.registry-token.key`, opened only to pull; the export has the registry and user name, never the token | `rule: registry-tokens`: 30 days after it was last used, LEGAL(confirm) | Deleted |
+| `images.scans` | digest, compressed_bytes, unpacked_bytes, layers, cuda_require, cuda_version, cuda_needed, **entrypoint**, **cmd**, **working_dir**, image_user, has_shell, critical, high, medium, low, vulnerabilities, **secrets**, trivy_version, checked_at, blocklist_version, blocked_reason, blocked_detail, blocked_at, **blocked_path** | `digest in (select digest from images.images where user_id = :user)` | — | What a digest's check found, cached for every renter who has that image; a secret is its file and kind, never the secret | `rule: image-scans`: 30 days after no renter's image names it | Deleted when no other renter's image names it |
+| `images.scan_executables` | digest, sha256, **path**, layer | `digest in (select digest from images.images where user_id = :user)` | — | Every ELF file's SHA-256, so a newer blocklist judges the image again | With its scan | Deleted with its scan |
+| `images.idempotency_keys` | user_id, idempotency_key, request_hash, state, response_status, response_location, **response_body**, locked_at, created_at, expires_at | `user_id = :user` | — | As identity's (a response never holds the token) | `rule: idempotency-keys` | Deleted |
+
 ### Shared
 
 | Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
@@ -224,7 +236,9 @@ Only state that may expire; never anything financial (ADR 0013).
 | A PAN provider (none chosen yet, ADR 0040) | Once one is: the PAN and the name, to check them | The provider's terms | Not sent anywhere until one is chosen |
 | The person's browser | Upload progress (IndexedDB: file names and parts' ETags), the sign-in SDK's own token store | Until they clear it | Theirs |
 | The command line and SDK (`idleo`) | The key (keychain or a 0600 file), uploads' progress, pending bookings | Until `logout` | Theirs |
-| A host's machine | While a session runs: the renter's inputs, scratch disk (encrypted, ADR 0038) and container | Deleted at session end | Nothing left |
+| A host's machine | While a session runs: the renter's inputs, scratch disk (encrypted, ADR 0038) and container, and the renter's own image (ADR 0042), which may hold their code; the host's image store isn't encrypted | Deleted at session end, the image too | Nothing left |
+| The image scanner (our server, ADR 0042) | A renter's image while it's checked: its blobs on the scanner's own scratch disk, and a private registry's token in memory | Deleted when the check ends | Nothing left |
+| The renter's registry (Docker Hub, GHCR, quay.io, NGC, their own) | Our pulls of their image, with their token for a private one | The registry's terms | Theirs |
 
 ## Retention rules
 
@@ -256,5 +270,8 @@ Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an
 | `abuse-reviews` | A settled review item with its signals and notes | A year after it was settled, LEGAL(confirm) | `legal.retention.abuse-reviews` |
 | `reconciliation-runs` | The nightly wallet check's results but the latest (mismatches name a person by id) | A year | `retention.periods.reconciliation-runs` |
 | `topup-failures` | Failed payments kept for the pause after too many (ADR 0039) | 30 days | `retention.periods.topup-failures` |
+| `registry-tokens` | A private registry's sealed token (ADR 0042) | 30 days after it was last used, LEGAL(confirm) | `legal.retention.registry-tokens` |
+| `images` | A renter's own image and its check | 180 days after it was last booked or checked | `retention.periods.images` |
+| `image-scans` | What a check found for a digest, with its files' hashes, once no renter's image names it | 30 days | `retention.periods.image-scans` |
 
 Not deleted yet, by decision (ADR 0037): money records and the audit log (`legal.retention.money-records` and `legal.retention.audit-log`, 8 years, LEGAL(confirm)): both are append-only by design, and the first of them reaches its period in 2034; how to delete them then, keeping the ledger balanced and the log trustworthy, is a later decision. Backups delete themselves after `legal.retention.backups` (`ops/backup/`). Valkey's keys expire on their own.

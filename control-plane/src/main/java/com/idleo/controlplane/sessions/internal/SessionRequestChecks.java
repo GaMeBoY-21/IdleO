@@ -3,6 +3,7 @@ package com.idleo.controlplane.sessions.internal;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.ApiProblem.FieldError;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.images.CheckedImages;
 import com.idleo.controlplane.sessions.CreateSessionRequest;
 import com.idleo.controlplane.sessions.SessionRequests;
 import com.idleo.controlplane.sessions.Template;
@@ -27,6 +28,9 @@ import org.springframework.stereotype.Component;
  *   <li>An upload must be the renter's own ({@code not-found} otherwise), ready ({@code upload-not-ready}), and no
  *       larger than the input takes ({@code input-too-large}).
  *   <li>A link must pass {@link InputLinks}. The job fetches it inside its sandbox; the agent never does.
+ *   <li>A template that runs the renter's own image (ADR 0042) needs {@code imageId}: one of theirs, checked and not
+ *       blocked ({@link CheckedImages#forBooking}); any other template takes none. A command typed for an image without
+ *       {@code /bin/sh} is refused, since it couldn't run.
  * </ul>
  */
 @Component
@@ -36,12 +40,19 @@ class SessionRequestChecks implements SessionRequests {
     private final UploadStore uploads;
     private final UploadFileStore files;
     private final SessionStorage storage;
+    private final CheckedImages images;
 
-    SessionRequestChecks(TemplateCatalog catalog, UploadStore uploads, UploadFileStore files, SessionStorage storage) {
+    SessionRequestChecks(
+            TemplateCatalog catalog,
+            UploadStore uploads,
+            UploadFileStore files,
+            SessionStorage storage,
+            CheckedImages images) {
         this.catalog = catalog;
         this.uploads = uploads;
         this.files = files;
         this.storage = storage;
+        this.images = images;
     }
 
     @Override
@@ -74,9 +85,32 @@ class SessionRequestChecks implements SessionRequests {
                 inputs.stream()
                         .map(input -> new SessionStore.Input(input.name(), input.uploadId(), input.url()))
                         .toList());
+        var image = image(renterId, template, request.imageId());
+        if (image != null && !image.hasShell() && OwnImageJobs.command(params) != null) {
+            throw ApiProblem.invalid(
+                    "params." + OwnImageJobs.COMMAND,
+                    "Your image has no /bin/sh, so a typed command can't run; leave it empty to run the image's own.");
+        }
+        long imageBytes = image == null ? 0 : image.compressedBytes() + image.unpackedBytes();
         int disk = SessionDisk.neededMb(
-                template, inputs.stream().mapToLong(Input::uploadBytes).sum());
-        return new Checked(template, vram, disk, maxRuntime, params, presets, inputs, env);
+                template, inputs.stream().mapToLong(Input::uploadBytes).sum() + imageBytes);
+        return new Checked(template, vram, disk, maxRuntime, params, presets, inputs, env, image);
+    }
+
+    /** The renter's own image for a template that runs one; none for any other. */
+    private CheckedImages.@Nullable Image image(UUID renterId, Template template, @Nullable UUID imageId) {
+        if (!template.ownImage()) {
+            if (imageId != null) {
+                throw ApiProblem.invalid(
+                        "imageId", "Template " + template.id() + " runs its own image; leave this out.");
+            }
+            return null;
+        }
+        if (imageId == null) {
+            throw ApiProblem.invalid(
+                    "imageId", "Template " + template.id() + " runs your own image: name one you've checked.");
+        }
+        return images.forBooking(renterId, imageId);
     }
 
     /** The inputs given, checked, in the template's order. */

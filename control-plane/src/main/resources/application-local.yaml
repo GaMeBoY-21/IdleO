@@ -55,6 +55,22 @@ payouts:
     key: file:../private/dev-ca/pan.key
     verifier: fake
 
+# Renters' own images (ADR 0042): tokens sealed under a key scripts/dev-ca.sh makes; the scanner's token is
+# private/dev-ca/scanner.token, which the stack scripts pass to both as IMAGES_SCANNER_TOKEN. The development
+# registry (compose.yaml's registry) is a private address, so it's allowed here; a Mac's development distribution runs
+# arm64 images (stack.sh sets IMAGES_PLATFORM).
+images:
+  platform: ${IMAGES_PLATFORM:linux/amd64}
+  dev-registries:
+    - registry.idleo.test:5000
+    - "localhost:5000"
+    - "registry:5000"
+    # The end-to-end test's private and throttled registries (scripts/e2e/auth-registry.py), reached from the Mac's containers.
+    - "host.docker.internal:5079"
+    - "host.docker.internal:5080"
+  registry-token:
+    key: file:../private/dev-ca/registry-token.key
+
 # Object storage: MinIO from compose.yaml (ADR 0016). A fixed port, because the
 # grants agents get and renters' download links carry this endpoint.
 sessions:

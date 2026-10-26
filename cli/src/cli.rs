@@ -51,6 +51,8 @@ pub enum Command {
     Outputs(OutputsArgs),
     /// Your API keys.
     Keys(KeysArgs),
+    /// Your own container images, and the check each passes before it can run.
+    Images(ImagesArgs),
     /// Print this command line's reference as Markdown, for the docs site.
     #[command(hide = true)]
     Docs(DocsArgs),
@@ -132,6 +134,9 @@ pub struct RunArgs {
     /// Book and print the session's id, without following it.
     #[arg(long)]
     pub detach: bool,
+    /// Your own image to run, by its id from `images` (for `custom-image`): checked and ready.
+    #[arg(long, value_name = "IMAGE_ID")]
+    pub image: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -193,6 +198,39 @@ pub enum KeysCommand {
     },
     /// Revoke a key by its id.
     Revoke { id: String },
+}
+
+#[derive(Debug, Args)]
+pub struct ImagesArgs {
+    #[command(subcommand)]
+    pub command: Option<ImagesCommand>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ImagesCommand {
+    /// Check an image so you can run it: a tag or a digest, like `ghcr.io/you/train:v3`. Needs a verified PAN.
+    Submit {
+        /// The image's reference.
+        reference: String,
+        /// A private registry's user name; its read-only token comes from `IDLEO_REGISTRY_TOKEN` or `--token-stdin`.
+        #[arg(long)]
+        username: Option<String>,
+        /// Read the registry's token from standard input instead of `IDLEO_REGISTRY_TOKEN`.
+        #[arg(long)]
+        token_stdin: bool,
+        /// Wait for the check, showing its progress, then print what it found.
+        #[arg(long)]
+        wait: bool,
+    },
+    /// One image: its check, what it found, and its warnings.
+    Show {
+        id: String,
+        /// Wait until its check is done.
+        #[arg(long)]
+        wait: bool,
+    },
+    /// Remove an image, and its registry token unless another of your images uses it.
+    Remove { id: String },
 }
 
 #[cfg(test)]

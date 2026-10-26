@@ -103,7 +103,7 @@ impl Stream {
 mod tests {
     use super::*;
 
-    const SESSION: &str = r#"{"accruedPaise":0,"attempt":1,"chargedPaise":0,"checkpoints":[],"createdAt":"2026-10-12T10:00:00Z","events":[],"id":"01a10e8e-9c65-7789-a526-473491c82218","inputs":{},"lowCredit":false,"maxPricePaisePerMin":5,"maxRuntimeSeconds":300,"maxSpendPaise":1000,"params":{},"presets":{},"reservedPaise":60,"settled":false,"state":"RUNNING","templateId":"t","vramNeededMb":1024}"#;
+    const SESSION: &str = r#"{"accruedPaise":0,"attempt":1,"chargedPaise":0,"checkpoints":[],"createdAt":"2026-10-12T10:00:00Z","events":[],"id":"01a10e8e-9c65-7789-a526-473491c82218","image":"r/i@sha256:1","inputs":{},"lowCredit":false,"maxPricePaisePerMin":5,"maxRuntimeSeconds":300,"maxSpendPaise":1000,"params":{},"presets":{},"reservedPaise":60,"settled":false,"state":"RUNNING","templateId":"t","vramNeededMb":1024}"#;
 
     fn session_frame() -> String {
         format!("event: session\ndata: {SESSION}\n\n")

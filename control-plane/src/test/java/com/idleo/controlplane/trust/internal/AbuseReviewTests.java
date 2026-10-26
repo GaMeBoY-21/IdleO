@@ -762,6 +762,11 @@ class AbuseReviewTests {
             public java.util.Set<String> learnedBuilds() {
                 return java.util.Set.of("7".repeat(64));
             }
+
+            @Override
+            public java.util.Optional<Programs> programs() {
+                return java.util.Optional.empty();
+            }
         };
         var reading = new LearnedBuilds(jdbcClient, txTemplate, reviews, audit, feed, ids, clock);
 

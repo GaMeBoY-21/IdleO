@@ -39,7 +39,8 @@ class SessionVramTests {
                 List.of(),
                 null,
                 rule,
-                null);
+                null,
+                false);
     }
 
     private static final Template SIZED = fineTune(new Template.VramFromInput("model", 2048, 700));

@@ -70,6 +70,9 @@ Every error from the API is an RFC 9457 problem detail (`application/problem+jso
 | `/problems/nothing-to-refund` | 422 | No bought credit to refund | Only credit you bought can go back, and only to where you paid from; free credit can't be paid out. |
 | `/problems/billing-details-required` | 409 | Billing details needed | Before your first top-up, say which state you're in (and, for a business invoice, your GSTIN): it decides the GST on your invoice. |
 | `/problems/pan-required` | 409 | Verified PAN needed | You've bought more credit this financial year than can be bought without a PAN. Give your PAN in Payout details and buy more once it's verified. |
+| `/problems/verified-pan-required` | 403 | Verify your PAN to use your own image | Your own container images are for renters with a verified PAN. Give yours in Payout details; once it's verified you can check and run your own image. |
+| `/problems/image-not-ready` | 409 | Image not checked yet | The image can't be booked until its check has completed: it's still being checked, the check didn't finish (check it again), or a private image's token was deleted after 30 days unused. |
+| `/problems/image-blocked` | 422 | Image blocked | The image didn't pass its check, or was blocked since: the detail says why. It can't run on IdleO. |
 | `/problems/payouts-unavailable` | 503 | Payouts unavailable | UPI IDs can't be checked just now: payouts aren't set up here, or RazorpayX can't be reached. Nothing changed. Try again later. |
 | `/problems/pan-not-verified` | 409 | PAN not verified yet | A UPI ID is checked against the name on your PAN, so your PAN has to be verified first. |
 | `/problems/pan-already-verified` | 409 | PAN already verified | Your PAN is verified. To change it, write to us from Help. |

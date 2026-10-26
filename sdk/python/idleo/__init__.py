@@ -17,10 +17,11 @@ from typing import Any
 from idleo import errors
 from idleo.client import Client
 from idleo.errors import IdleoError
+from idleo.images import Image, ImageNotChecked
 from idleo.money import paise, rupees
 from idleo.session import Session
 
-__all__ = ["Client", "IdleoError", "Session", "errors", "paise", "rupees"]
+__all__ = ["Client", "IdleoError", "Image", "ImageNotChecked", "Session", "errors", "paise", "rupees"]
 
 
 def __getattr__(name: str) -> Any:

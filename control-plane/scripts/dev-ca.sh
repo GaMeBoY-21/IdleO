@@ -43,16 +43,20 @@ if [[ -z "$openssl_bin" ]]; then
   exit 1
 fi
 
-# The admin console's TOTP key (ADR 0027), the HMAC key for invite and recovery codes (ADR 0024) and the key PANs are
-# sealed under (ADR 0040), beside the CA: kept across --force, since replacing them makes every admin's enrolment and
-# every PAN unreadable and every unused code worthless.
+# The admin console's TOTP key (ADR 0027), the HMAC key for invite and recovery codes (ADR 0024), the key PANs are
+# sealed under (ADR 0040) and the one registry tokens are sealed under (ADR 0042), beside the CA, with the image
+# scanner's token for the control plane's internal API: kept across --force, since replacing them makes every admin's
+# enrolment, every PAN and every token unreadable and every unused code worthless.
 make_admin_totp_key() {
   local name
-  for name in admin-totp.key invite-code.key pan.key; do
+  for name in admin-totp.key invite-code.key pan.key registry-token.key; do
     if [[ ! -s "$out/$name" ]]; then
       (umask 077 && mkdir -p "$out" && "$openssl_bin" rand -base64 32 > "$out/$name")
     fi
   done
+  if [[ ! -s "$out/scanner.token" ]]; then
+    (umask 077 && mkdir -p "$out" && "$openssl_bin" rand -hex 32 > "$out/scanner.token")
+  fi
 }
 
 key() {

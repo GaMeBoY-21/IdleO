@@ -4,6 +4,7 @@ import type { Session } from "@/api/queries";
 import { Tile, TileLabel } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { gigabytes, gpuName, withArticle } from "@/lib/gpu";
+import { downloadLine } from "@/lib/images";
 import { inputLine, type InputFact } from "@/lib/inputs";
 import { CancelAction } from "./Actions";
 import { RailColumns } from "@/components/shell/Layout";
@@ -49,7 +50,9 @@ export function Finding({
           {gpu ?? "Asking the best free GPU for this job. Usually under a minute."}
         </p>
         {/* Always there, so nothing moves when a GPU is found. */}
-        <p className="min-h-6 text-body font-semibold">{found && "Starting…"}</p>
+        <p className="min-h-6 text-body font-semibold">
+          {found && (session.imageDownload ? downloadLine(session.imageDownload) : "Starting…")}
+        </p>
       </div>
     </Tile>
   );
@@ -63,7 +66,11 @@ export function Finding({
           </Row>
         ))}
         {found && <Row done>{`Found ${withArticle(gpuName(found.model))}`}</Row>}
-        <Row done={false}>Nothing is charged until it runs</Row>
+        <Row done={false}>
+          {session.imageId
+            ? "Nothing is charged until it runs, not even your image's download"
+            : "Nothing is charged until it runs"}
+        </Row>
       </ul>
     </Tile>
   );

@@ -9,8 +9,9 @@
 # The production services come first, with exactly catalog.yaml's id, name, tagline,
 # running_label and icon (a control-plane test fails if they differ), so the local stack shows the
 # real wording. Each has one template the development runner simulates (--simulate <kind>): the real
-# template's shape of parameters and input, generated log lines and outputs, never a real model. Then
-# "Test jobs", the templates the end-to-end test books.
+# template's shape of parameters and input, generated log lines and outputs, never a real model. Run your
+# code also has catalog.yaml's custom-image, word for word: its image is the renter's own, checked for real by
+# the scanner; the development runner simulates the job. Then "Test jobs", the templates the end-to-end test books.
 services:
   - id: fine-tune
     name: Fine-tune a model
@@ -153,6 +154,45 @@ templates:
     budget_chips: [5000, 10000, 50000]
     default_budget: 10000
     you_get: whatever your code writes to outputs/
+  # The renter's own container image (ADR 0042), for renters with a verified PAN: the booking names an image whose check
+  # on our server is complete (POST /v1/images), pinned by digest; it's pulled at the start (never charged) and deleted
+  # from the host after. The sandbox and the job contract are the same as for every template.
+  - id: custom-image
+    service: run-code
+    name: Use my own image
+    description: Bring your own container image; we check it, run your command (or the image's own) on a GPU, and you get back what it writes to /work/outputs.
+    own_image: true
+    min_vram_mb: 4096
+    default_max_runtime: 3h
+    max_runtime_cap: 12h
+    memory_mb: 12288
+    cpu_millicores: 6000
+    pids_limit: 512
+    scratch_mb: 20480
+    checkpoint_interval: 5m
+    inputs:
+      - name: files
+        label: Your files
+        help: A folder your job reads, if it needs one. It's at /work/input/files/ (SESSION_INPUT_FILES_DIR).
+        kind: folder
+        accepts: [upload]
+        max_size_gb: 40
+    questions:
+      - param: command
+      - gpu_memory: true
+        label: GPU memory you need
+        choices_gb: [8, 12, 16, 24]
+        default_gb: 8
+    params:
+      - name: command
+        label: Command
+        help: What to run in your image, with /bin/sh -c, from its own working directory. Leave it empty to run the image's own entrypoint and command.
+        type: string
+        group: basic
+        max_length: 1000
+    budget_chips: [5000, 10000, 50000]
+    default_budget: 10000
+    you_get: whatever your job writes to /work/outputs
   - id: cuda-smoke-test
     service: developer-tests
     name: CUDA smoke test (development runner)

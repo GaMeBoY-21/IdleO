@@ -49,9 +49,14 @@ pub async fn run(ctx: &Context, stores: &Stores, args: &RunArgs) -> Result<()> {
     let params = map_params(&args.param, &template.params)?;
     let presets = map_presets(&args.preset, &template.questions)?;
     let shape = Shape::of(args, template)?;
+    let image_id = image_for(args, template)?;
     // The booking's Idempotency-Key comes from what was asked for, never from the upload ids, which a re-run could
     // change: the same command after a lost answer finds the same key, so it never books twice.
-    let asked = asked_for(&template.id, &inputs, &params, &presets, &shape)?;
+    let mut asked = asked_for(&template.id, &inputs, &params, &presets, &shape)?;
+    if let Some(image) = image_id {
+        // The renter's own image is part of what was asked for; without one the key is as it always was.
+        asked = format!("{asked}|image={image}");
+    }
 
     // Uploads first: each folder or file once, in the order the template names its inputs.
     let mut given: HashMap<String, SessionInput> = HashMap::new();
@@ -83,6 +88,7 @@ pub async fn run(ctx: &Context, stores: &Stores, args: &RunArgs) -> Result<()> {
         max_price_paise_per_min: shape.max_price,
         max_runtime_seconds: shape.max_runtime,
         vram_needed_mb: shape.vram_mb,
+        image_id,
     };
     let session = book(ctx, stores, &request, &asked, &uploaded).await?;
     ctx.say(format!(
@@ -98,6 +104,23 @@ pub async fn run(ctx: &Context, stores: &Stores, args: &RunArgs) -> Result<()> {
     match follow(ctx, &id, Show { logs: true }).await? {
         Outcome::Detached => Ok(()),
         Outcome::Settled(settled) => finish(ctx, &settled).await,
+    }
+}
+
+/// The renter's own image for a template that runs one (ADR 0042), from `--image`; none for any other.
+fn image_for(args: &RunArgs, template: &TemplateResponse) -> Result<Option<uuid::Uuid>> {
+    match (&args.image, template.own_image) {
+        (Some(id), true) => id
+            .trim()
+            .parse()
+            .map(Some)
+            .map_err(|_| CliError::usage(format!("{id:?} isn't an image id; see `{BIN_NAME} images`"))),
+        (None, true) => Err(CliError::usage(format!(
+            "{} runs your own image: check one with `{BIN_NAME} images submit REFERENCE --wait`, then give --image ID",
+            template.id
+        ))),
+        (Some(_), false) => Err(CliError::usage(format!("{} runs its own image; leave out --image", template.id))),
+        (None, false) => Ok(None),
     }
 }
 

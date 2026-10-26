@@ -33,6 +33,8 @@ class ProductionSettingsGuardTests {
                         "notifications.email.webhook-secret=whsec_" + PRODUCTION_KEY,
                         "identity.invite-code-key=" + PRODUCTION_KEY,
                         "payouts.pan.key=" + PRODUCTION_KEY,
+                        "images.scanner.token=production-scanner-token-0123456789abcdef",
+                        "images.registry-token.key=" + PRODUCTION_KEY,
                         "identity.provider-admin.credentials=file:/run/secrets/identity-provider-admin.json",
                         "legal.grievance.name=Asha Rao",
                         "legal.grievance.email=grievance@idleo.in",
@@ -200,6 +202,20 @@ class ProductionSettingsGuardTests {
         }
         prod("identity.issuers[0].issuer-uri=" + GOOGLE, "identity.admin.totp-key=" + PRODUCTION_KEY)
                 .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void prodRefusesAnotherImagePlatformDevelopmentRegistriesAndNoScannerTokenOrRegistryTokenKey() {
+        for (var setting : new String[][] {
+            {"images.platform=linux/arm64", "images.platform is linux/arm64, not linux/amd64"},
+            {"images.dev-registries[0]=registry:5000", "images.dev-registries names development registries"},
+            {"images.scanner.token=short", "images.scanner.token is missing or shorter than 32 characters"},
+            {"images.scanner.token=", "images.scanner.token is missing or shorter than 32 characters"},
+            {"images.registry-token.key=", "images.registry-token.key is missing"},
+        }) {
+            prod("identity.issuers[0].issuer-uri=" + GOOGLE, setting[0])
+                    .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+        }
     }
 
     @Test

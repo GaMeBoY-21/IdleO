@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
  * @param presets the option chosen for each of the template's preset questions, by question name; left out, a
  *     question takes its default option
  * @param inputs what the renter brings, by the template's input names (ADR 0022)
+ * @param imageId the renter's own image to run, checked first, for a template that runs one (ADR 0042); left out for
+ *     every other template
  */
 public record CreateSessionRequest(
         @NotBlank String templateId,
@@ -37,7 +39,9 @@ public record CreateSessionRequest(
 
         @Nullable Map<String, String> presets,
 
-        @Nullable Map<String, @Valid SessionInput> inputs) {
+        @Nullable Map<String, @Valid SessionInput> inputs,
+
+        @Nullable UUID imageId) {
 
     /**
      * One input: exactly one of a ready upload of the renter's, or an https link the job fetches itself inside its

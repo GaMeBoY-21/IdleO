@@ -485,6 +485,38 @@ retention:
     reconciliation-runs: 365d
     # Failed payments, for pausing top-ups after more than 5 in an hour (ADR 0039).
     topup-failures: 30d
+    # A renter's own image and its check, after it was last booked or checked; a check's findings for a digest no
+    # renter's image names any more (ADR 0042).
+    images: 180d
+    image-scans: 30d
+
+# Renters' own images (ADR 0042), checked by the scanner (scanner/) before one can reach a host: one platform, at most
+# max-compressed and max-layers; the scanner stops reading a layer past max-layer-unpacked, or all of them past
+# max-image-unpacked. A host has pull-time-limit to download one at a session's start (uncharged), then the attempt
+# fails. A check may take check-deadline in all; a scanner that stops reporting for claim-lasts loses its claim, and
+# after check-attempts claims the check is failed, not checked. The scanner reaches the internal API only on
+# scanner.port, never routed by the load balancer, with scanner.token (IMAGES_SCANNER_TOKEN, 32 characters or more,
+# required in prod). Registry tokens are sealed under registry-token.key (IMAGES_REGISTRY_TOKEN_KEY, required in prod).
+# dev-registries: registries at a private address that a development stack may use (production refuses any).
+images:
+  platform: linux/amd64
+  # In bytes, 10^9 to a GB as registries and the renter count them (Spring's GB would be 2^30).
+  max-compressed: 15000000000B
+  max-layers: 127
+  max-layer-unpacked: 40000000000B
+  max-image-unpacked: 60000000000B
+  pull-time-limit: 20m
+  check-deadline: 60m
+  check-attempts: 3
+  claim-lasts: 2m
+  sweep-every: 30s
+  recheck-every: 1m
+  dev-registries: []
+  scanner:
+    port: 8095
+    token: ${IMAGES_SCANNER_TOKEN:}
+  registry-token:
+    key: ${IMAGES_REGISTRY_TOKEN_KEY:}
 
 # A person's own data (ADR 0037): an export is made by a job looking every export-sweep-every, kept export-keep (its
 # links to files work as long), and asked for once every export-every; deleting an account is confirmed by an email
@@ -568,6 +600,9 @@ legal:
     behaviour: 90d
     # Review items for software no renter may run, with their signals and notes, once settled. LEGAL(confirm)
     abuse-reviews: 365d
+    # A private registry's read-only token a renter gave for their own image (ADR 0042), sealed: deleted this long after
+    # it was last used to pull. LEGAL(confirm)
+    registry-tokens: 30d
     # Database backups, which can hold an erased person until they age out (ops/backup/, docs/runbooks/backups.md);
     # the privacy notice must say so. Changing it means changing the backup scripts too. LEGAL(confirm)
     backups: 30d

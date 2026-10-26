@@ -101,7 +101,7 @@ mod tests {
             "accruedPaise": 2, "attempt": 1, "chargedPaise": 4, "checkpoints": [], "createdAt": "2026-10-12T10:00:00Z",
             "events": [], "id": "01a10e8e-9c65-7789-a526-473491c82218", "inputs": {}, "lowCredit": false,
             "maxPricePaisePerMin": 5, "maxRuntimeSeconds": 300, "maxSpendPaise": 1000, "params": {}, "presets": {},
-            "reservedPaise": 60, "settled": false, "state": state, "templateId": "t", "vramNeededMb": 1024,
+            "reservedPaise": 60, "settled": false, "state": state, "templateId": "t", "vramNeededMb": 1024, "image": "r/i@sha256:1",
         }))
         .unwrap()
     }

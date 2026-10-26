@@ -372,6 +372,25 @@ public enum Problem {
             "You've bought more credit this financial year than can be bought without a PAN. Give your PAN in Payout "
                     + "details and buy more once it's verified."),
 
+    // Renters' own images (ADR 0042).
+    VERIFIED_PAN_REQUIRED(
+            "verified-pan-required",
+            HttpStatus.FORBIDDEN,
+            "Verify your PAN to use your own image",
+            "Your own container images are for renters with a verified PAN. Give yours in Payout details; once it's "
+                    + "verified you can check and run your own image."),
+    IMAGE_NOT_READY(
+            "image-not-ready",
+            HttpStatus.CONFLICT,
+            "Image not checked yet",
+            "The image can't be booked until its check has completed: it's still being checked, the check didn't "
+                    + "finish (check it again), or a private image's token was deleted after 30 days unused."),
+    IMAGE_BLOCKED(
+            "image-blocked",
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "Image blocked",
+            "The image didn't pass its check, or was blocked since: the detail says why. It can't run on IdleO."),
+
     // Payouts (ADR 0040).
     PAYOUTS_UNAVAILABLE(
             "payouts-unavailable",

@@ -89,6 +89,29 @@ final class TestBookings implements AutoCloseable {
         return id;
     }
 
+    /**
+     * Books the renter's own image ({@code custom-image}, ADR 0042) with {@code params} on a new host; the host accepts.
+     */
+    Booked bookOwnImageAndAccept(TestUser renter, UUID imageId, String params) throws Exception {
+        var host = host();
+        var body = mvc.perform(post("/v1/sessions")
+                        .header("Authorization", renter.bearer())
+                        .header("Idempotency-Key", "\"" + UUID.randomUUID() + "\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"templateId\": \"custom-image\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 10000, "
+                                        + "\"vramNeededMb\": 8192, \"imageId\": \"" + imageId + "\", \"params\": "
+                                        + params + "}"))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        var sessionId = UUID.fromString(JSON.readTree(body).get("id").asString());
+        owners.put(sessionId, renter);
+        host.reply(offerFor(host, sessionId), true, ACCEPT);
+        return new Booked(host, renter, sessionId);
+    }
+
     /** Books a new host for a new renter; the host accepts. */
     Booked bookAndAccept() throws Exception {
         var host = host();

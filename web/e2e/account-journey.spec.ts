@@ -60,7 +60,7 @@ test("a new account enters its invite code, edits its account and signs out", as
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await expect(page.getByText(`${who}@example.com`, { exact: true })).toBeVisible();
   await expect(page.getByText("An email link", { exact: true })).toBeVisible();
-  await expect(page.getByRole("switch")).toHaveCount(30);
+  await expect(page.getByRole("switch")).toHaveCount(32);
   for (const title of ["Stopped for credit or cap", "Host lost", "Machine offline"]) {
     await expect(page.getByRole("switch", { name: `${title}: email` })).toBeDisabled();
     await expect(page.getByRole("switch", { name: `${title}: in the app` })).toBeChecked();

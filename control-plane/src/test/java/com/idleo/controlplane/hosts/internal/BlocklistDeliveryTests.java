@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestReleaseKeys;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -26,7 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class BlocklistDeliveryTests {
 
     private static final Duration WAIT = Duration.ofSeconds(5);
-    private static final String FIRST = "2026-10-25T09:30:00Z";
+    private static final String FIRST = TestBlocklists.FIRST;
     private static final String SECOND = "2026-10-25T10:30:00Z";
 
     @Autowired
@@ -39,9 +38,7 @@ class BlocklistDeliveryTests {
     int grpcPort;
 
     private static byte[] list(String version) {
-        return "{\"version\":\"%s\",\"names\":[],\"hashes\":[],\"pools\":[]}"
-                .formatted(version)
-                .getBytes(StandardCharsets.UTF_8);
+        return TestBlocklists.list(version);
     }
 
     private void publish(String version) {

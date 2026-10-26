@@ -1,18 +1,21 @@
 package com.idleo.controlplane.scheduling.internal;
 
+import com.idleo.controlplane.CudaDrivers;
 import com.idleo.controlplane.agentgateway.AgentPresence;
 import com.idleo.controlplane.hosts.SchedulableHosts;
 import com.idleo.controlplane.sessions.SessionBookings;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
  * Hosts that could take a session (technical design line 352), each fact from the module that owns it:
  * active, listed, not paused and big enough (hosts); online, current, owner away, every GPU below the cap, and room
  * on its disk for the session's files once the owner's share is kept free (agent gateway presence, ADRs 0022, 0023);
- * no live session (sessions); and not already offered this session.
+ * no live session (sessions); not already offered this session; and, for the renter's own image, a GPU whose driver runs
+ * the CUDA version it needs ({@link CudaDrivers}, the same rule as the agent's {@code MIN_NVIDIA_DRIVER}, ADR 0042).
  *
  * <p>These are the scheduler's hard filters, in one place: matching, quotes and availability all use {@link #look}
  * (ADR 0019), so a quote that says a host fits never disagrees with the booking that follows.
@@ -70,18 +73,31 @@ class CandidateFinder {
                 .toList();
     }
 
-    /** Free hosts at or under {@code maxPricePaisePerMin} with at least {@code vramNeededMb} and {@code diskNeededMb}. */
+    /**
+     * Free hosts at or under {@code maxPricePaisePerMin} with at least {@code vramNeededMb} and {@code diskNeededMb}, whose
+     * GPU's driver runs {@code cudaNeeded} when it's set.
+     */
     List<SchedulableHosts.Candidate> free(
-            int maxPricePaisePerMin, int vramNeededMb, int diskNeededMb, Collection<UUID> excluded) {
-        return freeLooked(maxPricePaisePerMin, vramNeededMb, diskNeededMb, excluded).stream()
+            int maxPricePaisePerMin,
+            int vramNeededMb,
+            int diskNeededMb,
+            @Nullable String cudaNeeded,
+            Collection<UUID> excluded) {
+        return freeLooked(maxPricePaisePerMin, vramNeededMb, diskNeededMb, cudaNeeded, excluded).stream()
                 .map(Looked::candidate)
                 .toList();
     }
 
     private List<Looked> freeLooked(
-            int maxPricePaisePerMin, int vramNeededMb, int diskNeededMb, Collection<UUID> excluded) {
+            int maxPricePaisePerMin,
+            int vramNeededMb,
+            int diskNeededMb,
+            @Nullable String cudaNeeded,
+            Collection<UUID> excluded) {
         var listed = hosts.batchCandidates(maxPricePaisePerMin, vramNeededMb).stream()
                 .filter(candidate -> !excluded.contains(candidate.hostId()))
+                .filter(candidate ->
+                        cudaNeeded == null || CudaDrivers.supports(candidate.gpuDriverVersion(), cudaNeeded))
                 .toList();
         return look(listed, diskNeededMb).stream().filter(Looked::free).toList();
     }
@@ -89,7 +105,12 @@ class CandidateFinder {
     /** Candidates, best first. */
     List<Scoring.Scored> find(SessionBookings.BookingRequest request, Collection<UUID> alreadyOffered) {
         var digest = Scoring.digest(request.spec().getImage());
-        return freeLooked(request.maxPricePaisePerMin(), request.vramNeededMb(), request.diskNeededMb(), alreadyOffered)
+        return freeLooked(
+                        request.maxPricePaisePerMin(),
+                        request.vramNeededMb(),
+                        request.diskNeededMb(),
+                        request.cudaNeeded(),
+                        alreadyOffered)
                 .stream()
                 .map(looked -> {
                     var candidate = looked.candidate();

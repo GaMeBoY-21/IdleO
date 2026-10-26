@@ -30,6 +30,7 @@ def template(**over: Any) -> dict[str, Any]:
         "defaultMaxRuntimeSeconds": 600,
         "maxRuntimeCapSeconds": 900,
         "minVramMb": 6144,
+        "ownImage": False,
         "inputs": [
             {
                 "name": "model",
@@ -91,6 +92,7 @@ def session(state: str = "REQUESTED", settled: bool = False, **over: Any) -> dic
     base: dict[str, Any] = {
         "id": "01a10e8e-9c65-7789-a526-473491c82218",
         "templateId": "fine-tune-simulated",
+        "image": "registry.example/tune@sha256:" + "a" * 64,
         "state": state,
         "settled": settled,
         "attempt": 1,

@@ -57,6 +57,18 @@ payouts:
     key: dGVzdHMtb25seS1wYXlvdXRzLXBhbi1rZXktMzJieXQ=
     verifier: fake
 
+# Renters' own images (ADR 0042): the tests' scanner token and registry-token key (the prod profile refuses both), the
+# internal port tests reach through MockMvc, and short claims and sweeps to watch.
+images:
+  claim-lasts: 2s
+  sweep-every: 500ms
+  recheck-every: 500ms
+  scanner:
+    port: 18095
+    token: tests-only-scanner-token-0123456789abcdef
+  registry-token:
+    key: dGVzdHMtb25seS1yZWdpc3RyeS10b2tlbi1rZXktMzI=
+
 # Short enough to watch real Valkey expiry and the hello timeout in tests.
 agentgateway:
   allow-development-hosts: true

@@ -13,6 +13,7 @@ const SECTIONS = [
   { href: "/account/keys/", label: "API keys" },
   { href: "/files/", label: "My files" },
   { href: "/account/reports/", label: "Reports" },
+  { href: "/account/images/", label: "My images" },
   { href: "/account/data/", label: "Your data" },
   { href: "/account/help/", label: "Help" },
 ] as const;

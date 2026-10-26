@@ -26,7 +26,8 @@ class ModularityTests {
                         "trust",
                         "notifications",
                         "privacy",
-                        "support");
+                        "support",
+                        "images");
     }
 
     @Test

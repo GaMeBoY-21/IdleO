@@ -501,6 +501,43 @@ public final class People {
                 host,
                 ts(now));
 
+        // Images (ADR 0042): a private image of theirs, checked, with its registry login (the token sealed) and its
+        // scan.
+        var login = IDS.generate();
+        jdbc.update(
+                "insert into images.registry_logins (id, user_id, registry, username, sealed_token, created_at,"
+                        + " last_used_at) values (?, ?, 'ghcr.io', ?, ?, ?, ?)",
+                login,
+                me,
+                marker,
+                random32(),
+                ts(now),
+                ts(now));
+        var digest = "sha256:" + java.util.HexFormat.of().formatHex(random32());
+        jdbc.update(
+                "insert into images.scans (digest, compressed_bytes, unpacked_bytes, layers, entrypoint, cmd, has_shell,"
+                        + " critical, high, medium, low, vulnerabilities, secrets, trivy_version, checked_at)"
+                        + " values (?, 1000, 3000, 1, '[]', '[\"python\"]', true, 0, 0, 0, 0, '[]', '[]', '0.75.0', ?)",
+                digest,
+                ts(now));
+        jdbc.update(
+                "insert into images.scan_executables (digest, sha256, path, layer) values (?, ?, 'app/run', 0)",
+                digest,
+                java.util.HexFormat.of().formatHex(random32()));
+        jdbc.update(
+                "insert into images.images (id, user_id, reference, registry, repository, login_id, private, digest,"
+                        + " state, created_at, updated_at, checked_at) values (?, ?, ?, 'ghcr.io', ?, ?, true, ?, 'ready',"
+                        + " ?, ?, ?)",
+                IDS.generate(),
+                me,
+                "ghcr.io/" + marker + "/job:v1",
+                marker + "/job",
+                login,
+                digest,
+                ts(now),
+                ts(now),
+                ts(now));
+
         // Support: a message, signed in, about their session.
         mvc.perform(post("/v1/support/tickets")
                         .header("Authorization", user.bearer())

@@ -74,13 +74,15 @@ class TemplateController {
      * @param defaultBudgetPaise the chip chosen at first; null when there are no chips
      * @param vramFromInput how the GPU memory needed grows with the renter's uploaded model; null when it doesn't
      * @param youGet what the renter gets back, in a few words ("A LoRA adapter for your model"); null if it doesn't say
+     * @param image the container image it runs, pinned by digest; null when it runs the renter's own
+     * @param ownImage it runs the renter's own image (ADR 0042): a booking names one by {@code imageId}, checked first
      */
     record TemplateResponse(
             String id,
             String service,
             String name,
             String description,
-            String image,
+            @Nullable String image,
             int minVramMb,
             long defaultMaxRuntimeSeconds,
             long maxRuntimeCapSeconds,
@@ -91,7 +93,8 @@ class TemplateController {
             List<Long> budgetChips,
             @Nullable Long defaultBudgetPaise,
             TemplateViews.@Nullable VramFromInputView vramFromInput,
-            @Nullable String youGet) {
+            @Nullable String youGet,
+            boolean ownImage) {
 
         static TemplateResponse of(Template template) {
             return new TemplateResponse(
@@ -120,7 +123,8 @@ class TemplateController {
                     template.vramFromInput() == null
                             ? null
                             : TemplateViews.VramFromInputView.of(template.vramFromInput()),
-                    template.youGet());
+                    template.youGet(),
+                    template.ownImage());
         }
     }
 

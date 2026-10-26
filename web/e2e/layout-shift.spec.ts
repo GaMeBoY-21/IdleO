@@ -2,6 +2,7 @@ import { expect, test, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import * as credit from "./fixtures-credit";
 import * as hosting from "./fixtures-hosting";
+import * as images from "./fixtures-images";
 import * as privacy from "./fixtures-privacy";
 import * as support from "./fixtures-support";
 import * as trust from "./fixtures-trust";
@@ -51,6 +52,13 @@ const screens = [
   { name: "account", path: "/account/", ready: () => "New device sign-in" },
   { name: "API keys", path: "/account/keys/", ready: () => "Dashboard" },
   { name: "reports", path: "/account/reports/", ready: () => "It ran at the speed of its GPU." },
+  {
+    // A check under way, a ready image with its warnings, a blocked one: each drawn at its own height from the first paint.
+    name: "my images",
+    path: "/account/images/",
+    ready: () => "Downloading your image · 3.1 of 8.4 GB",
+    routes: { "/v1/images": { json: images.imageList() } } as Record<string, Answer>,
+  },
   {
     // The rating and the report arriving as a rated session with a report: the block's height is the same as unrated.
     name: "a completed session already rated and reported",

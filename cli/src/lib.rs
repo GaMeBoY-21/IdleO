@@ -66,6 +66,7 @@ pub async fn execute(cli: Cli) -> Result<()> {
         Command::Cancel(args) => commands::sessions::cancel(&ctx, &args).await,
         Command::Outputs(args) => commands::outputs::outputs(&ctx, &args).await,
         Command::Keys(args) => commands::keys::keys(&ctx, args.command.as_ref()).await,
+        Command::Images(args) => commands::images::images(&ctx, args.command.as_ref()).await,
         Command::Docs(_) => unreachable!("answered before the API is looked up"),
     }
 }

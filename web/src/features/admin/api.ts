@@ -78,6 +78,8 @@ export type AdminPayoutMismatch = Schemas["AdminPayoutMismatch"];
 export type AdminPanReview = Schemas["AdminPanReview"];
 export type AdminUpiReview = Schemas["AdminUpiReview"];
 export type AdminClawback = Schemas["AdminClawback"];
+export type AdminImage = Schemas["AdminImage"];
+export type AdminImageDetail = Schemas["AdminImageDetail"];
 
 let onNotFound: () => void = () => undefined;
 

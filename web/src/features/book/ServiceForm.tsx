@@ -16,6 +16,7 @@ import { ModelLine } from "./ModelLine";
 import { fieldOf } from "./params";
 import { RequestButton } from "./RequestButton";
 import { ServiceHeader } from "./ServiceHeader";
+import { StepImage } from "./StepImage";
 import { StepInput } from "./StepInput";
 import { StepPreset } from "./StepPreset";
 import { StepGpu, StepParam } from "./StepQuestion";
@@ -221,6 +222,8 @@ export function ServiceForm({
       {choice}
       {stepsOf(template).map((step) => {
         switch (step.kind) {
+          case "image":
+            return <StepImage key="image" number={step.number} />;
           case "input":
             return (
               <StepInput

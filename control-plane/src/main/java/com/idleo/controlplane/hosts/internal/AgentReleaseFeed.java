@@ -184,6 +184,12 @@ class AgentReleaseFeed implements AgentReleases, Blocklists, DisposableBean {
         return file == null ? java.util.Set.of() : file.learned();
     }
 
+    @Override
+    public Optional<Blocklists.Programs> programs() {
+        return Optional.ofNullable(blocklist.get())
+                .map(file -> new Blocklists.Programs(file.version(), file.programs()));
+    }
+
     /** Verifies and caches a manifest read from the bucket. */
     void accept(byte[] manifest, byte[] signature) {
         ReleaseManifest verified;

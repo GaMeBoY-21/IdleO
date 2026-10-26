@@ -3,6 +3,7 @@ package com.idleo.controlplane.sessions.internal;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.agentgateway.AgentCommands;
 import com.idleo.controlplane.agentgateway.SessionCredentials;
+import com.idleo.controlplane.images.CheckedImages;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.Session.CheckpointRef;
 import gpu.agent.v1.Session.Credentials;
@@ -26,8 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Starting an attempt (ADR 0016). When a host accepts, the attempt is recorded and its StartSession queued
  * in the same transaction, without credentials. At each delivery the agent gateway asks for credentials
- * through {@link SessionCredentials}: fresh storage grants for the current attempt, never stored. Once the
- * StartSession is on the wire, the agent holds a lease, recorded as the send time plus the lease's length.
+ * through {@link SessionCredentials}: fresh storage grants for the current attempt, and for a renter's own private
+ * image its registry token, opened for this delivery (ADR 0042); none of it is ever stored. Once the StartSession is on
+ * the wire, the agent holds a lease, recorded as the send time plus the lease's length.
  */
 @Component
 @EnableConfigurationProperties(LeaseProperties.class)
@@ -45,6 +47,7 @@ class SessionStarts implements SessionCredentials {
     private final SessionStore store;
     private final LeaseBook leaseBook;
     private final Checkpoints checkpoints;
+    private final CheckedImages images;
 
     SessionStarts(
             JdbcClient jdbc,
@@ -56,7 +59,9 @@ class SessionStarts implements SessionCredentials {
             IdGenerator ids,
             SessionStore store,
             LeaseBook leaseBook,
-            Checkpoints checkpoints) {
+            Checkpoints checkpoints,
+            CheckedImages images) {
+        this.images = images;
         this.jdbc = jdbc;
         this.commands = commands;
         this.jobs = jobs;
@@ -171,11 +176,20 @@ class SessionStarts implements SessionCredentials {
         if (current.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(credentials(
-                sessionId,
-                start.getAttempt(),
-                current.get().resumeAttempt(),
-                current.get().resumeSeq()));
+        var credentials =
+                credentials(
+                        sessionId,
+                        start.getAttempt(),
+                        current.get().resumeAttempt(),
+                        current.get().resumeSeq())
+                        .toBuilder();
+        // The image is pulled once, when the attempt starts: only the StartSession carries its token, never a refresh.
+        store.find(sessionId)
+                .map(SessionStore.Session::imageId)
+                .flatMap(images::pullLogin)
+                .ifPresent(login ->
+                        credentials.setRegistryUsername(login.username()).setRegistryToken(login.token()));
+        return Optional.of(credentials.build());
     }
 
     /** Fresh grants for the attempt: its own folder, and its uploaded inputs and resume checkpoint to read. */

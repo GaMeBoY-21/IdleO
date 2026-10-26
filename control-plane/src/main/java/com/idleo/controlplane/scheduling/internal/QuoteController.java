@@ -71,10 +71,12 @@ class QuoteController {
     @PostMapping
     QuoteResponse create(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody CreateSessionRequest request) {
         var checked = requests.check(user.id(), request, true);
-        int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), checked.vramNeededMb(), checked.diskNeededMb());
+        var cuda = checked.image() == null ? null : checked.image().cudaNeeded();
+        int ceiling =
+                ceilings.ceiling(request.maxPricePaisePerMin(), checked.vramNeededMb(), checked.diskNeededMb(), cuda);
         var hold = reservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
         var available = reservations.available(user.id());
-        var fit = candidates.free(ceiling, checked.vramNeededMb(), checked.diskNeededMb(), List.of());
+        var fit = candidates.free(ceiling, checked.vramNeededMb(), checked.diskNeededMb(), cuda, List.of());
         var prices = fit.stream()
                 .mapToInt(candidate -> candidate.pricePaisePerMin())
                 .sorted()

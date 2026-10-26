@@ -56,6 +56,8 @@ done
 
 http_port=8080
 grpc_port=9443
+# The control plane's internal port for the image scanner (ADR 0042).
+scanner_port=8095
 sign_in_port=8099
 storage_port=9100
 mail_smtp_port=1025
@@ -84,7 +86,7 @@ accounts=("nikki|50000" "nikki-low|100" "nikki-broke|0")
 owner=nikki
 
 # Every service, the observability ones too (compose profile observability), so stopping and wiping reach them all.
-compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/control-plane/compose.yaml" --profile observability "$@"; }
+compose() { COMPOSE_PROJECT_NAME="$compose_project" docker compose -f "$root/control-plane/compose.yaml" --profile observability --profile scanner "$@"; }
 
 # Everything this script starts, by its pid file; the control plane's is a process group.
 stop_all() {
@@ -329,6 +331,8 @@ set +m
 
 wait "$agent_build_pid" || fail "the agent's build failed; see logs/agent-build.log"
 stack_await_control_plane 600
+log "starting the image scanner (docker logs ${compose_project}-scanner-1)"
+stack_start_scanner >>"$out/compose.log" 2>&1 || fail "the image scanner didn't start; see logs/compose.log"
 stack_await_sign_in
 
 # The accounts, idempotently: created by signing in once, credit granted only up to what each should have.

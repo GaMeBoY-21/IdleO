@@ -5,6 +5,7 @@ import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.billing.CreditReservations;
+import com.idleo.controlplane.images.CheckedImages;
 import com.idleo.controlplane.sessions.CreateSessionRequest;
 import com.idleo.controlplane.sessions.PriceCeilings;
 import com.idleo.controlplane.sessions.SessionCancelled;
@@ -41,6 +42,7 @@ class SessionService {
     private final IdGenerator ids;
 
     private final SessionLimits limits;
+    private final CheckedImages images;
 
     SessionService(
             SessionStore store,
@@ -55,8 +57,10 @@ class SessionService {
             ApplicationEventPublisher events,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
-            SessionLimits limits) {
+            SessionLimits limits,
+            CheckedImages images) {
         this.limits = limits;
+        this.images = images;
         this.store = store;
         this.stops = stops;
         this.runningStops = runningStops;
@@ -99,7 +103,11 @@ class SessionService {
                 return repeat(existing.get(), hash);
             }
             limits.checkNewSession(renterId);
-            int ceiling = ceilings.ceiling(request.maxPricePaisePerMin(), vram, checked.diskNeededMb());
+            int ceiling = ceilings.ceiling(
+                    request.maxPricePaisePerMin(),
+                    vram,
+                    checked.diskNeededMb(),
+                    checked.image() == null ? null : checked.image().cudaNeeded());
             var hold = reservations.holdFor(ceiling, Paise.of(request.maxSpendPaise()));
             var available = reservations.available(renterId);
             if (hold.isGreaterThan(available)) {
@@ -117,7 +125,11 @@ class SessionService {
                     SessionState.REQUESTED,
                     1,
                     template.id(),
-                    template.image(),
+                    // A renter's own image runs as checked, pinned by digest (ADR 0042); a new push to its tag never
+                    // changes it.
+                    checked.image() == null
+                            ? Objects.requireNonNull(template.image())
+                            : checked.image().reference(),
                     vram,
                     ceiling,
                     null,
@@ -134,13 +146,17 @@ class SessionService {
                     checked.presets(),
                     checked.inputs().stream()
                             .map(input -> new SessionStore.Input(input.name(), input.uploadId(), input.url()))
-                            .toList());
+                            .toList(),
+                    checked.image() == null ? null : checked.image().id());
             if (!store.insert(session)) {
                 // A concurrent request with the same key got there first.
                 return repeat(store.findByKey(renterId, idempotencyKey).orElseThrow(), hash);
             }
             // Its uploads were just used: each is kept 30 days from now (ADR 0022).
             uploads.used(session.uploadIds(), now, uploadProperties.readyTtl());
+            if (session.imageId() != null) {
+                images.used(session.imageId());
+            }
             events.publishEvent(new SessionRequested(session.id()));
             return new Created(session, true);
         }));
@@ -191,21 +207,33 @@ class SessionService {
             if (session.state() == SessionState.CANCELLED) {
                 return session;
             }
-            var outcome = store.transition(sessionId, SessionEvent.CANCEL, "renter_cancelled", null, SessionStore.KEEP);
-            if (outcome != SessionStore.Outcome.APPLIED) {
+            if (!cancelled(session, "renter_cancelled")) {
                 throw ApiProblem.of(
                         Problem.SESSION_NOT_CANCELLABLE,
                         "A session can't be cancelled once it's " + session.state() + ".");
             }
-            store.endAttempt(sessionId, session.attempt());
-            holds.releaseUnlessMetered(sessionId);
-            if (session.state() == SessionState.PROVISIONING && session.hostId() != null && startDelivered(session)) {
-                // The agent may have started it: tell it to stop rather than wait for the lease.
-                stops.queue(session.hostId(), sessionId, session.attempt(), StopReason.STOP_REASON_RENTER_REQUESTED);
-            }
-            events.publishEvent(new SessionCancelled(sessionId));
             return store.find(sessionId).orElseThrow();
         }));
+    }
+
+    /**
+     * Cancels a session that hasn't run, for {@code reason}, in the caller's transaction: its hold released, nothing billed,
+     * and an agent that may have started it told to stop. False, changing nothing, once it's running or over.
+     */
+    boolean cancelled(SessionStore.Session session, String reason) {
+        var sessionId = session.id();
+        var outcome = store.transition(sessionId, SessionEvent.CANCEL, reason, null, SessionStore.KEEP);
+        if (outcome != SessionStore.Outcome.APPLIED) {
+            return false;
+        }
+        store.endAttempt(sessionId, session.attempt());
+        holds.releaseUnlessMetered(sessionId);
+        if (session.state() == SessionState.PROVISIONING && session.hostId() != null && startDelivered(session)) {
+            // The agent may have started it: tell it to stop rather than wait for the lease.
+            stops.queue(session.hostId(), sessionId, session.attempt(), StopReason.STOP_REASON_RENTER_REQUESTED);
+        }
+        events.publishEvent(new SessionCancelled(sessionId));
+        return true;
     }
 
     private boolean startDelivered(SessionStore.Session session) {
@@ -233,20 +261,23 @@ class SessionService {
                         .append(SessionParams.render(value))
                         .append('\u0000'));
         var canonical = String.join(
-                "|",
-                templateId,
-                // A ceiling left to the server is part of the request as "server", so a retry matches whatever
-                // ceiling the first attempt got.
-                maxPrice == null ? "server" : Integer.toString(maxPrice),
-                Long.toString(maxSpend),
-                Integer.toString(vram),
-                Long.toString(maxRuntime.toSeconds()),
-                params,
-                checked.presets().toString(),
-                checked.inputs().stream()
-                        .map(input -> input.name() + "=" + input.uploadId() + "," + input.url())
-                        .toList()
-                        .toString());
+                        "|",
+                        templateId,
+                        // A ceiling left to the server is part of the request as "server", so a retry matches whatever
+                        // ceiling the first attempt got.
+                        maxPrice == null ? "server" : Integer.toString(maxPrice),
+                        Long.toString(maxSpend),
+                        Integer.toString(vram),
+                        Long.toString(maxRuntime.toSeconds()),
+                        params,
+                        checked.presets().toString(),
+                        checked.inputs().stream()
+                                .map(input -> input.name() + "=" + input.uploadId() + "," + input.url())
+                                .toList()
+                                .toString())
+                // Only a session of the renter's own image names one, so every other request's fingerprint is as it
+                // was.
+                + (checked.image() == null ? "" : "|image=" + checked.image().id());
         try {
             return HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));
