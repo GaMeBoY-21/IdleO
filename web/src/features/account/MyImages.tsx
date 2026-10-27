@@ -43,10 +43,15 @@ export function MyImages() {
       </p>
       {images.data && !images.data.canUse && (
         <Banner tone="info">
-          {images.data.whyNot}{" "}
-          <Link href="/hosting/payout-details/" className="font-semibold underline">
-            Give your PAN
-          </Link>
+          {images.data.whyNot}
+          {images.data.enabled && (
+            <>
+              {" "}
+              <Link href="/hosting/payout-details/" className="font-semibold underline">
+                Give your PAN
+              </Link>
+            </>
+          )}
         </Banner>
       )}
       <Tile as="section" aria-labelledby="images-title" className="flex flex-col gap-1">

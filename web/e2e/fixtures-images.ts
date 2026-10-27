@@ -109,6 +109,7 @@ export const imageList = (
   images: Image[] = [readyImage, downloadingImage, blockedImage, notCheckedImage],
 ): ImageList => ({
   images,
+  enabled: true,
   canUse: true,
   platform: "linux/amd64",
 });
@@ -116,9 +117,19 @@ export const imageList = (
 /** Without a verified PAN: why, and what to do. */
 export const noPan: ImageList = {
   images: [],
+  enabled: true,
   canUse: false,
   whyNot:
     "Your own images are for renters with a verified PAN. Give yours in Payout details (Hosting, Payout details); once it's verified you can check and run your own image.",
+  platform: "linux/amd64",
+};
+
+/** Own images switched off for everyone (`images.enabled` false): nothing to do but wait. */
+export const notEnabled: ImageList = {
+  images: [],
+  enabled: false,
+  canUse: false,
+  whyNot: "Your own images aren't available yet.",
   platform: "linux/amd64",
 };
 

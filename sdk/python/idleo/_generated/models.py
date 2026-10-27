@@ -2066,6 +2066,7 @@ class ImageList(BaseModel):
         populate_by_name=True,
     )
     can_use: Annotated[bool, Field(alias="canUse")]
+    enabled: bool
     images: list[ImageResponse]
     platform: str
     why_not: Annotated[str | None, Field(alias="whyNot")] = None

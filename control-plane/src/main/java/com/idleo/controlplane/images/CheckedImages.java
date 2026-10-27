@@ -37,6 +37,9 @@ public interface CheckedImages {
         }
     }
 
+    /** Whether renters may use their own images at all ({@code images.enabled}); templates that run one are hidden while not. */
+    boolean enabled();
+
     /**
      * The renter's image, if they may book it now: the renter still has a verified PAN, the image is theirs ({@code
      * not-found} otherwise), its check is complete ({@code image-not-ready}), it isn't blocked ({@code image-blocked}), and

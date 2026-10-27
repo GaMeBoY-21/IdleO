@@ -2,6 +2,7 @@ package com.idleo.controlplane;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -205,17 +206,68 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
-    void prodRefusesAnotherImagePlatformDevelopmentRegistriesAndNoScannerTokenOrRegistryTokenKey() {
+    void prodRefusesAnotherImagePlatformAndDevelopmentRegistries() {
         for (var setting : new String[][] {
             {"images.platform=linux/arm64", "images.platform is linux/arm64, not linux/amd64"},
             {"images.dev-registries[0]=registry:5000", "images.dev-registries names development registries"},
-            {"images.scanner.token=short", "images.scanner.token is missing or shorter than 32 characters"},
-            {"images.scanner.token=", "images.scanner.token is missing or shorter than 32 characters"},
-            {"images.registry-token.key=", "images.registry-token.key is missing"},
         }) {
             prod("identity.issuers[0].issuer-uri=" + GOOGLE, setting[0])
                     .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
         }
+    }
+
+    /** The scanner's limits as application.yaml gives them: this runner doesn't read the file. */
+    private static final String[] IMAGE_LIMITS = {
+        "images.max-compressed=15000000000B",
+        "images.max-layers=127",
+        "images.max-layer-unpacked=40000000000B",
+        "images.max-image-unpacked=60000000000B",
+        "images.pull-time-limit=20m",
+        "images.check-deadline=60m",
+        "images.claim-lasts=2m",
+    };
+
+    @Test
+    void prodStartsWithOwnImagesOffAndNeedsNoScannerSecretsForThat() throws IOException {
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "images.scanner.token=", "images.registry-token.key=")
+                .run(context -> assertThat(context).hasNotFailed());
+        var committed = new YamlPropertySourceLoader()
+                .load("application", new ClassPathResource("application.yaml"))
+                .getFirst();
+        assertThat(committed.getProperty("images.enabled")).isEqualTo("${IMAGES_ENABLED:false}");
+    }
+
+    @Test
+    void prodAllowsOwnImagesOnlyWithTheScannersLimitsItsTokenAndTheRegistryTokenKey() {
+        prod(concat("identity.issuers[0].issuer-uri=" + GOOGLE, "images.enabled=true"))
+                .run(context -> assertThat(context).hasNotFailed());
+        for (var setting : new String[][] {
+            {"images.scanner.token=short", "images.scanner.token is missing or shorter than 32 characters"},
+            {"images.scanner.token=", "images.scanner.token is missing or shorter than 32 characters"},
+            {"images.registry-token.key=", "images.registry-token.key is missing"},
+            {"images.max-compressed=0B", "images.max-compressed is missing or zero"},
+            {"images.max-layer-unpacked=0B", "images.max-layer-unpacked is missing or zero"},
+            {"images.max-image-unpacked=0B", "images.max-image-unpacked is missing or zero"},
+            {"images.max-layers=0", "images.max-layers is missing or zero"},
+            {"images.pull-time-limit=0s", "images.pull-time-limit is missing or zero"},
+            {"images.check-deadline=0s", "images.check-deadline is missing or zero"},
+            {"images.claim-lasts=0s", "images.claim-lasts is missing or zero"},
+        }) {
+            prod(concat("identity.issuers[0].issuer-uri=" + GOOGLE, "images.enabled=true", setting[0]))
+                    .run(context -> assertThat(context).hasFailed().getFailure().hasMessageContaining(setting[1]));
+        }
+        // A limit left out altogether is as bad as a zero one.
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "images.enabled=true")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("images.max-compressed is missing or zero"));
+    }
+
+    /** The image limits first, then the settings given, which override them. */
+    private static String[] concat(String... settings) {
+        return java.util.stream.Stream.concat(java.util.Arrays.stream(IMAGE_LIMITS), java.util.Arrays.stream(settings))
+                .toArray(String[]::new);
     }
 
     @Test

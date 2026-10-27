@@ -3,6 +3,7 @@ package com.idleo.controlplane;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +18,7 @@ import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Refuses to start the prod profile with a development setting (ADR 0013). Development-only behaviour is
@@ -311,8 +313,9 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
     }
 
     /**
-     * Renters' own images (ADR 0042): only linux/amd64, no development registry at a private address, and the scanner's
-     * token and the registry tokens' key both set.
+     * Renters' own images (ADR 0042): only linux/amd64 and no development registry at a private address; and, only when
+     * {@code images.enabled}, the scanner's limits (every size, count and time limit set above zero), its token and the
+     * registry tokens' key. Off, production needs none of them.
      */
     static List<String> imageProblems(Binder binder) {
         var problems = new ArrayList<String>();
@@ -326,6 +329,24 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
                 .orElse(List.of())
                 .isEmpty()) {
             problems.add("images.dev-registries names development registries");
+        }
+        if (!binder.bind("images.enabled", Boolean.class).orElse(false)) {
+            return problems;
+        }
+        for (var limit : List.of("max-compressed", "max-layer-unpacked", "max-image-unpacked")) {
+            var size = binder.bind("images." + limit, DataSize.class);
+            if (!size.isBound() || size.get().toBytes() <= 0) {
+                problems.add("images." + limit + " is missing or zero, and images.enabled needs the scanner's limits");
+            }
+        }
+        for (var limit : List.of("pull-time-limit", "check-deadline", "claim-lasts")) {
+            var time = binder.bind("images." + limit, Duration.class);
+            if (!time.isBound() || time.get().isZero() || time.get().isNegative()) {
+                problems.add("images." + limit + " is missing or zero, and images.enabled needs the scanner's limits");
+            }
+        }
+        if (binder.bind("images.max-layers", Integer.class).orElse(0) < 1) {
+            problems.add("images.max-layers is missing or zero, and images.enabled needs the scanner's limits");
         }
         if (binder.bind("images.scanner.token", String.class).orElse("").strip().length() < 32) {
             problems.add("images.scanner.token is missing or shorter than 32 characters");

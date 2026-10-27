@@ -60,6 +60,7 @@ payouts:
 # registry (compose.yaml's registry) is a private address, so it's allowed here; a Mac's development distribution runs
 # arm64 images (stack.sh sets IMAGES_PLATFORM).
 images:
+  enabled: true
   platform: ${IMAGES_PLATFORM:linux/amd64}
   dev-registries:
     - registry.idleo.test:5000

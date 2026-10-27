@@ -499,6 +499,8 @@ retention:
 # required in prod). Registry tokens are sealed under registry-token.key (IMAGES_REGISTRY_TOKEN_KEY, required in prod).
 # dev-registries: registries at a private address that a development stack may use (production refuses any).
 images:
+  # Off until the scanner has been measured on the real server (ADR 0042); IMAGES_ENABLED=true turns it on.
+  enabled: ${IMAGES_ENABLED:false}
   platform: linux/amd64
   # In bytes, 10^9 to a GB as registries and the renter count them (Spring's GB would be 2^30).
   max-compressed: 15000000000B

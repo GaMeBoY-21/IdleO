@@ -89,6 +89,14 @@ test.describe("My images", () => {
     await capture(page, info, "my-images-no-pan");
   });
 
+  test("switched off for everyone, it says so and doesn't ask for a PAN", async ({ page }) => {
+    await fakeApi(page, signedIn({ "/v1/images": { json: images.notEnabled } }));
+    await signIn(page, "asha", "/account/images/");
+    await expect(page.getByText("Your own images aren't available yet.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Give your PAN" })).toHaveCount(0);
+    await expectAccessible(page);
+  });
+
   test("with nothing yet it says how to check one", async ({ page }, info) => {
     await fakeApi(page, signedIn({ "/v1/images": { json: images.imageList([]) } }));
     await signIn(page, "asha", "/account/images/");

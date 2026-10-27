@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.images.CheckedImages;
 import com.idleo.controlplane.sessions.Service;
 import com.idleo.controlplane.sessions.Template;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -19,9 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 class TemplateController {
 
     private final TemplateCatalog catalog;
+    private final CheckedImages images;
 
-    TemplateController(TemplateCatalog catalog) {
+    TemplateController(TemplateCatalog catalog, CheckedImages images) {
         this.catalog = catalog;
+        this.images = images;
     }
 
     /**
@@ -135,6 +138,9 @@ class TemplateController {
     TemplateList list() {
         return new TemplateList(
                 catalog.services().stream().map(ServiceResponse::of).toList(),
-                catalog.all().stream().map(TemplateResponse::of).toList());
+                catalog.all().stream()
+                        .filter(template -> images.enabled() || !template.ownImage())
+                        .map(TemplateResponse::of)
+                        .toList());
     }
 }

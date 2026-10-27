@@ -132,6 +132,10 @@ ImageCheckBacklog fires when the oldest check has waited over 30 minutes.
 - Run your code now shows in the catalog with "Use my own image", even before our job image is published.
 - We must watch: the backlog alert, the scanner's disk, and Trivy's database (it updates itself; a scanner offline for
   days warns with an old list).
+- Own images are off in production (`images.enabled`, default false; `IMAGES_ENABLED=true` turns them on) until the
+  scanner has been measured on the real server in the deployment round. Off, the list says "Your own images aren't
+  available yet", a submission is `not-found`, and the `custom-image` template isn't offered. `ProductionSettingsGuard`
+  allows it on only with every scanner limit set above zero, its token and the registry tokens' key.
 - Open question: whether warning a renter about a secret in their image creates an obligation on us (LEGAL(confirm)).
 - Open question: NVIDIA's container toolkit itself enforces `NVIDIA_REQUIRE_CUDA` against the driver's own CUDA version,
   which is stricter than minor version compatibility for an image built on a newer CUDA 12.x than the driver reports. The

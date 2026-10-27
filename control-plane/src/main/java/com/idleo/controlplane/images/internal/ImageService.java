@@ -60,13 +60,33 @@ class ImageService implements CheckedImages {
         this.clock = clock;
     }
 
+    /** Why nobody can use their own image while {@code images.enabled} is false. */
+    static final String NOT_YET = "Your own images aren't available yet.";
+
+    @Override
+    public boolean enabled() {
+        return properties.enabled();
+    }
+
     /** Whether the renter may use their own images now. */
     boolean allowed(UUID renterId) {
-        return pans.verified(renterId);
+        return enabled() && pans.verified(renterId);
+    }
+
+    /** What the renter would have to do to use their own images, said to them; null when they can. */
+    @Nullable
+    String whyNot(UUID renterId) {
+        if (!enabled()) {
+            return NOT_YET;
+        }
+        return pans.verified(renterId) ? null : WHY_NOT;
     }
 
     private void requireAllowed(UUID renterId) {
-        if (!allowed(renterId)) {
+        if (!enabled()) {
+            throw ApiProblem.of(Problem.NOT_FOUND, NOT_YET);
+        }
+        if (!pans.verified(renterId)) {
             throw ApiProblem.of(Problem.VERIFIED_PAN_REQUIRED, WHY_NOT);
         }
     }

@@ -13,6 +13,8 @@ import org.springframework.validation.annotation.Validated;
 /**
  * Renters' own images (ADR 0042), {@code images.*} in application.yaml.
  *
+ * @param enabled whether renters may use their own images at all: false until the scanner has been measured on the
+ *     server it runs on (production refuses true without the scanner's limits and secrets)
  * @param platform the one platform an image must have: {@code linux/amd64}; a development stack on a Mac runs arm64
  *     (its own distribution can't nest amd64 containers), which production refuses
  * @param maxCompressed the most an image's layers may be together, compressed
@@ -30,6 +32,7 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties("images")
 @Validated
 record ImageProperties(
+        boolean enabled,
         @NotBlank @Pattern(regexp = "linux/(amd64|arm64)") String platform,
         @NotNull DataSize maxCompressed,
         @Min(1) int maxLayers,

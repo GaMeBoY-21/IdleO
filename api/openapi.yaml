@@ -9976,6 +9976,8 @@ components:
       properties:
         canUse:
           type: boolean
+        enabled:
+          type: boolean
         images:
           type: array
           items:
@@ -9988,6 +9990,7 @@ components:
           - "null"
       required:
       - canUse
+      - enabled
       - images
       - platform
     ImageProgress:

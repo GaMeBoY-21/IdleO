@@ -151,10 +151,13 @@ class ImageController {
     /**
      * The renter's images, newest first, and whether they may use their own images at all.
      *
+     * @param enabled whether own images are switched on for everyone yet; when not, {@code canUse} is false whatever the
+     *     renter does
      * @param whyNot what to do to use one, when they can't
      */
     record ImageList(
             List<ImageResponse> images,
+            boolean enabled,
             boolean canUse,
             @Nullable String whyNot,
             String platform) {}
@@ -201,11 +204,11 @@ class ImageController {
 
     @GetMapping
     ImageList mine(@AuthenticationPrincipal CurrentUser user) {
-        var allowed = service.allowed(user.id());
         return new ImageList(
                 service.mine(user.id()).stream().map(this::view).toList(),
-                allowed,
-                allowed ? null : ImageService.WHY_NOT,
+                service.enabled(),
+                service.allowed(user.id()),
+                service.whyNot(user.id()),
                 properties.platform());
     }
 

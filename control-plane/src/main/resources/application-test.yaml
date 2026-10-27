@@ -60,6 +60,7 @@ payouts:
 # Renters' own images (ADR 0042): the tests' scanner token and registry-token key (the prod profile refuses both), the
 # internal port tests reach through MockMvc, and short claims and sweeps to watch.
 images:
+  enabled: true
   claim-lasts: 2s
   sweep-every: 500ms
   recheck-every: 500ms
