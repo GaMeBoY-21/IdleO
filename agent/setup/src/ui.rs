@@ -19,9 +19,9 @@ use crate::windows_system::WindowsSystem;
 const PAGE: &str = include_str!("../assets/index.html");
 const STYLE: &str = include_str!("../assets/style.css");
 const SCRIPT: &str = include_str!("../assets/app.js");
-/// Plus Jakarta Sans, the one face (OFL; its licence is web/public/fonts/LICENSE-PlusJakartaSans.txt, shipped beside
+/// Plus Jakarta Sans, the one face (OFL; its licence is agent/setup/assets/fonts/LICENSE-PlusJakartaSans.txt, shipped beside
 /// the programs in the app zip). Embedded, never fetched.
-const FONT: &[u8] = include_bytes!("../../../web/public/fonts/plus-jakarta-sans-subset.woff2");
+const FONT: &[u8] = include_bytes!("../assets/fonts/plus-jakarta-sans-subset.woff2");
 /// Where Windows' WebView2 runtime is downloaded, for the rare Windows 10 without it.
 const WEBVIEW2_URL: &str = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
 
