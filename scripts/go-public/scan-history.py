@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Lists every file version in a repository's whole history that contains one of the strings on the left side of a
-replacements file (scripts/go-public/replacements.txt). Commit messages and authors are not read here; verify.sh
+replacements file (private/go-public-replacements.txt). Commit messages and authors are not read here; verify.sh
 checks those. Prints `blob-id path string` per hit and exits 1 if there is any.
 
     scan-history.py REPO REPLACEMENTS

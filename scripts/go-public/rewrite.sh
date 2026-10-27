@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Rewrites the repository's history for going public, in a fresh clone. It never touches the repository it is started
 # from. In every commit it:
-#   - removes the private material (docs/plan, docs/prompts, phase0/RESULTS.md and every PDF; they live in idleo-internal),
-#     keeping docs/reference/personal-data-map.md as docs/reference/personal-data-map.md, where it lives now;
-#   - scrubs the strings in scripts/go-public/replacements.txt (real name, machine, serial, addresses);
+#   - removes the private material (docs/plan, docs/prompts, phase0/RESULTS.md and every PDF; they live in idleo-internal);
+#   - scrubs the strings in private/go-public-replacements.txt (real name, machine, serial, addresses; git-ignored);
 #   - makes every author and committer the same name with the GitHub no-reply address ID+LOGIN@users.noreply.github.com.
 # Fill in ID, run it, then run scripts/go-public/verify.sh on the clone and follow the commands this script prints.
 #
@@ -19,8 +18,9 @@ LOGIN=GaMeBoY-21
 here="$(cd "$(dirname "$0")" && pwd)"
 source_repo="${1:-$(git -C "$here" rev-parse --show-toplevel)}"
 clone="${2:-$HOME/idleo-public}"
-replacements="$here/replacements.txt"
+replacements="${GO_PUBLIC_REPLACEMENTS:-$here/../../private/go-public-replacements.txt}"
 
+[[ -f "$replacements" ]] || { echo "$replacements is missing: the list of personal strings (git-ignored)" >&2; exit 1; }
 command -v git-filter-repo >/dev/null || { echo "git-filter-repo isn't installed (brew install git-filter-repo)" >&2; exit 1; }
 [[ "$ID" =~ ^[0-9]+$ ]] || { echo "ID must be the number from: gh api user --jq .id" >&2; exit 1; }
 [[ ! -e "$clone" ]] || { echo "$clone already exists; remove it or pass another folder" >&2; exit 1; }
@@ -40,11 +40,9 @@ git -C "$clone" log --all --format='%ae%n%ce' | sort -u | while IFS= read -r old
   [[ "$old" == "$noreply" ]] || echo "$name <$noreply> <$old>"
 done >"$mailmap"
 
-# The rename comes first, so the personal data map survives the removal of docs/plan.
 (
   cd "$clone"
   git filter-repo --quiet \
-    --path-rename docs/reference/personal-data-map.md:docs/reference/personal-data-map.md \
     --invert-paths \
     --path docs/plan --path docs/prompts --path phase0/RESULTS.md --path-glob '*.pdf' \
     --replace-text "$replacements" \

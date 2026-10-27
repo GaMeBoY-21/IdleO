@@ -11,12 +11,18 @@ cd "$(dirname "$0")/../../agent"
 part="${1:-all}"
 if [[ "$part" == build || "$part" == all ]]; then
   # The repository is public: no real name, machine, serial or address may come back into a tracked file. The strings
-  # are the left side of scripts/go-public/replacements.txt, which the history rewrite scrubs with.
-  grep_args=()
-  while IFS= read -r string; do grep_args+=(-e "$string"); done < <(sed 's/==>.*//' ../scripts/go-public/replacements.txt)
-  if git grep -nIF "${grep_args[@]}" -- .. ':!../scripts/go-public/replacements.txt'; then
-    echo "agent checks: a personal string from scripts/go-public/replacements.txt is back in a tracked file (above)" >&2
-    exit 1
+  # are the left side of private/go-public-replacements.txt (git-ignored: a public list of them would be the leak), so
+  # this runs where that file is and says so where it isn't.
+  personal=../private/go-public-replacements.txt
+  if [[ -f "$personal" ]]; then
+    grep_args=()
+    while IFS= read -r string; do grep_args+=(-e "$string"); done < <(sed 's/==>.*//' "$personal")
+    if git grep -nIF "${grep_args[@]}" -- ..; then
+      echo "agent checks: a personal string from private/go-public-replacements.txt is back in a tracked file (above)" >&2
+      exit 1
+    fi
+  else
+    echo "agent checks: SKIPPED the personal-string check: private/go-public-replacements.txt isn't here"
   fi
   ../scripts/release/source-fingerprint-test.sh
   cargo fmt --all --check

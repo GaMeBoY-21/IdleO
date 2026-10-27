@@ -21,7 +21,7 @@ $moved"
 git -C "$clone" cat-file -e HEAD:docs/reference/personal-data-map.md 2>/dev/null \
   && echo "ok: docs/reference/personal-data-map.md is kept" || fail "docs/reference/personal-data-map.md is missing"
 
-strings="$(python3 -I "$here/scan-history.py" "$clone" "$here/replacements.txt")" \
+strings="$(python3 -I "$here/scan-history.py" "$clone" "${GO_PUBLIC_REPLACEMENTS:-$here/../../private/go-public-replacements.txt}")" \
   && echo "ok: no personal string in any file version" || fail "personal strings in history (blob path string):
 $strings"
 
