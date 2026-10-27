@@ -1,0 +1,18 @@
+title = "IdleO"
+
+[extend]
+useDefault = true
+
+# Fake keys in tests and fixtures, listed file by file so a real secret anywhere else is still found.
+# scripts/go-public/verify.sh runs gitleaks over the whole history with this file.
+[[allowlists]]
+description = "fake keys, tokens and key headers used only by tests, fixtures and the test profile"
+paths = [
+  '''^control-plane/\.env\.example$''',
+  '''^control-plane/src/main/resources/application-test\.yaml$''',
+  '''^control-plane/src/test/java/com/idleo/controlplane/(CreditCommandProcessTests|LogScanTests|ProductionSettingsGuardTests|TestAgent)\.java$''',
+  '''^control-plane/src/test/java/com/idleo/controlplane/identity/internal/(ProviderAccountsTests|TotpTests)\.java$''',
+  '''^scripts/e2e/(make-image\.py|real-runner\.sh)$''',
+  '''^web/e2e/fixtures-admin\.ts$''',
+  '''^web/src/features/account/keys\.test\.tsx$''',
+]
