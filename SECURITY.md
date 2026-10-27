@@ -3,7 +3,10 @@
 If you think you have found a vulnerability in IdleO, please tell us privately.
 Do not open a public issue or pull request about it.
 
-Email **<SECURITY-EMAIL-ADDRESS>** with:
+Use GitHub's private reporting: open this repository's **Security** tab and choose
+**Report a vulnerability**. Only the maintainers can see what you send.
+
+Please include:
 
 - what you found and where (the page, endpoint, or file);
 - the steps to reproduce it;
