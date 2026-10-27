@@ -125,7 +125,7 @@ management:
         liveness:
           include: livenessState
 
-# The renter's request limit (technical design "Limits", ADR 0025): requests a minute for each person (or each
+# The renter's request limit: requests a minute for each person (or each
 # address without a sign-in), counted in Valkey; reads of a session's logs a minute, counted apart so a live log view
 # doesn't use up the rest; CLI sign-ins and host links started an hour from one address; batches of real visits'
 # vitals a minute from one address (ADR 0036).
@@ -187,7 +187,7 @@ hosts:
   link:
     web-app-url: ${HOSTS_LINK_WEB_APP_URL:${IDENTITY_WEB_APP_URL:http://localhost:3000}}
   auto-activate: false
-  # The host score (docs/plan/execution-plan.md "Host score"): every host's score is worked out afresh once a day, and a
+  # The host score: every host's score is worked out afresh once a day, and a
   # host's again after each of its sessions ends or is lost.
   score:
     refresh-cron: "0 30 3 * * *"
@@ -220,7 +220,7 @@ billing:
     max-grant-paise: 500000
     max-wallet-paise: 2000000
   # The platform's commission on session charges, in percent (ADR 0017;
-  # execution plan line 311: test 15–25). The host's share is rounded down.
+  # the plan is to test 15–25). The host's share is rounded down.
   commission-percent: 20
   # The nightly check that every wallet equals the ledger (ADR 0014).
   reconciliation:
@@ -262,7 +262,7 @@ billing:
 # Payouts RazorpayX didn't accept are sent again every send-every; one with no news for poll-after is fetched. A changed
 # UPI ID holds payouts for change-hold; a name match below name-match-threshold goes to an admin; a person may check a
 # UPI ID checks-per-day times a day, and confirm a check within check-valid-for. RazorpayX's charge for a payout is
-# paid by IdleO (fees.paid-by: idleo) or the host (host, host-fee-paise a payout): Nikki's business decision.
+# paid by IdleO (fees.paid-by: idleo) or the host (host, host-fee-paise a payout): the product owner's business decision.
 payouts:
   minimum-paise: 10000
   weekly-cron: "0 0 10 * * MON"
@@ -321,7 +321,7 @@ trust:
     zone: Asia/Kolkata
 
 sessions:
-  # The renter's session limits (technical design "Limits", ADR 0025): new sessions an hour (fewer for an account
+  # The renter's session limits: new sessions an hour (fewer for an account
   # less than a day old) and sessions that haven't ended, counted in PostgreSQL as each is booked.
   limits:
     new-per-hour: 10
@@ -351,7 +351,7 @@ sessions:
   # (or after it completed, if none has), never while a session that hasn't
   # ended uses it: the uploads retention rule, run daily (retention:). An upload is at most max-upload-size, all its files
   # together; a renter holds at most quota in pending and ready uploads
-  # (technical design "Limits").
+  #.
   uploads:
     part-size: 64MB
     link-ttl: 1h
@@ -377,7 +377,7 @@ sessions:
   input-staging-rate: 4MB
   provisioning-sweep-interval: 1s
   # Leases (ADR 0016): every running attempt holds one, 2 minutes for batch
-  # (technical design "Design principles"), counted by the agent from receipt.
+  #, counted by the agent from receipt.
   leases:
     ttl: 2m
     renew-every: 30s
@@ -408,8 +408,8 @@ metering:
     cron: "0 15 3 * * *"
 
 scheduling:
-  # Booking (ADR 0015): offers stay open 10 seconds (technical design line 251),
-  # at most three per session (line 230); the sweeper looks for expired offers
+  # Booking (ADR 0015): offers stay open 10 seconds,
+  # at most three per session; the sweeper looks for expired offers
   # this often.
   offer-ttl: 10s
   max-offers: 3

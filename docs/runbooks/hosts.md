@@ -1,8 +1,8 @@
-# Activating and suspending hosts (by Nikki)
+# Activating and suspending hosts (by the product owner)
 
 The admin console (docs/runbooks/admin.md, Hosts) does the same through the same service, from a browser, and can also revoke a host's certificates.
 
-A host only gets work once it's **active** (ADR 0015). Onboarding's benchmark and canary job (technical design line 667) don't exist yet, so for now an operator activates hosts by command, the same way free credit is granted (docs/runbooks/granting-credits.md):
+A host only gets work once it's **active** (ADR 0015). Onboarding's benchmark and canary job don't exist yet, so for now an operator activates hosts by command, the same way free credit is granted (docs/runbooks/granting-credits.md):
 - every change is an append-only row in `hosts.status_changes`, saying who, why, from and to, and when;
 - asking for a status the host already has changes nothing.
 

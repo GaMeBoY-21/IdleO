@@ -4,13 +4,11 @@
 - **Date:** 2026-10-06
 
 Sources:
-- docs/plan/technical-design.md lines 27, 64, 244, 262, 474–487, 784
 - ADRs 0007, 0010 and 0011
-- docs/prompts/agent-connect.md
 
 ## Context
 
-The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). Now the agent needs its first two jobs from the connection manager row (line 478): enrol with a one-time code, then hold one mutual-TLS stream with heartbeats, reconnects and certificate renewal. It runs on other people's Windows and Linux machines, so its supply chain, its trust rules and how it keeps its private key matter from the first line.
+The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). Now the agent needs its first two jobs from the connection manager row: enrol with a one-time code, then hold one mutual-TLS stream with heartbeats, reconnects and certificate renewal. It runs on other people's Windows and Linux machines, so its supply chain, its trust rules and how it keeps its private key matter from the first line.
 
 ## Decision
 
@@ -22,7 +20,7 @@ The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). 
    - `agent-windows`: the only `unsafe` code (item 13).
 
    The toolchain is pinned in `rust-toolchain.toml` (1.99.0, with rustfmt and clippy), and every dependency in the committed `Cargo.lock`. Clippy runs with `pedantic` and `-D warnings`; an individual lint is allowed only with a comment saying why.
-2. **`protox` instead of `protoc`.** `agent-proto/build.rs` compiles the .proto files with protox, a pure-Rust protobuf compiler, and hands the descriptors to `tonic-prost-build`. No `protoc` on the machine is ever used: Nikki's Anaconda `protoc` can't leak in, and CI needs no protobuf install. The build passes with `PROTOC` pointing at nothing and no `protoc` on `PATH`.
+2. **`protox` instead of `protoc`.** `agent-proto/build.rs` compiles the .proto files with protox, a pure-Rust protobuf compiler, and hands the descriptors to `tonic-prost-build`. No `protoc` on the machine is ever used: the product owner's Anaconda `protoc` can't leak in, and CI needs no protobuf install. The build passes with `PROTOC` pointing at nothing and no `protoc` on `PATH`.
 3. **`cargo deny check`** runs in CI with a committed `deny.toml`:
    - permissive licences only (Apache-2.0, MIT, BSD-3-Clause, ISC, Zlib, Unicode-3.0), so no GPL, LGPL or AGPL;
    - every RustSec advisory, including unmaintained crates, fails the build;
@@ -45,7 +43,7 @@ The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). 
 
    A renewed certificate must also name the same host.
 
-### Reconnects (line 262)
+### Reconnects
 
 7. **Backoff:** the ceiling starts at 1 second and doubles to a 60-second cap. Each delay is uniformly random below the ceiling (full jitter), so agents that lost the control plane together come back spread out.
 8. **Reset only after 60 seconds healthy after `Welcome`.** A server that accepts and immediately drops would otherwise reset every agent's backoff on each attempt, and they would hammer it at 1-second intervals. A test shows 30 seconds up continuing the sequence (4 then 8), and 61 seconds up starting it again at 1.
@@ -59,7 +57,7 @@ The control plane can enrol hosts (ADR 0010) and hold their streams (ADR 0011). 
 | The certificate has expired (checked locally before dialing) | Slow retry, and the log says the host needs a new enrolment code |
 
 10. **Renewal:** checked after the first `Welcome` and every 6 hours.
-    - With 10 days or fewer left (renew after 20 of 30 days, line 784), the agent generates a new key pair and CSR and calls `RenewCertificate` over the current mutual-TLS connection.
+    - With 10 days or fewer left (renew after 20 of 30 days), the agent generates a new key pair and CSR and calls `RenewCertificate` over the current mutual-TLS connection.
     - It checks the reply as in item 6, saves it atomically, and reconnects at once with the new certificate. The reconnect is not a failure, so there's no backoff.
     - `FAILED_PRECONDITION` (too early, or already renewed; ADR 0011) waits for the next check.
 11. **Shutdown:** Ctrl-C, SIGTERM, or a Windows console close or shutdown half-closes the stream and waits up to 3 seconds for the control plane to finish it. A hard limit exits at 5 seconds.
@@ -84,12 +82,12 @@ The test suite runs the backoff tests on tokio's paused clock. They use an in-me
     - **`nvml`:** NVML through `nvml-wrapper`, loaded at run time from the driver. It's behind the `nvml` feature, which is on by default and present only in Windows and Linux builds. If NVML is missing or finds no GPU, `run` exits with code 7 and says why.
     - **Fake:** `--fake-gpu [N]` gives invented GPUs whose uuids are plainly fake (`GPU-00000000-fake-…`).
 
-    The agent never falls back to fake GPUs by itself. GPUs are read every second, and each heartbeat carries per GPU the highest temperature and power, the mean utilisation and the latest memory in use (line 479). `net_up_kbps` is 0 until the onboarding benchmark exists.
+    The agent never falls back to fake GPUs by itself. GPUs are read every second, and each heartbeat carries per GPU the highest temperature and power, the mean utilisation and the latest memory in use. `net_up_kbps` is 0 until the onboarding benchmark exists.
 15. **`OwnerActivity`:** on Windows, keyboard or mouse input within 2 minutes (`GetLastInputInfo`). On Linux and macOS, always false for now.
 
 ### Deliberately not built yet
 
-The lease clock, the local store (SQLite), the session runner, the cache manager, the policy enforcer, the watchdog, the updater, and installing as a Windows service or systemd unit (lines 474–487). The connection manager doesn't yet keep outgoing messages until they're acknowledged, because nothing it sends is acked: Hello and Heartbeat aren't, and the acked messages arrive with sessions.
+The lease clock, the local store (SQLite), the session runner, the cache manager, the policy enforcer, the watchdog, the updater, and installing as a Windows service or systemd unit. The connection manager doesn't yet keep outgoing messages until they're acknowledged, because nothing it sends is acked: Hello and Heartbeat aren't, and the acked messages arrive with sessions.
 
 ## Alternatives considered
 

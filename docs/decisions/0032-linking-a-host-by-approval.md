@@ -5,8 +5,7 @@
 
 ## Context
 
-ADR 0011 enrols an agent with a one-time code that its owner copies from the web app into the installer. Nikki's rule
-(docs/plan/host-experience.md §3) is that a host is never told to "download this, install this, paste this": one
+ADR 0011 enrols an agent with a one-time code that its owner copies from the web app into the installer. The product owner's rule is that a host is never told to "download this, install this, paste this": one
 download, one **Approve** click, then it earns. The CLI already solves the same problem for API keys with a device
 sign-in (ADR 0025, shaped like RFC 8628). The code-based enrolment stays for operators, the end-to-end test and the
 first laptop sessions, so nothing about certificates (ADR 0010) or the agent's trade of a code for a certificate changes.
@@ -46,14 +45,14 @@ without learning more.
 
 ## Alternatives considered
 
-- **Keep the one-time code for hosts.** Lost: it is the "paste this" step Nikki ruled out, and a code in a window
+- **Keep the one-time code for hosts.** Lost: it is the "paste this" step the product owner ruled out, and a code in a window
   can be read over a shoulder.
 - **The approval page creates the code and the browser hands it to the installer** (a deep link or a local port).
   Lost: it needs the browser to reach the installer, and codes would pass through the page.
 - **Let an API key approve a link.** Lost: a key can act as its owner from anywhere, and approving creates a host
   and credentials; it needs a person at a browser, as creating keys does (ADR 0025).
-- **Activate the host on approval.** Lost for the pilot: Nikki knows every host and approves each one in the admin
-  console (docs/plan/host-experience.md §8, decision 2).
+- **Activate the host on approval.** Lost for the pilot: the product owner knows every host and approves each one in the admin
+  console.
 
 ## Consequences
 

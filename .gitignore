@@ -1,6 +1,9 @@
 # Real personal data: never committed
 private/
 
+# Phase 0 results name real hardware: kept in the private repo
+phase0/RESULTS.md
+
 # Secrets
 .env
 .env.*

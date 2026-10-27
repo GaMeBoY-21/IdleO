@@ -4,8 +4,8 @@
 #
 #   scripts/release/sign-windows.sh dist/windows
 #
-# TODO(signing): needs the code-signing certificate (host experience §8, decision 1). With IDLEO_SIGN_CERT (the
-# certificate chain, PEM) and IDLEO_SIGN_KEY (its private key, PEM) set, which Nikki sets and nothing else reads, each
+# TODO(signing): needs the code-signing certificate. With IDLEO_SIGN_CERT (the
+# certificate chain, PEM) and IDLEO_SIGN_KEY (its private key, PEM) set, which the product owner sets and nothing else reads, each
 # program is signed with osslsigncode and a timestamp. Without them the programs are left unsigned, loudly.
 set -euo pipefail
 dir="${1:?usage: scripts/release/sign-windows.sh <folder of .exe files>}"

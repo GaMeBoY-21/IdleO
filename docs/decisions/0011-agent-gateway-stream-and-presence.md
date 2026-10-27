@@ -4,9 +4,7 @@
 - **Date:** 2026-10-05
 
 Sources:
-- docs/plan/technical-design.md lines 24, 34, 64, 81, 97, 241–267, 352, 567, 716, 719, 784, 824
 - ADRs 0007 and 0010
-- docs/prompts/agent-gateway-stream.md
 
 ## Context
 
@@ -35,7 +33,7 @@ Hosts can enrol and get a client certificate (ADR 0010). Every later feature (of
 
 ### Renewal
 
-4. **`RenewCertificate` is allowed only in a certificate's last 10 days** (renew after 20 of 30, line 784). Earlier gets `FAILED_PRECONDITION` with the time renewal opens, which stops a broken or hostile agent from minting certificates in a loop.
+4. **`RenewCertificate` is allowed only in a certificate's last 10 days** (renew after 20 of 30). Earlier gets `FAILED_PRECONDITION` with the time renewal opens, which stops a broken or hostile agent from minting certificates in a loop.
    - The CSR rules and the issuing code are enrolment's (one `CertificateIssuer`).
    - The old certificate stays valid until it expires, and both are recorded in `hosts.host_certificates`.
    - **Only from the newest certificate.** If the host already has a newer, unrevoked certificate, renewal gets `FAILED_PRECONDITION` ("This certificate was already renewed; use the newer certificate."). The calling certificate's row is locked for the check (`select … for update`), so two concurrent renewals from it yield exactly one new certificate. Together with the 10-day window, a host can hold at most two valid certificates at once, and a leaked old key can't mint a fresh one after the agent has renewed.
@@ -57,18 +55,18 @@ Hosts can enrol and get a client certificate (ADR 0010). Every later feature (of
 
 ### Presence in Valkey
 
-9. **Valkey arrives now, with its first user** (lines 34 and 81). It's Valkey 9, the newest major DigitalOcean's managed service offers ([DigitalOcean docs](https://docs.digitalocean.com/products/databases/valkey/how-to/create/): "We support Valkey versions 8 and 9. New clusters use Valkey 9 by default").
+9. **Valkey arrives now, with its first user**. It's Valkey 9, the newest major DigitalOcean's managed service offers ([DigitalOcean docs](https://docs.digitalocean.com/products/databases/valkey/how-to/create/): "We support Valkey versions 8 and 9. New clusters use Valkey 9 by default").
    - It's pinned as `valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd`, the same in `compose.yaml` and Testcontainers; a test keeps them identical.
    - Spring Boot connects to it as Redis (Lettuce), with a 1-second timeout.
 10. **One hash per host**, `agentgateway:presence:<host-id>`, holding:
-    - the connection and instance ids (each process has a stable instance id, for command routing later, line 34);
+    - the connection and instance ids (each process has a stable instance id, for command routing later);
     - connected-at, agent version, `update_required`, `owner_active`, `net_up_kbps`;
     - the latest per-GPU readings.
 
-    It lives for 15 seconds after the last heartbeat (line 352, "heartbeat within the last 15 seconds"). Only the agent gateway writes presence.
+    It lives for 15 seconds after the last heartbeat. Only the agent gateway writes presence.
 11. **Heartbeats are validated.** Each GPU uuid must be one this host reported in `Hello`. Temperature must be 0–150, utilisation 0–100, and VRAM, kbps and power non-negative; `power_w` is optional. An invalid heartbeat is dropped and counted, and the stream stays open.
 12. **`last_seen_at`** in PostgreSQL is written at most once a minute per host, never per heartbeat.
-13. **Valkey stays out of readiness.** If Valkey is down, agents stay connected, heartbeats are counted as `not_recorded`, and the problem raises an alert. Pulling every instance out of the load balancer would drop every agent at once, a far worse failure than stale presence. Presence rebuilds from the next heartbeats (line 81).
+13. **Valkey stays out of readiness.** If Valkey is down, agents stay connected, heartbeats are counted as `not_recorded`, and the problem raises an alert. Pulling every instance out of the load balancer would drop every agent at once, a far worse failure than stale presence. Presence rebuilds from the next heartbeats.
 
 ### Keepalive
 
@@ -93,7 +91,7 @@ Hosts can enrol and get a client certificate (ADR 0010). Every later feature (of
     - `agents.streams.closed` by reason
     - `agents.messages.unhandled` by type
 
-    The hosts-online alert (line 824) reads these. The actuator stays closed except the probes, and the export path comes with staging.
+    The hosts-online alert reads these. The actuator stays closed except the probes, and the export path comes with staging.
 
 ## Alternatives considered
 

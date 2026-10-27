@@ -2,16 +2,16 @@
 
 ## Roles
 
-- **Nikki (product owner):** decides what gets built; owns accounts, real data and deployment. Pastes each prompt into Claude Code and pastes its report back to the architect.
-- **Claude desktop (architect and reviewer):** does not write application code. Writes each step's prompt as a Markdown file in `docs/prompts/`, checks every report against the actual code, and recommends what comes next.
+- **The product owner:** decides what gets built; owns accounts, real data and deployment. Pastes each prompt into Claude Code and pastes its report back to the architect.
+- **Claude desktop (architect and reviewer):** does not write application code. Writes each step's prompt as a Markdown file in `private/next-prompts/` (git-ignored; used prompts move to `private/prompts-done/`), checks every report against the actual code, and recommends what comes next.
 - **Claude Code in VS Code (builder):** builds, runs every test, commits, pushes once a remote exists, and reports back.
 
 ## The loop
 
-1. The architect writes the prompt in `docs/prompts/`.
-2. Nikki pastes it into Claude Code.
+1. The architect writes the prompt in `private/next-prompts/`.
+2. The product owner pastes it into Claude Code.
 3. Claude Code builds, tests, commits and reports.
-4. Nikki pastes the report to the architect.
+4. The product owner pastes the report to the architect.
 5. The architect verifies it against the repo: reads the code, reproduces key numbers, looks for gaps.
 6. The architect writes the next prompt.
 
@@ -34,13 +34,13 @@ Each prompt is a short brief, written as prose, in this order:
 - Verify, never trust a summary. Measure before fixing.
 - Lead with the number a real user sees.
 - One implementation per rule. Watch for features that are built but never wired up.
-- Nobody asks Nikki for passwords or keys; he types them himself.
+- Nobody asks the product owner for passwords or keys; they type them in themselves.
 - Real personal data stays in the git-ignored `private/` folder, never in commits or tests.
-- Talk in short, simple English. Give a recommendation; ask only when it is Nikki's decision.
+- Talk in short, simple English. Give a recommendation; ask only when it is the product owner's decision.
 
 ## Commits
 
-- Commits are authored by Nikki's own git identity and read like a person wrote them: one plain line, lowercase, no prefixes, no trailing period. Example: `add heartbeat handling to the agent gateway`.
+- Commits are authored by the product owner's own git identity and read like a person wrote them: one plain line, lowercase, no prefixes, no trailing period. Example: `add heartbeat handling to the agent gateway`.
 - No `Co-authored-by` trailers, no "Generated with" lines, no session links. `.claude/settings.json` turns Claude Code's attribution off; do not override it.
 - Commit messages never mention phases, steps or prompts. They say what changed.
-- A prompt file is committed together with the first piece of work it asks for, never in a commit of its own. Prompt files are named by topic (for example `identity-sign-in.md`), not by phase or step.
+- Prompt files are never committed: they stay in `private/` (git-ignored). They are named by topic (for example `identity-sign-in.md`), not by phase or step.

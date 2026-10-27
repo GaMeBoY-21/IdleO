@@ -158,7 +158,7 @@ export const host = {
     reportedAt: string;
   } | null,
   lastUpdate: null as { version: string; outcome: string; detail: string; reportedAt: string } | null,
-  // The host score in numbers: what the scheduler ranks it by (docs/plan/execution-plan.md "Host score").
+  // The host score in numbers: what the scheduler ranks it by.
   score: {
     reliability: 0.812,
     bandwidth: 0.74,
@@ -395,7 +395,7 @@ export const audit = {
   nextCursor: null,
 };
 
-/** The setup app's installs over the last 30 days (host experience §6 row 11): one listed, one stuck at its driver. */
+/** The setup app's installs over the last 30 days: one listed, one stuck at its driver. */
 const installRows = [
   {
     installId: "01a14c00-0000-7000-8000-0000000000f1",

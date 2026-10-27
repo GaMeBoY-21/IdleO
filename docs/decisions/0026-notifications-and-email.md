@@ -4,7 +4,6 @@
 - **Date:** 2026-10-12
 
 Sources:
-- docs/plan/product-surface.md sections 9 and 13
 - ADRs 0015 (module directions, durable events), 0017 (charging), 0018 (the web app), 0024 (notification choices), 0025 (the renter CLI and limits)
 - docs/runbooks/email.md
 
@@ -47,7 +46,7 @@ A session the renter stopped says nothing: they did it themselves. "Agent update
 - An owner's email never names the renter, the session or what ran (ADR 0023).
 
 **One `EmailSender`, SMTP today.**
-- `EmailSender` is the only place a provider plugs in. Its implementation speaks SMTP through Spring's mail sender, configured by `spring.mail.*`; any provider with an SMTP relay is a change of configuration. If Nikki picks one that is better reached by an HTTP API, it is a second implementation of the same interface.
+- `EmailSender` is the only place a provider plugs in. Its implementation speaks SMTP through Spring's mail sender, configured by `spring.mail.*`; any provider with an SMTP relay is a change of configuration. If the product owner picks one that is better reached by an HTTP API, it is a second implementation of the same interface.
 - Locally, compose runs Mailpit (web view on port 8025, SMTP on 1025, overridable). It keeps every email and delivers nothing. The end-to-end test reads its API.
 - Production needs `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `NOTIFICATIONS_EMAIL_FROM` and `NOTIFICATIONS_WEB_APP_URL`; the prod profile refuses to start without them, and refuses a mail server, sender or link on this machine, or plain HTTP (`ProductionSettingsGuard`, ADR 0013).
 

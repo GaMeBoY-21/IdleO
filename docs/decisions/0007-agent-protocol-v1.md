@@ -3,13 +3,13 @@
 - **Status:** Accepted
 - **Date:** 2026-10-04
 
-Sources: docs/plan/technical-design.md lines 64, 83, 96, 102–106, 241–346, 409–417, 478, 598, 738, 784, 795; docs/prompts/phase1-step1-agent-protocol.md; ADR 0003.
+Sources: ADR 0003.
 
 ## Context
 
 The agent protocol is the one contract that can't be fixed after release. A field that the first agents in the field don't know about can never reach them.
 
-The design doc's excerpt (technical design lines 241–346) sketched the protocol. Taken literally, it has four problems:
+The design doc's excerpt sketched the protocol. Taken literally, it has four problems:
 - It fails the buf `STANDARD` lint rules.
 - It makes the agent act on its own wall clock.
 - It can't tell a replaced host's late reports from the new host's.
@@ -35,19 +35,19 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 
     On wake, the agent checks every deadline before doing anything else. The full rules and sources are in `proto/README.md`.
 
-   Why: agent clocks are never trusted (line 412). A clock that paused during sleep would let a laptop that slept through its lease's end wake up and keep working beside the attempt that replaced it. A clock running 3 minutes slow would keep work running 3 minutes past the lease and break fencing (line 738). A wrong or paused agent clock can't make it stop late. Transit can, by at most the transit allowance, which the control plane waits out before re-matching (ADR 0016).
+   Why: agent clocks are never trusted. A clock that paused during sleep would let a laptop that slept through its lease's end wake up and keep working beside the attempt that replaced it. A clock running 3 minutes slow would keep work running 3 minutes past the lease and break fencing. A wrong or paused agent clock can't make it stop late. Transit can, by at most the transit allowance, which the control plane waits out before re-matching (ADR 0016).
 3. **Every span is a `google.protobuf.Duration`.** That covers `Offer.expires_in` (was `expires_in_s`), `AgentPolicy.heartbeat_interval`, `SessionSpec.checkpoint_interval`, `SessionSpec.max_runtime` and `StopSession.grace_period`.
 
    Why: no message carries an absolute time for the agent to act on.
 4. **`attempt` is on every session-scoped message**: `StartSession`, `LeaseRenew`, `StopSession`, `SessionStatus`, `UsageReport`, and the `RunningSession` snapshot. The control plane acks and then ignores any message whose attempt isn't the current one.
 
-   Why: after a re-match, the old host can come back and flush its on-disk reports (line 255). Without the attempt, a minute the new host never ran could get `agent_reported` set, which breaks the two-witness rule (line 13).
+   Why: after a re-match, the old host can come back and flush its on-disk reports. Without the attempt, a minute the new host never ran could get `agent_reported` set, which breaks the two-witness rule.
 5. **`StartSession.minute_index_base`.** The control plane sets it from its own clock. The agent reports `minute_index_base` plus the minutes it has run.
 
-   Why: `minute_index` counts from the session start on the control plane's clock (lines 106, 412). A new attempt's agent counts from its own zero, so without a base, attempt 2's minute 0 would land on attempt 1's minute 0.
+   Why: `minute_index` counts from the session start on the control plane's clock. A new attempt's agent counts from its own zero, so without a base, attempt 2's minute 0 would land on attempt 1's minute 0.
 6. **No `host_id` in `Hello`.** The control plane derives the host from the mTLS client certificate.
 
-   Why: the certificate fingerprint already ties the agent to its host (lines 96 and 98, the `hosts` and `host_certificates` rows). Two sources of truth for identity means one of them can lie.
+   Why: the certificate fingerprint already ties the agent to its host. Two sources of truth for identity means one of them can lie.
 7. **`Ack.acked_message_id`** (was `message_id`). An ack means "received and durably recorded", not "accepted".
    - Acked: `OfferReply`, `SessionStatus`, `UsageReport`, `StartSession`, `StopSession`, `UpdateAgent`.
    - Not acked: `Heartbeat` (the next is 5 seconds away), `LeaseRenew` (the lease survives three missed renewals), `Hello` (answered by `Welcome`), `Offer` (answered by `OfferReply`).
@@ -57,7 +57,7 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
    - `message_id`, on every envelope, is one delivery, a UUIDv7; a retry reuses it.
    - `command_id`, on `StartSession` and `StopSession`, is business idempotency that survives reconnects and outbox re-sends.
 
-   Why: the design doc used both without saying which does what (line 262).
+   Why: the design doc used both without saying which does what.
 9. **`Welcome` drops `lease_seconds` and `telemetry_interval`.** `AgentPolicy` carries `heartbeat_interval`, `gpu_temp_cap_c` and `max_concurrent_sessions`.
 
    Why: the lease travels with each session (item 2), and the heartbeat is the telemetry, so there's one implementation.
@@ -67,7 +67,7 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
     - Both return the shared `IssuedCertificate`.
     - The private key never leaves the host. An expired certificate can't renew, so the host re-enrols.
 
-    Why: lines 478, 598 and 784 need these calls, and the excerpt didn't define them.
+    Why: the design needs these calls, and the excerpt didn't define them.
 11. **Telemetry is per GPU.**
     - `Hello.gpus` lists `GpuInfo`: uuid, name, `vram_mb`, driver version, CUDA driver version, compute capability.
     - `Heartbeat.gpus` is a repeated `GpuTelemetry` keyed by uuid, replacing the single `gpu_temp_c`, `gpu_util_pct`, `vram_used_mb` and `power_w` scalars.
@@ -76,7 +76,7 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
     Why: desktop hosts can have more than one GPU. Changing scalars to lists later would be a breaking change.
 12. **`UpdateAgent` carries `sha256` and `cosign_signature`** (was `signature`), and `Welcome` keeps `minimum_agent_version`.
 
-    Why: both must ship in v1 even though the updater comes later (lines 248, 258, 795). Without them, the first agents in the field could never be moved forward.
+    Why: both must ship in v1 even though the updater comes later. Without them, the first agents in the field could never be moved forward.
 13. **All secrets live in one `Credentials` message**, commented `secret: never log`. It holds the registry token and two `StorageGrant`s: short-lived S3-compatible credentials (R2 temporary access credentials today) scoped to prefixes, with `expires_in`.
     - `attempt_grant` is read-write on `sessions/{session_id}/attempt-{n}/` only.
     - `read_grant` is read-only on the session's input and on the checkpoint named in `StartSession.resume_from`.
@@ -88,7 +88,7 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
     - Every checkpoint overwrote the same object, so a bad but complete checkpoint destroyed the last good one.
     - Pre-signed URLs die after 7 days on R2.
 
-    With grants, storage enforces fencing: an attempt can never write its input or another attempt's folder (line 738). The input moved onto `read_grant` too, because the read grant is needed for resume anyway, so each job uses one mechanism, not two. The registry token stays a plain token, because it's used once, to pull the image.
+    With grants, storage enforces fencing: an attempt can never write its input or another attempt's folder. The input moved onto `read_grant` too, because the read grant is needed for resume anyway, so each job uses one mechanism, not two. The registry token stays a plain token, because it's used once, to pull the image.
 14. **Checkpoints are numbered folders with a completion marker, and `SessionStatus` is reworked.**
     - Each checkpoint goes in its own folder, `attempt-{n}/checkpoints/{seq}/`, with `_COMPLETE` written last. A folder without the marker doesn't exist for resume. The layout is in `proto/README.md`.
     - `StartSession.resume_from` (a `CheckpointRef`: prefix and seq) names the checkpoint to resume from. The control plane chooses it after checking the marker exists. It replaces `resume_checkpoint_url`.
@@ -104,7 +104,7 @@ The contract lives in `proto/gpu/agent/v1/` as a buf v2 module. It's linted with
 
     Why: the control plane branches on these values, and enums are checked where free text isn't.
 16. **One snapshot type.** `RunningSession` (session_id, attempt, state) is shared by `Hello.running_sessions` and `Heartbeat.sessions`.
-17. **The image is pinned by digest.** `SessionSpec.image` must include `@sha256:` (line 83).
+17. **The image is pinned by digest.** `SessionSpec.image` must include `@sha256:`.
 18. **No language options in the `.proto` files.** There's no `java_package` or `go_package`; buf managed mode will set them once the product name is decided.
 19. **`RefreshCredentials`** (control plane → agent: `session_id`, `attempt`, `credentials`) is acked. The control plane sends it once a grant is past half its lifetime, and straight after a reconnect if a grant is close to expiring.
 

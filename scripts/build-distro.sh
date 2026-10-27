@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the sealed Linux image the Windows installer will import into WSL2 (agent/distro/README.md): the image for
-# linux/amd64 whatever machine this runs on (the laptops are x86-64, Nikki's Mac is not), its root filesystem as
+# linux/amd64 whatever machine this runs on (the laptops are x86-64, the product owner's Mac is not), its root filesystem as
 # dist/distro/idleo-distro-<version>.tar.gz, the tarball's SHA-256, and a manifest of what is in it.
 #
 #   scripts/build-distro.sh              build, using Docker's layer cache

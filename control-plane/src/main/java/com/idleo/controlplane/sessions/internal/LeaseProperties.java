@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Session leases (ADR 0016, technical design "Design principles").
+ * Session leases (ADR 0016).
  *
  * @param ttl how long each lease lasts, counted by the agent from receipt on its sleep-counting clock: 2
  *     minutes for batch

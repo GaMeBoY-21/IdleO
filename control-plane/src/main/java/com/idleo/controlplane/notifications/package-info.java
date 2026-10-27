@@ -2,8 +2,7 @@
  * The notifications module. Owns: what each person is told and what they chose to be told about, in the app and
  * by email (ADR 0024, ADR 0026).
  *
- * <p>Its tables live in the {@code notifications} database schema, and no other module reads them. See
- * docs/plan/technical-design.md, "Control plane modules and API".
+ * <p>Its tables live in the {@code notifications} database schema, and no other module reads them.
  *
  * <p>Other modules announce; this one listens. Each listener is durable and retried (Spring Modulith's event
  * registry), and each message is made once for the event that caused it:

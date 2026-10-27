@@ -5,14 +5,14 @@
 
 ## Context
 
-docs/plan/technical-design.md and docs/plan/host-experience.md §6 row 3 described the Windows host agent as "a Windows
+The plan described the Windows host agent as "a Windows
 service". Building the Windows app showed three reasons that doesn't work for us:
 
 - A WSL2 distribution belongs to a Windows user account. Our sealed Linux space (agent/distro/) is registered for the
   person who set it up and runs under their account.
 - Running WSL from the SYSTEM account isn't a path Microsoft documents or that we can rely on.
 - A service runs in session 0, where `GetLastInputInfo` and the full-screen check never see the owner's keyboard,
-  mouse or games. Auto-pause (host-experience §5), the thing that makes hosting safe for the owner, would silently
+  mouse or games. Auto-pause, the thing that makes hosting safe for the owner, would silently
   never fire.
 
 The installers of VS Code, Ollama and many others solve the same problem by installing for one user, with no admin

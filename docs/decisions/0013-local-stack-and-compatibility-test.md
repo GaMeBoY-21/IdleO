@@ -4,13 +4,11 @@
 - **Date:** 2026-10-06
 
 Sources:
-- docs/plan/technical-design.md lines 96, 352, 751
 - ADRs 0007, 0009, 0011 and 0012
-- docs/prompts/local-stack.md
 
 ## Context
 
-The control plane and the agent have each been proven only against test doubles. Before anything else is built on the stream, the real agent must run against the real control plane: on Nikki's Mac, where there is no NVIDIA GPU, and in CI on every change. That's the compatibility test the plan asks for (line 751).
+The control plane and the agent have each been proven only against test doubles. Before anything else is built on the stream, the real agent must run against the real control plane: on the product owner's Mac, where there is no NVIDIA GPU, and in CI on every change. That's the compatibility test the plan asks for.
 
 It needs four things:
 - the agent must be able to say it's a Mac;
@@ -53,7 +51,7 @@ It needs four things:
 
 9. **`GET /v1/hosts/{id}` and `GET /v1/hosts` now show:**
    - `online`;
-   - `lastSeenAt` (written at most once a minute, line 96);
+   - `lastSeenAt` (written at most once a minute);
    - the reported GPUs: model, VRAM, and whether they're gone.
 10. **`hosts` declares `HostPresence`** in its public API, and `agentgateway` implements it from the Valkey presence records, in one pipelined round trip per page.
     - **Why inverted:** `agentgateway` already calls `hosts`, so `hosts` calling `agentgateway` would be a module cycle, and Spring Modulith's verification fails on cycles. A port owned by `hosts` keeps every dependency pointing one way, and no module reads another's tables or keys.
@@ -79,6 +77,6 @@ It needs four things:
 ## Consequences
 
 - **A Mac can be a development host** wherever the `local` profile runs, and nowhere else.
-- **Every change to either side is checked against the other in CI.** Open question: the plan's full compatibility matrix (the last three agent releases against every server build, line 751) needs released agent builds. When releases exist, the e2e workflow gains a matrix over them.
+- **Every change to either side is checked against the other in CI.** Open question: the plan's full compatibility matrix (the last three agent releases against every server build) needs released agent builds. When releases exist, the e2e workflow gains a matrix over them.
 - **The shared test context starts one more container,** the sign-in server, which adds a few seconds to the test run.
 - **The fixed sign-in port means one local stack per machine** unless `LOCAL_SIGN_IN_PORT` moves it.

@@ -1,4 +1,4 @@
-//! Where the API key is kept (docs/plan/product-surface.md section 4.1): `IDLEO_API_KEY` wins; otherwise the
+//! Where the API key is kept: `IDLEO_API_KEY` wins; otherwise the
 //! operating system's keychain; otherwise a file in the config folder only its owner can read. A key is kept per API
 //! address, so the local stack's key never goes to production.
 

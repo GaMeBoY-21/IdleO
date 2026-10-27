@@ -136,7 +136,7 @@ Two alerts share this section.
 
 **Check first:** Platform health, "Real visitors": since a release, or always? TTFB high too means the server or the network; TTFB fine means the page itself.
 
-**Do:** measure the route on Lighthouse's mobile profile (`E2E_LIGHTHOUSE_MEASURE=simulate scripts/e2e/agent-online.sh --web`, web/README.md "Measuring Lighthouse") and compare with the budgets in CLAUDE.md. Never loosen a budget without Nikki's say.
+**Do:** measure the route on Lighthouse's mobile profile (`E2E_LIGHTHOUSE_MEASURE=simulate scripts/e2e/agent-online.sh --web`, web/README.md "Measuring Lighthouse") and compare with the budgets in CLAUDE.md. Never loosen a budget without the product owner's say.
 
 ## Retention stopped
 

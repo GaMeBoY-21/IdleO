@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 
-/** The renter's session limits (technical design "Limits", ADR 0025; see {@link SessionLimits}). */
+/** The renter's session limits. */
 @ConfigurationProperties("sessions.limits")
 @Validated
 record SessionLimitProperties(

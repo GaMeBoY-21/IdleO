@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# How each install of the Windows app went (host experience §6 row 11), read from the local stack's database: the
+# How each install of the Windows app went, read from the local stack's database: the
 # setup app's own measurements, which it sends as it goes (hosts.install_events). For each install, newest first: the
 # minutes from opening the setup app to "listed", the clicks it took, each step's duration and how it went (with the
 # words behind a failure, which setup scrubbed of the person and the machine before sending), under "facts" what a

@@ -18,7 +18,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The setup app's measurements (host experience §6 row 11): each step's start and end with its duration, the clicks,
+ * The setup app's measurements: each step's start and end with its duration, the clicks,
  * and where an install stopped, so we can see where hosts struggle. Sent without a sign-in under an install id the app
  * makes; at most {@link #MAX_PER_INSTALL} per install. Never the Windows user name, a path or the machine's serial:
  * the fields are fixed and short, and the one free-text field, {@code detail}, reaches us already scrubbed by the app. An install is tied to its host through its link ({@code hosts.host_links.install_id})

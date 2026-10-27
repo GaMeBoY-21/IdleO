@@ -22,7 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The setup app's measurements (host experience §6 row 11): no sign-in, at most 20 events and 16 KiB a request and 200
+ * The setup app's measurements: no sign-in, at most 20 events and 16 KiB a request and 200
  * an install, only the fields it allows; an install is tied to its host by its link, whose approval is its last click;
  * and the admin console's Installs card.
  */

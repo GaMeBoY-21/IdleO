@@ -17,7 +17,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Activating and suspending hosts, by operator command (ADR 0015) or from the admin console (ADR 0027), until
- * onboarding's benchmark and canary job exist (technical design line 667). Both call these methods. Every change is
+ * onboarding's benchmark and canary job exist. Both call these methods. Every change is
  * an append-only row in {@code hosts.status_changes} and one in the audit log, in the same transaction; asking for
  * the status a host already has changes nothing.
  */

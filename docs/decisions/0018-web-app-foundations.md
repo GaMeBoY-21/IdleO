@@ -4,14 +4,12 @@
 - **Date:** 2026-10-07
 
 Sources:
-- docs/plan/execution-plan.md lines 47, 57, 162; docs/plan/technical-design.md line 63 and "REST API", "Errors", "Limits"
 - ADRs 0006 (the quality bar), 0009 (sign-in), 0013 (the local stack), 0014 and 0017 (money)
 - web/DESIGN.md (the design language this app is checked against)
-- docs/prompts/web-foundations.md
 
 ## Context
 
-Phase 1's backend runs batch jobs end to end. The web app is what renters and hosts touch, and it should be the best-made part of the project. This round builds its foundations and one complete screen, the renter's home, for Nikki to review before the booking flow and the host side are built on them.
+Phase 1's backend runs batch jobs end to end. The web app is what renters and hosts touch, and it should be the best-made part of the project. This round builds its foundations and one complete screen, the renter's home, for the product owner to review before the booking flow and the host side are built on them.
 
 The constraints:
 - Everything is behind sign-in and comes from our API, so the app can be static files.
@@ -41,7 +39,7 @@ The constraints:
    | Plus Firebase Auth, needed for a token before the first API call | 29.9 KB |
    | **The home's real first load** | **about 194 KB** |
 
-   Moving the Radix user menu out of the first load (it saved 29 KB) didn't close the gap. A webpack build was larger (243 KB). **Nikki chose to switch to Vite and React** rather than raise the budget.
+   Moving the Radix user menu out of the first load (it saved 29 KB) didn't close the gap. A webpack build was larger (243 KB). **The product owner chose to switch to Vite and React** rather than raise the budget.
 2. **Vite 8.3.3** ([vite.dev](https://vite.dev)), with **React 19.3.0** and TypeScript in strict mode. The app is a static build: any host or CDN can serve it.
 3. **Routing: wouter 3.13.0** ([github.com/molefrog/wouter](https://github.com/molefrog/wouter)), about 2 KB.
    - TanStack Router was the first choice for its typed routes, but it measured 19.6 KB, and with it the production first load was 149.1 KB: under the budget by 0.9 KB, with nothing left for the screens to come.
@@ -150,7 +148,7 @@ The constraints:
 
 ## Alternatives considered
 
-- **Next.js with a looser budget (200 KB, counting the sign-in SDK; or 175 KB, not counting it).** Offered to Nikki with the numbers. It keeps the named framework, but spends the budget the booking flow will need before it exists.
+- **Next.js with a looser budget (200 KB, counting the sign-in SDK; or 175 KB, not counting it).** Offered to the product owner with the numbers. It keeps the named framework, but spends the budget the booking flow will need before it exists.
 - **TanStack Router.** Typed routes are worth having, but at 19.6 KB they left 0.9 KB of headroom.
 - **Next.js's server rendering instead of a static build.** It needs a Node server, which is a hosting choice, and its runtime is the weight problem.
 - **The Firebase emulator for local sign-in.** Its tokens are unsigned, and a control plane that accepted them would be a control plane that accepts forged tokens.

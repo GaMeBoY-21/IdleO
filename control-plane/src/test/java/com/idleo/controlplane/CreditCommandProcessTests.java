@@ -17,7 +17,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * The operator command as Nikki runs it (ADR 0014): its own JVM in the ops profile, which runs the
+ * The operator command as the product owner runs it (ADR 0014): its own JVM in the ops profile, which runs the
  * command, prints the result and exits with its status, opening no web or gRPC port. Its own database,
  * so nothing here touches the shared test context.
  */

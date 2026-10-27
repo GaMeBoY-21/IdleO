@@ -4,9 +4,7 @@
 - **Date:** 2026-10-14
 
 Sources:
-- docs/plan/product-surface.md section 5 (the Python SDK) and section 13 (build order)
 - ADRs 0018 (the API contract and the generated clients), 0019 and 0022 (inputs, uploads and what a renter brings), 0025 (API keys, the command line, the limits), 0029 (the public docs)
-- docs/prompts/python-sdk.md
 
 ## Context
 
@@ -38,7 +36,6 @@ Constraints:
 
 ### One key, one config folder, shared with the command line
 
-- **The key** is read in the command line's order (docs/plan/product-surface.md 4.1): the `api_key` argument, `IDLEO_API_KEY`, the operating system's keychain entry `idleo login` made (service `idleo`, account the API address, a JSON value), then `credentials.json` in the config folder, kept per API address. `IDLEO_NO_KEYCHAIN=1` skips the keychain. The SDK only reads: signing in and out stays with the command line, which has the browser approval (RFC 8628 shaped, ADR 0025).
 - **The config folder** is `IDLEO_CONFIG_DIR`, else the system's usual place (`~/Library/Application Support/idleo`, `$XDG_CONFIG_HOME` or `~/.config`, `%APPDATA%`); the API's address is the argument, `IDLEO_API_URL`, else the local stack.
 - **Uploads and bookings use the command line's files and formats there:** an unfinished upload is `uploads/<fingerprint>.json` (the upload's id, its Idempotency-Key and each file's parts with their ETags), the fingerprint the same hash of the name, paths, sizes and modification times; a booking's Idempotency-Key is `pending/<hash>.key`, kept until the API answers. So running the same upload again carries on from the last part storage took, and so does the command line carrying on an SDK upload of the same files (and the reverse). Remembering is a convenience: every failure to read or write is swallowed and the next run starts over.
 - **Caveat:** on macOS the SDK and the command line read the same Keychain entry. On Linux and Windows the two keychain libraries name their entries differently, so the SDK may not see a key the command line stored there; the credentials file, which `idleo login` writes when the keychain refuses, works everywhere, and `IDLEO_API_KEY` always does. **Open question:** whether the command line should write the file as well as the keychain, or the SDK should learn the Rust library's entry names.

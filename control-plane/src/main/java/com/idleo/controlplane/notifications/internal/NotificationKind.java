@@ -5,7 +5,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Every kind of message a person may be sent, from docs/plan/product-surface.md section 9. Each can be
+ * Every kind of message a person may be sent. Each can be
  * switched for email and for the app, except the kinds about money and safety, which are always on
  * ({@link #lockedReason()}). A kind that nothing sends yet still has its switch, so a choice made today
  * holds when it starts.
@@ -42,7 +42,7 @@ enum NotificationKind {
     }
 
     /**
-     * Whether this kind is also sent as email (docs/plan/product-surface.md section 9: "In the app" kinds aren't).
+     * Whether this kind is also sent as email.
      * The person's email switch for a kind that never emails changes nothing.
      */
     boolean emailed() {

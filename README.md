@@ -32,11 +32,15 @@ proto/           Shared .proto files, checked by buf
 infra/           Terraform, Docker Compose, monitoring configuration
 templates/       Template images: Jupyter, vLLM, QLoRA, Blender
 phase0/          Phase 0 feasibility work
-docs/            Plan, decision records, runbooks, prompts, workflow
+docs/            Decision records, runbooks, reference, site content, workflow
 ```
 
 ## Docs
 
-- [Execution plan](docs/plan/execution-plan.md) and [technical design](docs/plan/technical-design.md), in `docs/plan/` (the PDFs beside them contain the diagrams)
+- [Personal data map](docs/reference/personal-data-map.md)
 - [Decision records](docs/decisions/)
 - [How we work](docs/WORKFLOW.md)
+
+## Licence
+
+All rights reserved. The code is published for transparency and may not be copied or reused; see [LICENSE](LICENSE). To report a security problem, see [SECURITY.md](SECURITY.md).

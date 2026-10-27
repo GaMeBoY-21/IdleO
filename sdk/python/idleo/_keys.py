@@ -1,4 +1,4 @@
-"""Where the API key is kept: the command line's own storage, read the same way (docs/plan/product-surface.md 4.1).
+"""Where the API key is kept: the command line's own storage, read the same way.
 
 `IDLEO_API_KEY` wins; otherwise (unless `IDLEO_NO_KEYCHAIN` is `1` or `true`) the operating system's keychain entry
 the command line made on `idleo login` (service `idleo`, account the API address); otherwise its `credentials.json`,

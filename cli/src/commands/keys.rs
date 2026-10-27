@@ -1,4 +1,4 @@
-//! `keys`, `keys create` and `keys revoke` (docs/plan/product-surface.md section 4.2). Listing and revoking work
+//! `keys`, `keys create` and `keys revoke`. Listing and revoking work
 //! with this computer's key. Creating one never does: it goes through the same approval in the web app as a
 //! sign-in, so a stolen key can never make another (ADR 0025).
 

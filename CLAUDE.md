@@ -1,13 +1,13 @@
 # GPU Rental Platform: project memory for Claude Code
 
 ## How we work
-Read docs/WORKFLOW.md before every task. You are the builder: build, run the checks, commit, and report in the format the prompt asks for. Prompts live in docs/prompts/.
+Read docs/WORKFLOW.md before every task. You are the builder: build, run the checks, commit, and report in the format the prompt asks for. Prompts are kept private: the next one is in `private/next-prompts/`, and a used one moves to `private/prompts-done/` (git-ignored), never into `docs/`.
 
 ## What we are building
-A peer-to-peer GPU marketplace for India. Hosts (people with RTX gaming laptops and desktops) rent out GPU time by the minute; renters (students, developers, small startups) run AI jobs on them. Cloud gaming comes later, and only for legally cleared titles. Full plan: docs/plan/execution-plan.md and docs/plan/technical-design.md. The PDFs beside them contain the diagrams.
+A peer-to-peer GPU marketplace for India. Hosts (people with RTX gaming laptops and desktops) rent out GPU time by the minute; renters (students, developers, small startups) run AI jobs on them. Cloud gaming comes later, and only for legally cleared titles. The plan and the technical design are kept in a separate private repo; the rules below and the ADRs in docs/decisions/ are the public record.
 
 ## Current phase
-Phase 1 (compute core: batch jobs end to end, built to production standard; free credits until the company and payment partner exist). Phase 0's hardware runs wait for a borrowed Windows RTX laptop; Phase 1 work that needs no GPU goes ahead now. The web app is built in rounds, each reviewed by Nikki before the next: foundations and the renter's home first, then booking, then the host side.
+Phase 1 (compute core: batch jobs end to end, built to production standard; free credits until the company and payment partner exist). Phase 0's hardware runs wait for a borrowed Windows RTX laptop; Phase 1 work that needs no GPU goes ahead now. The web app is built in rounds, each reviewed by the product owner before the next: foundations and the renter's home first, then booking, then the host side.
 Do NOT build yet: live payments or payouts (Razorpay's and RazorpayX's live modes; test mode is built, ADR 0039, ADR 0040), gaming runtime, notebooks or endpoints, multi-region.
 
 ## Architecture rules (never break these)
@@ -40,7 +40,7 @@ The full rules, area by area, are in [docs/reference/conventions.md](docs/refere
 - Keeping a new kind of personal data updates docs/reference/personal-data-map.md in the same commit (ADR 0037).
 - Renters' own images (ADR 0042): checked by `scanner/` before they reach a host; every verdict is the control plane's `ImageJudge`; a check that doesn't finish is never a pass. See "Renters' own images".
 - Agent (Rust): `#![forbid(unsafe_code)]` except agent-windows; leases count on `LeaseClock`; never fall back to fake telemetry silently. `.proto` changes are additive; generated code is never committed. Windows app, runner, sandbox and release rules: "The Windows app", "The container runner".
-- Web app: every screen has loading, empty, error and stale states; money only through `formatPaise`; colours and sizes only from design tokens; sign-in SDKs only in `web/src/auth/`. The performance and accessibility budgets (web/README.md) are never loosened without Nikki's say: stop and report with numbers. See "Web app".
+- Web app: every screen has loading, empty, error and stale states; money only through `formatPaise`; colours and sizes only from design tokens; sign-in SDKs only in `web/src/auth/`. The performance and accessibility budgets (web/README.md) are never loosened without the product owner's say: stop and report with numbers. See "Web app".
 - Razorpay and RazorpayX are test mode only (ADRs 0039, 0040).
 - Tests: JUnit 5 and Testcontainers for Java, cargo test for Rust. New behaviour ships with tests.
 - Secrets never go in code or git; use a gitignored .env locally. Never ask for passwords or keys.
@@ -53,7 +53,7 @@ The full rules, area by area, are in [docs/reference/conventions.md](docs/refere
 - Use the git identity already configured on this machine. Never change git config.
 - Push only when a remote exists and the prompt says to.
 - Never mention phases, steps or prompts in a commit message. Say what changed.
-- A prompt file is committed together with the first piece of work it asks for, never in a commit of its own. Prompt files are named by topic (for example identity-sign-in.md), not by phase or step.
+- Prompt files are never committed: they stay in `private/` (git-ignored). They are named by topic (for example `identity-sign-in.md`), not by phase or step.
 
 ## Working rules
 - Measure before fixing; report numbers, not impressions.

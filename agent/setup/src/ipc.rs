@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A problem with its one screen and one button (host experience §4).
+/// A problem with its one screen and one button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Problem {

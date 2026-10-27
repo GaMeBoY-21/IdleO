@@ -4,20 +4,18 @@
 - **Date:** 2026-10-13
 
 Sources:
-- docs/plan/product-surface.md sections 3.2 (rate and report), 7 (renter and host never see each other), 8 (disputes) and 10.2
 - ADRs 0005 and 0014 (the ledger and its accounts), 0017 (what a minute costs and who takes a loss), 0023 (hosting and host earnings), 0026 (notifications), 0027 (the admin console)
-- docs/prompts/ratings-and-reports.md
 
 ## Context
 
-A renter whose job failed or ran badly had nowhere to say so but an email to Nikki, and the only money that ever went back to a renter was the lost-host refund (ADR 0017). A host had no way to know how renters found its machine. The admin console (ADR 0027) shipped without its Disputes screen, and the trust module held nothing.
+A renter whose job failed or ran badly had nowhere to say so but an email to the product owner, and the only money that ever went back to a renter was the lost-host refund (ADR 0017). A host had no way to know how renters found its machine. The admin console (ADR 0027) shipped without its Disputes screen, and the trust module held nothing.
 
 The gate: on the local stack, a renter rates a completed session and reports a problem with a failed one; an admin sees the report in the console and refunds part of it; the renter's credit and the ledger agree; the host sees its average rating and never who rated it.
 
 Constraints:
 - **Modules talk through public APIs or events** and never read another module's tables. Trust must know who ran a session and when it ended without reading sessions.
 - **Money moves only through billing's ledger** (ADR 0014), in one balanced transaction, with `txn_id` derived from its cause.
-- **A renter and a host never see each other** (product surface 2, rule 7). A host sees a rating's average, never its author or its words.
+- **A renter and a host never see each other**. A host sees a rating's average, never its author or its words.
 - **The plan is silent** on whose money a refund is, on how long ratings count, and on what happens to a host's earnings while a report is open. This ADR decides.
 
 ## Decision

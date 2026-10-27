@@ -1,4 +1,4 @@
-//! What can go wrong, and the exit code each thing gets (docs/plan/product-surface.md section 4.3): fixed per error
+//! What can go wrong, and the exit code each thing gets: fixed per error
 //! type, from the API's one problem catalog, so a script can branch on `$?`.
 
 use std::fmt;

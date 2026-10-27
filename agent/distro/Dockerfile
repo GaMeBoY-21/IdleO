@@ -1,4 +1,4 @@
-# The sealed Linux image the Windows installer will import into WSL2 (docs/plan/host-experience.md §2, ADR 0032's round):
+# The sealed Linux image the Windows installer will import into WSL2:
 # our own distribution, built here, never the Store's and never downloaded inside at install time. Minimal Ubuntu 24.04,
 # containerd, nerdctl and the CNI plugins it needs, the NVIDIA container toolkit and nftables at pinned versions, the
 # lockdown (wsl.conf), the sandbox's network rules, idleo-runner (ADR 0035), the real job runner, and an unprivileged

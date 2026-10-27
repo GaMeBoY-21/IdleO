@@ -4,7 +4,7 @@
 one line. A release build (`--features prod-keys`) bakes it into the setup app, the launcher and the agent, and refuses
 to compile while it is empty. The control plane reads the same value from `IDLEO_RELEASE_PUBLIC_KEY`.
 
-It is empty until Nikki makes the key with `scripts/release/new-release-key.sh`, which writes the public half here and
+It is empty until the product owner makes the key with `scripts/release/new-release-key.sh`, which writes the public half here and
 the private half only to a path she chooses. The private key is never in this repository, never read by anything we
 ship, and only ever passed to `idleo-release sign --key <path>`.
 

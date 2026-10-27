@@ -1,6 +1,6 @@
 # Streaming checklist: is a game playable over the internet?
 
-Two people, two machines, about two hours. Follow the steps in order. Write results in `phase0/RESULTS.md`, not here.
+Two people, two machines, about two hours. Follow the steps in order. Write results in `phase0/RESULTS.md` (git-ignored), not here.
 
 - **Host:** the Asus (RTX 4080 Laptop GPU, Windows 11), running Sunshine.
 - **Client:** the Mac, running Moonlight.
@@ -14,7 +14,7 @@ On the **hotspot run** (Run B):
 
 | Measure | Pass | Source |
 | --- | --- | --- |
-| Median round trip | under 30 ms | technical design line 767 |
+| Median round trip | under 30 ms | the design's target |
 | Resolution and frame rate | 1080p at 60 FPS, held | our Phase 0 bar |
 | Dropped frames | under 1% (network plus jitter drops) | our Phase 0 bar |
 
@@ -24,7 +24,7 @@ Run A (same Wi-Fi) is the baseline. It doesn't decide the gate.
 
 ### On the Asus
 
-1. **Plug in the charger.** Turn on the laptop's charge limit if Armoury Crate offers one (execution plan line 103).
+1. **Plug in the charger.** Turn on the laptop's charge limit if Armoury Crate offers one.
 2. **Network:** connect the Asus by **Ethernet** if you can. Wi-Fi adds jitter, which is a different problem from the internet path. Write down which one you used; the results table asks.
 3. **Install Tailscale** from tailscale.com/download. Sign in with the account you both agreed on.
 4. **Install Sunshine** from the LizardByte/Sunshine releases page on GitHub, using the latest stable Windows installer.
@@ -55,7 +55,7 @@ In **Settings**, set:
 
 - **Resolution:** 1080p
 - **Frame rate:** 60 FPS
-- **Video bitrate:** 20 Mbps (within the 15–30 Mbps range in execution plan line 104)
+- **Video bitrate:** 20 Mbps (within the 15–30 Mbps range gaming needs)
 - **Show performance stats:** on (you can also toggle stats during a stream with Ctrl+Option+Shift+S)
 - **V-Sync:** off, frame pacing off (this keeps the numbers about the network, not the display)
 
@@ -63,7 +63,7 @@ Leave everything else at its default. Write down the bitrate actually used.
 
 ## 2. Before each run
 
-1. **Measure the Asus's upload speed.** On the Asus, run a speed test (fast.com, then "Show more info") and record the **upload** in Mbps. Execution plan line 104 says gaming needs 15–30 Mbps of steady upload.
+1. **Measure the Asus's upload speed.** On the Asus, run a speed test (fast.com, then "Show more info") and record the **upload** in Mbps. Gaming needs 15–30 Mbps of steady upload.
 2. **Start the GPU logger on the Asus** in a separate window, from the `phase0` folder:
    ```
    python telemetry\gpu_logger.py --out results\stream-runA-gpu.csv
@@ -103,15 +103,15 @@ This makes the traffic genuinely cross the internet.
 3. **Repeat steps 2–5 from Run A**, with `runB` in the logger file name.
 4. **Note the result.** Mobile networks often block direct paths, so DERP is a real possibility.
 
-   A DERP result with good numbers is still a pass, but write it down: relayed traffic costs edge bandwidth (execution plan line 349).
+   A DERP result with good numbers is still a pass, but write it down: relayed traffic costs edge bandwidth.
 
 ### One-hour session (heat and upload)
 
-After Run B, play for **one hour** on whichever network works, with the logger running (`results\stream-1h-gpu.csv`). It answers execution plan line 586:
+After Run B, play for **one hour** on whichever network works, with the logger running (`results\stream-1h-gpu.csv`). It answers whether a one-hour session holds up:
 - Every 15 minutes, note the Asus's upload rate: Task Manager, **Performance** tab, then Ethernet or Wi-Fi, and read **Send**.
 - Note any stutter and when it happened.
 
-## 4. Laptop display checks (execution plan line 102)
+## 4. Laptop display checks
 
 On many gaming laptops the screen runs through the integrated GPU, and a closed lid leaves nothing to capture.
 
@@ -144,7 +144,7 @@ On many gaming laptops the screen runs through the integrated GPU, and a closed 
 - **Software encoder in Sunshine's log:** update the NVIDIA driver. In dGPU-only mode it should find NVENC; in hybrid mode, try the virtual display driver.
 - **Heavy stutter on Wi-Fi only:** that's local Wi-Fi jitter, not the internet path. Try Ethernet and record both.
 
-## 6. Results to copy into phase0/RESULTS.md
+## 6. Results to copy into phase0/RESULTS.md (git-ignored)
 
 | | Run A: same Wi-Fi | Run B: hotspot |
 | --- | --- | --- |

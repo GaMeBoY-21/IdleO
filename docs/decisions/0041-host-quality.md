@@ -5,8 +5,7 @@
 
 ## Context
 
-Matching ranks batch hosts by price, reliability, bandwidth and cache
-(docs/plan/technical-design.md lines 359-369, docs/plan/execution-plan.md "Host score"), but until now three of those
+Matching ranks batch hosts by price, reliability, bandwidth and cache, but until now three of those
 were placeholders: every host counted as 0.5 for reliability and bandwidth, and nothing counted as cached
 (`Scoring.java`, ADR 0015). The data now exists: sessions and why they ended (ADR 0016), self-tests (ADR 0034), the
 pre-download inventory (ADR 0035), renters' reports and the admin's flag on a host (ADR 0028, ADR 0039).

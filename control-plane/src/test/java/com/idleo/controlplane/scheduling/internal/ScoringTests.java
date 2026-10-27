@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** The batch score (technical design lines 359-369) with real inputs: each moves a host's rank the right way. */
+/** The batch score with real inputs: each moves a host's rank the right way. */
 class ScoringTests {
 
     private static final UUID A = UUID.fromString("00000000-0000-7000-8000-00000000000a");

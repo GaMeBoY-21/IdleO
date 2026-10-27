@@ -6,7 +6,7 @@ import java.util.Base64;
 import java.util.UUID;
 
 /**
- * Opaque page cursors (technical design "Limits"): a position in a list, base64url-encoded, so clients pass back
+ * Opaque page cursors: a position in a list, base64url-encoded, so clients pass back
  * what they were given and never build one. A cursor that doesn't decode is a {@code validation-failed} error on
  * {@code cursor}.
  */

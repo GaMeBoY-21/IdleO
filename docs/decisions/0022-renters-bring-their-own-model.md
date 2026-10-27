@@ -4,13 +4,12 @@
 - **Date:** 2026-10-10
 
 Sources:
-- docs/plan/product-surface.md section 3.0, "The rule" (Nikki, Oct 9)
 - docs/design/redesign/book-finetune-laptop.html, the target for a service's booking screen
 - ADRs 0015 (scheduling), 0016 (sessions and storage), 0019 (the booking contract), 0021 (requesting a GPU like a ride)
 
 ## Context
 
-On Oct 9 Nikki set the rule the product follows: **we provide the GPU; renters bring their own model, data and code, usually from their own laptop; we never supply a model.** We give them a ready environment (CUDA, PyTorch, the training or serving tools), and nothing more.
+On Oct 9 the product owner set the rule the product follows: **we provide the GPU; renters bring their own model, data and code, usually from their own laptop; we never supply a model.** We give them a ready environment (CUDA, PyTorch, the training or serving tools), and nothing more.
 
 Two services broke the rule. "Generate images" ran a model we chose and shipped, and "Transcribe audio or video" ran a speech model we chose and shipped. Each would have made us the supplier of a model, with its licence, its outputs and its misuse ours to answer for, and neither had a version where the renter brings the model.
 
@@ -18,7 +17,7 @@ The rest of booking wasn't built for the rule either:
 - An upload was one file of up to 20 GiB. A model is a folder (`config.json`, a tokenizer, several `.safetensors` shards) and can be 15 GB or more, sent over home internet, where a dropped connection meant starting again.
 - A template took one input. A fine-tune needs at least two: the model and the data.
 - An upload was used once and expired 30 days after it was made, so the same model went up again for every session.
-- Booking showed a Settings drawer listing raw parameters (epochs, learning rate, LoRA rank). Nikki found it meaningless: renters think "how thorough", not "how many epochs".
+- Booking showed a Settings drawer listing raw parameters (epochs, learning rate, LoRA rank). The product owner found it meaningless: renters think "how thorough", not "how many epochs".
 - The GPU memory a session asked for was the template's minimum, whatever the model's size.
 - Nothing stopped the scheduler from offering a session to a host whose disk couldn't hold the renter's files.
 

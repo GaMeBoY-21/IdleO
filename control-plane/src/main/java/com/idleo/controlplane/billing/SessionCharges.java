@@ -42,7 +42,7 @@ public interface SessionCharges {
      */
     void refund(UUID sessionId, UUID renterId, UUID txnId, List<RefundPart> parts);
 
-    /** The platform's commission, in percent (execution plan line 311: 15–25 to test; 20 by default). */
+    /** The platform's commission, in percent. */
     int commissionPercent();
 
     /** Splits {@code amount} into the host's share, rounded down, and the commission, which keeps the rest. */

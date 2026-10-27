@@ -4,8 +4,6 @@
 - **Date:** 2026-10-12
 
 Sources:
-- docs/plan/product-surface.md sections 4, 11.3 and 11.7
-- docs/plan/technical-design.md, "Control plane modules and API" and "Limits"
 - ADRs 0009 (identity through a managed provider), 0019 (the booking contract), 0022 (renters bring their own model), 0024 (access by invitation)
 - RFC 8628 (OAuth 2.0 device authorization grant), RFC 9110 section 10.2.3 (`Retry-After`)
 
@@ -68,7 +66,6 @@ Constraints:
 - **Harder:** every end-to-end run makes its CLI account approve a login, and the harness lifts the limits (so the end-to-end run can't show whether the web app stays under 60 requests a minute; it is measured on its own).
 - **Watch:** `last_used_at` is a hint, written once a minute. The request window is fixed, so a burst across a minute boundary can reach twice the limit. Unauthenticated calls are counted by the connecting address, so behind the load balancer the forwarded headers must be trusted first (a deployment setting; open question until the deployment round).
 - **Open question:** when keys expire, and whether a read key may be made from the CLI. Nothing needs either yet.
-- **Open question:** nothing marks a CLI version as too old yet, so the CLI can't warn about it (docs/plan/product-surface.md 4.3).
 
 ## Addendum (2026-10-14): the key rules decide by route, and fail closed
 

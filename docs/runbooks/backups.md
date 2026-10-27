@@ -8,7 +8,7 @@ The database holds every balance and every earning. It is backed up continuously
 | --- | --- | --- | --- |
 | PostgreSQL, whole | A full backup (`wal-g backup-push`) | Nightly at 02:00 India time (`ops/backup/systemd/idleo-backup.timer`) | 30 days |
 | PostgreSQL, every change | Each WAL segment as it fills, and at least every 30 seconds (`archive_timeout = 30`) while anything is written | Continuously | 30 days, as far back as the oldest full backup kept |
-| Object storage (uploads, checkpoints, outputs, logs, releases) | Nothing: it is R2's, which keeps its own copies | | As the lifecycle rules say (technical design, "Data stores") |
+| Object storage (uploads, checkpoints, outputs, logs, releases) | Nothing: it is R2's, which keeps its own copies | | As the lifecycle rules say |
 | Valkey | **Not backed up.** It holds only what may expire: presence, request counters and hints (ADR 0011). Lost, it fills again within a minute; nothing is lost that matters | | |
 
 Together the full backups and the WAL allow **point-in-time recovery**: the database as it was at any second of the last 30 days, up to about 30 seconds before a loss.

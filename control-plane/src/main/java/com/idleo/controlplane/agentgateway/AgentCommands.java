@@ -6,8 +6,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The one durable queue for everything the control plane sends an agent (ADR 0015, technical design lines
- * 34 and 177-189). A command is written in the caller's transaction and delivered after it commits, to
+ * The one durable queue for everything the control plane sends an agent (ADR 0015). A command is written in the caller's transaction and delivered after it commits, to
  * whichever instance holds the host's stream; a periodic sweep catches anything a hint missed.
  */
 public interface AgentCommands {

@@ -5,8 +5,7 @@
 
 ## Context
 
-ADR 0035 sealed a job in a container inside a Linux space the host cannot browse into by accident. Four gaps were left
-(docs/prompts/sandbox-hardening.md):
+ADR 0035 sealed a job in a container inside a Linux space the host cannot browse into by accident. Four gaps were left:
 
 1. The scratch disk was a plain ext4 image on the distribution's virtual disk. A host is the laptop's administrator, so
    after a session a curious host could copy the virtual disk and read a renter's files.

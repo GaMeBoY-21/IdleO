@@ -91,7 +91,7 @@ The owner's journeys are `e2e/hosting-journey.spec.ts` (the `hosting-journey` pr
 
 ## The budgets
 
-Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in CI when broken. Never loosen one without Nikki's say. If one truly can't be met, stop and report it with numbers.
+Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in CI when broken. Never loosen one without the product owner's say. If one truly can't be met, stop and report it with numbers.
 
 | Budget | Limit | Where it's checked |
 | --- | --- | --- |
@@ -103,7 +103,7 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 | Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/*screens.spec.ts` |
 | A 10 MiB log | at most 2,000 lines in the page, every interaction within the app's 200 ms on a CPU slowed 4× | `e2e/performance.spec.ts` |
 
-The 10 MiB log test held its interactions to 100 ms until Oct 9, stricter than the app's own budget; it's now held to the app's 200 ms (Nikki's yes), and still to 2,000 lines in the page.
+The 10 MiB log test held its interactions to 100 ms until Oct 9, stricter than the app's own budget; it's now held to the app's 200 ms (the product owner's yes), and still to 2,000 lines in the page.
 
 Lighthouse measures sign-in, Home, Book (at the fine-tune's screen, where the questions are) and the session screen (a long run, live) three times each on the mobile profile, each from a cold cache, and `lhci` asserts the median of the three: one run alone carries the machine's noise. The desktop profile runs once per screen, for the record. It also records, without asserting, a session the app has never listed opened by a link (`session-link`): its heading needs an API call on a new connection with a CORS preflight (ADR 0020). Every run's report, JSON and HTML, is in `.lighthouseci/` (`reports/` for the HTML) and `.lighthouseci-desktop/`, and CI keeps them as the `lighthouse` artifact of every run, passed or failed.
 
@@ -144,7 +144,7 @@ The wait for the largest paint (`afterPaint`'s `largestPaintSettled`, used by Ad
 
 ## Looking at the screens by hand
 
-The pictures aren't compared this round (Nikki, Oct 8): look at the screens yourself, in light and dark, at a phone's width and a laptop's.
+The pictures aren't compared this round (the product owner, Oct 8): look at the screens yourself, in light and dark, at a phone's width and a laptop's.
 - **Every screen and state, from invented data:** with the stack up and `pnpm dev` (or `pnpm build && pnpm serve`) on :3000, `GALLERY_DIR=/tmp/screens pnpm exec playwright test e2e/screens.spec.ts e2e/session-screens.spec.ts e2e/book-screens.spec.ts e2e/files-screens.spec.ts` writes a full-page picture of each into that folder, named `<state>--<phone|laptop>-<light|dark>.png`.
 - **The real thing:** sign in at http://localhost:3000 as a user with credit, with an agent online (docs/runbooks/local-stack.md), and use the browser's device toolbar at 390 px and a window of 1280 px. The theme is in the account menu. How to reach each state:
   - **Finding and found:** they last well under a second on the local stack; `/session/?id=…` of a session the fixtures hold shows them, as above.

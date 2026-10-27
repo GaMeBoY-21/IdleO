@@ -15,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * A session's objects after it ends (ADR 0037, technical design "Data stores"): checkpoints go after 7 days, outputs
+ * A session's objects after it ends (ADR 0037): checkpoints go after 7 days, outputs
  * and logs after 30, each session once, while its rows stay as its money record. A session still running is never
  * touched.
  */

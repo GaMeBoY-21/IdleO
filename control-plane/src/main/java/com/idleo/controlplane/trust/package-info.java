@@ -2,8 +2,7 @@
  * The trust module. Owns: ratings and disputes (renters' reports of a problem), and later canary jobs, abuse flags
  * and bans.
  *
- * <p>Its tables live in the {@code trust} database schema, and no other module reads them. See
- * docs/plan/technical-design.md, "Control plane modules and API".
+ * <p>Its tables live in the {@code trust} database schema, and no other module reads them.
  *
  * <p>It keeps its own record of every session that ended, from the sessions module's durable {@code SessionEnded}
  * and {@code SessionNeverRan} events, so it never reads that module's tables (ADR 0028).

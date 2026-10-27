@@ -6,8 +6,7 @@
 ## Context
 
 Every job ran in our PyTorch image (ADR 0035). Many renters already have an image with their code, libraries and CUDA
-version baked in. The technical design allows it: "custom images for verified renters only, scanned before first run"
-(docs/plan/technical-design.md line 512; docs/plan/execution-plan.md line 415, "stronger checks for ... custom images").
+version baked in. The technical design allows it: "custom images for verified renters only, scanned before first run".
 A renter's image is untrusted software on a host's laptop. The sandbox (user 10001, a read-only root, every capability
 dropped, the network rules, the encrypted scratch disk, ADRs 0035 and 0038) applies to it unchanged. This decision adds
 the gate in front of it: a check on our server, before the image can reach a host.

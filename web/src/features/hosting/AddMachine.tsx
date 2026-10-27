@@ -81,7 +81,7 @@ function DownloadButton() {
 }
 
 /**
- * Add a machine (docs/plan/host-experience.md §1, ADR 0032): one download and one Approve, never a code to copy. Three
+ * Add a machine: one download and one Approve, never a code to copy. Three
  * short steps, the main button, and what a laptop needs. A developer links a machine from its terminal with
  * `idleo-agent link`, which opens the approval page by itself.
  */

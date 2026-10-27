@@ -253,7 +253,7 @@ export async function capture(page: Page, testInfo: TestInfo, name: string): Pro
       style: readFileSync(FULL_PAGE_STYLE, "utf8"),
     });
   }
-  // Comparing with visual baselines is off while the redesign settles (Nikki, Oct 8): the screens are checked by
+  // Comparing with visual baselines is off while the redesign settles (the product owner, Oct 8): the screens are checked by
   // hand. VISUAL_COMPARE=1 turns it back on; axe, the overflow check and layout shift run either way.
   if (process.env.VISUAL_COMPARE === "1" && !process.env.SKIP_VISUAL) {
     await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: true, stylePath: FULL_PAGE_STYLE });

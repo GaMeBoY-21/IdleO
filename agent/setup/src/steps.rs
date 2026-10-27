@@ -13,7 +13,7 @@
 //! 7. `link`: approval in the browser (click 3).
 //! 8. `start`: the launcher, then the host's first status.
 //!
-//! Every step's start and end, and every click, are measured (host experience §6 row 11); when a step or a self-test
+//! Every step's start and end, and every click, are measured; when a step or a self-test
 //! check fails, the words go with it (`detail`, scrubbed of the person and the machine), and the whole run is written to
 //! the setup log. A development build can keep a failed install for troubleshooting instead of undoing it.
 

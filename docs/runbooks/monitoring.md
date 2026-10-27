@@ -48,7 +48,7 @@ Any OTLP endpoint works; Grafana Cloud is the default because its free tier cove
 
 Grafana bills metrics as the larger of active series and data points a minute over 1 a series ([how metrics are billed](https://grafana.com/docs/grafana-cloud/cost-management-and-billing/understand-your-invoice/metrics-invoice/)), which is why the control plane sends once a minute (`management.otlp.metrics.export.step: 1m`). Every timer an alert or dashboard reads a percentile from has a few fixed buckets, never Micrometer's 69 (`management.metrics.distribution.slo`). Measured on the local stack with two agents and a little traffic, 2026-10-21: 674 series from one instance (1,204 with Micrometer's default buckets); routes add series as they're used, a few hundred more in production. The pilot's two instances stay well inside 10,000. Logs at INFO and a tenth of traces are a few hundred MB a month.
 
-### Setting it up (Nikki, once)
+### Setting it up (the product owner, once)
 
 1. **Make the account** at grafana.com and a stack in the region nearest India it offers. Note the stack's name.
 2. **OTLP:** in the stack's page, OpenTelemetry → Configure. It gives the OTLP endpoint (`https://otlp-gateway-<zone>.grafana.net/otlp`), an instance id, and makes a token. Set on the control plane's server:

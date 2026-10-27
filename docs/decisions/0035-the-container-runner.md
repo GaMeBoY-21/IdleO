@@ -7,7 +7,7 @@
 
 Until now the agent ran sessions with a development runner that only simulated them (ADR 0016), so nothing proved that a
 renter's code can run on a stranger's laptop without reaching the owner's files or the owner's home network
-(docs/plan/technical-design.md "Compute sandbox", architecture rule 6). Phase 1 needs the real thing: jobs in
+(architecture rule 6). Phase 1 needs the real thing: jobs in
 containers inside the sealed Linux distribution (ADR 0033, `agent/distro/`), a job image that holds PyTorch and CUDA, and
 a contract for a job's inputs, outputs and checkpoints (ADR 0022: renters bring their own model, data and code). It has to
 be developed and tested on a Mac, where WSL2, an NVIDIA GPU and the Windows firewall are all missing, and it must never

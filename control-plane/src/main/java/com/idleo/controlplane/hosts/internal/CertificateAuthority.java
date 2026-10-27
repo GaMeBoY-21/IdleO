@@ -35,8 +35,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 /**
- * Our online intermediate certificate authority (ADR 0010, technical design: offline root, online
- * intermediate). It issues 30-day host client certificates and nothing else: ECDSA P-256, a random
+ * Our online intermediate certificate authority (ADR 0010). It issues 30-day host client certificates and nothing else: ECDSA P-256, a random
  * serial, CA:false, digitalSignature, clientAuth only, and the host's identity as the single URI
  * name {@code urn:idleo:host:<host-id>}. The identity is written by us, never taken from the CSR.
  *

@@ -3,7 +3,7 @@ package com.idleo.controlplane.scheduling.internal;
 import java.util.Comparator;
 
 /**
- * The batch score (technical design lines 359-369): S = w_p(1 − P/P_max) + w_r·R + w_l(1 − L/L_max) +
+ * The batch score: S = w_p(1 − P/P_max) + w_r·R + w_l(1 − L/L_max) +
  * w_b·B + w_c·C, with the batch weights: starting guesses to tune with pilot data (ADR 0015). R is the host
  * score's reliability and B its bandwidth, both from 0 to 1 and kept by the hosts module (0.5 for a host with no
  * data yet); C is 1 when the agent's last heartbeat said the template's image is already on the machine. Ties are

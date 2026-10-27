@@ -14,7 +14,7 @@ Emails to `someone@example.com` addresses arrive in Mailpit whoever they are for
 
 We keep SMTP (`spring.mail.*`), so any provider with an SMTP relay works with no code change; Resend is the default (ADR 0036). Its free plan, from [resend.com/pricing](https://resend.com/pricing) (read 2026-10-20): **3,000 emails a month, at most 100 a day**, 3 domains, 30 days of logs, one webhook endpoint, and the SMTP relay. A pilot sends a few a day per active renter; past 100 a day, the paid plan, or the email-failing alert fires (docs/runbooks/alerts.md).
 
-**Setting it up (Nikki, once):**
+**Setting it up (the product owner, once):**
 
 1. Sign up at resend.com. Domains → Add domain: a **subdomain** of ours just for this mail, for example `mail.<domain>` (Resend recommends a subdomain, so this mail's reputation is its own), region nearest India.
 2. Add the DNS records Resend shows (below), and wait until it says Verified.

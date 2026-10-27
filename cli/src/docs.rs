@@ -10,7 +10,7 @@ use crate::brand::{BIN_NAME, PRODUCT};
 use crate::cli::Cli;
 use crate::error::Exit;
 
-/// What each exit code means, in the order of the codes (docs/plan/product-surface.md section 4.3).
+/// What each exit code means, in the order of the codes.
 const EXIT_MEANINGS: [(Exit, &str); 8] = [
     (Exit::Success, "Success, or the session completed"),
     (Exit::Failed, "The session failed, or the API refused something no other code names"),

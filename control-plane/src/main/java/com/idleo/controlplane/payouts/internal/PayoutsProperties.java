@@ -35,7 +35,7 @@ record PayoutsProperties(
         @NotNull @Valid Pan pan) {
 
     /**
-     * Who pays RazorpayX's charge for a payout: {@code idleo} (the default, Nikki's business decision) or {@code host},
+     * Who pays RazorpayX's charge for a payout: {@code idleo} (the default, the product owner's business decision) or {@code host},
      * who then has {@code hostFeePaise} taken from each payout.
      */
     record Fees(@NotNull PaidBy paidBy, @Min(0) long hostFeePaise) {}

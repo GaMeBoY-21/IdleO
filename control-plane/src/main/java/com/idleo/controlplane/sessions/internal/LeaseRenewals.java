@@ -75,8 +75,7 @@ class LeaseRenewals {
 
     /**
      * What a lease sent now costs: the minutes it would let the attempt start, at its price. The hold, less what's
-     * committed, must cover it before the lease is sent, so the lease never outruns the credit (technical design
-     * rule 2).
+     * committed, must cover it before the lease is sent, so the lease never outruns the credit.
      */
     private Paise leaseCost(Lease lease, Instant now) {
         return reservations.renterCost(Paise.of(lease.pricePaisePerMin())

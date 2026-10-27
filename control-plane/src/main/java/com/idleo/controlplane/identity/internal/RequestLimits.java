@@ -18,7 +18,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 
 /**
- * The renter's request limit (technical design "Limits", ADR 0025): {@code limits.requests-per-minute} for each
+ * The renter's request limit: {@code limits.requests-per-minute} for each
  * signed-in person, counted in Valkey in fixed one-minute windows, and the same per address for calls that need no
  * sign-in. Starting a CLI sign-in is limited further, {@code limits.cli-logins-per-hour} per address, and asking to
  * link a host the same way, {@code limits.host-links-per-hour}. Over a limit,

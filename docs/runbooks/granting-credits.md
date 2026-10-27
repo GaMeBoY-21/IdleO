@@ -1,4 +1,4 @@
-# Granting and reversing free credits (by Nikki)
+# Granting and reversing free credits (by the product owner)
 
 The admin console (docs/runbooks/admin.md, Users and Money) grants, reverses and runs the wallet check through the same services, from a browser.
 

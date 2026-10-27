@@ -8,7 +8,7 @@ import org.springframework.util.unit.DataSize;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Uploads (ADR 0019, ADR 0022, technical design "Limits").
+ * Uploads (ADR 0019, ADR 0022).
  *
  * @param partSize each part's size but the last, which may be smaller; storage takes 5 MiB at the least
  * @param linkTtl how long a part's pre-signed link works

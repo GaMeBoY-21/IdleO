@@ -4,7 +4,6 @@
 - **Date:** 2026-10-10
 
 Sources:
-- docs/plan/product-surface.md sections 3.3, 11.8 to 11.10 and 12
 - docs/design/hosting/*.html, the targets for the five hosting screens
 - ADRs 0011 (the agent stream), 0013 (ports hosts declare), 0015 (scheduling), 0017 (charging), 0019 (the booking contract), 0021 (requesting a GPU like a ride), 0022 (hosts with room)
 

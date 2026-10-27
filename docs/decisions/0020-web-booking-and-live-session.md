@@ -4,9 +4,7 @@
 - **Date:** 2026-10-08
 
 Sources:
-- docs/plan/product-surface.md sections 2, 3.1, 3.2 and 13 (round 2)
 - web/DESIGN.md; ADR 0018 (the web stack and budgets) and ADR 0019 (the booking contract)
-- docs/prompts/web-booking-and-live-session.md
 
 ## Context
 
@@ -47,4 +45,4 @@ The booking contract (ADR 0019) is built. This round draws the screens a renter 
 - A deployment must set `VITE_STORAGE_URL` (R2's endpoint) for uploads to work.
 - A screen that adds a request to its first paint, or a shared module outside the shell chunk, shows up in Lighthouse at once; the rules are in web/README.md "The budgets".
 - **Open question:** a deep link to a session the app hasn't listed is 2.40 s on the mobile profile, over the 2.0 s budget. Serving the web app and the API from one origin (ADR 0018's consequence) would remove the preflight and the second connection; it's decided with deployment.
-- **Open question:** banners that arrive while the screen is open (a host change, low credit, a failure) push the content below them down; DESIGN.md asks for reserved space or an overlay, which a banner whose need can't be known in advance can't have. Nikki to decide whether such banners should overlay instead.
+- **Open question:** banners that arrive while the screen is open (a host change, low credit, a failure) push the content below them down; DESIGN.md asks for reserved space or an overlay, which a banner whose need can't be known in advance can't have. The product owner to decide whether such banners should overlay instead.

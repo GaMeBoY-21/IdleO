@@ -3,7 +3,7 @@ package com.idleo.controlplane.sessions;
 import java.util.List;
 
 /**
- * Something a renter can run (product surface 3.0, ADR 0021): a group of templates, shown as one tile on Home and one
+ * Something a renter can run: a group of templates, shown as one tile on Home and one
  * choice in Book. A template is one way to run a service. Listed in the template catalog, above the templates.
  *
  * @param tagline a few words under the name ("a model on your data")

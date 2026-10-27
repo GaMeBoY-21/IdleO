@@ -26,7 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * One live stream per session (ADR 0019, product surface 2.9): the web app, the CLI and the SDK all follow a session
+ * One live stream per session (ADR 0019): the web app, the CLI and the SDK all follow a session
  * through it, as Server-Sent Events.
  *
  * <ul>

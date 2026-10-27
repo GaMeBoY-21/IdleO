@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The renter's session limits (technical design "Limits", ADR 0025), checked as a session is booked:
+ * The renter's session limits, checked as a session is booked:
  *
  * <ul>
  *   <li>{@code sessions.limits.new-per-hour} new sessions in any hour, and {@code new-per-hour-first-day} for an

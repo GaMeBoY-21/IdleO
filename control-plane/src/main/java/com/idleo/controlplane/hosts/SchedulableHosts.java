@@ -12,8 +12,7 @@ public interface SchedulableHosts {
      *
      * @param keepFreeMb the disk its owner keeps free for themselves, in MB (ADR 0023)
      * @param paused its owner paused it, and the pause hasn't ended: no new offers
-     * @param reliability its host score's reliability, 0 to 1; 0.5 until it has one (docs/plan/execution-plan.md "Host
-     *     score")
+     * @param reliability its host score's reliability, 0 to 1; 0.5 until it has one
      * @param bandwidth its line's speed against the fleet's 90th percentile, 0 to 1; 0.5 until its speed is measured
      * @param gpuDriverVersion that GPU's NVIDIA driver, as its agent reported it ({@code 572.16}); null if it hasn't
      */

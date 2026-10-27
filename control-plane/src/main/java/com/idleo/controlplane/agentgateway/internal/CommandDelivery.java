@@ -22,8 +22,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Delivers queued commands to the agents whose streams are on this instance (ADR 0015, technical design
- * line 34). After a command commits, a hint goes to the Valkey channel of the instance that holds the
+ * Delivers queued commands to the agents whose streams are on this instance (ADR 0015). After a command commits, a hint goes to the Valkey channel of the instance that holds the
  * host's stream, from its presence record; that instance sends the host's pending, unexpired commands in
  * creation order. The same happens right after a stream's Welcome, and every few seconds for every
  * connected host, so a lost hint costs seconds, never a command.

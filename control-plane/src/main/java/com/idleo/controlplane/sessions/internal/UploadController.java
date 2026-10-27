@@ -65,7 +65,7 @@ class UploadController {
 
     /**
      * @param name what My files calls it: the folder's name, or the file's
-     * @param files at most 1,000, the upload at most 40 GiB together (technical design "Limits")
+     * @param files at most 1,000, the upload at most 40 GiB together
      */
     record CreateUploadRequest(
             @NotBlank String name,

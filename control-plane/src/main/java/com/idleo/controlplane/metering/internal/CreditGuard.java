@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Keeps credit ahead of a running session (technical design "Metering and billing" step 5, ADR 0017). On each
+ * Keeps credit ahead of a running session. On each
  * tick it counts what the session has committed: minutes both witnesses saw and nobody has settled, plus the
  * current attempt's minutes that have started but aren't decided yet. Billing gets that number, so lease renewal
  * can tell whether the hold, less it, still covers a lease.

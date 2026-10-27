@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * The reliability half of the host score, from 0 to 1 (docs/plan/execution-plan.md "Host score"). Pure arithmetic over
+ * The reliability half of the host score, from 0 to 1. Pure arithmetic over
  * the last 30 days of what happened, so every input's effect is a test.
  *
  * <p>Each observation counts for less the older it is (halving every {@link #HALF_LIFE}). The session record and the

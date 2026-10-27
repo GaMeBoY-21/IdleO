@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * What GPU ran a session, for the renter's view (ADR 0019, product surface 2.7): its model and memory, never the
+ * What GPU ran a session, for the renter's view (ADR 0019): its model and memory, never the
  * host's identity or owner.
  */
 public interface HostGpus {

@@ -1,4 +1,4 @@
-# Identity provider setup (one time, by Nikki)
+# Identity provider setup (one time, by the product owner)
 
 **Nothing from this runbook is ever committed.** Your project id and the web app's settings go only into two gitignored files, `control-plane/.env` and `web/.env.local`, and later into the production environment's variables. Claude Code doesn't touch your Google account and never asks for a key; you do every step yourself.
 

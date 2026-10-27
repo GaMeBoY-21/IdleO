@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Date:** 2026-10-04
 
-Source: Nikki's decision of 2026-10-04, recorded in docs/prompts/phase0-step2-feasibility-kit.md §0b.
+Source: the product owner's decision of 2026-10-04.
 
 ## Context
 
-Nikki chose to build the final product, not an MVP. The roadmap's order still holds: payments wait for the company, and paid gaming waits for the lawyer. But nothing built along the way is a throwaway.
+The product owner chose to build the final product, not an MVP. The roadmap's order still holds: payments wait for the company, and paid gaming waits for the lawyer. But nothing built along the way is a throwaway.
 
 ## Decision
 
@@ -25,7 +25,7 @@ Phase 1 becomes the compute core: batch jobs end to end, built to production sta
 
 ## Alternatives considered
 
-- **An MVP first, hardened later:** rejected by Nikki on 2026-10-04.
+- **An MVP first, hardened later:** rejected by the product owner on 2026-10-04.
 
 ## Consequences
 

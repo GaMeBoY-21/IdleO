@@ -5,7 +5,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The append-only audit log of every privileged action (ADR 0027; technical design "Audit trail"): admin actions,
+ * The append-only audit log of every privileged action (ADR 0027): admin actions,
  * operator commands, and certificate issues and revocations. Each module records its action through this port in
  * the same database transaction as the action itself, so an action and its row are committed or rolled back
  * together. Nothing can change or delete a row once it's written.

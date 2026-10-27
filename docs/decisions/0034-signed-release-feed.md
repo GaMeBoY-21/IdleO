@@ -6,7 +6,7 @@
 ## Context
 
 The Windows app (ADR 0033) has to be installed by a one-click download and kept up to date without the owner doing
-anything (docs/plan/host-experience.md §6 rows 8 to 10). An update replaces programs that run on someone's own
+anything. An update replaces programs that run on someone's own
 laptop, with a sealed Linux space beside them, so a tampered or half-downloaded file must never run. A bad release
 must reach few hosts and roll itself back. Phase 1 has no release server, no admin API for releases and no
 Authenticode certificate yet.
@@ -21,7 +21,7 @@ own version) and `setup` (the bare `IdleO-Setup.exe`) a `file`, `sha256` and `si
 signed: integrity comes from the size and SHA-256 the signed manifest gives.
 
 - **Signatures** are Ed25519 (`ed25519-dalek` in Rust, the JDK's own in Java) over the manifest's exact bytes.
-- **Keys:** the production public key is `agent/release-keys/release.pub`, committed, empty until Nikki makes it with
+- **Keys:** the production public key is `agent/release-keys/release.pub`, committed, empty until the product owner makes it with
   `scripts/release/new-release-key.sh`, which writes the private half only where she chooses and says to keep it
   offline. A development pair is made by `scripts/release/dev-key.sh` into the git-ignored `private/release-dev/`.
 - **Builds:** a normal build bakes in the development public key (or none, in CI and tests, which sign with their

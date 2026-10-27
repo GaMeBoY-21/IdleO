@@ -1,4 +1,4 @@
-//! The IdleO renter command line (docs/plan/product-surface.md section 4).
+//! The IdleO renter command line.
 
 pub mod api;
 pub mod brand;

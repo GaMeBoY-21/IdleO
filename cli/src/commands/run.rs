@@ -1,5 +1,5 @@
 //! `run`: uploads the inputs, books, follows the session until it ends, and prints what it cost and what it gave
-//! (docs/plan/product-surface.md section 4.2). Ctrl-C during it detaches; it never stops the session.
+//!. Ctrl-C during it detaches; it never stops the session.
 
 use std::collections::{BTreeMap, HashMap};
 use std::num::{NonZeroU32, NonZeroU64};

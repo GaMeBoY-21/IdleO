@@ -7,12 +7,11 @@ import java.util.UUID;
 /**
  * Credit held for a booked session (ADR 0015). A hold isn't spent money: it's released when the session
  * ends, and in between each settlement charges from it and tops it back up (ADR 0017). {@link #reserve} and {@link #release} only run
- * inside the caller's database transaction, because a booking is one atomic unit (technical design line
- * 32); called outside one, they throw.
+ * inside the caller's database transaction, because a booking is one atomic unit; called outside one, they throw.
  */
 public interface CreditReservations {
 
-    /** A booking holds this many minutes of credit at the session's price (technical design line 411). */
+    /** A booking holds this many minutes of credit at the session's price. */
     int HOLD_MINUTES = 30;
 
     /**

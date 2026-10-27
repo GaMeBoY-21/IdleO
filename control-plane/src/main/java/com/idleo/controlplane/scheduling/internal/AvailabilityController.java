@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * What's available now (ADR 0019, product surface 11.4): one row per GPU model and memory size among hosts that are
+ * What's available now (ADR 0019): one row per GPU model and memory size among hosts that are
  * active, listed and online, with how many are free and their prices. Renters choose a template and a maximum price,
  * never a host, so no host is named. Signed-in only for now; the public, cached version comes with the pricing page.
  */

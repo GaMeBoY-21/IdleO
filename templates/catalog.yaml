@@ -1,9 +1,9 @@
 # What renters can run in Phase 1 (ADR 0015): the only source, reviewed in git.
 # The control plane bundles this file, refuses to start on a malformed entry,
 # and serves it at GET /v1/templates. Every image is pinned by digest; cosign
-# signatures are verified once the registry exists (technical design line 83).
+# signatures are verified once the registry exists.
 #
-# Services (ADR 0021, product surface 3.0) come first: what a renter can run, one tile on Home and
+# Services (ADR 0021) come first: what a renter can run, one tile on Home and
 # one choice in Book. A template is one way to run a service. GET /v1/templates lists a service only
 # once at least one template names it, so a service whose image isn't signed yet stays out of sight.
 #
@@ -25,7 +25,7 @@
 #   default_max_runtime    how long a session may run unless the renter says otherwise
 #   max_runtime_cap        the most a renter may ask for
 #   typical_runtime        optional: about how long it usually takes, for the booking screen
-#   memory_mb, cpu_millicores, pids_limit, scratch_mb   container limits (technical design, compute sandbox)
+#   memory_mb, cpu_millicores, pids_limit, scratch_mb   container limits
 #   checkpoint_interval    how often the job checkpoints
 #   inputs                 optional: what the renter brings (ADR 0022). We provide the GPU; renters bring
 #                          their own model, data and code, and no template ever supplies a model.

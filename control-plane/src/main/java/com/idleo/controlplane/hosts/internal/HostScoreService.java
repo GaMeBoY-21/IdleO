@@ -19,7 +19,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * The host score (docs/plan/execution-plan.md "Host score"): reliability from the last 30 days of {@link
+ * The host score: reliability from the last 30 days of {@link
  * HostReliability}, and bandwidth from the speed check against the fleet's 90th percentile, stored in
  * {@code hosts.host_scores} and read by the scheduler through {@code SchedulableHosts}. Worked out for every host
  * nightly, and for one host when sessions says one of its sessions ended or was lost. Cache isn't here: it is a fact

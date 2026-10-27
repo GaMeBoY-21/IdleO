@@ -99,7 +99,7 @@ class InboxController {
                 stored.readAt() != null);
     }
 
-    /** Opaque, like every cursor (technical design "Limits"): clients pass back what they were given. */
+    /** Opaque, like every cursor: clients pass back what they were given. */
     private static String cursorAfter(UUID id) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(("i:" + id).getBytes(StandardCharsets.UTF_8));
     }

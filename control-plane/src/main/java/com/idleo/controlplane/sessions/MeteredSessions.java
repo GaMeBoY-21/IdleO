@@ -59,7 +59,7 @@ public interface MeteredSessions {
     /** Whether one unbroken stretch of the attempt's lease, as the control plane recorded it, covers [from, until]. */
     boolean leaseCovered(UUID sessionId, int attempt, Instant from, Instant until);
 
-    /** How long each lease lasts: the credit must always cover the next one (technical design rule 2). */
+    /** How long each lease lasts: the credit must always cover the next one. */
     Duration leaseTtl();
 
     /**

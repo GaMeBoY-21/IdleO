@@ -1,20 +1,20 @@
 # phase0
 
-Feasibility work, done before any product code. Phase 0 runs in October 2026, for 2 weeks, on a borrowed Windows RTX laptop and Nikki's Mac.
+Feasibility work, done before any product code. Phase 0 runs in October 2026, for 2 weeks, on a borrowed Windows RTX laptop and the product owner's Mac.
 
-## The two gates (execution plan line 528)
+## The two gates
 
 Phase 1 starts only after both pass.
 
-1. **A game is playable over the internet.** On the phone-hotspot run, the median round trip is under 30 ms (technical design line 767), 1080p60 holds, and fewer than 1% of frames drop.
+1. **A game is playable over the internet.** On the phone-hotspot run, the median round trip is under 30 ms, 1080p60 holds, and fewer than 1% of frames drop.
 2. **A QLoRA job finishes inside the sandbox we'll ship.** It runs in the locked-down distribution (`verify-lockdown.sh` passes), under the same sandbox flags renters will get, and survives being killed and resumed.
 
 ## Who runs what
 
 | Machine | Who | Runs |
 | --- | --- | --- |
-| Asus: RTX 4080 Laptop GPU (12 GB), Windows 11 | Nikki, on a borrowed laptop | `wsl/setup-wsl.ps1`, `wsl/setup-docker-nvidia.sh`, the QLoRA run and resume test, Sunshine, `telemetry/gpu_logger.py` |
-| Mac | Nikki | Moonlight, and the CPU smoke test of the QLoRA resume logic |
+| Asus: RTX 4080 Laptop GPU (12 GB), Windows 11 | the product owner, on a borrowed laptop | `wsl/setup-wsl.ps1`, `wsl/setup-docker-nvidia.sh`, the QLoRA run and resume test, Sunshine, `telemetry/gpu_logger.py` |
+| Mac | the product owner | Moonlight, and the CPU smoke test of the QLoRA resume logic |
 
 The scripts aren't tied to the Asus: any Windows 11 laptop or desktop with an NVIDIA RTX GPU works.
 
@@ -35,7 +35,7 @@ The scripts aren't tied to the Asus: any Windows 11 laptop or desktop with an NV
    - **Resume test:** run `./resume-test.sh`, with the logger writing to `results\qlora-resume-gpu.csv`.
 5. **The streaming checklist, with the logger running:** `streaming/CHECKLIST.md`. Two people, both machines.
 
-Record everything in `RESULTS.md`. Raw CSVs and `results.json` files go in `results/` and are committed; they hold measurements only.
+Record everything in `RESULTS.md` (git-ignored: it names real hardware, so it is kept in the private repo). Raw CSVs and `results.json` files go in `results/` and are committed; they hold measurements only.
 
 The logger needs Python 3 on Windows (python.org or the Microsoft Store) and `nvidia-smi` on PATH, which the NVIDIA driver installs. It also works inside WSL.
 

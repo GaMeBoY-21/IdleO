@@ -1,4 +1,4 @@
-//! Following a session until it ends (docs/plan/product-surface.md section 4.3): its state from the event stream,
+//! Following a session until it ends: its state from the event stream,
 //! its logs read as they appear, a dropped connection picked up again, and Ctrl-C leaving it running.
 
 use std::time::Duration;

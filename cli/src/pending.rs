@@ -1,4 +1,4 @@
-//! The Idempotency-Key of a booking, kept in a file until the API answers (docs/plan/product-surface.md section 4.3),
+//! The Idempotency-Key of a booking, kept in a file until the API answers,
 //! so a dropped connection never books twice: running the same command again sends the same key, and the API returns
 //! the session the first try made, or makes it once.
 

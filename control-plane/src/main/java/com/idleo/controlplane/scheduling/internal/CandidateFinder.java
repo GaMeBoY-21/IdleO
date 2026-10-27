@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
- * Hosts that could take a session (technical design line 352), each fact from the module that owns it:
+ * Hosts that could take a session, each fact from the module that owns it:
  * active, listed, not paused and big enough (hosts); online, current, owner away, every GPU below the cap, and room
  * on its disk for the session's files once the owner's share is kept free (agent gateway presence, ADRs 0022, 0023);
  * no live session (sessions); not already offered this session; and, for the renter's own image, a GPU whose driver runs

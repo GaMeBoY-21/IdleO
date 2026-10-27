@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Lost hosts (ADR 0016, technical design "Failure handling"). A host is lost when the attempt's lease has
+ * Lost hosts (ADR 0016). A host is lost when the attempt's lease has
  * lapsed (and the transit allowance passed, so the agent has certainly stopped), when its agent reports it
  * fenced or stopped the attempt, or when it reconnects without it. The session moves to HOST_LOST, then back
  * to the scheduler as its next attempt, keeping its one hold; the scheduler books it as before, and the new

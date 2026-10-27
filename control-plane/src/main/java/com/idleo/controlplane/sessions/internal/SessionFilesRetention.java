@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * A session's objects in storage after it ends (ADR 0037, technical design "Data stores"): its checkpoints after
+ * A session's objects in storage after it ends (ADR 0037): its checkpoints after
  * {@code retention.periods.checkpoints} (7 days), then everything else of it, its outputs and logs, after {@code
  * retention.periods.outputs} (30 days). Each session once, a few hundred at a run, and the listing checked empty. The
  * session's rows stay: they're its money record.

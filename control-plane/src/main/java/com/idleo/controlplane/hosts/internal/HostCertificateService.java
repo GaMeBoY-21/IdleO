@@ -24,7 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Agent authentication by certificate fingerprint, and renewal in a certificate's last 10 days
- * (technical design line 784: renewed after 20 of 30 days), and only from the host's newest
+ *, and only from the host's newest
  * unrevoked certificate. Together they stop a broken or hostile agent from minting certificates in a
  * loop.
  */

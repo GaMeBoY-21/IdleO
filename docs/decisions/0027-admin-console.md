@@ -4,14 +4,12 @@
 - **Date:** 2026-10-13
 
 Sources:
-- docs/plan/product-surface.md sections 8, 11.16 and 13
-- docs/plan/technical-design.md, "Identity and access" (founders and admins: a second factor, per login) and "Audit trail" (admin actions and certificate issues and revocations in an append-only table)
 - ADRs 0014 (operator commands, free credit), 0015 (activating hosts), 0017 (charging and the review queue), 0018 (the web app), 0024 (invites), 0025 (API keys)
 - docs/runbooks/admin.md
 
 ## Context
 
-Until now the pilot was run by operator commands: `grant-credits`, `reverse-grant`, `activate-host`, `suspend-host`, `reconcile-wallets` and `create-invites`, each a JVM started by hand in the `ops` profile. Nikki couldn't suspend a user, force-stop a session, read a session's timeline, or work the review queue at all. The queue held minutes nobody could decide (V13: "Nobody works this queue yet"), and nothing recorded who did what beyond each command's own columns.
+Until now the pilot was run by operator commands: `grant-credits`, `reverse-grant`, `activate-host`, `suspend-host`, `reconcile-wallets` and `create-invites`, each a JVM started by hand in the `ops` profile. The product owner couldn't suspend a user, force-stop a session, read a session's timeline, or work the review queue at all. The queue held minutes nobody could decide (V13: "Nobody works this queue yet"), and nothing recorded who did what beyond each command's own columns.
 
 The gate: on the local stack, an admin signs in with a second factor at `/admin` and can:
 - activate and suspend hosts;

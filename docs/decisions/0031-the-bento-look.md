@@ -4,13 +4,12 @@
 - **Date:** 2026-10-16
 
 Sources:
-- docs/design/bento/home-phone.html, the approved Home on a phone (Nikki's design canvas)
+- docs/design/bento/home-phone.html, the approved Home on a phone (the product owner's design canvas)
 - web/DESIGN.md; ADRs 0018 (the web stack and budgets), 0021 (the ride-app look, superseded here, and its behaviour, kept), 0027 (the admin console), 0029 (the public site)
-- docs/prompts/bento-look.md
 
 ## Context
 
-The ride-app look (ADR 0021, Oct 8) is black and white with grey fills, one question to a screen and a list of rows. Nikki reviewed it against other designs on his canvas and chose a different one on Oct 16: **Bento**. Home becomes a grid of tiles of different sizes, each one a thing to do or to check (what's running, what you have, what you can start), on a light page, with soft colour tiles, very rounded corners and heavy, friendly type.
+The ride-app look (ADR 0021, Oct 8) is black and white with grey fills, one question to a screen and a list of rows. The product owner reviewed it against other designs on his canvas and chose a different one on Oct 16: **Bento**. Home becomes a grid of tiles of different sizes, each one a thing to do or to check (what's running, what you have, what you can start), on a light page, with soft colour tiles, very rounded corners and heavy, friendly type.
 
 The choice is about how things look and how screens are laid out. How a GPU is requested, how it is matched, what money does, the routes and the API stay as they are.
 
@@ -32,7 +31,7 @@ The choice is about how things look and how screens are laid out. How a GPU is r
 
 ## Alternatives considered
 
-- **Keep the ride-app look and add tiles to Home only.** Lost: Nikki chose the look for the whole product; two looks in one app would be the worst of both.
+- **Keep the ride-app look and add tiles to Home only.** Lost: the product owner chose the look for the whole product; two looks in one app would be the worst of both.
 - **A second token set beside the old one while screens move over.** Lost: two sets of colours in the codebase, and a screen half in each. Remapping the existing names moves every screen at once and leaves the rest to layout.
 - **A tile for everything in the admin console.** Lost: the console is dense on purpose (ADR 0027); an operator reading a table gains nothing from tiles.
 - **Inter, kept.** Lost: the reference's weight 800 and its rounder shapes are the look; Inter at 800 reads harder and its file is larger.
@@ -43,7 +42,7 @@ The choice is about how things look and how screens are laid out. How a GPU is r
 - Every screen reads as one family from the tokens; a new screen is made of the same tiles.
 - The first-load JavaScript was 145.0 KB of 150 at the start of this round, so the restyle is CSS and shared components only; no new library.
 - The old look's reference screens in docs/design/redesign/ and docs/design/hosting/ are history; docs/design/bento/ is the reference.
-- Screenshot tests stay off for this round; Nikki judges by looks on the local stack.
+- Screenshot tests stay off for this round; the product owner judges by looks on the local stack.
 - Open question: whether the colour tiles should change with a service (a third service, a fourth colour) or stay lime for the main action; the reference has one main action.
 
 ## Addendum (Oct 17): the laptop layout

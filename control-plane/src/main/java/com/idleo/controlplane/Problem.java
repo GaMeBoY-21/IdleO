@@ -4,7 +4,7 @@ import java.net.URI;
 import org.springframework.http.HttpStatus;
 
 /**
- * Every kind of error the API returns, in one place (ADR 0019, product surface 2.3). Each has a stable slug, its
+ * Every kind of error the API returns, in one place (ADR 0019). Each has a stable slug, its
  * HTTP status and a fixed title; a problem detail's {@code type} is the relative URI {@code /problems/<slug>} (RFC
  * 9457 section 3.1.1), so clients branch on it: the web app picks its message, the CLI its exit code and the SDK its
  * exception class. The {@code detail} says what happened this time. Thrown only through {@link ApiProblem#of}; {@code

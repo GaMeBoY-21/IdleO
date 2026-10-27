@@ -1,6 +1,6 @@
 # cli
 
-The renter's command line, `idleo`: a single binary for macOS, Windows and Linux (docs/plan/product-surface.md section 4, ADR 0025). The name is one constant (`src/brand.rs`), so the brand stays one change.
+The renter's command line, `idleo`: a single binary for macOS, Windows and Linux. The name is one constant (`src/brand.rs`), so the brand stays one change.
 
 It books GPU sessions, uploads what they need, follows them live, and brings back their outputs. It keeps no state the API doesn't have, except your key, the uploads and bookings it hasn't finished, and nothing else.
 

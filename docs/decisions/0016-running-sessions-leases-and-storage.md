@@ -4,10 +4,8 @@
 - **Date:** 2026-10-06
 
 Sources:
-- docs/plan/technical-design.md lines 5–30, 69, 82, 103–120, 213–241, 242–346, 577–598, 670–679, 710–740, 779–789
 - proto/gpu/agent/v1/session.proto; proto/README.md ("Storage layout", "Delivery and acks", "The lease clock")
 - ADRs 0007, 0011, 0012, 0015
-- docs/prompts/running-sessions.md
 
 ## Context
 
@@ -23,7 +21,7 @@ Metering, settlement and charges come next. Until then an ended session releases
 
 ### Storage grants, minted at send time
 
-1. **`StorageGrants` in `sessions`** (it owns per-session credentials, line 570) mints the two grants of ADR 0007 for an attempt:
+1. **`StorageGrants` in `sessions`** (it owns per-session credentials) mints the two grants of ADR 0007 for an attempt:
    - `attempt_grant`: read-write on `sessions/{id}/attempt-{n}/` only;
    - `read_grant`: read-only on `sessions/{id}/input/` and the resume checkpoint's folder, omitted when there's neither (input is detected by listing it).
 
@@ -165,4 +163,4 @@ Metering, settlement and charges come next. Until then an ended session releases
 - **No storage secret is stored or logged anywhere.** Tests prove it on both sides.
 - **In production, a lost host is noticed 2 minutes plus 50 seconds after its last renewal.** That's the price of never running two attempts at once.
 - **An agent restart loses its running attempts and unsent statuses** until the persistent store exists. Leases and reconciliation make that safe, not free.
-- **Before production storage, Nikki creates the R2 bucket, parent key and API token** (docs/runbooks/object-storage.md). Nothing is created now.
+- **Before production storage, the product owner creates the R2 bucket, parent key and API token** (docs/runbooks/object-storage.md). Nothing is created now.

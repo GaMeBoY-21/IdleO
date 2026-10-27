@@ -79,7 +79,7 @@ export function Dashboard() {
 const minutes = (value: number | null | undefined) => (value == null ? "—" : `${value.toFixed(1)} min`);
 
 /**
- * The Installs card (host experience §6 row 11): how long installs take from opening the setup app to the laptop
+ * The Installs card: how long installs take from opening the setup app to the laptop
  * listed, the last 20 with their clicks and where each stopped, and the failures by reason, over the last 30 days.
  */
 function Installs() {

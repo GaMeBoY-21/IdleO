@@ -1,6 +1,6 @@
 # Deployment
 
-What a production deployment needs that the local stack doesn't, and what must be done before launch. The deployment round (docs/plan/execution-plan.md) fills in the rest: staging and production, R2, the domain and monitoring.
+What a production deployment needs that the local stack doesn't, and what must be done before launch. The deployment round fills in the rest: staging and production, R2, the domain and monitoring.
 
 ## Secrets the control plane won't start without
 

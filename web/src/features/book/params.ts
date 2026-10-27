@@ -5,7 +5,7 @@ export type TemplateParam = components["schemas"]["TemplateParam"];
 type ParamValue = components["schemas"]["ParamValue"];
 
 /**
- * A template's parameters as a form (ADR 0019, product surface 2.2): generated from the catalog's description, the
+ * A template's parameters as a form (ADR 0019): generated from the catalog's description, the
  * same one the CLI's flags and the SDK's arguments come from, so nothing is written by hand per template.
  * - `string`: a text input, or a textarea when it may be longer than 200 characters;
  * - `integer` and `number`: numeric inputs with their limits;

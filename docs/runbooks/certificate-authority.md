@@ -1,4 +1,4 @@
-# Certificate authority: the root ceremony and yearly rotation (by Nikki, before production)
+# Certificate authority: the root ceremony and yearly rotation (by the product owner, before production)
 
 **Nothing from this runbook is ever committed.** Keys, passwords and certificates stay on your machine, on your offline backups, and in the production secret store. Claude Code never handles them.
 

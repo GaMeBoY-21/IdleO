@@ -1,4 +1,4 @@
-//! The container every job runs in (ADR 0035, docs/plan/technical-design.md "Sandbox configuration"), as `nerdctl create`
+//! The container every job runs in (ADR 0035), as `nerdctl create`
 //! flags: the container is made, the file nerdctl keeps of what it prints is moved onto its encrypted scratch disk (ADR
 //! 0038), and only then is it started. One pure function builds them, so a test can hold every setting the sandbox promises, and nothing else can add a
 //! flag.

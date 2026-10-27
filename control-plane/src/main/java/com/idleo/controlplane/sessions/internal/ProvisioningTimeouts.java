@@ -16,7 +16,7 @@ import org.springframework.util.unit.DataSize;
 
 /**
  * A session in PROVISIONING that hasn't reached RUNNING in time fails with reason {@code start_timeout}:
- * nothing billed, hold released (technical design line 232, ADR 0015). It guards against agents that
+ * nothing billed, hold released. It guards against agents that
  * accept and never start. The time grows with the uploaded inputs, which the agent downloads before the job starts
  * (ADR 0019, ADR 0022): the base, plus all their sizes together at the staging rate, so a large model on home
  * internet isn't taken for a failed start; a session of the renter's own image has {@code images.pull-time-limit} more

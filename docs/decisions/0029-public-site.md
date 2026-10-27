@@ -4,9 +4,7 @@
 - **Date:** 2026-10-14
 
 Sources:
-- docs/plan/product-surface.md sections 3.0 (what we offer, and the rule that renters bring their own model, data and code), 3.4 (public site pages), 12 and 13
 - ADRs 0018 (the web app's foundations and budgets), 0019 and 0022 (the catalog and what a renter brings), 0023 (hosting and the host's share), 0017 (what a minute costs)
-- docs/prompts/public-site.md
 
 ## Context
 
@@ -75,7 +73,7 @@ Constraints:
 - A visitor can learn what this is, what it costs and what it asks of a host without signing in, on a few kilobytes.
 - The references can't drift: the CLI's tests, the API contract test and the build tests fail first.
 - Two things must be kept honest by people: the hand-written Markdown, and the GPUs page's "typical" lines.
-- **Open question:** where the landing page lives at `/`, and whether the app moves; the contact address; the starting credit; the lawyer's Terms and Privacy; analytics, which Nikki decides (a privacy-friendly choice, not yet taken).
+- **Open question:** where the landing page lives at `/`, and whether the app moves; the contact address; the starting credit; the lawyer's Terms and Privacy; analytics, which the product owner decides (a privacy-friendly choice, not yet taken).
 - A rename of the product needs `brand.name`, and a search of docs/site/ for the name in the hand-written pages.
 
 ## Addendum (2026-10-14)

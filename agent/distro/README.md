@@ -1,7 +1,7 @@
 # The sealed Linux image
 
 The Windows installer will import this into WSL2 as its own distribution, `idleo`, so that renters' jobs run in a Linux
-space that is ours, locked down, and never the Store's or downloaded at install time (docs/plan/host-experience.md §2).
+space that is ours, locked down, and never the Store's or downloaded at install time.
 This folder builds it, now, with tests; the installer that imports it comes with the Windows app.
 
 ## What is in it, and why

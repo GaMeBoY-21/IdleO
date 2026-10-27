@@ -1,4 +1,4 @@
-# What a job's container may reach (ADR 0035; docs/plan/technical-design.md "Sandbox configuration"): the one rules file.
+# What a job's container may reach (ADR 0035): the one rules file.
 #
 # `idleo-runner load-rules` (run by idleo-sandbox.service before idleo-runner starts) loads it, with @HASH@ replaced by the
 # SHA-256 of this text, and the runner reads the loaded tables back before every container start and compares what they

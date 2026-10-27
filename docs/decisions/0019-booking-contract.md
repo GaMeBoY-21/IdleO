@@ -4,10 +4,7 @@
 - **Date:** 2026-10-08
 
 Sources:
-- docs/plan/product-surface.md sections 2, 3.2, 4.2, 10 and 11.1–11.7, 11.11 (accepted by Nikki on Oct 7, section 12)
-- docs/plan/technical-design.md "REST API", "Errors", "Limits", "Data stores", "Agent protocol"
 - proto/README.md "Storage layout"; ADRs 0007, 0011, 0015, 0016, 0017, 0018
-- docs/prompts/booking-contract.md
 
 ## Context
 

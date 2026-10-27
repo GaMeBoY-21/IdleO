@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The signed release feed for the Windows app (docs/prompts/windows-app.md, ADR 0034): the latest manifest the hosts
+ * The signed release feed for the Windows app: the latest manifest the hosts
  * module has read from the {@code releases} bucket and verified against the release key. The agent gateway asks it,
  * once per connection and whenever a new manifest is cached ({@link AgentReleaseCached}), what to offer a host.
  */

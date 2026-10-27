@@ -4,11 +4,9 @@
 - **Date:** 2026-10-07
 
 Sources:
-- docs/plan/technical-design.md: "Design principles" (two witnesses; leases never outlast credit), "Metering and billing", "The settlement transaction", the `usage_minutes` table, "Failure handling" (host loss), the REST rows for `/stop` and host earnings
-- docs/plan/execution-plan.md line 311 (commission to test at 15–25%)
+- leases never outlast credit), "Metering and billing", "The settlement transaction", the `usage_minutes` table, "Failure handling" (host loss), the REST rows for `/stop` and host earnings
 - proto/gpu/agent/v1/session.proto (`UsageReport`, `StopSession`, `RefreshCredentials`); proto/README.md
 - ADRs 0005, 0007, 0014, 0015, 0016
-- docs/prompts/metering-and-charging.md
 
 ## Context
 

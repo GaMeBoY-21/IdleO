@@ -7,7 +7,7 @@
 
 Until now the only credit was free credit an operator granted (ADR 0014). Renters must be able to buy credit, get an
 invoice for it, have unused bought credit refunded, report a session that went wrong, and be protected, as we are, when a
-bank disputes a payment (docs/prompts/payments-in.md). There is no company and no live payment account yet, so all of it
+bank disputes a payment. There is no company and no live payment account yet, so all of it
 runs in Razorpay's test mode and no real money moves. The rules that bind every part:
 
 - Money is integer paise and moves only through `Ledger.post`, one balanced transaction named by its cause (ADR 0014).
@@ -210,7 +210,7 @@ runs in Razorpay's test mode and no real money moves. The rules that bind every 
 | `frame-src` | `https://api.razorpay.com` | Razorpay's IPs and certificates page names it as the API host; Checkout's window is to be confirmed in the real check |
 | `connect-src`, `img-src` | none yet | to be filled from the real check's report-only messages |
 
-Open question: the list above is what the documentation gives; it becomes final only after Nikki's real test-mode check
+Open question: the list above is what the documentation gives; it becomes final only after the product owner's real test-mode check
 (docs/runbooks/payments.md, "The real test-mode check").
 
 ### The Credit page's speed
@@ -254,7 +254,7 @@ Open question: the list above is what the documentation gives; it becomes final 
 - **One balance with no lots:** bought credit couldn't be told from free at refund time, free credit couldn't expire, and
   GST couldn't follow the credit it was paid on.
 - **Listing prices including GST:** turning GST on would have cut every host's earnings by 18%. Prices before GST keep
-  hosts' earnings unchanged (Nikki's decision).
+  hosts' earnings unchanged (the product owner's decision).
 - **A second "dispute" path beside reports:** two queues for one question. Reports were extended instead.
 - **Freezing free credit for a chargeback:** it isn't money, and taking it back recovers nothing.
 - **Allowing Razorpay's origins on every page:** every page would trust a third party's scripts it never needs.

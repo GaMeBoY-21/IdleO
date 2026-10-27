@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settles a session's billable minutes (technical design "The settlement transaction", ADR 0017). One settlement,
+ * Settles a session's billable minutes. One settlement,
  * in one transaction under the session's row lock: claim the billable, unbilled, unwaived minutes before the
  * window's end, charge them as one ledger transaction, and move the hold. Its {@code txn_id} is a name-based UUID
  * of the session and the window's number, so a retry after a crash, which rolled everything back, settles the same
@@ -36,7 +36,7 @@ class Settlements {
 
     private static final Logger log = LoggerFactory.getLogger(Settlements.class);
 
-    /** A hold covers this many minutes ahead (technical design "Metering and billing" step 1). */
+    /** A hold covers this many minutes ahead. */
     static final int HOLD_MINUTES = CreditReservations.HOLD_MINUTES;
 
     private final MeteredSessions sessions;

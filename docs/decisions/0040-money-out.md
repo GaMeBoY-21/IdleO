@@ -5,11 +5,10 @@
 
 ## Context
 
-Hosts' earnings are in the ledger (ADR 0017, ADR 0023), but nothing pays them. The plan says how it should go
-(docs/plan/execution-plan.md, "How money flows", step 3): "Every week, host balances older than 7 days and not under
+Hosts' earnings are in the ledger (ADR 0017, ADR 0023), but nothing pays them. The plan says how it should go: "Every week, host balances older than 7 days and not under
 dispute are paid to the host's verified UPI ID or bank account." This round builds that through RazorpayX, with the
 host's identity and UPI ID checked first, the right tax deducted at source, and money recovered when a renter's report
-is decided against a session that was already paid out (docs/prompts/payouts-out.md). It also closes ADR 0037's open
+is decided against a session that was already paid out. It also closes ADR 0037's open
 item: a host with unpaid earnings couldn't be deleted.
 
 There's no company, no current account and no CA yet, so everything runs in RazorpayX's test mode and no real money
@@ -40,7 +39,7 @@ moves. The rules that bind every part:
 - **No "pay me now".** Hosts wait for the weekly run. An admin can pay one person at once (Retry, after a failure), and a
   deletion's final payout goes at once; nothing else is outside the schedule.
 - **Fees.** RazorpayX charges per payout. Who pays is `payouts.fees.paid-by`: `idleo` (the default) or `host`, who then
-  has `payouts.fees.host-fee-paise` taken from each payout into `platform_revenue`. This is Nikki's business decision,
+  has `payouts.fees.host-fee-paise` taken from each payout into `platform_revenue`. This is the product owner's business decision,
   not the law's. RazorpayX's own fees aren't in the ledger yet, as Razorpay's aren't for money in (ADR 0039).
 
 ### Days from earning to money
@@ -193,7 +192,7 @@ entry in a payout's transaction, and none below zero).
   `X-Payout-Idempotency` and answers a repeat with the same payout.
 - **The local stack** runs it as `FakeRazorpayXServer`, which moves each payout on by itself and sends the webhooks: a
   UPI ID starting `payoutfails@` fails, `reversed@` is processed then reversed, anything else processed.
-- **The real test-mode check** is in docs/runbooks/payouts.md, with Nikki's own RazorpayX test keys.
+- **The real test-mode check** is in docs/runbooks/payouts.md, with the product owner's own RazorpayX test keys.
 
 ### Production
 
@@ -213,7 +212,7 @@ then off and UPI checks answer `payouts-unavailable`.
 - **Debiting a host's UPI ID for a clawback:** RazorpayX can't, and it would be the wrong thing to ask of a host.
 - **Separate RazorpayX contact and fund account calls:** the documented VPA validation makes both in one call and
   returns their ids; two more calls would add nothing.
-- **Integrating a PAN provider now:** the choice is Nikki's (cost, terms); an admin confirming by hand is enough for the
+- **Integrating a PAN provider now:** the choice is the product owner's (cost, terms); an admin confirming by hand is enough for the
   pilot's numbers.
 
 ## Consequences
@@ -242,7 +241,7 @@ then off and UPI checks answer `payouts-unavailable`.
 | TDS timing and filing | deducted at payout, filed quarterly from the export | Our CA: is tax deducted when we credit `host_payable` or when we pay, which return (26Q or its successor) and which certificate do hosts get? |
 | GST on hosts' services | none, no code | Our CA: as a marketplace, do we owe GST on services supplied through us by unregistered hosts (section 9(5) or reverse charge), and does section 52's TCS apply to these payouts? |
 | `legal.retention.money-records` for PANs | 8 years, kept on erasure | Our lawyer: may we keep an erased host's PAN and payout records for the tax period under the DPDP Act, and must the privacy notice say so? |
-| Who pays RazorpayX's fee | IdleO (`payouts.fees.paid-by`) | Nikki's business decision, not legal: whether hosts bear it, and if so how much. |
+| Who pays RazorpayX's fee | IdleO (`payouts.fees.paid-by`) | the product owner's business decision, not legal: whether hosts bear it, and if so how much. |
 
 ## RazorpayX's pages relied on
 

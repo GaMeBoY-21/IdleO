@@ -116,7 +116,7 @@ class AdminHostsController {
             Instant reportedAt) {}
 
     /**
-     * The host score in numbers (docs/plan/execution-plan.md "Host score"), as of {@code computedAt}: {@code
+     * The host score in numbers, as of {@code computedAt}: {@code
      * reliability} and {@code bandwidth} from 0 to 1, the scheduler's two inputs; what reliability was made of (the
      * session and self-test records, each a Bayesian average over the last 30 days, and the {@code penalty} taken off
      * for upheld reports and admin flags, with their counts); and {@code speedKbps}, the mean of the last upload and

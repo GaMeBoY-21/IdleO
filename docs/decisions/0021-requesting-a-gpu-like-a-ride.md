@@ -4,13 +4,12 @@
 - **Date:** 2026-10-08
 
 Sources:
-- docs/plan/product-surface.md section 3.0 ("What we offer", "Requesting a GPU, like requesting a ride") and section 12 (the Oct 8 decisions)
 - docs/design/redesign/*.html, the six reference screens
 - web/DESIGN.md; ADRs 0015 (scheduling), 0018 (the web stack), 0019 (the booking contract), 0020 (booking and the live session)
 
 ## Context
 
-Booking and the live session worked after round 2 (ADR 0020), but Nikki's review on Oct 8 found they looked like an admin tool: bordered boxes, small type, and a form of up to 15 fields, including a GPU to pick and a most-per-hour price to type, before anything happened. The renters we're building for (students, small teams) don't know what a fair price per minute is for an RTX 4080 Laptop, and shouldn't have to. A ride app solved the same problem: say where you're going, press one button, get the best car free now, see the price range before you press.
+Booking and the live session worked after round 2 (ADR 0020), but the product owner's review on Oct 8 found they looked like an admin tool: bordered boxes, small type, and a form of up to 15 fields, including a GPU to pick and a most-per-hour price to type, before anything happened. The renters we're building for (students, small teams) don't know what a fair price per minute is for an RTX 4080 Laptop, and shouldn't have to. A ride app solved the same problem: say where you're going, press one button, get the best car free now, see the price range before you press.
 
 Two things in the API stood in the way. `maxPricePaisePerMin` was required on `POST /v1/sessions` and on the quote, so the web app had to ask for it; and the quote needed the booking's input, so no price could show until the upload had finished. And the web app had no way to group templates into the things a renter says they want to do ("Fine-tune a model"), so Home could only list templates.
 

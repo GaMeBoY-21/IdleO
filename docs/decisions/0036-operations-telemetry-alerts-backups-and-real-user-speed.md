@@ -5,12 +5,11 @@
 
 ## Context
 
-Before anyone real uses IdleO, three things must hold (docs/prompts/ops-foundation.md): a failure reaches us within
+Before anyone real uses IdleO, three things must hold: a failure reaches us within
 minutes, not when a user complains; the database (every balance and every earning) can be restored to within minutes of a
-loss; and our email lands in inboxes. The plan's observability section (docs/plan/technical-design.md "Observability and
-operations") names the signals and the alerts; its data stores table promises point-in-time recovery with under 5 minutes
+loss; and our email lands in inboxes. The plan's observability section names the signals and the alerts; its data stores table promises point-in-time recovery with under 5 minutes
 of possible loss and backups kept 30 days. Page speed was measured only in tests, never on real visits. All of it has to
-be built and proved on a Mac, at no cost for the pilot, with the paid or hosted parts Nikki's to switch on later.
+be built and proved on a Mac, at no cost for the pilot, with the paid or hosted parts the product owner's to switch on later.
 
 ## Decision
 
@@ -78,9 +77,8 @@ the control plane reads them (`vitals.source-maps`) to name an error's file and 
   The brief rules it out for now; errors are logs and meters in the one pipeline.
 - **Grafana-managed alert rules** instead of Prometheus rules: their provisioning file isn't what Grafana Cloud's API
   takes, and they can't be unit-tested with `promtool`.
-- **DigitalOcean's managed PostgreSQL** (the plan's choice, docs/plan/execution-plan.md "Budget and costs"): it gives
   point-in-time recovery itself, but no WAL archive we hold or can encrypt to our own key, and a restore we can't
-  rehearse with our own drill. **Decided (Nikki, 2026-10-21): production runs our own PostgreSQL**, this image with
+  rehearse with our own drill. **Decided (the product owner, 2026-10-21): production runs our own PostgreSQL**, this image with
   WAL-G, on our own server; the plan's managed database line becomes a droplet's disk, and the standby and failover it
   promised are ours to build when the pilot needs them.
 - **One-click unsubscribe (RFC 8058)**: needs a signed token per person and kind and an endpoint that changes choices

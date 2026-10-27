@@ -80,7 +80,7 @@ jobs:
         run: pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
       # The baselines are the last successful run on main's artifact, not files in git. Without one (the first
       # run, or after 90 days), the run writes them; a ticked "update screenshots" replaces them.
-      # Visual comparison is off while the redesign settles (Nikki, Oct 8); the screens are checked by hand.
+      # Visual comparison is off while the redesign settles (the product owner, Oct 8); the screens are checked by hand.
       # To turn it back on: remove the "false &&" here and below, and set VISUAL_COMPARE: "1" on the next step.
       - name: Fetch the visual baselines
         if: ${{ false && !inputs.update_screenshots }}

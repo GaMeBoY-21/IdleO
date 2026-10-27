@@ -5,7 +5,7 @@
 
 ## Context
 
-What problem forces a decision, and what constraints apply. Cite the plan by file and line.
+What problem forces a decision, and what constraints apply. Cite the code, the other ADRs or the public docs it rests on.
 
 ## Decision
 
@@ -19,4 +19,4 @@ Each option that lost, and why it lost.
 
 What becomes easier, what becomes harder, and what we must now watch.
 
-Write "Open question:" wherever the plan is silent, rather than filling the gap.
+Write "Open question:" wherever nothing settles it, rather than filling the gap.

@@ -5,8 +5,7 @@
 
 ## Context
 
-Before anyone outside the team signs in, IdleO must meet the Digital Personal Data Protection Act 2023 and its Rules 2025
-(docs/prompts/privacy-and-support.md): a person can see, correct and erase their data; grievances are answered within 90
+Before anyone outside the team signs in, IdleO must meet the Digital Personal Data Protection Act 2023 and its Rules 2025: a person can see, correct and erase their data; grievances are answered within 90
 days; a breach is told promptly to the people affected and reported to the Data Protection Board (an intimation, then a
 detailed report within 72 hours); data is erased once its purpose is served; security and access logs are kept at least a
 year; and no one under 18 has an account. The wording of the Terms and the privacy notice, and the periods the law sets,

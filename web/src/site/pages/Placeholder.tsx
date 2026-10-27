@@ -1,7 +1,7 @@
 import { band, column, heading, muted } from "../ui";
 
 /**
- * Terms and Privacy stay placeholders (ADR 0029): a lawyer is drafting them (docs/plan/product-surface.md 11.14). Each
+ * Terms and Privacy stay placeholders (ADR 0029): a lawyer is drafting them. Each
  * says so and invents nothing; Privacy also names the grievance officer from configuration (ADR 0037).
  */
 export function Placeholder({ title, note }: { title: string; note: string }) {

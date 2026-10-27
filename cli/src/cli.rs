@@ -1,4 +1,4 @@
-//! The command line: every command and its flags (docs/plan/product-surface.md section 4.2).
+//! The command line: every command and its flags.
 
 use clap::{Args, Parser, Subcommand};
 

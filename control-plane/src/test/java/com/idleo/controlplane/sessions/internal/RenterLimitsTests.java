@@ -31,7 +31,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The renter limits (technical design "Limits", ADR 0025), set low: 5 requests a minute and 2 CLI sign-ins an hour
+ * The renter limits, set low: 5 requests a minute and 2 CLI sign-ins an hour
  * from one address; 3 new sessions an hour, 2 for an account less than a day old, and 2 at once.
  */
 @ControlPlaneTest

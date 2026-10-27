@@ -26,7 +26,7 @@ pub fn pipe_name(sid: &str) -> String {
     format!(r"\\.\pipe\idleo-{sid}")
 }
 
-/// What auto-pause watches, and how long it waits after the owner stops (ADR 0033, host experience §8 decision 3).
+/// What auto-pause watches, and how long it waits after the owner stops (ADR 0033).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutoPause {
     /// Pause when the keyboard or mouse is used.

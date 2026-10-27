@@ -105,7 +105,7 @@ export function chosenOption(
     ?.options.find((o) => o.id === id);
 }
 
-/** The spending caps offered, in paise, and the one chosen at first (product surface 3.2's ₹500 without chips). */
+/** The spending caps offered, in paise, and the one chosen at first. */
 export const DEFAULT_BUDGET_PAISE = 50_000;
 export const budgetOf = (template: Template) => ({
   chips: template.budgetChips,

@@ -4,13 +4,12 @@
 - **Date:** 2026-10-11
 
 Sources:
-- docs/plan/product-surface.md sections 3.2, 9, 11.12, 11.14 and 12
 - ADRs 0009 (identity through a managed provider), 0013 (development-only behaviour is a setting), 0018 (the web app), 0023 (hosting)
 - docs/runbooks/identity-provider-setup.md, docs/runbooks/invites.md
 
 ## Context
 
-Free credit and five friendly hosts can't take open sign-ups, and the decision on Oct 7 was invite-only until the paid pilot, with codes handed out by hand (product surface section 12). Until now anyone with a Google account who signed in became an active user. Account was also half built: a name and an email, with no way to see how you signed in and no say over what you're told. And a developer could only sign in through the development sign-in server, so the real Google path had never run in the web app.
+Free credit and five friendly hosts can't take open sign-ups, and the decision on Oct 7 was invite-only until the paid pilot, with codes handed out by hand. Until now anyone with a Google account who signed in became an active user. Account was also half built: a name and an email, with no way to see how you signed in and no say over what you're told. And a developer could only sign in through the development sign-in server, so the real Google path had never run in the web app.
 
 Constraints:
 - **Identity stays portable (ADR 0009).** Nothing from the provider, and no provider SDK, may enter the control plane.

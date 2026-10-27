@@ -4,21 +4,19 @@
 - **Date:** 2026-10-05
 
 Sources:
-- docs/plan/technical-design.md lines 27, 64, 96–98, 243, 566, 593, 598, 661–668, 784, 794
 - `proto/gpu/agent/v1/enrollment.proto`
 - ADRs 0003, 0007, 0008, 0009
-- docs/prompts/hosts-and-enrolment.md
 
 ## Context
 
-A host has to exist, and belong to a person, before its agent can connect. The agent then needs a client certificate for mutual TLS (technical design line 64). The agent protocol's `EnrollmentService.Enroll` trades a one-time code and a CSR for that certificate (ADR 0007). This records how hosts, codes, certificates and the gRPC transport are built.
+A host has to exist, and belong to a person, before its agent can connect. The agent then needs a client certificate for mutual TLS. The agent protocol's `EnrollmentService.Enroll` trades a one-time code and a CSR for that certificate (ADR 0007). This records how hosts, codes, certificates and the gRPC transport are built.
 
 ## Decision
 
 ### Hosts and the API
 
 1. **`hosts.hosts`** has `id` (UUIDv7), `owner_user_id`, `name`, `status` and timestamps.
-   - New hosts are `pending`; the statuses are pending, verified, active, suspended (line 96). Enrolment doesn't change the status, because the benchmark and canary steps of onboarding move it on later.
+   - New hosts are `pending`; the statuses are pending, verified, active, suspended. Enrolment doesn't change the status, because the benchmark and canary steps of onboarding move it on later.
    - There's no foreign key into `identity`, because modules don't reach into each other's tables. The owner is the `CurrentUser` id.
    - There's no `overlay_node_id`, `score`, `region`, `os` or `agent_version` yet, because nothing writes them.
 2. **`hosts.host_certificates`** is one row per issued certificate: serial, SHA-256 fingerprint, validity, `revoked_at`. It's a table rather than a `cert_fingerprint` column, because renewal (after 20 of 30 days) overlaps two valid certificates.
@@ -26,7 +24,7 @@ A host has to exist, and belong to a person, before its agent can connect. The a
    - `POST /v1/hosts` creates the host.
    - `POST /v1/hosts/{id}/enrolment-code` issues a code, and the latest replaces any earlier one.
 
-   This changes line 593, which had `POST /v1/hosts` return the code. Split, the code is never stored to replay an idempotent response. The code response carries `Cache-Control: no-store`.
+   This changes the earlier design, which had `POST /v1/hosts` return the code. Split, the code is never stored to replay an idempotent response. The code response carries `Cache-Control: no-store`.
 4. **Owner-only routes.** Another user's host is a 404, not a 403, so ids can't be probed.
 
 ### Idempotency-Key
@@ -51,7 +49,7 @@ A host has to exist, and belong to a person, before its agent can connect. The a
 
 ### Our certificate authority
 
-10. **Structure (line 794).** An offline root, and an online intermediate that signs everything and lives in the secret store.
+10. **Structure.** An offline root, and an online intermediate that signs everything and lives in the secret store.
     - The intermediate's certificate, encrypted key and password, and the root's certificate, come from the environment only. The root's key never reaches the server.
     - At startup the control plane checks that the intermediate is a CA, that its key matches its certificate, and that the root signed it.
 11. **Library.** [BouncyCastle](https://www.bouncycastle.org/) `bcpkix-jdk18on` 1.86. The CA lives in the hosts module's internal package, because hosts own which certificate belongs to which host. Only the hosts module issues or reads certificates.
@@ -80,7 +78,7 @@ A host has to exist, and belong to a person, before its agent can connect. The a
     - `EnrollmentService` needs none. `AgentGatewayService` will require one through an interceptor.
     - gRPC security denies by default: `Enroll` is open and every other method is refused until it gets its own rule.
     - Spring gRPC 1.1 builds server TLS from the SSL bundle's key and trust managers but drops the bundle's protocol options; a TLS 1.2 client could connect, and a test caught it. So the agent gateway defines the gRPC server factory itself, building the Netty TLS context from the same bundle with its `enabled-protocols`. Spring Boot's own Netty server configuration then backs off. Service discovery, global interceptors and the lifecycle are still Spring gRPC's.
-19. **Where the code lives.** The transport is in `agentgateway` (line 567). It calls the public `hosts` API, `HostEnrolment.enrol(code, csrDer)`.
+19. **Where the code lives.** The transport is in `agentgateway`. It calls the public `hosts` API, `HostEnrolment.enrol(code, csrDer)`.
     - **Unknown, malformed, used or expired codes** all get `UNAUTHENTICATED`, with the same message.
     - **A bad CSR or an empty field** gets `INVALID_ARGUMENT`.
     - **The reply** is the leaf, then the intermediate (never the root), plus `not_after`.

@@ -29,7 +29,7 @@ const SYSTEMS: Record<string, string> = { windows: "Windows", linux: "Linux", ma
 const MAX_NAME = 100;
 
 /**
- * Where "Link this laptop to your account?" is answered (ADR 0032, docs/plan/host-experience.md §3): the page the
+ * Where "Link this laptop to your account?" is answered (ADR 0032): the page the
  * agent's link opens. It shows exactly which machine is asking, as the machine said it, with how long the link has left,
  * and one click, "Approve and start earning", saves the name, the price and the approval together. The price is the
  * middle of what other hosts with that GPU charge, and "Change" opens the same price and limits form a machine has.

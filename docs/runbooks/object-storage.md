@@ -1,4 +1,4 @@
-# Object storage for sessions (by Nikki)
+# Object storage for sessions (by the product owner)
 
 Renters upload inputs, and jobs read them and write checkpoints, outputs and logs, in S3-compatible object storage (ADR 0016, ADR 0019):
 - **Cloudflare R2** in production;

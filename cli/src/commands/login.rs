@@ -1,4 +1,4 @@
-//! `login`, `logout` and `whoami`: signing in through the web app (docs/plan/product-surface.md section 4.1).
+//! `login`, `logout` and `whoami`: signing in through the web app.
 //!
 //! A sign-in is a device login shaped like RFC 8628: the CLI asks the API for a short code and a link, the person
 //! opens the link in a browser where they're signed in and approves the same code, and the CLI, which has been

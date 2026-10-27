@@ -21,7 +21,7 @@ answer `payouts-unavailable`. Locally, put them in the gitignored `control-plane
 it); the stack (`./start.sh`) and the end-to-end test use the fake RazorpayX and never read `.env`, and their PAN key
 is `private/dev-ca/pan.key`, made by `control-plane/scripts/dev-ca.sh`.
 
-Where to make test keys (Nikki): sign in at https://x.razorpay.com, switch to **Test Mode** (the profile menu), then
+Where to make test keys (the product owner): sign in at https://x.razorpay.com, switch to **Test Mode** (the profile menu), then
 **My Account & Settings → Developer Controls → API Keys → Generate Key**. Test mode has its own dummy balance: **+ Add
 test balance** on the dashboard puts in any amount (https://razorpay.com/docs/x/dashboard/test-mode/).
 
@@ -67,7 +67,7 @@ PANs on the local stack are checked by the fake: any well-formed PAN is verified
 
 ## The real test-mode check
 
-Before going live, with Nikki's own test keys and a staging stack that RazorpayX can reach:
+Before going live, with the product owner's own test keys and a staging stack that RazorpayX can reach:
 
 1. Set the four `RAZORPAYX_*` variables to test-mode values, and `PAYOUTS_PAN_KEY`. Add the webhook as above. Add test
    balance.

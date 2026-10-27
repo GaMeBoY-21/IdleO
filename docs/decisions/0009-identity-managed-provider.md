@@ -4,14 +4,11 @@
 - **Date:** 2026-10-05
 
 Sources:
-- docs/plan/technical-design.md lines 63, 95, 565, 581, 783, 796
-- docs/plan/execution-plan.md lines 202, 351
 - ADR 0008
-- docs/prompts/identity-sign-in.md
 
 ## Context
 
-Every user-facing feature (hosts, sessions, the web app, payments) hangs off a signed-in user. Nikki chose a managed identity provider now, with the option to move to a self-hosted one (Keycloak or ZITADEL) later. That move must be a config change plus a user re-link, never a rewrite.
+Every user-facing feature (hosts, sessions, the web app, payments) hangs off a signed-in user. The product owner chose a managed identity provider now, with the option to move to a self-hosted one (Keycloak or ZITADEL) later. That move must be a config change plus a user re-link, never a rewrite.
 
 ## Decision
 

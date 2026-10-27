@@ -7,7 +7,7 @@
 import endingWords from "../../../api/endings.json";
 import { readable } from "./labels";
 
-/** Why a session ended without completing, in plain words, and what to do next (product surface 3.2). */
+/** Why a session ended without completing, in plain words, and what to do next. */
 export interface Ending {
   sentence: string;
   next: string;

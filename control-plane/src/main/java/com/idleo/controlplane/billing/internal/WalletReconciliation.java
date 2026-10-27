@@ -22,7 +22,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The nightly proof that the wallet cache equals the ledger (technical design line 427, ADR 0014): for
+ * The nightly proof that the wallet cache equals the ledger: for
  * every renter, the cached balance must equal their {@code renter_wallet} and {@code renter_purchased} credits minus
  * debits, every credit lot what its entries leave in it (ADR 0039), the cached
  * reservation must equal the sum of their active holds (ADR 0015), every hold's changes must add up to its

@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * A line of status above or inside a view: a warning, an error, or plain information. Banners push the content below
- * them down; they never cover it (web/DESIGN.md "Motion", Nikki, Oct 8).
+ * them down; they never cover it (web/DESIGN.md "Motion", the product owner, Oct 8).
  */
 export function Banner({
   tone,
