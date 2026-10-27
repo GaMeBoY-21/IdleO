@@ -3,6 +3,7 @@ import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { Link } from "wouter";
 import { signOut, useAuth } from "@/auth";
+import { config } from "@/config";
 import { applyThemeChoice, readThemeChoice, type ThemeChoice } from "@/design/theme";
 import { cn } from "@/lib/cn";
 import { Avatar } from "./UserMenuButton";
@@ -14,7 +15,7 @@ const themeChoices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = 
 ];
 
 const item =
-  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-ground";
+  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-canvas";
 
 /** Who's signed in, My files, the theme switch, and signing out. */
 export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
@@ -36,14 +37,14 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
           align="end"
           sideOffset={4}
           data-tile=""
-          className="appear z-20 w-menu rounded-tile bg-fill p-2 shadow-float"
+          className="appear z-20 w-menu rounded-panel bg-panel p-2 border border-line"
         >
           {email && (
-            <DropdownMenu.Label className="truncate px-3 py-2 text-caption text-text-muted">
+            <DropdownMenu.Label className="truncate px-3 py-2 text-caption text-text-2">
               Signed in as {email}
             </DropdownMenu.Label>
           )}
-          <DropdownMenu.Separator className="my-1 h-px bg-divider" />
+          <DropdownMenu.Separator className="my-1 h-px bg-line" />
           <DropdownMenu.Item asChild className={item}>
             <Link href="/account/">
               <User aria-hidden="true" className="size-5" strokeWidth={1.75} />
@@ -56,8 +57,8 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
               My files
             </Link>
           </DropdownMenu.Item>
-          <DropdownMenu.Separator className="my-1 h-px bg-divider" />
-          <DropdownMenu.Label className="px-3 pt-2 pb-1 text-caption font-medium text-text-muted">
+          <DropdownMenu.Separator className="my-1 h-px bg-line" />
+          <DropdownMenu.Label className="px-3 pt-2 pb-1 text-caption font-medium text-text-2">
             Theme
           </DropdownMenu.Label>
           <DropdownMenu.RadioGroup
@@ -65,7 +66,7 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
             onValueChange={(value) => {
               const choice = value as ThemeChoice;
               setTheme(choice);
-              applyThemeChoice(choice);
+              applyThemeChoice(choice, config.siteUrl);
             }}
           >
             {themeChoices.map(({ value, label, icon: Icon }) => (
@@ -78,7 +79,7 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
               </DropdownMenu.RadioItem>
             ))}
           </DropdownMenu.RadioGroup>
-          <DropdownMenu.Separator className="my-1 h-px bg-divider" />
+          <DropdownMenu.Separator className="my-1 h-px bg-line" />
           <DropdownMenu.Item className={cn(item, "text-danger")} onSelect={() => void signOut()}>
             <LogOut aria-hidden="true" className="size-5" strokeWidth={1.75} />
             Sign out

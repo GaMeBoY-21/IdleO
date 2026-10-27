@@ -28,7 +28,7 @@ export function PauseControl({ host }: { host: Host }) {
       {error && <Banner tone="danger">{problemMessage(error)}</Banner>}
       {host.paused ? (
         <>
-          <p className="text-small text-text-muted">
+          <p className="text-small text-text-2">
             {host.pausedUntil
               ? `Paused until ${formatPauseEnd(host.pausedUntil, now)}. A session that's running finishes first.`
               : "Paused until you resume. A session that's running finishes first."}
@@ -53,7 +53,7 @@ export function PauseControl({ host }: { host: Host }) {
             <Button
               large
               block
-              variant="secondary"
+              variant="ghost"
               busy={pause.isPending}
               onClick={() =>
                 pause.mutate(picked.until, {
@@ -66,7 +66,7 @@ export function PauseControl({ host }: { host: Host }) {
             <Button
               large
               block
-              variant="secondary"
+              variant="ghost"
               onClick={() => {
                 setChoosing(false);
                 pause.reset();
@@ -78,10 +78,10 @@ export function PauseControl({ host }: { host: Host }) {
         </>
       ) : (
         <>
-          <Button large block variant="secondary" onClick={() => setChoosing(true)}>
+          <Button large block variant="ghost" onClick={() => setChoosing(true)}>
             Pause hosting
           </Button>
-          <p className="text-center text-small text-text-muted">
+          <p className="text-center text-small text-text-2">
             The running session finishes first. No new ones start until you resume.
           </p>
         </>

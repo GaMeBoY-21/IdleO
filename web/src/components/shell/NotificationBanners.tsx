@@ -61,7 +61,7 @@ function Arrivals() {
           tone="info"
           action={
             <Button
-              variant="secondary"
+              variant="ghost"
               aria-label={`Dismiss: ${item.title}`}
               onClick={() => setDismissed((now) => new Set(now).add(item.id))}
             >
@@ -76,11 +76,11 @@ function Arrivals() {
           >
             {item.title}
           </Link>
-          <span className="block text-text-muted">{item.body}</span>
+          <span className="block text-text-2">{item.body}</span>
         </Banner>
       ))}
       {showing.length > MOST_SHOWN && (
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           <Link href="/notifications/" className="underline">
             {showing.length - MOST_SHOWN} more in your notifications
           </Link>

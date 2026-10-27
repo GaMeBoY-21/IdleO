@@ -65,10 +65,10 @@ export function AskForm({ refundablePaise, onDone }: { refundablePaise: number; 
         </p>
       )}
       <div className="flex gap-2">
-        <Button type="submit" variant="secondary" busy={ask.isPending}>
+        <Button type="submit" variant="ghost" busy={ask.isPending}>
           Send request
         </Button>
-        <Button variant="secondary" onClick={onDone} disabled={ask.isPending}>
+        <Button variant="ghost" onClick={onDone} disabled={ask.isPending}>
           Cancel
         </Button>
       </div>

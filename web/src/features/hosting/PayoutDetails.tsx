@@ -63,7 +63,7 @@ export function PayoutDetails() {
   }
   return (
     <Page title="Payout details">
-      <p className="text-small text-text-muted">{LEDE}</p>
+      <p className="text-small text-text-2">{LEDE}</p>
       {since !== null && <StaleNotice updatedAt={since} />}
       {body}
     </Page>
@@ -123,7 +123,7 @@ function PanTile({ details }: { details: Details }) {
           <p className="text-option font-semibold tabular">
             {maskedPan(pan.last4)} · {pan.name}
           </p>
-          <p className={pan.state === "verified" ? "text-small text-running" : "text-small text-text-muted"}>
+          <p className={pan.state === "verified" ? "text-small text-running" : "text-small text-text-2"}>
             {PAN_STATE[pan.state] ?? pan.state}
             {pan.state === "rejected" && pan.reason && `: ${pan.reason}`}
           </p>
@@ -161,7 +161,7 @@ function PanTile({ details }: { details: Details }) {
             onChange={(event) => setName(event.target.value)}
           />
           <div className="flex items-center gap-3">
-            <Button type="submit" variant="secondary" busy={submit.isPending}>
+            <Button type="submit" variant="ghost" busy={submit.isPending}>
               Save PAN
             </Button>
             <p role="alert" className="text-small text-danger">
@@ -206,7 +206,7 @@ function UpiTile({ details }: { details: Details }) {
         </p>
       )}
       {!details.payoutsAvailable && (
-        <p className="text-small text-warning">UPI IDs can&apos;t be checked on this server yet.</p>
+        <p className="text-small text-warn-fg">UPI IDs can&apos;t be checked on this server yet.</p>
       )}
       <form
         noValidate
@@ -235,7 +235,7 @@ function UpiTile({ details }: { details: Details }) {
           onChange={(event) => setVpa(event.target.value)}
         />
         <div className="flex items-center gap-3">
-          <Button type="submit" variant="secondary" busy={check.isPending} disabled={!panReady}>
+          <Button type="submit" variant="ghost" busy={check.isPending} disabled={!panReady}>
             Check it
           </Button>
           <p role="alert" className="text-small text-danger">
@@ -257,7 +257,7 @@ function UpiTile({ details }: { details: Details }) {
         <div role="alert" className="flex flex-col gap-2">
           <p className="text-small text-danger">{problemMessage(confirm.error)}</p>
           {needsSignIn && (
-            <Button variant="secondary" className="self-start" onClick={signInAgain}>
+            <Button variant="ghost" className="self-start" onClick={signInAgain}>
               Sign in again
             </Button>
           )}
@@ -273,8 +273,8 @@ export function InUse({ upi }: { upi: UpiView }) {
   return (
     <div className="flex flex-col gap-0.5">
       <p className="text-option font-semibold break-all">{upi.vpa}</p>
-      {upi.registeredName && <p className="text-small text-text-muted">Registered to {upi.registeredName}</p>}
-      <p className={upi.state === "active" && !held ? "text-small text-running" : "text-small text-warning"}>
+      {upi.registeredName && <p className="text-small text-text-2">Registered to {upi.registeredName}</p>}
+      <p className={upi.state === "active" && !held ? "text-small text-running" : "text-small text-warn-fg"}>
         {held
           ? `Your payout UPI ID was changed. No payout goes to it before ${formatDateTime(upi.holdUntil!)}. Not you? Contact us from Help.`
           : (UPI_STATE[upi.state] ?? upi.state)}
@@ -300,7 +300,7 @@ export function LatestCheck({
 }) {
   if (upi.state === "checking") {
     return (
-      <p role="status" className="text-small text-text-muted">
+      <p role="status" className="text-small text-text-2">
         Checking {upi.vpa} with your bank…
       </p>
     );
@@ -314,12 +314,12 @@ export function LatestCheck({
   }
   const low = upi.nameMatchScore == null || upi.nameMatchScore < threshold;
   return (
-    <div role="status" className="flex flex-col gap-2 rounded-control bg-ground p-4">
+    <div role="status" className="flex flex-col gap-2 rounded-control bg-canvas p-4">
       <p className="text-small">
         <span className="font-semibold break-all">{upi.vpa}</span> is registered to{" "}
         <span className="font-semibold">{upi.registeredName ?? "a name the bank didn't give"}</span>.
       </p>
-      <p className="text-small text-text-muted">
+      <p className="text-small text-text-2">
         {low
           ? "That doesn't closely match the name on your PAN, so we'll look at it before paying you."
           : "That matches the name on your PAN."}
@@ -351,7 +351,7 @@ function GiveUp({ enabled, details }: { enabled: boolean; details: Details }) {
   return (
     <Tile as="section" aria-labelledby="give-up-title" className="flex flex-col gap-3">
       <SectionTitle id="give-up-title">Deleting your account without a UPI ID?</SectionTitle>
-      <p className="text-small text-text-muted">
+      <p className="text-small text-text-2">
         Your machines have earned <Money paise={unpaid} /> that hasn&apos;t been paid. Add a UPI ID above and
         it&apos;s paid before the account goes, or give it up in your own words here. Giving it up can&apos;t
         be undone.

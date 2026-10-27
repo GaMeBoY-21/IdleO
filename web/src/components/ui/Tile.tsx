@@ -3,40 +3,44 @@ import { AppLink } from "./AppLink";
 import { cn } from "@/lib/cn";
 
 /**
- * Tiles (web/DESIGN.md "Shapes and space", ADR 0031): the one surface of the Bento look. A white tile sits on the page;
- * the dark tile is what matters now; lime, lavender and apricot are the main action, history, and hosting and earning.
- * Every tile has 26 px corners and 18 px of padding, and no border. Anything inside a tile that is filled (a field, a
- * secondary button) is pressed in with the page's colour: a tile marks its inside with `data-tile`, which the `tiled`
- * variant (styles.css) reads, so those components never need to know where they are.
+ * Tiles (web/DESIGN.md "Shapes and space", ADR 0043): the one surface of Night Shift. A `panel` sits on the page; a
+ * `night` tile stays dark in Day Shift too, and is what matters now; `volt`, `ion` and `ember` are the main action,
+ * history, and hosting and earning; `ion-deep` is the credit tile. Every tile has 28 px corners and 18 px of padding,
+ * and depth comes from colour: a panel has a 1 px edge by day and none at night. Anything inside a tile that is filled (a
+ * field, a ghost button) is pressed in with a darker or lighter step of the tile's own colour: a tile marks its inside
+ * with `data-tile`, which the `tiled` variant (styles.css) reads, so those components never need to know where they
+ * are. A `night` tile also carries the dark theme's colours for everything inside it (tokens.gen.css).
  */
-export type TileTone = "white" | "dark" | "lime" | "lavender" | "apricot";
+export type TileTone = "panel" | "night" | "volt" | "ion" | "ember" | "ion-deep";
 
 const surfaces: Record<TileTone, string> = {
-  white: "bg-fill text-text",
-  dark: "bg-dark text-dark-fg",
-  lime: "bg-lime text-on-colour",
-  lavender: "bg-lavender text-on-colour",
-  apricot: "bg-apricot text-on-colour",
+  panel: "border border-edge bg-panel text-text",
+  night: "bg-night text-on-night",
+  volt: "bg-volt text-ink",
+  ion: "bg-ion text-ink",
+  ember: "bg-ember text-ink",
+  "ion-deep": "bg-ion-deep text-on-ion-deep",
 };
 
 /** The colour of a tile's small lines (its label, the line under its title). */
 export const tileMuted: Record<TileTone, string> = {
-  white: "text-text-muted",
-  dark: "text-dark-muted",
-  lime: "text-lime-fg",
-  lavender: "text-lavender-fg",
-  apricot: "text-apricot-fg",
+  panel: "text-text-2",
+  night: "text-on-night-2",
+  volt: "text-ink",
+  ion: "text-ink",
+  ember: "text-ink",
+  "ion-deep": "text-on-ion-deep",
 };
 
 /** `lg`: the laptop's padding, 24 px and 28 px from 1200 px (web/DESIGN.md "Laptop layout"). */
 export type TileSize = "md" | "lg";
 
-export function tileClasses(tone: TileTone = "white", size: TileSize = "md") {
-  return cn("rounded-tile", size === "lg" ? "p-6 xl:p-7" : "p-4.5", surfaces[tone]);
+export function tileClasses(tone: TileTone = "panel", size: TileSize = "md") {
+  return cn("rounded-panel", size === "lg" ? "p-6 xl:p-7" : "p-4.5", surfaces[tone]);
 }
 
 export function Tile({
-  tone = "white",
+  tone = "panel",
   size = "md",
   as: Tag = "section",
   className,
@@ -52,7 +56,7 @@ export function Tile({
 /** A tile that opens something: it lifts a little on hover and presses in on tap (`tile-motion`). */
 export function TileLink({
   href,
-  tone = "white",
+  tone = "panel",
   size = "md",
   className,
   children,
@@ -77,7 +81,7 @@ export function TileLink({
 
 /** A tile's small label ("Credit", "Running now"). */
 export function TileLabel({
-  tone = "white",
+  tone = "panel",
   className,
   ...props
 }: HTMLAttributes<HTMLSpanElement> & { tone?: TileTone }) {

@@ -21,17 +21,17 @@ export function SessionRow({ session }: { session: Session }) {
     <li>
       <Link
         href={`/session/?id=${session.id}`}
-        className="tile-motion flex min-h-18 items-center gap-3 rounded-tile bg-fill px-4.5 py-4"
+        className="tile-motion flex min-h-18 items-center gap-3 rounded-panel bg-panel px-4.5 py-4"
       >
         {live && (
           <span
             aria-hidden="true"
-            className="size-3 shrink-0 rounded-full bg-live ring-1 ring-on-colour/30"
+            className="size-3 shrink-0 rounded-full bg-running-dot ring-1 ring-ink/30"
           />
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-option font-semibold break-words">{templateName(session.templateId)}</p>
-          <p className="text-small text-text-muted">
+          <p className="text-small text-text-2">
             {session.startedAt ? (
               <>
                 <RelativeTime value={session.startedAt} prefix="Started" />
@@ -55,10 +55,10 @@ export function SessionRow({ session }: { session: Session }) {
           <p className="text-small tabular">
             <span className="sr-only">{live ? "Cost so far" : "Charged"} </span>
             <Money paise={live ? costSoFar(session) : session.chargedPaise} className="font-semibold" />
-            {live && <span className="text-text-muted"> so far</span>}
+            {live && <span className="text-text-2"> so far</span>}
           </p>
         </div>
-        <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" strokeWidth={1.75} />
+        <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
       </Link>
     </li>
   );
@@ -73,7 +73,7 @@ export function SessionTable({ sessions }: { sessions: Session[] }) {
     <Tile as="div" className="flex flex-col px-6 py-2">
       <div
         aria-hidden="true"
-        className="flex items-center gap-4 border-b border-divider px-3 py-3 text-caption font-medium text-text-muted"
+        className="flex items-center gap-4 border-b border-line px-3 py-3 text-caption font-medium text-text-2"
       >
         <span className="flex-1">Service</span>
         <span className="w-1/5 shrink-0 text-left">Started</span>
@@ -82,7 +82,7 @@ export function SessionTable({ sessions }: { sessions: Session[] }) {
         <span className="w-1/6 shrink-0 text-right">Charge</span>
         <span className="size-5 shrink-0" />
       </div>
-      <ul className="flex flex-col divide-y divide-divider">
+      <ul className="flex flex-col divide-y divide-line">
         {sessions.map((session) => (
           <TableRow key={session.id} session={session} />
         ))}
@@ -98,18 +98,18 @@ function TableRow({ session }: { session: Session }) {
     <li>
       <Link
         href={`/session/?id=${session.id}`}
-        className="flex min-h-18 items-center gap-4 rounded-control px-3 py-3 hover:bg-ground"
+        className="flex min-h-18 items-center gap-4 rounded-control px-3 py-3 hover:bg-canvas"
       >
         <span className="flex min-w-0 flex-1 items-center gap-3">
           {live && (
             <span
               aria-hidden="true"
-              className="size-3 shrink-0 rounded-full bg-live ring-1 ring-on-colour/30"
+              className="size-3 shrink-0 rounded-full bg-running-dot ring-1 ring-ink/30"
             />
           )}
           <span className="text-option font-semibold break-words">{templateName(session.templateId)}</span>
         </span>
-        <span className="w-1/5 shrink-0 text-left text-small text-text-muted">
+        <span className="w-1/5 shrink-0 text-left text-small text-text-2">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} />
           ) : (
@@ -136,9 +136,9 @@ function TableRow({ session }: { session: Session }) {
         <p className="w-1/6 shrink-0 text-right text-small tabular">
           <span className="sr-only">{live ? "Cost so far" : "Charged"} </span>
           <Money paise={live ? costSoFar(session) : session.chargedPaise} className="font-semibold" />
-          {live && <span className="text-text-muted"> so far</span>}
+          {live && <span className="text-text-2"> so far</span>}
         </p>
-        <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" strokeWidth={1.75} />
+        <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
       </Link>
     </li>
   );
@@ -159,11 +159,11 @@ export function SessionRowsSkeleton({ rows = 3, table = false }: { rows?: number
   if (table) {
     return (
       <Tile as="div" className="flex flex-col px-6 py-2">
-        <div aria-hidden="true" className="min-h-10 border-b border-divider" />
+        <div aria-hidden="true" className="min-h-10 border-b border-line" />
         {Array.from({ length: rows }, (_, key) => (
           <div
             key={key}
-            className="flex min-h-18 items-center gap-4 border-b border-divider px-3 py-3 last:border-0"
+            className="flex min-h-18 items-center gap-4 border-b border-line px-3 py-3 last:border-0"
           >
             <SkeletonLine size="option" width="w-1/3" />
           </div>
@@ -174,7 +174,7 @@ export function SessionRowsSkeleton({ rows = 3, table = false }: { rows?: number
   return (
     <div className="flex flex-col gap-2.5">
       {Array.from({ length: rows }, (_, key) => (
-        <div key={key} className="flex min-h-18 items-center gap-3 rounded-tile bg-fill px-4.5 py-4">
+        <div key={key} className="flex min-h-18 items-center gap-3 rounded-panel bg-panel px-4.5 py-4">
           <div className="flex flex-1 flex-col gap-0.5">
             <SkeletonLine size="option" width="w-1/2" />
             <SkeletonLine size="small" width="w-2/3" />

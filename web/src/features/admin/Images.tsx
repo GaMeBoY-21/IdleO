@@ -98,10 +98,8 @@ function ImageRow({ image, onAct }: { image: AdminImage; onAct: (acting: Acting)
       </Cell>
       <Cell>
         <span className="break-all">{image.reference}</span>
-        {image.privateRegistry && (
-          <span className="block text-caption text-text-muted">private registry</span>
-        )}
-        {image.reason && <span className="block text-caption text-text-muted">{image.reason}</span>}
+        {image.privateRegistry && <span className="block text-caption text-text-2">private registry</span>}
+        {image.reason && <span className="block text-caption text-text-2">{image.reason}</span>}
       </Cell>
       <Cell>
         <Pill tone={image.state === "blocked" || image.state === "failed" ? "danger" : "plain"}>

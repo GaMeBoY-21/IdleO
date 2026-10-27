@@ -11,7 +11,7 @@ import { gigabytes, gpuName } from "@/lib/gpu";
 export function GpuStats({ gpu }: { gpu: NonNullable<Session["gpu"]> }) {
   return (
     <Tile size="lg" className="flex flex-col gap-3 xl:p-6">
-      <span className="flex items-baseline justify-between gap-3 text-caption text-text-muted">
+      <span className="flex items-baseline justify-between gap-3 text-caption text-text-2">
         <span>The GPU</span>
         <span>someone&apos;s gaming laptop</span>
       </span>
@@ -33,8 +33,8 @@ export function GpuStats({ gpu }: { gpu: NonNullable<Session["gpu"]> }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-control bg-ground px-3.5 py-3">
-      <span className="block text-caption text-text-muted">{label}</span>
+    <div className="rounded-control bg-canvas px-3.5 py-3">
+      <span className="block text-caption text-text-2">{label}</span>
       <span className="text-figure tabular">{value}</span>
     </div>
   );
@@ -45,13 +45,13 @@ export function CheckpointsTile({ session }: { session: Session }) {
   const saved = session.checkpoints.length;
   const last = session.checkpoints.at(-1);
   return (
-    <Tile tone="lime" size="lg" className="flex items-center justify-between gap-3 xl:p-6">
+    <Tile tone="volt" size="lg" className="flex items-center justify-between gap-3 xl:p-6">
       <span className="flex flex-col">
-        <span className="text-caption text-lime-fg">Checkpoints</span>
+        <span className="text-caption text-ink">Checkpoints</span>
         <span className="text-section tabular">{saved === 0 ? "None saved yet" : `${saved} saved`}</span>
       </span>
       {last && (
-        <span className="text-caption text-lime-fg">
+        <span className="text-caption text-ink">
           Last checkpoint saved <RelativeTime value={last.completedAt} />
         </span>
       )}

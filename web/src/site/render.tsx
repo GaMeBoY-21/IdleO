@@ -28,7 +28,7 @@ export function pages(context: SiteContext): PageDef[] {
       description:
         "Fine-tune a model or run your code on a gaming GPU in India, by the minute, in rupees. You bring your model, data and code; we provide the GPU.",
       body: <Landing context={context} />,
-      islands: [],
+      islands: ["pricing"],
     },
     {
       path: PRICING,

@@ -34,13 +34,13 @@ export function RunningTile({
   const percent = Math.min(100, Math.floor((cost * 100) / Math.max(1, session.maxSpendPaise)));
   const price = session.pricePaisePerMin == null ? null : <Money paise={session.pricePaisePerMin * 60} />;
   return (
-    <Tile tone="dark" className="flex flex-col gap-5">
+    <Tile tone="night" className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <span className="self-start">
           <StateChip state={session.state} />
         </span>
         <h1 className="text-title break-words">{title}</h1>
-        <p className="text-small text-dark-muted">
+        <p className="text-small text-on-night-2">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />
           ) : (
@@ -48,7 +48,7 @@ export function RunningTile({
           )}
           {laptop && ` · ${templateName}`}
         </p>
-        <p className="min-h-5 text-small text-dark-muted" aria-live="polite">
+        <p className="min-h-5 text-small text-on-night-2" aria-live="polite">
           {status}
         </p>
       </div>
@@ -59,16 +59,16 @@ export function RunningTile({
             {session.startedAt ? <Elapsed from={session.startedAt} /> : <span className="tabular">0:00</span>}
           </p>
           {/* Always there, so the figures under it never move. */}
-          <p className="min-h-5 text-small text-dark-muted">{about && `of ${about}`}</p>
+          <p className="min-h-5 text-small text-on-night-2">{about && `of ${about}`}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Money paise={cost} className="text-figure text-live" />
-          <span className="min-h-5 text-small text-dark-muted">so far</span>
+          <Money paise={cost} className="text-figure text-volt" />
+          <span className="min-h-5 text-small text-on-night-2">so far</span>
         </div>
       </div>
       <div className="flex flex-col gap-2">
         <ProgressBar percent={percent} label="Cost so far against your spending cap" onDark />
-        <p className="text-caption text-dark-muted tabular">
+        <p className="text-caption text-on-night-2 tabular">
           Stops at <Money paise={session.maxSpendPaise} />
           {price && <> · {price} an hour</>}
           {laptop && " · charged per started minute"}
@@ -94,7 +94,7 @@ export function GpuTile({ gpu }: { gpu: NonNullable<Session["gpu"]> }) {
       <span className="text-option font-semibold break-words">
         {gpuName(gpu.model)} · {gigabytes(gpu.vramMb)}
       </span>
-      <span className="text-small text-text-muted tabular">{reading}</span>
+      <span className="text-small text-text-2 tabular">{reading}</span>
     </Tile>
   );
 }

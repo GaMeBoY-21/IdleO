@@ -23,7 +23,7 @@ export function QrCode({ value, label }: { value: string; label: string }) {
       role="img"
       aria-label={label}
       viewBox={`0 0 ${size} ${size}`}
-      className="size-56 rounded-control bg-dark-fg text-dark"
+      className="size-56 rounded-control bg-on-night text-night"
       shapeRendering="crispEdges"
     >
       <path d={path} fill="currentColor" />

@@ -69,14 +69,14 @@ function Machine({ link }: { link: HostLink | undefined }) {
   const left = link?.state === "pending" ? formatCountdown(link.expiresAt, now) : null;
   return (
     <Tile
-      tone="dark"
+      tone="night"
       size="lg"
       as="section"
       aria-labelledby="link-title"
       aria-busy={link === undefined}
       className="flex flex-col gap-5"
     >
-      <TileLabel tone="dark">A laptop is asking to be linked</TileLabel>
+      <TileLabel tone="night">A laptop is asking to be linked</TileLabel>
       <h1 id="link-title" className="text-title xl:text-question">
         Link this laptop to your account?
       </h1>
@@ -96,7 +96,7 @@ function Machine({ link }: { link: HostLink | undefined }) {
         <Row label="System" value={link === undefined ? undefined : (SYSTEMS[link.os] ?? link.os)} />
         <Row label="App version" value={link?.agentVersion} />
       </dl>
-      <p className="min-h-10 text-small text-dark-muted" aria-live="off">
+      <p className="min-h-10 text-small text-on-night-2" aria-live="off">
         {link === undefined
           ? ""
           : link.state === "pending"
@@ -111,8 +111,8 @@ function Machine({ link }: { link: HostLink | undefined }) {
 
 function Row({ label, value }: { label: string; value: string | undefined }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-dark-fg/15 pb-3 last:border-0 last:pb-0">
-      <dt className="shrink-0 text-dark-muted">{label}</dt>
+    <div className="flex items-center justify-between gap-4 border-b border-on-night/15 pb-3 last:border-0 last:pb-0">
+      <dt className="shrink-0 text-on-night-2">{label}</dt>
       <dd className="flex min-h-6 min-w-0 items-center justify-end text-right font-semibold break-words">
         {value ?? <Skeleton className="skeleton-dark block h-6 w-32" />}
       </dd>
@@ -135,7 +135,7 @@ function LinkError({ error, retry, retrying }: { error: unknown; retry: () => vo
   return gone ? (
     <Tile size="lg" className="flex flex-col gap-3">
       <h2 className="text-section">We can&apos;t find that link</h2>
-      <p className="text-body text-text-muted">
+      <p className="text-body text-text-2">
         It may be for another account, or the address is wrong. Start again from the app on your laptop.
       </p>
     </Tile>
@@ -153,7 +153,7 @@ function Answer({ link }: { link: HostLink }) {
       return (
         <Tile size="lg" className="flex flex-col gap-3">
           <h2 className="text-section">Nothing was linked</h2>
-          <p className="text-body text-text-muted">
+          <p className="text-body text-text-2">
             This link was denied. If that was a mistake, start again from the app on your laptop.
           </p>
         </Tile>
@@ -162,7 +162,7 @@ function Answer({ link }: { link: HostLink }) {
       return (
         <Tile size="lg" className="flex flex-col gap-3">
           <h2 className="text-section">This link has expired</h2>
-          <p className="text-body text-text-muted">
+          <p className="text-body text-text-2">
             Links last 10 minutes. Start again from the app on your laptop.
           </p>
         </Tile>
@@ -222,7 +222,7 @@ function Approve({ link }: { link: HostLink }) {
             approve.reset();
           }}
         />
-        <div className="flex flex-col gap-2 rounded-control bg-ground px-4 py-3.5">
+        <div className="flex flex-col gap-2 rounded-control bg-canvas px-4 py-3.5">
           <p className="min-h-12 text-body md:min-h-6" role="status">
             {earn === null || price === null ? (
               <span className="block w-full">
@@ -234,13 +234,13 @@ function Approve({ link }: { link: HostLink }) {
                 <strong className="font-bold tabular">
                   <Money paise={earn.keep} /> an hour
                 </strong>{" "}
-                <span className="text-text-muted">
+                <span className="text-text-2">
                   (renters pay <Money paise={price * 60} />)
                 </span>
               </>
             )}
           </p>
-          <p className="text-small text-text-muted">
+          <p className="text-small text-text-2">
             The middle of what others with this GPU charge. You keep 80%; you can change it any time.{" "}
             <button
               type="button"
@@ -265,7 +265,7 @@ function Approve({ link }: { link: HostLink }) {
           </Button>
           <button
             type="button"
-            className="min-h-touch text-small font-semibold text-text-muted underline underline-offset-4 hover:text-text"
+            className="min-h-touch text-small font-semibold text-text-2 underline underline-offset-4 hover:text-text"
             disabled={approve.isPending || deny.isPending}
             onClick={() => deny.mutate()}
           >
@@ -280,18 +280,16 @@ function Approve({ link }: { link: HostLink }) {
 /** Approved. While new laptops are checked first, it says so. */
 function Done({ link }: { link: HostLink }) {
   return (
-    <Tile tone="lime" size="lg" as="section" aria-labelledby="linked-title" className="flex flex-col gap-4">
+    <Tile tone="volt" size="lg" as="section" aria-labelledby="linked-title" className="flex flex-col gap-4">
       <h2 id="linked-title" className="text-title">
         Linked
       </h2>
-      <p className="max-w-prose text-body text-lime-fg">
+      <p className="max-w-prose text-body text-ink">
         {link.awaitsActivation
           ? "We check every new laptop before it goes live. It shows as live on its page as soon as it is, and nothing is rented from it until then."
           : "Your laptop is linked and starts earning once it's connected."}
       </p>
-      <p className="text-small text-lime-fg">
-        You can close this tab; the laptop finishes linking by itself.
-      </p>
+      <p className="text-small text-ink">You can close this tab; the laptop finishes linking by itself.</p>
       {link.hostId && (
         <Link href={`/hosting/machine/?id=${link.hostId}`} className={buttonClasses("primary", true, false)}>
           Open your laptop

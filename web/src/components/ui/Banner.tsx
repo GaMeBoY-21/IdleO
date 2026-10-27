@@ -20,10 +20,10 @@ export function Banner({
     <div
       role={tone === "danger" ? "alert" : "status"}
       className={cn(
-        "flex items-start gap-3 rounded-tile px-4.5 py-3.5 text-small",
-        tone === "warning" && "bg-warning-soft text-warning",
+        "flex items-start gap-3 rounded-inner px-4.5 py-3.5 text-small",
+        tone === "warning" && "bg-warn text-warn-fg",
         tone === "danger" && "bg-danger-soft text-danger",
-        tone === "info" && "bg-fill text-text tiled:bg-ground",
+        tone === "info" && "bg-panel text-text tiled:bg-panel-2",
       )}
     >
       <Icon aria-hidden="true" className="mt-px size-5 shrink-0" strokeWidth={1.75} />

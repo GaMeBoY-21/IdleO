@@ -62,14 +62,14 @@ export function Hosting() {
         <Pitch />
       ) : (
         <>
-          <Tile tone="dark" aria-labelledby="week-title" className="flex flex-col gap-5">
+          <Tile tone="night" aria-labelledby="week-title" className="flex flex-col gap-5">
             <h2 id="week-title" className="sr-only">
               Your earnings
             </h2>
             {owner ? (
               <>
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-small font-semibold text-dark-muted">
+                  <p className="text-small font-semibold text-on-night-2">
                     Earned this week
                     {restored && (
                       <span className="font-normal">
@@ -80,14 +80,14 @@ export function Hosting() {
                     )}
                   </p>
                   <Money paise={owner.weekPaise} className="block text-timer" />
-                  <p className="text-small text-dark-muted tabular">
+                  <p className="text-small text-on-night-2 tabular">
                     <Money paise={owner.totalPaise} /> in total · payouts start with the paid pilot
                   </p>
                 </div>
                 <WeekBars days={owner.days} />
                 <Link
                   href="/hosting/earnings/"
-                  className="flex min-h-touch items-center gap-2 self-start text-small font-semibold text-live hover:underline"
+                  className="flex min-h-touch items-center gap-2 self-start text-small font-semibold text-volt hover:underline"
                 >
                   Earnings, all machines
                   <ChevronRight aria-hidden="true" className="size-4" strokeWidth={2} />
@@ -137,7 +137,7 @@ export function Hosting() {
 
 function AddLink() {
   return (
-    <Link href="/hosting/add/" className={buttonClasses("secondary", true, true)}>
+    <Link href="/hosting/add/" className={buttonClasses("ghost", true, true)}>
       <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
       Add a machine
     </Link>
@@ -151,7 +151,7 @@ function Pitch() {
       <h2 id="pitch-title" className="text-title">
         Earn from the GPU you aren&apos;t using
       </h2>
-      <p className="max-w-prose text-body text-text-muted">
+      <p className="max-w-prose text-body text-text-2">
         Add a gaming laptop or desktop with an NVIDIA RTX GPU. Renters&apos; jobs run in a locked box, never
         in your files, and you set the price. Pause or take it back whenever you like.
       </p>

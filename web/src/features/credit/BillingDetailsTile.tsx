@@ -46,7 +46,7 @@ function DetailsSkeleton() {
       {[0, 1, 2].map((key) => (
         <div key={key} className="flex flex-col gap-2">
           <SkeletonLine size="small" width="w-1/3" />
-          <div className="min-h-14 rounded-control bg-ground" />
+          <div className="min-h-14 rounded-control bg-canvas" />
           <div className="min-h-4.5" />
         </div>
       ))}
@@ -54,7 +54,7 @@ function DetailsSkeleton() {
         <SkeletonLine size="caption" width="w-full" />
         <SkeletonLine size="caption" width="w-1/2" />
       </div>
-      <div className="min-h-touch w-24 rounded-full bg-ground" />
+      <div className="min-h-touch w-24 rounded-full bg-canvas" />
     </div>
   );
 }

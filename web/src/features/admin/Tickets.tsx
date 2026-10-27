@@ -216,7 +216,7 @@ function TicketRecord({ id }: { id: string }) {
               />
               <div className="flex flex-wrap gap-3">
                 {STATUSES.filter((status) => status !== ticket.status).map((status) => (
-                  <Button key={status} variant="secondary" onClick={() => setChanging(status)}>
+                  <Button key={status} variant="ghost" onClick={() => setChanging(status)}>
                     Mark {STATUS[status]?.toLowerCase()}
                   </Button>
                 ))}
@@ -230,9 +230,9 @@ function TicketRecord({ id }: { id: string }) {
                 {messages.map((message) => (
                   <li
                     key={`${message.createdAt}${message.author}`}
-                    className={`flex flex-col gap-1 rounded-control p-4 ${message.author === "admin" ? "bg-ground" : "bg-fill"}`}
+                    className={`flex flex-col gap-1 rounded-control p-4 ${message.author === "admin" ? "bg-canvas" : "bg-panel"}`}
                   >
-                    <p className="text-caption text-text-muted">
+                    <p className="text-caption text-text-2">
                       {message.author === "admin" ? "We wrote" : "They wrote"},{" "}
                       {formatDateTime(message.createdAt)}
                     </p>
@@ -343,7 +343,7 @@ function PrivacyRequest({ userId, onExport }: { userId: string; onExport: () => 
     <Section
       title="Privacy request"
       action={
-        <Button variant="secondary" onClick={onExport}>
+        <Button variant="ghost" onClick={onExport}>
           Start an export
         </Button>
       }
@@ -370,7 +370,7 @@ function PrivacyRequest({ userId, onExport }: { userId: string; onExport: () => 
           ],
         ]}
       />
-      <p className="text-small text-text-muted">
+      <p className="text-small text-text-2">
         The person deletes their account themselves, in Account, Your data. Its wait can&apos;t be skipped
         from here.
       </p>

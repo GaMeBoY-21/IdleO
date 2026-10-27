@@ -34,7 +34,7 @@ export function HelpTicket() {
     <AccountFrame title={ticket ? `Message ${ticketNumber(ticket.number)}` : "Message"}>
       <Link
         href="/account/help/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Help
@@ -44,7 +44,7 @@ export function HelpTicket() {
         <SectionTitle id="thread-title">{topic ?? " "}</SectionTitle>
         {thread.data && ticket ? (
           <>
-            <p className="text-small text-text-muted">
+            <p className="text-small text-text-2">
               {STATUS_WORDS[ticket.status] ?? ticket.status} · sent {formatDay(ticket.createdAt)}
               {ticket.dueAt ? ` · we answer by ${formatDay(ticket.dueAt)}` : ""}
             </p>
@@ -52,9 +52,9 @@ export function HelpTicket() {
               {thread.data.messages.map((entry) => (
                 <li
                   key={`${entry.createdAt}${entry.author}`}
-                  className={`flex flex-col gap-1 rounded-control p-4 ${entry.author === "admin" ? "bg-ground" : "bg-fill tiled:bg-ground"}`}
+                  className={`flex flex-col gap-1 rounded-control p-4 ${entry.author === "admin" ? "bg-canvas" : "bg-panel tiled:bg-panel-2"}`}
                 >
-                  <p className="text-caption text-text-muted">
+                  <p className="text-caption text-text-2">
                     {entry.author === "admin" ? "We wrote" : "You wrote"}, {formatDateTime(entry.createdAt)}
                   </p>
                   <p className="whitespace-pre-wrap break-words text-body">{entry.body}</p>

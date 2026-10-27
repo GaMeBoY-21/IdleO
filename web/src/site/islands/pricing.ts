@@ -6,11 +6,15 @@ import { timeOfDay, watchAvailability, type Outcome } from "./availability";
 const root = document.querySelector<HTMLElement>("[data-live-prices]");
 const api = root?.dataset.api;
 
-function part(parent: Element, role: string): HTMLElement {
-  return parent.querySelector<HTMLElement>(`[data-role="${role}"]`)!;
+/** A part of a row or of the page, if this page has it: the home page's table draws fewer parts than the pricing page. */
+function part(parent: Element, role: string): HTMLElement | null {
+  return parent.querySelector<HTMLElement>(`[data-role="${role}"]`);
 }
 
-function show(element: HTMLElement, text: string | null): void {
+function show(element: HTMLElement | null, text: string | null): void {
+  if (!element) {
+    return;
+  }
   element.hidden = text === null;
   if (text !== null) {
     element.textContent = text;
@@ -19,13 +23,16 @@ function show(element: HTMLElement, text: string | null): void {
 
 function fillRow(row: HTMLElement, data: ClassRow): void {
   const { range, kind } = shown(data);
-  part(row, "skeleton").hidden = true;
+  show(part(row, "skeleton"), null);
   show(part(row, "online"), data.online ? "Online now" : "None online now");
   show(part(row, "price"), formatRange(range));
-  part(row, "kind").textContent =
-    kind === "live"
-      ? "Right now, across the hosts online"
-      : "Typical: too few hosts online to show today's range";
+  const caption = part(row, "kind");
+  if (caption) {
+    caption.textContent =
+      kind === "live"
+        ? "Right now, across the hosts online"
+        : "Typical: too few hosts online to show today's range";
+  }
   row.dataset.state = "loaded";
 }
 
@@ -37,7 +44,7 @@ function render(outcome: Outcome): void {
   const retry = part(root, "retry");
   if (outcome.kind === "failed") {
     show(status, "We couldn't load today's prices. Check your connection and try again.");
-    retry.hidden = false;
+    show(retry, "Try again");
     return;
   }
   const data: PublicAvailability = outcome.data;
@@ -57,7 +64,7 @@ function render(outcome: Outcome): void {
       data.classes,
     );
     if (priced) {
-      part(example, "skeleton").hidden = true;
+      show(part(example, "skeleton"), null);
       show(
         part(example, "cost"),
         priced.lowPaise === priced.highPaise
@@ -71,22 +78,27 @@ function render(outcome: Outcome): void {
       status,
       `Couldn't refresh. Showing prices from ${timeOfDay(new Date(data.asOf))}. Trying again soon.`,
     );
-    retry.hidden = false;
+    show(retry, "Try again");
   } else {
     show(status, `Prices as of ${timeOfDay(new Date(data.asOf))}, refreshed every minute.`);
-    retry.hidden = true;
+    if (retry) {
+      retry.hidden = true;
+    }
   }
   // Its place is reserved on the page, so it stays and only its words come and go.
-  part(root, "credit").textContent =
-    data.startingCreditPaise === null
-      ? ""
-      : `New accounts start with ${formatPaise(data.startingCreditPaise)} of credit.`;
+  const credit = part(root, "credit");
+  if (credit) {
+    credit.textContent =
+      data.startingCreditPaise === null
+        ? ""
+        : `New accounts start with ${formatPaise(data.startingCreditPaise)} of credit.`;
+  }
 }
 
 if (root && api) {
   const watcher = watchAvailability(api, render);
-  part(root, "retry").addEventListener("click", () => {
-    part(root, "retry").hidden = true;
+  part(root, "retry")?.addEventListener("click", () => {
+    show(part(root, "retry"), null);
     show(part(root, "status"), "Looking up today's prices…");
     watcher.retry();
   });

@@ -61,7 +61,7 @@ export function DeleteAccount() {
     <AccountFrame title="Delete my account" className="xl:grid xl:grid-cols-5 xl:items-start">
       <Link
         href="/account/data/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline md:hidden"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Your data
@@ -151,14 +151,14 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
         <p className="text-option font-semibold">
           Your account will be deleted on {formatDay(request.deleteAfter)}.
         </p>
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           {request.legalOrder
             ? "A legal order requires it."
             : "Changed your mind? Cancel now, or with the link in our email, until then."}
         </p>
         <Waits waits={standing.waits} />
         {!request.legalOrder && (
-          <Button variant="secondary" busy={cancel.isPending} onClick={() => cancel.mutate()}>
+          <Button variant="ghost" busy={cancel.isPending} onClick={() => cancel.mutate()}>
             Don&apos;t delete my account
           </Button>
         )}
@@ -178,13 +178,13 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
           {standing.waitingDays} days, and you can cancel any time until then.
         </p>
       ) : (
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           We email you a link to confirm. Then we wait {standing.waitingDays} days before deleting anything,
           and you can cancel any time until then.
         </p>
       )}
       {standing.losses.map((loss) => (
-        <p key={loss.code} className="text-small font-semibold text-warning">
+        <p key={loss.code} className="text-small font-semibold text-warn-fg">
           You give up <Money paise={loss.amountPaise} /> of free credit: it can&apos;t be paid out.
         </p>
       ))}
@@ -218,10 +218,8 @@ function Deletion({ standing }: { standing: DeletionStanding }) {
         </Button>
       ) : (
         <>
-          <p className="text-small text-text-muted">
-            For your safety, sign in again first. It takes a moment.
-          </p>
-          <Button variant="secondary" disabled={blocked} onClick={signInAgain}>
+          <p className="text-small text-text-2">For your safety, sign in again first. It takes a moment.</p>
+          <Button variant="ghost" disabled={blocked} onClick={signInAgain}>
             Sign in again to continue
           </Button>
         </>

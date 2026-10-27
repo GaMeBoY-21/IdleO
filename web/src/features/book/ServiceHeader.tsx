@@ -17,12 +17,12 @@ export function ServiceHeader({
     <div className="flex flex-col gap-2">
       <Link
         href="/book/"
-        className="flex min-h-touch items-center self-start rounded-full bg-fill px-3.5 text-small font-semibold hover:bg-fill-selected"
+        className="flex min-h-touch items-center self-start rounded-full bg-panel px-3.5 text-small font-semibold hover:bg-raised"
       >
         <span aria-hidden="true">←&nbsp;</span>All services
       </Link>
       <h1 className={laptop ? "text-question" : "text-title"}>{name}</h1>
-      <p className="text-body text-text-muted">{description}</p>
+      <p className="text-body text-text-2">{description}</p>
     </div>
   );
 }

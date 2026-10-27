@@ -62,7 +62,7 @@ export function MyFilesChoice({
   return (
     <div className="flex flex-col gap-2">
       {uploads.length === 0 ? (
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           Nothing in My files fits here yet. Upload it once, and it&apos;s kept for your next sessions.
         </p>
       ) : (

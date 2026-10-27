@@ -65,7 +65,7 @@ function InviteStep() {
 
   return (
     <SignInFrame title="Enter your invite code">
-      <p className="mb-8 text-body text-text-muted">
+      <p className="mb-8 text-body text-text-2">
         IdleO is open by invitation for now. Enter the code you were given to carry on.
       </p>
       {me.isPending ? (
@@ -105,10 +105,8 @@ function InviteStep() {
           </Button>
         </form>
       )}
-      <p className="mt-6 text-small text-text-muted">
-        Don&apos;t have a code? Ask the person who invited you.
-      </p>
-      <p className="mt-3 text-caption text-text-muted">
+      <p className="mt-6 text-small text-text-2">Don&apos;t have a code? Ask the person who invited you.</p>
+      <p className="mt-3 text-caption text-text-2">
         {email ? `Signed in as ${email}. ` : ""}
         <button type="button" className="underline" onClick={() => void signOut()}>
           Sign out

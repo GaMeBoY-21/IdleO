@@ -48,7 +48,7 @@ export function Route({
                 {stop.title}
               </span>
               {stop.detail && (
-                <span className={cn("text-text-muted", compact ? "text-caption" : "text-small")}>
+                <span className={cn("text-text-2", compact ? "text-caption" : "text-small")}>
                   {stop.detail}
                 </span>
               )}
@@ -68,7 +68,7 @@ function Marker({ state, compact }: { state: Stop["state"]; compact: boolean }) 
     return (
       <span
         className={cn(
-          "flex items-center justify-center rounded-full bg-text text-ground",
+          "flex items-center justify-center rounded-full bg-text text-canvas",
           compact ? "size-4" : "size-5.5",
         )}
       >
@@ -80,7 +80,7 @@ function Marker({ state, compact }: { state: Stop["state"]; compact: boolean }) 
     <span
       className={cn(
         "rounded-full border-4",
-        state === "current" ? "border-running bg-running-soft" : "border-text bg-ground",
+        state === "current" ? "border-running bg-ok" : "border-text bg-canvas",
         compact ? "size-4" : "size-3.5",
       )}
     />
@@ -96,21 +96,19 @@ function RouteAcross({ stops }: { stops: Stop[] }) {
           <li key={index} className="flex min-w-0 flex-1 basis-0 flex-col gap-3">
             <div aria-hidden="true" className="flex h-5.5 items-center">
               {stop.state === "end" ? (
-                <span className="size-4.5 border-4 border-divider" />
+                <span className="size-4.5 border-4 border-line" />
               ) : stop.state === "current" ? (
-                <span className="size-5.5 shrink-0 rounded-full bg-running ring-6 ring-running-soft" />
+                <span className="size-5.5 shrink-0 rounded-full bg-running ring-6 ring-ok" />
               ) : (
                 <Marker state={stop.state} compact={false} />
               )}
-              {!last && (
-                <span className={cn("h-1 flex-1", stop.state === "done" ? "bg-text" : "bg-divider")} />
-              )}
+              {!last && <span className={cn("h-1 flex-1", stop.state === "done" ? "bg-text" : "bg-line")} />}
             </div>
             <div className="flex flex-col gap-1 pr-3">
-              <span className={cn("text-body font-semibold", stop.state === "end" && "text-text-muted")}>
+              <span className={cn("text-body font-semibold", stop.state === "end" && "text-text-2")}>
                 {stop.title}
               </span>
-              {stop.detail && <span className="text-small text-text-muted">{stop.detail}</span>}
+              {stop.detail && <span className="text-small text-text-2">{stop.detail}</span>}
             </div>
           </li>
         );

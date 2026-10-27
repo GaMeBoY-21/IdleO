@@ -58,6 +58,7 @@ const ISLANDS = {
   contact: "src/site/islands/contact.ts",
   grievance: "src/site/islands/grievance.ts",
   vitals: "src/site/islands/vitals.ts",
+  theme: "src/site/islands/theme.ts",
 } as const;
 
 const sha = (body: string) => `sha256-${createHash("sha256").update(body, "utf8").digest("base64")}`;
@@ -72,8 +73,10 @@ const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;
 
 function document(page: PageDef, body: string): string {
   const url = `${siteUrl}${page.path}`;
-  // Every page reports what real visits meet (ADR 0036), after it has loaded; Pricing and Earn have their own script too.
-  const loaded = [...page.islands, "vitals" as const].map((island) => script(ISLANDS[island]));
+  // Every page reports what real visits meet (ADR 0036), after it has loaded; Pricing and Earn have their own script too, and every page the Appearance switch's.
+  const loaded = [...page.islands, "vitals" as const, "theme" as const].map((island) =>
+    script(ISLANDS[island]),
+  );
   const preloads = [...new Set(loaded.flatMap((one) => one.preload))];
   return `<!doctype html>
 <html lang="en-IN">
@@ -92,15 +95,16 @@ function document(page: PageDef, body: string): string {
     <meta property="og:description" content="${escape(page.description)}" />
     <meta property="og:url" content="${url}" />
     <meta name="twitter:card" content="summary" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F7F9" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F0F14" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F3FA" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0C0A1F" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="preload" href="/fonts/plus-jakarta-sans-subset.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/inter-400-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/archivo-125-900.woff2" as="font" type="font/woff2" crossorigin />
     <script>${themeBoot}</script>
     <link rel="stylesheet" href="/${stylesheet}" />
 ${preloads.map((file) => `    <link rel="modulepreload" href="/${file}" />`).join("\n")}
   </head>
-  <body data-api="${escape(env.VITE_API_URL ?? "")}">
+  <body data-api="${escape(env.VITE_API_URL ?? "")}" data-app="${escape(appUrl)}">
 ${body}
 ${loaded.map((one) => `    <script type="module" src="/${one.entry}"></script>`).join("\n")}
   </body>

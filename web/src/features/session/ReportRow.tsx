@@ -12,7 +12,7 @@ const loadSheet = () => import("./ReportSheet");
 const ReportSheet = lazy(() => loadSheet().then((module) => ({ default: module.ReportSheet })));
 
 const ROW =
-  "tile-motion flex min-h-18 w-full items-center gap-3.5 rounded-tile bg-fill px-4.5 py-3.5 text-left";
+  "tile-motion flex min-h-18 w-full items-center gap-3.5 rounded-panel bg-panel px-4.5 py-3.5 text-left";
 
 /**
  * "Report a problem" on an ended session, and where the latest report stands (ADR 0028): one row that's always two
@@ -33,7 +33,7 @@ export function ReportRow({ sessionId, enabled }: { sessionId: string; enabled: 
           <Flag aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="text-body font-semibold">{words.headline}</span>
-            <span className="truncate text-small text-text-muted">
+            <span className="truncate text-small text-text-2">
               {words.resolved ? words.line : <ReportSent at={latest.createdAt} />}
             </span>
           </span>
@@ -47,7 +47,7 @@ export function ReportRow({ sessionId, enabled }: { sessionId: string; enabled: 
             {reports.isPending ? (
               <SkeletonLine size="small" width="w-2/3" />
             ) : (
-              <span className="truncate text-small text-text-muted">
+              <span className="truncate text-small text-text-2">
                 {reports.isError
                   ? "We couldn't check your reports. Press to report."
                   : "Something wrong with this session?"}

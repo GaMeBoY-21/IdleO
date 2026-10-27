@@ -42,7 +42,7 @@ export function Running({
       <StopAction session={session} laptop={laptop} />
     ) : (
       <ActionFoot laptop={laptop} note={null}>
-        <p className="flex min-h-14 items-center justify-center text-body text-text-muted">
+        <p className="flex min-h-14 items-center justify-center text-body text-text-2">
           {session.state === "FINISHING"
             ? "Saving a last checkpoint and its outputs…"
             : "Moving to another host…"}

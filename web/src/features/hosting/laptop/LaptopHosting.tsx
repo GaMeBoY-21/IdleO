@@ -17,22 +17,19 @@ type EarningsQuery = UseInfiniteQueryResult<InfiniteData<OwnerEarnings>>;
 /** The apricot tile: what a machine needs, and that a one-time code links it. */
 export function AddTile({ className }: { className?: string }) {
   return (
-    <TileLink href="/hosting/add/" tone="apricot" size="lg" className={cn("gap-4 xl:p-7", className)}>
-      <span
-        aria-hidden="true"
-        className="flex size-14 items-center justify-center rounded-icon bg-on-colour/10"
-      >
+    <TileLink href="/hosting/add/" tone="ember" size="lg" className={cn("gap-4 xl:p-7", className)}>
+      <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-icon bg-ink/10">
         <Plus className="size-6" strokeWidth={2} />
       </span>
       <span className="flex flex-col gap-3">
-        <ul className="flex flex-col gap-1 text-small text-apricot-fg">
+        <ul className="flex flex-col gap-1 text-small text-ink">
           <li>Windows 10 or 11</li>
           <li>An NVIDIA RTX graphics card</li>
           <li>Plugged in, with an internet connection that stays on</li>
         </ul>
         <span className="flex flex-col gap-1.5">
           <span className="text-title">Add a machine</span>
-          <span className="text-body text-apricot-fg">
+          <span className="text-body text-ink">
             A one-time code links your laptop. Takes about 5 minutes.
           </span>
         </span>
@@ -46,7 +43,7 @@ export function LaptopPitch() {
   return (
     <div className={cn(FIT_FRAME, GRID)}>
       <Tile
-        tone="dark"
+        tone="night"
         size="lg"
         aria-labelledby="pitch-title"
         className="flex flex-col justify-between gap-6 md:col-span-6 xl:col-span-8 xl:min-h-96 xl:p-8"
@@ -54,7 +51,7 @@ export function LaptopPitch() {
         <h1 id="pitch-title" className="text-question">
           Earn from the GPU you aren&apos;t using
         </h1>
-        <p className="max-w-prose text-body text-dark-muted">
+        <p className="max-w-prose text-body text-on-night-2">
           Add a gaming laptop or desktop with an NVIDIA RTX GPU. Renters&apos; jobs run in a locked box, never
           in your files, and you set the price. Pause or take it back whenever you like.
         </p>
@@ -88,7 +85,7 @@ export function LaptopHosting({
     <div className={cn(FIT_FRAME, GRID, many ? "xl:auto-rows-auto" : "rows-even xl:fit-screen")}>
       <h1 className="sr-only">Hosting</h1>
       <Tile
-        tone="dark"
+        tone="night"
         size="lg"
         aria-labelledby="week-title"
         className="grid gap-6 md:col-span-6 md:grid-cols-2 xl:col-span-8 xl:grid-cols-5 xl:gap-8 xl:py-7"
@@ -97,7 +94,7 @@ export function LaptopHosting({
           Your earnings
         </h2>
         <div className="flex flex-col justify-between gap-4 xl:col-span-2">
-          <span className="text-caption text-dark-muted">
+          <span className="text-caption text-on-night-2">
             Earned this week, all machines
             {restoredAt !== null && (
               <>
@@ -109,7 +106,7 @@ export function LaptopHosting({
           {owner ? (
             <span className="flex flex-col gap-1">
               <Money paise={owner.weekPaise} className="block text-timer-lg" />
-              <span className="text-small text-dark-muted tabular">
+              <span className="text-small text-on-night-2 tabular">
                 <Money paise={owner.totalPaise} /> in total · {formatMinutes(owner.minutesRentedThisWeek)}{" "}
                 rented
               </span>
@@ -117,7 +114,7 @@ export function LaptopHosting({
           ) : (
             <Skeleton className="skeleton-dark h-16 w-48" />
           )}
-          <span className="text-caption text-dark-muted">
+          <span className="text-caption text-on-night-2">
             Earnings are recorded now. Weekly UPI payouts start with the paid pilot.
           </span>
         </div>

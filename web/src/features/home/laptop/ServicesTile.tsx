@@ -24,19 +24,19 @@ export function ServicesTile({
 }) {
   return (
     <Tile
-      tone="dark"
+      tone="night"
       size="lg"
       aria-labelledby="question"
       className={cn(
         "flex flex-col gap-5 md:col-span-6 xl:col-span-8 xl:gap-6",
-        dropping && "ring-4 ring-live",
+        dropping && "ring-4 ring-volt",
       )}
     >
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
         <h1 id="question" className="text-question">
           What do you want to run?
         </h1>
-        <span className="text-caption text-dark-muted">Or drop a folder anywhere on this page</span>
+        <span className="text-caption text-on-night-2">Or drop a folder anywhere on this page</span>
       </div>
       <div className="grid flex-1 gap-3.5 md:grid-cols-2">
         {services.map((service, index) => {
@@ -46,7 +46,7 @@ export function ServicesTile({
             <TileLink
               key={service.id}
               href={bookHref(service.id)}
-              tone={first ? "lime" : "white"}
+              tone={first ? "volt" : "panel"}
               size="lg"
               className="gap-4"
             >
@@ -55,20 +55,18 @@ export function ServicesTile({
                   aria-hidden="true"
                   className={cn(
                     "flex size-12 items-center justify-center rounded-icon",
-                    first ? "bg-on-colour/10" : "bg-ground",
+                    first ? "bg-ink/10" : "bg-canvas",
                   )}
                 >
                   <Icon className="size-6" strokeWidth={1.7} />
                 </span>
-                <span
-                  className={cn("text-caption font-semibold", first ? "text-lime-fg" : "text-text-muted")}
-                >
+                <span className={cn("text-caption font-semibold", first ? "text-ink" : "text-text-2")}>
                   {serviceTime(catalog, service.id)}
                 </span>
               </span>
               <span className="flex flex-col gap-1.5">
                 <span className="text-title break-words">{service.name}</span>
-                <span className={cn("max-w-prose text-body", first ? "text-lime-fg" : "text-text-muted")}>
+                <span className={cn("max-w-prose text-body", first ? "text-ink" : "text-text-2")}>
                   {serviceSentence(catalog, service.id)}
                 </span>
               </span>

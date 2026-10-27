@@ -69,10 +69,10 @@ function RunsAndPayouts() {
       title="Runs and payouts"
       action={
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setRetrying("")}>
+          <Button variant="ghost" onClick={() => setRetrying("")}>
             Pay one person now
           </Button>
-          <Button variant="secondary" onClick={() => setRunning(true)}>
+          <Button variant="ghost" onClick={() => setRunning(true)}>
             Run now
           </Button>
         </div>
@@ -119,7 +119,7 @@ function RunsAndPayouts() {
                         {found.balance.isShort ? "short" : "enough"}
                       </Pill>
                       {found.balance.failure && (
-                        <span className="block text-caption text-text-muted">{found.balance.failure}</span>
+                        <span className="block text-caption text-text-2">{found.balance.failure}</span>
                       )}
                     </span>
                   ) : (
@@ -236,7 +236,7 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
       </Cell>
       <Cell>
         <Money paise={payout.tdsPaise} />
-        <span className="block text-caption text-text-muted">{payout.tdsSection}</span>
+        <span className="block text-caption text-text-2">{payout.tdsSection}</span>
       </Cell>
       <Cell>
         <Money paise={payout.netPaise} />
@@ -244,7 +244,7 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
       <Cell>
         <Pill tone={STATUS_TONE[payout.status] ?? "plain"}>{payout.status}</Pill>
         {(payout.statusDescription ?? payout.lastError) && (
-          <span className="block text-caption text-text-muted">
+          <span className="block text-caption text-text-2">
             {payout.statusReason ? `${payout.statusReason}: ` : ""}
             {payout.statusDescription ?? payout.lastError}
           </span>
@@ -281,7 +281,7 @@ function Reconciliation() {
     <Section
       title="RazorpayX against our payouts"
       action={
-        <Button variant="secondary" onClick={() => setRunning(true)}>
+        <Button variant="ghost" onClick={() => setRunning(true)}>
           Run a day now
         </Button>
       }
@@ -334,7 +334,7 @@ function Reconciliation() {
                     <Cell>
                       {item.detail}
                       {item.closeReason && (
-                        <span className="block text-caption text-text-muted">
+                        <span className="block text-caption text-text-2">
                           {item.closedBy}: {item.closeReason}
                         </span>
                       )}

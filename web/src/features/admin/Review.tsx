@@ -92,7 +92,7 @@ export function Review() {
                       <Pill tone={minute.resolution === "charged" ? "running" : "plain"}>
                         {minute.resolution}
                       </Pill>
-                      <span className="text-caption text-text-muted">
+                      <span className="text-caption text-text-2">
                         {minute.resolutionReason}, {minute.resolvedBy}
                       </span>
                     </span>
@@ -103,14 +103,14 @@ export function Review() {
                 <Cell>
                   {minute.resolution === null && (
                     <span className="flex gap-1">
-                      <Button variant="secondary" onClick={() => setDeciding({ minute, charge: true })}>
+                      <Button variant="ghost" onClick={() => setDeciding({ minute, charge: true })}>
                         Charge
                         <span className="sr-only">
                           {" "}
                           minute {minute.minuteIndex} of session {minute.sessionId}
                         </span>
                       </Button>
-                      <Button variant="secondary" onClick={() => setDeciding({ minute, charge: false })}>
+                      <Button variant="ghost" onClick={() => setDeciding({ minute, charge: false })}>
                         Waive
                         <span className="sr-only">
                           {" "}

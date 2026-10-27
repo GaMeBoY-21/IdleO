@@ -17,9 +17,9 @@ export function MachineRow({ host }: { host: Host }) {
     <Link
       href={`/hosting/machine/?id=${host.id}`}
       className={cn(
-        "flex min-h-18 items-center gap-3.5 rounded-tile px-4.5 py-3.5",
+        "flex min-h-18 items-center gap-3.5 rounded-panel px-4.5 py-3.5",
         "tile-motion",
-        running ? "bg-dark text-dark-fg" : state.kind === "idle" ? "bg-apricot text-on-colour" : "bg-fill",
+        running ? "bg-night text-on-night" : state.kind === "idle" ? "bg-ember text-ink" : "bg-panel",
       )}
     >
       <span
@@ -27,7 +27,7 @@ export function MachineRow({ host }: { host: Host }) {
         className={cn(
           "size-3 shrink-0 rounded-full",
           running
-            ? "bg-live ring-4 ring-live/25 motion-safe:animate-pulse"
+            ? "bg-running-dot ring-4 ring-volt/25 motion-safe:animate-pulse"
             : state.active
               ? "bg-running"
               : "bg-control",
@@ -38,7 +38,7 @@ export function MachineRow({ host }: { host: Host }) {
         <span
           className={cn(
             "text-caption tabular",
-            running ? "text-dark-muted" : state.kind === "idle" ? "text-apricot-fg" : "text-text-muted",
+            running ? "text-on-night-2" : state.kind === "idle" ? "text-ink" : "text-text-2",
           )}
         >
           {state.detail}

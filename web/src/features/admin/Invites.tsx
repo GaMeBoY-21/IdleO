@@ -39,7 +39,7 @@ export function Invites() {
   return (
     <AdminPage title="Invites">
       <Button
-        variant="secondary"
+        variant="ghost"
         className="self-start"
         onClick={() => {
           setKey(crypto.randomUUID());
@@ -57,11 +57,11 @@ export function Invites() {
             </Button>
           }
         >
-          <p className="text-small text-text-muted">
+          <p className="text-small text-text-2">
             For &ldquo;{made.note}&rdquo;. Shown only now: only their hashes are kept. Each works once.
           </p>
           <ul
-            className="tabular grid grid-cols-1 gap-2 rounded-control bg-fill p-4 text-body md:grid-cols-3"
+            className="tabular grid grid-cols-1 gap-2 rounded-control bg-panel p-4 text-body md:grid-cols-3"
             aria-label="New invite codes"
           >
             {made.codes.map((code) => (
@@ -144,7 +144,7 @@ export function Invites() {
                     {invite.usedAt ? (
                       <span>
                         {invite.usedByEmail ?? invite.usedBy}{" "}
-                        <RelativeTime value={invite.usedAt} className="text-text-muted" />
+                        <RelativeTime value={invite.usedAt} className="text-text-2" />
                       </span>
                     ) : (
                       <Pill>unused</Pill>

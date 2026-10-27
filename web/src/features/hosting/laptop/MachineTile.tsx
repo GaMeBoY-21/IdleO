@@ -33,7 +33,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
           <span
             className={cn(
               "flex items-center gap-2 font-bold",
-              state.kind === "running" ? "text-running" : "text-text-muted",
+              state.kind === "running" ? "text-running" : "text-text-2",
             )}
           >
             <span
@@ -49,12 +49,12 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
             />
             {label}
           </span>
-          <span className="text-text-muted tabular">
+          <span className="text-text-2 tabular">
             {reading ? `${reading.tempC}°C · ${reading.utilPct}% busy` : host.online ? "online" : "offline"}
           </span>
         </span>
         <span className="flex flex-col gap-3">
-          <span className="flex flex-col gap-1 text-small text-text-muted">
+          <span className="flex flex-col gap-1 text-small text-text-2">
             {host.currentSession && (
               <span>
                 {host.currentSession.runningLabel} · <Elapsed from={host.currentSession.startedAt} />
@@ -78,26 +78,26 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
         </span>
         <span className="flex flex-col gap-0.5">
           <span className="text-section break-words">{host.name}</span>
-          <span className="text-small text-text-muted tabular">
+          <span className="text-small text-text-2 tabular">
             {gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "No GPU reported yet"}
             {host.listing && ` · ${rupeesAnHour(host.listing.batchPricePaisePerMin)}`}
           </span>
         </span>
       </Link>
       {host.currentSession ? (
-        <span className="flex items-baseline justify-between text-text-muted">
+        <span className="flex items-baseline justify-between text-text-2">
           <span className="text-caption">Earning now</span>
           <Money paise={host.currentSession.earnedSoFarPaise} className="text-title text-text" />
         </span>
       ) : host.paused ? (
         <span className="flex items-center justify-between gap-3">
-          <span className="text-caption text-text-muted">No new sessions while paused</span>
-          <Button variant="secondary" busy={resume.isPending} onClick={() => resume.mutate()}>
+          <span className="text-caption text-text-2">No new sessions while paused</span>
+          <Button variant="ghost" busy={resume.isPending} onClick={() => resume.mutate()}>
             Resume
           </Button>
         </span>
       ) : (
-        <span className="text-caption text-text-muted">{state.detail}</span>
+        <span className="text-caption text-text-2">{state.detail}</span>
       )}
     </Tile>
   );

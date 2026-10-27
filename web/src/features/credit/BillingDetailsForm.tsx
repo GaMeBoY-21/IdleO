@@ -86,18 +86,18 @@ export function DetailsForm({ details }: { details: BillingDetails }) {
         onChange={(event) => setBusinessName(event.target.value)}
       />
       {/* Two lines, whichever it says, as its skeleton is. */}
-      <p className="min-h-9 text-caption text-text-muted">
+      <p className="min-h-9 text-caption text-text-2">
         {details.gstPercent > 0
           ? `What you pay includes GST at ${details.gstPercent}%; your invoice shows it.`
           : "We aren't registered for GST yet, so you get a receipt, not a tax invoice."}
       </p>
       <div className="flex items-center gap-3">
-        <Button type="submit" variant="secondary" busy={save.isPending} disabled={stateCode === ""}>
+        <Button type="submit" variant="ghost" busy={save.isPending} disabled={stateCode === ""}>
           Save
         </Button>
         <p
           role={other ? "alert" : "status"}
-          className={other ? "text-small text-danger" : "text-small text-text-muted"}
+          className={other ? "text-small text-danger" : "text-small text-text-2"}
         >
           {other ?? (saved ? "Saved." : "")}
         </p>

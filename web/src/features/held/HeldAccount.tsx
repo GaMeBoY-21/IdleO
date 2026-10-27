@@ -16,7 +16,7 @@ import { useTitle } from "@/lib/title";
 export function HeldShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 bg-ground">
+      <header className="sticky top-0 z-10 bg-canvas">
         <div className={`${FRAME} flex h-16 items-center gap-6 md:h-header`}>
           <div className="flex flex-1 items-center">
             <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
@@ -45,7 +45,7 @@ export function HeldAccount() {
         <h1 className="text-title xl:text-question">Your account is suspended</h1>
         <Tile as="section" aria-labelledby="held-says" className="flex flex-col gap-4 md:p-6 xl:p-7">
           <SectionTitle id="held-says">What this means</SectionTitle>
-          <p className="max-w-prose text-small text-text-muted">
+          <p className="max-w-prose text-small text-text-2">
             You can&apos;t book, upload or host while it is. You can still see and download everything we hold
             about you, delete your account, and write to us. If you think this is a mistake, write to us and
             say so.
@@ -54,10 +54,10 @@ export function HeldAccount() {
             <Link href="/account/help/" className={buttonClasses("primary", true)}>
               Write to us
             </Link>
-            <Link href="/account/data/" className={buttonClasses("secondary", true)}>
+            <Link href="/account/data/" className={buttonClasses("ghost", true)}>
               Your data
             </Link>
-            <Link href="/account/delete/" className={buttonClasses("secondary", true)}>
+            <Link href="/account/delete/" className={buttonClasses("ghost", true)}>
               Delete my account
             </Link>
           </div>

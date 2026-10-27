@@ -32,7 +32,7 @@ export function SessionLog({ sessionId, purpose }: { sessionId: string; purpose:
       title="The session's log"
       action={
         reason === null ? (
-          <Button variant="secondary" onClick={() => setAsking(true)}>
+          <Button variant="ghost" onClick={() => setAsking(true)}>
             Read the log
           </Button>
         ) : undefined
@@ -50,7 +50,7 @@ export function SessionLog({ sessionId, purpose }: { sessionId: string; purpose:
           empty={<Empty title="Nothing in it">The job wrote nothing to its log.</Empty>}
         >
           {(chunks) => (
-            <pre className="max-h-96 overflow-auto rounded-control bg-ground p-4 text-caption whitespace-pre-wrap">
+            <pre className="max-h-96 overflow-auto rounded-control bg-canvas p-4 text-caption whitespace-pre-wrap">
               {chunks.map((chunk) => chunk.text).join("")}
             </pre>
           )}

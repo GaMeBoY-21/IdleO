@@ -16,7 +16,7 @@ export function AccountLink() {
       aria-current={current ? "page" : undefined}
       className={cn(
         "hidden size-touch items-center justify-center rounded-full md:flex",
-        current && "ring-3 ring-live",
+        current && "ring-3 ring-volt",
       )}
     >
       <Avatar large />

@@ -25,7 +25,7 @@ export function Gpus({ links }: { links: EntryLinks }) {
               <h2 id={`gpu-${gpu.gb}`} className={sectionTitle}>
                 {gpu.gb} GB GPU memory
               </h2>
-              <p className="mt-1 text-small text-text-muted">Typical cards: {gpu.cards.join(", ")}</p>
+              <p className="mt-1 text-small text-text-2">Typical cards: {gpu.cards.join(", ")}</p>
               <dl className="mt-4 grid gap-3 text-body">
                 {(
                   [
@@ -37,14 +37,14 @@ export function Gpus({ links }: { links: EntryLinks }) {
                 ).map(([name, text]) => (
                   <div key={name}>
                     <dt className="text-small font-semibold text-text">{name}, typical</dt>
-                    <dd className="text-text-muted">{text}</dd>
+                    <dd className="text-text-2">{text}</dd>
                   </div>
                 ))}
               </dl>
             </li>
           ))}
         </ul>
-        <p className="mt-6 max-w-prose text-small text-text-muted">
+        <p className="mt-6 max-w-prose text-small text-text-2">
           A laptop GPU runs at lower power than the desktop card with the same name, so it's slower for the
           same memory. Some cards have more or less memory than their name suggests; we count the memory the
           card reports.

@@ -40,7 +40,7 @@ export function PayoutsTile({ enabled }: { enabled: boolean }) {
   return <SummarySkeleton />;
 }
 
-const FIGURE = "flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-ground px-4 py-3.5";
+const FIGURE = "flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-canvas px-4 py-3.5";
 
 export function Summary({ summary }: { summary: PayoutSummary }) {
   const blocked = blockedWords(summary.blockedBy);
@@ -55,23 +55,23 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
       </div>
       <dl className="grid grid-cols-2 gap-2">
         <div className={FIGURE}>
-          <dt className="text-small text-text-muted">Available</dt>
+          <dt className="text-small text-text-2">Available</dt>
           <dd className="text-option font-semibold">
             <Money paise={summary.availablePaise} />
           </dd>
         </div>
         <div className={FIGURE}>
-          <dt className="text-small text-text-muted">Pending</dt>
+          <dt className="text-small text-text-2">Pending</dt>
           <dd className="text-option font-semibold">
             <Money paise={summary.pendingPaise} />
           </dd>
         </div>
         <div className={FIGURE}>
-          <dt className="text-small text-text-muted">Next payout</dt>
+          <dt className="text-small text-text-2">Next payout</dt>
           <dd className="text-option font-semibold">{formatDay(summary.nextPayoutAt)}</dd>
         </div>
         <div className={FIGURE}>
-          <dt className="text-small text-text-muted">Tax deducted {summary.financialYear}</dt>
+          <dt className="text-small text-text-2">Tax deducted {summary.financialYear}</dt>
           <dd className="text-option font-semibold">
             <Money paise={summary.yearTdsPaise} />
           </dd>
@@ -80,7 +80,7 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
       {/* Two lines kept for what's said here, whichever it is, so nothing below moves. */}
       <div className="flex min-h-9 flex-col gap-0.5 text-small">
         {blocked ? (
-          <p className="font-semibold text-warning">
+          <p className="font-semibold text-warn-fg">
             {blocked}{" "}
             <Link href="/hosting/payout-details/" className="underline">
               Payout details
@@ -91,20 +91,20 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
             <Money paise={summary.inFlightPaise} /> is on its way to your UPI ID.
           </p>
         ) : (
-          <p className="text-text-muted">
+          <p className="text-text-2">
             Paid every Monday from <Money paise={summary.minimumPaise} /> available. Earnings wait 7 days
             after a session, for any report about it.
           </p>
         )}
         {summary.owedPaise > 0 && (
-          <p className="text-text-muted">
+          <p className="text-text-2">
             <Money paise={summary.owedPaise} /> refunded to renters after it was paid out comes out of your
             next earnings.
           </p>
         )}
       </div>
       {summary.pending.length === 0 ? (
-        <p className="min-h-touch content-center text-small text-text-muted">Nothing pending.</p>
+        <p className="min-h-touch content-center text-small text-text-2">Nothing pending.</p>
       ) : (
         <details className="text-small">
           <summary className="min-h-touch cursor-pointer content-center font-semibold">
@@ -113,12 +113,12 @@ export function Summary({ summary }: { summary: PayoutSummary }) {
               : `${summary.pending.length} sessions pending`}
             {nextAvailable && <> · the next on {formatDay(nextAvailable)}</>}
           </summary>
-          <ul className="flex flex-col divide-y divide-divider">
+          <ul className="flex flex-col divide-y divide-line">
             {summary.pending.map((session) => (
               <li key={`${session.hostId}${session.sessionId}`} className="flex items-center gap-3 py-2">
                 <span className="min-w-0 flex-1 break-words">
                   {session.machineName}
-                  <span className="block text-caption text-text-muted">
+                  <span className="block text-caption text-text-2">
                     {session.availableAt
                       ? `Available ${formatDay(session.availableAt)}`
                       : "Held while a report about it is open"}
@@ -144,7 +144,7 @@ export function SummarySkeleton() {
       <dl className="grid grid-cols-2 gap-2">
         {["Available", "Pending", "Next payout", "Tax deducted"].map((label) => (
           <div key={label} className={FIGURE}>
-            <dt className="text-small text-text-muted">{label}</dt>
+            <dt className="text-small text-text-2">{label}</dt>
             <dd className="text-option font-semibold">
               <SkeletonLine size="option" width="w-2/3" />
             </dd>
@@ -177,7 +177,7 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
         ) : (
           <div className="flex flex-col gap-4">
             <Tile as="div" className="px-4.5 py-0">
-              <ul className="flex flex-col divide-y divide-divider">
+              <ul className="flex flex-col divide-y divide-line">
                 {payouts.map((payout) => (
                   <PayoutRow key={payout.id} payout={payout} />
                 ))}
@@ -185,7 +185,7 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
             </Tile>
             {history.hasNextPage && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 className="self-center"
                 busy={history.isFetchingNextPage}
                 onClick={() => void history.fetchNextPage()}
@@ -203,7 +203,7 @@ export function PayoutHistory({ enabled }: { enabled: boolean }) {
           retrying={history.isFetching}
         />
       ) : (
-        <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-divider px-4.5 py-0">
+        <Tile as="div" aria-hidden="true" className="flex flex-col divide-y divide-line px-4.5 py-0">
           {[0, 1].map((key) => (
             <div key={key} className="flex min-h-18 items-center gap-3 py-4">
               <div className="flex flex-1 flex-col gap-0.5">
@@ -235,15 +235,15 @@ export function PayoutRow({ payout }: { payout: PayoutView }) {
               ? "text-danger"
               : status.tone === "running"
                 ? "text-running"
-                : "text-text-muted",
+                : "text-text-2",
           )}
         >
           {status.label}
           {payout.processedAt && payout.status === "processed" && ` ${formatDateTime(payout.processedAt)}`}
         </p>
-        {payout.why && <p className="text-small text-text-muted">{payout.why}</p>}
+        {payout.why && <p className="text-small text-text-2">{payout.why}</p>}
         {payout.tdsPaise > 0 && (
-          <p className="text-caption text-text-muted">
+          <p className="text-caption text-text-2">
             <Money paise={payout.grossPaise} /> less <Money paise={payout.tdsPaise} /> tax (section{" "}
             {payout.tdsSection})
           </p>
@@ -278,7 +278,7 @@ export function Statement({ years }: { years: string[] | null }) {
       className="flex flex-col gap-3"
     >
       <SectionTitle id="statement-title">Yearly statement</SectionTitle>
-      <p className="text-small text-text-muted">
+      <p className="text-small text-text-2">
         What you were paid in a financial year (April to March), the tax deducted and the net: for your tax
         return.
       </p>
@@ -286,7 +286,7 @@ export function Statement({ years }: { years: string[] | null }) {
         <label className="flex flex-col gap-2 text-small font-medium">
           Year
           <select
-            className="min-h-touch rounded-control bg-ground px-3 text-body"
+            className="min-h-touch rounded-control bg-canvas px-3 text-body"
             value={year}
             disabled={years === null}
             onChange={(event) => setChosen(event.target.value)}
@@ -298,10 +298,10 @@ export function Statement({ years }: { years: string[] | null }) {
             ))}
           </select>
         </label>
-        <Button variant="secondary" disabled={years === null} onClick={() => download("pdf")}>
+        <Button variant="ghost" disabled={years === null} onClick={() => download("pdf")}>
           PDF
         </Button>
-        <Button variant="secondary" disabled={years === null} onClick={() => download("csv")}>
+        <Button variant="ghost" disabled={years === null} onClick={() => download("csv")}>
           CSV
         </Button>
       </div>

@@ -22,7 +22,7 @@ export function Help({ maker }: { maker: MakerHelp }) {
         <ol className="mt-6 grid gap-2.5 md:gap-3.5">
           <li className={tile}>
             <h2 className="text-option font-semibold">1. Open the startup menu</h2>
-            <p className="mt-2 text-body text-text-muted">
+            <p className="mt-2 text-body text-text-2">
               From Windows: Settings, then System, then Recovery. Next to Advanced startup, choose Restart
               now. Then choose Troubleshoot, Advanced options, UEFI Firmware Settings, and Restart. Or restart
               and press {maker.key} as soon as the screen goes dark.
@@ -31,12 +31,12 @@ export function Help({ maker }: { maker: MakerHelp }) {
           {maker.steps.map((step, index) => (
             <li key={step} className={tile}>
               <h2 className="text-option font-semibold">{index + 2}. In the menu</h2>
-              <p className="mt-2 text-body text-text-muted">{step}</p>
+              <p className="mt-2 text-body text-text-2">{step}</p>
             </li>
           ))}
           <li className={tile}>
             <h2 className="text-option font-semibold">{maker.steps.length + 2}. Save and restart</h2>
-            <p className="mt-2 text-body text-text-muted">
+            <p className="mt-2 text-body text-text-2">
               Press F10 (or choose Save and Exit), then confirm. When Windows is back, open {brand.name}
               &apos;s setup again: it carries on from where it stopped.
             </p>

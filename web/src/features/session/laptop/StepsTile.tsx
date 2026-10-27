@@ -70,12 +70,12 @@ export function StepsTile({
               <span
                 className={cn(
                   "text-small font-bold",
-                  (stop.state === "next" || stop.state === "end") && "text-text-muted",
+                  (stop.state === "next" || stop.state === "end") && "text-text-2",
                 )}
               >
                 {stop.title}
               </span>
-              <span className="text-caption text-text-muted">{detail}</span>
+              <span className="text-caption text-text-2">{detail}</span>
             </li>
           );
         })}

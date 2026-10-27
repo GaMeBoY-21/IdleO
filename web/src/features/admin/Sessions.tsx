@@ -228,7 +228,7 @@ function SessionRecord({ id }: { id: string }) {
               />
               {(summary.state === "RUNNING" || summary.state === "FINISHING") && (
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   className="self-start"
                   onClick={() => setStopping(true)}
                   disabled={summary.state === "FINISHING"}

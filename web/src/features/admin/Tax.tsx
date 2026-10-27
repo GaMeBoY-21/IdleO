@@ -23,7 +23,7 @@ export function Tax() {
   return (
     <AdminPage title="Tax">
       <Section title="Tax deducted at source, by quarter">
-        <p className="max-w-prose text-small text-text-muted">
+        <p className="max-w-prose text-small text-text-2">
           Each payout that didn&apos;t come back, deducted in the quarter: the host&apos;s whole PAN and name
           as on it, the section and rate, the gross, the tax, the net and the dates. Send it to the CA through
           the company&apos;s secure channel, never email.
@@ -34,7 +34,7 @@ export function Tax() {
             value={quarter}
             onChange={setQuarter}
           />
-          <Button variant="secondary" onClick={() => setOpen(true)}>
+          <Button variant="ghost" onClick={() => setOpen(true)}>
             Export CSV
           </Button>
         </div>

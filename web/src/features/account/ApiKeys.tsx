@@ -42,13 +42,13 @@ export function ApiKeys() {
     <AccountFrame title="API keys">
       <Link
         href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline md:hidden"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Account
       </Link>
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="max-w-prose text-small text-text-muted">
+      <p className="max-w-prose text-small text-text-2">
         Keys let the <span className="font-semibold">idleo</span> command line, scripts and the SDK act as
         you. Treat a key like a password: it works until you revoke it.
       </p>
@@ -63,7 +63,7 @@ export function ApiKeys() {
               makes one for that computer.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col divide-y divide-divider">
+            <ul className="flex flex-col divide-y divide-line">
               {keys.data.keys.map((key) => (
                 <KeyRow key={key.id} apiKey={key} onRevoke={() => setRevoking(key)} />
               ))}
@@ -78,7 +78,7 @@ export function ApiKeys() {
           />
         ) : (
           <div
-            className="flex flex-col divide-y divide-divider"
+            className="flex flex-col divide-y divide-line"
             role="status"
             aria-label="Loading your API keys"
           >
@@ -124,13 +124,13 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: () => void }) 
         <p className="truncate text-option font-semibold" title={apiKey.name}>
           {apiKey.name}
         </p>
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           <span className="tabular">{apiKey.prefix}…</span> · {SCOPES[apiKey.scope]} · made{" "}
           <RelativeTime value={apiKey.createdAt} /> ·{" "}
           {apiKey.lastUsedAt ? <RelativeTime value={apiKey.lastUsedAt} prefix="used" /> : "never used"}
         </p>
       </div>
-      <Button variant="secondary" aria-label={`Revoke ${apiKey.name}`} onClick={onRevoke}>
+      <Button variant="ghost" aria-label={`Revoke ${apiKey.name}`} onClick={onRevoke}>
         Revoke
       </Button>
     </li>

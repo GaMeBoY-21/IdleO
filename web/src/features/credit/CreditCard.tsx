@@ -19,7 +19,7 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
     wallet.data && wallet.isFetching && !wallet.isRefetchError && wallet.dataUpdatedAt < PAGE_OPENED_AT;
   return (
     <Tile
-      tone="dark"
+      tone="night"
       size={wide ? "lg" : "md"}
       aria-labelledby="credit-title"
       className="flex flex-col gap-5"
@@ -30,9 +30,9 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
       {wallet.data ? (
         <>
           <div className="flex flex-col gap-1">
-            <p className="text-small font-semibold text-dark-muted">Available</p>
+            <p className="text-small font-semibold text-on-night-2">Available</p>
             <Money paise={wallet.data.availablePaise} className="block text-timer xl:text-timer-lg" />
-            <p className="min-h-4.5 text-caption text-dark-muted" role="status">
+            <p className="min-h-4.5 text-caption text-on-night-2" role="status">
               {restored ? (
                 <>
                   Updated <span className="tabular">{formatTime(wallet.dataUpdatedAt)}</span> · refreshing
@@ -77,11 +77,11 @@ function freeNote(wallet: Wallet): string {
 
 function Figure({ label, paise, note }: { label: string; paise: number; note: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-control bg-dark-fg/10 px-4 py-3.5">
-      <dt className="text-small text-dark-muted">{label}</dt>
+    <div className="flex flex-col gap-0.5 rounded-control bg-on-night/10 px-4 py-3.5">
+      <dt className="text-small text-on-night-2">{label}</dt>
       <dd className="flex flex-col gap-0.5">
         <Money paise={paise} className="block text-option font-semibold" />
-        <span className="min-h-9 text-caption text-dark-muted">{note}</span>
+        <span className="min-h-9 text-caption text-on-night-2">{note}</span>
       </dd>
     </div>
   );
@@ -101,7 +101,7 @@ function CreditSkeleton() {
       </div>
       <div className="grid grid-cols-2 gap-2.5">
         {[0, 1, 2, 3].map((key) => (
-          <div key={key} className="flex flex-col gap-0.5 rounded-control bg-dark-fg/10 px-4 py-3.5">
+          <div key={key} className="flex flex-col gap-0.5 rounded-control bg-on-night/10 px-4 py-3.5">
             <SkeletonLine size="small" width="w-1/2" onDark />
             <SkeletonLine size="option" width="w-2/3" onDark />
             <div className="min-h-9">

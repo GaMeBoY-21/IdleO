@@ -5,9 +5,9 @@ import { EXAMPLE_CLASS_GB } from "../examples";
 import { band, column, heading, largeButton, muted, primaryButton, sectionTitle, tile } from "../ui";
 
 /** A row's place on the page, 96 px high whatever it holds, so what arrives never moves anything. */
-const ROW = "flex h-24 flex-col justify-center rounded-tile bg-fill px-5 text-text";
+const ROW = "flex h-24 flex-col justify-center rounded-panel bg-panel px-5 text-text";
 /** The same, in lavender, for the two typical examples. */
-const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-tile bg-lavender px-5 text-on-colour";
+const EXAMPLE_ROW = "flex h-24 flex-col justify-center rounded-panel bg-ion px-5 text-ink";
 
 /**
  * The pricing page (ADR 0029). Its figures come from GET /v1/public/availability after the page has painted
@@ -39,7 +39,7 @@ export function Pricing({ context }: { context: SiteContext }) {
             <li key={gpu.gb} className={ROW} data-class-row={gpu.gb} data-state="loading">
               <p className="flex items-center justify-between text-option font-semibold">
                 <span>{gpu.gb} GB GPU memory</span>
-                <span data-role="online" className="text-small font-medium text-text-muted" hidden></span>
+                <span data-role="online" className="text-small font-medium text-text-2" hidden></span>
               </p>
               <span
                 data-role="skeleton"
@@ -47,12 +47,12 @@ export function Pricing({ context }: { context: SiteContext }) {
                 aria-hidden="true"
               />
               <p data-role="price" className="tabular h-6 text-option text-text" hidden></p>
-              <p data-role="kind" className="h-4.5 text-caption text-text-muted"></p>
+              <p data-role="kind" className="h-4.5 text-caption text-text-2"></p>
             </li>
           ))}
         </ul>
         <div
-          className="mt-2 flex min-h-14 items-start justify-between gap-x-3 text-caption text-text-muted"
+          className="mt-2 flex min-h-14 items-start justify-between gap-x-3 text-caption text-text-2"
           aria-live="polite"
         >
           <p data-role="status" className="flex-1">
@@ -67,15 +67,15 @@ export function Pricing({ context }: { context: SiteContext }) {
             Try again
           </button>
         </div>
-        <p data-role="credit" className="mt-2 min-h-6 text-body text-text-muted"></p>
+        <p data-role="credit" className="mt-2 min-h-6 text-body text-text-2"></p>
         <noscript>
-          <p className="text-small text-text-muted">Today's prices need JavaScript on this page.</p>
+          <p className="text-small text-text-2">Today's prices need JavaScript on this page.</p>
         </noscript>
 
         <h2 className={`${sectionTitle} mt-10`} id="examples">
           Two examples
         </h2>
-        <p className="mt-2 text-small text-text-muted">
+        <p className="mt-2 text-small text-text-2">
           Typical, not promises: the runs' minutes are the usual ones for each option, priced on the{" "}
           {EXAMPLE_CLASS_GB} GB class at the prices above. A job's real cost depends on the model, the data
           and the GPU it gets.
@@ -91,13 +91,13 @@ export function Pricing({ context }: { context: SiteContext }) {
               data-label={example.label}
             >
               <p className="text-option font-semibold">{example.label}</p>
-              <p className="text-small text-lavender-fg">About {example.minutes} minutes, typical</p>
+              <p className="text-small text-ink">About {example.minutes} minutes, typical</p>
               <span
                 data-role="skeleton"
                 className="skeleton block h-6 w-2/5 rounded-control"
                 aria-hidden="true"
               />
-              <p data-role="cost" className="tabular h-6 text-body text-on-colour" hidden></p>
+              <p data-role="cost" className="tabular h-6 text-body text-ink" hidden></p>
             </li>
           ))}
         </ul>
@@ -136,7 +136,7 @@ export function Pricing({ context }: { context: SiteContext }) {
           ].map(([title, text]) => (
             <div key={title} className={tile}>
               <dt className="text-option font-semibold">{title}</dt>
-              <dd className="mt-1 text-body text-text-muted">{text}</dd>
+              <dd className="mt-1 text-body text-text-2">{text}</dd>
             </div>
           ))}
         </dl>

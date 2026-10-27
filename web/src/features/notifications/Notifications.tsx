@@ -34,7 +34,7 @@ export function Notifications() {
     <Page title="Notifications">
       {since !== null && <StaleNotice updatedAt={since} />}
       {/* Drawn with the screen, not with the list: it is the largest thing there is at first paint (ADR 0018). */}
-      <p className="-mt-4 max-w-prose text-small text-text-muted">
+      <p className="-mt-4 max-w-prose text-small text-text-2">
         What your sessions and machines have told you, newest first. The same words go by email, for the kinds
         you&apos;ve left on:{" "}
         <Link href="/account/" className="underline">
@@ -48,7 +48,7 @@ export function Notifications() {
             {unread > 0 ? `${unread} unread` : "All read"}
           </h2>
           <Button
-            variant="secondary"
+            variant="ghost"
             disabled={unread === 0 || items.length === 0}
             busy={markRead.isPending}
             onClick={() => items[0] && markRead.mutate({ upTo: items[0].id })}
@@ -69,7 +69,7 @@ export function Notifications() {
                 one, it will be here, and by email if you&apos;ve left that on in Account.
               </EmptyState>
             ) : (
-              <ul className="flex flex-col divide-y divide-divider">
+              <ul className="flex flex-col divide-y divide-line">
                 {items.map((item) => (
                   <Row
                     key={item.id}
@@ -81,7 +81,7 @@ export function Notifications() {
             )}
             {inbox.hasNextPage && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 className="self-center"
                 busy={inbox.isFetchingNextPage}
                 onClick={() => void inbox.fetchNextPage()}
@@ -104,7 +104,7 @@ export function Notifications() {
           />
         ) : (
           <div
-            className="flex flex-col divide-y divide-divider"
+            className="flex flex-col divide-y divide-line"
             role="status"
             aria-label="Loading your notifications"
           >
@@ -133,7 +133,7 @@ export function Notifications() {
 function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
   return (
     <li>
-      <Link href={item.link} onClick={onOpen} className={cn(ROW, "hover:bg-ground")}>
+      <Link href={item.link} onClick={onOpen} className={cn(ROW, "hover:bg-canvas")}>
         <span
           aria-hidden="true"
           className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-primary")}
@@ -143,16 +143,12 @@ function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
             {item.read ? null : <span className="sr-only">Unread: </span>}
             {item.title}
           </p>
-          <p className="line-clamp-2 min-h-10 text-small text-text-muted">{item.body}</p>
-          <p className="text-caption text-text-muted first-letter:uppercase">
+          <p className="line-clamp-2 min-h-10 text-small text-text-2">{item.body}</p>
+          <p className="text-caption text-text-2 first-letter:uppercase">
             <RelativeTime value={item.createdAt} />
           </p>
         </div>
-        <ChevronRight
-          aria-hidden="true"
-          className="mt-1 size-5 shrink-0 text-text-muted"
-          strokeWidth={1.75}
-        />
+        <ChevronRight aria-hidden="true" className="mt-1 size-5 shrink-0 text-text-2" strokeWidth={1.75} />
       </Link>
     </li>
   );

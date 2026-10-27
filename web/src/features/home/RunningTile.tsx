@@ -20,16 +20,16 @@ export function RunningTile({ session, catalog }: { session: Session; catalog: C
   const running = session.state === "RUNNING";
   const doing = serviceOf(catalog, session.templateId)?.runningLabel ?? "Running";
   return (
-    <TileLink href={`/session/?id=${session.id}`} tone="dark" className="col-span-2 row-span-2">
-      <TileLabel tone="dark" className="flex items-center gap-2">
+    <TileLink href={`/session/?id=${session.id}`} tone="night" className="col-span-2 row-span-2">
+      <TileLabel tone="night" className="flex items-center gap-2">
         <span
           aria-hidden="true"
-          className={cn("size-2 rounded-full bg-live", running && "motion-safe:animate-pulse")}
+          className={cn("size-2 rounded-full bg-running-dot", running && "motion-safe:animate-pulse")}
         />
         {running ? "Running now" : headline(session, catalog)}
       </TileLabel>
       <span className="flex flex-col gap-1">
-        <span className="text-small text-dark-muted">
+        <span className="text-small text-on-night-2">
           {doing}
           {session.gpu ? ` on ${gpuName(session.gpu.model)}` : ""}
         </span>
@@ -39,7 +39,7 @@ export function RunningTile({ session, catalog }: { session: Session; catalog: C
               <span className="sr-only">Running for </span>
               <Elapsed from={session.startedAt} />
             </span>
-            <span className="text-section font-semibold text-live tabular">
+            <span className="text-section font-semibold text-volt tabular">
               <Money paise={costSoFar(session)} />
               <span className="sr-only"> so far</span>
             </span>

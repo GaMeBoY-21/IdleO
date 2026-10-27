@@ -53,7 +53,7 @@ export function StopAction({
   useEffect(() => afterFirstScreen(() => void loadStopDialog()), []);
   const button = (
     <>
-      <Button variant="secondary" large block onClick={() => setAsking(true)}>
+      <Button variant="ghost" large block onClick={() => setAsking(true)}>
         Stop session
       </Button>
       {asking && (
@@ -76,7 +76,7 @@ export function StopAction({
     return (
       <div className="flex flex-col gap-2">
         {button}
-        <p className="text-center text-caption text-dark-muted">
+        <p className="text-center text-caption text-on-night-2">
           It saves a checkpoint first. Nothing more is charged once it stops.
         </p>
       </div>
@@ -106,7 +106,7 @@ export function CancelAction({ session, laptop }: { session: Session; laptop: bo
   return (
     <ActionFoot laptop={laptop} note={null}>
       {cancel.isError && failed(cancel.error)}
-      <Button variant="secondary" large block busy={cancel.isPending} onClick={() => cancel.mutate()}>
+      <Button variant="ghost" large block busy={cancel.isPending} onClick={() => cancel.mutate()}>
         Cancel request
       </Button>
     </ActionFoot>
@@ -131,7 +131,7 @@ export function ActionFoot({
     <>
       {children}
       {note && (
-        <p className={cn("text-center text-text-muted", laptop ? "text-small" : "text-caption")}>{note}</p>
+        <p className={cn("text-center text-text-2", laptop ? "text-small" : "text-caption")}>{note}</p>
       )}
     </>
   );
@@ -140,7 +140,7 @@ export function ActionFoot({
   ) : (
     <div
       data-action-bar=""
-      className="sticky bottom-0 z-10 -mx-3.5 mt-auto flex flex-col gap-2 bg-ground px-3.5 pt-3 pb-3.5 md:-mx-6 md:px-6"
+      className="sticky bottom-0 z-10 -mx-3.5 mt-auto flex flex-col gap-2 bg-canvas px-3.5 pt-3 pb-3.5 md:-mx-6 md:px-6"
     >
       {inside}
     </div>

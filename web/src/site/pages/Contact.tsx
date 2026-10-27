@@ -1,7 +1,7 @@
 import { MAX_MESSAGE } from "@/lib/support";
 import { band, column, heading, muted, primaryButton, sectionTitle, tile } from "../ui";
 
-const field = "min-h-14 rounded-control bg-ground px-4 text-body text-text";
+const field = "min-h-14 rounded-control border border-line bg-panel-2 px-4 text-body text-text";
 const label = "text-small font-medium";
 
 /**
@@ -18,7 +18,7 @@ export function Contact({ apiUrl }: { apiUrl: string | null }) {
         Write to us about anything: a session, your money, hosting, your account, your data, or a problem with
         someone. A person reads every message and answers by email.
       </p>
-      <div className="grid gap-4 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <form
           className={`${tile} flex flex-col gap-3 xl:col-span-3`}
           data-contact=""

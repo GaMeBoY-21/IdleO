@@ -155,7 +155,7 @@ function DisputeRecord({ id }: { id: string }) {
                 <Button variant="primary" onClick={() => setAction("refund")}>
                   Refund
                 </Button>
-                <Button variant="secondary" onClick={() => setAction("none")}>
+                <Button variant="ghost" onClick={() => setAction("none")}>
                   No refund
                 </Button>
               </div>
@@ -298,7 +298,7 @@ function Summary({ found }: { found: AdminDispute }) {
             ]),
           ]}
         />
-        <p className="text-caption text-text-muted">
+        <p className="text-caption text-text-2">
           Read now from the ledger, after anything already given back.
         </p>
       </Section>

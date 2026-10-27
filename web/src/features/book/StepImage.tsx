@@ -152,7 +152,7 @@ export function StepImage({ number }: { number: number }) {
           )}
           <div className="flex flex-col items-start gap-2">
             <Button
-              variant="secondary"
+              variant="ghost"
               onClick={onCheck}
               busy={submit.isPending}
               disabled={reference.trim() === "" || (isPrivate && (username.trim() === "" || token === ""))}
@@ -167,14 +167,14 @@ export function StepImage({ number }: { number: number }) {
           </div>
         </div>
         {justChecked && (
-          <div className="rounded-control bg-fill px-4 py-3 tiled:bg-ground">
+          <div className="rounded-control bg-panel px-4 py-3 tiled:bg-panel-2">
             <p className="pb-1 text-small font-semibold break-all">{justChecked.reference}</p>
             <ImageFindings
               image={justChecked}
               vulnerabilitiesHref={`/account/images/?id=${justChecked.id}`}
             />
             {!checking(justChecked) && justChecked.state !== "ready" && (
-              <p className="pt-1 text-small text-text-muted">
+              <p className="pt-1 text-small text-text-2">
                 Fix it and check it again, or choose another image.
               </p>
             )}

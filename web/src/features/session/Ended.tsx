@@ -70,7 +70,7 @@ export function Ended({
   // A finished session's "Run again" is plain, at the end of its tiles: its one primary action, Download, is in the
   // outputs tile. Only "Try again" is held at the foot of a phone, where nothing else is.
   const runAgain = (
-    <Link href={bookFrom(session)} className={buttonClasses("secondary", true, true)}>
+    <Link href={bookFrom(session)} className={buttonClasses("ghost", true, true)}>
       Run again
     </Link>
   );
@@ -89,7 +89,7 @@ export function Ended({
   );
 
   const charge = (
-    <Tile tone="dark" className="flex flex-col gap-5">
+    <Tile tone="night" className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         {!done && (
           <span className="self-start">
@@ -97,7 +97,7 @@ export function Ended({
           </span>
         )}
         <h1 className="text-title">{done ? "Done" : (HEADLINES[session.state] ?? "Ended")}</h1>
-        <p className="text-small text-dark-muted">
+        <p className="text-small text-on-night-2">
           {templateName}
           {ran && ` · ${ran}`}
           {session.endedAt && (
@@ -111,7 +111,7 @@ export function Ended({
       {why && !done && (
         <div className="flex max-w-prose flex-col gap-1">
           <p className="text-option font-semibold">{why.sentence}</p>
-          <p className="text-body text-dark-muted">{why.next}</p>
+          <p className="text-body text-on-night-2">{why.next}</p>
         </div>
       )}
       <Charge session={session} laptop={laptop} />
@@ -172,7 +172,7 @@ function Charge({ session, laptop }: { session: Session; laptop: boolean }) {
           paise={session.chargedPaise + session.accruedPaise}
           className={laptop ? "text-timer-lg" : "text-timer"}
         />
-        <span className="text-small text-dark-muted">so far · working out the final charge</span>
+        <span className="text-small text-on-night-2">so far · working out the final charge</span>
       </p>
     );
   }
@@ -182,7 +182,7 @@ function Charge({ session, laptop }: { session: Session; laptop: boolean }) {
   return (
     <p className="flex flex-col gap-1">
       <Money paise={session.chargedPaise} className={laptop ? "text-timer-lg" : "text-timer"} />
-      <span className="text-small text-dark-muted">Charged</span>
+      <span className="text-small text-on-night-2">Charged</span>
     </p>
   );
 }

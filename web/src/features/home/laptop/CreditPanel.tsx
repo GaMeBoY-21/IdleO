@@ -25,11 +25,11 @@ export function CreditPanel({ wallet, enabled }: { wallet: UseQueryResult<Wallet
           <Money paise={wallet.data.availablePaise} />
         </span>
       ) : wallet.isError ? (
-        <span className="text-small text-text-muted">Couldn&apos;t load</span>
+        <span className="text-small text-text-2">Couldn&apos;t load</span>
       ) : (
         <Skeleton className="h-11 w-40" />
       )}
-      <span className="min-h-4.5 text-caption text-text-muted tabular">
+      <span className="min-h-4.5 text-caption text-text-2 tabular">
         {wallet.data && (
           <>
             <Money paise={wallet.data.reservedPaise} /> on hold

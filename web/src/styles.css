@@ -1,51 +1,27 @@
 @import "tailwindcss";
 @import "./design/tokens.gen.css";
 
-/* web/DESIGN.md: one family, tabular figures for numbers, the reading measure, motion that respects
-   prefers-reduced-motion, and a focus ring on every focusable thing. The Bento look (ADR 0031): the page is a light
-   grey (near black in the dark theme), tiles are white on it, and a few soft colour tiles carry the actions. The
-   brand's indigo is only in the wordmark's ring and the focus ring. */
+/* web/DESIGN.md: Inter for text and Archivo for headlines (the fonts are in tokens.gen.css), tabular figures for
+   numbers, the reading measure, motion that respects prefers-reduced-motion, and a focus ring on every focusable thing.
+   Night Shift (ADR 0043): a deep indigo page (a pale lilac by day), panels on it, and a few loud colours. */
 
-/* One self-hosted file (web/DESIGN.md "Typography"), preloaded from index.html. `optional`: if it isn't there
-   by the first paint (a slow first visit), the page keeps Arial, scaled to Plus Jakarta Sans's metrics, rather than
-   swapping fonts under the reader, which would move text; every later page has it from the cache. */
-@font-face {
-  font-family: "Plus Jakarta Sans";
-  src: url("/fonts/plus-jakarta-sans-subset.woff2") format("woff2");
-  font-weight: 400 800;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: "Plus Jakarta Sans Fallback";
-  src: local("Arial");
-  size-adjust: 106.05%;
-  ascent-override: 97.88%;
-  descent-override: 20.93%;
-  line-gap-override: 0%;
-}
-
-/* Inside a tile (components/ui/Tile.tsx marks it with data-tile), a filled thing is pressed in with the page's colour. */
+/* Inside a tile (components/ui/Tile.tsx marks it with data-tile), a filled thing is pressed in with the next step of the
+   tile's colour. */
 @custom-variant tiled (&:where([data-tile] *));
 
-/* A tile inside a tile is pressed into it, with the page's colour. */
-[data-tile] [data-tile="white"] {
-  background-color: var(--ground);
+/* A panel inside a tile is pressed into it... */
+[data-tile] [data-tile="panel"] {
+  background-color: var(--panel-2);
 }
 
 /* ...and what is pressed into the tile that was pressed in is the tile's colour again. */
-[data-tile] [data-tile] [class*="tiled:bg-ground"] {
-  background-color: var(--fill);
-}
-
-@theme {
-  --font-sans: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", ui-sans-serif, system-ui, sans-serif;
+[data-tile] [data-tile] [class*="tiled:bg-panel-2"] {
+  background-color: var(--panel);
 }
 
 @layer base {
   html {
-    background: var(--ground);
+    background: var(--canvas);
     color: var(--text);
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
@@ -60,7 +36,7 @@
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--fill-selected);
+    background: var(--raised);
   }
 }
 
@@ -154,11 +130,11 @@
 
 /* The same, on the dark tile. */
 @utility skeleton-dark {
-  background: color-mix(in srgb, var(--dark-fg) 14%, transparent);
+  background: color-mix(in srgb, var(--on-night) 14%, transparent);
   background-image: linear-gradient(
     90deg,
     transparent,
-    color-mix(in srgb, var(--dark-fg) 10%, transparent),
+    color-mix(in srgb, var(--on-night) 10%, transparent),
     transparent
   );
   background-size: 200% 100%;

@@ -39,11 +39,11 @@ export function LossChart({ losses }: { losses: number[] }) {
       className="flex flex-col gap-2 xl:px-6 xl:pt-5 xl:pb-4"
     >
       <div className="flex items-baseline justify-between">
-        <h2 id="loss-title" className="text-option font-extrabold">
+        <h2 id="loss-title" className="text-option font-bold">
           Training loss
         </h2>
-        <span className="text-small text-text-muted tabular">
-          {fmt(first)} → <span className="font-extrabold text-text">{fmt(latest)}</span>
+        <span className="text-small text-text-2 tabular">
+          {fmt(first)} → <span className="font-bold text-text">{fmt(latest)}</span>
         </span>
       </div>
       <svg
@@ -53,7 +53,7 @@ export function LossChart({ losses }: { losses: number[] }) {
         aria-label={`Training loss, from ${fmt(first)} to ${fmt(latest)}`}
         className="block h-32 w-full"
       >
-        <path d={area} className="fill-lime/45" />
+        <path d={area} className="fill-volt/45" />
         <path
           d={line}
           fill="none"

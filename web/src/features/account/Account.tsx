@@ -42,7 +42,7 @@ export function Account() {
           <span className="hidden md:inline">Profile</span>
         </SectionTitle>
         {me.data ? (
-          <div className="flex flex-col divide-y divide-divider">
+          <div className="flex flex-col divide-y divide-line">
             <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
             <Fact
               label="Email"
@@ -55,66 +55,42 @@ export function Account() {
               }
             />
             {methods !== "" && <Fact label="Signed in with" value={methods} />}
-            <Link href="/account/keys/" className={`${ROW} hover:bg-ground md:hidden`}>
+            <Link href="/account/keys/" className={`${ROW} hover:bg-canvas md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">API keys</p>
-                <p className="text-small text-text-muted">For the command line, scripts and the SDK</p>
+                <p className="text-small text-text-2">For the command line, scripts and the SDK</p>
               </div>
-              <ChevronRight
-                aria-hidden="true"
-                className="size-5 shrink-0 text-text-muted"
-                strokeWidth={1.75}
-              />
+              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
             </Link>
-            <Link href="/account/data/" className={`${ROW} hover:bg-ground md:hidden`}>
+            <Link href="/account/data/" className={`${ROW} hover:bg-canvas md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">Your data</p>
-                <p className="text-small text-text-muted">
-                  What we hold, download it, or delete your account
-                </p>
+                <p className="text-small text-text-2">What we hold, download it, or delete your account</p>
               </div>
-              <ChevronRight
-                aria-hidden="true"
-                className="size-5 shrink-0 text-text-muted"
-                strokeWidth={1.75}
-              />
+              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
             </Link>
-            <Link href="/account/help/" className={`${ROW} hover:bg-ground md:hidden`}>
+            <Link href="/account/help/" className={`${ROW} hover:bg-canvas md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">Help</p>
-                <p className="text-small text-text-muted">Write to us, and read our answers</p>
+                <p className="text-small text-text-2">Write to us, and read our answers</p>
               </div>
-              <ChevronRight
-                aria-hidden="true"
-                className="size-5 shrink-0 text-text-muted"
-                strokeWidth={1.75}
-              />
+              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
             </Link>
-            <Link href="/account/images/" className={`${ROW} hover:bg-ground md:hidden`}>
+            <Link href="/account/images/" className={`${ROW} hover:bg-canvas md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">My images</p>
-                <p className="text-small text-text-muted">
+                <p className="text-small text-text-2">
                   Your own container images, and what their checks found
                 </p>
               </div>
-              <ChevronRight
-                aria-hidden="true"
-                className="size-5 shrink-0 text-text-muted"
-                strokeWidth={1.75}
-              />
+              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
             </Link>
-            <Link href="/account/reports/" className={`${ROW} hover:bg-ground md:hidden`}>
+            <Link href="/account/reports/" className={`${ROW} hover:bg-canvas md:hidden`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-option font-semibold">Reports</p>
-                <p className="text-small text-text-muted">
-                  Problems you&apos;ve reported, and what we decided
-                </p>
+                <p className="text-small text-text-2">Problems you&apos;ve reported, and what we decided</p>
               </div>
-              <ChevronRight
-                aria-hidden="true"
-                className="size-5 shrink-0 text-text-muted"
-                strokeWidth={1.75}
-              />
+              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
             </Link>
           </div>
         ) : me.isError ? (
@@ -125,11 +101,7 @@ export function Account() {
             retrying={me.isFetching}
           />
         ) : (
-          <div
-            className="flex flex-col divide-y divide-divider"
-            role="status"
-            aria-label="Loading your account"
-          >
+          <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading your account">
             {[0, 1, 2].map((key) => (
               <div key={key} className={ROW}>
                 <div className="flex flex-1 flex-col gap-0.5">
@@ -142,7 +114,7 @@ export function Account() {
           </div>
         )}
         <div className="pt-4 md:hidden">
-          <Button variant="secondary" onClick={() => void signOut()}>
+          <Button variant="ghost" onClick={() => void signOut()}>
             Sign out
           </Button>
         </div>
@@ -153,7 +125,7 @@ export function Account() {
         className="flex flex-col gap-1 md:p-6 xl:col-span-3 xl:p-7"
       >
         <SectionTitle id="notifications-title">Notifications</SectionTitle>
-        <p className="mb-2 max-w-prose text-small text-text-muted">
+        <p className="mb-2 max-w-prose text-small text-text-2">
           Choose what we tell you about. Messages about your money and your safety always stay on.
         </p>
         {notifications.data ? (
@@ -173,7 +145,7 @@ export function Account() {
           />
         ) : (
           <div
-            className="flex flex-col divide-y divide-divider"
+            className="flex flex-col divide-y divide-line"
             role="status"
             aria-label="Loading your notification choices"
           >
@@ -210,11 +182,11 @@ export function Fact({
   return (
     <div className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="text-caption text-text-muted">{label}</p>
+        <p className="text-caption text-text-2">{label}</p>
         <p className="truncate text-option font-semibold" title={value}>
           {value}
         </p>
-        {note !== undefined && <p className="text-small font-semibold text-warning">{note}</p>}
+        {note !== undefined && <p className="text-small font-semibold text-warn-fg">{note}</p>}
       </div>
       {action}
     </div>

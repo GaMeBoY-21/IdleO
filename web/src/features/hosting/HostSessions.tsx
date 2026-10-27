@@ -44,7 +44,7 @@ export function HostSessions() {
         ) : (
           <div className="flex flex-col gap-4">
             <Tile as="div" className="px-4.5 py-0">
-              <ul className="flex flex-col divide-y divide-divider">
+              <ul className="flex flex-col divide-y divide-line">
                 {sessions.map((session) => (
                   <SessionRow key={session.id} session={session} />
                 ))}
@@ -52,7 +52,7 @@ export function HostSessions() {
             </Tile>
             {pages.hasNextPage && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 className="self-center"
                 busy={pages.isFetchingNextPage}
                 onClick={() => void pages.fetchNextPage()}
@@ -79,7 +79,7 @@ export function HostSessions() {
           as="div"
           role="status"
           aria-label="Loading the sessions it ran"
-          className="flex flex-col divide-y divide-divider px-4.5 py-0"
+          className="flex flex-col divide-y divide-line px-4.5 py-0"
         >
           {[0, 1, 2, 3].map((key) => (
             <div key={key} className={ROW}>
@@ -104,7 +104,7 @@ function SessionRow({ session }: { session: HostSession }) {
         <p className="text-option font-semibold break-words">
           {session.runningLabel} · {formatMinutes(session.minutes)}
         </p>
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           <RelativeTime value={session.startedAt} /> · {outcomeLabel(session)}
         </p>
       </div>

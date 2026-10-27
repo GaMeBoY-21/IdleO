@@ -151,7 +151,7 @@ export function Home() {
         {sessions.data && list.length > 0 && (
           <Link
             href="/sessions/"
-            className="tile-motion col-span-2 hidden items-center justify-between rounded-tile bg-fill p-4.5 text-section md:flex"
+            className="tile-motion col-span-2 hidden items-center justify-between rounded-panel bg-panel p-4.5 text-section md:flex"
           >
             All sessions
             <span aria-hidden="true">→</span>
@@ -162,7 +162,7 @@ export function Home() {
       {sessions.data && list.length > 0 && (
         <Link
           href="/sessions/"
-          className="flex min-h-touch items-center justify-center rounded-full text-small font-semibold text-text-muted hover:text-text md:hidden"
+          className="flex min-h-touch items-center justify-center rounded-full text-small font-semibold text-text-2 hover:text-text md:hidden"
         >
           All sessions
         </Link>

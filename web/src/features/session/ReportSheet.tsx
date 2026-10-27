@@ -57,12 +57,12 @@ export function ReportSheet({
         <Dialog.Overlay className="appear fixed inset-0 z-30 bg-primary opacity-40" />
         <Dialog.Content
           data-tile=""
-          className="appear fixed inset-x-4 top-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 overflow-y-auto rounded-tile bg-fill p-6 shadow-float md:inset-y-auto md:top-12 md:max-h-5/6"
+          className="appear fixed inset-x-4 top-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 overflow-y-auto rounded-panel bg-panel p-6 border border-line md:inset-y-auto md:top-12 md:max-h-5/6"
         >
           {sent ? (
             <>
               <Dialog.Title className="text-section">Report sent</Dialog.Title>
-              <Dialog.Description className="text-small text-text-muted">
+              <Dialog.Description className="text-small text-text-2">
                 {REPLY_PROMISE} You&apos;ll see what we decided on this session&apos;s screen, and under
                 Account, Reports.
               </Dialog.Description>
@@ -75,7 +75,7 @@ export function ReportSheet({
           ) : (
             <>
               <Dialog.Title className="text-section">Report a problem</Dialog.Title>
-              <Dialog.Description className="text-small text-text-muted">
+              <Dialog.Description className="text-small text-text-2">
                 What went wrong with this session? A person reads every report. {REPLY_PROMISE}
               </Dialog.Description>
               <form
@@ -107,9 +107,9 @@ export function ReportSheet({
                     maxLength={REPORT_DETAILS_MAX}
                     onChange={(event) => setDetails(event.target.value)}
                     aria-describedby="report-details-help"
-                    className="rounded-control bg-fill px-4 py-3 text-body text-text"
+                    className="rounded-control bg-panel px-4 py-3 text-body text-text"
                   />
-                  <p id="report-details-help" className="text-caption text-text-muted">
+                  <p id="report-details-help" className="text-caption text-text-2">
                     Don&apos;t include passwords or keys. <span className="tabular">{details.length}</span>/
                     {REPORT_DETAILS_MAX}
                   </p>
@@ -117,7 +117,7 @@ export function ReportSheet({
                 {report.isError && <Banner tone="danger">{problemMessage(report.error)}</Banner>}
                 <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
                   <Dialog.Close asChild>
-                    <Button variant="secondary" large>
+                    <Button variant="ghost" large>
                       Cancel
                     </Button>
                   </Dialog.Close>

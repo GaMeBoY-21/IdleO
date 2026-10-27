@@ -15,7 +15,7 @@ export function LatestEarnings({ entries, className }: { entries: EarningsEntry[
       className={cn("flex min-h-0 flex-col gap-1 xl:p-6", className)}
     >
       <div className="flex items-baseline justify-between pb-1.5">
-        <h2 id="latest-earnings" className="text-option font-extrabold">
+        <h2 id="latest-earnings" className="text-option font-bold">
           Latest earnings
         </h2>
         <Link href="/hosting/earnings/" className="text-caption font-bold hover:underline">
@@ -23,7 +23,7 @@ export function LatestEarnings({ entries, className }: { entries: EarningsEntry[
         </Link>
       </div>
       {entries.length === 0 ? (
-        <p className="py-3 text-small text-text-muted">
+        <p className="py-3 text-small text-text-2">
           Nothing earned yet. It shows here as soon as a session ends.
         </p>
       ) : (
@@ -33,18 +33,18 @@ export function LatestEarnings({ entries, className }: { entries: EarningsEntry[
             return (
               <li
                 key={entry.id}
-                className="flex items-center justify-between gap-3 border-b border-divider py-2.5 text-small last:border-b-0"
+                className="flex items-center justify-between gap-3 border-b border-line py-2.5 text-small last:border-b-0"
               >
                 <span className="min-w-0">
                   <span className="block truncate font-bold">
                     {entry.label}
                     {!givenBack && entry.minutes > 0 && ` · ${formatMinutes(entry.minutes)}`}
                   </span>
-                  <span className="block truncate text-caption text-text-muted first-letter:uppercase">
+                  <span className="block truncate text-caption text-text-2 first-letter:uppercase">
                     {entry.machineName} · <RelativeTime value={entry.createdAt} />
                   </span>
                 </span>
-                <span className={cn("font-extrabold tabular", givenBack && "text-text-muted")}>
+                <span className={cn("font-bold tabular", givenBack && "text-text-2")}>
                   <span className="sr-only">{givenBack ? "Taken back " : "Earned "}</span>
                   <span aria-hidden="true">{givenBack ? "−" : "+"}</span>
                   <Money paise={Math.abs(entry.amountPaise)} />

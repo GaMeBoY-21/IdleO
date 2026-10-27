@@ -14,7 +14,7 @@ export function CreditChip() {
     <AppLink
       href="/credit/"
       aria-label={wallet.data ? undefined : "Credit"}
-      className="hidden min-h-touch min-w-24 items-center justify-center rounded-full bg-fill px-4 text-small font-bold tabular hover:bg-fill-selected md:flex"
+      className="hidden min-h-touch min-w-24 items-center justify-center rounded-full bg-panel px-4 text-small font-bold tabular hover:bg-raised md:flex"
     >
       <span className="sr-only">Available credit </span>
       {wallet.data ? <Money paise={wallet.data.availablePaise} /> : <Skeleton className="h-3 w-16" />}

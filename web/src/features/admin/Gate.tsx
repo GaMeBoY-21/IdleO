@@ -115,12 +115,12 @@ function Enrol() {
   if (saved !== null) {
     return (
       <GateFrame title="Save your recovery codes">
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           Each works once, instead of a code, if you lose your phone. You won&apos;t see them again: copy them
           somewhere safe now.
         </p>
         <ol
-          className="tabular grid grid-cols-2 gap-2 rounded-control bg-fill p-4 text-body"
+          className="tabular grid grid-cols-2 gap-2 rounded-control bg-panel p-4 text-body"
           aria-label="Recovery codes"
         >
           {saved.recoveryCodes.map((recovery) => (
@@ -156,14 +156,14 @@ function Enrol() {
 
   return (
     <GateFrame title="Set up your authenticator">
-      <p className="text-small text-text-muted">
+      <p className="text-small text-text-2">
         The admin console needs a second factor. Scan this with an authenticator app, then type the code it
         shows.
       </p>
       {secret.data ? (
         <div className="flex flex-col items-start gap-3">
           <QrCode value={secret.data.otpauthUri} label="QR code of your authenticator secret" />
-          <p className="text-caption text-text-muted">Or type this secret into the app:</p>
+          <p className="text-caption text-text-2">Or type this secret into the app:</p>
           <p className="tabular text-small font-medium break-all">{secret.data.secret}</p>
         </div>
       ) : secret.isPending ? (

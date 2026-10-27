@@ -68,14 +68,14 @@ export function CreateKey() {
         <p className="text-option font-semibold">Made &ldquo;{made.name}&rdquo;</p>
         <Banner tone="warning">Copy it now. You won&apos;t see it again.</Banner>
         <p
-          className="rounded-control bg-ground p-4 text-small break-all select-all tabular"
+          className="rounded-control bg-canvas p-4 text-small break-all select-all tabular"
           data-testid="new-key"
         >
           {made.key}
         </p>
         <div className="flex flex-col gap-2 md:flex-row">
           <Button
-            variant="secondary"
+            variant="ghost"
             block
             onClick={() => void navigator.clipboard.writeText(made.key).then(() => setCopied(true))}
           >
@@ -99,7 +99,7 @@ export function CreateKey() {
       noValidate
       aria-label="Create a key"
       data-tile=""
-      className="flex flex-col gap-2 rounded-tile bg-fill p-4.5"
+      className="flex flex-col gap-2 rounded-panel bg-panel p-4.5"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -131,7 +131,7 @@ export function CreateKey() {
           onChange: () => setScope(value as "full" | "read"),
         })}
       />
-      <p className="text-caption text-text-muted">
+      <p className="text-caption text-text-2">
         Full access can book, stop and cancel sessions and revoke keys. Read only can only look.
       </p>
       {create.isError && <Banner tone="danger">{problemMessage(create.error)}</Banner>}

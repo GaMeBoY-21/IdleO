@@ -105,7 +105,7 @@ export function AddCredit({ details }: { details: UseQueryResult<BillingDetails>
 function chip(selected: boolean) {
   return cn(
     "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors disabled:opacity-60",
-    selected ? "bg-primary text-primary-fg" : "bg-ground hover:bg-divider",
+    selected ? "bg-primary text-primary-fg" : "bg-canvas hover:bg-line",
   );
 }
 
@@ -113,7 +113,7 @@ function chip(selected: boolean) {
 function InvoiceLine({ details }: { details: UseQueryResult<BillingDetails> }) {
   if (!details.data) {
     return details.isError ? (
-      <p className="min-h-4.5 text-caption text-text-muted">We couldn&apos;t load your billing details.</p>
+      <p className="min-h-4.5 text-caption text-text-2">We couldn&apos;t load your billing details.</p>
     ) : (
       <div className="flex min-h-4.5 items-center">
         <SkeletonLine size="caption" width="w-2/3" />
@@ -123,7 +123,7 @@ function InvoiceLine({ details }: { details: UseQueryResult<BillingDetails> }) {
   const saved = details.data.details;
   const state = details.data.states.find((choice) => choice.code === saved?.stateCode);
   return (
-    <p className="min-h-4.5 text-caption text-text-muted">
+    <p className="min-h-4.5 text-caption text-text-2">
       {saved && state ? (
         <>
           Your {details.data.gstPercent > 0 ? "invoice" : "receipt"} goes to {saved.businessName ?? "you"} in{" "}
@@ -173,7 +173,7 @@ function PaymentLine({ payment, available }: { payment: Payment; available: bool
       role={problem ? "alert" : "status"}
       className={cn(
         "min-h-9 text-small",
-        problem ? "text-danger" : payment.step === "added" ? "font-semibold text-running" : "text-text-muted",
+        problem ? "text-danger" : payment.step === "added" ? "font-semibold text-running" : "text-text-2",
       )}
     >
       {text}

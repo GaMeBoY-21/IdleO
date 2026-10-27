@@ -27,18 +27,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col">
       <a
         href="#main"
-        className="sr-only z-30 rounded-full bg-fill px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        className="sr-only z-30 rounded-full bg-panel px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
-      <header className={cn("sticky top-0 z-10 bg-ground", flow ? "hidden md:block" : "block")}>
+      <header className={cn("sticky top-0 z-10 bg-canvas", flow ? "hidden md:block" : "block")}>
         <div className={cn(FRAME, "flex h-16 items-center gap-6 md:h-header")}>
           <div className="flex flex-1 items-center">
             <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
               <Wordmark className="md:text-headline md:tracking-tighter" />
             </Link>
           </div>
-          <nav aria-label="Main" className="hidden items-center gap-1 rounded-full bg-fill p-1.25 md:flex">
+          <nav aria-label="Main" className="hidden items-center gap-1 rounded-full bg-panel p-1.25 md:flex">
             {destinations.map(({ href, label }) => {
               const current = isCurrent(pathname, href);
               return (
@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     "flex min-h-touch items-center rounded-full px-5 text-small transition-colors",
                     current
                       ? "bg-primary font-bold text-primary-fg"
-                      : "font-semibold text-text-muted hover:text-text",
+                      : "font-semibold text-text-2 hover:text-text",
                   )}
                 >
                   {label}
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav
         aria-label="Main"
         className={cn(
-          "fixed inset-x-3.5 bottom-tab z-10 h-16 rounded-bar bg-fill shadow-bar md:hidden",
+          "fixed inset-x-3.5 bottom-tab z-10 h-16 rounded-bar bg-panel border border-line md:hidden",
           flow && "hidden",
         )}
       >
@@ -89,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   aria-current={current ? "page" : undefined}
                   className={cn(
                     "flex flex-1 items-center justify-center rounded-bar text-caption font-semibold",
-                    current ? "text-text" : "text-text-muted",
+                    current ? "text-text" : "text-text-2",
                   )}
                 >
                   {label}
@@ -107,7 +107,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 export function ShellSkeleton({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col" aria-busy="true">
-      <div className="h-16 bg-ground md:h-header" />
+      <div className="h-16 bg-canvas md:h-header" />
       <div className="flex w-full flex-1 flex-col">{children}</div>
     </div>
   );
@@ -135,7 +135,7 @@ export function FlowHeader({ back, title }: { back: string; title?: string }) {
       <Link
         href={back}
         aria-label="Back"
-        className="flex size-touch items-center justify-center rounded-full bg-fill"
+        className="flex size-touch items-center justify-center rounded-full bg-panel"
       >
         <ChevronLeft aria-hidden="true" className="size-5.5" strokeWidth={2} />
       </Link>

@@ -31,13 +31,13 @@ export function Reports() {
     <AccountFrame title="Reports">
       <Link
         href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline md:hidden"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Account
       </Link>
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="max-w-prose text-small text-text-muted">
+      <p className="max-w-prose text-small text-text-2">
         A person reads every report. {REPLY_PROMISE} A refund goes straight to your credit.
       </p>
       <Tile as="section" aria-labelledby="reports-title" className="flex flex-col gap-1">
@@ -49,7 +49,7 @@ export function Reports() {
                 If a session goes wrong, open it and choose Report a problem. It will be listed here.
               </EmptyState>
             ) : (
-              <ul className="flex flex-col divide-y divide-divider">
+              <ul className="flex flex-col divide-y divide-line">
                 {rows.map((dispute) => (
                   <ReportItem key={dispute.id} dispute={dispute} />
                 ))}
@@ -57,7 +57,7 @@ export function Reports() {
             )}
             {reports.hasNextPage && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 className="self-center"
                 busy={reports.isFetchingNextPage}
                 onClick={() => void reports.fetchNextPage()}
@@ -79,11 +79,7 @@ export function Reports() {
             retrying={reports.isFetching}
           />
         ) : (
-          <div
-            className="flex flex-col divide-y divide-divider"
-            role="status"
-            aria-label="Loading your reports"
-          >
+          <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading your reports">
             {[0, 1, 2].map((key) => (
               <div key={key} className={ROW}>
                 <div className="flex flex-1 flex-col gap-0.5">
@@ -106,24 +102,20 @@ function ReportItem({ dispute }: { dispute: Dispute }) {
   const words = reportWords(dispute);
   return (
     <li>
-      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-ground")}>
+      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-canvas")}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-option font-semibold break-words">{reasonTitle(dispute.reason)}</p>
-          <p className="text-small text-text-muted first-letter:uppercase">
+          <p className="text-small text-text-2 first-letter:uppercase">
             <RelativeTime value={dispute.createdAt} prefix="sent" />
           </p>
-          <p className={cn("text-small font-semibold", words.resolved ? "text-text" : "text-warning")}>
+          <p className={cn("text-small font-semibold", words.resolved ? "text-text" : "text-warn-fg")}>
             {words.headline}
           </p>
           {words.resolved && words.line !== "" && (
-            <p className="text-small break-words text-text-muted">{words.line}</p>
+            <p className="text-small break-words text-text-2">{words.line}</p>
           )}
         </div>
-        <ChevronRight
-          aria-hidden="true"
-          className="mt-1 size-5 shrink-0 text-text-muted"
-          strokeWidth={1.75}
-        />
+        <ChevronRight aria-hidden="true" className="mt-1 size-5 shrink-0 text-text-2" strokeWidth={1.75} />
       </Link>
     </li>
   );

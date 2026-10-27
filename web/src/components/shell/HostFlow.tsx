@@ -36,7 +36,7 @@ export function HostFlow({
   const pill = (
     <Link
       href={back}
-      className="flex min-h-touch items-center gap-1 self-start rounded-full bg-fill px-3.5 text-small font-semibold hover:bg-fill-selected"
+      className="flex min-h-touch items-center gap-1 self-start rounded-full bg-panel px-3.5 text-small font-semibold hover:bg-raised"
     >
       <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2} />
       {backLabel}
@@ -45,9 +45,9 @@ export function HostFlow({
   const head =
     summary ??
     (title && (
-      <Tile tone="dark" size="lg" className="flex flex-col gap-3 xl:p-7">
+      <Tile tone="night" size="lg" className="flex flex-col gap-3 xl:p-7">
         <h1 className="text-question">{title}</h1>
-        {lede && <p className="text-body text-dark-muted">{lede}</p>}
+        {lede && <p className="text-body text-on-night-2">{lede}</p>}
       </Tile>
     ));
   if (wide) {

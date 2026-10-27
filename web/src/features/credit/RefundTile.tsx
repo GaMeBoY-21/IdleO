@@ -59,7 +59,7 @@ export function RefundTile({
       <h2 id="refund-title" className="text-title font-semibold">
         Refund unused credit
       </h2>
-      <p className="text-small text-text-muted">
+      <p className="text-small text-text-2">
         {refundablePaise > 0
           ? `${formatPaise(refundablePaise)} of the credit you bought can go back to where you paid from. Free credit can't.`
           : "Credit you bought can go back to where you paid from, once it isn't on hold. Free credit can't."}
@@ -77,7 +77,7 @@ export function RefundTile({
       ) : (
         !open &&
         refundablePaise > 0 && (
-          <Button variant="secondary" className="self-start" onClick={() => setAsking(true)}>
+          <Button variant="ghost" className="self-start" onClick={() => setAsking(true)}>
             Ask for a refund
           </Button>
         )

@@ -35,7 +35,7 @@ export function Finding({
   const gpu = found ? `${gpuName(found.model)} · ${gigabytes(found.vramMb)}` : null;
   const state = (
     <Tile
-      tone="dark"
+      tone="night"
       className={cn(
         "flex flex-col items-center justify-center gap-7 px-5 py-10 text-center",
         laptop && "min-h-panel xl:flex-1",
@@ -46,7 +46,7 @@ export function Finding({
         <h1 className={laptop ? "text-question" : "text-title"}>
           {found ? "GPU found" : "Finding your GPU"}
         </h1>
-        <p className="text-body text-dark-muted">
+        <p className="text-body text-on-night-2">
           {gpu ?? "Asking the best free GPU for this job. Usually under a minute."}
         </p>
         {/* Always there, so nothing moves when a GPU is found. */}
@@ -106,7 +106,7 @@ export function Finding({
 
 function Row({ done, children }: { done: boolean; children: ReactNode }) {
   return (
-    <li className="flex items-center gap-3 rounded-control bg-ground px-4 py-3.5">
+    <li className="flex items-center gap-3 rounded-control bg-canvas px-4 py-3.5">
       {done ? (
         <Check aria-hidden="true" className="size-5 shrink-0 text-running" strokeWidth={2.5} />
       ) : (
@@ -122,16 +122,16 @@ function Row({ done, children }: { done: boolean; children: ReactNode }) {
 /** The ring (src/brand/Wordmark.tsx's), large, in lime on the dark tile, on a disc with two soft halos. */
 export function FindingRing() {
   return (
-    <div aria-hidden="true" className="rounded-full bg-dark-fg/5 p-6">
-      <div className="rounded-full bg-dark-fg/10 p-5">
-        <div className="flex size-finding items-center justify-center rounded-full bg-dark-fg/10">
+    <div aria-hidden="true" className="rounded-full bg-on-night/5 p-6">
+      <div className="rounded-full bg-on-night/10 p-5">
+        <div className="flex size-finding items-center justify-center rounded-full bg-on-night/10">
           <svg viewBox="0 0 22 22" className="size-finding-ring motion-safe:animate-breathe">
             <circle
               cx="11"
               cy="11"
               r="7.5"
               fill="none"
-              className="stroke-live"
+              className="stroke-volt"
               strokeWidth="2.6"
               strokeDasharray="40 7"
               transform="rotate(-68 11 11)"

@@ -17,7 +17,7 @@ export function LogsLater({ id, settled, laptop }: { id: string; settled: boolea
       <h2 className="text-section">Logs</h2>
     </Tile>
   ) : (
-    <div className="flex min-h-14 items-center gap-3 rounded-tile bg-fill px-4.5 py-3.5 text-body">
+    <div className="flex min-h-14 items-center gap-3 rounded-panel bg-panel px-4.5 py-3.5 text-body">
       <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
       <span className="font-semibold">Logs</span>
     </div>

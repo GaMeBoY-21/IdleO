@@ -32,12 +32,12 @@ export function LiveTile({
   const label = sessionState(session.state).label;
   const price = session.pricePaisePerMin == null ? null : <Money paise={session.pricePaisePerMin * 60} />;
   return (
-    <Tile tone="dark" size="lg" className="flex flex-col gap-4.5">
-      <span className="flex items-center gap-2 text-caption font-semibold text-live" data-testid="state-chip">
+    <Tile tone="night" size="lg" className="flex flex-col gap-4.5">
+      <span className="flex items-center gap-2 text-caption font-semibold text-volt" data-testid="state-chip">
         <span
           aria-hidden="true"
           data-pulse={running ? "" : undefined}
-          className={cn("size-2 rounded-full bg-live", running && "motion-safe:animate-pulse")}
+          className={cn("size-2 rounded-full bg-running-dot", running && "motion-safe:animate-pulse")}
         />
         {label}
         {running && signals.epoch && (
@@ -49,7 +49,7 @@ export function LiveTile({
       </span>
       <div className="flex flex-col gap-1.5">
         <h1 className="text-headline break-words">{serviceName}</h1>
-        <p className="min-h-5 text-caption text-dark-muted" aria-live="polite">
+        <p className="min-h-5 text-caption text-on-night-2" aria-live="polite">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />
           ) : (
@@ -64,16 +64,16 @@ export function LiveTile({
             <span className="sr-only">Running for </span>
             {session.startedAt ? <Elapsed from={session.startedAt} /> : <span className="tabular">0:00</span>}
           </p>
-          <p className="min-h-4.5 text-caption text-dark-muted">{about && `of ${about}`}</p>
+          <p className="min-h-4.5 text-caption text-on-night-2">{about && `of ${about}`}</p>
         </div>
         <div className="flex flex-col items-end gap-0.5 text-right">
-          <Money paise={costSoFar(session)} className="text-title text-live" />
-          <span className="text-caption text-dark-muted tabular">
+          <Money paise={costSoFar(session)} className="text-title text-volt" />
+          <span className="text-caption text-on-night-2 tabular">
             <span className="sr-only">so far, </span>stops at <Money paise={session.maxSpendPaise} />
           </span>
         </div>
       </div>
-      <p className="min-h-4.5 text-caption text-dark-muted tabular">
+      <p className="min-h-4.5 text-caption text-on-night-2 tabular">
         {price && <>{price} an hour · </>}charged per started minute
         {session.reservedPaise > 0 && (
           <>
@@ -85,7 +85,7 @@ export function LiveTile({
       {running ? (
         <StopAction session={session} laptop inside />
       ) : (
-        <p className="flex min-h-14 items-center justify-center text-body text-dark-muted">
+        <p className="flex min-h-14 items-center justify-center text-body text-on-night-2">
           {session.state === "FINISHING"
             ? "Saving a last checkpoint and its outputs…"
             : "Moving to another host…"}

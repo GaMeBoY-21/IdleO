@@ -61,14 +61,14 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
   }
   return (
     <Tile
-      tone="lavender"
+      tone="ion"
       size="lg"
       aria-labelledby="free-gpus"
       className="flex min-h-0 flex-1 flex-col gap-3 xl:p-6"
     >
-      <div className="flex items-center justify-between text-caption text-lavender-fg">
+      <div className="flex items-center justify-between text-caption text-ink">
         <h2 id="free-gpus" className="flex items-center gap-2 text-caption font-normal">
-          <span aria-hidden="true" className="size-2 rounded-full bg-lavender-fg" />
+          <span aria-hidden="true" className="size-2 rounded-full bg-ink" />
           GPUs free right now
         </h2>
         <span>live</span>
@@ -79,11 +79,11 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
             <li
               key={row.gb}
               className={cn(
-                "flex flex-1 items-center gap-3 border-b border-lavender-fg/20 py-2 text-body tabular last:border-b-0",
-                row.free === 0 && "text-lavender-fg",
+                "flex flex-1 items-center gap-3 border-b border-ink/20 py-2 text-body tabular last:border-b-0",
+                row.free === 0 && "text-ink",
               )}
             >
-              <span className="w-16 font-extrabold">{row.gb} GB</span>
+              <span className="w-16 font-bold">{row.gb} GB</span>
               <span className="flex-1">{row.free === 0 ? "none free" : `${row.free} free`}</span>
               <span className={cn(row.free > 0 && "font-bold")}>
                 {row.range ? `${formatPaiseRange(row.range.min * 60, row.range.max * 60)}/h` : "—"}

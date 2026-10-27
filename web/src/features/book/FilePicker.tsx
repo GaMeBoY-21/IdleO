@@ -114,7 +114,7 @@ export function FilePicker({
         onDragLeave={() => setOver(false)}
         onDrop={drop}
         className={cn(
-          "flex flex-col gap-3 rounded-control border-2 bg-ground px-4 py-3.5",
+          "flex flex-col gap-3 rounded-control border-2 bg-canvas px-4 py-3.5",
           over ? "border-text" : "border-transparent",
           !upload && (missing || refused) && "ring-2 ring-danger",
         )}
@@ -129,7 +129,7 @@ export function FilePicker({
                   ? "Choose a folder, or one file"
                   : "Choose a file"}
             </p>
-            <p id={`${id}-line`} className="text-small text-text-muted tabular" aria-live="polite">
+            <p id={`${id}-line`} className="text-small text-text-2 tabular" aria-live="polite">
               {upload
                 ? uploadLine(upload)
                 : `${input.maxSizeBytes == null ? "Any size" : `Up to ${formatBytes(input.maxSizeBytes)}`}, or drop it here. It uploads straight away.`}

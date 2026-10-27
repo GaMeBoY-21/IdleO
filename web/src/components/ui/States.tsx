@@ -18,7 +18,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-start gap-3 py-2">
       <p className="text-body font-medium">{title}</p>
-      <p className="max-w-prose text-small text-text-muted">{children}</p>
+      <p className="max-w-prose text-small text-text-2">{children}</p>
       {action}
     </div>
   );
@@ -49,7 +49,7 @@ export function ErrorState({
   return (
     <div className="flex flex-col items-start gap-3 py-2">
       <p className="max-w-prose text-small">{errorSentence(error, what)}</p>
-      <Button variant="secondary" onClick={onRetry} busy={retrying ?? false}>
+      <Button variant="ghost" onClick={onRetry} busy={retrying ?? false}>
         {!retrying && <RefreshCw aria-hidden="true" className="size-4" strokeWidth={1.75} />}
         Try again
       </Button>

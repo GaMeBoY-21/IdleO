@@ -33,7 +33,7 @@ export function Help() {
     <AccountFrame title="Help" className="xl:grid xl:grid-cols-5 xl:items-start">
       <Link
         href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline md:hidden"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Account
@@ -45,7 +45,7 @@ export function Help() {
         className="flex flex-col gap-3 md:p-6 xl:col-span-3 xl:p-7"
       >
         <SectionTitle id="write-title">Send us a message</SectionTitle>
-        <p className="max-w-prose text-small text-text-muted">
+        <p className="max-w-prose text-small text-text-2">
           A person reads every message. We email you when we answer, and you can reply here.
         </p>
         <TicketForm painted={painted} />
@@ -62,7 +62,7 @@ export function Help() {
               What you send us is listed here, with our answers.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col divide-y divide-divider">
+            <ul className="flex flex-col divide-y divide-line">
               {tickets.data.tickets.map((ticket) => (
                 <TicketRow key={ticket.id} ticket={ticket} />
               ))}
@@ -77,7 +77,7 @@ export function Help() {
           />
         ) : (
           <div
-            className="flex flex-col divide-y divide-divider"
+            className="flex flex-col divide-y divide-line"
             role="status"
             aria-label="Loading your messages"
           >
@@ -102,16 +102,16 @@ function TicketRow({ ticket }: { ticket: SupportTicket }) {
     contact.data?.topics.find((candidate) => candidate.code === ticket.topic)?.label ?? ticket.topic;
   return (
     <li>
-      <Link href={`/account/help/ticket/?id=${ticket.id}`} className={`${ROW} hover:bg-ground`}>
+      <Link href={`/account/help/ticket/?id=${ticket.id}`} className={`${ROW} hover:bg-canvas`}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="truncate text-option font-semibold">
             {ticketNumber(ticket.number)} · {topic}
           </p>
-          <p className="truncate text-small text-text-muted">
+          <p className="truncate text-small text-text-2">
             {STATUS_WORDS[ticket.status] ?? ticket.status} · sent {formatDay(ticket.createdAt)}
           </p>
         </div>
-        <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" strokeWidth={1.75} />
+        <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
       </Link>
     </li>
   );

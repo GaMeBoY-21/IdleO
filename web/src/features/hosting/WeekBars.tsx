@@ -37,20 +37,20 @@ export function WeekBars({ days, tall = false }: { days: Day[]; tall?: boolean }
                 tall
                   ? day.earnedPaise > 0
                     ? today
-                      ? "bg-live"
-                      : "bg-dark-fg/20"
-                    : "bg-dark-fg/10"
+                      ? "bg-running-dot"
+                      : "bg-on-night/20"
+                    : "bg-on-night/10"
                   : day.earnedPaise > 0
                     ? today
-                      ? "bg-live"
-                      : "bg-live/50"
-                    : "bg-dark-fg/20",
+                      ? "bg-running-dot"
+                      : "bg-running-dot/50"
+                    : "bg-on-night/20",
               )}
               style={{ height: percent === 0 ? undefined : `${percent}%`, minHeight: "0.25rem" }}
             />
             <span
               aria-hidden="true"
-              className={cn("text-caption", today ? "font-bold text-live" : "text-dark-muted")}
+              className={cn("text-caption", today ? "font-bold text-volt" : "text-on-night-2")}
             >
               {tall ? dayName(day.date).slice(0, 3) : dayName(day.date).charAt(0)}
             </span>

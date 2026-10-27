@@ -73,11 +73,11 @@ export function ActionSheet({
         <Dialog.Overlay className="appear fixed inset-0 z-30 bg-primary opacity-40" />
         <Dialog.Content
           data-tile=""
-          className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-tile bg-fill p-6 shadow-float md:top-1/4 md:bottom-auto"
+          className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-panel bg-panel p-6 border border-line md:top-1/4 md:bottom-auto"
         >
           <Dialog.Title className="text-section">{title}</Dialog.Title>
           <Dialog.Description asChild>
-            <div className="text-small text-text-muted">{change}</div>
+            <div className="text-small text-text-2">{change}</div>
           </Dialog.Description>
           <form
             className="flex flex-col gap-4"
@@ -101,7 +101,7 @@ export function ActionSheet({
                 aria-invalid={touched && problem !== null ? true : undefined}
                 aria-describedby={`${id}-message`}
                 className={cn(
-                  "rounded-control bg-fill px-4 py-3 text-body text-text",
+                  "rounded-control bg-panel px-4 py-3 text-body text-text",
                   touched && problem !== null && "ring-2 ring-danger",
                 )}
               />
@@ -109,7 +109,7 @@ export function ActionSheet({
                 id={`${id}-message`}
                 className={cn(
                   "min-h-4.5 text-caption",
-                  touched && problem !== null ? "text-danger" : "text-text-muted",
+                  touched && problem !== null ? "text-danger" : "text-text-2",
                 )}
               >
                 {touched && problem !== null ? problem : "Recorded in the audit log with your name."}
@@ -118,7 +118,7 @@ export function ActionSheet({
             {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
             <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
               <Dialog.Close asChild>
-                <Button variant="secondary">Cancel</Button>
+                <Button variant="ghost">Cancel</Button>
               </Dialog.Close>
               <Button type="submit" variant={destructive ? "danger" : "primary"} busy={busy}>
                 {confirm}

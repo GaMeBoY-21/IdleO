@@ -86,10 +86,10 @@ export function Machine() {
       backLabel="Hosting"
       className="xl:grid xl:grid-cols-2 xl:items-start"
       summary={
-        <Tile tone="dark" size="lg" className="flex flex-col gap-2 xl:p-7">
+        <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-7">
           <MachineChip state={state} />
           <h1 className="text-title break-words xl:text-question">{machine.name}</h1>
-          <p className="min-h-5 text-small text-dark-muted">
+          <p className="min-h-5 text-small text-on-night-2">
             {restored ? (
               <>
                 Updated <span className="tabular">{formatTime(host.dataUpdatedAt)}</span> · refreshing
@@ -147,7 +147,7 @@ export function Machine() {
 function MachineSkeleton() {
   return (
     <div role="status" aria-label="Loading this machine" className="flex flex-col gap-3.5">
-      <Tile tone="dark" className="flex flex-col gap-2">
+      <Tile tone="night" className="flex flex-col gap-2">
         <Skeleton className="h-9 w-1/3 rounded-full" />
         <SkeletonLine size="title" width="w-2/3" onDark />
         <SkeletonLine size="small" width="w-1/2" onDark />

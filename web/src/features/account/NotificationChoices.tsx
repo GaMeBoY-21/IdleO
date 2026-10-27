@@ -28,7 +28,7 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className={cn(ROWS, "pb-1 text-caption font-medium text-text-muted")} aria-hidden="true">
+      <div className={cn(ROWS, "pb-1 text-caption font-medium text-text-2")} aria-hidden="true">
         <span className="flex-1" />
         {CHANNELS.map(({ channel, label }) => (
           <span key={channel} className={COLUMN}>
@@ -36,7 +36,7 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
           </span>
         ))}
       </div>
-      <ul className="flex flex-col divide-y divide-divider">
+      <ul className="flex flex-col divide-y divide-line">
         {items.map((item) => (
           <li
             key={item.kind}
@@ -45,7 +45,7 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <p className="text-option font-semibold">{item.title}</p>
               {item.locked && (
-                <p className="flex items-start gap-1.5 text-caption text-text-muted">
+                <p className="flex items-start gap-1.5 text-caption text-text-2">
                   <Lock aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
                   <span>{item.lockedReason}</span>
                 </p>
@@ -65,7 +65,7 @@ export function NotificationChoices({ items }: { items: NotificationItem[] }) {
           </li>
         ))}
       </ul>
-      <div className="min-h-4.5 text-caption text-text-muted" aria-live="polite">
+      <div className="min-h-4.5 text-caption text-text-2" aria-live="polite">
         {save.isPending ? "Saving…" : save.isSuccess ? "Saved." : ""}
       </div>
       {save.isError && <Banner tone="danger">{problemMessage(save.error)}</Banner>}
@@ -97,7 +97,7 @@ function SwitchBox({
           checked={checked}
           disabled={locked || disabled}
           onChange={(event) => onChange(event.target.checked)}
-          className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-fill transition-colors duration-120 checked:border-primary checked:bg-primary disabled:cursor-not-allowed"
+          className="peer h-7 w-12 cursor-pointer appearance-none rounded-full border-2 border-control bg-panel transition-colors duration-120 checked:border-primary checked:bg-primary disabled:cursor-not-allowed"
         />
         <span
           aria-hidden="true"

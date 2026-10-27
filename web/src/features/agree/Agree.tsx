@@ -77,7 +77,7 @@ function AgreeStep() {
 
   return (
     <SignInFrame title="Before you start">
-      <p className="mb-8 text-body text-text-muted">
+      <p className="mb-8 text-body text-text-2">
         {changed
           ? "Our Terms or Privacy notice changed since you last agreed. Read them, then agree to carry on."
           : "Read our Terms and Privacy notice. You need to agree to them to use IdleO."}
@@ -123,7 +123,7 @@ function AgreeStep() {
           </Button>
         </form>
       )}
-      <p className="mt-6 text-caption text-text-muted">
+      <p className="mt-6 text-caption text-text-2">
         {email ? `Signed in as ${email}. ` : ""}
         <button type="button" className="underline" onClick={() => void signOut()}>
           Sign out

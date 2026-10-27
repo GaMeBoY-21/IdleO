@@ -21,14 +21,14 @@ export function afterFirstScreen(work: () => void): () => void {
   };
 }
 
-/** The app's font has loaded, or a second has passed: until then, text may not be drawn yet (font-display). */
+/** The app's body font has loaded, or a second has passed: until then, text may not be drawn yet (font-display). */
 function fontLoaded(): Promise<unknown> {
   if (typeof document === "undefined" || !("fonts" in document)) {
     return Promise.resolve();
   }
   // `document.fonts.ready` can resolve before any text has asked for the preloaded font; loading it by name waits.
   return Promise.race([
-    document.fonts.load("1em Plus Jakarta Sans").catch(() => undefined),
+    document.fonts.load("1em Inter").catch(() => undefined),
     new Promise((resolve) => setTimeout(resolve, 1_000)),
   ]);
 }

@@ -2,11 +2,11 @@ import { cn } from "@/lib/cn";
 import { sessionState, type Tone } from "@/lib/labels";
 
 const tones: Record<Tone, string> = {
-  live: "bg-running-soft text-running",
-  success: "bg-ground text-text",
+  live: "bg-ok text-running",
+  success: "bg-raised text-text",
   danger: "bg-danger-soft text-danger",
-  warning: "bg-warning-soft text-warning",
-  neutral: "bg-ground text-text-muted",
+  warning: "bg-warn text-warn-fg",
+  neutral: "bg-raised text-text-2",
 };
 
 /**
@@ -27,7 +27,10 @@ export function StateChip({ state }: { state: string }) {
         <span
           aria-hidden="true"
           data-pulse={state === "RUNNING" ? "" : undefined}
-          className={cn("size-2 rounded-full bg-running", state === "RUNNING" && "motion-safe:animate-pulse")}
+          className={cn(
+            "size-2 rounded-full bg-running-dot",
+            state === "RUNNING" && "motion-safe:animate-pulse",
+          )}
         />
       )}
       {label}

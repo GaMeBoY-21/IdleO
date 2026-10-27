@@ -15,14 +15,14 @@ export function EarnPanel({ enabled }: { enabled: boolean }) {
   const earnings = useEarnings(false, enabled && hosting);
   const week = earnings.data?.pages[0]?.weekPaise;
   return (
-    <TileLink href="/hosting/" tone="apricot" size="lg" className="gap-4 md:col-span-6 xl:col-span-4">
-      <TileLabel tone="apricot">For gamers</TileLabel>
+    <TileLink href="/hosting/" tone="ember" size="lg" className="gap-4 md:col-span-6 xl:col-span-4">
+      <TileLabel tone="ember">For gamers</TileLabel>
       {/* Top-aligned and filling the tile. Until we know whether they host nothing is drawn here, so what arrives moves
           nothing: the label above and the button below never change places. */}
       <span className="flex flex-1 flex-col gap-2">
         {hosts.data === undefined ? null : hosting ? (
           <>
-            <span className="text-small text-apricot-fg">Earned this week</span>
+            <span className="text-small text-ink">Earned this week</span>
             <span className="flex min-h-18 items-center text-timer tabular">
               {week === undefined ? <Skeleton className="h-14 w-48" /> : <Money paise={week} />}
             </span>
@@ -30,7 +30,7 @@ export function EarnPanel({ enabled }: { enabled: boolean }) {
         ) : (
           <>
             <span className="text-headline xl:text-title">Your GPU sits idle. Let it earn.</span>
-            <span className="max-w-prose text-body text-apricot-fg">
+            <span className="max-w-prose text-body text-ink">
               Rent out your gaming laptop when you&apos;re not using it. You set the price and keep{" "}
               {100 - COMMISSION_PERCENT}%.
             </span>

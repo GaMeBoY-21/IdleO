@@ -87,7 +87,7 @@ export function Clawbacks() {
                   <Cell>
                     <Pill tone={clawback.state === "owed" ? "danger" : "plain"}>{clawback.state}</Pill>
                     {clawback.waiveReason && (
-                      <span className="block text-caption text-text-muted">
+                      <span className="block text-caption text-text-2">
                         {clawback.waivedBy}: {clawback.waiveReason}
                       </span>
                     )}

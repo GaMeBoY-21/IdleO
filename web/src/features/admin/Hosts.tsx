@@ -308,39 +308,39 @@ function HostRecord({ id }: { id: string }) {
             />
             <div className="flex flex-wrap gap-2">
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() => setAction("activate")}
                 disabled={found.status === "active" || found.status === "removed"}
               >
                 Activate
               </Button>
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() => setAction("suspend")}
                 disabled={found.status === "suspended" || found.status === "removed"}
               >
                 Suspend
               </Button>
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() => setAction("revoke-certificates")}
                 disabled={found.certificates.every((certificate) => certificate.revokedAt !== null)}
               >
                 Revoke certificates
               </Button>
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() => setAction("run-self-test")}
                 disabled={!selfTest.data?.canRun}
               >
                 Run self-test
               </Button>
-              <Link href={`/admin/sessions/?host=${found.id}`} className={buttonClasses("secondary")}>
+              <Link href={`/admin/sessions/?host=${found.id}`} className={buttonClasses("ghost")}>
                 Sessions it ran
               </Link>
             </div>
             {selfTest.data && !selfTest.data.canRun && selfTest.data.whyNot ? (
-              <p className="text-small text-text-muted">{selfTest.data.whyNot.message}</p>
+              <p className="text-small text-text-2">{selfTest.data.whyNot.message}</p>
             ) : null}
             <HostScore score={found.score ?? null} />
             <SelfTestRun status={selfTest.data ?? null} />

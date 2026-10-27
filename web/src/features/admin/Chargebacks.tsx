@@ -164,7 +164,7 @@ function ChargebackRecord({ id }: { id: string }) {
                 ],
               ]}
             />
-            <p className="max-w-prose text-small text-text-muted">
+            <p className="max-w-prose text-small text-text-2">
               Submit the evidence in Razorpay&apos;s dashboard, Disputes, before it&apos;s due: the payment,
               the sessions it paid for, and their minutes and logs below. A lost dispute takes the frozen
               credit and suspends the account until someone reviews it.

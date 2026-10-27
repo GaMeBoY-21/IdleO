@@ -112,7 +112,7 @@ function Search() {
                       {payment.status}
                     </Pill>
                     {payment.failureReason && (
-                      <span className="block text-caption text-text-muted">{payment.failureReason}</span>
+                      <span className="block text-caption text-text-2">{payment.failureReason}</span>
                     )}
                   </Cell>
                   <Cell>
@@ -163,7 +163,7 @@ function Reconciliation() {
     <Section
       title="Razorpay against the ledger"
       action={
-        <Button variant="secondary" onClick={() => setRunning(true)}>
+        <Button variant="ghost" onClick={() => setRunning(true)}>
           Run a day now
         </Button>
       }
@@ -216,7 +216,7 @@ function Reconciliation() {
                     <Cell>
                       {item.detail}
                       {item.closeReason && (
-                        <span className="block text-caption text-text-muted">
+                        <span className="block text-caption text-text-2">
                           {item.closedBy}: {item.closeReason}
                         </span>
                       )}

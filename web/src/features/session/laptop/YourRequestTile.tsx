@@ -49,26 +49,26 @@ export function YourRequestTile({
         {[...inputs, ...presets].map((row) => (
           <div
             key={row.label}
-            className="flex items-baseline justify-between gap-4 border-b border-divider py-2.5 text-body"
+            className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 text-body"
           >
-            <dt className="shrink-0 text-text-muted">{row.label}</dt>
+            <dt className="shrink-0 text-text-2">{row.label}</dt>
             <dd className="min-w-0 flex-1 text-right font-semibold break-words">{row.value}</dd>
           </div>
         ))}
-        <div className="flex items-baseline justify-between gap-4 border-b border-divider py-2.5 text-body">
-          <dt className="text-text-muted">Spending cap</dt>
+        <div className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 text-body">
+          <dt className="text-text-2">Spending cap</dt>
           <dd className="font-semibold">
             <Money paise={session.maxSpendPaise} />
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-4 py-2.5 text-body">
-          <dt className="text-text-muted">Held until it runs</dt>
+          <dt className="text-text-2">Held until it runs</dt>
           <dd className="font-semibold">
             <Money paise={session.reservedPaise} />
           </dd>
         </div>
       </dl>
-      <p className="text-caption text-text-muted">Nothing is charged until it runs.</p>
+      <p className="text-caption text-text-2">Nothing is charged until it runs.</p>
     </Tile>
   );
 }

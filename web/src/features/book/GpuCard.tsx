@@ -77,7 +77,7 @@ export function GpuCard({
           <span className={laptop ? "text-option font-semibold" : "text-body font-semibold"}>
             {estimate ?? perHour}
           </span>
-          <span className="text-dark-muted">{estimate === null ? "an hour" : `${perHour}/h`}</span>
+          <span className="text-on-night-2">{estimate === null ? "an hour" : `${perHour}/h`}</span>
         </>
       );
     }
@@ -87,20 +87,20 @@ export function GpuCard({
   return (
     <div
       data-testid="gpu-card"
-      className={cn("flex items-center gap-4 rounded-control bg-dark-fg/10", laptop ? "p-3.5" : "p-3")}
+      className={cn("flex items-center gap-4 rounded-control bg-on-night/10", laptop ? "p-3.5" : "p-3")}
     >
       <span
         aria-hidden="true"
         className={cn(
           "flex size-12 shrink-0 items-center justify-center rounded-icon",
-          free ? "bg-live text-on-colour" : "bg-dark-fg/10 text-dark-fg",
+          free ? "bg-volt text-ink" : "bg-on-night/10 text-on-night",
         )}
       >
         <Cpu className="size-7" strokeWidth={1.75} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className={cn("font-semibold", laptop ? "text-option" : "text-body")}>{title}</p>
-        <div className={cn("text-dark-muted tabular", laptop ? "text-small" : "text-caption")}>{detail}</div>
+        <div className={cn("text-on-night-2 tabular", laptop ? "text-small" : "text-caption")}>{detail}</div>
       </div>
       {price && (
         <div

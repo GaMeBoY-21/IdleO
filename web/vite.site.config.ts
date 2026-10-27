@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 /**
  * The public pages' own build (ADR 0029), apart from the app's (vite.config.ts) so that nothing of the app can be in
  * it: its modules are only what src/site/ imports. The client build makes the style sheet, Pricing's and Earn's small
- * scripts and every page's vitals script (ADR 0036);
+ * scripts and every page's vitals script (ADR 0036) and Appearance switch;
  * `vite build --config vite.site.config.ts --ssr src/site/render.tsx` makes the module that draws the pages, which
  * scripts/build-site.ts runs. Files go under /site-assets/, so they never meet the app's /assets/.
  */
@@ -32,6 +32,7 @@ export default defineConfig({
         contact: "src/site/islands/contact.ts",
         grievance: "src/site/islands/grievance.ts",
         vitals: "src/site/islands/vitals.ts",
+        theme: "src/site/islands/theme.ts",
       },
     },
   },

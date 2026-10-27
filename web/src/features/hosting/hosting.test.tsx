@@ -22,14 +22,14 @@ describe("the Hosting tab's machines", () => {
     const row = screen.getByRole("link");
     expect(row).toHaveAttribute("href", `/hosting/machine/?id=${data.ROG.id}`);
     expect(row).toHaveTextContent(`${data.ROG.name}Running a session · earning ₹`);
-    expect(row.className).toContain("bg-dark");
+    expect(row.className).toContain("bg-night");
   });
 
   it("shows a paused machine in grey, until when", () => {
     render(<MachineRow host={data.hostPaused} />);
     const row = screen.getByRole("link");
     expect(row).toHaveTextContent("Home desktopPaused until 6 pm");
-    expect(row.className).toContain("bg-fill");
+    expect(row.className).toContain("bg-panel");
   });
 
   it("says in words when a machine is offline, or needs an update", () => {

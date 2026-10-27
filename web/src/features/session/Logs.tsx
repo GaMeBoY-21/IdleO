@@ -97,12 +97,12 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
         aria-expanded={open}
         aria-controls="logs-panel"
         onClick={() => setOpen(!open)}
-        className="flex min-h-14 items-center gap-3 rounded-tile bg-fill px-4.5 py-3.5 text-left text-body"
+        className="flex min-h-14 items-center gap-3 rounded-panel bg-panel px-4.5 py-3.5 text-left text-body"
       >
         <ScrollText aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">
           <span className="font-semibold">Logs</span>
-          <span className="font-medium text-text-muted">
+          <span className="font-medium text-text-2">
             {newest?.kind === "line"
               ? ` · ${newest.text}`
               : ` · ${count.toLocaleString("en-IN")} ${count === 1 ? "line" : "lines"}`}
@@ -122,5 +122,5 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
 }
 
 function Quiet({ children }: { children: string }) {
-  return <p className="text-small text-text-muted">{children}</p>;
+  return <p className="text-small text-text-2">{children}</p>;
 }

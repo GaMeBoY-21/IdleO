@@ -27,10 +27,8 @@ export function Option({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "flex w-full items-center gap-4 rounded-tile px-4.5 py-3.5 text-left tiled:rounded-control transition-colors",
-        selected
-          ? "bg-lime text-on-colour"
-          : "bg-fill hover:bg-fill-selected tiled:bg-ground tiled:hover:bg-divider",
+        "flex w-full items-center gap-4 rounded-panel px-4.5 py-3.5 text-left tiled:rounded-control transition-colors",
+        selected ? "bg-volt text-ink" : "bg-panel hover:bg-raised tiled:bg-panel-2 tiled:hover:bg-raised",
         className,
       )}
       {...props}
@@ -38,9 +36,7 @@ export function Option({
       {Icon && <IconTile icon={Icon} strong={selected ?? false} />}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-option font-semibold break-words">{title}</span>
-        {detail && (
-          <span className={cn("text-small", selected ? "text-lime-fg" : "text-text-muted")}>{detail}</span>
-        )}
+        {detail && <span className={cn("text-small", selected ? "text-ink" : "text-text-2")}>{detail}</span>}
       </span>
       {selected ? <Check aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={2.5} /> : trailing}
     </button>
@@ -63,7 +59,7 @@ export function IconTile({
       className={cn(
         "flex shrink-0 items-center justify-center rounded-icon",
         size === "lg" ? "size-12" : "size-touch",
-        strong ? "bg-primary text-primary-fg" : "bg-ground text-text tiled:bg-fill",
+        strong ? "bg-primary text-primary-fg" : "bg-canvas text-text tiled:bg-panel",
       )}
     >
       <Icon className={size === "lg" ? "size-7" : "size-5"} strokeWidth={1.75} />

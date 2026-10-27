@@ -24,7 +24,7 @@ export function MyFiles() {
   return (
     <AccountFrame title="My files">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="text-body text-text-muted">
+      <p className="text-body text-text-2">
         What you upload when you book is kept here, to use again. Each is deleted 30 days after a session last
         used it; you can delete it sooner.
       </p>
@@ -43,7 +43,7 @@ export function MyFiles() {
         ) : (
           <div className="flex flex-col gap-4">
             <Tile as="div" className="px-4.5 py-0">
-              <ul aria-label="Your files" className="flex flex-col divide-y divide-divider">
+              <ul aria-label="Your files" className="flex flex-col divide-y divide-line">
                 {uploads.map((upload) => (
                   <FileRow key={upload.id} upload={upload} now={now} />
                 ))}
@@ -51,7 +51,7 @@ export function MyFiles() {
             </Tile>
             {pages.hasNextPage && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 className="self-center"
                 busy={pages.isFetchingNextPage}
                 onClick={() => void pages.fetchNextPage()}
@@ -76,7 +76,7 @@ export function MyFiles() {
       ) : (
         <Tile
           as="div"
-          className="flex flex-col divide-y divide-divider px-4.5 py-0"
+          className="flex flex-col divide-y divide-line px-4.5 py-0"
           role="status"
           aria-label="Loading your files"
         >

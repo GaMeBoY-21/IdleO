@@ -42,7 +42,7 @@ function WelcomeCard() {
   return (
     <SignInFrame title={`Welcome to ${brand.name}`}>
       <div className="flex flex-col gap-7">
-        <p className="text-body text-text-muted">
+        <p className="text-body text-text-2">
           Run your code on someone&apos;s idle gaming GPU, by the minute, paid in rupees. You&apos;re only
           charged for the minutes your session runs.
         </p>
@@ -54,7 +54,7 @@ function WelcomeCard() {
                 start with.
               </p>
             ) : (
-              <p className="text-text-muted">Your credit will show on your home screen.</p>
+              <p className="text-text-2">Your credit will show on your home screen.</p>
             )
           ) : (
             <SkeletonLine size="option" width="w-3/4" />
@@ -71,7 +71,7 @@ function WelcomeCard() {
               </span>
               <div>
                 <p className="text-option font-semibold">{step.title}</p>
-                <p className="text-small text-text-muted">{step.detail}</p>
+                <p className="text-small text-text-2">{step.detail}</p>
               </div>
             </li>
           ))}

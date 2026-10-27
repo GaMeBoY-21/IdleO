@@ -95,11 +95,11 @@ export function CreditHistory() {
                   aria-label={dayHeading(group.first, now)}
                   className="flex flex-col gap-2"
                 >
-                  <h3 className="px-1 text-small font-semibold text-text-muted">
+                  <h3 className="px-1 text-small font-semibold text-text-2">
                     {dayHeading(group.first, now)}
                   </h3>
                   <Tile as="div" className="px-4.5 py-0">
-                    <ul className="flex flex-col divide-y divide-divider">
+                    <ul className="flex flex-col divide-y divide-line">
                       {group.entries.map((entry) => (
                         <HistoryRow key={entry.id} entry={entry} />
                       ))}
@@ -110,7 +110,7 @@ export function CreditHistory() {
             )}
             {history.hasNextPage && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 className="self-center"
                 busy={history.isFetchingNextPage}
                 onClick={() => void history.fetchNextPage()}
@@ -134,7 +134,7 @@ export function CreditHistory() {
         ) : (
           <Tile
             as="div"
-            className="flex flex-col divide-y divide-divider px-4.5 py-0"
+            className="flex flex-col divide-y divide-line px-4.5 py-0"
             role="status"
             aria-label="Loading your credit history"
           >
@@ -209,7 +209,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="text-option font-semibold">{creditKind(entry.kind)}</p>
-        <p className="text-small text-text-muted first-letter:uppercase">
+        <p className="text-small text-text-2 first-letter:uppercase">
           <RelativeTime value={entry.createdAt} />
         </p>
       </div>
@@ -225,7 +225,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       {isSession ? (
         <Link href={`/session/?id=${entry.reference.id}`} className={cn(ROW, "hover:underline")}>
           {content}
-          <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-muted" strokeWidth={1.75} />
+          <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
         </Link>
       ) : (
         // The same width as a linked row's chevron, so amounts line up down the list.

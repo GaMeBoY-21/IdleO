@@ -126,7 +126,7 @@ function AbuseQueue() {
                 <Cell>
                   {item.kinds.map((kind) => SIGNALS[kind] ?? kind).join("; ")}
                   {item.action !== "none" && (
-                    <span className="block text-text-muted">{ACTIONS[item.action]}</span>
+                    <span className="block text-text-2">{ACTIONS[item.action]}</span>
                   )}
                 </Cell>
                 <Cell>
@@ -193,12 +193,12 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
         {builds.map((signal) => (
           <li key={signal.sha256} className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span className="font-medium">{signal.detail}</span>
-            <span className="tabular break-all text-text-muted">{signal.sha256}</span>
+            <span className="tabular break-all text-text-2">{signal.sha256}</span>
             {waiting.has(signal.sha256) ? (
               <Pill tone="plain">On the list to publish</Pill>
             ) : (
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() => setAdding({ sha256: signal.sha256, name: signal.detail })}
               >
                 Add this program&apos;s hash to the blocklist
@@ -270,7 +270,7 @@ function WaitingBuilds() {
                 </Cell>
                 <Cell>{entry.published ? "In the published list" : "Waiting to be published"}</Cell>
                 <Cell>
-                  <Button variant="secondary" onClick={() => setRemoving(entry)}>
+                  <Button variant="ghost" onClick={() => setRemoving(entry)}>
                     Take back
                     <span className="sr-only"> {entry.name}</span>
                   </Button>
@@ -328,12 +328,12 @@ function AbuseRecord({ id }: { id: string }) {
             {found.item.state !== "cleared" && (
               <div className="flex flex-wrap gap-2">
                 {found.item.state === "open" && (
-                  <Button variant="secondary" onClick={() => setDeciding("confirm")}>
+                  <Button variant="ghost" onClick={() => setDeciding("confirm")}>
                     Confirm
                   </Button>
                 )}
                 {!found.item.banned && (
-                  <Button variant="secondary" onClick={() => setDeciding("ban")}>
+                  <Button variant="ghost" onClick={() => setDeciding("ban")}>
                     Confirm and ban
                   </Button>
                 )}
@@ -419,7 +419,7 @@ function AbuseRecord({ id }: { id: string }) {
                   error={noteError ?? undefined}
                   hint="The note is its own reason in the audit log. No email or address."
                 />
-                <Button type="submit" variant="secondary" busy={saving} className="self-start">
+                <Button type="submit" variant="ghost" busy={saving} className="self-start">
                   Add the note
                 </Button>
               </form>
@@ -488,11 +488,11 @@ function Summary({ found }: { found: AbuseDetail }) {
         <ol className="flex flex-col gap-2 text-small">
           {found.signals.map((signal, index) => (
             <li key={`${signal.at}-${index}`} className="flex flex-wrap gap-x-3">
-              <time dateTime={signal.at} className="tabular text-text-muted">
+              <time dateTime={signal.at} className="tabular text-text-2">
                 {formatDateTime(signal.at)}
               </time>
               <span className="font-medium">{SIGNALS[signal.kind] ?? signal.kind}</span>
-              <span className="break-all text-text-muted">
+              <span className="break-all text-text-2">
                 {signal.detail}
                 {signal.sha256 ? ` (${signal.sha256})` : ""}
                 {signal.count > 0 ? ` (${signal.count})` : ""}
@@ -530,7 +530,7 @@ function Summary({ found }: { found: AbuseDetail }) {
               </Row>
             ))}
           </Table>
-          <p className="text-caption text-text-muted">
+          <p className="text-caption text-text-2">
             The last 60 minutes. A miner works the GPU hard with little of its memory, next to nothing over
             the bus and a small steady trickle over the network; training and rendering don&apos;t look like
             that. These numbers only ever tell you to look: they stop no one.
@@ -541,8 +541,8 @@ function Summary({ found }: { found: AbuseDetail }) {
         <Section title="Notes">
           <ol className="flex flex-col gap-3">
             {found.notes.map((note, index) => (
-              <li key={`${note.at}-${index}`} className="flex flex-col gap-1 rounded-control bg-ground p-4">
-                <p className="text-caption text-text-muted">{formatDateTime(note.at)}</p>
+              <li key={`${note.at}-${index}`} className="flex flex-col gap-1 rounded-control bg-canvas p-4">
+                <p className="text-caption text-text-2">{formatDateTime(note.at)}</p>
                 <p className="whitespace-pre-wrap break-words text-body">{note.note || "(erased)"}</p>
               </li>
             ))}

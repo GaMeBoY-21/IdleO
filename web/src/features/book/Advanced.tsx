@@ -60,7 +60,7 @@ export function Advanced({
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-section">Advanced</span>
-          <span className="text-small text-text-muted">{advancedSummary(template)}</span>
+          <span className="text-small text-text-2">{advancedSummary(template)}</span>
         </span>
         <ChevronDown
           aria-hidden="true"
@@ -117,7 +117,7 @@ export function Advanced({
                   />
                 ))}
               </div>
-              <p className={cn("text-caption", runtimeError ? "text-danger" : "text-text-muted")}>
+              <p className={cn("text-caption", runtimeError ? "text-danger" : "text-text-2")}>
                 {runtimeError ??
                   `It stops after this long, up to ${hoursAndMinutes(template.maxRuntimeCapSeconds)}.`}
               </p>

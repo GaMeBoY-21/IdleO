@@ -69,14 +69,14 @@ export function StepPreset({
               onClick={() => choose(option)}
               className={cn(
                 "relative flex min-w-0 flex-col items-start gap-1 rounded-control p-3.5 text-left transition-colors",
-                selected ? "bg-lime text-on-colour" : "bg-ground hover:bg-divider",
+                selected ? "bg-volt text-ink" : "bg-canvas hover:bg-line",
               )}
             >
               {selected && (
                 <Check aria-hidden="true" className="absolute top-3 right-3 size-4" strokeWidth={3} />
               )}
               <span className="text-body font-semibold break-words">{option.label}</span>
-              <span className={cn("text-caption", selected ? "text-lime-fg" : "text-text-muted")}>
+              <span className={cn("text-caption", selected ? "text-ink" : "text-text-2")}>
                 {option.minutes == null ? "Varies" : `About ${option.minutes} min`}
               </span>
               {quote?.kind === "loading" ? (
@@ -85,7 +85,7 @@ export function StepPreset({
                 <span
                   className={cn(
                     "text-small font-semibold",
-                    cost === null && (selected ? "text-lime-fg" : "text-text-muted"),
+                    cost === null && (selected ? "text-ink" : "text-text-2"),
                   )}
                 >
                   {cost ?? (quote?.kind === "none-free" ? "No GPU free" : "No price yet")}
@@ -96,7 +96,7 @@ export function StepPreset({
         })}
       </div>
       <p
-        className={cn("text-caption", error ? "text-danger" : "text-text-muted")}
+        className={cn("text-caption", error ? "text-danger" : "text-text-2")}
         role={error ? "alert" : undefined}
       >
         {error ?? help ?? "Typical times, and what they cost on the GPUs free now."}

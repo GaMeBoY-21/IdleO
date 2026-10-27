@@ -8,7 +8,7 @@ export function ProgressBar({
 }: {
   percent: number;
   label: string;
-  /** On the dark tile: a faint track and a lime bar. */
+  /** On a night tile: its own line for a track and a volt bar. */
   onDark?: boolean;
 }) {
   return (
@@ -18,10 +18,10 @@ export function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      className={cn("h-1.5 w-full overflow-hidden rounded-full", onDark ? "bg-dark-fg/15" : "bg-divider")}
+      className={cn("h-2.5 w-full overflow-hidden rounded-full", onDark ? "bg-night-line" : "bg-line")}
     >
       <div
-        className={cn("h-full rounded-full", onDark ? "bg-live" : "bg-primary")}
+        className={cn("h-full rounded-full", onDark ? "bg-volt" : "bg-progress")}
         style={{ width: `${percent}%` }}
       />
     </div>

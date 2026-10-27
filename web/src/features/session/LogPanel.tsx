@@ -2,7 +2,6 @@ import { ArrowDown, Copy, Download } from "lucide-react";
 import { memo, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { lineTotal, linesBetween, wholeLog, type LogLine, type LogState } from "@/api/logs";
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
 
 /** At most this many lines are in the page at once, however long the log (10 MiB is about 150,000 lines). */
 export const LOG_CAP = 2_000;
@@ -13,7 +12,7 @@ const ROW_PX = 18;
 
 /** A button on the log tile: pressed in with the page's colour. */
 export const logButton =
-  "min-h-touch rounded-full bg-ground px-3.5 text-small font-medium text-text hover:bg-divider focus-visible:outline-focus";
+  "min-h-touch rounded-full bg-canvas px-3.5 text-small font-medium text-text hover:bg-line focus-visible:outline-focus";
 
 /**
  * A session's log lines in the log tile (web/DESIGN.md "The session screen"): the newest 2,000 at most, in the
@@ -100,7 +99,7 @@ export function LogPanel({
     <>
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">{title}</div>
-        <p className="text-caption text-text-muted" aria-live="polite">
+        <p className="text-caption text-text-2" aria-live="polite">
           {copied
             ? `Copied ${shown.length.toLocaleString("en-IN")} lines`
             : following && live
@@ -138,7 +137,7 @@ export function LogPanel({
               setAtBottom(bottom);
             }
           }}
-          className="absolute inset-0 overflow-auto rounded-control bg-ground p-3 font-mono text-caption focus-visible:outline-focus"
+          className="absolute inset-0 overflow-auto rounded-control bg-canvas p-3 font-mono text-caption focus-visible:outline-focus"
           data-testid="log-panel"
         >
           {start > 0 && (
@@ -153,7 +152,7 @@ export function LogPanel({
           ))}
         </div>
         {!following && (
-          <Button variant="primary" className={cn("absolute right-3 bottom-3 shadow-float")} onClick={latest}>
+          <Button variant="primary" className="absolute right-3 bottom-3" onClick={latest}>
             <ArrowDown aria-hidden="true" className="size-4" strokeWidth={1.75} />
             Jump to latest
           </Button>
@@ -228,8 +227,8 @@ export function blocks(lines: LogLine[], start: number, drawn: Map<string, LogBl
 const Block = memo(function Block({ block }: { block: LogBlock }) {
   if (block.kind === "attempt") {
     return (
-      <div className="flex h-4.5 items-center gap-2 border-t border-divider font-sans text-text-muted">
-        <span className="-mt-px bg-ground pr-2 text-caption">
+      <div className="flex h-4.5 items-center gap-2 border-t border-line font-sans text-text-2">
+        <span className="-mt-px bg-canvas pr-2 text-caption">
           Attempt {block.attempt}: moved to another host
         </span>
       </div>

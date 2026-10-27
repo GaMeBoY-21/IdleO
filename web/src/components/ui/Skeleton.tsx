@@ -8,7 +8,7 @@ export function Skeleton({ className, tile = false }: { className?: string; tile
   return (
     <div
       aria-hidden="true"
-      className={cn("skeleton", tile ? "rounded-tile" : "rounded-control", className)}
+      className={cn("skeleton", tile ? "rounded-panel" : "rounded-control", className)}
     />
   );
 }

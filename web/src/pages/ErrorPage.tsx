@@ -7,7 +7,7 @@ export function ErrorPage({ reset }: { reset: () => void }) {
   useTitle("Something went wrong");
   return (
     <SignInFrame title="Something went wrong">
-      <p className="mb-8 text-body text-text-muted">
+      <p className="mb-8 text-body text-text-2">
         This page hit a problem it couldn&apos;t recover from. Try again; if it keeps happening, reload the
         page.
       </p>

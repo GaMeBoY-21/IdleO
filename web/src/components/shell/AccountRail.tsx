@@ -40,7 +40,7 @@ export function AccountRail({
           <button
             type="button"
             onClick={() => void signOut()}
-            className="min-h-12 rounded-full bg-fill text-small font-bold hover:bg-fill-selected"
+            className="min-h-12 rounded-full bg-panel text-small font-bold hover:bg-raised"
           >
             Sign out
           </button>
@@ -61,10 +61,10 @@ function ProfileTile() {
   const me = useMe();
   const name = me.data ? (me.data.displayName ?? me.data.email ?? "You") : null;
   return (
-    <Tile tone="dark" size="lg" aria-label="You" className="flex flex-col gap-3.5">
+    <Tile tone="night" size="lg" aria-label="You" className="flex flex-col gap-3.5">
       <span
         aria-hidden="true"
-        className="flex size-16 items-center justify-center rounded-full bg-live text-headline font-extrabold text-on-colour"
+        className="flex size-16 items-center justify-center rounded-full bg-volt text-headline font-bold text-ink"
       >
         {(name ?? me.data?.email ?? " ").charAt(0).toUpperCase()}
       </span>
@@ -76,7 +76,7 @@ function ProfileTile() {
       ) : (
         <span className="flex flex-col">
           <span className="min-h-7 text-section break-words">{name}</span>
-          <span className="min-h-5 text-small break-words text-dark-muted">{me.data?.email}</span>
+          <span className="min-h-5 text-small break-words text-on-night-2">{me.data?.email}</span>
         </span>
       )}
     </Tile>
@@ -97,7 +97,7 @@ function SectionNav() {
               aria-current={current ? "page" : undefined}
               className={cn(
                 "flex min-h-touch items-center rounded-control px-4 text-body",
-                current ? "bg-ground font-bold" : "font-semibold text-text-muted hover:text-text",
+                current ? "bg-canvas font-bold" : "font-semibold text-text-2 hover:text-text",
               )}
             >
               {label}

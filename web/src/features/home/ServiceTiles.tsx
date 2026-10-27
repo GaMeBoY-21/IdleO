@@ -14,11 +14,11 @@ type Service = components["schemas"]["ServiceResponse"];
 export function MainServiceTile({ service }: { service: Service }) {
   const Icon = SERVICE_ICONS[service.icon];
   return (
-    <TileLink href={bookHref(service.id)} tone="lime" className="row-span-2">
+    <TileLink href={bookHref(service.id)} tone="volt" className="row-span-2">
       <Icon aria-hidden="true" className="size-7.5" strokeWidth={1.6} />
       <span className="flex flex-col gap-0.5">
         <span className="text-section break-words">{service.name}</span>
-        <TileLabel tone="lime">{sentence(service.tagline)}</TileLabel>
+        <TileLabel tone="volt">{sentence(service.tagline)}</TileLabel>
       </span>
     </TileLink>
   );
@@ -45,7 +45,7 @@ export function WideServiceTile({ service }: { service: Service }) {
 export function QuestionTile({ services }: { services: Service[] }) {
   return (
     <Tile
-      tone="dark"
+      tone="night"
       aria-labelledby="question"
       className={services.length > 2 ? "col-span-2 row-span-3" : "col-span-2 row-span-2"}
     >
@@ -59,7 +59,7 @@ export function QuestionTile({ services }: { services: Service[] }) {
             <Link
               key={service.id}
               href={bookHref(service.id)}
-              className={buttonClasses(index === 0 ? "live" : "secondary", true)}
+              className={buttonClasses(index === 0 ? "live" : "ghost", true)}
             >
               <Icon aria-hidden="true" className="size-5" strokeWidth={1.75} />
               {service.name}

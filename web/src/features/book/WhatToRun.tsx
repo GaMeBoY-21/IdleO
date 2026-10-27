@@ -64,7 +64,7 @@ export function TemplateChoice({
 }) {
   return (
     <div role="group" aria-labelledby="template-title" className="flex flex-col gap-2">
-      <p id="template-title" className="text-small font-medium text-text-muted">
+      <p id="template-title" className="text-small font-medium text-text-2">
         Which one
       </p>
       {templates.map((template) => {
@@ -76,14 +76,12 @@ export function TemplateChoice({
             aria-pressed={chosen}
             onClick={() => onPick(template.id)}
             className={cn(
-              "flex flex-col gap-0.5 rounded-tile px-4.5 py-3 text-left transition-colors",
-              chosen ? "bg-lime text-on-colour" : "bg-fill hover:bg-fill-selected",
+              "flex flex-col gap-0.5 rounded-panel px-4.5 py-3 text-left transition-colors",
+              chosen ? "bg-volt text-ink" : "bg-panel hover:bg-raised",
             )}
           >
             <span className="text-body font-semibold break-words">{template.name}</span>
-            <span className={cn("text-small", chosen ? "text-lime-fg" : "text-text-muted")}>
-              {facts(template)}
-            </span>
+            <span className={cn("text-small", chosen ? "text-ink" : "text-text-2")}>{facts(template)}</span>
           </button>
         );
       })}

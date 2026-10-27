@@ -56,11 +56,11 @@ export function SignIn() {
           <p className="text-body">
             We sent a sign-in link to <strong className="font-semibold break-all">{sentTo}</strong>.
           </p>
-          <p className="text-small text-text-muted">
+          <p className="text-small text-text-2">
             Open it on this device or another one. It works once, within an hour. If it hasn&apos;t arrived in
             a minute, check your spam folder.
           </p>
-          <Button variant="secondary" large block onClick={() => setSentTo(null)}>
+          <Button variant="ghost" large block onClick={() => setSentTo(null)}>
             Use a different email
           </Button>
         </div>
@@ -70,7 +70,7 @@ export function SignIn() {
 
   return (
     <SignInFrame title={start ? "Create your account" : "Sign in"} collage back>
-      <p className="mb-8 text-body text-text-muted">Rent a GPU by the minute, paid in rupees.</p>
+      <p className="mb-8 text-body text-text-2">Rent a GPU by the minute, paid in rupees.</p>
       <div className="flex flex-col gap-6">
         {search.get("expired") && (
           <Banner tone="warning">Your sign-in has expired. Sign in again to carry on.</Banner>
@@ -81,14 +81,14 @@ export function SignIn() {
           </Banner>
         )}
         {error && <Banner tone="danger">{error}</Banner>}
-        <Button variant="secondary" large block busy={google} onClick={() => void withGoogle()}>
+        <Button variant="ghost" large block busy={google} onClick={() => void withGoogle()}>
           {!google && <GoogleMark />}
           Continue with Google
         </Button>
-        <div className="flex items-center gap-3 text-caption text-text-muted" aria-hidden="true">
-          <span className="h-px flex-1 bg-divider" />
+        <div className="flex items-center gap-3 text-caption text-text-2" aria-hidden="true">
+          <span className="h-px flex-1 bg-line" />
           or
-          <span className="h-px flex-1 bg-divider" />
+          <span className="h-px flex-1 bg-line" />
         </div>
         <LazyEmailForm
           label="Email"
@@ -105,7 +105,7 @@ export function SignIn() {
             }
           }}
         />
-        <p className="text-caption text-text-muted">
+        <p className="text-caption text-text-2">
           By continuing you agree to the{" "}
           <a href={siteLink("/terms/")} className="underline">
             terms

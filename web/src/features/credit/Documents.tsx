@@ -23,7 +23,7 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
       <SectionTitle id="documents-title">Invoices and receipts</SectionTitle>
       {/* One height whatever it holds, three documents' worth, the rest scrolled to: nothing beside or below it moves
           when they arrive (CLS 0). */}
-      <div className="h-documents overflow-y-auto rounded-tile">
+      <div className="h-documents overflow-y-auto rounded-panel">
         {invoices.data ? (
           invoices.data.invoices.length === 0 ? (
             <EmptyState title="Nothing yet">
@@ -31,7 +31,7 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
             </EmptyState>
           ) : (
             <Tile as="div" className="px-4.5 py-0">
-              <ul className="flex flex-col divide-y divide-divider">
+              <ul className="flex flex-col divide-y divide-line">
                 {invoices.data.invoices.map((invoice) => (
                   <DocumentRow key={invoice.id} invoice={invoice} />
                 ))}
@@ -48,7 +48,7 @@ export function Documents({ invoices }: { invoices: UseQueryResult<{ invoices: I
         ) : (
           <Tile
             as="div"
-            className="flex flex-col divide-y divide-divider px-4.5 py-0"
+            className="flex flex-col divide-y divide-line px-4.5 py-0"
             role="status"
             aria-label="Loading your invoices"
           >
@@ -86,7 +86,7 @@ function DocumentRow({ invoice }: { invoice: Invoice }) {
     <li className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="text-option font-semibold">{invoice.title}</p>
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">
           <span className="tabular">{invoice.number}</span> · {formatDay(invoice.issuedAt)}
           {state === "failed" && (
             <span role="alert" className="block text-danger">
@@ -97,7 +97,7 @@ function DocumentRow({ invoice }: { invoice: Invoice }) {
       </div>
       <Money paise={invoice.totalPaise} className="text-option font-semibold tabular" />
       <Button
-        variant="secondary"
+        variant="ghost"
         className="shrink-0"
         busy={state === "busy"}
         aria-label={`Download ${invoice.title.toLowerCase()} ${invoice.number}`}

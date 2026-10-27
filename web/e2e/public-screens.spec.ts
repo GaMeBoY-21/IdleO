@@ -66,17 +66,17 @@ for (const path of PAGES) {
 }
 
 test.describe("what loads", () => {
-  test("a page with nothing live loads only its small vitals script, nothing of the app, and calls no API while open", async ({
+  test("a page with nothing live loads only its small vitals and Appearance scripts, nothing of the app, and calls no API while open", async ({
     page,
   }) => {
     const requests: string[] = [];
     page.on("request", (request) => requests.push(new URL(request.url()).pathname));
-    await page.goto("/");
+    await page.goto("/gpus/");
     await page.waitForLoadState("networkidle");
     const scripts = requests.filter((path) => path.endsWith(".js"));
     expect(scripts.length).toBeGreaterThan(0);
     expect(
-      scripts.every((path) => /^\/site-assets\/(vitals|report|early-errors|privacy)[-.]/.test(path)),
+      scripts.every((path) => /^\/site-assets\/(vitals|theme|report|early-errors|privacy)[-.]/.test(path)),
     ).toBe(true);
     expect(requests.filter((path) => path.startsWith("/assets/"))).toEqual([]);
     expect(requests.filter((path) => path.startsWith("/v1/"))).toEqual([]);
@@ -89,7 +89,7 @@ test.describe("what loads", () => {
       await route.fulfill({ status: 204 });
     });
     const reporter = page.waitForRequest(/\/site-assets\/report[-.]/);
-    await page.goto("/");
+    await page.goto("/gpus/");
     await reporter;
     await page.waitForLoadState("networkidle");
     // As when the visitor switches tab or leaves: the page is hidden, and what it measured goes.
@@ -101,7 +101,7 @@ test.describe("what loads", () => {
     const batch = JSON.parse(sent[0]!) as { app: string; items: { type: string; route: string }[] };
     expect(batch.app).toBe("site");
     expect(batch.items.length).toBeGreaterThan(0);
-    expect(batch.items.every((item) => item.route === "/")).toBe(true);
+    expect(batch.items.every((item) => item.route === "/gpus/")).toBe(true);
   });
 
   test("a visitor who asks not to be tracked sends nothing at all", async ({ page }) => {
@@ -110,7 +110,7 @@ test.describe("what loads", () => {
     );
     const requests: string[] = [];
     page.on("request", (request) => requests.push(new URL(request.url()).pathname));
-    await page.goto("/");
+    await page.goto("/gpus/");
     await page.waitForLoadState("networkidle");
     await page.clock.runFor(5_000);
     await page.evaluate(() => {

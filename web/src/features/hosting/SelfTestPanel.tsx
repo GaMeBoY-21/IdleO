@@ -66,7 +66,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
 
   return (
     <Tile as="section" aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="text-small font-semibold text-text-muted">
+      <h2 id={headingId} className="text-small font-semibold text-text-2">
         Self-test
       </h2>
       {!body ? (
@@ -83,7 +83,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
       ) : (
         <>
           {since !== null && <StaleNotice updatedAt={since} />}
-          <p className="text-small text-text-muted">
+          <p className="text-small text-text-2">
             Checks this machine the way renters rely on it: its Linux, your GPU, the lockdown that keeps jobs
             away from your files, the disk and the speed of its line. It takes a minute or two.
           </p>
@@ -92,7 +92,7 @@ export function SelfTestPanel({ host }: { host: Host }) {
             {run && run.state !== "running" && run.finishedAt ? (
               <>
                 {" "}
-                · <RelativeTime value={run.finishedAt} className="font-normal text-text-muted" />
+                · <RelativeTime value={run.finishedAt} className="font-normal text-text-2" />
               </>
             ) : null}
           </p>
@@ -107,14 +107,14 @@ export function SelfTestPanel({ host }: { host: Host }) {
           <Button
             large
             block
-            variant="secondary"
+            variant="ghost"
             busy={start.isPending}
             disabled={!body.canRun}
             onClick={() => start.mutate()}
           >
             Run self-test
           </Button>
-          <p className="min-h-5 text-center text-small text-text-muted">
+          <p className="min-h-5 text-center text-small text-text-2">
             {body.canRun ? `Up to ${body.perDay} a day.` : (body.whyNot?.message ?? "")}
           </p>
         </>
@@ -135,8 +135,8 @@ function CheckRow({ row, over }: { row: Row; over: boolean }) {
           state === "failed"
             ? "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger text-danger-fg"
             : state === "passed"
-              ? "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-live text-on-colour"
-              : "mt-0.5 flex size-5 shrink-0 items-center justify-center text-text-muted"
+              ? "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-volt text-ink"
+              : "mt-0.5 flex size-5 shrink-0 items-center justify-center text-text-2"
         }
       >
         {state === "passed" ? (
@@ -158,8 +158,8 @@ function CheckRow({ row, over }: { row: Row; over: boolean }) {
         <span
           className={
             state === "failed"
-              ? "min-h-4.5 text-caption break-words text-text-muted"
-              : "min-h-4.5 truncate text-caption text-text-muted"
+              ? "min-h-4.5 text-caption break-words text-text-2"
+              : "min-h-4.5 truncate text-caption text-text-2"
           }
           title={result?.detail}
         >

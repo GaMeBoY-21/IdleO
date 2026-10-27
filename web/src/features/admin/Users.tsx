@@ -181,25 +181,21 @@ function UserRecord({ id }: { id: string }) {
             />
             <div className="flex flex-wrap gap-2">
               {found.status === "suspended" ? (
-                <Button variant="secondary" onClick={() => open("unsuspend")}>
+                <Button variant="ghost" onClick={() => open("unsuspend")}>
                   Reinstate
                 </Button>
               ) : (
-                <Button
-                  variant="secondary"
-                  onClick={() => open("suspend")}
-                  disabled={found.status !== "active"}
-                >
+                <Button variant="ghost" onClick={() => open("suspend")} disabled={found.status !== "active"}>
                   Suspend
                 </Button>
               )}
-              <Button variant="secondary" onClick={() => open("grant")}>
+              <Button variant="ghost" onClick={() => open("grant")}>
                 Grant credit
               </Button>
-              <Link href={`/admin/sessions/?user=${found.id}`} className={buttonClasses("secondary")}>
+              <Link href={`/admin/sessions/?user=${found.id}`} className={buttonClasses("ghost")}>
                 Their sessions
               </Link>
-              <Link href={`/admin/money/?owner=${found.id}`} className={buttonClasses("secondary")}>
+              <Link href={`/admin/money/?owner=${found.id}`} className={buttonClasses("ghost")}>
                 Their wallet in the ledger
               </Link>
             </div>

@@ -41,7 +41,7 @@ export function FileRow({ upload, now }: { upload: UploadInfo; now: number }) {
         <Icon aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={1.75} />
         <div className="flex min-w-0 flex-1 basis-menu flex-col gap-0.5">
           <p className="text-option font-semibold break-words">{breakable(name)}</p>
-          <p className="text-small text-text-muted tabular">{uploadFacts(upload, now)}</p>
+          <p className="text-small text-text-2 tabular">{uploadFacts(upload, now)}</p>
         </div>
         {confirming ? (
           <span className="flex shrink-0 items-center gap-1">

@@ -31,13 +31,13 @@ export function MyImages() {
     <AccountFrame title="My images">
       <Link
         href="/account/"
-        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-muted underline md:hidden"
+        className="-mt-4 flex w-fit items-center gap-1 text-small text-text-2 underline md:hidden"
       >
         <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
         Account
       </Link>
       {since !== null && <StaleNotice updatedAt={since} />}
-      <p className="max-w-prose text-small text-text-muted">
+      <p className="max-w-prose text-small text-text-2">
         Your own container images, checked before they can reach anyone&apos;s machine. Book one from Book,
         Run your code, Use my own image.
       </p>
@@ -62,7 +62,7 @@ export function MyImages() {
               Check one from Book, Run your code, Use my own image. It will be listed here.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col divide-y divide-divider">
+            <ul className="flex flex-col divide-y divide-line">
               {images.data.images.map((image) => (
                 <ImageItem key={image.id} image={image} />
               ))}
@@ -76,11 +76,7 @@ export function MyImages() {
             retrying={images.isFetching}
           />
         ) : (
-          <div
-            className="flex flex-col divide-y divide-divider"
-            role="status"
-            aria-label="Loading your images"
-          >
+          <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading your images">
             {[0, 1].map((key) => (
               <div key={key} className={ROW}>
                 <SkeletonLine size="option" width="w-1/2" />
@@ -105,7 +101,7 @@ function ImageItem({ image }: { image: Image }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="text-option font-semibold break-all">{image.reference}</p>
-          <p className="text-small text-text-muted first-letter:uppercase">
+          <p className="text-small text-text-2 first-letter:uppercase">
             <RelativeTime
               value={image.checkedAt ?? image.createdAt}
               prefix={image.checkedAt ? "checked" : "sent"}
@@ -114,7 +110,7 @@ function ImageItem({ image }: { image: Image }) {
           </p>
         </div>
         <Button
-          variant="secondary"
+          variant="ghost"
           busy={remove.isPending}
           onClick={() => (sure ? remove.mutate(image.id) : setSure(true))}
         >
@@ -142,17 +138,17 @@ function Vulnerabilities({ id }: { id: string }) {
           <EmptyState title="None known">Trivy found no known vulnerabilities in its packages.</EmptyState>
         ) : (
           <>
-            <p className="text-small text-text-muted">
+            <p className="text-small text-text-2">
               {list.data.counts.critical} critical, {list.data.counts.high} high, {list.data.counts.medium}{" "}
               medium, {list.data.counts.low} low. Updating its packages fixes most.
             </p>
-            <ul className="flex flex-col divide-y divide-divider text-small">
+            <ul className="flex flex-col divide-y divide-line text-small">
               {list.data.vulnerabilities.map((v) => (
                 <li key={v.id + v.packageName} className="flex flex-col gap-0.5 py-2">
                   <span className="font-semibold">
                     {v.severity.toLowerCase()} · {v.id} · {v.packageName} {v.installed}
                   </span>
-                  <span className="text-text-muted">
+                  <span className="text-text-2">
                     {v.title}
                     {v.fixed ? ` Fixed in ${v.fixed}.` : ""}
                   </span>

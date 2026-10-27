@@ -30,6 +30,8 @@ const SHARED = [
   "@/lib/cn",
   "@/brand/brand",
   "@/brand/Wordmark",
+  // The footer's Appearance switch, which shares its cookie with the app.
+  "@/design/theme",
   // What real visits meet, reported by every page after it has loaded (ADR 0036).
   "@/telemetry/early-errors",
   "@/telemetry/report",

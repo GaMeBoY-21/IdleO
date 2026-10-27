@@ -26,7 +26,7 @@ export function Notices() {
   return (
     <AdminPage title="Notices">
       <Section title="Tell people what happened">
-        <p className="max-w-prose text-small text-text-muted">
+        <p className="max-w-prose text-small text-text-2">
           For a breach: what happened, what it means for them, what we've done and what they should do. Follow
           docs/runbooks/breach.md, and keep a copy of the words.
         </p>

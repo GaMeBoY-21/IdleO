@@ -54,7 +54,7 @@ export function FinishSignIn() {
   if (step.kind === "needs-email") {
     return (
       <SignInFrame title="Confirm your email">
-        <p className="mb-8 text-body text-text-muted">
+        <p className="mb-8 text-body text-text-2">
           You opened the link on a different device or browser. Enter the address it was sent to.
         </p>
         <LazyEmailForm label="Email" submit="Sign in" onSubmit={({ email }) => finish(email)} />

@@ -1,36 +1,13 @@
-/* The public pages' style sheet (ADR 0029): the app's tokens and type, and only the classes these pages use. Tailwind is
-   told to read nothing but this folder and the wordmark, so none of the app's styles are in it. */
+/* The public pages' style sheet (ADR 0029): the app's tokens, fonts and type, and only the classes these pages use. Tailwind
+   is told to read nothing but this folder and the wordmark, so none of the app's styles are in it. */
 @import "tailwindcss" source(none);
 @source "./";
 @source "../brand";
 @import "../design/tokens.gen.css";
 
-/* The same font file as the app (web/DESIGN.md "Typography"), preloaded from each page; never swapped in late. */
-@font-face {
-  font-family: "Plus Jakarta Sans";
-  src: url("/fonts/plus-jakarta-sans-subset.woff2") format("woff2");
-  font-weight: 400 800;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: "Plus Jakarta Sans Fallback";
-  src: local("Arial");
-  size-adjust: 106.05%;
-  ascent-override: 97.88%;
-  descent-override: 20.93%;
-  line-gap-override: 0%;
-}
-
-@theme {
-  --font-sans: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
-
 @layer base {
   html {
-    background: var(--ground);
+    background: var(--canvas);
     color: var(--text);
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
@@ -62,12 +39,28 @@
   animation: idleo-shimmer 1.4s linear infinite;
 }
 
+/* The footer's large wordmark is decoration, drawn as generated content: no text for a reader, and none to check for
+   contrast, since it is meant to be faint. */
+@utility ghost-wordmark {
+  &::before {
+    content: attr(data-text);
+  }
+}
+
 @keyframes idleo-shimmer {
   from {
     background-position: 100% 0;
   }
   to {
     background-position: -100% 0;
+  }
+}
+
+/* The home page's marquee: its text, twice over, crosses slowly and starts again where it began. It is the one decorative
+   motion on the website, and the rule below stops it for anyone who asks for less motion. */
+@keyframes idleo-marquee {
+  to {
+    transform: translateX(-50%);
   }
 }
 
@@ -91,13 +84,13 @@
     @apply mt-4;
   }
   .docs h2 {
-    @apply mt-10 text-section;
+    @apply font-title text-display-card mt-10;
   }
   .docs h3 {
-    @apply mt-8 text-option font-semibold;
+    @apply mt-8 text-option font-bold;
   }
   .docs h4 {
-    @apply mt-6 text-body font-semibold;
+    @apply mt-6 text-body font-bold;
   }
   .docs p,
   .docs li {
@@ -110,16 +103,16 @@
     @apply list-decimal space-y-1 pl-6;
   }
   .docs a {
-    @apply underline underline-offset-4;
+    @apply text-link underline underline-offset-4 hover:text-link-hover;
   }
   .docs code {
-    @apply rounded-full bg-fill px-1.5 font-mono text-small;
+    @apply rounded-icon bg-raised px-1.5 font-mono text-small;
   }
   .docs pre {
-    @apply overflow-x-auto rounded-control bg-dark p-4 text-dark-fg;
+    @apply scope-night overflow-x-auto rounded-inner bg-night p-4 text-on-night;
   }
   .docs pre code {
-    @apply bg-transparent p-0 text-small text-dark-fg;
+    @apply bg-transparent p-0 text-small text-on-night;
   }
   .docs .table-scroll {
     @apply overflow-x-auto;
@@ -128,18 +121,18 @@
     @apply w-max min-w-full text-small;
   }
   .docs th {
-    @apply bg-fill px-3 py-2 text-left font-semibold;
+    @apply bg-raised px-3 py-2 text-left font-semibold;
   }
   .docs td {
-    @apply border-b border-divider px-3 py-2 align-top;
+    @apply border-b border-line px-3 py-2 align-top;
   }
   .docs blockquote {
-    @apply rounded-control bg-fill px-4 py-3 text-text-muted;
+    @apply rounded-inner border border-edge bg-panel px-4 py-3 text-text-2;
   }
   .docs :target {
     scroll-margin-top: 1rem;
   }
   .docs .method {
-    @apply mr-2 inline-block rounded-full bg-fill px-2 font-mono text-caption font-semibold;
+    @apply mr-2 inline-block rounded-icon bg-raised px-2 font-mono text-caption font-semibold;
   }
 }

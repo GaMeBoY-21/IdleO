@@ -22,7 +22,7 @@ export function CheckpointTile({ session }: { session: Session }) {
       <p className="flex items-start gap-2 text-small">
         <Check
           aria-hidden="true"
-          className={cn("mt-0.5 size-4 shrink-0", last ? "text-running" : "text-text-muted")}
+          className={cn("mt-0.5 size-4 shrink-0", last ? "text-running" : "text-text-2")}
           strokeWidth={2.5}
         />
         {last ? (
@@ -30,7 +30,7 @@ export function CheckpointTile({ session }: { session: Session }) {
             Last checkpoint saved <RelativeTime value={last.completedAt} />
           </span>
         ) : (
-          <span className="min-w-0 flex-1 text-text-muted">No checkpoint saved yet</span>
+          <span className="min-w-0 flex-1 text-text-2">No checkpoint saved yet</span>
         )}
       </p>
     </Tile>
@@ -106,7 +106,7 @@ export function Outputs({ id }: { id: string }) {
   const { outputs, open } = useFreshOutputs(id);
   return (
     <Tile
-      tone="lime"
+      tone="volt"
       as="section"
       aria-labelledby="outputs-title"
       id="outputs"
@@ -119,7 +119,7 @@ export function Outputs({ id }: { id: string }) {
           <EmptyState title="No outputs">This session finished without saving any outputs.</EmptyState>
         ) : (
           <>
-            <ul className="flex min-h-0 flex-col divide-y divide-on-colour/15 xl:overflow-y-auto">
+            <ul className="flex min-h-0 flex-col divide-y divide-ink/15 xl:overflow-y-auto">
               {outputs.data.files.map((file) => (
                 <li key={file.path}>
                   <a
@@ -129,13 +129,13 @@ export function Outputs({ id }: { id: string }) {
                     className="flex min-h-14 items-center gap-3 py-2 hover:underline"
                   >
                     <span className="min-w-0 flex-1 text-body font-semibold break-all">{file.path}</span>
-                    <span className="text-small text-lime-fg tabular">{formatBytes(file.sizeBytes)}</span>
+                    <span className="text-small text-ink tabular">{formatBytes(file.sizeBytes)}</span>
                     <Download aria-hidden="true" className="size-5 shrink-0" strokeWidth={1.75} />
                   </a>
                 </li>
               ))}
             </ul>
-            <p className="text-caption text-lime-fg">Outputs are kept for 30 days.</p>
+            <p className="text-caption text-ink">Outputs are kept for 30 days.</p>
           </>
         )
       ) : outputs.isError ? (

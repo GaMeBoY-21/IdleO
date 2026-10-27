@@ -22,8 +22,8 @@ export function latestSetup(sessions: Session[], catalog: Catalog): Session | un
 
 export function BookAgainTile({ session, name }: { session: Session; name: string }) {
   return (
-    <TileLink href={bookFrom(session)} tone="lavender">
-      <TileLabel tone="lavender">Book again</TileLabel>
+    <TileLink href={bookFrom(session)} tone="ion">
+      <TileLabel tone="ion">Book again</TileLabel>
       <span className="truncate text-small font-bold tabular">
         {name}
         {" · "}

@@ -89,12 +89,12 @@ export function ListingFields({
   return (
     <>
       <Tile as="section" aria-labelledby="price-title" className="flex flex-col gap-4">
-        <h2 id="price-title" className="text-small font-semibold text-text-muted">
+        <h2 id="price-title" className="text-small font-semibold text-text-2">
           Your price per hour
         </h2>
         <div className="flex items-center justify-between gap-4">
           <Button
-            variant="secondary"
+            variant="ghost"
             aria-label={`Lower the price by ${STEP_LABEL}`}
             className="size-14 shrink-0 rounded-full p-0"
             disabled={price === null || price <= MIN_PRICE}
@@ -119,7 +119,7 @@ export function ListingFields({
             )}
           </output>
           <Button
-            variant="secondary"
+            variant="ghost"
             aria-label={`Raise the price by ${STEP_LABEL}`}
             className="size-14 shrink-0 rounded-full p-0"
             disabled={price === null || price >= MAX_PRICE}
@@ -128,7 +128,7 @@ export function ListingFields({
             <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
           </Button>
         </div>
-        <dl className="flex flex-col gap-2 rounded-control bg-ground px-4 py-3.5 text-small">
+        <dl className="flex flex-col gap-2 rounded-control bg-canvas px-4 py-3.5 text-small">
           <div className="flex items-baseline justify-between gap-4">
             <dt className="font-semibold">You keep</dt>
             <dd className="w-24 text-right tabular font-semibold">
@@ -143,7 +143,7 @@ export function ListingFields({
               )}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-4 text-text-muted">
+          <div className="flex items-baseline justify-between gap-4 text-text-2">
             <dt>Platform fee (20%)</dt>
             <dd className="w-16 text-right tabular">
               {price === null ? (
@@ -156,7 +156,7 @@ export function ListingFields({
             </dd>
           </div>
           {/* Always drawn, so nothing moves when the band says whether GST is charged (ADR 0039). */}
-          <div className="flex items-baseline justify-between gap-4 text-text-muted">
+          <div className="flex items-baseline justify-between gap-4 text-text-2">
             <dt>{gstPercent > 0 ? `Renters pay, with ${gstPercent}% GST` : "Renters pay"}</dt>
             <dd className="w-24 text-right tabular">
               {price === null ? (
@@ -171,7 +171,7 @@ export function ListingFields({
             </dd>
           </div>
         </dl>
-        <p className="min-h-15 text-small text-text-muted" role="status">
+        <p className="min-h-15 text-small text-text-2" role="status">
           {band.data ? (
             band.data.sampleSize >= 3 ? (
               <>
@@ -218,11 +218,11 @@ export function ListingFields({
           className="h-touch w-full accent-primary"
           aria-describedby={`${tempId}-help`}
         />
-        <div className="flex justify-between text-caption text-text-muted tabular" aria-hidden="true">
+        <div className="flex justify-between text-caption text-text-2 tabular" aria-hidden="true">
           <span>{TEMP_MIN}°C</span>
           <span>{TEMP_MAX}°C</span>
         </div>
-        <p id={`${tempId}-help`} className="text-small text-text-muted">
+        <p id={`${tempId}-help`} className="text-small text-text-2">
           The session saves a checkpoint and pauses if your GPU gets hotter. Paused minutes aren&apos;t
           charged.
         </p>
@@ -238,7 +238,7 @@ export function ListingFields({
           hint="A session is only offered if its files fit beside this."
           autoComplete="off"
         />
-        <p className="text-small text-text-muted">One session at a time, so your laptop stays usable.</p>
+        <p className="text-small text-text-2">One session at a time, so your laptop stays usable.</p>
       </Tile>
     </>
   );

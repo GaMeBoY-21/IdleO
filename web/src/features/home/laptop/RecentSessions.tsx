@@ -59,13 +59,10 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
         )}
       </div>
       {shown.length === 0 ? (
-        <p className="py-6 text-body text-text-muted">No sessions yet. Pick a service above to start.</p>
+        <p className="py-6 text-body text-text-2">No sessions yet. Pick a service above to start.</p>
       ) : (
         <div role="table" aria-label="Recent sessions" className="flex flex-col">
-          <div
-            role="row"
-            className={cn(COLUMNS, "border-b border-divider py-2 text-caption text-text-muted")}
-          >
+          <div role="row" className={cn(COLUMNS, "border-b border-line py-2 text-caption text-text-2")}>
             <span role="columnheader">What</span>
             <span role="columnheader">GPU</span>
             <span role="columnheader">Ran</span>
@@ -82,7 +79,7 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
               <div
                 key={session.id}
                 role="row"
-                className={cn(COLUMNS, "border-b border-divider py-2.5 text-body tabular last:border-b-0")}
+                className={cn(COLUMNS, "border-b border-line py-2.5 text-body tabular last:border-b-0")}
               >
                 <Link
                   role="cell"
@@ -92,12 +89,12 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
                   {live && (
                     <span
                       aria-hidden="true"
-                      className="size-2.5 shrink-0 rounded-full bg-live ring-1 ring-on-colour/30 motion-safe:animate-pulse"
+                      className="size-2.5 shrink-0 rounded-full bg-running-dot ring-1 ring-ink/30 motion-safe:animate-pulse"
                     />
                   )}
                   <span className="truncate">{sessionLabel(session, catalog)}</span>
                 </Link>
-                <span role="cell" className="truncate text-text-muted">
+                <span role="cell" className="truncate text-text-2">
                   {session.gpu ? gpuName(session.gpu.model) : "—"}
                 </span>
                 <span role="cell">
@@ -119,14 +116,14 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
                   {live ? (
                     <Link
                       href={`/session/?id=${session.id}`}
-                      className="flex min-h-touch items-center rounded-full bg-ground px-3.5 text-small font-bold hover:bg-divider"
+                      className="flex min-h-touch items-center rounded-full bg-canvas px-3.5 text-small font-bold hover:bg-line"
                     >
                       Open
                     </Link>
                   ) : again ? (
                     <Link
                       href={bookFrom(session)}
-                      className="flex min-h-touch items-center rounded-full bg-ground px-3.5 text-small font-bold hover:bg-divider"
+                      className="flex min-h-touch items-center rounded-full bg-canvas px-3.5 text-small font-bold hover:bg-line"
                     >
                       Run again
                     </Link>

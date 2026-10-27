@@ -19,7 +19,7 @@ export function CreditTile({ wallet, wide }: { wallet: UseQueryResult<Wallet>; w
           <Money paise={wallet.data.availablePaise} />
         </span>
       ) : wallet.isError ? (
-        <span className="text-small text-text-muted">Couldn&apos;t load</span>
+        <span className="text-small text-text-2">Couldn&apos;t load</span>
       ) : (
         <Skeleton className="h-7 w-24" />
       )}

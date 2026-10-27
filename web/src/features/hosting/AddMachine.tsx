@@ -55,7 +55,7 @@ function DownloadButton() {
         <button type="button" className={BUTTON} onClick={() => void release.refetch()}>
           Couldn&apos;t check for the Windows app · Try again
         </button>
-        <p className="min-h-5 text-small text-text-muted">Check you&apos;re online, then try again.</p>
+        <p className="min-h-5 text-small text-text-2">Check you&apos;re online, then try again.</p>
       </div>
     );
   }
@@ -65,7 +65,7 @@ function DownloadButton() {
         <button type="button" disabled className={BUTTON}>
           Windows app: coming soon
         </button>
-        <p className="min-h-5 text-small text-text-muted">&nbsp;</p>
+        <p className="min-h-5 text-small text-text-2">&nbsp;</p>
       </div>
     );
   }
@@ -75,7 +75,7 @@ function DownloadButton() {
         <MonitorDown className="size-5" strokeWidth={2} aria-hidden="true" />
         Download for Windows
       </a>
-      <p className="min-h-5 text-small text-text-muted tabular">{releaseLine(release.data)}</p>
+      <p className="min-h-5 text-small text-text-2 tabular">{releaseLine(release.data)}</p>
     </div>
   );
 }
@@ -95,14 +95,14 @@ export function AddMachine() {
             <Tile className="flex items-start gap-4">
               <span
                 aria-hidden="true"
-                className="flex size-12 shrink-0 items-center justify-center rounded-icon bg-ground"
+                className="flex size-12 shrink-0 items-center justify-center rounded-icon bg-canvas"
               >
                 <Icon className="size-6" strokeWidth={1.75} />
               </span>
               <div className="flex min-w-0 flex-col gap-1">
-                <p className="text-small text-text-muted">Step {index + 1}</p>
+                <p className="text-small text-text-2">Step {index + 1}</p>
                 <h2 className="text-option font-semibold">{title}</h2>
-                <p className="text-small text-text-muted">{text}</p>
+                <p className="text-small text-text-2">{text}</p>
               </div>
             </Tile>
           </li>
@@ -110,8 +110,8 @@ export function AddMachine() {
       </ol>
       <Tile className="flex flex-col gap-3">
         <DownloadButton />
-        <p className="text-small text-text-muted">Windows 10 or 11 · NVIDIA RTX graphics · 40 GB free</p>
-        <p className="text-small text-text-muted">
+        <p className="text-small text-text-2">Windows 10 or 11 · NVIDIA RTX graphics · 40 GB free</p>
+        <p className="text-small text-text-2">
           Have a developer setup? Run <span className="font-semibold">idleo-agent link</span> on the laptop.
         </p>
       </Tile>

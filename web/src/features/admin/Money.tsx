@@ -52,7 +52,7 @@ function Reconciliation() {
     <Section
       title="Wallet reconciliation"
       action={
-        <Button variant="secondary" onClick={() => setRunning(true)}>
+        <Button variant="ghost" onClick={() => setRunning(true)}>
           Run the check now
         </Button>
       }
@@ -81,7 +81,7 @@ function Reconciliation() {
                   ) : (
                     <Pill tone="danger">unbalanced</Pill>
                   )}{" "}
-                  <span className="tabular text-caption text-text-muted">
+                  <span className="tabular text-caption text-text-2">
                     <Paise paise={run.ledgerDebitsPaise} /> debits
                   </span>
                 </Cell>

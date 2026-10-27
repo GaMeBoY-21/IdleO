@@ -46,7 +46,7 @@ export function Dashboard() {
                 const attention =
                   (key === "reconciliationMismatches" || key === "settlementBacklog") && value > 0;
                 return (
-                  <li key={key} className="flex h-28 flex-col justify-between rounded-control bg-fill p-4">
+                  <li key={key} className="flex h-28 flex-col justify-between rounded-control bg-panel p-4">
                     <span className="text-small font-medium">{label}</span>
                     <span
                       className={
@@ -57,14 +57,14 @@ export function Dashboard() {
                     >
                       {value}
                     </span>
-                    <span className="text-caption text-text-muted">
+                    <span className="text-caption text-text-2">
                       {attention ? `Needs a look: ${means}` : means}
                     </span>
                   </li>
                 );
               })}
             </ul>
-            <p className="text-caption text-text-muted">
+            <p className="text-caption text-text-2">
               <RelativeTime value={figures.at} prefix="Counted" />, again every 30 seconds.
             </p>
           </>
@@ -169,12 +169,12 @@ function InstallRow({ install }: { install: Install }) {
         </Cell>
       </Row>
       {open && (
-        <tr id={panel} className="border-b border-divider bg-fill">
+        <tr id={panel} className="border-b border-line bg-panel">
           <td colSpan={7} className="px-2 py-3">
             <ul className="flex flex-col gap-3">
               {install.details.map((each) => (
                 <li key={`${each.step}-${each.reason ?? ""}-${each.at}`} className="flex flex-col gap-1">
-                  <p className="text-caption text-text-muted">
+                  <p className="text-caption text-text-2">
                     {each.step} · {each.reason ?? "no reason code"} · <RelativeTime value={each.at} />
                   </p>
                   <p className="whitespace-pre-wrap break-words text-small">{each.detail}</p>

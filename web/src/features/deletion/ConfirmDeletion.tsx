@@ -48,7 +48,7 @@ function ConfirmStep() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="text-body text-text-muted">
+          <p className="text-body text-text-2">
             Once you confirm, we wait {standing.data?.waitingDays ?? 7} days, then delete your account. You
             can cancel any time until then.
           </p>

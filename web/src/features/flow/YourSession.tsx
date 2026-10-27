@@ -42,7 +42,7 @@ export function YourSession({
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <p className="text-small font-semibold text-text-muted">Your session</p>
+        <p className="text-small font-semibold text-text-2">Your session</p>
         <h2 className="text-title">
           {from} to your outputs{runtime === null ? "" : `, in ${runtime}`}
         </h2>

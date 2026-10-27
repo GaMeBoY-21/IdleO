@@ -134,7 +134,7 @@ export function PagedView<P, T>({
       {rows.length === 0 ? empty : children(rows)}
       {query.hasNextPage && (
         <Button
-          variant="secondary"
+          variant="ghost"
           className="self-start"
           busy={query.isFetchingNextPage}
           onClick={() => void query.fetchNextPage()}
@@ -169,7 +169,7 @@ export function Table({
       <table className="w-full min-w-max border-collapse text-small">
         <caption className="sr-only">{caption}</caption>
         <thead>
-          <tr className="border-b border-divider text-left text-caption text-text-muted">
+          <tr className="border-b border-line text-left text-caption text-text-2">
             {columns.map((column) => (
               <th key={column} scope="col" className="px-2 py-2 font-medium">
                 {column}
@@ -184,7 +184,7 @@ export function Table({
 }
 
 export function Row({ children, className }: { children: ReactNode; className?: string }) {
-  return <tr className={cn("border-b border-divider align-top", className)}>{children}</tr>;
+  return <tr className={cn("border-b border-line align-top", className)}>{children}</tr>;
 }
 
 export function Cell({ children, className }: { children: ReactNode; className?: string }) {
@@ -221,7 +221,7 @@ export function Fields({ items }: { items: [string, ReactNode][] }) {
     <dl className="flex flex-col gap-2 text-small">
       {items.map(([label, value]) => (
         <div key={label} className="flex flex-col md:flex-row md:gap-6">
-          <dt className="text-text-muted md:w-40 md:shrink-0">{label}</dt>
+          <dt className="text-text-2 md:w-40 md:shrink-0">{label}</dt>
           <dd className="min-w-0 break-all">{value}</dd>
         </div>
       ))}
@@ -251,8 +251,8 @@ export function Pill({
     <span
       className={cn(
         "inline-flex rounded-full px-2.5 py-0.5 text-caption font-medium",
-        tone === "plain" && "bg-fill text-text",
-        tone === "running" && "bg-running-soft text-running",
+        tone === "plain" && "bg-panel text-text",
+        tone === "running" && "bg-ok text-running",
         tone === "danger" && "bg-danger-soft text-danger",
       )}
     >
@@ -273,7 +273,7 @@ export function Filters({ onSubmit, children }: { onSubmit: () => void; children
       }}
     >
       {children}
-      <Button type="submit" variant="secondary">
+      <Button type="submit" variant="ghost">
         Search
       </Button>
     </form>
@@ -312,7 +312,7 @@ export function SmallField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className={cn(
-          "min-h-touch rounded-control bg-fill px-3 text-small text-text placeholder:text-text-muted",
+          "min-h-touch rounded-control bg-panel px-3 text-small text-text placeholder:text-text-2",
           width,
         )}
       />
@@ -342,7 +342,7 @@ export function SmallSelect({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-touch rounded-control bg-fill px-3 text-small text-text"
+        className="min-h-touch rounded-control bg-panel px-3 text-small text-text"
       >
         {options.map(([option, text]) => (
           <option key={option} value={option}>
@@ -364,14 +364,14 @@ export function Timeline({
     <ol className="flex flex-col gap-2 text-small">
       {events.map((event, index) => (
         <li key={`${event.at}-${index}`} className="flex flex-wrap gap-x-3">
-          <time dateTime={event.at} className="tabular text-text-muted">
+          <time dateTime={event.at} className="tabular text-text-2">
             {formatDateTime(event.at)}
           </time>
           <span className="font-medium">
             {event.from ? `${event.from} → ` : ""}
             {event.to}
           </span>
-          <span className="text-text-muted">{event.reason}</span>
+          <span className="text-text-2">{event.reason}</span>
         </li>
       ))}
     </ol>

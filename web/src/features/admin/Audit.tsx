@@ -68,13 +68,13 @@ export function Audit() {
                 </Cell>
                 <Cell>
                   {entry.actorName}
-                  <span className="block text-caption text-text-muted">{entry.actorKind}</span>
+                  <span className="block text-caption text-text-2">{entry.actorKind}</span>
                 </Cell>
                 <Cell className="font-medium">{entry.action}</Cell>
                 <Cell>
                   {entry.targetType}
                   <span
-                    className="tabular block max-w-48 truncate text-caption text-text-muted"
+                    className="tabular block max-w-48 truncate text-caption text-text-2"
                     title={entry.targetId}
                   >
                     {entry.targetId}

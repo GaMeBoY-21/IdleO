@@ -45,13 +45,13 @@ export function NameRow({ name }: { name: string }) {
     return (
       <div className={ROW}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="text-caption text-text-muted">Name</p>
+          <p className="text-caption text-text-2">Name</p>
           <p className="truncate text-option font-semibold" title={name}>
             {name}
           </p>
         </div>
         <Button
-          variant="secondary"
+          variant="ghost"
           aria-label="Edit your name"
           onClick={() => {
             setDraft(name);

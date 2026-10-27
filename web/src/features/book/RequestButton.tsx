@@ -79,7 +79,7 @@ export function RequestButton({
   return (
     <div className="flex flex-col gap-3">
       {error !== null && !settingsRefused(error) && <Banner tone="danger">{problemMessage(error)}</Banner>}
-      <p className="text-center text-caption text-dark-muted">
+      <p className="text-center text-caption text-on-night-2">
         Hosts are people at home, so don&apos;t send secret data. What isn&apos;t allowed is in{" "}
         <a href={siteLink("/terms/")} target="_blank" rel="noreferrer" className="underline">
           the Terms
@@ -98,7 +98,7 @@ export function RequestButton({
         className={cn(
           "text-center tabular",
           laptop ? "min-h-5 text-small" : "min-h-4.5 text-caption",
-          short || tooBig ? "text-danger-on-dark" : "text-dark-muted",
+          short || tooBig ? "text-danger-on-night" : "text-on-night-2",
         )}
       >
         {line}

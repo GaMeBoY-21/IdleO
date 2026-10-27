@@ -45,10 +45,10 @@ function Approval() {
     return (
       <SignInFrame title="Not signed in">
         <div className="flex flex-col gap-6">
-          <p className="text-body text-text-muted">
+          <p className="text-body text-text-2">
             Nothing was approved. The sign-in expires by itself in a few minutes.
           </p>
-          <Link href="/" className={buttonClasses("secondary", true, true)}>
+          <Link href="/" className={buttonClasses("ghost", true, true)}>
             Back to IdleO
           </Link>
         </div>
@@ -58,7 +58,7 @@ function Approval() {
   if (code === null || code === "") {
     return (
       <SignInFrame title="Sign in the command line">
-        <p className="text-body text-text-muted">
+        <p className="text-body text-text-2">
           Run <span className="font-semibold">idleo login</span> in a terminal and open the link it prints.
         </p>
       </SignInFrame>
@@ -69,19 +69,13 @@ function Approval() {
     return (
       <SignInFrame title={gone ? "That sign-in has ended" : "We couldn't check that sign-in"}>
         <div className="flex flex-col gap-4">
-          <p className="text-body text-text-muted">
+          <p className="text-body text-text-2">
             {gone
               ? "It has expired, was already approved, or the code is wrong. Run idleo login again for a new one."
               : problemMessage(login.error)}
           </p>
           {!gone && (
-            <Button
-              variant="secondary"
-              large
-              block
-              onClick={() => void login.refetch()}
-              busy={login.isFetching}
-            >
+            <Button variant="ghost" large block onClick={() => void login.refetch()} busy={login.isFetching}>
               Try again
             </Button>
           )}
@@ -96,7 +90,7 @@ function Approval() {
     <SignInFrame title="Sign in the command line?">
       <div className="flex flex-col gap-6" aria-busy={device === undefined}>
         <div className="flex flex-col gap-1">
-          <p className="text-body text-text-muted">
+          <p className="text-body text-text-2">
             A command line is asking to sign in as you. Check that this is the code your terminal shows. If it
             isn&apos;t, don&apos;t approve it.
           </p>
@@ -110,7 +104,7 @@ function Approval() {
             </p>
           )}
         </div>
-        <p className="rounded-control bg-ground p-5 text-title tabular" aria-label="The code to compare">
+        <p className="rounded-control bg-canvas p-5 text-title tabular" aria-label="The code to compare">
           {code.toUpperCase()}
         </p>
         {approve.isError && <Banner tone="danger">{problemMessage(approve.error)}</Banner>}
@@ -124,13 +118,7 @@ function Approval() {
           >
             Approve
           </Button>
-          <Button
-            variant="secondary"
-            large
-            block
-            disabled={approve.isPending}
-            onClick={() => setCancelled(true)}
-          >
+          <Button variant="ghost" large block disabled={approve.isPending} onClick={() => setCancelled(true)}>
             Cancel
           </Button>
         </div>
