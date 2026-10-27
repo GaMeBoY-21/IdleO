@@ -47,6 +47,7 @@ suites_for_path() {
     docs/runbooks/alerts.md | ops/alerts/* | ops/alertmanager/* | ops/grafana/*) echo ops ;;
     ops/backup/* | ops/postgres/*) echo drill ops ;;
     scripts/ops/*) echo ops ;;
+    scripts/go-public/*) echo agent ;;
     scripts/e2e/* | scripts/lib/stack.sh | scripts/lib/real-sign-in.sh | start.sh) echo e2e ;;
     scripts/lib/toolchains.sh | scripts/check-all.sh | scripts/check-changed.sh | scripts/lib/suites.sh | scripts/lib/quiet.sh) echo "" ;;
     *) echo "" ;;

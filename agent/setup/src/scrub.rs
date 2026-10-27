@@ -1,4 +1,4 @@
-//! Scrubbing what setup reports (host experience §6 row 11): an install event's `detail` may carry an error's text or a
+//! Scrubbing what setup reports: an install event's `detail` may carry an error's text or a
 //! check's finding, and those can name the person or the machine. Before anything is sent, the profile folder becomes
 //! `%USERPROFILE%`, the Windows user name `<user>`, the computer's name `<machine>`, and anything that looks like a
 //! hardware serial or id (a GPU's UUID, a `serial …` value) `<id>`. The local setup log keeps the original words.
@@ -184,7 +184,8 @@ mod tests {
 
     #[test]
     fn the_profile_folder_in_any_spelling_and_case_becomes_a_variable() {
-        let text = r#"failed at C:\Users\Asha Rao\AppData\Local\IdleO\x, c:/users/asha rao/y and "C:\\Users\\Asha Rao\\z""#;
+        let text =
+            r#"failed at C:\Users\Asha Rao\AppData\Local\IdleO\x, c:/users/asha rao/y and "C:\\Users\\Asha Rao\\z""#;
         let out = scrub(text, &who());
         assert_eq!(out, r#"failed at %USERPROFILE%\AppData\Local\IdleO\x, %USERPROFILE%/y and "%USERPROFILE%\\z""#);
     }

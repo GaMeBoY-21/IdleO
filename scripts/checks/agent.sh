@@ -10,6 +10,14 @@ cd "$(dirname "$0")/../../agent"
 # all, the default: both.
 part="${1:-all}"
 if [[ "$part" == build || "$part" == all ]]; then
+  # The repository is public: no real name, machine, serial or address may come back into a tracked file. The strings
+  # are the left side of scripts/go-public/replacements.txt, which the history rewrite scrubs with.
+  grep_args=()
+  while IFS= read -r string; do grep_args+=(-e "$string"); done < <(sed 's/==>.*//' ../scripts/go-public/replacements.txt)
+  if git grep -nIF "${grep_args[@]}" -- .. ':!../scripts/go-public/replacements.txt'; then
+    echo "agent checks: a personal string from scripts/go-public/replacements.txt is back in a tracked file (above)" >&2
+    exit 1
+  fi
   ../scripts/release/source-fingerprint-test.sh
   cargo fmt --all --check
   cargo clippy --workspace --all-targets --locked -- -D warnings
