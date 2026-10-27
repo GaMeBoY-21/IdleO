@@ -1,6 +1,6 @@
 # 0031. The Bento look: tiles on a light page, Plus Jakarta Sans, and one set of tokens for the app, the admin console and the public site
 
-- **Status:** Accepted
+- **Status:** Superseded by 0043 (Night Shift, Oct 27, 2026)
 - **Date:** 2026-10-16
 
 Sources:

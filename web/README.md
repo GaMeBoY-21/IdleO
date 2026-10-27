@@ -64,6 +64,7 @@ A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBA
 | `pnpm e2e` | Playwright: every screen and state, and the journeys; needs the stack and `pnpm serve` |
 | `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book, the session screen, the Hosting tab and one machine, the 10 MiB log test, then `lhci assert` |
 | `pnpm gallery` | The review gallery (below) |
+| `pnpm screenshots` | Every screen of the redrawn parts as a picture, at 1440 and 390 px in both themes, into `../private/screens/<date>/` (the website's pages today, from `dist-website/`; build it first with `pnpm build:site`) |
 
 CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.sh --web` for the browser checks against the real stack. The end-to-end workflow runs the web journeys too.
 
@@ -140,7 +141,7 @@ The wait for the largest paint (`afterPaint`'s `largestPaintSettled`, used by Ad
 - Book's loading frame already holds what to run (the title and the template choice), so its largest text doesn't wait on the form's code;
 - the words for problems and react-query's mutation code are in the shell, as is the tick icon, rather than files of their own that Book and the session screen would each wait on (the session screen went from 2.10 s to 1.95 s);
 - skeletons are exactly the height of what replaces them;
-- the font never swaps.
+- a font swapping in moves nothing: each face has an Arial fallback scaled to its metrics (web/DESIGN.md "Typography"), and only Inter and Archivo at 125% / 900 are preloaded.
 
 ## Looking at the screens by hand
 
