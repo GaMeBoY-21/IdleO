@@ -213,7 +213,7 @@ export async function recordLayoutShifts(
                 source.node instanceof Element
                   ? source.node.outerHTML.slice(0, 90)
                   : source.node?.nodeName === "#text"
-                    ? `#text "${(source.node.textContent ?? "").slice(0, 40)}" in <${source.node.parentElement?.tagName.toLowerCase()} class="${(source.node.parentElement?.className ?? "").toString().slice(0, 50)}">`
+                    ? `#text "${(source.node.textContent ?? "").slice(0, 40)}" in <${source.node.parentElement?.tagName.toLowerCase()} class="${(source.node.parentElement?.className ?? "").slice(0, 50)}">`
                     : String(source.node?.nodeName);
               const rect = (r: DOMRectReadOnly) =>
                 `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}`;
