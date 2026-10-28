@@ -37,7 +37,7 @@ fn adler32(bytes: &[u8]) -> u32 {
     (b << 16) | a
 }
 
-fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+fn chunk(out: &mut Vec<u8>, kind: [u8; 4], data: &[u8]) {
     out.extend_from_slice(&u32::try_from(data.len()).expect("a chunk fits").to_be_bytes());
     let mut body = kind.to_vec();
     body.extend_from_slice(data);
@@ -67,9 +67,9 @@ fn png(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
     header.extend_from_slice(&u32::try_from(height).expect("a height").to_be_bytes());
     header.extend_from_slice(&[8, 6, 0, 0, 0]);
     let mut out = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
-    chunk(&mut out, b"IHDR", &header);
-    chunk(&mut out, b"IDAT", &zlib);
-    chunk(&mut out, b"IEND", &[]);
+    chunk(&mut out, *b"IHDR", &header);
+    chunk(&mut out, *b"IDAT", &zlib);
+    chunk(&mut out, *b"IEND", &[]);
     out
 }
 
@@ -82,7 +82,8 @@ fn on_taskbar(colour: Colour, taskbar: [u8; 3]) -> (Vec<u8>, usize) {
         for x in 0..side {
             let inside = |value: usize| value >= MARGIN && value < side - MARGIN;
             let alpha = if inside(x) && inside(y) {
-                let at = (((y - MARGIN) / ZOOM) * usize::try_from(icon::SIZE).expect("a size") + (x - MARGIN) / ZOOM) * 4;
+                let at =
+                    (((y - MARGIN) / ZOOM) * usize::try_from(icon::SIZE).expect("a size") + (x - MARGIN) / ZOOM) * 4;
                 Some((&small[at..at + 3], u32::from(small[at + 3])))
             } else {
                 None

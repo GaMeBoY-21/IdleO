@@ -79,7 +79,12 @@ pub fn icon_rgba(rgb: [u8; 3], size: u32) -> Vec<u8> {
                 let base = f64::from(ink) * (1.0 - fill) + f64::from(channel) * fill;
                 byte(base * (1.0 - ring) + f64::from(ink) * ring)
             };
-            pixels.extend_from_slice(&[mix(rgb[0], INK[0]), mix(rgb[1], INK[1]), mix(rgb[2], INK[2]), byte(disc * 255.0)]);
+            pixels.extend_from_slice(&[
+                mix(rgb[0], INK[0]),
+                mix(rgb[1], INK[1]),
+                mix(rgb[2], INK[2]),
+                byte(disc * 255.0),
+            ]);
         }
     }
     pixels
