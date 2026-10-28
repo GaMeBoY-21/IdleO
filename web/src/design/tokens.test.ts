@@ -130,7 +130,7 @@ describe("the fonts", () => {
           .split("-")
           .map((hex) => parseInt(hex, 16)),
       )
-      .map(([from, to = from]) => [from!, to] as const);
+      .map(([from, to = from]) => [from!, to!] as const);
     const root = new URL("../", import.meta.url);
     const found: string[] = [];
     for (const file of readdirSync(root, { recursive: true, encoding: "utf8" })) {
