@@ -19,14 +19,14 @@ function themeBoot(): Plugin {
  * first screen waits on. Modules only later screens use stay out of it.
  */
 const LATER =
-  /src\/(lib\/(bytes|endings|log-signals)|api\/(logs|stream|session-follower|useLiveSession|wallet|images)|components\/ui\/Inputs|components\/shell\/(UserMenu|AccountRail|AppearanceChoice))\./;
+  /src\/(lib\/(bytes|endings|log-signals)|api\/(logs|stream|session-follower|useLiveSession|wallet|images)|components\/shell\/(UserMenu|AccountRail|AppearanceChoice))\./;
 function shellChunk(id: string): string | undefined {
   if (LATER.test(id)) {
     return undefined;
   }
   if (
     /\/src\/(components|lib|api|auth\/(index|store|types)|config|design|brand)\b/.test(id) ||
-    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon|icons\/(check|plus|cpu|chevron-right)\.)/.test(
+    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon|icons\/(check|plus|minus|star|copy|cpu|chevron-right)\.)/.test(
       id,
     ) ||
     // The route a session's progress is drawn on, shared by Book's right panel and the session screen: another file,

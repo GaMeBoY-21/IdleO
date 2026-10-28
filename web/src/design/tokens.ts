@@ -309,11 +309,11 @@ export const fonts = {
 } as const;
 
 /**
- * The files a first screen preloads, by file name. The app's is Inter and the wordmark's lowercase; the website adds
+ * The files a first screen preloads, by file name. The app's is Inter, the titles' face and the wordmark's lowercase; the website adds
  * the uppercase of its headlines. Everything else loads when the page asks for it.
  */
 export const preloadedFonts = {
-  app: [fonts.sans.file, fonts.display.more.file],
+  app: [fonts.sans.file, fonts.title.file, fonts.display.more.file],
   site: [fonts.sans.file, fonts.display.more.file, fonts.display.file],
 } as const;
 

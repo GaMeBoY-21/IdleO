@@ -114,14 +114,14 @@ describe("the fonts", () => {
     expect(readdirSync(setup).filter((file) => /jakarta/i.test(file))).toEqual([]);
   });
 
-  it("stay small: what the app preloads is under 24 KB, the website's under 32 KB, every file under 20 KB, the whole set under 80 KB", () => {
+  it("stay small: what the app preloads is under 28 KB, the website's under 32 KB, every file under 20 KB, the whole set under 80 KB", () => {
     const size = (file: string) => statSync(new URL(file, publicFonts)).size;
     const total = (files: readonly string[]) => files.reduce((sum, file) => sum + size(file), 0);
     const files = Object.values(fonts).flatMap((font) => [font.file, ...(font.more ? [font.more.file] : [])]);
     for (const file of files) {
       expect(size(file), file).toBeLessThan(20 * 1024);
     }
-    expect(total(preloadedFonts.app)).toBeLessThan(24 * 1024);
+    expect(total(preloadedFonts.app)).toBeLessThan(28 * 1024);
     expect(total(preloadedFonts.site)).toBeLessThan(32 * 1024);
     expect(total(files)).toBeLessThan(80 * 1024);
   });
