@@ -18,6 +18,7 @@ describe("the docs generators", () => {
       "/docs/cli/",
       "/docs/sdk/",
       "/docs/api/",
+      "/docs/api/schemas/",
       "/docs/hosting/",
       "/docs/faq/",
       "/docs/writing-a-job/",
@@ -48,11 +49,22 @@ describe("the docs generators", () => {
     expect(page("/docs/api/").html).not.toContain("/admin/v1");
   });
 
-  it("describe every schema an operation uses, and link to it", () => {
-    const html = page("/docs/api/").html;
-    expect(html).toContain('id="schema-SessionResponse"');
-    expect(html).toContain('href="#schema-SessionResponse"');
-    expect(html).not.toContain('id="schema-AdminDashboard"');
+  it("describe every schema an operation uses on a page of its own, and link to it from the operations", () => {
+    const operations = page("/docs/api/").html;
+    const schemas = page("/docs/api/schemas/").html;
+    expect(schemas).toContain('id="schema-SessionResponse"');
+    expect(schemas).toContain('href="#schema-SessionResponse"');
+    expect(schemas).not.toContain('id="schema-AdminDashboard"');
+    // The operations' page holds none of them, and every type in it leads to the schemas' page.
+    expect(operations).not.toContain('id="schema-');
+    expect(operations).toContain('href="/docs/api/schemas/#schema-SessionResponse"');
+    expect(operations).not.toMatch(/href="#schema-/);
+    // Every link from the operations to a schema lands on a schema that is there, and the two pages link to each other.
+    for (const [, name] of operations.matchAll(/href="\/docs\/api\/schemas\/#schema-([^"]+)"/g)) {
+      expect(schemas, name).toContain(`id="schema-${name}"`);
+    }
+    expect(operations).toContain('href="/docs/api/schemas/"');
+    expect(schemas).toContain('href="/docs/api/"');
   });
 
   it("put every command of the command line in its reference", () => {

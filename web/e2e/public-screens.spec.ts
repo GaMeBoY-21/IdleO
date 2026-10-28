@@ -20,6 +20,7 @@ const PAGES = [
   "/docs/cli/",
   "/docs/sdk/",
   "/docs/api/",
+  "/docs/api/schemas/",
   "/docs/hosting/",
   "/docs/faq/",
   "/terms/",
@@ -132,6 +133,17 @@ test.describe("what loads", () => {
     ).toBe(true);
     expect(requests.filter((path) => path.startsWith("/assets/"))).toEqual([]);
     expect(requests.filter((path) => path.startsWith("/v1/"))).toEqual(["/v1/public/availability"]);
+  });
+
+  test("an old link to a schema in the API reference lands on the schemas' page", async ({ page }) => {
+    await page.goto("/docs/api/#schema-SessionResponse");
+    await expect(page).toHaveURL(/\/docs\/api\/schemas\/#schema-SessionResponse$/);
+    await expect(page.locator("#schema-SessionResponse")).toBeVisible();
+    // An operation's link stays where it was, and a type in an operation leads to the schemas' page.
+    await page.goto("/docs/api/#op-sessionCreate");
+    await expect(page).toHaveURL(/\/docs\/api\/#op-sessionCreate$/);
+    await page.locator('a[href^="/docs/api/schemas/#schema-"]').first().click();
+    await expect(page).toHaveURL(/\/docs\/api\/schemas\/#schema-/);
   });
 
   test("the sitemap lists every public page and robots.txt points at it", async ({ request }) => {

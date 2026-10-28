@@ -8,6 +8,9 @@ export const PRICING = "/pricing/";
 export const GPUS = "/gpus/";
 export const EARN = "/earn/";
 export const DOCS = "/docs/";
+/** The API reference's operations, and its schemas on a page of their own (the operations' page stays quick to load). */
+export const API_OPERATIONS = "/docs/api/";
+export const API_SCHEMAS = "/docs/api/schemas/";
 export const TERMS = "/terms/";
 export const PRIVACY = "/privacy/";
 export const CONTACT = "/contact/";

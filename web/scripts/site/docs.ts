@@ -1,14 +1,15 @@
 // The docs' pages (ADR 0029): the Markdown written by hand in docs/site/, and four pages generated from the code when
 // the site is built, so they can't drift from it: the services from templates/catalog.yaml, the command line from the
 // CLI's own definition (docs/site/generated/cli.md, which the CLI's tests keep current), the Python SDK from its
-// docstrings (docs/site/generated/sdk.md, which the SDK's tests keep current) and the API from api/openapi.yaml.
+// docstrings (docs/site/generated/sdk.md, which the SDK's tests keep current) and the API from api/openapi.yaml (on two pages: its operations and its schemas).
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Marked, type Tokens } from "marked";
 import { parse } from "yaml";
 import { brand } from "../../src/brand/brand.ts";
 import type { DocPage, ServiceInfo } from "../../src/site/context.ts";
-import { apiReference, loadSpec } from "./openapi.ts";
+import { API_OPERATIONS, API_SCHEMAS } from "../../src/site/paths.ts";
+import { apiReference, apiSchemas, loadSpec } from "./openapi.ts";
 
 const slug = (text: string): string =>
   text
@@ -160,6 +161,7 @@ export interface DocsInput {
 /** Every docs page, in the order they're listed. */
 export function buildDocs(input: DocsInput): DocPage[] {
   const hand = readSources(input.docsDir, input.appUrl);
+  const spec = loadSpec(input.openapiPath);
   const generated: Source[] = [
     {
       title: "Services",
@@ -185,10 +187,19 @@ export function buildDocs(input: DocsInput): DocPage[] {
     },
     {
       title: "API reference",
-      description: "Every operation and schema of the renter and host API, made from the API contract.",
+      description:
+        "Every operation of the renter and host API, grouped by what it acts on, made from the API contract.",
       order: 5,
-      path: "/docs/api/",
-      markdown: apiReference(loadSpec(input.openapiPath)),
+      path: API_OPERATIONS,
+      markdown: apiReference(spec),
+    },
+    {
+      title: "API schemas",
+      description:
+        "The data the renter and host API takes and gives, every schema with its fields, made from the API contract.",
+      order: 5.5,
+      path: API_SCHEMAS,
+      markdown: apiSchemas(spec),
     },
   ];
   return [...hand, ...generated]

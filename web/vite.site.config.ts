@@ -31,6 +31,7 @@ export default defineConfig({
         earn: "src/site/islands/earn.ts",
         contact: "src/site/islands/contact.ts",
         grievance: "src/site/islands/grievance.ts",
+        schemaLinks: "src/site/islands/schemaLinks.ts",
         vitals: "src/site/islands/vitals.ts",
         theme: "src/site/islands/theme.ts",
       },

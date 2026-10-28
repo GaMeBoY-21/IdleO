@@ -3,6 +3,7 @@
 // operations (`/admin/v1/…`, ADR 0027) are for the people who run the service and aren't in it; a test says so.
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
+import { API_OPERATIONS, API_SCHEMAS } from "../../src/site/paths.ts";
 
 type Schema = {
   $ref?: string;
@@ -83,31 +84,32 @@ const words = (name: string): string => {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 };
 
-function typeOf(schema: Schema | undefined): string {
+/** A type, in words. A schema's name links to its section, which is on `page` (empty: on this page). */
+function typeOf(schema: Schema | undefined, page = ""): string {
   if (!schema) {
     return "any";
   }
   if (schema.$ref) {
     const name = refName(schema.$ref);
-    return `[${name}](#schema-${name})`;
+    return `[${name}](${page}#schema-${name})`;
   }
   const choices = schema.oneOf ?? schema.anyOf;
   if (choices) {
-    return choices.map(typeOf).join(" or ");
+    return choices.map((one) => typeOf(one, page)).join(" or ");
   }
   if (schema.allOf) {
-    return schema.allOf.map(typeOf).join(" and ");
+    return schema.allOf.map((one) => typeOf(one, page)).join(" and ");
   }
   const type = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : [];
   const shown = type.map((one) => {
     if (one === "array") {
-      return `array of ${typeOf(schema.items)}`;
+      return `array of ${typeOf(schema.items, page)}`;
     }
     if (schema.enum) {
       return `${one}: ${schema.enum.map((value) => `\`${String(value)}\``).join(", ")}`;
     }
     if (one === "object" && typeof schema.additionalProperties === "object") {
-      return `map of ${typeOf(schema.additionalProperties)}`;
+      return `map of ${typeOf(schema.additionalProperties, page)}`;
     }
     return schema.format ? `${one} (${schema.format})` : one;
   });
@@ -148,7 +150,7 @@ function reachable(spec: Spec, start: Iterable<string>): Set<string> {
 
 function bodyOf(content: Record<string, { schema?: Schema }> | undefined): string {
   const entry = content ? Object.entries(content)[0] : undefined;
-  return entry ? `${typeOf(entry[1].schema)} (\`${entry[0]}\`)` : "no body";
+  return entry ? `${typeOf(entry[1].schema, API_SCHEMAS)} (\`${entry[0]}\`)` : "no body";
 }
 
 function operationSection(item: ApiOperation & { operation: Operation }): string {
@@ -163,7 +165,7 @@ function operationSection(item: ApiOperation & { operation: Operation }): string
     lines.push("| Parameter | In | Type | Required | What it is |", "| --- | --- | --- | --- | --- |");
     for (const parameter of operation.parameters) {
       lines.push(
-        `| \`${parameter.name}\` | ${parameter.in} | ${typeOf(parameter.schema)} | ${parameter.required ? "yes" : "no"} | ${cell(parameter.description)} |`,
+        `| \`${parameter.name}\` | ${parameter.in} | ${typeOf(parameter.schema, API_SCHEMAS)} | ${parameter.required ? "yes" : "no"} | ${cell(parameter.description)} |`,
       );
     }
     lines.push("");
@@ -203,31 +205,31 @@ function schemaSection(spec: Spec, name: string): string {
   return lines.join("\n");
 }
 
-/** The whole reference page's body. */
+/** The schemas the public operations reach, in the contract's own order. */
+function publicSchemas(spec: Spec, operations: ReturnType<typeof publicOperations>): string[] {
+  const names: string[] = [];
+  const collect = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(collect);
+    } else if (value && typeof value === "object") {
+      for (const [key, inner] of Object.entries(value)) {
+        if (key === "$ref" && typeof inner === "string") {
+          names.push(refName(inner));
+        } else {
+          collect(inner);
+        }
+      }
+    }
+  };
+  operations.forEach(({ operation }) => collect(operation));
+  const used = reachable(spec, names);
+  return Object.keys(spec.components.schemas).filter((candidate) => used.has(candidate));
+}
+
+/** The operations' page body: how to call the API, then every operation, grouped by what it acts on. */
 export function apiReference(spec: Spec): string {
   const operations = publicOperations(spec);
   const tags = [...new Set(operations.map((item) => item.tag))];
-  const used = reachable(
-    spec,
-    operations.flatMap(({ operation }) => {
-      const names: string[] = [];
-      const collect = (value: unknown): void => {
-        if (Array.isArray(value)) {
-          value.forEach(collect);
-        } else if (value && typeof value === "object") {
-          for (const [key, inner] of Object.entries(value)) {
-            if (key === "$ref" && typeof inner === "string") {
-              names.push(refName(inner));
-            } else {
-              collect(inner);
-            }
-          }
-        }
-      };
-      collect(operation);
-      return names;
-    }),
-  );
   const out = [
     "This is the API the web app and the command line use. Everything is under `/v1`, in JSON. Money is whole paise (a rupee is 100); times are UTC.",
     "",
@@ -236,7 +238,7 @@ export function apiReference(spec: Spec): string {
     "- **Creating things:** calls that create send an `Idempotency-Key` header, so a repeat never creates twice.",
     "- **Limits:** a person's requests are limited each minute, and the answer to going over is `429` with `Retry-After`.",
     "",
-    `The operations are grouped by what they act on: ${tags.map((tag) => `[${words(tag)}](#tag-${tag})`).join(", ")}. The schemas they use are at the end.`,
+    `The operations are grouped by what they act on: ${tags.map((tag) => `[${words(tag)}](#tag-${tag})`).join(", ")}. The data they take and give is described on the [API schemas](${API_SCHEMAS}) page.`,
     "",
     "## Operations",
     "",
@@ -247,8 +249,16 @@ export function apiReference(spec: Spec): string {
       out.push(operationSection(item));
     }
   }
-  out.push("## Schemas", "");
-  for (const name of Object.keys(spec.components.schemas).filter((candidate) => used.has(candidate))) {
+  return out.join("\n");
+}
+
+/** The schemas' page body: every schema the operations use, each with its fields. */
+export function apiSchemas(spec: Spec): string {
+  const out = [
+    `The data the [operations](${API_OPERATIONS}) take and give: every schema they use, with its fields. A type in an operation's table links here.`,
+    "",
+  ];
+  for (const name of publicSchemas(spec, publicOperations(spec))) {
     out.push(schemaSection(spec, name));
   }
   return out.join("\n");

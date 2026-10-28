@@ -59,5 +59,5 @@ export interface PageDef {
   description: string;
   body: React.ReactNode;
   /** The scripts the page loads: none, unless it has something live. */
-  islands: ("pricing" | "earn" | "contact" | "grievance")[];
+  islands: ("pricing" | "earn" | "contact" | "grievance" | "schemaLinks")[];
 }

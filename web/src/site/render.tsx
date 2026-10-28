@@ -11,7 +11,17 @@ import { Landing } from "./pages/Landing";
 import { Placeholder } from "./pages/Placeholder";
 import { Pricing } from "./pages/Pricing";
 import { Contact, Grievance } from "./pages/Contact";
-import { CONTACT, EARN, GPUS, HELP_VIRTUALIZATION, LANDING, PRICING, PRIVACY, TERMS } from "./paths";
+import {
+  API_OPERATIONS,
+  CONTACT,
+  EARN,
+  GPUS,
+  HELP_VIRTUALIZATION,
+  LANDING,
+  PRICING,
+  PRIVACY,
+  TERMS,
+} from "./paths";
 import { Shell } from "./Shell";
 import { band, column, heading, link, muted } from "./ui";
 
@@ -93,7 +103,8 @@ export function pages(context: SiteContext): PageDef[] {
     title: `${page.title} · Docs · ${brand.name}`,
     description: page.description,
     body: <Docs page={page} pages={context.docs} />,
-    islands: [] as PageDef["islands"],
+    // The API reference used to hold the schemas too: an old link to one of them (#schema-…) is sent on to their page.
+    islands: page.path === API_OPERATIONS ? ["schemaLinks" as const] : [],
   }));
   const help = MAKERS.map((maker) => ({
     path: `${HELP_VIRTUALIZATION}${maker.slug}/`,

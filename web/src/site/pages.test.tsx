@@ -71,9 +71,9 @@ describe("the public pages", () => {
     }
   });
 
-  it("only the home page, pricing, earn, contact and privacy have anything live", () => {
+  it("only the home page, pricing, earn, contact, privacy and the API reference (old schema links) have anything live", () => {
     const live = all.filter(({ page }) => page.islands.length > 0).map(({ page }) => page.path);
-    expect(live.sort()).toEqual(["/", "/contact/", "/earn/", "/pricing/", "/privacy/"]);
+    expect(live.sort()).toEqual(["/", "/contact/", "/docs/api/", "/earn/", "/pricing/", "/privacy/"]);
   });
 
   it("never say we supply models, images or transcription, and name no made-up person or number", () => {

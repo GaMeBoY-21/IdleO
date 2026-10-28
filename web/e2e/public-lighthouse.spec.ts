@@ -14,7 +14,17 @@ const WEB = process.env.SITE_URL ?? "http://localhost:3002";
 const RUNS = 3;
 // The front door is measured as "/?site", which the website serves as "/": the query tells `lhci assert` (lighthouserc.json)
 // that it is a public page and not the app's Home.
-const PAGES = ["/?site", "/pricing/", "/gpus/", "/earn/", "/docs/", "/docs/cli/", "/docs/api/", "/terms/"];
+const PAGES = [
+  "/?site",
+  "/pricing/",
+  "/gpus/",
+  "/earn/",
+  "/docs/",
+  "/docs/cli/",
+  "/docs/api/",
+  "/docs/api/schemas/",
+  "/terms/",
+];
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) / 2)]!;
 
