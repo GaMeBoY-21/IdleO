@@ -64,7 +64,8 @@ A production build needs Firebase's settings (`VITE_AUTH=firebase`, `VITE_FIREBA
 | `pnpm e2e` | Playwright: every screen and state, and the journeys; needs the stack and `pnpm serve` |
 | `pnpm lighthouse` | The performance and accessibility budgets on sign-in, Home, Book, the session screen, the Hosting tab and one machine, the 10 MiB log test, then `lhci assert` |
 | `pnpm gallery` | The review gallery (below) |
-| `pnpm screenshots` | Every screen of the redrawn parts as a picture, at 1440 and 390 px in both themes, into `../private/screens/<date>/` (the website's pages today, from `dist-website/`; build it first with `pnpm build:site`) |
+| `pnpm screenshots [group…]` | Every screen as a picture, in both themes, into `../private/screens/<date>/<group>/`: `site` (default; at 1440 and 390 px, from `dist-website/`, so `pnpm build:site` first), `app` and `admin` (the browser tests' screens and fixtures, at 1440 and 390 px; they need the app built and served on :3000 and the local stack up), `windows-setup` (the setup window's every screen at 720 × 520, from `agent/setup/dev/preview.js`), `emails` and `pdfs` (the control plane's sample tests), `tray` (the tray's icons), and `sheet`, the contact sheet `../private/screens/<date>/index.html` with all of them on one page |
+| `pnpm brand-assets` | Draws the icons (`apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `favicon.ico`) and the share picture (`og-image.png`) into `public/` from `public/icon.svg`; the output is committed |
 
 CI runs all of them: `.github/workflows/web.yml`, and `scripts/e2e/agent-online.sh --web` for the browser checks against the real stack. The end-to-end workflow runs the web journeys too.
 

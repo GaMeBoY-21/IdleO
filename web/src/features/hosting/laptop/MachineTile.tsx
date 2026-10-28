@@ -10,7 +10,7 @@ import { machineState, rupeesAnHour } from "@/lib/hosting";
 import { cn } from "@/lib/cn";
 
 /**
- * One machine on a laptop's Hosting tab (docs/design/bento/laptop/hosting-laptop.html), a white tile: its state, with a dot,
+ * One machine on a laptop's Hosting tab (web/DESIGN.md "Laptop layout"), a white tile: its state, with a dot,
  * and its temperature and use when it is online; its name, its GPU, memory and price an hour; and, at the foot,
  * what it is earning now, or the pause with a "Resume" pill. The top is the link into the machine. What it earns is
  * the server's, read again while it runs a session.

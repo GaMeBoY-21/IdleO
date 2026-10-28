@@ -101,6 +101,19 @@ describe("the fonts", () => {
     expect(existsSync(new URL("plus-jakarta-sans-subset.woff2", publicFonts))).toBe(false);
   });
 
+  it("are the same files the Windows setup window embeds, and nothing there is Plus Jakarta Sans", () => {
+    const setup = new URL("../../../agent/setup/assets/fonts/", import.meta.url);
+    for (const file of [fonts.sans.file, fonts.display.file, fonts.display.more.file, fonts.title.file]) {
+      expect(readFileSync(new URL(file, setup)).equals(readFileSync(new URL(file, publicFonts))), file).toBe(
+        true,
+      );
+    }
+    for (const licence of ["Archivo", "Inter"]) {
+      expect(existsSync(new URL(`LICENSE-${licence}.txt`, setup)), licence).toBe(true);
+    }
+    expect(readdirSync(setup).filter((file) => /jakarta/i.test(file))).toEqual([]);
+  });
+
   it("stay small: what the app preloads is under 24 KB, the website's under 32 KB, every file under 20 KB, the whole set under 80 KB", () => {
     const size = (file: string) => statSync(new URL(file, publicFonts)).size;
     const total = (files: readonly string[]) => files.reduce((sum, file) => sum + size(file), 0);

@@ -94,7 +94,7 @@ fn picture(colour: status::Colour) -> Option<Icon> {
 }
 
 fn fallback() -> Icon {
-    picture(status::Colour::Apricot).expect("a 32×32 RGBA picture is a valid icon")
+    picture(status::Colour::Ember).expect("a 32×32 RGBA picture is a valid icon")
 }
 
 /// The native menu for the model, and what each clickable item does.

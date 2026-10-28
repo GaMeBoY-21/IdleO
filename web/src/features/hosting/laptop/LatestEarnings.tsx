@@ -6,7 +6,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { cn } from "@/lib/cn";
 import { formatMinutes } from "@/lib/hosting";
 
-/** "Latest earnings", the last three entries of the ledger's `host_payable`, with "All ›" (docs/design/bento/laptop/hosting-laptop.html). */
+/** "Latest earnings", the last three entries of the ledger's `host_payable`, with "All ›" (web/DESIGN.md "Laptop layout"). */
 export function LatestEarnings({ entries, className }: { entries: EarningsEntry[]; className?: string }) {
   return (
     <Tile

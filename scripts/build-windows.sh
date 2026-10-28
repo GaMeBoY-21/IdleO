@@ -38,7 +38,7 @@ mkdir -p "$out"
 for program in idleo-agent idleo-hostd idleo-tray idleo-launcher IdleO-Setup; do
   cp "agent/target/$target/release/$program.exe" "$out/"
 done
-cp agent/setup/assets/fonts/LICENSE-PlusJakartaSans.txt "$out/"
+cp agent/setup/assets/fonts/LICENSE-Inter.txt agent/setup/assets/fonts/LICENSE-Archivo.txt "$out/"
 echo "build-windows: $target, $((SECONDS - started)) s"
 for program in idleo-agent idleo-hostd idleo-tray idleo-launcher IdleO-Setup; do
   bytes=$(wc -c <"$out/$program.exe" | tr -d ' ')

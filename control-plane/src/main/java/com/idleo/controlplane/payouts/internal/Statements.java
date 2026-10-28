@@ -1,10 +1,10 @@
 package com.idleo.controlplane.payouts.internal;
 
 import com.idleo.controlplane.FinancialYear;
+import com.idleo.controlplane.PdfStyle;
 import com.idleo.controlplane.Rupees;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 /**
  * A host's yearly payout statement (ADR 0040), for Hosting, Earnings: every payout of a financial year that didn't come
  * back, with its gross, the tax deducted at source and the section it was deducted under, any fee, and the net paid;
- * then the year's totals. As CSV, and as a PDF drawn with PDFBox and the embedded Plus Jakarta Sans (as invoices are).
+ * then the year's totals. As CSV, and as a PDF drawn with PDFBox and the web app's faces embedded (as invoices are, {@link PdfStyle}).
  * The PAN shows only by its last four characters.
  */
 @Component
@@ -161,8 +161,9 @@ class Statements {
     byte[] pdf(Statement statement) {
         try (var pdf = new PDDocument();
                 var out = new ByteArrayOutputStream()) {
-            var regular = font(pdf, "/fonts/PlusJakartaSans-Regular.ttf");
-            var bold = font(pdf, "/fonts/PlusJakartaSans-Bold.ttf");
+            var regular = PdfStyle.font(pdf, "Inter-Regular.ttf");
+            var bold = PdfStyle.font(pdf, "Inter-Bold.ttf");
+            var display = PdfStyle.font(pdf, "Archivo-Display.ttf");
             var info = pdf.getDocumentInformation();
             info.setTitle("IdleO payout statement " + statement.year().name());
             info.setProducer("IdleO");
@@ -171,7 +172,8 @@ class Statements {
             var stream = new PDPageContentStream(pdf, page);
             float y = page.getMediaBox().getHeight() - MARGIN;
             try {
-                y = text(stream, bold, 20, y, "Payout statement");
+                y = PdfStyle.letterhead(stream, display, y, MARGIN);
+                y = text(stream, display, 18, y, "PAYOUT STATEMENT");
                 y = text(
                         stream,
                         regular,
@@ -194,7 +196,9 @@ class Statements {
                 }
                 y = amount(stream, bold, y, "Net paid to your UPI ID", statement.netPaise());
                 y -= 14;
+                stream.setNonStrokingColor(PdfStyle.ACCENT);
                 y = text(stream, bold, 11, y, "Payouts");
+                stream.setNonStrokingColor(PdfStyle.INK);
                 if (statement.lines().isEmpty()) {
                     y = text(stream, regular, 10, y, "No payouts in this year.");
                 }
@@ -259,12 +263,6 @@ class Statements {
         stream.showText(money);
         stream.endText();
         return next;
-    }
-
-    private static PDType0Font font(PDDocument pdf, String resource) throws IOException {
-        try (InputStream in = Statements.class.getResourceAsStream(resource)) {
-            return PDType0Font.load(pdf, Objects.requireNonNull(in, resource));
-        }
     }
 
     /** Every financial year the person was paid in, newest first, and the current one. */

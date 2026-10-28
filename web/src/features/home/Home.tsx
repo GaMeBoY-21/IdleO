@@ -30,7 +30,7 @@ const PHONE_FRAME =
   "mx-auto flex w-full max-w-content flex-col gap-2.5 px-3.5 pt-1 pb-4 md:gap-3.5 md:px-6 md:pt-2";
 
 /**
- * The renter's home (docs/design/bento/home-phone.html): tiles on a grid, each a thing to check or to start. A dark
+ * The renter's home (approved reference `AppHome`): tiles on a grid, each a thing to check or to start. A dark
  * tile for each session that's live, the services (the first lime and tall), credit, what to book again, and hosting;
  * with nothing running, the first tile is the question, with the services inside it. The order is chosen in code, not
  * by CSS, so what a screen reader reads and the tab order follow what's on screen.

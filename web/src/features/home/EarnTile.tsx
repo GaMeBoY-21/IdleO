@@ -1,6 +1,6 @@
 import { TileLabel, TileLink } from "@/components/ui/Tile";
 
-/** Hosting, for gamers (docs/design/bento/home-phone.html): the apricot tile that opens the Hosting tab. */
+/** Hosting, for gamers (approved reference `AppHome`): the volt tile that opens the Hosting tab. */
 export function EarnTile() {
   return (
     <TileLink href="/hosting/" tone="volt" className="col-span-2 row-span-2">

@@ -1,5 +1,5 @@
-//! The Windows app's look, in code (ADR 0033): the round icon, the same disc the tray shows in its state's colour
-//! and every program carries as its own icon, and the manifest each program embeds. No image files.
+//! The Windows app's look, in code (ADR 0033, ADR 0043): the round icon, the same disc the tray shows in its state's
+//! colour and every program carries as its own icon, and the manifest each program embeds. No image files.
 //!
 //! The manifest matters as much as the icon:
 //! - `asInvoker`: Windows guesses that a program called "Setup" installs for all users and asks for admin rights;
@@ -8,8 +8,12 @@
 //! - Per-monitor DPI awareness: sharp on a laptop's high-DPI screen.
 #![forbid(unsafe_code)]
 
-/// The brand's lime, as the setup window and a green tray use it: #65A30D.
-pub const GREEN: [u8; 3] = [0x65, 0xA3, 0x0D];
+/// The brand's volt, as the web app's primary and a ready tray use it: #C8FF3D.
+pub const VOLT: [u8; 3] = [0xC8, 0xFF, 0x3D];
+
+/// The brand's ink, the page's dark: #0C0A1F. The disc's thin outline and its ring are drawn in it, so the disc reads on
+/// a light taskbar, where volt alone would not.
+pub const INK: [u8; 3] = [0x0C, 0x0A, 0x1F];
 
 /// The manifest every Windows program of the app embeds.
 pub const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -42,14 +46,23 @@ pub const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="y
 </assembly>
 "#;
 
-/// The icon at `size` pixels a side, as RGBA rows: a disc in `rgb` with a smooth edge and a white ring inside it, so
-/// it reads on a dark or a light taskbar.
+/// How wide the disc's outline is, in pixels at 32 pixels a side (it scales with the icon).
+const OUTLINE: f64 = 1.5;
+/// The ring's inner and outer radius at 32 pixels a side.
+const RING: (f64, f64) = (5.0, 7.4);
+/// Half the ring's gap at the top, in radians: the ring is a power button at rest.
+const GAP: f64 = 0.42;
+
+/// The icon at `size` pixels a side, as RGBA rows (the brand: a disc in `rgb` with a thin dark outline and, inside it, a
+/// ring with a small gap at the top, in the same dark). The outline keeps the disc readable on a light taskbar, and the
+/// fill on a dark one.
 #[must_use]
 pub fn icon_rgba(rgb: [u8; 3], size: u32) -> Vec<u8> {
     let scale = f64::from(size) / 32.0;
     let centre = f64::from(size) / 2.0;
-    let radius = centre - scale;
-    let (inner, outer) = (6.0 * scale, 8.5 * scale);
+    let radius = centre - 0.5 * scale;
+    let inside = radius - OUTLINE * scale;
+    let (inner, outer) = (RING.0 * scale, RING.1 * scale);
     let mut pixels = Vec::with_capacity((size * size * 4) as usize);
     for y in 0..size {
         for x in 0..size {
@@ -57,9 +70,16 @@ pub fn icon_rgba(rgb: [u8; 3], size: u32) -> Vec<u8> {
             let dy = f64::from(y) + 0.5 - centre;
             let distance = (dx * dx + dy * dy).sqrt();
             let disc = (radius - distance + 0.5).clamp(0.0, 1.0);
-            let ring = (distance - inner + 0.5).clamp(0.0, 1.0) * (outer - distance + 0.5).clamp(0.0, 1.0);
-            let mix = |channel: u8| byte(f64::from(channel) * (1.0 - ring) + 255.0 * ring);
-            pixels.extend_from_slice(&[mix(rgb[0]), mix(rgb[1]), mix(rgb[2]), byte(disc * 255.0)]);
+            let fill = (inside - distance + 0.5).clamp(0.0, 1.0);
+            // The angle from straight up: 0 at the top, π at the bottom. The ring is missing within `GAP` of the top.
+            let angle = dx.atan2(-dy).abs();
+            let open = ((angle - GAP) * distance + 0.5).clamp(0.0, 1.0);
+            let ring = (distance - inner + 0.5).clamp(0.0, 1.0) * (outer - distance + 0.5).clamp(0.0, 1.0) * open;
+            let mix = |channel: u8, ink: u8| {
+                let base = f64::from(ink) * (1.0 - fill) + f64::from(channel) * fill;
+                byte(base * (1.0 - ring) + f64::from(ink) * ring)
+            };
+            pixels.extend_from_slice(&[mix(rgb[0], INK[0]), mix(rgb[1], INK[1]), mix(rgb[2], INK[2]), byte(disc * 255.0)]);
         }
     }
     pixels
@@ -129,7 +149,7 @@ pub fn embed_windows_resources(description: &str) {
         return;
     }
     let out = std::path::PathBuf::from(std::env::var("OUT_DIR").expect("cargo sets OUT_DIR"));
-    std::fs::write(out.join("idleo.ico"), ico(GREEN)).expect("OUT_DIR is writable");
+    std::fs::write(out.join("idleo.ico"), ico(VOLT)).expect("OUT_DIR is writable");
     std::fs::write(out.join("idleo.manifest"), MANIFEST).expect("OUT_DIR is writable");
     println!("cargo:rerun-if-env-changed=IDLEO_APP_VERSION");
     let version =
@@ -159,18 +179,21 @@ mod tests {
     }
 
     #[test]
-    fn the_icon_is_a_disc_with_a_white_ring() {
-        let green = icon_rgba(GREEN, 32);
-        assert_eq!(green.len(), 32 * 32 * 4);
-        assert_eq!(pixel(&green, 32, 0, 0)[3], 0, "the corner is clear");
-        assert_eq!(pixel(&green, 32, 16, 16), [0x65, 0xA3, 0x0D, 255]);
-        assert_eq!(pixel(&green, 32, 23, 16), [255, 255, 255, 255]);
-        assert_eq!(icon_rgba(GREEN, 64).len(), 64 * 64 * 4);
+    fn the_icon_is_a_disc_with_a_dark_outline_and_a_ring_open_at_the_top() {
+        let volt = icon_rgba(VOLT, 32);
+        assert_eq!(volt.len(), 32 * 32 * 4);
+        assert_eq!(pixel(&volt, 32, 0, 0)[3], 0, "the corner is clear");
+        assert_eq!(pixel(&volt, 32, 16, 16), [0xC8, 0xFF, 0x3D, 255], "the middle is the colour");
+        assert_eq!(pixel(&volt, 32, 22, 16), [INK[0], INK[1], INK[2], 255], "the ring is dark");
+        assert_eq!(pixel(&volt, 32, 16, 9), [0xC8, 0xFF, 0x3D, 255], "the ring is open at the top");
+        // The edge of the disc, on its left: a dark outline, not the colour.
+        assert_eq!(pixel(&volt, 32, 1, 16), [INK[0], INK[1], INK[2], 255]);
+        assert_eq!(icon_rgba(VOLT, 64).len(), 64 * 64 * 4);
     }
 
     #[test]
     fn the_ico_file_holds_five_sizes() {
-        let file = ico(GREEN);
+        let file = ico(VOLT);
         assert_eq!(&file[..4], &[0, 0, 1, 0]);
         assert_eq!(u16::from_le_bytes([file[4], file[5]]), 5);
         assert_eq!(file[6], 16, "the first image is 16 pixels");

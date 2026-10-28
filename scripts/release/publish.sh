@@ -97,7 +97,7 @@ if ! $manifest_only; then
   rm -rf "$release"
   mkdir -p "$release"
   (cd "$root/dist/windows" && zip -q -X -j "$zip" idleo-agent.exe idleo-hostd.exe idleo-tray.exe idleo-launcher.exe \
-    IdleO-Setup.exe LICENSE-PlusJakartaSans.txt)
+    IdleO-Setup.exe LICENSE-Inter.txt LICENSE-Archivo.txt)
   cp "$root/dist/windows/IdleO-Setup.exe" "$setup"
 fi
 [[ -s "$zip" && -s "$setup" ]] || { echo "publish: no built files for $version in dist/release/; publish it without --manifest-only first" >&2; exit 1; }

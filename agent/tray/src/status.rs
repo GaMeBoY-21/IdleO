@@ -7,13 +7,13 @@ use time::{OffsetDateTime, UtcOffset};
 /// The icon's colour.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Colour {
-    /// Available or earning: #65A30D.
-    Green,
-    /// Paused: #A1A1AA.
+    /// Available or earning: volt, #C8FF3D.
+    Volt,
+    /// Paused: grey, #A1A1AA.
     Grey,
-    /// Waiting for approval, or can't reach IdleO: #FFB86B.
-    Apricot,
-    /// A problem: #DC2626.
+    /// Waiting for approval, or can't reach IdleO: ember, #FF7A2F.
+    Ember,
+    /// A problem: red, #F04438.
     Red,
 }
 
@@ -22,10 +22,10 @@ impl Colour {
     #[must_use]
     pub fn rgb(self) -> [u8; 3] {
         match self {
-            Self::Green => [0x65, 0xA3, 0x0D],
+            Self::Volt => [0xC8, 0xFF, 0x3D],
             Self::Grey => [0xA1, 0xA1, 0xAA],
-            Self::Apricot => [0xFF, 0xB8, 0x6B],
-            Self::Red => [0xDC, 0x26, 0x26],
+            Self::Ember => [0xFF, 0x7A, 0x2F],
+            Self::Red => [0xF0, 0x44, 0x38],
         }
     }
 }
@@ -106,20 +106,20 @@ pub fn tooltip(status: Option<&Status>, offset: UtcOffset) -> String {
 /// The icon's colour for a status.
 #[must_use]
 pub fn colour(status: Option<&Status>) -> Colour {
-    let Some(status) = status else { return Colour::Apricot };
+    let Some(status) = status else { return Colour::Ember };
     match status.link_state {
         LinkState::Removed | LinkState::Suspended => return Colour::Red,
-        LinkState::PendingApproval if !status.session_running => return Colour::Apricot,
+        LinkState::PendingApproval if !status.session_running => return Colour::Ember,
         _ => {}
     }
     if status.session_running {
-        return Colour::Green;
+        return Colour::Volt;
     }
     if !status.server_reachable {
-        return Colour::Apricot;
+        return Colour::Ember;
     }
     match status.state {
-        State::Available => Colour::Green,
+        State::Available => Colour::Volt,
         State::AutoPaused | State::HostingOff | State::Paused => Colour::Grey,
     }
 }
@@ -217,10 +217,10 @@ pub(crate) mod tests {
             (
                 Status { session_running: true, earning_now_paise: Some(273), ..ready() },
                 "Earning ₹2.73 on a renter's job",
-                Colour::Green,
+                Colour::Volt,
             ),
-            (Status { session_running: true, ..ready() }, "Earning on a renter's job", Colour::Green),
-            (ready(), "Ready for renters", Colour::Green),
+            (Status { session_running: true, ..ready() }, "Earning on a renter's job", Colour::Volt),
+            (ready(), "Ready for renters", Colour::Volt),
             (
                 Status { state: State::AutoPaused, reason: Some(Reason::KeyboardMouse), ..ready() },
                 "Paused while you use your laptop · starts again 10 min after you stop",
@@ -254,9 +254,9 @@ pub(crate) mod tests {
             (
                 Status { link_state: LinkState::PendingApproval, ..ready() },
                 "Waiting for IdleO to check this laptop",
-                Colour::Apricot,
+                Colour::Ember,
             ),
-            (Status { server_reachable: false, ..ready() }, "Can't reach IdleO · trying again", Colour::Apricot),
+            (Status { server_reachable: false, ..ready() }, "Can't reach IdleO · trying again", Colour::Ember),
             (
                 Status {
                     prefetch: Some(Prefetch::Downloading {
@@ -268,7 +268,7 @@ pub(crate) mod tests {
                     ..ready()
                 },
                 "Getting ready for renters · 2.1 of 7.8 GB",
-                Colour::Green,
+                Colour::Volt,
             ),
             (
                 Status {
@@ -281,14 +281,14 @@ pub(crate) mod tests {
                     ..ready()
                 },
                 "Getting ready for renters · 2.1 GB downloaded",
-                Colour::Green,
+                Colour::Volt,
             ),
             (
                 Status { prefetch: Some(Prefetch::WaitingForUnmetered), ..ready() },
                 "Waiting for an unmetered connection to download",
-                Colour::Green,
+                Colour::Volt,
             ),
-            (Status { runner_installed: false, ..ready() }, "Linked · getting the job runner ready", Colour::Green),
+            (Status { runner_installed: false, ..ready() }, "Linked · getting the job runner ready", Colour::Volt),
             (
                 Status { link_state: LinkState::Removed, ..ready() },
                 "This laptop was removed from your account · uninstall the app",
@@ -300,7 +300,7 @@ pub(crate) mod tests {
             assert_eq!(colour(Some(&status)), expected, "{text}");
         }
         assert_eq!(line(None, IST), "Starting…");
-        assert_eq!(colour(None), Colour::Apricot);
+        assert_eq!(colour(None), Colour::Ember);
         let wait = Status {
             state: State::AutoPaused,
             reason: Some(Reason::KeyboardMouse),

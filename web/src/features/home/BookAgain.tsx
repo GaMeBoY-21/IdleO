@@ -10,7 +10,7 @@ type Catalog = components["schemas"]["TemplateList"];
 
 /**
  * The renter's last setup (a template, its settings and its data) from a session that has ended, as the lavender tile
- * (docs/design/bento/home-phone.html): what it was and how long it ran. A tap opens Book filled in from it. A new
+ * (approved reference `AppHome`): what it was and how long it ran. A tap opens Book filled in from it. A new
  * renter has none, so the tile isn't there; older setups are one tap away, on a session's own screen.
  */
 export function latestSetup(sessions: Session[], catalog: Catalog): Session | undefined {

@@ -1,16 +1,15 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.PdfStyle;
 import com.idleo.controlplane.Rupees;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -21,8 +20,9 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * An invoice, receipt or credit note as a PDF (ADR 0039), made on the server from the document as it was issued, with
- * PDFBox (pinned in the pom) and our own font, Plus Jakarta Sans, embedded from the jar: nothing is fetched while it
- * renders, and the same document always makes the same pages. Amounts are rupees with two decimals ({@link Rupees}).
+ * PDFBox (pinned in the pom) and the web app's own faces, Inter and Archivo, embedded from the jar ({@link PdfStyle}): a
+ * white page, dark text, colour only for accents. Nothing is fetched while it renders, and the same document always makes
+ * the same pages. Amounts are rupees with two decimals ({@link Rupees}).
  */
 @Component
 class InvoicePdf {
@@ -34,8 +34,9 @@ class InvoicePdf {
     byte[] render(JsonNode document) {
         try (var pdf = new PDDocument();
                 var out = new ByteArrayOutputStream()) {
-            var regular = font(pdf, "/fonts/PlusJakartaSans-Regular.ttf");
-            var bold = font(pdf, "/fonts/PlusJakartaSans-Bold.ttf");
+            var regular = PdfStyle.font(pdf, "Inter-Regular.ttf");
+            var bold = PdfStyle.font(pdf, "Inter-Bold.ttf");
+            var display = PdfStyle.font(pdf, "Archivo-Display.ttf");
             var page = new PDPage(PDRectangle.A4);
             pdf.addPage(page);
             var info = pdf.getDocumentInformation();
@@ -47,9 +48,9 @@ class InvoicePdf {
             info.setCreationDate(issued);
             info.setModificationDate(issued);
             try (var page1 = new PDPageContentStream(pdf, page)) {
-                var y = page.getMediaBox().getHeight() - MARGIN;
+                var y = PdfStyle.letterhead(page1, display, page.getMediaBox().getHeight() - MARGIN, MARGIN);
                 var writer = new Writer(page1, y);
-                writer.line(bold, 20, text(document, "title"));
+                writer.line(display, 18, text(document, "title").toUpperCase(Locale.ENGLISH));
                 if (document.hasNonNull("notice")) {
                     writer.line(bold, 11, text(document, "notice"));
                 }
@@ -69,7 +70,7 @@ class InvoicePdf {
                 }
                 writer.gap(10);
                 var seller = document.path("seller");
-                writer.line(bold, 11, "From");
+                writer.label(bold, 11, "From");
                 writer.line(regular, 10, text(seller, "name"));
                 for (var part : text(seller, "address").split("\n")) {
                     if (!part.isBlank()) {
@@ -82,7 +83,7 @@ class InvoicePdf {
                 writer.line(regular, 10, "State " + text(seller, "stateCode") + " " + text(seller, "state"));
                 writer.gap(8);
                 var buyer = document.path("buyer");
-                writer.line(bold, 11, "To");
+                writer.label(bold, 11, "To");
                 if (buyer.hasNonNull("businessName")) {
                     writer.line(regular, 10, text(buyer, "businessName"));
                 }
@@ -151,12 +152,6 @@ class InvoicePdf {
         }
     }
 
-    private static PDType0Font font(PDDocument pdf, String resource) throws IOException {
-        try (InputStream in = InvoicePdf.class.getResourceAsStream(resource)) {
-            return PDType0Font.load(pdf, Objects.requireNonNull(in, resource), true);
-        }
-    }
-
     private static String text(JsonNode node, String field) {
         var value = node.path(field);
         return value.isNull() || value.isMissingNode() ? "" : value.asString();
@@ -174,6 +169,13 @@ class InvoicePdf {
 
         void gap(float points) {
             y -= points;
+        }
+
+        /** A small heading in the accent colour; the text after it is the ink again. */
+        void label(PDType0Font font, float size, String text) throws IOException {
+            stream.setNonStrokingColor(PdfStyle.ACCENT);
+            line(font, size, text);
+            stream.setNonStrokingColor(PdfStyle.INK);
         }
 
         void line(PDType0Font font, float size, String text) throws IOException {

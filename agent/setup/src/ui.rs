@@ -1,6 +1,6 @@
-//! The setup window (ADR 0033): 720×520, fixed, a WebView2 page built into the program, in the Bento look. Rust
-//! drives the page with typed messages ([`idleo_setup::ipc`]); the steps run on their own thread. With no WebView2
-//! (an old Windows 10), a plain message asks for a Windows update instead.
+//! The setup window (ADR 0033): 720×520, fixed, a WebView2 page built into the program, in the Night Shift look (ADR 0043),
+//! dark or light as Windows is set. Rust drives the page with typed messages ([`idleo_setup::ipc`]); the steps run on
+//! their own thread. With no WebView2 (an old Windows 10), a plain message asks for a Windows update instead.
 
 use std::process::ExitCode;
 
@@ -19,9 +19,16 @@ use crate::windows_system::WindowsSystem;
 const PAGE: &str = include_str!("../assets/index.html");
 const STYLE: &str = include_str!("../assets/style.css");
 const SCRIPT: &str = include_str!("../assets/app.js");
-/// Plus Jakarta Sans, the one face (OFL; its licence is agent/setup/assets/fonts/LICENSE-PlusJakartaSans.txt, shipped beside
-/// the programs in the app zip). Embedded, never fetched.
-const FONT: &[u8] = include_bytes!("../assets/fonts/plus-jakarta-sans-subset.woff2");
+/// The faces of the web app (web/DESIGN.md "Typography"): Inter for text, and Archivo at width 125% (uppercase, and the
+/// wordmark's lowercase) and 112% for the headlines. OFL; the licences are agent/setup/assets/fonts/LICENSE-Inter.txt and
+/// LICENSE-Archivo.txt, shipped beside the programs in the app zip. Embedded, never fetched; each is the file the web
+/// app serves (a test in web/ keeps the two sets the same), and goes into the page where the style sheet names it.
+const FONTS: [(&str, &[u8]); 4] = [
+    ("/*FONT_INTER*/", include_bytes!("../assets/fonts/inter-400-700.woff2")),
+    ("/*FONT_DISPLAY*/", include_bytes!("../assets/fonts/archivo-125-900.woff2")),
+    ("/*FONT_DISPLAY_LOWER*/", include_bytes!("../assets/fonts/archivo-125-900-lower.woff2")),
+    ("/*FONT_TITLE*/", include_bytes!("../assets/fonts/archivo-112-800.woff2")),
+];
 /// Where Windows' WebView2 runtime is downloaded, for the rare Windows 10 without it.
 const WEBVIEW2_URL: &str = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
 
@@ -35,8 +42,10 @@ enum UserEvent {
 }
 
 fn page() -> String {
-    let font = base64::engine::general_purpose::STANDARD.encode(FONT);
-    PAGE.replace("/*STYLE*/", &STYLE.replace("/*FONT*/", &font)).replace("/*SCRIPT*/", SCRIPT)
+    let style = FONTS.iter().fold(STYLE.to_owned(), |style, (name, bytes)| {
+        style.replace(name, &base64::engine::general_purpose::STANDARD.encode(bytes))
+    });
+    PAGE.replace("/*STYLE*/", &style).replace("/*SCRIPT*/", SCRIPT)
 }
 
 pub fn run() -> ExitCode {

@@ -62,7 +62,7 @@ export function LaptopPitch() {
 }
 
 /**
- * The Hosting tab from 768 px (docs/design/bento/laptop/hosting-laptop.html): the week, in the dark tile split in two
+ * The Hosting tab from 768 px (web/DESIGN.md "Laptop layout"): the week, in the dark tile split in two
  * (the amount, and the seven days as bars), and "Add a machine" beside it; under them each machine as a tile (up to
  * two beside the latest earnings; with more, a grid of three a row and the earnings under it). Two equal rows that fill
  * the screen from 1200 px. Every figure is the server's, the earnings read again while a machine runs a session.

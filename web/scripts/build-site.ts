@@ -94,10 +94,16 @@ function document(page: PageDef, body: string): string {
     <meta property="og:title" content="${escape(page.title)}" />
     <meta property="og:description" content="${escape(page.description)}" />
     <meta property="og:url" content="${url}" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="${siteUrl}/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="${escape(`${brand.name}: ${brand.share}`)}" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F3FA" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0C0A1F" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" href="/fonts/inter-400-700.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/archivo-125-900-lower.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/archivo-125-900.woff2" as="font" type="font/woff2" crossorigin />

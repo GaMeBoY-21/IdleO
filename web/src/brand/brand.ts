@@ -6,6 +6,8 @@
 export const brand = {
   name: "IdleO",
   description: "Rent a GPU by the minute, in rupees.",
+  /** The line on the website's share picture (public/og-image.png, made by scripts/brand-assets.ts). */
+  share: "Rent a gaming GPU. Pay by the minute.",
 } as const;
 
 /**
