@@ -100,15 +100,16 @@ test.describe("home", () => {
       await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Fine-tuning · 6 min 10 s");
       await expect(page.getByRole("link", { name: "All sessions" }).first()).toBeVisible();
     } else {
-      // On a laptop the live session is a row of the recent sessions, with Open; Book again is Run again there, and
-      // only for a service that is offered.
+      // On a laptop the live session is the night panel beside the credit, and a row of the recent sessions, with Open;
+      // Run again is only for a service that is offered, and Book again is the ion panel at the foot.
+      await expect(page.getByRole("link", { name: /^Running now/ })).toContainText("Fine-tuning");
       const recent = page.getByRole("table", { name: "Recent sessions" });
       const live = recent.getByRole("row").filter({ hasText: "Open" });
       await expect(live).toContainText("RTX 4080 Laptop");
       await expect(live).toContainText("₹3.08");
       await expect(recent.getByRole("link", { name: "Run again" }).first()).toHaveAttribute("href", /from=/);
       await expect(recent.getByRole("row").filter({ hasText: "Diagnostics" })).not.toContainText("Run again");
-      await expect(page.getByRole("link", { name: /^Book again/ })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /^Book again/ })).toContainText("Fine-tuning · 6 min 10 s");
       await expect(page.getByRole("link", { name: "All sessions ›" })).toHaveAttribute("href", "/sessions/");
       await expect(page.getByRole("region", { name: "GPUs free right now" })).toBeVisible();
     }
@@ -135,8 +136,11 @@ test.describe("home", () => {
       signedIn({ "/v1/wallet": { json: data.fresh.wallet }, "/v1/sessions": { json: { sessions: [] } } }),
     );
     await signIn(page, "asha");
-    // With nothing running, the question is the first tile and the services are inside it.
-    const question = page.getByRole("region", { name: "What do you want to run?" });
+    // On a phone, with nothing running, the question is the first tile and the services are inside it; on a laptop the
+    // services are the cards under the question.
+    const question = onPhone(info)
+      ? page.getByRole("region", { name: "What do you want to run?" })
+      : page.getByRole("region", { name: "Services" });
     await expect(question.getByRole("link")).toHaveCount(2);
     await expect(page.getByRole("link", { name: /^Book again/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "All sessions" })).toHaveCount(0);
@@ -201,24 +205,32 @@ test.describe("home", () => {
     test.skip(!onPhone(info), "on a laptop the avatar is a link to Account, which holds the menu's choices");
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
-    await page.getByRole("button", { name: "Your account and settings" }).click();
+    await page.getByRole("button", { name: "More" }).click();
     await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "home-user-menu");
   });
 });
 
-test.describe("the laptop's header", () => {
-  test("has five tabs, the credit chip, the bell, and an avatar that links to Account", async ({
+test.describe("the sidebar", () => {
+  test("has six destinations, the bell, and the account at the foot, a link to Account", async ({
     page,
   }, info) => {
-    test.skip(onPhone(info), "the header's tabs and chip are from 768 px");
+    test.skip(onPhone(info), "the sidebar is from 768 px");
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
     const tabs = page.getByRole("navigation", { name: "Main" });
-    await expect(tabs.getByRole("link")).toHaveText(["Home", "Book", "Sessions", "Hosting", "Credit"]);
+    await expect(tabs.getByRole("link")).toHaveText([
+      "Home",
+      "Book a GPU",
+      "Sessions",
+      "My files",
+      "Hosting",
+      "Credit",
+    ]);
     await expect(tabs.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("banner").getByText("₹462.12")).toBeVisible();
+    // The credit is a panel on Home, not a chip in a bar.
+    await expect(page.getByRole("main").getByRole("link", { name: /^Credit/ })).toContainText("₹462.12");
     const avatar = page.getByRole("link", { name: "Account" });
     await expect(avatar).toHaveAttribute("href", "/account/");
     await expect(page.getByRole("button", { name: "Your account and settings" })).toHaveCount(0);

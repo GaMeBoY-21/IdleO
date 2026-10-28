@@ -84,7 +84,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 export function ShellSkeleton({ children }: { children?: ReactNode }) {
   return (
     <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)} aria-busy="true">
-      <div className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-sidebar md:block" />
+      <div className="fixed inset-y-0 left-0 hidden w-sidebar border-r border-line bg-sidebar md:block" />
       <div className="h-16 bg-canvas md:hidden" />
       <div className="flex w-full flex-1 flex-col">{children}</div>
     </div>

@@ -175,7 +175,7 @@ function ExportBox({ exports }: { exports: ReturnType<typeof useExports> }) {
       : undefined;
   return (
     <div className="flex flex-col gap-3">
-      <p className="min-h-6 text-small" aria-live="polite">
+      <p className="min-h-10 text-small" aria-live="polite">
         {status ?? <SkeletonLine size="small" width="w-2/3" />}
       </p>
       <div className="flex flex-wrap gap-3">

@@ -487,14 +487,16 @@ async function logsInp(page: Page, sessionId: string): Promise<number> {
   return finish(page, cdp);
 }
 
-/** The worst interaction latency across opening the menu, switching theme and moving between screens. */
+/** The worst interaction latency across opening the More menu and moving between screens. */
 async function interactionToNextPaint(page: Page): Promise<number> {
   const cdp = await measured(page, "/");
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
-  await page.getByRole("button", { name: "Your account and settings" }).click();
-  await page.getByRole("menuitemradio", { name: "Dark" }).click();
-  await page.getByRole("button", { name: "Your account and settings" }).click();
-  await page.getByRole("menuitemradio", { name: "Match my device" }).click();
+  await page.getByRole("button", { name: "More" }).click();
+  await expect(page.getByRole("menuitem", { name: "My files" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "More" }).click();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await page.keyboard.press("Escape");
   // Not Credit: it's a page load of its own (its own security policy, ADR 0039), which payInp measures.
   await page.getByRole("link", { name: "Hosting" }).first().click();
   await expect(page.getByRole("heading", { name: "Hosting", level: 1 })).toBeVisible();

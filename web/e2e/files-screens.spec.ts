@@ -5,7 +5,7 @@ import { capture, expectAccessible, fakeApi, onPhone, signIn, watchConsole, type
 /**
  * My files (ADR 0022) in every state, light and dark, phone and laptop: the renter's uploads with their size, files
  * and last use; deleting one, asked once more in its row; one a running session uses, which can't be deleted yet;
- * nothing yet; loading; and an error with a retry. Reached from the account menu.
+ * nothing yet; loading; and an error with a retry. Reached from the More menu on a phone and the sidebar on a laptop.
  */
 function api(overrides: Record<string, Answer> = {}): Record<string, Answer> {
   return {
@@ -27,16 +27,15 @@ test.afterEach(() => checkConsole());
 
 const list = (page: import("@playwright/test").Page) => page.getByRole("list", { name: "Your files" });
 
-test("my files, from the account menu", async ({ page }, info) => {
+test("my files, from the More menu or the sidebar", async ({ page }, info) => {
   await fakeApi(page, api());
   await signIn(page, "asha", "/");
   if (onPhone(info)) {
-    await page.getByRole("button", { name: "Your account and settings" }).click();
+    await page.getByRole("button", { name: "More" }).click();
     await page.getByRole("menuitem", { name: "My files" }).click();
   } else {
-    // On a laptop the avatar is a link to Account, whose rail has My files.
-    await page.getByRole("link", { name: "Account" }).click();
-    await page.getByRole("navigation", { name: "Account" }).getByRole("link", { name: "My files" }).click();
+    // On a laptop My files is in the sidebar.
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "My files" }).click();
   }
   await expect(page).toHaveURL(/\/files\/$/);
   await expect(page.getByRole("heading", { level: 1, name: "My files" })).toBeVisible();
@@ -91,7 +90,7 @@ test("nothing yet", async ({ page }, info) => {
   await fakeApi(page, api({ "/v1/uploads": { json: data.uploadsPage([]) } }));
   await signIn(page, "asha", "/files/");
   await expect(page.getByText("Nothing here yet")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Book a GPU" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Book a GPU" })).toBeVisible();
   await expectAccessible(page);
   await capture(page, info, "files-empty");
 });

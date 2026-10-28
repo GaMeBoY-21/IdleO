@@ -7,8 +7,8 @@ import { AccountLink } from "./AccountLink";
 import { NotificationBell } from "./NotificationBell";
 import { destinations, isCurrent } from "./nav";
 
-/** The sidebar's width: the content beside it is pushed in by the same (`md:pl-64`, web/DESIGN.md "Navigation"). */
-export const SIDEBAR_PUSH = "md:pl-64";
+/** The sidebar's width: the content beside it is pushed in by the same (`md:pl-sidebar`, web/DESIGN.md "Navigation"). */
+export const SIDEBAR_PUSH = "md:pl-sidebar";
 
 /**
  * The app's left sidebar, from 768 px (approved reference `AppHome`): the wordmark, the six destinations, and the
@@ -18,7 +18,7 @@ export const SIDEBAR_PUSH = "md:pl-64";
 export function Sidebar() {
   const [pathname] = useLocation();
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 hidden w-64 flex-col gap-1.5 border-r border-line bg-sidebar px-4 py-6 md:flex">
+    <aside className="fixed inset-y-0 left-0 z-10 hidden w-sidebar flex-col gap-1.5 border-r border-line bg-sidebar px-4 py-6 md:flex">
       <Link href="/" className="flex min-h-touch items-center px-3 pb-4" aria-label={`${brand.name} home`}>
         <Wordmark />
       </Link>

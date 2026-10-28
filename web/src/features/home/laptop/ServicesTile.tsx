@@ -38,7 +38,7 @@ export function ServicesTile({
             href={bookHref(service.id)}
             tone={tone}
             size="lg"
-            className="min-h-card gap-4"
+            className="min-h-service-card gap-4"
           >
             <span className="text-caption font-bold tracking-wider uppercase">
               {serviceTime(catalog, service.id)}

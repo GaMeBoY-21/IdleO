@@ -25,7 +25,7 @@ export function Logs({
   id: string;
   settled: boolean;
   laptop: boolean;
-  /** The left column of the laptop's pair, under the loss chart (the GPU's panel). */
+  /** The left column of the laptop's pair, over the loss chart (the GPU's panel). */
   side?: ReactNode;
 }) {
   const client = useQueryClient();
@@ -82,7 +82,7 @@ export function Logs({
       key={log.data ? "log" : "loading"}
       as="section"
       aria-label="Logs"
-      className={cn("flex flex-col gap-4", laptop ? "min-h-panel px-6 py-5 xl:px-7" : "p-4")}
+      className={cn("flex flex-col gap-4", laptop ? "min-h-session-row px-6 py-5 xl:px-7" : "p-4")}
     >
       {laptop && total === 0 && title}
       {body}
@@ -94,8 +94,8 @@ export function Logs({
     return (
       <div className="grid cols-panels items-stretch gap-4">
         <div className="flex min-w-0 flex-col gap-4">
-          {log.data && <LossChart losses={signals.losses} />}
           {side}
+          {log.data && <LossChart losses={signals.losses} />}
         </div>
         {panel}
       </div>

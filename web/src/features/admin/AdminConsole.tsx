@@ -152,7 +152,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   };
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <header className="flex flex-col gap-2 border-b border-line bg-sidebar px-4 py-3 md:sticky md:top-0 md:h-dvh md:w-60 md:shrink-0 md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
+      <header className="flex flex-col gap-2 border-b border-line bg-sidebar px-4 py-3 md:sticky md:top-0 md:h-dvh md:w-sidebar-admin md:shrink-0 md:overflow-y-auto md:border-r md:border-b-0 md:py-6">
         <div className="flex items-center justify-between gap-2 md:flex-col md:items-start">
           <Link href="/" className="flex items-center gap-2 md:px-3" aria-label="IdleO home">
             <Wordmark />

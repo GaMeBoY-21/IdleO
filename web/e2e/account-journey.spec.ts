@@ -54,8 +54,8 @@ test("a new account enters its invite code, edits its account and signs out", as
   await page.waitForURL((url) => url.pathname === "/");
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeVisible();
 
-  // Account, from the avatar menu.
-  await page.getByRole("button", { name: "Your account and settings" }).click();
+  // Account, from the More menu.
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("menuitem", { name: "Account" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await expect(page.getByText(`${who}@example.com`, { exact: true })).toBeVisible();

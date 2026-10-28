@@ -403,8 +403,8 @@ test.describe("the account", () => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha", "/account/");
     await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
-    // On a laptop the rail names the person too, so the first of them.
-    await expect(page.getByText("asha@example.com", { exact: true }).first()).toBeVisible();
+    // On a laptop the rail names the person too, so the first of them in the screen.
+    await expect(page.getByRole("main").getByText("asha@example.com", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Google", { exact: true })).toBeVisible();
     await expect(page.getByRole("switch")).toHaveCount(data.notificationChoices().items.length * 2);
     for (const title of ["Host lost", "Payout sent or failed"]) {
@@ -415,11 +415,13 @@ test.describe("the account", () => {
     await capture(page, info, "account");
   });
 
-  test("is reached from the avatar menu, or on a laptop the avatar itself", async ({ page }, info) => {
+  test("is reached from the More menu, or on a laptop the account link in the sidebar", async ({
+    page,
+  }, info) => {
     await fakeApi(page, signedIn());
     await signIn(page, "asha");
     if (onPhone(info)) {
-      await page.getByRole("button", { name: "Your account and settings" }).click();
+      await page.getByRole("button", { name: "More" }).click();
       await page.getByRole("menuitem", { name: "Account" }).click();
     } else {
       await page.getByRole("link", { name: "Account" }).click();
@@ -527,7 +529,7 @@ test.describe("the account", () => {
     await capture(page, info, "account-edit-name");
     await page.getByLabel("Name").fill("  Asha Rao ");
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Asha Rao", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("main").getByText("Asha Rao", { exact: true }).first()).toBeVisible();
     expect(patched).toEqual({ displayName: "Asha Rao", ifMatch: '"3"' });
     await expect(page.getByRole("button", { name: "Edit your name" })).toBeVisible();
   });

@@ -26,18 +26,18 @@ const vars = (theme: Record<string, string>, indent = "  ") =>
     .join("\n");
 const num = (value: number) => String(Math.round(value * 1000) / 1000);
 
-const face = (family: string, file: string, weight: string, range: string) => `@font-face {
+const face = (family: string, file: string, weight: string, range: string, display = "swap") => `@font-face {
   font-family: "${family}";
   src: url("/fonts/${file}") format("woff2");
   font-weight: ${weight};
   font-style: normal;
-  font-display: swap;
+  font-display: ${display};
   unicode-range: ${range};
 }`;
 const faces = Object.values(fonts)
   .flatMap((font) => [
-    face(font.family, font.file, font.weight, font.range),
-    ...(font.more ? [face(font.family, font.more.file, font.weight, font.more.range)] : []),
+    face(font.family, font.file, font.weight, font.range, font.display),
+    ...(font.more ? [face(font.family, font.more.file, font.weight, font.more.range, font.display)] : []),
   ])
   .join("\n\n");
 const fallbacks = Object.values(fonts)

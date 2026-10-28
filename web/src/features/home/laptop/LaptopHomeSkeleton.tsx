@@ -11,9 +11,9 @@ export function LaptopHomeSkeleton() {
     <div role="status" aria-label="Loading" className={HOME}>
       <Skeleton className="h-16 w-full" />
       <div className="grid cols-cards gap-4">
-        <Skeleton tile className="h-card" />
-        <Skeleton tile className="h-card" />
-        <Skeleton tile className="h-card" />
+        <Skeleton tile className="h-service-card" />
+        <Skeleton tile className="h-service-card" />
+        <Skeleton tile className="h-service-card" />
       </div>
       <Skeleton tile className="h-credit-row" />
       <Skeleton tile className="h-recent" />
