@@ -493,10 +493,9 @@ async function interactionToNextPaint(page: Page): Promise<number> {
   await expect(page.getByRole("heading", { name: "What do you want to run?" })).toBeAttached();
   await page.getByRole("button", { name: "More" }).click();
   await expect(page.getByRole("menuitem", { name: "My files" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "More" }).click();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
   // Not Credit: it's a page load of its own (its own security policy, ADR 0039), which payInp measures.
   await page.getByRole("link", { name: "Hosting" }).first().click();
   await expect(page.getByRole("heading", { name: "Hosting", level: 1 })).toBeVisible();
