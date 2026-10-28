@@ -18,6 +18,9 @@ trap 'rm -rf "$work"' EXIT
 # browser fetches only for a page that has one (unicode-range in src/design/tokens.ts keeps the two in step).
 basic="U+0020-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248"
 accents="U+00A1-00A8,U+00AA-00B6,U+00B8-00D6,U+00D8-00FF"
+# Archivo at 125% / 900 is set uppercase: its lowercase is only the wordmark's, a file of its own.
+caps="U+0020-0060,U+007B-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248"
+lower="U+0061-007A"
 unicodes="$basic,$accents"
 # No ligatures or contextual alternates: they cost 2.7 KB of the first screen's budget and change nothing we draw.
 features="kern,tnum,case,ccmp,locl,mark,mkmk"
@@ -37,7 +40,8 @@ fetch inter OFL-Inter.txt OFL.txt
 fetch jetbrainsmono jbmono.ttf 'JetBrainsMono%5Bwght%5D.ttf'
 fetch jetbrainsmono OFL-JetBrainsMono.txt OFL.txt
 
-cut archivo.ttf "wdth=125 wght=900" archivo-125-900.woff2
+cut archivo.ttf "wdth=125 wght=900" archivo-125-900.woff2 "$caps"
+cut archivo.ttf "wdth=125 wght=900" archivo-125-900-lower.woff2 "$lower"
 cut archivo.ttf "wdth=112 wght=800" archivo-112-800.woff2
 cut inter.ttf "opsz=14 wght=400:700" inter-400-700.woff2
 cut inter.ttf "opsz=14 wght=400:700" inter-400-700-latin1.woff2 "$accents"

@@ -1,8 +1,7 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { contrast } from "./contrast";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { contrastPairs, displayScale, fonts, preloadedFonts, themes, typeScale } from "./tokens";
 
 /** DESIGN.md's contrast table, by "fg on bg": [dark, light, minimum]. */
@@ -102,17 +101,27 @@ describe("the fonts", () => {
     expect(existsSync(new URL("plus-jakarta-sans-subset.woff2", publicFonts))).toBe(false);
   });
 
-  it("stay small: what a first screen preloads is under 30 KB in all, every file under 20 KB, the whole set under 80 KB", () => {
+  it("stay small: what the app preloads is under 24 KB, the website's under 32 KB, every file under 20 KB, the whole set under 80 KB", () => {
     const size = (file: string) => statSync(new URL(file, publicFonts)).size;
+    const total = (files: readonly string[]) => files.reduce((sum, file) => sum + size(file), 0);
     const files = Object.values(fonts).flatMap((font) => [font.file, ...(font.more ? [font.more.file] : [])]);
     for (const file of files) {
       expect(size(file), file).toBeLessThan(20 * 1024);
     }
-    expect(preloadedFonts.reduce((sum, name) => sum + size(fonts[name].file), 0)).toBeLessThan(30 * 1024);
-    expect(files.reduce((sum, file) => sum + size(file), 0)).toBeLessThan(80 * 1024);
+    expect(total(preloadedFonts.app)).toBeLessThan(24 * 1024);
+    expect(total(preloadedFonts.site)).toBeLessThan(32 * 1024);
+    expect(total(files)).toBeLessThan(80 * 1024);
   });
 
-  it("keep the two ranges apart: the first-screen file and the accented letters share no character", () => {
+  it("are preloaded where the pages say: the app's index.html and the website's head name exactly these files", () => {
+    const links = (source: string) =>
+      [...source.matchAll(/rel="preload" href="\/fonts\/([^"]+)"/g)].map((match) => match[1]).sort();
+    const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+    expect(links(read("../../index.html"))).toEqual([...preloadedFonts.app].sort());
+    expect(links(read("../../scripts/build-site.ts"))).toEqual([...preloadedFonts.site].sort());
+  });
+
+  it("keep each family's ranges apart: a file and its second file share no character", () => {
     const expand = (range: string) =>
       range.split(",").flatMap((part) => {
         const [from, to = from] = part
@@ -121,7 +130,14 @@ describe("the fonts", () => {
           .map((hex) => parseInt(hex, 16));
         return Array.from({ length: to! - from! + 1 }, (_, index) => from! + index);
       });
-    const base = new Set(expand(fonts.sans.range));
-    expect(expand(fonts.sans.more.range).filter((code) => base.has(code))).toEqual([]);
+    for (const font of Object.values(fonts)) {
+      if (font.more) {
+        const first = new Set(expand(font.range));
+        expect(
+          expand(font.more.range).filter((code) => first.has(code)),
+          font.family,
+        ).toEqual([]);
+      }
+    }
   });
 });

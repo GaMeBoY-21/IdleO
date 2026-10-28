@@ -99,6 +99,7 @@ function document(page: PageDef, body: string): string {
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0C0A1F" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="preload" href="/fonts/inter-400-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/archivo-125-900-lower.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/archivo-125-900.woff2" as="font" type="font/woff2" crossorigin />
     <script>${themeBoot}</script>
     <link rel="stylesheet" href="/${stylesheet}" />

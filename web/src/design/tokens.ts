@@ -260,6 +260,10 @@ export const fontWeights = { regular: 400, medium: 500, semibold: 600, bold: 700
 /** What the first screen's font files hold: Basic Latin, the few Latin-1 signs we use, the punctuation, arrows and rupee. */
 const BASIC_LATIN =
   "U+0020-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
+/** Archivo at 125% / 900 is set uppercase, so its file holds no lowercase; the wordmark's few lowercase letters are a second, tiny file. */
+const DISPLAY_CAPS =
+  "U+0020-0060,U+007B-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
+const DISPLAY_LOWER = "U+0061-007A";
 /** The rest of Latin-1: accented letters and the signs we do not use. */
 const LATIN_ACCENTS = "U+00A1-00A8,U+00AA-00B6,U+00B8-00D6,U+00D8-00FF";
 
@@ -282,8 +286,8 @@ export const fonts = {
     family: "Archivo Display",
     file: "archivo-125-900.woff2",
     weight: "900",
-    range: BASIC_LATIN,
-    more: null,
+    range: DISPLAY_CAPS,
+    more: { file: "archivo-125-900-lower.woff2", range: DISPLAY_LOWER },
     fallback: [133.81, 65.62, 15.69],
   },
   title: {
@@ -304,8 +308,14 @@ export const fonts = {
   },
 } as const;
 
-/** The files every page preloads. */
-export const preloadedFonts = ["sans", "display"] as const satisfies ReadonlyArray<keyof typeof fonts>;
+/**
+ * The files a first screen preloads, by file name. The app's is Inter and the wordmark's lowercase; the website adds
+ * the uppercase of its headlines. Everything else loads when the page asks for it.
+ */
+export const preloadedFonts = {
+  app: [fonts.sans.file, fonts.display.more.file],
+  site: [fonts.sans.file, fonts.display.more.file, fonts.display.file],
+} as const;
 
 /**
  * The 4 px scale, by Tailwind step; screens lay out on an 8 px grid and use the half steps only for a title's gap and
