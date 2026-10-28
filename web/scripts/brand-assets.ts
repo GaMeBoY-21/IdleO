@@ -27,7 +27,7 @@ body { margin: 0; width: 1200px; height: 630px; background: #0C0A1F; color: #fff
 .glow { position: absolute; right: -180px; top: -220px; width: 760px; height: 760px; border-radius: 50%; background: #5B4BE8; opacity: 0.55; }
 .ring { position: absolute; right: 70px; bottom: 60px; width: 300px; height: 300px; }
 .mark { position: absolute; left: 72px; top: 64px; font-size: 54px; letter-spacing: -0.03em; line-height: 1; }
-h1 { position: absolute; left: 72px; bottom: 72px; margin: 0; width: 760px; font-size: 92px; line-height: 0.98; letter-spacing: -0.03em; text-transform: uppercase; }
+h1 { position: absolute; left: 72px; bottom: 72px; margin: 0; width: 760px; font-size: 68px; line-height: 0.98; letter-spacing: -0.03em; text-transform: uppercase; }
 h1 span { color: #C8FF3D; display: block; }
 </style><div class="glow"></div><div class="ring">${icon.replace("<svg ", '<svg width="300" height="300" ')}</div>
 <div class="mark">${brand.name.toLowerCase()}</div>
