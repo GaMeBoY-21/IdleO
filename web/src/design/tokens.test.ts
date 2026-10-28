@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { contrast } from "./contrast";
 import { existsSync, statSync } from "node:fs";
-import { contrastPairs, displayScale, fonts, themes, typeScale } from "./tokens";
+import { contrastPairs, displayScale, fonts, preloadedFonts, themes, typeScale } from "./tokens";
 
 /** DESIGN.md's contrast table, by "fg on bg": [dark, light, minimum]. */
 function documentedRatios(): Map<string, [number, number, number]> {
@@ -92,6 +92,9 @@ describe("the fonts", () => {
   it("are the self-hosted files, each with its licence, and Plus Jakarta Sans is gone from the web app", () => {
     for (const font of Object.values(fonts)) {
       expect(existsSync(new URL(font.file, publicFonts)), font.file).toBe(true);
+      if (font.more) {
+        expect(existsSync(new URL(font.more.file, publicFonts)), font.more.file).toBe(true);
+      }
     }
     for (const licence of ["Archivo", "Inter", "JetBrainsMono"]) {
       expect(existsSync(new URL(`LICENSE-${licence}.txt`, publicFonts)), licence).toBe(true);
@@ -99,11 +102,26 @@ describe("the fonts", () => {
     expect(existsSync(new URL("plus-jakarta-sans-subset.woff2", publicFonts))).toBe(false);
   });
 
-  it("stay small: the two Archivo instances and Inter are each under 30 KB, and the whole set under 80 KB", () => {
-    const sizes = Object.values(fonts).map((font) => statSync(new URL(font.file, publicFonts)).size);
-    for (const size of sizes.slice(0, 3)) {
-      expect(size).toBeLessThan(30 * 1024);
+  it("stay small: what a first screen preloads is under 30 KB in all, every file under 20 KB, the whole set under 80 KB", () => {
+    const size = (file: string) => statSync(new URL(file, publicFonts)).size;
+    const files = Object.values(fonts).flatMap((font) => [font.file, ...(font.more ? [font.more.file] : [])]);
+    for (const file of files) {
+      expect(size(file), file).toBeLessThan(20 * 1024);
     }
-    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThan(80 * 1024);
+    expect(preloadedFonts.reduce((sum, name) => sum + size(fonts[name].file), 0)).toBeLessThan(30 * 1024);
+    expect(files.reduce((sum, file) => sum + size(file), 0)).toBeLessThan(80 * 1024);
+  });
+
+  it("keep the two ranges apart: the first-screen file and the accented letters share no character", () => {
+    const expand = (range: string) =>
+      range.split(",").flatMap((part) => {
+        const [from, to = from] = part
+          .replace(/U\+/g, "")
+          .split("-")
+          .map((hex) => parseInt(hex, 16));
+        return Array.from({ length: to! - from! + 1 }, (_, index) => from! + index);
+      });
+    const base = new Set(expand(fonts.sans.range));
+    expect(expand(fonts.sans.more.range).filter((code) => base.has(code))).toEqual([]);
   });
 });

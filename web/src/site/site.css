@@ -6,6 +6,11 @@
 @import "../design/tokens.gen.css";
 
 @layer base {
+  /* The docs' code is set in the reader's own monospace font: JetBrains Mono (19 KB) is for the app's logs, and fetching
+     it on a docs page cost the speed budget and moved the page when it arrived. */
+  :root {
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
   html {
     background: var(--canvas);
     color: var(--text);

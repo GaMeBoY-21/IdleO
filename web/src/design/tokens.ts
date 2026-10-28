@@ -257,26 +257,51 @@ export const displayScale = {
 
 export const fontWeights = { regular: 400, medium: 500, semibold: 600, bold: 700 } as const;
 
+/** What the first screen's font files hold: Basic Latin, the few Latin-1 signs we use, the punctuation, arrows and rupee. */
+const BASIC_LATIN =
+  "U+0020-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
+/** The rest of Latin-1: accented letters and the signs we do not use. */
+const LATIN_ACCENTS = "U+00A1-00A8,U+00AA-00B6,U+00B8-00D6,U+00D8-00FF";
+
 /**
  * The fonts (web/DESIGN.md "Typography"): self-hosted, Latin plus the rupee sign, cut by scripts/subset-font.sh. Each
  * has a fallback, Arial scaled to the font's metrics, so the page does not move when the font arrives
  * (`font-display: swap`). `preload` marks the files the first screen uses.
  */
 export const fonts = {
-  sans: { family: "Inter", file: "inter-400-700.woff2", weight: "400 700", fallback: [107.17, 90.39, 22.51] },
+  sans: {
+    family: "Inter",
+    file: "inter-400-700.woff2",
+    weight: "400 700",
+    range: BASIC_LATIN,
+    // The accented letters, fetched only by a page that has one (a person's name), so the first screen does not carry them.
+    more: { file: "inter-400-700-latin1.woff2", range: LATIN_ACCENTS },
+    fallback: [107.17, 90.39, 22.51],
+  },
   display: {
     family: "Archivo Display",
     file: "archivo-125-900.woff2",
     weight: "900",
+    range: BASIC_LATIN,
+    more: null,
     fallback: [133.81, 65.62, 15.69],
   },
   title: {
     family: "Archivo Title",
     file: "archivo-112-800.woff2",
     weight: "800",
-    fallback: [115.62, 75.94, 18.16],
+    range: BASIC_LATIN,
+    more: null,
+    fallback: [123.4, 75.94, 18.16],
   },
-  mono: { family: "JetBrains Mono", file: "jetbrains-mono-400.woff2", weight: "400", fallback: null },
+  mono: {
+    family: "JetBrains Mono",
+    file: "jetbrains-mono-400.woff2",
+    weight: "400",
+    range: `${BASIC_LATIN},${LATIN_ACCENTS}`,
+    more: null,
+    fallback: null,
+  },
 } as const;
 
 /** The files every page preloads. */

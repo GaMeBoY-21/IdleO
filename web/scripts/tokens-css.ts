@@ -26,16 +26,19 @@ const vars = (theme: Record<string, string>, indent = "  ") =>
     .join("\n");
 const num = (value: number) => String(Math.round(value * 1000) / 1000);
 
-const faces = Object.values(fonts)
-  .map(
-    (font) => `@font-face {
-  font-family: "${font.family}";
-  src: url("/fonts/${font.file}") format("woff2");
-  font-weight: ${font.weight};
+const face = (family: string, file: string, weight: string, range: string) => `@font-face {
+  font-family: "${family}";
+  src: url("/fonts/${file}") format("woff2");
+  font-weight: ${weight};
   font-style: normal;
   font-display: swap;
-}`,
-  )
+  unicode-range: ${range};
+}`;
+const faces = Object.values(fonts)
+  .flatMap((font) => [
+    face(font.family, font.file, font.weight, font.range),
+    ...(font.more ? [face(font.family, font.more.file, font.weight, font.more.range)] : []),
+  ])
   .join("\n\n");
 const fallbacks = Object.values(fonts)
   .flatMap((font) =>
