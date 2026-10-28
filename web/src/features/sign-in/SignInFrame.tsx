@@ -2,6 +2,7 @@ import { ChevronLeft } from "lucide-react";
 import { lazy, Suspense } from "react";
 import type { ReactNode } from "react";
 import { Wordmark } from "@/brand/Wordmark";
+import { PageHeading } from "@/components/ui/Heading";
 import { Tile } from "@/components/ui/Tile";
 import { cn } from "@/lib/cn";
 import { useLaptop } from "@/lib/media";
@@ -32,7 +33,7 @@ export function SignInFrame({
   const laptop = useLaptop();
   return (
     <main className="flex min-h-dvh flex-col items-center px-3.5 pt-4 pb-12 md:justify-center md:py-12 xl:items-stretch xl:px-0 xl:py-0">
-      <div className="flex w-full max-w-narrow flex-col gap-4 xl:max-w-none xl:flex-1 xl:px-8 xl:py-8 2xl:px-10">
+      <div className="flex w-full max-w-narrow flex-col gap-4 xl:max-w-none xl:flex-1 xl:px-10 xl:py-8">
         {back ? (
           <a
             href={siteLink("/")}
@@ -58,7 +59,7 @@ export function SignInFrame({
             size="lg"
             className={cn("flex flex-col", collage ? "xl:col-span-5 xl:justify-center" : "xl:w-7/12")}
           >
-            <h1 className="mb-3 text-title xl:text-question">{title}</h1>
+            <PageHeading className="mb-4">{title}</PageHeading>
             {children}
           </Tile>
           {collage && laptop && (

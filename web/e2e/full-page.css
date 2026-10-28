@@ -1,7 +1,9 @@
-/* A full-page picture would draw the phone's fixed tab bar halfway down; pin it to the page's end instead. */
+/* A full-page picture would draw the phone's fixed tab bar halfway down, and the sidebar only as tall as the window; pin
+   them to the page instead. */
 body {
   position: relative;
 }
-nav.fixed {
+nav.fixed,
+aside.fixed {
   position: absolute !important;
 }

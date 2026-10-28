@@ -34,7 +34,7 @@ export function sessionLabel(session: Session, catalog: Catalog): string {
 const COLUMNS = "cols-recent grid items-center gap-x-3";
 
 /**
- * "Recent sessions", the white tile under the services (docs/design/bento/laptop/home-laptop.html): a table of the last
+ * "Recent sessions", a panel under the credit (approved reference `AppHome`): a table of the last
  * few, with what each was, its GPU, how long it ran and what it cost, and "Run again". A live one shows a lime dot, its
  * time ticking and its cost so far, and "Open": on a laptop it replaces the phone's "Running now" tile. Run again
  * is offered only for services Home shows. With none, it says so and shows no table.
@@ -43,17 +43,16 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
   const shown = sessions.slice(0, RECENT);
   const offered = new Set(offeredServices(catalog).map((service) => service.id));
   return (
-    <Tile
-      aria-labelledby="recent-title"
-      size="lg"
-      className="flex min-h-0 flex-col gap-1.5 md:col-span-6 xl:col-span-8 xl:px-7 xl:py-6"
-    >
+    <Tile aria-labelledby="recent-title" size="lg" className="flex min-h-0 flex-col gap-1.5">
       <div className="flex items-baseline justify-between pb-1.5">
         <h2 id="recent-title" className="text-section">
           Recent sessions
         </h2>
         {shown.length > 0 && (
-          <Link href="/sessions/" className="text-small font-bold hover:underline">
+          <Link
+            href="/sessions/"
+            className="text-small font-semibold text-link hover:text-link-hover hover:underline"
+          >
             All sessions ›
           </Link>
         )}
@@ -62,7 +61,13 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
         <p className="py-6 text-body text-text-2">No sessions yet. Pick a service above to start.</p>
       ) : (
         <div role="table" aria-label="Recent sessions" className="flex flex-col">
-          <div role="row" className={cn(COLUMNS, "border-b border-line py-2 text-caption text-text-2")}>
+          <div
+            role="row"
+            className={cn(
+              COLUMNS,
+              "border-b border-line py-2 text-caption font-semibold tracking-wider text-text-3 uppercase",
+            )}
+          >
             <span role="columnheader">What</span>
             <span role="columnheader">GPU</span>
             <span role="columnheader">Ran</span>
@@ -116,14 +121,14 @@ export function RecentSessions({ sessions, catalog }: { sessions: Session[]; cat
                   {live ? (
                     <Link
                       href={`/session/?id=${session.id}`}
-                      className="flex min-h-touch items-center rounded-full bg-canvas px-3.5 text-small font-bold hover:bg-line"
+                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-3.5 text-small font-bold hover:bg-line"
                     >
                       Open
                     </Link>
                   ) : again ? (
                     <Link
                       href={bookFrom(session)}
-                      className="flex min-h-touch items-center rounded-full bg-canvas px-3.5 text-small font-bold hover:bg-line"
+                      className="flex min-h-touch items-center rounded-control bg-panel-2 px-3.5 text-small font-bold hover:bg-line"
                     >
                       Run again
                     </Link>

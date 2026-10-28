@@ -6,6 +6,7 @@ import { Money } from "@/components/ui/Money";
 import { StateChip } from "@/components/ui/StateChip";
 import { Tile, TileLabel } from "@/components/ui/Tile";
 import { Elapsed, RelativeTime } from "@/components/ui/Time";
+import { cn } from "@/lib/cn";
 import { gigabytes, gpuName } from "@/lib/gpu";
 import { costSoFar } from "@/lib/sessions";
 
@@ -39,7 +40,7 @@ export function RunningTile({
         <span className="self-start">
           <StateChip state={session.state} />
         </span>
-        <h1 className="text-title break-words">{title}</h1>
+        <h1 className="font-title text-display-feature break-words">{title}</h1>
         <p className="text-small text-on-night-2">
           {session.startedAt ? (
             <RelativeTime value={session.startedAt} prefix="Started" />
@@ -54,7 +55,7 @@ export function RunningTile({
       </div>
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="flex flex-col gap-1">
-          <p className={laptop ? "text-timer-xl" : "text-timer"}>
+          <p className={cn("font-title", laptop ? "text-timer-xl" : "text-timer")}>
             <span className="sr-only">Running for </span>
             {session.startedAt ? <Elapsed from={session.startedAt} /> : <span className="tabular">0:00</span>}
           </p>

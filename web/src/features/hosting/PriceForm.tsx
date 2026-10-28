@@ -128,7 +128,7 @@ export function ListingFields({
             <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
           </Button>
         </div>
-        <dl className="flex flex-col gap-2 rounded-control bg-canvas px-4 py-3.5 text-small">
+        <dl className="flex flex-col gap-2 rounded-control bg-panel-2 px-4 py-3.5 text-small">
           <div className="flex items-baseline justify-between gap-4">
             <dt className="font-semibold">You keep</dt>
             <dd className="w-24 text-right tabular font-semibold">

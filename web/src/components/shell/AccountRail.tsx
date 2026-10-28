@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { signOut } from "@/auth";
 import { useMe } from "@/api/queries";
-import { AppearanceChoice } from "@/components/shell/AppearanceChoice";
 import { RailColumns } from "@/components/shell/Layout";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
@@ -36,11 +35,10 @@ export function AccountRail({
         <>
           <ProfileTile />
           <SectionNav />
-          <AppearanceChoice />
           <button
             type="button"
             onClick={() => void signOut()}
-            className="min-h-12 rounded-full bg-panel text-small font-bold hover:bg-raised"
+            className="min-h-12 rounded-control bg-panel text-small font-bold hover:bg-raised"
           >
             Sign out
           </button>
@@ -97,7 +95,7 @@ function SectionNav() {
               aria-current={current ? "page" : undefined}
               className={cn(
                 "flex min-h-touch items-center rounded-control px-4 text-body",
-                current ? "bg-canvas font-bold" : "font-semibold text-text-2 hover:text-text",
+                current ? "bg-raised font-bold" : "font-semibold text-text-2 hover:text-text",
               )}
             >
               {label}

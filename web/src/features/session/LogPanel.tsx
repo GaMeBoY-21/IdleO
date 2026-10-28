@@ -12,7 +12,7 @@ const ROW_PX = 18;
 
 /** A button on the log tile: pressed in with the page's colour. */
 export const logButton =
-  "min-h-touch rounded-full bg-canvas px-3.5 text-small font-medium text-text hover:bg-line focus-visible:outline-focus";
+  "min-h-touch rounded-control bg-panel-2 px-3.5 text-small font-semibold text-text hover:bg-line focus-visible:outline-focus";
 
 /**
  * A session's log lines in the log tile (web/DESIGN.md "The session screen"): the newest 2,000 at most, in the
@@ -137,7 +137,7 @@ export function LogPanel({
               setAtBottom(bottom);
             }
           }}
-          className="absolute inset-0 overflow-auto rounded-control bg-canvas p-3 font-mono text-caption focus-visible:outline-focus"
+          className="absolute inset-0 overflow-auto rounded-inner bg-canvas p-4.5 font-mono text-caption focus-visible:outline-focus"
           data-testid="log-panel"
         >
           {start > 0 && (

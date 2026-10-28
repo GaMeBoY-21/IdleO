@@ -32,7 +32,7 @@ export function StopAction({
 }: {
   session: Session;
   laptop: boolean;
-  /** On a laptop the button sits inside the dark tile (docs/design/bento/laptop/live-session-laptop.html). */
+  /** On a laptop the button sits inside the night band, beside the time and the cost. */
   inside?: boolean;
 }) {
   const settle = useSettle();
@@ -53,7 +53,7 @@ export function StopAction({
   useEffect(() => afterFirstScreen(() => void loadStopDialog()), []);
   const button = (
     <>
-      <Button variant="ghost" large block onClick={() => setAsking(true)}>
+      <Button variant={inside ? "secondary" : "ghost"} large block={!inside} onClick={() => setAsking(true)}>
         Stop session
       </Button>
       {asking && (
@@ -74,9 +74,9 @@ export function StopAction({
   );
   if (inside) {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex max-w-menu flex-col gap-2">
         {button}
-        <p className="text-center text-caption text-on-night-2">
+        <p className="text-caption text-on-night-3">
           It saves a checkpoint first. Nothing more is charged once it stops.
         </p>
       </div>

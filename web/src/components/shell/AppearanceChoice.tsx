@@ -12,8 +12,8 @@ const choices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
 ];
 
 /**
- * The theme, in Account's rail from 768 px (the avatar is a link there, so the menu's theme choice has moved here):
- * Match my device, Day Shift or Night Shift, remembered on this browser, and shared with the website. One group of radios, as the menu's was.
+ * The theme, on Account (web/DESIGN.md "Colour"): Match my device, Light (Day Shift) or Dark (Night Shift), remembered on
+ * this browser and shared with the website by a cookie on the parent domain. One group of radios.
  */
 export function AppearanceChoice() {
   const [theme, setTheme] = useState<ThemeChoice>(readThemeChoice);
@@ -35,7 +35,7 @@ export function AppearanceChoice() {
             }}
             className={cn(
               "flex min-h-touch items-center gap-3 rounded-control px-4 text-small",
-              theme === value ? "bg-canvas font-bold" : "font-semibold text-text-2 hover:text-text",
+              theme === value ? "bg-raised font-bold" : "font-semibold text-text-2 hover:text-text",
             )}
           >
             <Icon aria-hidden="true" className="size-5" strokeWidth={1.75} />

@@ -31,7 +31,10 @@ export function CreditCard({ wallet, wide = false }: { wallet: UseQueryResult<Wa
         <>
           <div className="flex flex-col gap-1">
             <p className="text-small font-semibold text-on-night-2">Available</p>
-            <Money paise={wallet.data.availablePaise} className="block text-timer xl:text-timer-lg" />
+            <Money
+              paise={wallet.data.availablePaise}
+              className="block font-title text-timer xl:text-timer-lg"
+            />
             <p className="min-h-4.5 text-caption text-on-night-2" role="status">
               {restored ? (
                 <>

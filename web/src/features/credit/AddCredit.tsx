@@ -44,7 +44,7 @@ export function AddCredit({ details }: { details: UseQueryResult<BillingDetails>
 
   return (
     <Tile as="section" aria-labelledby="add-credit" className="flex flex-col gap-4">
-      <h2 id="add-credit" className="text-title font-semibold">
+      <h2 id="add-credit" className="font-title text-display-card">
         Add credit
       </h2>
       <div role="group" aria-label="Amount" className="flex flex-wrap gap-2 tabular">
@@ -105,7 +105,7 @@ export function AddCredit({ details }: { details: UseQueryResult<BillingDetails>
 function chip(selected: boolean) {
   return cn(
     "flex min-h-touch items-center rounded-full px-4 text-small font-semibold transition-colors disabled:opacity-60",
-    selected ? "bg-primary text-primary-fg" : "bg-canvas hover:bg-line",
+    selected ? "bg-primary text-primary-fg" : "bg-panel-2 hover:bg-line",
   );
 }
 

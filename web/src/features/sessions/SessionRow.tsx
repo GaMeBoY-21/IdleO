@@ -73,7 +73,7 @@ export function SessionTable({ sessions }: { sessions: Session[] }) {
     <Tile as="div" className="flex flex-col px-6 py-2">
       <div
         aria-hidden="true"
-        className="flex items-center gap-4 border-b border-line px-3 py-3 text-caption font-medium text-text-2"
+        className="flex items-center gap-4 border-b border-line px-3 py-3 text-caption font-semibold tracking-wider text-text-3 uppercase"
       >
         <span className="flex-1">Service</span>
         <span className="w-1/5 shrink-0 text-left">Started</span>
@@ -98,7 +98,7 @@ function TableRow({ session }: { session: Session }) {
     <li>
       <Link
         href={`/session/?id=${session.id}`}
-        className="flex min-h-18 items-center gap-4 rounded-control px-3 py-3 hover:bg-canvas"
+        className="flex min-h-18 items-center gap-4 rounded-control px-3 py-3 hover:bg-panel-2"
       >
         <span className="flex min-w-0 flex-1 items-center gap-3">
           {live && (

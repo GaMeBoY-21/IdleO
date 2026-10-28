@@ -95,7 +95,7 @@ export function YourData() {
         </Tile>
         <Tile as="section" aria-labelledby="delete-title" className="flex flex-col gap-1 md:p-6 xl:p-7">
           <SectionTitle id="delete-title">Delete my account</SectionTitle>
-          <Link href="/account/delete/" className="flex min-h-touch items-center gap-3 hover:bg-canvas">
+          <Link href="/account/delete/" className="flex min-h-touch items-center gap-3 hover:bg-panel-2">
             <p className="flex-1 text-small text-text-2">
               What&apos;s erased, what we must keep, and the 7 days you have to change your mind.
             </p>

@@ -79,7 +79,7 @@ export function Hosting() {
                       </span>
                     )}
                   </p>
-                  <Money paise={owner.weekPaise} className="block text-timer" />
+                  <Money paise={owner.weekPaise} className="block font-title text-timer" />
                   <p className="text-small text-on-night-2 tabular">
                     <Money paise={owner.totalPaise} /> in total · payouts start with the paid pilot
                   </p>
@@ -148,7 +148,7 @@ function AddLink() {
 function Pitch() {
   return (
     <Tile aria-labelledby="pitch-title" className="flex flex-col gap-5 p-6">
-      <h2 id="pitch-title" className="text-title">
+      <h2 id="pitch-title" className="font-title text-display-feature">
         Earn from the GPU you aren&apos;t using
       </h2>
       <p className="max-w-prose text-body text-text-2">

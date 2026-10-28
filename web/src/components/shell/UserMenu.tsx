@@ -1,43 +1,38 @@
-import { Check, FolderOpen, LogOut, Monitor, Moon, Sun, User } from "lucide-react";
+import { FolderOpen, LogOut, User } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
-import { useState } from "react";
 import { Link } from "wouter";
 import { signOut, useAuth } from "@/auth";
-import { config } from "@/config";
-import { applyThemeChoice, readThemeChoice, type ThemeChoice } from "@/design/theme";
 import { cn } from "@/lib/cn";
-import { Avatar } from "./UserMenuButton";
-
-const themeChoices: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
-  { value: "system", label: "Match my device", icon: Monitor },
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-];
+import { Avatar, MoreFace } from "./UserMenuButton";
 
 const item =
-  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-canvas";
+  "flex min-h-touch cursor-default items-center gap-3 rounded-control px-3 text-small outline-none select-none data-highlighted:bg-raised";
 
-/** Who's signed in, My files, the theme switch, and signing out. */
-export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
+/** Who's signed in, Account, My files and signing out. On a phone (`tab`) it is the tab bar's "More". */
+export function UserMenu({ defaultOpen = false, tab = false }: { defaultOpen?: boolean; tab?: boolean }) {
   const auth = useAuth();
-  const [theme, setTheme] = useState<ThemeChoice>(readThemeChoice);
 
   const email = auth.status === "signed-in" ? auth.user.email : null;
 
   return (
     <DropdownMenu.Root modal={false} defaultOpen={defaultOpen}>
       <DropdownMenu.Trigger
-        className="flex size-touch items-center justify-center rounded-full"
-        aria-label="Your account and settings"
+        className={
+          tab
+            ? "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-bar text-text-2 data-[state=open]:text-text"
+            : "flex size-touch items-center justify-center rounded-full"
+        }
+        aria-label={tab ? "More" : "Your account and settings"}
       >
-        <Avatar />
+        {tab ? <MoreFace /> : <Avatar />}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
-          sideOffset={4}
+          side={tab ? "top" : "bottom"}
+          sideOffset={tab ? 12 : 4}
           data-tile=""
-          className="appear z-20 w-menu rounded-panel bg-panel p-2 border border-line"
+          className="appear z-20 w-menu rounded-panel border border-edge bg-panel p-2 ring-1 ring-line"
         >
           {email && (
             <DropdownMenu.Label className="truncate px-3 py-2 text-caption text-text-2">
@@ -57,28 +52,6 @@ export function UserMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
               My files
             </Link>
           </DropdownMenu.Item>
-          <DropdownMenu.Separator className="my-1 h-px bg-line" />
-          <DropdownMenu.Label className="px-3 pt-2 pb-1 text-caption font-medium text-text-2">
-            Theme
-          </DropdownMenu.Label>
-          <DropdownMenu.RadioGroup
-            value={theme}
-            onValueChange={(value) => {
-              const choice = value as ThemeChoice;
-              setTheme(choice);
-              applyThemeChoice(choice, config.siteUrl);
-            }}
-          >
-            {themeChoices.map(({ value, label, icon: Icon }) => (
-              <DropdownMenu.RadioItem key={value} value={value} className={item}>
-                <Icon aria-hidden="true" className="size-5" strokeWidth={1.75} />
-                <span className="flex-1">{label}</span>
-                <DropdownMenu.ItemIndicator>
-                  <Check aria-hidden="true" className="size-4" strokeWidth={1.75} />
-                </DropdownMenu.ItemIndicator>
-              </DropdownMenu.RadioItem>
-            ))}
-          </DropdownMenu.RadioGroup>
           <DropdownMenu.Separator className="my-1 h-px bg-line" />
           <DropdownMenu.Item className={cn(item, "text-danger")} onSelect={() => void signOut()}>
             <LogOut aria-hidden="true" className="size-5" strokeWidth={1.75} />

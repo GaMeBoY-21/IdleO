@@ -16,8 +16,7 @@ const load = () =>
     StepsTile: steps.StepsTile,
     YourRequestTile: request.YourRequestTile,
     LiveTile: live.LiveTile,
-    GpuStats: side.GpuStats,
-    CheckpointsTile: side.CheckpointsTile,
+    StatsPanel: side.StatsPanel,
   }));
 
 type Tiles = Awaited<ReturnType<typeof load>>;

@@ -16,7 +16,7 @@ export function Collage() {
       >
         <Icon icon={Cpu} onDark />
         <div className="flex flex-col gap-3">
-          <h2 className="text-question">Rent a GPU by the minute</h2>
+          <h2 className="font-title text-display-panel">Rent a GPU by the minute</h2>
           <p className="text-body text-on-night-2">
             Paid in rupees, and only for the minutes it ran. We provide the GPU; you bring your own model,
             data and code.
@@ -26,7 +26,7 @@ export function Collage() {
       <Tile tone="volt" size="lg" className="flex flex-col justify-between gap-2">
         <Icon icon={Clock} />
         <div className="flex flex-col gap-2">
-          <h2 className="text-title">Fine-tune a model</h2>
+          <h2 className="font-title text-display-feature">Fine-tune a model</h2>
           <p className="text-body text-ink">Upload your model and examples, and download the adapter.</p>
         </div>
       </Tile>
@@ -34,14 +34,14 @@ export function Collage() {
         <Tile tone="ember" size="lg" className="flex flex-col justify-between gap-2 xl:p-6">
           <Icon icon={Zap} />
           <div className="flex flex-col gap-1">
-            <h2 className="text-section">Earn with your GPU</h2>
+            <h2 className="font-title text-display-card">Earn with your GPU</h2>
             <p className="text-small text-ink">Host the one you aren&apos;t using.</p>
           </div>
         </Tile>
         <Tile tone="ion" size="lg" className="flex flex-col justify-between gap-2 xl:p-6">
           <Icon icon={Lock} />
           <div className="flex flex-col gap-1">
-            <h2 className="text-section">A locked box</h2>
+            <h2 className="font-title text-display-card">A locked box</h2>
             <p className="text-small text-ink">Jobs never touch a host&apos;s files.</p>
           </div>
         </Tile>

@@ -2,14 +2,14 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * The laptop's frame and grid (web/DESIGN.md "Laptop layout"): the content runs the full width of the window inside the
- * side padding (14 px on a phone, 24 from 768 px, 32 from 1200 px, 40 from 1680 px), with no maximum width and no
- * centred frame; tiles sit on a 12-column grid (6 on a tablet) with a 16 px gap (20 from 1680 px).
+ * The laptop's frame and grid (web/DESIGN.md "Laptop layout"): the content runs the full width beside the sidebar inside
+ * the side padding (14 px on a phone, 32 from 768 px, 40 from 1200 px), with no maximum width and no centred frame;
+ * tiles sit on a 12-column grid (6 on a tablet) with a 16 px gap (20 from 1680 px).
  */
-export const FRAME = "w-full px-3.5 md:px-6 xl:px-8 2xl:px-10";
+export const FRAME = "w-full px-3.5 md:px-8 xl:px-10";
 export const GRID = "grid grid-cols-6 gap-4 xl:grid-cols-12 2xl:gap-5";
-/** The frame of a screen that fills the window: 16 px under the header, 24 px at the foot. */
-export const FIT_FRAME = cn(FRAME, "pt-4 pb-6");
+/** The frame of a screen that fills the window: 32 px above on a laptop, 48 px at the foot. */
+export const FIT_FRAME = cn(FRAME, "pt-4 pb-6 md:pt-8 md:pb-12");
 
 /**
  * Two columns from 1200 px: a rail (400 px, or 320 px for Account) with the summary tiles and the rest beside it, filling

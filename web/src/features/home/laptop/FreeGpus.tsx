@@ -49,7 +49,7 @@ export function classRows(gpus: Gpu[]): ClassRow[] {
 }
 
 /**
- * "GPUs free right now", the lavender tile (docs/design/bento/laptop/home-laptop.html): a row for each class with how
+ * "GPUs free right now", a panel: a row for each class with how
  * many are free and their price an hour; a class with none free is dimmed. It is read again every 30 s while the tab is
  * visible, and not at all until the screen has painted. With nothing to show it isn't drawn, and nothing is invented.
  */
@@ -60,15 +60,13 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
     return null;
   }
   return (
-    <Tile
-      tone="ion"
-      size="lg"
-      aria-labelledby="free-gpus"
-      className="flex min-h-0 flex-1 flex-col gap-3 xl:p-6"
-    >
-      <div className="flex items-center justify-between text-caption text-ink">
-        <h2 id="free-gpus" className="flex items-center gap-2 text-caption font-normal">
-          <span aria-hidden="true" className="size-2 rounded-full bg-ink" />
+    <Tile size="lg" aria-labelledby="free-gpus" className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex items-center justify-between text-caption text-text-2">
+        <h2
+          id="free-gpus"
+          className="flex items-center gap-2 text-caption font-bold tracking-wider uppercase"
+        >
+          <span aria-hidden="true" className="size-2 rounded-full bg-running-dot" />
           GPUs free right now
         </h2>
         <span>live</span>
@@ -79,13 +77,13 @@ export function FreeGpus({ enabled }: { enabled: boolean }) {
             <li
               key={row.gb}
               className={cn(
-                "flex flex-1 items-center gap-3 border-b border-ink/20 py-2 text-body tabular last:border-b-0",
-                row.free === 0 && "text-ink",
+                "flex flex-1 items-center gap-3 border-b border-line py-2 text-body tabular last:border-b-0",
+                row.free === 0 && "text-text-2",
               )}
             >
               <span className="w-16 font-bold">{row.gb} GB</span>
               <span className="flex-1">{row.free === 0 ? "none free" : `${row.free} free`}</span>
-              <span className={cn(row.free > 0 && "font-bold")}>
+              <span className={cn(row.free > 0 && "font-bold text-running")}>
                 {row.range ? `${formatPaiseRange(row.range.min * 60, row.range.max * 60)}/h` : "—"}
               </span>
             </li>

@@ -56,7 +56,7 @@ export function RefundTile({
   }
   return (
     <Tile as="section" aria-labelledby="refund-title" className="flex flex-col gap-3">
-      <h2 id="refund-title" className="text-title font-semibold">
+      <h2 id="refund-title" className="font-title text-display-card">
         Refund unused credit
       </h2>
       <p className="text-small text-text-2">

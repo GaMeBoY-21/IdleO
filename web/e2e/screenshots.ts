@@ -2,12 +2,17 @@
 // private/screens/<date>/<group>/ (git-ignored). The website's pages come from its sitemap, so a new page is in it
 // without being listed here; the API answers from the same invented figures the browser tests use.
 //
-//   pnpm screenshots                 # builds nothing: run `pnpm build:site` first (IDLEO_SITE_URL=http://localhost:3002 ...)
+//   pnpm screenshots                 # the website: builds nothing, so run `pnpm build:site` first
+//   pnpm screenshots app             # every app screen, in each of its states
+//   pnpm screenshots admin           # every admin screen
+//   pnpm screenshots site app admin  # several groups
 //   SHOTS_DATE=2026-10-27 pnpm screenshots
 //
-// The groups are added as each part of the product is redrawn; today there is `site`.
-import { spawn } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
+// `app` and `admin` run the browser tests' screens (web/e2e/*-screens.spec.ts) with their fixtures, which take the pictures
+// as they pass: they need the web app built and served on :3000 and the local stack up (scripts/e2e/agent-online.sh
+// --keep-running), as the tests do. A screen whose test fails has no picture, and the run says so.
+import { spawn, spawnSync } from "node:child_process";
+import { mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { availability } from "./fixtures-public.ts";
@@ -131,10 +136,48 @@ async function website(browser: Browser): Promise<number> {
   return saved;
 }
 
-const browser = await chromium.launch();
-try {
-  const saved = await website(browser);
-  console.log(`screenshots: ${saved} pictures of the website in private/screens/${date}/site/`);
-} finally {
-  await browser.close();
+/** The pictures the browser tests take, named `<state>--<phone|laptop>-<light|dark>.png`, renamed by width. */
+function screens(group: "app" | "admin"): number {
+  const specs = readdirSync(`${web}e2e`)
+    .filter((file) => /screens\.spec\.ts$/.test(file) && file.startsWith("admin-") === (group === "admin"))
+    .filter((file) => group === "admin" || !file.startsWith("public-"))
+    .map((file) => `e2e/${file}`);
+  const directory = out(group);
+  const run = spawnSync(
+    "pnpm",
+    ["exec", "playwright", "test", "--project=screens-*", "--reporter=line", ...specs],
+    { cwd: web, stdio: "inherit", env: { ...process.env, GALLERY_DIR: directory, SKIP_VISUAL: "1" } },
+  );
+  let saved = 0;
+  for (const file of readdirSync(directory)) {
+    const renamed = file.replace("--phone-", "--390-").replace("--laptop-", "--1440-");
+    if (renamed !== file) {
+      renameSync(`${directory}/${file}`, `${directory}/${renamed}`);
+    }
+    saved += 1;
+  }
+  if (run.status !== 0) {
+    console.error(`screenshots: some ${group} screens failed their checks; they have no picture`);
+    process.exitCode = 1;
+  }
+  return saved;
+}
+
+const groups = process.argv.slice(2);
+for (const group of groups.length === 0 ? ["site"] : groups) {
+  if (group === "site") {
+    const browser = await chromium.launch();
+    try {
+      const saved = await website(browser);
+      console.log(`screenshots: ${saved} pictures of the website in private/screens/${date}/site/`);
+    } finally {
+      await browser.close();
+    }
+  } else if (group === "app" || group === "admin") {
+    console.log(
+      `screenshots: ${screens(group)} pictures of the ${group} in private/screens/${date}/${group}/`,
+    );
+  } else {
+    throw new Error(`unknown group ${group}: site, app or admin`);
+  }
 }

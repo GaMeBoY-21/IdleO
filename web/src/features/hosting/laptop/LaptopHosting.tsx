@@ -28,7 +28,7 @@ export function AddTile({ className }: { className?: string }) {
           <li>Plugged in, with an internet connection that stays on</li>
         </ul>
         <span className="flex flex-col gap-1.5">
-          <span className="text-title">Add a machine</span>
+          <span className="font-title text-display-card">Add a machine</span>
           <span className="text-body text-ink">
             A one-time code links your laptop. Takes about 5 minutes.
           </span>
@@ -48,7 +48,7 @@ export function LaptopPitch() {
         aria-labelledby="pitch-title"
         className="flex flex-col justify-between gap-6 md:col-span-6 xl:col-span-8 xl:min-h-96 xl:p-8"
       >
-        <h1 id="pitch-title" className="text-question">
+        <h1 id="pitch-title" className="font-title text-display-panel">
           Earn from the GPU you aren&apos;t using
         </h1>
         <p className="max-w-prose text-body text-on-night-2">
@@ -105,7 +105,7 @@ export function LaptopHosting({
           </span>
           {owner ? (
             <span className="flex flex-col gap-1">
-              <Money paise={owner.weekPaise} className="block text-timer-lg" />
+              <Money paise={owner.weekPaise} className="block font-title text-timer-lg" />
               <span className="text-small text-on-night-2 tabular">
                 <Money paise={owner.totalPaise} /> in total · {formatMinutes(owner.minutesRentedThisWeek)}{" "}
                 rented

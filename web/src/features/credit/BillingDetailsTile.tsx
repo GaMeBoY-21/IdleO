@@ -17,7 +17,7 @@ const DetailsForm = lazy(() =>
 export function BillingDetailsTile({ details }: { details: UseQueryResult<BillingDetails> }) {
   return (
     <Tile as="section" aria-labelledby="billing-details" className="flex flex-col gap-4">
-      <h2 id="billing-details" className="text-title font-semibold">
+      <h2 id="billing-details" className="font-title text-display-card">
         Billing details
       </h2>
       {details.data ? (
@@ -46,7 +46,7 @@ function DetailsSkeleton() {
       {[0, 1, 2].map((key) => (
         <div key={key} className="flex flex-col gap-2">
           <SkeletonLine size="small" width="w-1/3" />
-          <div className="min-h-14 rounded-control bg-canvas" />
+          <div className="min-h-14 rounded-control bg-panel-2" />
           <div className="min-h-4.5" />
         </div>
       ))}
@@ -54,7 +54,7 @@ function DetailsSkeleton() {
         <SkeletonLine size="caption" width="w-full" />
         <SkeletonLine size="caption" width="w-1/2" />
       </div>
-      <div className="min-h-touch w-24 rounded-full bg-canvas" />
+      <div className="min-h-touch w-24 rounded-full bg-panel-2" />
     </div>
   );
 }

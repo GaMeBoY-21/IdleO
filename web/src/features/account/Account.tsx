@@ -2,6 +2,7 @@ import { useNotifications } from "@/api/account";
 import { useMe } from "@/api/queries";
 import { signOut } from "@/auth";
 import { AccountFrame } from "@/components/shell/AccountFrame";
+import { AppearanceChoice } from "@/components/shell/AppearanceChoice";
 import { Button } from "@/components/ui/Button";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
@@ -32,93 +33,96 @@ export function Account() {
   return (
     <AccountFrame title="Account" className="xl:grid xl:grid-cols-5 xl:items-start">
       {since !== null && <StaleNotice updatedAt={since} />}
-      <Tile
-        as="section"
-        aria-labelledby="you-title"
-        className="flex flex-col gap-1 md:p-6 xl:col-span-2 xl:p-7"
-      >
-        <SectionTitle id="you-title">
-          <span className="md:hidden">You</span>
-          <span className="hidden md:inline">Profile</span>
-        </SectionTitle>
-        {me.data ? (
-          <div className="flex flex-col divide-y divide-line">
-            <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
-            <Fact
-              label="Email"
-              value={me.data.email ?? "No email on file"}
-              note={me.data.emailUndeliverable ? UNDELIVERABLE : undefined}
-              action={
-                <Link href="/account/help/" className="shrink-0 text-small underline">
-                  To change it, write to us
-                </Link>
-              }
-            />
-            {methods !== "" && <Fact label="Signed in with" value={methods} />}
-            <Link href="/account/keys/" className={`${ROW} hover:bg-canvas md:hidden`}>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="text-option font-semibold">API keys</p>
-                <p className="text-small text-text-2">For the command line, scripts and the SDK</p>
-              </div>
-              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-            </Link>
-            <Link href="/account/data/" className={`${ROW} hover:bg-canvas md:hidden`}>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="text-option font-semibold">Your data</p>
-                <p className="text-small text-text-2">What we hold, download it, or delete your account</p>
-              </div>
-              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-            </Link>
-            <Link href="/account/help/" className={`${ROW} hover:bg-canvas md:hidden`}>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="text-option font-semibold">Help</p>
-                <p className="text-small text-text-2">Write to us, and read our answers</p>
-              </div>
-              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-            </Link>
-            <Link href="/account/images/" className={`${ROW} hover:bg-canvas md:hidden`}>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="text-option font-semibold">My images</p>
-                <p className="text-small text-text-2">
-                  Your own container images, and what their checks found
-                </p>
-              </div>
-              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-            </Link>
-            <Link href="/account/reports/" className={`${ROW} hover:bg-canvas md:hidden`}>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="text-option font-semibold">Reports</p>
-                <p className="text-small text-text-2">Problems you&apos;ve reported, and what we decided</p>
-              </div>
-              <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
-            </Link>
-          </div>
-        ) : me.isError ? (
-          <ErrorState
-            error={me.error}
-            what="your account"
-            onRetry={() => void me.refetch()}
-            retrying={me.isFetching}
-          />
-        ) : (
-          <div className="flex flex-col divide-y divide-line" role="status" aria-label="Loading your account">
-            {[0, 1, 2].map((key) => (
-              <div key={key} className={ROW}>
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <SkeletonLine size="caption" width="w-16" />
-                  <SkeletonLine size="option" width="w-1/2" />
+      <div className="flex min-w-0 flex-col gap-4 xl:col-span-2">
+        <Tile as="section" aria-labelledby="you-title" className="flex flex-col gap-1 md:p-6 xl:p-7">
+          <SectionTitle id="you-title">
+            <span className="md:hidden">You</span>
+            <span className="hidden md:inline">Profile</span>
+          </SectionTitle>
+          {me.data ? (
+            <div className="flex flex-col divide-y divide-line">
+              <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
+              <Fact
+                label="Email"
+                value={me.data.email ?? "No email on file"}
+                note={me.data.emailUndeliverable ? UNDELIVERABLE : undefined}
+                action={
+                  <Link href="/account/help/" className="shrink-0 text-small underline">
+                    To change it, write to us
+                  </Link>
+                }
+              />
+              {methods !== "" && <Fact label="Signed in with" value={methods} />}
+              <Link href="/account/keys/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-option font-semibold">API keys</p>
+                  <p className="text-small text-text-2">For the command line, scripts and the SDK</p>
                 </div>
-                {key === 0 && <Skeleton className="h-touch w-16" />}
-              </div>
-            ))}
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+              </Link>
+              <Link href="/account/data/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-option font-semibold">Your data</p>
+                  <p className="text-small text-text-2">What we hold, download it, or delete your account</p>
+                </div>
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+              </Link>
+              <Link href="/account/help/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-option font-semibold">Help</p>
+                  <p className="text-small text-text-2">Write to us, and read our answers</p>
+                </div>
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+              </Link>
+              <Link href="/account/images/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-option font-semibold">My images</p>
+                  <p className="text-small text-text-2">
+                    Your own container images, and what their checks found
+                  </p>
+                </div>
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+              </Link>
+              <Link href="/account/reports/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-option font-semibold">Reports</p>
+                  <p className="text-small text-text-2">Problems you&apos;ve reported, and what we decided</p>
+                </div>
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-text-2" strokeWidth={1.75} />
+              </Link>
+            </div>
+          ) : me.isError ? (
+            <ErrorState
+              error={me.error}
+              what="your account"
+              onRetry={() => void me.refetch()}
+              retrying={me.isFetching}
+            />
+          ) : (
+            <div
+              className="flex flex-col divide-y divide-line"
+              role="status"
+              aria-label="Loading your account"
+            >
+              {[0, 1, 2].map((key) => (
+                <div key={key} className={ROW}>
+                  <div className="flex flex-1 flex-col gap-0.5">
+                    <SkeletonLine size="caption" width="w-16" />
+                    <SkeletonLine size="option" width="w-1/2" />
+                  </div>
+                  {key === 0 && <Skeleton className="h-touch w-16" />}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="pt-4 md:hidden">
+            <Button variant="ghost" onClick={() => void signOut()}>
+              Sign out
+            </Button>
           </div>
-        )}
-        <div className="pt-4 md:hidden">
-          <Button variant="ghost" onClick={() => void signOut()}>
-            Sign out
-          </Button>
-        </div>
-      </Tile>
+        </Tile>
+        <AppearanceChoice />
+      </div>
       <Tile
         as="section"
         aria-labelledby="notifications-title"

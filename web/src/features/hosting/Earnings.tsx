@@ -107,7 +107,7 @@ function Totals({ owner, heading = false }: { owner: OwnerEarnings; heading?: bo
     >
       <div className="flex flex-col gap-1">
         <p className="text-small font-semibold text-on-night-2">All machines, in total</p>
-        <Money paise={owner.totalPaise} className="block text-timer" />
+        <Money paise={owner.totalPaise} className="block font-title text-timer" />
       </div>
       <dl className="grid grid-cols-2 gap-2">
         <Figure label="This week">

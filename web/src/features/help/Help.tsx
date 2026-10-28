@@ -102,7 +102,7 @@ function TicketRow({ ticket }: { ticket: SupportTicket }) {
     contact.data?.topics.find((candidate) => candidate.code === ticket.topic)?.label ?? ticket.topic;
   return (
     <li>
-      <Link href={`/account/help/ticket/?id=${ticket.id}`} className={`${ROW} hover:bg-canvas`}>
+      <Link href={`/account/help/ticket/?id=${ticket.id}`} className={`${ROW} hover:bg-panel-2`}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="truncate text-option font-semibold">
             {ticketNumber(ticket.number)} · {topic}

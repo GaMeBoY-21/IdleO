@@ -5,6 +5,7 @@ import { Wordmark } from "@/brand/Wordmark";
 import { UserMenuButton } from "@/components/shell/UserMenuButton";
 import { FRAME } from "@/components/shell/Layout";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeading } from "@/components/ui/Heading";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { useTitle } from "@/lib/title";
 
@@ -40,9 +41,9 @@ export function HeldShell({ children }: { children: ReactNode }) {
 export function HeldAccount() {
   useTitle("Your account is suspended");
   return (
-    <div className="w-full px-3.5 pt-2 md:px-6 md:pt-6 xl:px-8 xl:pt-4 2xl:px-10">
+    <div className="w-full px-3.5 pt-2 md:px-8 md:pt-8 xl:px-10">
       <div className="mx-auto flex w-full max-w-card flex-col gap-6">
-        <h1 className="text-title xl:text-question">Your account is suspended</h1>
+        <PageHeading>Your account is suspended</PageHeading>
         <Tile as="section" aria-labelledby="held-says" className="flex flex-col gap-4 md:p-6 xl:p-7">
           <SectionTitle id="held-says">What this means</SectionTitle>
           <p className="max-w-prose text-small text-text-2">

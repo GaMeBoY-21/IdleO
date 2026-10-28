@@ -23,11 +23,11 @@ export function BookLayout({
 }) {
   if (laptop) {
     return (
-      <div className={cn(FRAME, GRID, "flex-1 items-start pt-4 pb-10")}>
+      <div className={cn(FRAME, GRID, "flex-1 items-start pt-4 pb-12 md:pt-8")}>
         <div className="col-span-6 flex min-w-0 flex-col gap-3.5 xl:col-span-7">{left}</div>
         <section
           aria-label={service ? "Your request" : "What happens next"}
-          className="sticky top-24 col-span-6 flex flex-col xl:col-span-5"
+          className="sticky top-8 col-span-6 flex flex-col xl:col-span-5"
         >
           {service ? right : right !== null && <Tile className="flex flex-col gap-8 p-6">{right}</Tile>}
         </section>

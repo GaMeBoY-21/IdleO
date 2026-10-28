@@ -102,7 +102,7 @@ function ReportItem({ dispute }: { dispute: Dispute }) {
   const words = reportWords(dispute);
   return (
     <li>
-      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-canvas")}>
+      <Link href={`/session/?id=${dispute.sessionId}`} className={cn(ROW, "hover:bg-panel-2")}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-option font-semibold break-words">{reasonTitle(dispute.reason)}</p>
           <p className="text-small text-text-2 first-letter:uppercase">

@@ -88,7 +88,7 @@ export function Machine() {
       summary={
         <Tile tone="night" size="lg" className="flex flex-col gap-2 xl:p-7">
           <MachineChip state={state} />
-          <h1 className="text-title break-words xl:text-question">{machine.name}</h1>
+          <h1 className="font-title text-display-feature break-words">{machine.name}</h1>
           <p className="min-h-5 text-small text-on-night-2">
             {restored ? (
               <>

@@ -40,7 +40,7 @@ export function PayoutsTile({ enabled }: { enabled: boolean }) {
   return <SummarySkeleton />;
 }
 
-const FIGURE = "flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-canvas px-4 py-3.5";
+const FIGURE = "flex min-h-18 flex-col justify-center gap-0.5 rounded-control bg-panel-2 px-4 py-3.5";
 
 export function Summary({ summary }: { summary: PayoutSummary }) {
   const blocked = blockedWords(summary.blockedBy);
@@ -286,7 +286,7 @@ export function Statement({ years }: { years: string[] | null }) {
         <label className="flex flex-col gap-2 text-small font-medium">
           Year
           <select
-            className="min-h-touch rounded-control bg-canvas px-3 text-body"
+            className="min-h-touch rounded-control bg-panel-2 px-3 text-body"
             value={year}
             disabled={years === null}
             onChange={(event) => setChosen(event.target.value)}

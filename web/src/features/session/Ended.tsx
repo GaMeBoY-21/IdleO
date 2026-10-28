@@ -6,6 +6,7 @@ import { Money } from "@/components/ui/Money";
 import { StateChip } from "@/components/ui/StateChip";
 import { Tile } from "@/components/ui/Tile";
 import { RelativeTime } from "@/components/ui/Time";
+import { cn } from "@/lib/cn";
 import { ending } from "@/lib/endings";
 import { bookFrom } from "@/lib/sessions";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -96,7 +97,9 @@ export function Ended({
             <StateChip state={session.state} />
           </span>
         )}
-        <h1 className="text-title">{done ? "Done" : (HEADLINES[session.state] ?? "Ended")}</h1>
+        <h1 className="font-title text-display-feature">
+          {done ? "Done" : (HEADLINES[session.state] ?? "Ended")}
+        </h1>
         <p className="text-small text-on-night-2">
           {templateName}
           {ran && ` · ${ran}`}
@@ -170,7 +173,7 @@ function Charge({ session, laptop }: { session: Session; laptop: boolean }) {
       <p className="flex flex-col gap-1">
         <Money
           paise={session.chargedPaise + session.accruedPaise}
-          className={laptop ? "text-timer-lg" : "text-timer"}
+          className={cn("font-title", laptop ? "text-timer-lg" : "text-timer")}
         />
         <span className="text-small text-on-night-2">so far · working out the final charge</span>
       </p>
@@ -181,7 +184,10 @@ function Charge({ session, laptop }: { session: Session; laptop: boolean }) {
   }
   return (
     <p className="flex flex-col gap-1">
-      <Money paise={session.chargedPaise} className={laptop ? "text-timer-lg" : "text-timer"} />
+      <Money
+        paise={session.chargedPaise}
+        className={cn("font-title", laptop ? "text-timer-lg" : "text-timer")}
+      />
       <span className="text-small text-on-night-2">Charged</span>
     </p>
   );

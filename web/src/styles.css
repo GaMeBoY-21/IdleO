@@ -87,10 +87,21 @@
 @utility rows-even {
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
 }
-/* At least the height of the window less the header and the bottom padding: a screen that fits does not scroll, one
-   with more is taller. */
+/* At least the height of the window less the padding above and below: a screen that fits does not scroll, one with more
+   is taller. */
 @utility fit-screen {
-  min-height: calc(100dvh - var(--spacing-header) - var(--spacing-4) - var(--spacing-6));
+  min-height: calc(100dvh - var(--spacing-8) - var(--spacing-12));
+}
+
+/* Cards that fill a row and wrap when they cannot be this wide: Home's services (280 px) and its larger panels (380 px). */
+@utility cols-cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
+}
+@utility cols-steps {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.25rem), 1fr));
+}
+@utility cols-panels {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 23.75rem), 1fr));
 }
 
 /* A table of sessions on Home: what, GPU, how long, cost, and the action. */

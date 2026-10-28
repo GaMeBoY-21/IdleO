@@ -3,69 +3,39 @@ import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
+import { AppLink } from "@/components/ui/AppLink";
+import { PageHeading } from "@/components/ui/Heading";
 import { cn } from "@/lib/cn";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
-import { AccountLink } from "./AccountLink";
-import { CreditChip } from "./CreditChip";
-import { FRAME } from "./Layout";
-import { AppLink } from "@/components/ui/AppLink";
-import { destinations, isCurrent, isFlow, phoneDestinations } from "./nav";
+import { isCurrent, isFlow, phoneDestinations } from "./nav";
+import { Sidebar, SIDEBAR_PUSH } from "./Sidebar";
 import { UserMenuButton } from "./UserMenuButton";
 
 /**
- * The frame around every signed-in screen (web/DESIGN.md "Navigation"). On a phone: a header with the wordmark, the
- * bell and the account button, and a floating white tab bar (Home, Book, Hosting, Credit); Book and the session
- * screen are flows there, full screen with their own back button. From 768 px: one top bar with the wordmark, the
- * same four as white pill tabs on the page colour, the bell and the account button. The frame never changes between
- * pages, so switching pages swaps only the content.
+ * The frame around every signed-in screen (web/DESIGN.md "Navigation"). From 768 px: the left sidebar and the content
+ * beside it. On a phone: a header with the wordmark and the bell, and a floating tab bar of the five most used
+ * destinations and "More"; Book and the session screen are flows there, full screen with their own back button. The
+ * frame never changes between pages, so switching pages swaps only the content.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [pathname] = useLocation();
   const flow = isFlow(pathname);
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)}>
       <a
         href="#main"
         className="sr-only z-30 rounded-full bg-panel px-4 py-3 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
-      <header className={cn("sticky top-0 z-10 bg-canvas", flow ? "hidden md:block" : "block")}>
-        <div className={cn(FRAME, "flex h-16 items-center gap-6 md:h-header")}>
-          <div className="flex flex-1 items-center">
-            <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
-              <Wordmark className="md:text-headline md:tracking-tighter" />
-            </Link>
-          </div>
-          <nav aria-label="Main" className="hidden items-center gap-1 rounded-full bg-panel p-1.25 md:flex">
-            {destinations.map(({ href, label }) => {
-              const current = isCurrent(pathname, href);
-              return (
-                <AppLink
-                  key={href}
-                  href={href}
-                  aria-current={current ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-touch items-center rounded-full px-5 text-small transition-colors",
-                    current
-                      ? "bg-primary font-bold text-primary-fg"
-                      : "font-semibold text-text-2 hover:text-text",
-                  )}
-                >
-                  {label}
-                </AppLink>
-              );
-            })}
-          </nav>
-          <div className="flex flex-1 items-center justify-end gap-2.5">
-            <CreditChip />
-            <NotificationBell />
-            <div className="md:hidden">
-              <UserMenuButton />
-            </div>
-            <AccountLink />
-          </div>
+      <Sidebar />
+      <header className={cn("sticky top-0 z-10 bg-canvas md:hidden", flow && "hidden")}>
+        <div className="flex h-16 items-center justify-between gap-6 px-3.5">
+          <Link href="/" className="flex min-h-touch items-center" aria-label={`${brand.name} home`}>
+            <Wordmark />
+          </Link>
+          <NotificationBell />
         </div>
       </header>
       <NotificationBanners />
@@ -75,12 +45,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav
         aria-label="Main"
         className={cn(
-          "fixed inset-x-3.5 bottom-tab z-10 h-16 rounded-bar bg-panel border border-line md:hidden",
+          "fixed inset-x-3.5 bottom-tab z-10 h-16 rounded-bar border border-line bg-panel md:hidden",
           flow && "hidden",
         )}
       >
-        <ul className="grid h-full grid-cols-4">
-          {phoneDestinations.map(({ href, label }) => {
+        <ul className="grid h-full grid-cols-6">
+          {phoneDestinations.map(({ href, label, icon: Icon }) => {
             const current = isCurrent(pathname, href);
             return (
               <li key={href} className="flex">
@@ -88,26 +58,34 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={href}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "flex flex-1 items-center justify-center rounded-bar text-caption font-semibold",
-                    current ? "text-text" : "text-text-2",
+                    "relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-bar",
+                    current ? "font-semibold text-text" : "font-medium text-text-2",
                   )}
                 >
-                  {label}
+                  {current && (
+                    <span aria-hidden="true" className="absolute top-1 h-1 w-6 rounded-full bg-progress" />
+                  )}
+                  <Icon aria-hidden="true" className="size-5.5" strokeWidth={current ? 2 : 1.75} />
+                  <span className="text-caption">{label}</span>
                 </AppLink>
               </li>
             );
           })}
+          <li className="flex">
+            <UserMenuButton tab />
+          </li>
         </ul>
       </nav>
     </div>
   );
 }
 
-/** The frame with nothing in it yet, while sign-in state loads: same bars, same heights. */
+/** The frame with nothing in it yet, while sign-in state loads: the same sidebar's width, the same header's height. */
 export function ShellSkeleton({ children }: { children?: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col" aria-busy="true">
-      <div className="h-16 bg-canvas md:h-header" />
+    <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)} aria-busy="true">
+      <div className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-sidebar md:block" />
+      <div className="h-16 bg-canvas md:hidden" />
       <div className="flex w-full flex-1 flex-col">{children}</div>
     </div>
   );
@@ -115,13 +93,13 @@ export function ShellSkeleton({ children }: { children?: ReactNode }) {
 
 /**
  * A list screen's content (Notifications; Account and the lists use their own frames on a laptop): one column the
- * width of the card, centred (7 of the 12 columns from 1200 px), with the page margins; its title big.
+ * width of the card, centred (7 of the 12 columns from 1200 px), with the page margins; its headline big.
  */
 export function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="w-full px-3.5 pt-2 pb-8 md:px-6 md:pt-6 xl:px-8 xl:pt-4 2xl:px-10">
+    <div className="w-full px-3.5 pt-2 pb-8 md:px-8 md:pt-8 xl:px-10 md:pb-12">
       <div className="mx-auto flex w-full max-w-card flex-col gap-6 xl:w-7/12 xl:max-w-none">
-        <h1 className="text-title xl:text-question">{title}</h1>
+        <PageHeading>{title}</PageHeading>
         {children}
       </div>
     </div>

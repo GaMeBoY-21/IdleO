@@ -2,6 +2,7 @@ import { lazy, Suspense, use, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useTemplates } from "@/api/queries";
 import { Banner } from "@/components/ui/Banner";
+import { PageHeading } from "@/components/ui/Heading";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { YourSession } from "@/features/flow/YourSession";
@@ -55,7 +56,7 @@ export function Book() {
         }
         left={
           <>
-            <h1 className={laptop ? "text-question" : "text-title"}>{QUESTION}</h1>
+            <PageHeading>{QUESTION}</PageHeading>
             {unknown && (
               <Banner tone="info">
                 That isn&apos;t available any more. Choose what to run from the list.
@@ -99,7 +100,7 @@ export function Book() {
       left={
         <>
           {/* What the form will show first, already here: the form's code arrives after (its own chunk). */}
-          <ServiceHeader name={service.name} description={template.description} laptop={laptop} />
+          <ServiceHeader name={service.name} description={template.description} />
           {choice}
           <StepsSkeleton count={template.inputs.length + template.questions.length} />
         </>

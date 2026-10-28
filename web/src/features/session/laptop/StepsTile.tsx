@@ -8,8 +8,8 @@ import type { InputFact } from "@/lib/inputs";
 import type { LogSignals } from "@/lib/log-signals";
 
 /**
- * How far it has got: four columns (uploaded, GPU found, running, outputs), each a 4 px bar, a title and a line
- * (docs/design/bento/laptop/live-session-laptop.html). A step done is a full bar; the running one fills by progress,
+ * How far it has got: four columns (uploaded, GPU found, running, outputs), each a 6 px bar, a title and a line
+ * (approved reference `Session`). A step done is a full bar; the running one fills by progress,
  * the job's own `step 84/120` when its log says one, else how much of the template's typical time has passed, else it
  * is only marked as under way; the rest are empty. All of it the route's words (src/features/flow/progress.ts).
  */
@@ -44,8 +44,8 @@ export function StepsTile({
       : null;
   };
   return (
-    <Tile as="section" aria-label="Progress" size="lg" className="xl:px-6 xl:py-5">
-      <ol className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+    <Tile as="section" aria-label="Progress" size="lg">
+      <ol className="grid cols-steps gap-4">
         {stops.map((stop, index) => {
           const fill = percent(stop);
           const running = stop.title === "Running" && stop.state === "current";
@@ -57,10 +57,10 @@ export function StepsTile({
               aria-current={stop.state === "current" ? "step" : undefined}
               className="flex flex-col gap-2"
             >
-              <span aria-hidden="true" className="relative h-1 overflow-hidden rounded-full bg-bone">
+              <span aria-hidden="true" className="relative h-1.5 overflow-hidden rounded-full bg-line">
                 <span
                   className={cn(
-                    "absolute inset-y-0 left-0 rounded-full bg-text",
+                    "absolute inset-y-0 left-0 rounded-full bg-progress",
                     stop.state === "done" && "w-full",
                     stop.state === "current" && fill === null && "w-full opacity-35",
                   )}

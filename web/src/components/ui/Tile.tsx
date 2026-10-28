@@ -32,11 +32,18 @@ export const tileMuted: Record<TileTone, string> = {
   "ion-deep": "text-on-ion-deep",
 };
 
-/** `lg`: the laptop's padding, 24 px and 28 px from 1200 px (web/DESIGN.md "Laptop layout"). */
-export type TileSize = "md" | "lg";
+/**
+ * `lg`: the laptop's padding, 24 px and 28 px from 1200 px (web/DESIGN.md "Laptop layout"). `feature`: a big feature
+ * panel with 32 px corners, as the live session's band.
+ */
+export type TileSize = "md" | "lg" | "feature";
 
 export function tileClasses(tone: TileTone = "panel", size: TileSize = "md") {
-  return cn("rounded-panel", size === "lg" ? "p-6 xl:p-7" : "p-4.5", surfaces[tone]);
+  return cn(
+    size === "feature" ? "rounded-feature p-6 xl:px-8 xl:py-7" : "rounded-panel",
+    size === "lg" ? "p-6 xl:p-7" : size === "md" ? "p-4.5" : "",
+    surfaces[tone],
+  );
 }
 
 export function Tile({

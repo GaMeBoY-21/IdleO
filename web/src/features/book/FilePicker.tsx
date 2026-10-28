@@ -114,7 +114,7 @@ export function FilePicker({
         onDragLeave={() => setOver(false)}
         onDrop={drop}
         className={cn(
-          "flex flex-col gap-3 rounded-control border-2 bg-canvas px-4 py-3.5",
+          "flex flex-col gap-3 rounded-control border-2 bg-panel-2 px-4 py-3.5",
           over ? "border-text" : "border-transparent",
           !upload && (missing || refused) && "ring-2 ring-danger",
         )}

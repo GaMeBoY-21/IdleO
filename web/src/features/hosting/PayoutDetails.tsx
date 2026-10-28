@@ -314,7 +314,7 @@ export function LatestCheck({
   }
   const low = upi.nameMatchScore == null || upi.nameMatchScore < threshold;
   return (
-    <div role="status" className="flex flex-col gap-2 rounded-control bg-canvas p-4">
+    <div role="status" className="flex flex-col gap-2 rounded-control bg-panel-2 p-4">
       <p className="text-small">
         <span className="font-semibold break-all">{upi.vpa}</span> is registered to{" "}
         <span className="font-semibold">{upi.registeredName ?? "a name the bank didn't give"}</span>.

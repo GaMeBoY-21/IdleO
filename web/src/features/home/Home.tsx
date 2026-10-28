@@ -136,7 +136,11 @@ export function Home() {
         <CreditTile wallet={wallet} wide={again === undefined} />
         {again && <BookAgainTile session={again} name={againName} />}
         {live.length > 0 &&
-          services.slice(1).map((service) => <WideServiceTile key={service.id} service={service} />)}
+          services
+            .slice(1)
+            .map((service, index) => (
+              <WideServiceTile key={service.id} service={service} index={index + 1} />
+            ))}
         <EarnTile />
         {!sessions.data && (
           <Tile className="col-span-2 row-span-2">

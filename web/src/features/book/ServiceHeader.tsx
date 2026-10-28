@@ -1,18 +1,11 @@
 import { Link } from "wouter";
+import { PageHeading } from "@/components/ui/Heading";
 
 /**
  * The top of a service's booking screen: back to all services, the
  * service's name in big type, and a line on what you bring and what you get, the template's own.
  */
-export function ServiceHeader({
-  name,
-  description,
-  laptop,
-}: {
-  name: string;
-  description: string;
-  laptop: boolean;
-}) {
+export function ServiceHeader({ name, description }: { name: string; description: string }) {
   return (
     <div className="flex flex-col gap-2">
       <Link
@@ -21,7 +14,7 @@ export function ServiceHeader({
       >
         <span aria-hidden="true">←&nbsp;</span>All services
       </Link>
-      <h1 className={laptop ? "text-question" : "text-title"}>{name}</h1>
+      <PageHeading>{name}</PageHeading>
       <p className="text-body text-text-2">{description}</p>
     </div>
   );

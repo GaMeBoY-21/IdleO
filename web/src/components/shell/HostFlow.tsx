@@ -46,7 +46,7 @@ export function HostFlow({
     summary ??
     (title && (
       <Tile tone="night" size="lg" className="flex flex-col gap-3 xl:p-7">
-        <h1 className="text-question">{title}</h1>
+        <h1 className="font-title text-display-feature">{title}</h1>
         {lede && <p className="text-body text-on-night-2">{lede}</p>}
       </Tile>
     ));
@@ -68,7 +68,7 @@ export function HostFlow({
     <div className="flex flex-1 flex-col">
       <FlowHeader back={back} title={backLabel} />
       <div className="mx-auto flex w-full max-w-card flex-1 flex-col gap-3.5 px-3.5 pt-1 pb-8">
-        {title && !summary ? <h1 className="text-title">{title}</h1> : summary}
+        {title && !summary ? <h1 className="font-title text-display-feature">{title}</h1> : summary}
         {children}
       </div>
     </div>

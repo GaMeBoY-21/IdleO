@@ -6,6 +6,7 @@ import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
 import { FIT_FRAME } from "@/components/shell/Layout";
+import { PageHeading } from "@/components/ui/Heading";
 import { useWide } from "@/lib/media";
 import { useTitle } from "@/lib/title";
 import { SessionList, SessionRowsSkeleton, SessionTable } from "./SessionRow";
@@ -100,8 +101,8 @@ export function AllSessions() {
 /** From 768 px the list runs the full width of the window, as the other tabs do (web/DESIGN.md "Laptop layout"). */
 function LaptopFrame({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className={cn(FIT_FRAME, "flex flex-col gap-4")}>
-      <h1 className="text-title xl:text-question">{title}</h1>
+    <div className={cn(FIT_FRAME, "flex flex-col gap-6")}>
+      <PageHeading>{title}</PageHeading>
       {children}
     </div>
   );

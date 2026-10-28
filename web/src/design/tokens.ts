@@ -376,6 +376,12 @@ export const spacing = {
   /** Delete my account's "We must keep": its four lines, wrapped, on a phone and on a laptop (the periods arrive). */
   kept: 200,
   "kept-wide": 136,
+  /** Home on a laptop: a service card at its least, the row of running and credit panels, and the recent sessions' table. */
+  card: 176,
+  /** The live session's training-loss chart. */
+  loss: 200,
+  "credit-row": 216,
+  recent: 320,
   /** The hero card's chart on the website. */
   "hero-chart": 168,
   /** A step card on the website, at its least. */

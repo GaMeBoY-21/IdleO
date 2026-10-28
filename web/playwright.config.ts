@@ -13,7 +13,8 @@ import { defineConfig, devices } from "@playwright/test";
  */
 const baseURL = process.env.WEB_URL ?? "http://localhost:3000";
 const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
-const laptop = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 };
+// 1440 x 900: the size the laptop layout is judged at (web/DESIGN.md "Laptop layout") and the screenshots are taken at.
+const laptop = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
 
 export default defineConfig({
   testDir: "e2e",

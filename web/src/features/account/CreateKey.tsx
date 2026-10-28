@@ -68,7 +68,7 @@ export function CreateKey() {
         <p className="text-option font-semibold">Made &ldquo;{made.name}&rdquo;</p>
         <Banner tone="warning">Copy it now. You won&apos;t see it again.</Banner>
         <p
-          className="rounded-control bg-canvas p-4 text-small break-all select-all tabular"
+          className="rounded-control bg-panel-2 p-4 text-small break-all select-all tabular"
           data-testid="new-key"
         >
           {made.key}

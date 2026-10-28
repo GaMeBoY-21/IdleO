@@ -77,7 +77,7 @@ function Machine({ link }: { link: HostLink | undefined }) {
       className="flex flex-col gap-5"
     >
       <TileLabel tone="night">A laptop is asking to be linked</TileLabel>
-      <h1 id="link-title" className="text-title xl:text-question">
+      <h1 id="link-title" className="font-title text-display-feature">
         Link this laptop to your account?
       </h1>
       <dl className="flex flex-col gap-3 text-body">
@@ -222,7 +222,7 @@ function Approve({ link }: { link: HostLink }) {
             approve.reset();
           }}
         />
-        <div className="flex flex-col gap-2 rounded-control bg-canvas px-4 py-3.5">
+        <div className="flex flex-col gap-2 rounded-control bg-panel-2 px-4 py-3.5">
           <p className="min-h-12 text-body md:min-h-6" role="status">
             {earn === null || price === null ? (
               <span className="block w-full">
@@ -281,7 +281,7 @@ function Approve({ link }: { link: HostLink }) {
 function Done({ link }: { link: HostLink }) {
   return (
     <Tile tone="volt" size="lg" as="section" aria-labelledby="linked-title" className="flex flex-col gap-4">
-      <h2 id="linked-title" className="text-title">
+      <h2 id="linked-title" className="font-title text-display-feature">
         Linked
       </h2>
       <p className="max-w-prose text-body text-ink">

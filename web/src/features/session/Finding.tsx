@@ -43,7 +43,7 @@ export function Finding({
     >
       <FindingRing />
       <div className="flex flex-col gap-2" aria-live="polite">
-        <h1 className={laptop ? "text-question" : "text-title"}>
+        <h1 className={laptop ? "font-title text-display-panel" : "font-title text-display-feature"}>
           {found ? "GPU found" : "Finding your GPU"}
         </h1>
         <p className="text-body text-on-night-2">
@@ -106,7 +106,7 @@ export function Finding({
 
 function Row({ done, children }: { done: boolean; children: ReactNode }) {
   return (
-    <li className="flex items-center gap-3 rounded-control bg-canvas px-4 py-3.5">
+    <li className="flex items-center gap-3 rounded-control bg-panel-2 px-4 py-3.5">
       {done ? (
         <Check aria-hidden="true" className="size-5 shrink-0 text-running" strokeWidth={2.5} />
       ) : (

@@ -1,6 +1,6 @@
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ScrollText } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { lineTotal, linesBetween, readNewLogs, type LogState } from "@/api/logs";
 import { keys } from "@/api/queries";
 import { useAfterPaint } from "@/lib/after-first-screen";
@@ -12,11 +12,22 @@ import { LossChart } from "./laptop/LossChart";
 import { logButton, LogPanel } from "./LogPanel";
 
 /**
- * A session's log (ADR 0019), read as it's written, in the log tile, a white tile with a monospace body (web/DESIGN.md
+ * A session's log (ADR 0019), read as it's written, in the log panel, with a monospace body (web/DESIGN.md
  * "The session screen"). On a laptop it fills the column beside the tiles; on a phone it's a "Logs" row showing the newest
  * line, which opens the panel under it.
  */
-export function Logs({ id, settled, laptop }: { id: string; settled: boolean; laptop: boolean }) {
+export function Logs({
+  id,
+  settled,
+  laptop,
+  side = null,
+}: {
+  id: string;
+  settled: boolean;
+  laptop: boolean;
+  /** The left column of the laptop's pair, under the loss chart (the GPU's panel). */
+  side?: ReactNode;
+}) {
   const client = useQueryClient();
   const log = useQuery<LogState>({ queryKey: keys.logs(id), queryFn: skipToken });
   const [open, setOpen] = useState(false);
@@ -71,7 +82,7 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
       key={log.data ? "log" : "loading"}
       as="section"
       aria-label="Logs"
-      className={cn("flex flex-col gap-4", laptop ? "min-h-0 flex-1 px-6 py-5" : "p-4")}
+      className={cn("flex flex-col gap-4", laptop ? "min-h-panel px-6 py-5 xl:px-7" : "p-4")}
     >
       {laptop && total === 0 && title}
       {body}
@@ -81,8 +92,11 @@ export function Logs({ id, settled, laptop }: { id: string; settled: boolean; la
     // The chart, when the log carries loss values, above the log, which keeps the rest of the column. While the log is
     // unread there is only the panel; when it arrives, a new panel is drawn (its key changes), so nothing moves.
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-4 2xl:gap-5">
-        {log.data && <LossChart losses={signals.losses} />}
+      <div className="grid cols-panels items-stretch gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
+          {log.data && <LossChart losses={signals.losses} />}
+          {side}
+        </div>
         {panel}
       </div>
     );

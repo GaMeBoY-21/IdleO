@@ -84,7 +84,7 @@ Each screen is designed first for the size it's mostly used on, then checked ful
 | `text-display-hero` | 44 px to 84 px (6 vw) | 0.98 | The website's headline, uppercase |
 | `text-display-band` | 36 px to 60 px (4.4 vw) | 1 | A section of the website, uppercase |
 | `text-display-section` | 32 px to 52 px (4 vw) | 1 | A smaller section, the marquee, uppercase |
-| `text-display-page` | 32 px to 44 px (3.2 vw) | 1 | An inner page's headline, and the app's page headline, uppercase |
+| `text-display-page` | 32 px to 44 px (3.2 vw) | 1 | An inner page's headline, and the app's page headline from 768 px, uppercase (on a phone the app's headline is `text-display-feature` in the title face, sentence case: `PageHeading`) |
 | `text-display-panel` | 40 px | 1.05 | A large panel's title (`font-title`) |
 | `text-display-feature` | 30 px | 1.1 | A panel's title (`font-title`) |
 | `text-display-card` | 26 px | 1.1 | A card's or sub-section's title (`font-title`) |
@@ -248,8 +248,8 @@ Every text pair meets 4.5:1 (1.4.3; the 24 px and larger headlines need only 3:1
 | Width | Layout | Margin |
 | --- | --- | --- |
 | Up to 767 px (phone) | One column of panels on a two-column grid; a bottom tab bar of the five most used destinations and "More"; Book and the session are full-screen flows with a back button | 14 px (16 on the website) |
-| 768 px and up (tablet, small laptop) | The left sidebar; the same panels, wider | 24 px (32 on the website) |
-| 1200 px and up (laptop) | The sidebar and a twelve-column grid of panels; Book is its questions beside the "Your request" panel; a live session is its panels in a grid beside the log. The website's frame is 1280 px, centred | 32 px |
+| 768 px and up (tablet, small laptop) | The left sidebar; the same panels, wider | 32 px |
+| 1200 px and up (laptop) | The sidebar and a twelve-column grid of panels; Book is its questions beside the "Your request" panel; a live session is its night band over the loss chart and the log. The website's frame is 1280 px, centred | 40 px |
 
 - **Navigation:**
   - **Laptop and tablet:** a **left sidebar**, 256 px wide, on `sidebar`: the wordmark at the top, then Home, Book a GPU, Sessions, My files, Hosting and Credit, and the account at the bottom. The current item has the `raised` fill and a 4 px bar in the accent (volt at night, ion-deep by day). The credit is a panel on Home and on Credit, not a chip in a bar.
@@ -311,16 +311,16 @@ On a phone, a screen whose next step is used while watching something (Stop sess
 
 ## Home
 
-Home follows the approved `AppHome` reference, with these tiles (the older arrangement in `docs/design/bento/home-phone.html` is the phone's two-column grid):
+Home follows the approved `AppHome` reference. On a phone it is a two-column grid of these tiles:
 
 | Tile | Size | Colour | What it holds |
 | --- | --- | --- | --- |
 | Running now | 2 × 2 | night | "Running now", what it's doing and on which GPU, the elapsed time at 54 px and the cost in volt; opens the session. One for each live session. |
-| Fine-tune | 1 × 2 | volt | The service's icon, its name and "Your model, your data"; opens Book at it. |
-| Credit | 1 × 1 | white | "Credit" and the available amount; opens Credit. |
+| The first service | 1 × 2 | ember | The service's icon, its name and what you bring; opens Book at it. |
+| Credit | 1 × 1 | ion-deep | "Credit" and the available amount; opens Credit. |
 | Book again | 1 × 1 | ion | "Book again" and the last setup ("Fine-tune · 41 min"); opens Book filled in from it. Not there for a new renter. |
-| Run your code | 2 × 1 | white | The service's name, "Your folder, our GPU", its icon; opens Book at it. |
-| Earn with your GPU | 2 × 2 | ember | "For gamers", "Your GPU sits idle. Let it earn.", "Rent out your gaming laptop →"; opens Hosting. |
+| Another service | 2 × 1 | ion, then panel | The service's name, what you bring, its icon; opens Book at it. |
+| Earn with your GPU | 2 × 2 | volt | "For gamers", "Your GPU sits idle. Let it earn.", "Rent out your gaming laptop →"; opens Hosting. |
 
 With nothing running, the first tile is "What do you want to run?" with the two services. On a laptop the same tiles sit on four columns; the services come from the catalog, never typed here, so a third service is a third tile.
 
@@ -375,32 +375,31 @@ Sign-in, the invite step, Account, API keys, the notifications list and the CLI 
 
 ## Laptop layout
 
-From 1200 px every signed-in screen is laid out for the screen, not as the phone's tiles in a column. The arrangement references are `docs/design/bento/laptop/` (`home-laptop.html`, `live-session-laptop.html`, `hosting-laptop.html`, `account-laptop.html`), judged at 1440 × 900.
+From 1200 px every signed-in screen is laid out for the screen, not as the phone's tiles in a column. The approved references are `AppHome` and `Session` (each in both themes); screens that are not drawn follow the same rules. Judged at 1440 × 900.
 
 **The system**
 - **Breakpoints:** phone under 768 px; tablet 768 to 1199 px (the laptop's header and tabs, with 6 columns and stacked rails); laptop from 1200 px (`xl:`, `useLaptop()`); a wide step at 1680 px (`2xl:`).
-- **Frame and grid** (`components/shell/Layout.tsx`): the content runs the full width of the window, no maximum and no centred column; side padding 14 px on a phone, 24 from 768 px, 32 from 1200 px and 40 from 1680 px; 12 columns with a 16 px gap (20 px from 1680 px), 6 columns on a tablet. A screen that fills the window (Home, the live session, Hosting) is 100% of the height under the header less 16 px above and 24 px below (`FIT_FRAME`, `fit-screen`).
-- **The shell** is the left sidebar (see Navigation): the wordmark, Home, Book a GPU, Sessions, My files, Hosting and Credit, and the account at the bottom, with the credit in a panel on Home and Credit. Appearance (Match my device, Light, Dark) is under Account. A phone has the bottom tab bar instead.
+- **Frame and grid** (`components/shell/Layout.tsx`): the content runs the full width of the window, no maximum and no centred column; side padding 14 px on a phone, 32 from 768 px and 40 from 1200 px; 12 columns with a 16 px gap (20 px from 1680 px), 6 columns on a tablet. A screen that fills the window (Hosting) is 100% of the height less 32 px above and 48 px below (`FIT_FRAME`, `fit-screen`).
+- **The shell** is the left sidebar (see Navigation): the wordmark, Home, Book a GPU, Sessions, My files, Hosting and Credit, and the account at the bottom, with the credit in a panel on Home and Credit. Appearance (Match my device, Light, Dark) is under Account, in Profile. A phone has the bottom tab bar instead.
 - **Rails** (`RailColumns`): a left column of 400 px (320 px for Account) of summary tiles and the rest beside it, stacked on a tablet. The live session, Hosting's pages, Credit and Account use it; the left column's first tile is dark.
 - **Tiles hold their space:** no more than about 35% of a tile is empty at 1440 × 900. A tile is as tall as its content, or two tiles share a row's height; one with nothing to say isn't drawn (no free GPUs, a log with under two loss values, a host with no sessions). Figures are tabular and come only from the API; money is `formatPaise`.
 - **Rules that stay:** one dark primary button on a screen; touch targets of 44 px or more; no layout shift, so a skeleton is exactly its tile's height; the first screen's requests are only what it needs to paint, and the tiles that need more ask after the paint (`useAfterPaint`).
 
-**Home** (`home-laptop.html`), 12 columns and three rows that fill the screen:
+**Home** (approved `AppHome`), a column of rows under the page padding (32 px above, 48 px below), 24 px apart:
 
-| Tile | Columns | Colour | What it holds |
-| --- | --- | --- | --- |
-| Running now, or "What do you want to run?" | 8 × 2 rows | night | The live session's service, GPU, elapsed time at 60 px and cost (volt), opening it; or, with none, the question and the offered services as volt and white buttons. Dropping a folder anywhere on the page opens the matching service with it |
-| Credit | 4 | white | Available, on hold, and the way to Credit |
-| Free GPUs now | 4 | white | Each GPU memory class with whether one is free and the live price range (`GET /v1/public/availability`), drawn after the first paint; not there when it has nothing |
-| Recent sessions | 8 | white | The latest sessions as rows, from the sessions already loaded or the first page of the list, drawn after the first paint |
-| Book again | 4 | ion | The last setup of an offered service ("Fine-tune a model · 41 min"); not there for a new renter or for a test job |
-| Earn with your GPU | 4 | ember | The host pitch, opening Hosting |
+| Row | Holds |
+| --- | --- |
+| Headline | "Or drop a folder anywhere on this page" over "What do you want to run?" in Archivo uppercase, and "Book a GPU" (`primary`, large) at the end. Dropping a folder anywhere opens the matching service with it |
+| Services | One accent card for each service of the catalog, in a row that wraps below 280 px each: the first ember, the second ion, the others panels. Each has its typical time as a tracked label, its name in the title face and what you bring |
+| Running and credit | A night panel for each live session ("Running now", the GPU, what it is doing, the time and the cost in volt; it opens the session), and the ion-deep credit panel (available at 52 px, what is on hold and the last charge, "Add credit"); each at least 380 px wide |
+| Recent sessions | A panel with a table of the last four: what, GPU, ran, cost and "Run again" or "Open"; "All sessions" in the link colour |
+| Last | "GPUs free right now" (each GPU memory class with whether one is free and the live price range, drawn after the first paint; not there when it has nothing), "Book again" (ion; not there for a new renter) and the volt "For gamers" panel |
 
-**The live session** (`live-session-laptop.html`): the left rail holds the night panel (state, the timer at 60 px, the cost and the cap bar), then the GPU and checkpoint tiles and Stop. The right side is the log, a panel with a monospace body that scrolls inside the screen; above it the steps the log shows (loading the model, training, saving), and the loss chart when the log has two or more loss values. Finding is the night panel with the ring and the request beside it; Done is the charge, the outputs (volt, with Download), the rating and "Run again". Nothing is drawn that the log or the session doesn't carry.
+**The live session** (approved `Session`): a night band across the top with 32 px corners (the state and the epoch in volt, the service's name in Archivo uppercase, when it started and the live status; on the right the time, the cost so far in volt with what it stops at, and "Stop session" in `secondary`). Under it two panels side by side: the training loss as 20 bars in ion-deep with the latest in the running colour (drawn only when the log carries two or more loss values) over a panel for the GPU (its model and memory, and four small tiles: busy, temperature, checkpoints, step); and the log, a panel with a monospace body, Copy and Download. Under them the four steps of the run (uploaded, GPU found, running, outputs), each a 6 px bar, a title and a line. Finding is the night panel with the ring and the request beside it; Done is the charge, the outputs (volt, with Download), the rating and "Run again". Nothing is drawn that the log or the session doesn't carry.
 
-**Hosting** (`hosting-laptop.html`), two equal rows: the night panel of the week (the amount, the total and hours rented, the seven days as bars) over 8 columns and the ember "Add a machine" (what a machine needs, one-time code, about 5 minutes) over 4; then each machine as a 4-column tile (state, temperature and use, name, GPU and price, "Earning now" or Pause or Resume) and "Latest earnings" with the last entries and All. With more than two machines they are a grid of three a row, and the earnings sit under them. Machine, Price, Sessions it ran, Earnings and Add have the 400 px rail with a dark summary tile (the machine's state, name and rating; or the screen's title and what it is) and panels beside it.
+**Hosting**, two equal rows: the night panel of the week (the amount, the total and hours rented, the seven days as bars) over 8 columns and the ember "Add a machine" (what a machine needs, one-time code, about 5 minutes) over 4; then each machine as a 4-column tile (state, temperature and use, name, GPU and price, "Earning now" or Pause or Resume) and "Latest earnings" with the last entries and All. With more than two machines they are a grid of three a row, and the earnings sit under them. Machine, Price, Sessions it ran, Earnings and Add have the 400 px rail with a dark summary tile (the machine's state, name and rating; or the screen's title and what it is) and panels beside it.
 
-**Account** (`account-laptop.html`): the 320 px rail holds a night profile panel (an avatar in volt, the name and email), the four sections (Profile and notifications, API keys, My files, Reports), Appearance (Match my device, Light or Dark) and Sign out. Beside it Profile (name with Edit, email, how they sign in) and Notifications, a table of a kind and two switches (Email, In the app), the kinds about money and safety locked on with their reason. API keys, My files and Reports are tiles of rows in the same frame.
+**Account**: the 320 px rail holds a night profile panel (an avatar in volt, the name and email), the sections (Profile and notifications, API keys, My files, Reports and the rest) and Sign out. Beside it Profile (name with Edit, email, how they sign in) with Appearance (Match my device, Light or Dark) under it, and Notifications, a table of a kind and two switches (Email, In the app), the kinds about money and safety locked on with their reason. API keys, My files and Reports are tiles of rows in the same frame.
 
 **The other screens**
 - **Book:** the full width with 7 columns of questions and, sticky at the top, the dark "Your request" in 5.

@@ -124,7 +124,7 @@ function StarRow({
             aria-label={`${star} ${star === 1 ? "star" : "stars"}`}
             aria-pressed={value === star}
             onClick={() => onPick(star)}
-            className="flex size-touch items-center justify-center rounded-control hover:bg-canvas disabled:cursor-default disabled:hover:bg-transparent"
+            className="flex size-touch items-center justify-center rounded-control hover:bg-panel-2 disabled:cursor-default disabled:hover:bg-transparent"
           >
             <Star
               aria-hidden="true"
@@ -225,7 +225,7 @@ function CommentBox({
         rows={3}
         maxLength={COMMENT_MAX}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-control bg-canvas px-4 py-3 text-body text-text"
+        className="rounded-control bg-panel-2 px-4 py-3 text-body text-text"
         aria-describedby="rating-comment-help"
       />
       <p id="rating-comment-help" className="text-caption text-text-2">

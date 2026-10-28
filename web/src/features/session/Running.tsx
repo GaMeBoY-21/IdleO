@@ -4,7 +4,8 @@ import { ActionFoot, StopAction } from "./Actions";
 import { Banners } from "./Banners";
 import { GpuTile, RunningTile, SmallTiles } from "./Figures";
 import { laptopTiles } from "./laptop/registry";
-import { RailColumns } from "@/components/shell/Layout";
+import { FIT_FRAME } from "@/components/shell/Layout";
+import { cn } from "@/lib/cn";
 import { LogsLater } from "./LogsLater";
 import type { LogSignals } from "@/lib/log-signals";
 import { CheckpointTile } from "./Outputs";
@@ -13,7 +14,8 @@ import { CheckpointTile } from "./Outputs";
  * A session that has started and not ended (web/DESIGN.md "The session screen"): the dark tile with its state, the
  * time and the cost, then tiles for the GPU (use and temperature), the checkpoints, the log and Stop. Moving to
  * another host and saving its outputs keep the same screen, without Stop. On a phone they stack, the logs a row that
- * opens; on a laptop the tiles are in a column beside the log, with the session's progress under them.
+ * opens; on a laptop the night band is across the top, the GPU's panel beside the log, and the session's progress under
+ * them (approved reference `Session`).
  */
 export function Running({
   session,
@@ -75,29 +77,18 @@ export function Running({
       </>
     );
   }
-  const { LiveTile, GpuStats, CheckpointsTile } = laptopTiles();
+  const { LiveTile, StatsPanel } = laptopTiles();
   return (
-    <RailColumns
-      left={
-        <>
-          <Banners session={session} />
-          <LiveTile
-            session={session}
-            serviceName={serviceName}
-            about={about}
-            status={status}
-            signals={signals}
-          />
-          {session.gpu && <GpuStats gpu={session.gpu} />}
-          <CheckpointsTile session={session} />
-        </>
-      }
-      right={
-        <>
-          {progress}
-          <LogsLater id={session.id} settled={session.settled} laptop />
-        </>
-      }
-    />
+    <div className={cn(FIT_FRAME, "flex flex-col gap-4")}>
+      <Banners session={session} />
+      <LiveTile session={session} serviceName={serviceName} about={about} status={status} signals={signals} />
+      <LogsLater
+        id={session.id}
+        settled={session.settled}
+        laptop
+        side={<StatsPanel session={session} signals={signals} />}
+      />
+      {progress}
+    </div>
   );
 }

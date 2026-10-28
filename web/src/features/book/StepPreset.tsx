@@ -69,7 +69,7 @@ export function StepPreset({
               onClick={() => choose(option)}
               className={cn(
                 "relative flex min-w-0 flex-col items-start gap-1 rounded-control p-3.5 text-left transition-colors",
-                selected ? "bg-volt text-ink" : "bg-canvas hover:bg-line",
+                selected ? "bg-volt text-ink" : "bg-panel-2 hover:bg-line",
               )}
             >
               {selected && (

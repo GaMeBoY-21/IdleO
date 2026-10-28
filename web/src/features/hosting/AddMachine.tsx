@@ -95,7 +95,7 @@ export function AddMachine() {
             <Tile className="flex items-start gap-4">
               <span
                 aria-hidden="true"
-                className="flex size-12 shrink-0 items-center justify-center rounded-icon bg-canvas"
+                className="flex size-12 shrink-0 items-center justify-center rounded-icon bg-panel-2"
               >
                 <Icon className="size-6" strokeWidth={1.75} />
               </span>

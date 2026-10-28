@@ -133,7 +133,7 @@ export function Notifications() {
 function Row({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
   return (
     <li>
-      <Link href={item.link} onClick={onOpen} className={cn(ROW, "hover:bg-canvas")}>
+      <Link href={item.link} onClick={onOpen} className={cn(ROW, "hover:bg-panel-2")}>
         <span
           aria-hidden="true"
           className={cn("mt-2 size-2 shrink-0 rounded-full", item.read ? "bg-transparent" : "bg-primary")}

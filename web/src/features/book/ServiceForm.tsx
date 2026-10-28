@@ -218,7 +218,7 @@ export function ServiceForm({
   );
   const left = (
     <>
-      <ServiceHeader name={serviceName} description={template.description} laptop={laptop} />
+      <ServiceHeader name={serviceName} description={template.description} />
       {choice}
       {stepsOf(template).map((step) => {
         switch (step.kind) {
