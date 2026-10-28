@@ -73,7 +73,7 @@ function useFreshOutputs(id: string) {
 }
 
 /**
- * The done screen's one primary action, at the top of the outputs tile: "Download outputs", the file itself, when
+ * The done screen's one primary action, at the top of the volt outputs tile (so in the page's dark with volt text): "Download outputs", the file itself, when
  * there's one; "Download all", every file in turn, when there are several (each is also a row under it).
  */
 export function DownloadOutputs({ id }: { id: string }) {
@@ -88,13 +88,13 @@ export function DownloadOutputs({ id }: { id: string }) {
       href={only.url}
       download
       onClick={(event) => void open(event, only.path)}
-      className={buttonClasses("primary", true, true)}
+      className={buttonClasses("ink", true, true)}
     >
       <Download aria-hidden="true" className="size-5" strokeWidth={1.75} />
       Download outputs
     </a>
   ) : (
-    <button type="button" onClick={() => void all()} className={buttonClasses("primary", true, true)}>
+    <button type="button" onClick={() => void all()} className={buttonClasses("ink", true, true)}>
       <Download aria-hidden="true" className="size-5" strokeWidth={1.75} />
       Download all
     </button>

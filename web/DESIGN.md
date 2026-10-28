@@ -265,6 +265,7 @@ Every text pair meets 4.5:1 (1.4.3; the 24 px and larger headlines need only 3:1
 - **Secondary** (`secondary`): ion-deep with white text, for a weighty second choice ("Stop session"), a band's own button.
 - **Ghost** (`ghost`): the `raised` fill at night, white with a 1 px edge by day, for everyday actions. Inside a panel it is pressed in with `panel-2`.
 - **Inside a night panel:** the volt (`live`) button with `ink` text, in either theme.
+- **Inside a volt tile:** the `ink` button (the page's dark with volt text), in either theme, so the screen's primary is still seen ("Download outputs").
 - **Quiet:** a bold text action, like "Change". **Danger:** confirming something destructive, in the one dialog.
 - **Chips** are 44 px pills; the chosen one is `primary`. A pressed button that's waiting shows a small spinner inside it.
 
@@ -371,7 +372,7 @@ The owner's screens (ADR 0023), for someone who wants to know "is my machine ear
 
 ## Account, sign-in and the rest
 
-Sign-in, the invite step, Account, API keys, the notifications list and the CLI approval are panels on the page colour, with one primary action each. The admin console (ADR 0027) stays dense: it takes the fonts, the colours and the radii, with smaller type and tighter tables, and the sidebar with all its sections.
+Sign-in, the invite step, Account, API keys, the notifications list and the CLI approval are panels on the page colour, with one primary action each. The admin console (ADR 0027) stays dense: it takes the fonts, the colours and the radii (and both themes), with smaller type and tighter tables, and a 240 px sidebar with all its sections in four groups (Overview, Safety, Money, The service), items 36 px tall from 768 px. Its headlines are Archivo uppercase at 26 px, its tables sit in a panel with tracked uppercase headings and 8 px of padding in a row, and its pills are `raised`, `ok` or `danger-soft`.
 
 ## Laptop layout
 

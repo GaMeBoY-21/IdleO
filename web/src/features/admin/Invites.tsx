@@ -61,7 +61,7 @@ export function Invites() {
             For &ldquo;{made.note}&rdquo;. Shown only now: only their hashes are kept. Each works once.
           </p>
           <ul
-            className="tabular grid grid-cols-1 gap-2 rounded-control bg-panel p-4 text-body md:grid-cols-3"
+            className="tabular grid grid-cols-1 gap-2 rounded-inner border border-edge bg-panel p-4 text-body md:grid-cols-3"
             aria-label="New invite codes"
           >
             {made.codes.map((code) => (

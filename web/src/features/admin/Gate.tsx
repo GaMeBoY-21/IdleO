@@ -66,7 +66,7 @@ function GateFrame({ title, children }: { title: string; children: ReactNode }) 
   useTitle(`${title} · Admin`);
   return (
     <main className="mx-auto flex min-h-dvh max-w-narrow flex-col justify-center gap-6 px-4 py-12">
-      <h1 className="text-title font-bold">{title}</h1>
+      <h1 className="font-display text-headline uppercase">{title}</h1>
       {children}
     </main>
   );
@@ -120,7 +120,7 @@ function Enrol() {
           somewhere safe now.
         </p>
         <ol
-          className="tabular grid grid-cols-2 gap-2 rounded-control bg-panel p-4 text-body"
+          className="tabular grid grid-cols-2 gap-2 rounded-inner border border-edge bg-panel p-4 text-body"
           aria-label="Recovery codes"
         >
           {saved.recoveryCodes.map((recovery) => (

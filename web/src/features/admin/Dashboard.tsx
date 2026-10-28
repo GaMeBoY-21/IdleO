@@ -46,13 +46,16 @@ export function Dashboard() {
                 const attention =
                   (key === "reconciliationMismatches" || key === "settlementBacklog") && value > 0;
                 return (
-                  <li key={key} className="flex h-28 flex-col justify-between rounded-control bg-panel p-4">
+                  <li
+                    key={key}
+                    className="flex h-28 flex-col justify-between rounded-inner border border-edge bg-panel p-4"
+                  >
                     <span className="text-small font-medium">{label}</span>
                     <span
                       className={
                         attention
-                          ? "tabular text-title font-bold text-danger"
-                          : "tabular text-title font-bold"
+                          ? "tabular font-title text-title text-danger"
+                          : "tabular font-title text-title"
                       }
                     >
                       {value}
@@ -169,7 +172,7 @@ function InstallRow({ install }: { install: Install }) {
         </Cell>
       </Row>
       {open && (
-        <tr id={panel} className="border-b border-line bg-panel">
+        <tr id={panel} className="border-b border-line bg-panel-2">
           <td colSpan={7} className="px-2 py-3">
             <ul className="flex flex-col gap-3">
               {install.details.map((each) => (

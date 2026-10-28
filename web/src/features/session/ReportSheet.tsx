@@ -54,7 +54,7 @@ export function ReportSheet({
   return (
     <Dialog.Root open={open} onOpenChange={close}>
       <Dialog.Portal>
-        <Dialog.Overlay className="appear fixed inset-0 z-30 bg-primary opacity-40" />
+        <Dialog.Overlay className="appear fixed inset-0 z-30 bg-ink opacity-60" />
         <Dialog.Content
           data-tile=""
           className="appear fixed inset-x-4 top-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 overflow-y-auto rounded-panel bg-panel p-6 border border-line md:inset-y-auto md:top-12 md:max-h-5/6"

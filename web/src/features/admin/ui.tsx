@@ -9,8 +9,8 @@ import { formatDateTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 
 /**
- * The console's building blocks (ADR 0027): the same black-and-white language as the app, but dense, for one
- * person's tool. Every list and record has the four states of web/DESIGN.md: a skeleton of its shape while it loads,
+ * The console's building blocks (ADR 0027, ADR 0043): the same tokens as the app, but dense (smaller type, tighter
+ * tables), for one person's tool. Every list and record has the four states of web/DESIGN.md: a skeleton of its shape while it loads,
  * why it's empty, what went wrong with a retry, and a line when the figures shown are stale.
  */
 
@@ -18,7 +18,7 @@ export function AdminPage({ title, children }: { title: string; children: ReactN
   useTitle(`${title} · Admin`);
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-title font-bold">{title}</h1>
+      <h1 className="font-display text-headline uppercase">{title}</h1>
       {children}
     </div>
   );
@@ -165,13 +165,18 @@ export function Table({
 }) {
   return (
     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a wide table scrolls; the keyboard must reach it
-    <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={caption}>
+    <div
+      className="relative overflow-x-auto rounded-panel border border-edge bg-panel px-3 py-1.5"
+      tabIndex={0}
+      role="region"
+      aria-label={caption}
+    >
       <table className="w-full min-w-max border-collapse text-small">
         <caption className="sr-only">{caption}</caption>
         <thead>
-          <tr className="border-b border-line text-left text-caption text-text-2">
+          <tr className="border-b border-line text-left text-caption tracking-wider text-text-3 uppercase">
             {columns.map((column) => (
-              <th key={column} scope="col" className="px-2 py-2 font-medium">
+              <th key={column} scope="col" className="px-2 py-2.5 font-semibold">
                 {column}
               </th>
             ))}
@@ -184,11 +189,11 @@ export function Table({
 }
 
 export function Row({ children, className }: { children: ReactNode; className?: string }) {
-  return <tr className={cn("border-b border-line align-top", className)}>{children}</tr>;
+  return <tr className={cn("border-b border-line align-top last:border-b-0", className)}>{children}</tr>;
 }
 
 export function Cell({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cn("px-2 py-2.5", className)}>{children}</td>;
+  return <td className={cn("px-2 py-2", className)}>{children}</td>;
 }
 
 /** A row's link to its record: a 44 px target, like every control (web/DESIGN.md "Shapes and space"). */
@@ -239,7 +244,7 @@ export function Id({ value }: { value: string }) {
   );
 }
 
-/** A small word for a state, in a grey pill; never colour alone. */
+/** A small word for a state, in a pill; never colour alone. */
 export function Pill({
   children,
   tone = "plain",
@@ -251,8 +256,8 @@ export function Pill({
     <span
       className={cn(
         "inline-flex rounded-full px-2.5 py-0.5 text-caption font-medium",
-        tone === "plain" && "bg-panel text-text",
-        tone === "running" && "bg-ok text-running",
+        tone === "plain" && "bg-raised text-text",
+        tone === "running" && "bg-ok text-ok-fg",
         tone === "danger" && "bg-danger-soft text-danger",
       )}
     >
@@ -312,7 +317,7 @@ export function SmallField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className={cn(
-          "min-h-touch rounded-control bg-panel px-3 text-small text-text placeholder:text-text-2",
+          "min-h-touch rounded-control border border-edge bg-panel px-3 text-small text-text placeholder:text-text-2",
           width,
         )}
       />
@@ -342,7 +347,7 @@ export function SmallSelect({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-touch rounded-control bg-panel px-3 text-small text-text"
+        className="min-h-touch rounded-control border border-edge bg-panel px-3 text-small text-text"
       >
         {options.map(([option, text]) => (
           <option key={option} value={option}>

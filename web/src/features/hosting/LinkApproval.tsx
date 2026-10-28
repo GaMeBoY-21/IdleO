@@ -291,7 +291,7 @@ function Done({ link }: { link: HostLink }) {
       </p>
       <p className="text-small text-ink">You can close this tab; the laptop finishes linking by itself.</p>
       {link.hostId && (
-        <Link href={`/hosting/machine/?id=${link.hostId}`} className={buttonClasses("primary", true, false)}>
+        <Link href={`/hosting/machine/?id=${link.hostId}`} className={buttonClasses("ink", true, false)}>
           Open your laptop
         </Link>
       )}

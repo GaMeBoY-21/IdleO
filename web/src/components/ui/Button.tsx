@@ -8,12 +8,13 @@ import { cn } from "@/lib/cn";
  * - `secondary`: ion-deep, white text, for a weighty second choice like "Stop session";
  * - `ghost`: the raised fill (white with an edge by day), for everyday actions; inside a tile it is pressed in with the tile's own step;
  * - `live`: volt in either theme, the one button that sits inside a night tile ("Request a GPU");
+ * - `ink`: the page's dark with volt text in either theme, the one button that sits inside a volt tile ("Download outputs");
  * - `quiet`: a bold text action, like "Change";
  * - `danger`: confirming something destructive, in the one dialog.
  * `large` is the 56 px button at the foot of a flow (60 px on a laptop). Every button is at least 44 px tall. A link
  * that looks like a button uses buttonClasses(). A pressed button that's waiting shows a small spinner inside it.
  */
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "live" | "quiet" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "live" | "ink" | "quiet" | "danger";
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-primary font-bold text-primary-fg hover:bg-primary-hover",
@@ -21,6 +22,7 @@ const variants: Record<ButtonVariant, string> = {
   ghost:
     "border border-edge bg-ghost text-text hover:bg-ghost-hover tiled:bg-panel-2 tiled:hover:bg-ghost-hover",
   live: "bg-volt font-bold text-ink hover:bg-volt-hover",
+  ink: "bg-ink font-bold text-volt hover:bg-ink/85",
   quiet: "text-text underline-offset-4 hover:underline",
   // Hovering adds a ring outside the button rather than fading it, so its text keeps its contrast.
   danger:
