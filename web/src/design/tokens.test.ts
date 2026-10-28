@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { contrast } from "./contrast";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { contrastPairs, displayScale, fonts, preloadedFonts, themes, typeScale } from "./tokens";
 
 /** DESIGN.md's contrast table, by "fg on bg": [dark, light, minimum]. */
@@ -119,6 +119,32 @@ describe("the fonts", () => {
     const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
     expect(links(read("../../index.html"))).toEqual([...preloadedFonts.app].sort());
     expect(links(read("../../scripts/build-site.ts"))).toEqual([...preloadedFonts.site].sort());
+  });
+
+  it("keep the accented letters out of the app's and the website's own text, so their file is fetched only for a person's name", () => {
+    const accented = fonts.sans.more.range
+      .split(",")
+      .map((part) =>
+        part
+          .replace(/U\+/g, "")
+          .split("-")
+          .map((hex) => parseInt(hex, 16)),
+      )
+      .map(([from, to = from]) => [from!, to] as const);
+    const root = new URL("../", import.meta.url);
+    const found: string[] = [];
+    for (const file of readdirSync(root, { recursive: true, encoding: "utf8" })) {
+      if (!/\.(ts|tsx|css)$/.test(file) || /\.(test|gen)\./.test(file) || file.includes("api/schema")) {
+        continue;
+      }
+      for (const character of readFileSync(new URL(file, root), "utf8")) {
+        const code = character.codePointAt(0)!;
+        if (accented.some(([from, to]) => code >= from && code <= to)) {
+          found.push(`${file}: ${character}`);
+        }
+      }
+    }
+    expect(found).toEqual([]);
   });
 
   it("keep each family's ranges apart: a file and its second file share no character", () => {

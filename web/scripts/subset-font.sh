@@ -16,8 +16,8 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 # The first screen's file holds Basic Latin and the few signs we use; Inter's accented letters are a second file the
 # browser fetches only for a page that has one (unicode-range in src/design/tokens.ts keeps the two in step).
-basic="U+0020-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248"
-accents="U+00A1-00A8,U+00AA-00B6,U+00B8-00D6,U+00D8-00FF"
+basic="U+0020-007E,U+00A0,U+00A7,U+00A9,U+00B0,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248"
+accents="U+00A1-00A6,U+00A8,U+00AA-00AF,U+00B1-00B6,U+00B8-00D6,U+00D8-00FF"
 # Archivo at 125% / 900 is set uppercase: its lowercase is only the wordmark's, a file of its own.
 caps="U+0020-0060,U+007B-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248"
 lower="U+0061-007A"

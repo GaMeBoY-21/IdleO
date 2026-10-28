@@ -259,13 +259,13 @@ export const fontWeights = { regular: 400, medium: 500, semibold: 600, bold: 700
 
 /** What the first screen's font files hold: Basic Latin, the few Latin-1 signs we use, the punctuation, arrows and rupee. */
 const BASIC_LATIN =
-  "U+0020-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
+  "U+0020-007E,U+00A0,U+00A7,U+00A9,U+00B0,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
 /** Archivo at 125% / 900 is set uppercase, so its file holds no lowercase; the wordmark's few lowercase letters are a second, tiny file. */
 const DISPLAY_CAPS =
   "U+0020-0060,U+007B-007E,U+00A0,U+00A9,U+00B7,U+00D7,U+2013-2014,U+2018-201D,U+2022,U+2026,U+20B9,U+2190-2193,U+2212,U+2248";
 const DISPLAY_LOWER = "U+0061-007A";
 /** The rest of Latin-1: accented letters and the signs we do not use. */
-const LATIN_ACCENTS = "U+00A1-00A8,U+00AA-00B6,U+00B8-00D6,U+00D8-00FF";
+const LATIN_ACCENTS = "U+00A1-00A6,U+00A8,U+00AA-00AF,U+00B1-00B6,U+00B8-00D6,U+00D8-00FF";
 
 /**
  * The fonts (web/DESIGN.md "Typography"): self-hosted, Latin plus the rupee sign, cut by scripts/subset-font.sh. Each
