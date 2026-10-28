@@ -18,6 +18,8 @@ overrides:
   body-parser: "^1.20.9"
   # jsdom -> undici (the unit tests' browser, never the bundle): GHSA-xjj6-f33q-929c.
   undici: "^8.12.2"
+  # firebase -> @firebase/firestore -> re2js (unused; tree-shaken out of the bundle): GHSA-gg6h-894w-4m9c.
+  re2js: "^2.8.7"
 
 auditConfig:
   ignoreGhsas:
