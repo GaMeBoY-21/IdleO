@@ -276,7 +276,6 @@ export const fonts = {
   sans: {
     family: "Inter",
     file: "inter-400-700.woff2",
-    display: "swap",
     weight: "400 700",
     range: BASIC_LATIN,
     // The accented letters, fetched only by a page that has one (a person's name), so the first screen does not carry them.
@@ -286,7 +285,6 @@ export const fonts = {
   display: {
     family: "Archivo Display",
     file: "archivo-125-900.woff2",
-    display: "swap",
     weight: "900",
     range: DISPLAY_CAPS,
     more: { file: "archivo-125-900-lower.woff2", range: DISPLAY_LOWER },
@@ -294,10 +292,7 @@ export const fonts = {
   },
   title: {
     family: "Archivo Title",
-    // Not preloaded anywhere, so its arrival would move centred titles by a pixel or two: `optional` uses it only when it is
-    // there within the first 100 ms (every page after the first, from the cache), and never swaps it in later.
     file: "archivo-112-800.woff2",
-    display: "optional",
     weight: "800",
     range: BASIC_LATIN,
     more: null,
@@ -306,7 +301,6 @@ export const fonts = {
   mono: {
     family: "JetBrains Mono",
     file: "jetbrains-mono-400.woff2",
-    display: "swap",
     weight: "400",
     range: `${BASIC_LATIN},${LATIN_ACCENTS}`,
     more: null,

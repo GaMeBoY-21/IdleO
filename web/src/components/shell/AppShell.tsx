@@ -1,10 +1,13 @@
 import { ChevronLeft } from "lucide-react";
+import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import type { ReactNode } from "react";
 import { brand } from "@/brand/brand";
 import { Wordmark } from "@/brand/Wordmark";
 import { AppLink } from "@/components/ui/AppLink";
 import { PageHeading } from "@/components/ui/Heading";
+import { loadHeadlineFonts } from "@/design/fonts";
+import { afterPaint } from "@/lib/after-first-screen";
 import { cn } from "@/lib/cn";
 import { NotificationBanners } from "./NotificationBanners";
 import { NotificationBell } from "./NotificationBell";
@@ -21,6 +24,7 @@ import { UserMenuButton } from "./UserMenuButton";
 export function AppShell({ children }: { children: ReactNode }) {
   const [pathname] = useLocation();
   const flow = isFlow(pathname);
+  useEffect(() => afterPaint(loadHeadlineFonts), []);
   return (
     <div className={cn("flex min-h-dvh flex-col", SIDEBAR_PUSH)}>
       <a
