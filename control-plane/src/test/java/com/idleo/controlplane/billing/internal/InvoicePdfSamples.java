@@ -30,14 +30,16 @@ class InvoicePdfSamples {
         picture(folder.resolve("credit-note.pdf"), pdf.render(note));
     }
 
-
     /** The document's first page as a picture, 110 dots an inch, beside it. */
     private static void picture(Path pdf, byte[] bytes) throws Exception {
         Files.write(pdf, bytes);
         try (var read = org.apache.pdfbox.Loader.loadPDF(bytes)) {
             var image = new org.apache.pdfbox.rendering.PDFRenderer(read).renderImageWithDPI(0, 110);
             javax.imageio.ImageIO.write(
-                    image, "png", pdf.resolveSibling(pdf.getFileName().toString().replace(".pdf", ".png")).toFile());
+                    image,
+                    "png",
+                    pdf.resolveSibling(pdf.getFileName().toString().replace(".pdf", ".png"))
+                            .toFile());
         }
     }
 
@@ -74,9 +76,7 @@ class InvoicePdfSamples {
         totals.put("sgstPaise", 0);
         totals.put("igstPaise", 1_800);
         totals.put("totalPaise", 11_800);
-        root.putObject("payment")
-                .put("razorpayPaymentId", "pay_TestSample0001")
-                .put("method", "upi");
+        root.putObject("payment").put("razorpayPaymentId", "pay_TestSample0001").put("method", "upi");
         root.put("closedLoop", "IdleO credit is spent only on IdleO; it can't be withdrawn as cash or transferred.");
         return root;
     }

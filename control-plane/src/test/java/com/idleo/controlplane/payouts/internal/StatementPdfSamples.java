@@ -46,8 +46,8 @@ class StatementPdfSamples {
                         "194O",
                         0,
                         18_513));
-        var statement = new Statements.Statement(
-                new FinancialYear(2026), "123F", "Asha Rao", lines, 39_940, 399, 0, 39_541);
+        var statement =
+                new Statements.Statement(new FinancialYear(2026), "123F", "Asha Rao", lines, 39_940, 399, 0, 39_541);
         picture(folder.resolve("payout-statement.pdf"), statements.pdf(statement));
     }
 
@@ -57,7 +57,10 @@ class StatementPdfSamples {
         try (var read = org.apache.pdfbox.Loader.loadPDF(bytes)) {
             var image = new org.apache.pdfbox.rendering.PDFRenderer(read).renderImageWithDPI(0, 110);
             javax.imageio.ImageIO.write(
-                    image, "png", pdf.resolveSibling(pdf.getFileName().toString().replace(".pdf", ".png")).toFile());
+                    image,
+                    "png",
+                    pdf.resolveSibling(pdf.getFileName().toString().replace(".pdf", ".png"))
+                            .toFile());
         }
     }
 }

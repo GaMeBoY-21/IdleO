@@ -21,8 +21,9 @@ class EmailContent {
 
     /** The page with each {@code {{name}}} replaced by its value, escaped, in one pass: a value is never searched again. */
     private static String fill(Map<String, String> values) {
-        return PLACEHOLDER.matcher(HTML).replaceAll(found ->
-                Matcher.quoteReplacement(HtmlUtils.htmlEscape(values.get(found.group(1)))));
+        return PLACEHOLDER
+                .matcher(HTML)
+                .replaceAll(found -> Matcher.quoteReplacement(HtmlUtils.htmlEscape(values.get(found.group(1)))));
     }
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{(\\w+)}}");
@@ -104,14 +105,19 @@ class EmailContent {
         var account = properties.absolute("/account/");
         var text = message.title() + "\n\n" + message.body() + "\n\nOpen it: " + link + "\n\n--\n" + why
                 + "\nChange what we email you in Account: " + account + "\n";
-        var html = fill(
-                Map.of(
-                        "title", message.title(),
-                        "preheader", preheader(message.body()),
-                        "body", message.body(),
-                        "link", link,
-                        "why", why,
-                        "account", account));
+        var html = fill(Map.of(
+                "title",
+                message.title(),
+                "preheader",
+                preheader(message.body()),
+                "body",
+                message.body(),
+                "link",
+                link,
+                "why",
+                why,
+                "account",
+                account));
         return new EmailSender.Email(
                 to,
                 message.title(),
