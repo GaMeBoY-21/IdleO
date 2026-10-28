@@ -71,6 +71,17 @@ const csp = contentSecurityPolicy(
 );
 const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
+/**
+ * The rendered body with the line breaks between block and table tags taken out: they are never drawn, and the API reference
+ * is a quarter of a megabyte of them, which a first load on a slow phone pays for (the pages' speed budget). Whitespace
+ * between inline tags is kept, since it is drawn.
+ */
+const tighten = (html: string) =>
+  html.replace(
+    /(<\/(?:tr|td|th|thead|tbody|table|div|p|ul|ol|li|h[1-6]|section)>|<(?:tr|thead|tbody|table)(?:\s[^>]*)?>)\n(?=<)/g,
+    "$1",
+  );
+
 function document(page: PageDef, body: string): string {
   const url = `${siteUrl}${page.path}`;
   // Every page reports what real visits meet (ADR 0036), after it has loaded; Pricing and Earn have their own script too, and every page the Appearance switch's.
@@ -95,15 +106,11 @@ function document(page: PageDef, body: string): string {
     <meta property="og:description" content="${escape(page.description)}" />
     <meta property="og:url" content="${url}" />
     <meta property="og:image" content="${siteUrl}/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="${escape(`${brand.name}: ${brand.share}`)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F3FA" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0C0A1F" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/favicon.ico" sizes="48x48" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" href="/fonts/inter-400-700.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/archivo-125-900-lower.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/archivo-125-900.woff2" as="font" type="font/woff2" crossorigin />
@@ -112,7 +119,7 @@ function document(page: PageDef, body: string): string {
 ${preloads.map((file) => `    <link rel="modulepreload" href="/${file}" />`).join("\n")}
   </head>
   <body data-api="${escape(env.VITE_API_URL ?? "")}" data-app="${escape(appUrl)}">
-${body}
+${tighten(body)}
 ${loaded.map((one) => `    <script type="module" src="/${one.entry}"></script>`).join("\n")}
   </body>
 </html>
