@@ -49,7 +49,7 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
             />
             {label}
           </span>
-          <span className="text-text-2 tabular">
+          <span className="w-32 shrink-0 text-left text-text-2 tabular">
             {reading ? `${reading.tempC}°C · ${reading.utilPct}% busy` : host.online ? "online" : "offline"}
           </span>
         </span>
