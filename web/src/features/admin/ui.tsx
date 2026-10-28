@@ -164,9 +164,10 @@ export function Table({
   children: ReactNode;
 }) {
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a wide table scrolls; the keyboard must reach it
     <div
       className="relative overflow-x-auto rounded-panel border border-edge bg-panel px-3 py-1.5"
+      // a wide table scrolls; the keyboard must reach it
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       role="region"
       aria-label={caption}

@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
  */
 export function PageHeading({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
+    // eslint-disable-next-line jsx-a11y/heading-has-content -- the content comes with the props
     <h1
       className={cn(
         "font-title text-display-feature md:font-display md:text-display-page md:uppercase",

@@ -2,27 +2,25 @@ import { Activity, House, Server, Wallet, Zap, type LucideIcon } from "lucide-re
 
 /**
  * Where a renter can go (web/DESIGN.md "Navigation"): the sidebar from 768 px lists all six, and the phone's tab bar
- * the five most used (Home, Book, Sessions, Hosting, Credit) with "More" for the rest (My files, Account, the theme and
- * signing out). `label` is the sidebar's; `tab` and `icon` are the tab bar's.
+ * ({@link phoneDestinations}) the five most used with "More" for the rest (My files, Account, signing out).
  */
 export const destinations = [
-  { href: "/", label: "Home", tab: "Home", icon: House },
-  { href: "/book/", label: "Book a GPU", tab: "Book", icon: Zap },
-  { href: "/sessions/", label: "Sessions", tab: "Sessions", icon: Activity },
-  { href: "/files/", label: "My files", tab: null, icon: null },
-  { href: "/hosting/", label: "Hosting", tab: "Hosting", icon: Server },
-  { href: "/credit/", label: "Credit", tab: "Credit", icon: Wallet },
-] as const satisfies ReadonlyArray<{
-  href: string;
-  label: string;
-  tab: string | null;
-  icon: LucideIcon | null;
-}>;
+  { href: "/", label: "Home" },
+  { href: "/book/", label: "Book a GPU" },
+  { href: "/sessions/", label: "Sessions" },
+  { href: "/files/", label: "My files" },
+  { href: "/hosting/", label: "Hosting" },
+  { href: "/credit/", label: "Credit" },
+] as const;
 
 /** The five destinations the phone's tab bar shows. */
-export const phoneDestinations = destinations.flatMap(({ href, tab, icon }) =>
-  tab !== null && icon !== null ? [{ href, label: tab, icon }] : [],
-);
+export const phoneDestinations: ReadonlyArray<{ href: string; label: string; icon: LucideIcon }> = [
+  { href: "/", label: "Home", icon: House },
+  { href: "/book/", label: "Book", icon: Zap },
+  { href: "/sessions/", label: "Sessions", icon: Activity },
+  { href: "/hosting/", label: "Hosting", icon: Server },
+  { href: "/credit/", label: "Credit", icon: Wallet },
+];
 
 export const isCurrent = (pathname: string, href: string) => {
   if (href === "/") {
