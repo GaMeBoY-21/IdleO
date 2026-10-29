@@ -1,0 +1,47 @@
+name: codeql
+
+# Code scanning with CodeQL's security-extended queries, on every pull request to main, every push to main and weekly.
+# No path filters: the ruleset on main requires these checks, and a check that never starts would block the merge.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 2"
+
+# A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: codeql (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      # Uploading the results to the Security tab.
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # java-kotlin is the control plane, javascript-typescript the web app, python the SDK. Rust is the agent, the
+        # CLI and the scanner. None of them is built: CodeQL reads the source.
+        language: [java-kotlin, javascript-typescript, python, rust]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+          config-file: ./.github/codeql/codeql-config.yml
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}
