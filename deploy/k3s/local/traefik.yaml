@@ -1,0 +1,29 @@
+# k3s's own Traefik on the Mac's k3d cluster (scripts/k8s/up.sh mounts this into k3s's manifests folder, so it applies
+# as the cluster boots; ADR 0045): the Gateway API provider on, and the two entry points on the ports k3d publishes on
+# this machine, 8088 (HTTP, which only redirects) and 8443 (HTTPS), so an address is the same inside the cluster and
+# out. The server's own copy (S5) differs only in its ports, 80 and 443.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true
+    # Our Gateway is the idleo chart's; Traefik's chart makes only the class.
+    gateway:
+      enabled: false
+    gatewayClass:
+      enabled: true
+      name: traefik
+    ports:
+      web:
+        exposedPort: 8088
+      websecure:
+        exposedPort: 8443
+    service:
+      spec:
+        # The client's own address reaches Traefik (no hop through another node), and from it X-Forwarded-For.
+        externalTrafficPolicy: Local

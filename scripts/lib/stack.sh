@@ -9,11 +9,12 @@
 # razorpay_port for the fake Razorpay and razorpayx_port for the fake RazorpayX (stack_start_fake_razorpay; left
 # unset, payments and payouts are off). It
 # defines log and fail (each script prints its own prefix), and may set operator_name, the name operator commands
-# record in the audit log. After sourcing, api, sign_in and agent are set.
+# record in the audit log. After sourcing, api, sign_in and agent are set; a caller whose stack is elsewhere (the Mac's
+# cluster, scripts/k8s/smoke.sh) sets api and sign_in itself.
 # shellcheck shell=bash
 
-api="http://localhost:$http_port"
-sign_in="http://localhost:$sign_in_port/idleo-local"
+api="${api:-http://localhost:$http_port}"
+sign_in="${sign_in:-http://localhost:$sign_in_port/idleo-local}"
 agent="$root/agent/target/release/idleo-agent"
 # Email (ADR 0026): what the stack's Mailpit has kept, read through its API.
 mail_api="http://localhost:${mail_web_port:-8025}/api/v1"

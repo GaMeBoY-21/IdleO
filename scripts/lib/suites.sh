@@ -2,19 +2,21 @@
 # The suites and which files each one answers for: the one place scripts/check-all.sh and scripts/check-changed.sh
 # read. Source it; don't run it.
 #
-# A suite's checks are scripts/checks/<suite>.sh, except drill, web-browser and e2e (suite_command). Its paths follow
+# A suite's checks are scripts/checks/<suite>.sh, except drill, web-browser, e2e and k8s (suite_command). Its paths follow
 # the workflows' `paths:` filters (.github/workflows/*.yml), so a change runs what CI would run for it.
 
-ALL_SUITES=(agent cli scanner control-plane ops drill proto distro images sdk web web-browser e2e)
+ALL_SUITES=(agent cli scanner control-plane ops drill proto distro images sdk web deploy web-browser e2e k8s)
 
 # suite_command SUITE: runs the suite, from the repository root, and returns its status.
 suite_command() {
   local root="$1" suite="$2"
   case "$suite" in
-    agent | cli | scanner | control-plane | ops | proto | distro | images | sdk | web) "$root/scripts/checks/$suite.sh" ;;
+    agent | cli | scanner | control-plane | ops | proto | distro | images | sdk | web | deploy) "$root/scripts/checks/$suite.sh" ;;
     drill) "$root/ops/backup/drill.sh" ;;
     web-browser) "$root/scripts/e2e/agent-online.sh" --web ;;
     e2e) "$root/scripts/e2e/agent-online.sh" && "$root/scripts/e2e/real-runner.sh" && "$root/scripts/e2e/start-check.sh" ;;
+    # The Mac's cluster from the images up, and the proof (ADR 0045); up.sh stops ./start.sh's stack first.
+    k8s) "$root/scripts/k8s/up.sh" && "$root/scripts/k8s/smoke.sh" ;;
     *)
       echo "no suite called $suite; the suites are: ${ALL_SUITES[*]}" >&2
       return 2
@@ -27,6 +29,15 @@ suite_command() {
 suites_for_path() {
   case "$1" in
     scripts/checks/*.sh) local s="${1#scripts/checks/}"; echo "${s%.sh}" ;;
+    # The server's images (ADR 0045): what they're built from runs the cluster's proof (.github/workflows/k8s.yml).
+    scanner/Dockerfile*) echo scanner e2e k8s ;;
+    control-plane/Dockerfile* | web/Dockerfile*) echo k8s ;;
+    web/scripts/nginx-config.ts) echo web web-browser k8s ;;
+    # ops/postgres's first start makes the database's two users, which the control plane's tests check.
+    ops/postgres/Dockerfile) echo drill ops control-plane k8s ;;
+    ops/postgres/*) echo drill ops control-plane ;;
+    deploy/*) echo deploy k8s ;;
+    scripts/k8s/*) echo k8s ;;
     agent/distro/*) echo agent distro e2e ;;
     agent/images/*) echo images ;;
     agent/*) echo agent e2e ;;
@@ -45,10 +56,11 @@ suites_for_path() {
     docs/site/generated/*) echo cli sdk web ;;
     docs/site/*) echo web ;;
     docs/runbooks/alerts.md | ops/alerts/* | ops/alertmanager/* | ops/grafana/*) echo ops ;;
-    ops/backup/* | ops/postgres/*) echo drill ops ;;
+    ops/backup/*) echo drill ops ;;
     scripts/ops/*) echo ops ;;
     scripts/go-public/*) echo agent ;;
-    scripts/e2e/* | scripts/lib/stack.sh | scripts/lib/real-sign-in.sh | start.sh) echo e2e ;;
+    scripts/lib/stack.sh) echo e2e k8s ;;
+    scripts/e2e/* | scripts/lib/real-sign-in.sh | start.sh) echo e2e ;;
     scripts/lib/toolchains.sh | scripts/check-all.sh | scripts/check-changed.sh | scripts/lib/suites.sh | scripts/lib/quiet.sh) echo "" ;;
     *) echo "" ;;
   esac

@@ -5,7 +5,8 @@
 #   scripts/check-changed.sh             run them
 #   scripts/check-changed.sh --list      say which would run, and run none
 #   scripts/check-changed.sh --verbose   print each suite's whole output as it runs
-#   scripts/check-changed.sh --no-e2e    leave out the slow end-to-end suites (e2e, web-browser, drill, distro, images)
+#   scripts/check-changed.sh --no-e2e    leave out the slow end-to-end suites (e2e, web-browser, drill, distro, images,
+#                                        k8s)
 #
 # During work, run this. The full scripts/check-all.sh is for once, before pushing.
 set -euo pipefail
@@ -42,7 +43,7 @@ suites=()
 for suite in "${ALL_SUITES[@]}"; do   # in check-all's order
   [[ "$wanted" == *" $suite "* ]] || continue
   if $skip_slow; then
-    case "$suite" in e2e | web-browser | drill | distro | images) continue ;; esac
+    case "$suite" in e2e | web-browser | drill | distro | images | k8s) continue ;; esac
   fi
   suites+=("$suite")
 done
