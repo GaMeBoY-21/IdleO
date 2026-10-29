@@ -1,6 +1,6 @@
 # Deployment
 
-What a production deployment needs that the local stack doesn't, and what must be done before launch. The deployment round fills in the rest: staging and production, R2, the domain and monitoring.
+What a production deployment needs that the local stack doesn't, and what must be done before launch. The server side runs from signed images and one Helm chart on k3s (ADR 0045, kubernetes.md); the deployment rounds fill in the rest: Flux and SOPS, CloudNativePG, the cluster's policies, and the server with its domain.
 
 ## Secrets the control plane won't start without
 
@@ -13,27 +13,29 @@ Each comes from the secret store as an environment variable; the prod profile re
 
 Make one with `openssl rand -base64 32`. Never reuse a key across staging and production.
 
-## Before launch: two database users
+## Two database users (ADR 0045)
 
-Today the control plane runs as the database's owner, so the same user that runs Flyway's migrations also serves requests. The audit log is append-only by trigger (ADR 0027), but an owner can drop a trigger. Before launch:
+In a cluster the control plane no longer runs as the database's owner. The owner could drop the triggers that keep the audit log and the ledger append-only, so the work is split:
 
-1. **A migration user** that owns every schema and table. Flyway runs as it (`SPRING_FLYWAY_USER`, `SPRING_FLYWAY_PASSWORD`), at deployment, and nothing else does.
-2. **An application user** the control plane serves requests as (`SPRING_DATASOURCE_USERNAME`), granted only what it needs:
-   - `USAGE` on each module's schema, and `SELECT`, `INSERT`, `UPDATE`, `DELETE` on its tables, except as below;
-   - on `identity.audit_log`, `billing.ledger_entries` and `billing.reservation_changes`: `SELECT` and `INSERT` only, no `UPDATE`, `DELETE` or `TRUNCATE`;
-   - `USAGE` on the sequences it needs;
-   - no DDL: no `CREATE` on any schema, and it owns nothing.
-3. Flyway's migrations then grant the application user what each new table needs, in the same migration that creates it, so a table can't ship without its grants.
+1. **A migration user,** `idleo_migration`, owns the database and so every schema and table. Only the chart's migration Job runs as it, running Flyway from `com.idleo.migration.DatabaseMigration`. The Job is a Helm hook: before an upgrade's pods roll, and after a first install once the database is up.
+2. **An application user,** `idleo_app`, is the login the control plane serves requests as, on the `cluster` profile with Flyway off. It is a member of `idleo_application` and of `pg_monitor`, so the backup watch can see WAL waiting to be archived. Migration V61 grants the role:
+   - `USAGE` on each module's schema, and `SELECT`, `INSERT`, `UPDATE`, `DELETE` on its tables, never `TRUNCATE`;
+   - on the 13 append-only tables (`identity.audit_log`, `billing.ledger_entries`, `billing.reservation_changes` and the rest whose triggers refuse every change): `SELECT` and `INSERT` only;
+   - `USAGE` on the sequences;
+   - no DDL: no `CREATE` on any schema, and it owns nothing. Next months' usage partitions come from `metering.ensure_usage_partition`, a function the migration user owns.
+3. **Every new table's migration grants the role what the table needs,** in the same migration, so a table can't ship without its grants.
 
-**The test to add once the split exists:** a Testcontainers test that connects as the application user and lists its privileges from `information_schema.role_table_grants` and `pg_namespace` (`has_schema_privilege(..., 'CREATE')`), and fails if it has any `UPDATE`, `DELETE` or `TRUNCATE` on the append-only tables, owns any object, or can create in any schema. Until then the database refuses edits to those tables only through their triggers.
+The database's first start makes both users from the passwords in its Secret (`ops/postgres/initdb/10-idleo-users.sh`). `ApplicationRoleTests` connects as the application user, reads its own privileges, and fails on any `UPDATE`, `DELETE` or `TRUNCATE` on an append-only table, any object it owns, any schema it can create in, or any table left ungranted. `scripts/k8s/smoke.sh` checks the same in the cluster. `./start.sh` and the tests still run Flyway as the database's superuser.
 
-## Before launch: the address a request comes from
+## The address a request comes from (ADR 0045)
 
-The per-address limits (calls without a sign-in, CLI sign-ins started an hour, ADR 0025) count `request.getRemoteAddr()`. Behind a load balancer that is the load balancer's address, so every visitor would share one counter. Before launch:
+The per-address limits (calls without a sign-in, CLI sign-ins started an hour, ADR 0025) count `request.getRemoteAddr()`. Behind the ingress that would be the ingress's address, so every visitor would share one counter. In a cluster:
 
-- set `server.forward-headers-strategy: native` (or `framework`) so the control plane reads the client's address from the forwarded header;
-- trust that header **only from the load balancer's own addresses** (Tomcat's `RemoteIpValve` `internal-proxies`, or the platform's equivalent), so a client can't write its own `X-Forwarded-For` to dodge or burn someone else's limit;
-- check it: two clients behind the load balancer get separate counters, and a request carrying a made-up `X-Forwarded-For` from outside is counted under its real address.
+- the `cluster` profile sets `server.forward-headers-strategy: native`, so the control plane reads the client's address from X-Forwarded-For;
+- Tomcat believes that header only from `INGRESS_PROXIES`, the pod network, and the chart's network policy lets only Traefik's pods reach the web port. A client can't write its own header to dodge or burn someone else's limit. The prod profile refuses forwarded headers without `server.tomcat.remoteip.internal-proxies` (`ProductionSettingsGuard`), because Tomcat's default believes every private address;
+- Traefik's Service keeps the client's own address (`externalTrafficPolicy: Local`), so the header it writes is the client's.
+
+`ForwardedAddressTests` checks both directions on the cluster profile's Tomcat. `scripts/k8s/smoke.sh` checks it through Traefik: a request with a made-up X-Forwarded-For counts under the address the ingress saw. On the server (S5), also check that two clients get separate counters.
 
 ## Before launch: the website and the app have two addresses (ADR 0029)
 
