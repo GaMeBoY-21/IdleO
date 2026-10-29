@@ -46,7 +46,7 @@ const fallbacks = Object.values(fonts)
       ? [
           `@font-face {
   font-family: "${font.family} Fallback";
-  src: local("Arial");
+  src: local("Arial"), local("Liberation Sans"), local("Arimo");
   size-adjust: ${font.fallback[0]}%;
   ascent-override: ${font.fallback[1]}%;
   descent-override: ${font.fallback[2]}%;
