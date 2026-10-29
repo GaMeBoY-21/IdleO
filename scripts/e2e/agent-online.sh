@@ -789,6 +789,8 @@ scenario_loss() {
   await_state "$id" RUNNING 90
   host="$(api_get "/v1/sessions/$id" | json_get .hostId)"
   index="$(agent_of "$host")"
+  # A lost attempt counts against a host's score, so the hosting scenario, which runs after this one, needs to know it.
+  printf '%s' "$host" >"$out/lost-host"
   local deadline=$((SECONDS + 120))
   until [[ "$(sql "select count(*) > 0 from metering.usage_minutes where session_id = '$id' and agent_reported and agent_attempt = 1")" == t &&
     "$(sql "select count(*) > 0 from sessions.checkpoints c join sessions.attempts a on a.session_id = c.session_id and a.attempt = 1
@@ -1218,6 +1220,12 @@ summary+=("no storage credentials in the agent or control-plane logs: PASS")
 # earnings equal the ledger's host_payable entries, host by host and in all.
 scenario_hosting() {
   local preferred="${host_ids[0]}" other="${host_ids[1]}" i session chosen sessions=() view
+  # The host the loss scenario killed has a lost attempt against its score, so the scheduler ranks it below the other
+  # one whatever its price: the preferred laptop is the one of the two that lost nothing.
+  if [[ "$(cat "$out/lost-host" 2>/dev/null)" == "$preferred" ]]; then
+    preferred="${host_ids[1]}"
+    other="${host_ids[0]}"
+  fi
   api_patch "/v1/hosts/$preferred" -d '{"name": "RTX 4080 Laptop"}' >/dev/null || fail "renaming host $preferred failed"
   api_patch "/v1/hosts/$other" -d '{"name": "RTX 4060 Laptop"}' >/dev/null || fail "renaming host $other failed"
   [[ "$(api_get "/v1/hosts/$preferred" | json_get .name)" == "RTX 4080 Laptop" ]] || fail "the rename didn't stick"
