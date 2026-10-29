@@ -576,8 +576,12 @@ web_test() {
     pnpm exec playwright test "$@")
 }
 
+# Whether host $1's online is $2. A failed call fails the run, never reads as "not yet": an expired token once made
+# every check after the hour look like a host that wouldn't go offline.
 host_online() {
-  curl -sf "$api/v1/hosts/$1" -H "Authorization: Bearer $token" | grep -q "\"online\":$2"
+  local host_json
+  host_json="$(curl -sf "$api/v1/hosts/$1" -H "Authorization: Bearer $token")" || fail "GET /v1/hosts/$1 failed"
+  grep -q "\"online\":$2" <<<"$host_json"
 }
 # The agent running a host, by its position in host_ids.
 agent_of() {
@@ -2145,7 +2149,10 @@ ops reconcile-wallets || fail "the wallet check found mismatches; see private/e2
 grep -q "^0 mismatches" "$out/ops.log" || fail "the wallet check didn't report 0 mismatches"
 summary+=("wallet reconciliation after the run: $(grep '^ledger:' "$out/ops.log" | tail -1); 0 mismatches: PASS")
 
-# 10. Stop the agents and wait for the hosts to go offline.
+# 10. Stop the agents and wait for the hosts to go offline. A fresh token first: the development sign-in server's
+#     last an hour (control-plane/local-sign-in.json), and a --web run is longer than that by now.
+token="$(stack_token "$user")"
+[[ -n "$token" ]] || fail "no fresh token from the development sign-in server"
 stopped_at="$(now_ms)"
 for i in $(seq 1 "$agents"); do kill -TERM "$(cat "$out/agent-$i.pid")"; done
 deadline=$((SECONDS + 30))
