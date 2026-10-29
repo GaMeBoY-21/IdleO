@@ -1,5 +1,7 @@
 # GPU Rental Platform
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/GaMeBoY-21/IdleO/badge)](https://scorecard.dev/viewer/?uri=github.com/GaMeBoY-21/IdleO)
+
 A peer-to-peer GPU marketplace for India. Hosts with RTX gaming laptops and desktops rent out GPU time by the minute, and renters (students, developers, small startups) run AI jobs on them. A Java control plane books, schedules and bills; a Rust agent on each host runs the work; hosts connect outward over gRPC and an encrypted overlay, so nothing at home is exposed. Cloud gaming comes later, only for legally cleared titles.
 
 **Current phase:** Phase 0 (feasibility), then Phase 1 (compute core).
@@ -43,4 +45,4 @@ docs/            Decision records, runbooks, reference, site content, workflow
 
 ## Licence
 
-All rights reserved. The code is published for transparency and may not be copied or reused; see [LICENSE](LICENSE). To report a security problem, see [SECURITY.md](SECURITY.md).
+All rights reserved. The code is published for transparency and may not be copied or reused; see [LICENSE](LICENSE). Outside contributions aren't accepted ([CONTRIBUTING.md](CONTRIBUTING.md)). To report a security problem, see [SECURITY.md](SECURITY.md).
