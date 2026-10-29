@@ -1,0 +1,9 @@
+name: IdleO CodeQL configuration
+
+# Only build output, installed dependencies and the git-ignored private folder are left out; tests are read like the rest.
+paths-ignore:
+  - "**/node_modules"
+  - "**/target"
+  - "web/dist"
+  - "web/dist-fbx-sourcemaps"
+  - "private"
