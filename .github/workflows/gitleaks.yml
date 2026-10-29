@@ -1,0 +1,45 @@
+name: gitleaks
+
+# Secret scanning of the pull request's commits (or the push's), with the repository's own .gitleaks.toml, which lists the
+# fake keys tests and fixtures use file by file. The same tool and file scripts/go-public/verify.sh runs over the whole history.
+# No path filters: the ruleset on main requires this check.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history, so the commits of the range below are all there.
+          fetch-depth: 0
+      # The image, not gitleaks-action (which wants a licence key for organisations): gitleaks v8.30.1, pinned by digest.
+      - name: Scan the new commits
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          range="$BASE_SHA..$HEAD_SHA"
+          # A first push, a manual run or a forced push has no usable base: scan everything then.
+          if [[ "$EVENT" == workflow_dispatch || "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            range="$HEAD_SHA"
+          fi
+          docker run --rm -v "$PWD":/repo:ro \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git /repo --config /repo/.gitleaks.toml --log-opts="$range" --redact --no-banner --exit-code 1
