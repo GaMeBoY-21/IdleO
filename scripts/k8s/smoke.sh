@@ -55,6 +55,22 @@ redirect="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://app.i
   fail "plain HTTP wasn't sent to HTTPS: $redirect"
 pass "the website and the app load over HTTPS with their security headers; HTTP redirects ($redirect)"
 
+# 1b. The local CA vouches for this cluster's names only: a certificate it signs for another site is refused.
+openssl_bin="$(openssl3)"
+constraint_check="$(mktemp -d)"
+leaf() {
+  "$openssl_bin" req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout "$constraint_check/$1.key" \
+    -subj "/CN=$1" -addext "subjectAltName=DNS:$1" -out "$constraint_check/$1.csr" 2>/dev/null
+  "$openssl_bin" x509 -req -in "$constraint_check/$1.csr" -CA "$local_ca/ca.pem" -CAkey "$local_ca/ca.key" \
+    -days 1 -copy_extensions copy -out "$constraint_check/$1.pem" 2>/dev/null
+  "$openssl_bin" verify -CAfile "$local_ca/ca.pem" -purpose sslserver "$constraint_check/$1.pem" 2>&1
+}
+leaf app.idleo.localhost | grep -q ': OK$' || fail "the local CA can't vouch for app.idleo.localhost"
+refused="$(leaf www.example.com || true)"
+grep -q 'permitted subtree violation' <<<"$refused" || fail "the local CA could vouch for www.example.com: $refused"
+rm -rf "$constraint_check"
+pass "the local CA's name constraints: app.idleo.localhost verifies, www.example.com is refused (permitted subtree violation)"
+
 # 2. Readiness through the ingress: the database and the CA.
 readiness="$(curl -sf "$api/actuator/health/readiness")" || fail "readiness didn't answer at $api/actuator/health/readiness"
 grep -q '"status":"UP"' <<<"$readiness" || fail "readiness isn't UP: $readiness"

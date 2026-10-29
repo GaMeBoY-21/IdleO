@@ -30,6 +30,18 @@ k8s_state="$k8s_root/private/k8s"
 export KUBECONFIG="$k8s_state/kubeconfig"
 local_ca="$k8s_state/ca"
 
+# OpenSSL 3, found as control-plane/scripts/dev-ca.sh finds it (OPENSSL names another); macOS ships LibreSSL.
+openssl3() {
+  local candidate
+  for candidate in ${OPENSSL:-} /opt/homebrew/opt/openssl@3/bin/openssl /usr/local/opt/openssl@3/bin/openssl openssl; do
+    if command -v "$candidate" >/dev/null && "$candidate" version | grep -q '^OpenSSL 3'; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  fail "needs OpenSSL 3 (macOS ships LibreSSL): brew install openssl@3"
+}
+
 cluster_exists() { k3d cluster list -o json 2>/dev/null | grep -q "\"name\":\"$cluster\""; }
 
 # The tools the scripts drive. On a Mac with Homebrew a missing one is installed, and said; elsewhere (CI) it must be
