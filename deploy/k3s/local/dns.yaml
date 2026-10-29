@@ -1,0 +1,14 @@
+# The development services' addresses inside the Mac's k3d cluster (scripts/k8s/up.sh, ADR 0045): the sign-in server
+# and object storage are reached at the same address by the control plane in the cluster and by the agent, the
+# browser and the smoke test on this machine (where *.localhost is this machine, and k3d publishes their ports). A
+# token's issuer and a presigned link carry the address, so it can't differ. k3s's CoreDNS reads this ConfigMap's
+# *.override entries.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  idleo.override: |
+    rewrite stop name exact signin.idleo.localhost idleo-sign-in.idleo.svc.cluster.local answer auto
+    rewrite stop name exact storage.idleo.localhost idleo-storage.idleo.svc.cluster.local answer auto

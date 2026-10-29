@@ -1,0 +1,66 @@
+name: k8s
+
+# The Mac's cluster, on a runner (ADR 0045): scripts/k8s/up.sh builds the server's images and installs the chart on
+# k3d, and scripts/k8s/smoke.sh proves it (HTTPS, readiness, the two database users, the client's address, an agent
+# over mutual TLS, a booking to the end, a rolling restart that loses no agent). On changes to what the cluster is
+# made of, and weekly. Not a required check yet.
+on:
+  pull_request:
+    paths: ["deploy/**", "**/Dockerfile", "**/Dockerfile.dockerignore", "scripts/k8s/**", "ops/postgres/**",
+      "web/scripts/nginx-config.ts", "scripts/lib/stack.sh", ".github/workflows/images.yml", ".github/workflows/k8s.yml"]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cluster:
+    name: k8s up and smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The agent the smoke test runs outside the cluster (agent/rust-toolchain.toml pins the toolchain).
+      - name: Install the pinned Rust toolchain
+        working-directory: agent
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: agent
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Install k3d v5.9.0
+        run: |
+          curl -fsSLo k3d https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64
+          echo "06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0  k3d" | sha256sum -c -
+          sudo install -m 0755 k3d /usr/local/bin/k3d && rm k3d
+      # The cluster's addresses are names under .localhost, which systemd-resolved answers with this machine.
+      - name: The cluster's names are this machine
+        run: getent hosts api.idleo.localhost storage.idleo.localhost signin.idleo.localhost
+      - name: Up
+        run: scripts/k8s/up.sh
+      - name: Smoke
+        run: scripts/k8s/smoke.sh
+      - name: Memory
+        if: always()
+        run: scripts/k8s/status.sh || true
+      - name: What the cluster said
+        if: failure()
+        run: |
+          export KUBECONFIG=private/k8s/kubeconfig
+          kubectl get pods -A -o wide || true
+          kubectl -n idleo get events --sort-by=.lastTimestamp | tail -50 || true
+          for pod in $(kubectl -n idleo get pods -o name); do echo "== $pod"; kubectl -n idleo logs "$pod" --all-containers --tail=80 || true; done
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: k8s-logs
+          path: private/k8s/logs/
+          retention-days: 7
