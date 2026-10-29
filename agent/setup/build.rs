@@ -57,7 +57,7 @@ fn main() {
     std::fs::write(
         out,
         format!(
-            "/// The addresses and root baked into this build.\n#[must_use]\npub fn baked() -> crate::steps::Config {{\n    crate::steps::Config {{\n        api_url: {api:?}.to_owned(),\n        app_url: {app:?}.to_owned(),\n        site_url: {site:?}.to_owned(),\n        control_plane_host: {host:?}.to_owned(),\n        control_plane_port: {port},\n        ca_root_pem: {root:?}.to_owned(),\n        registry: {registry:?}.map(str::to_owned),\n    }}\n}}\n",
+            "/// The addresses and root baked into this build.\n#[must_use]\n#[allow(clippy::manual_string_new)]\npub fn baked() -> crate::steps::Config {{\n    crate::steps::Config {{\n        api_url: {api:?}.to_owned(),\n        app_url: {app:?}.to_owned(),\n        site_url: {site:?}.to_owned(),\n        control_plane_host: {host:?}.to_owned(),\n        control_plane_port: {port},\n        ca_root_pem: {root:?}.to_owned(),\n        registry: {registry:?}.map(str::to_owned),\n    }}\n}}\n",
             registry = registry.as_deref()
         ),
     )
