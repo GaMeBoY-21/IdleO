@@ -34,4 +34,9 @@ for environment in local staging production; do
       -kubernetes-version "$kubernetes_version" -schema-location default -schema-location "$crd_schemas"
 done
 echo "deploy: helm-unittest"
-docker run --rm -v "$root/deploy/helm/idleo:/apps:ro" "$helm_image" .
+# On a copy: helm-unittest writes a snapshot folder into the chart's tests, even with no snapshot to keep.
+chart_copy="$(mktemp -d)"
+trap 'rm -rf "$chart_copy"' EXIT
+cp -R "$root/deploy/helm/idleo/." "$chart_copy/"
+chmod -R a+rwX "$chart_copy"
+docker run --rm -v "$chart_copy:/apps" "$helm_image" .
