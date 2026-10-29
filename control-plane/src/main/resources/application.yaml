@@ -10,6 +10,11 @@ spring:
   threads:
     virtual:
       enabled: true
+  task:
+    scheduling:
+      # The scheduled jobs' threads (SchedulingConfiguration): a few, so one stuck job never holds the others.
+      pool:
+        size: 8
   lifecycle:
     timeout-per-shutdown-phase: 30s
   docker:

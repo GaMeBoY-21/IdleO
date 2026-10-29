@@ -27,7 +27,7 @@ IDs are UUIDv7. Times are UTC (timestamptz). Never trust agent clocks for billin
 
 ## Control plane
 
-Control plane: Java 25, Spring Boot 4, Spring Modulith, built with Maven through ./mvnw (ADR 0008). One Spring Modulith module per bounded context (identity, hosts, agentgateway, overlay, scheduling, sessions, metering, billing, payouts, trust, notifications, privacy, support). Modules talk only through public APIs or events and never read another module's tables.
+Control plane: Java 25, Spring Boot 4, Spring Modulith, built with Maven through ./mvnw (ADR 0008). One Spring Modulith module per bounded context (identity, hosts, agentgateway, overlay, scheduling, sessions, metering, billing, payouts, trust, notifications, privacy, support). Modules talk only through public APIs or events and never read another module's tables. Scheduled jobs run on a small pool (SchedulingConfiguration), so a job that waits on something slow holds only its own thread; one that runs past 20 s is logged by name.
 
 ## Database
 
