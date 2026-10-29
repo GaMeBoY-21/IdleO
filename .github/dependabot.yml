@@ -1,0 +1,63 @@
+# Weekly, and grouped so it is a few pull requests a week, not dozens: one per ecosystem for ordinary updates, with
+# security updates still arriving on their own. Everything pinned by digest or by lock file stays that way.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /control-plane
+    schedule: { interval: weekly, day: monday }
+    groups:
+      maven:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly, day: monday }
+    groups:
+      npm:
+        patterns: ["*"]
+
+  # The renter CLI and the image scanner are Rust, so Cargo covers them; the agent workspace is the third.
+  - package-ecosystem: cargo
+    directories: [/agent, /cli, /scanner]
+    schedule: { interval: weekly, day: monday }
+    groups:
+      cargo:
+        patterns: ["*"]
+
+  # The Python SDK is managed with uv (sdk/python/uv.lock).
+  - package-ecosystem: uv
+    directory: /sdk/python
+    schedule: { interval: weekly, day: monday }
+    groups:
+      python:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # The compose file's images are pinned by digest, and so are the Dockerfiles below. Not here, because the same pin
+  # moves together with something Dependabot can't edit: the sealed Linux image and the job image's bases (their own
+  # bump scripts, scripts/bump-distro-snapshot.sh), the hostile test's and the gpu check's Ubuntu (the same digest as the
+  # distribution's), the rust image (agent/rust-toolchain.toml pins the compiler), and the test fixtures.
+  - package-ecosystem: docker-compose
+    directory: /control-plane
+    schedule: { interval: weekly, day: monday }
+    groups:
+      docker:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories: [/scanner, /ops/postgres]
+    schedule: { interval: weekly, day: monday }
+    ignore:
+      # Compiled with the toolchain rust-toolchain.toml pins; PostgreSQL's major version is a migration, not an update.
+      - dependency-name: rust
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
+    groups:
+      docker:
+        patterns: ["*"]
