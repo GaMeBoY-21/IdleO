@@ -1,0 +1,8 @@
+# The control plane's image builds from the repository root (control-plane/Dockerfile): only what Maven reads.
+*
+!control-plane/pom.xml
+!control-plane/src/main
+!proto/gpu
+!templates/catalog.yaml
+!api/endings.json
+!api/cuda-drivers.json

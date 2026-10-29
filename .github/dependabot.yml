@@ -51,13 +51,18 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: docker
-    directories: [/scanner, /ops/postgres]
+    # The server's images (ADR 0045): their bases, the JRE and nginx included.
+    directories: [/scanner, /ops/postgres, /control-plane, /web]
     schedule: { interval: weekly, day: monday }
     ignore:
       # Compiled with the toolchain rust-toolchain.toml pins; PostgreSQL's major version is a migration, not an update.
       - dependency-name: rust
       - dependency-name: postgres
         update-types: ["version-update:semver-major"]
+      # The build images move with what they must match: Maven with .mvn/wrapper (the enforcer refuses another), Node
+      # with web/.node-version (engine-strict).
+      - dependency-name: maven
+      - dependency-name: node
     groups:
       docker:
         patterns: ["*"]

@@ -1,0 +1,20 @@
+# The web image builds from the repository root (web/Dockerfile): the web app's tracked sources and what its builds
+# read, never node_modules, earlier builds or a local .env.
+*
+!api
+!templates
+!docs/site
+!web/package.json
+!web/pnpm-lock.yaml
+!web/pnpm-workspace.yaml
+!web/.npmrc
+!web/.node-version
+!web/index.html
+!web/tsconfig.json
+!web/*.ts
+!web/src
+!web/scripts
+!web/e2e
+!web/eslint-rules
+!web/public
+web/e2e/**/*-snapshots
