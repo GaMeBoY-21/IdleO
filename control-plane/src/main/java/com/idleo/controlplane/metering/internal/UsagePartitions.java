@@ -15,8 +15,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Keeps {@code metering.usage_minutes} partitioned three months ahead, a month per partition in UTC (technical
  * design: partitioned by month). Runs daily; one instance at a time, under an advisory lock, and creating a
- * partition that exists changes nothing. There's no default partition, so a minute outside every partition would
- * fail loudly: this job is what keeps that from happening.
+ * partition that exists changes nothing. The database function {@code metering.ensure_usage_partition} makes each,
+ * as its owner, since the application's own user can't create tables (ADR 0045). There's no default partition, so a
+ * minute outside every partition would fail loudly: this job is what keeps that from happening.
  */
 @Component
 class UsagePartitions {
@@ -59,17 +60,10 @@ class UsagePartitions {
             }
             var month = YearMonth.from(now.atZone(ZoneOffset.UTC));
             for (int i = 0; i <= MONTHS_AHEAD; i++) {
-                var start = month.plusMonths(i);
-                var from = start.atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant();
-                var until = start.plusMonths(1)
-                        .atDay(1)
-                        .atStartOfDay(ZoneOffset.UTC)
-                        .toInstant();
-                // The name and bounds come from dates, never from input.
-                jdbc.sql(
-                                "create table if not exists metering.usage_minutes_%04d_%02d partition of metering.usage_minutes for values from ('%s') to ('%s')"
-                                        .formatted(start.getYear(), start.getMonthValue(), from, until))
-                        .update();
+                jdbc.sql("select metering.ensure_usage_partition(:month)")
+                        .param("month", month.plusMonths(i).atDay(1))
+                        .query((rs, row) -> row)
+                        .list();
             }
         });
     }
