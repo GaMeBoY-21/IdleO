@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
     paths: ["scanner/**", ".github/workflows/scanner.yml", "scripts/checks/scanner.sh"]
+  # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
+  # would block the merge. Pushes to main still run only for the paths that matter.
   pull_request:
-    paths: ["scanner/**", ".github/workflows/scanner.yml", "scripts/checks/scanner.sh"]
   workflow_dispatch:
 
 # A newer push to the same branch cancels this one's run: only the latest commit is worth the minutes.
@@ -18,6 +19,7 @@ permissions:
 
 jobs:
   build:
+    name: scanner
     # The scanner runs on our Linux server only.
     runs-on: ubuntu-latest
     defaults:
@@ -47,6 +49,7 @@ jobs:
         run: test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }
 
   deny:
+    name: scanner deny
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

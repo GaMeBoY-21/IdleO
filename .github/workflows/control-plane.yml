@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
     paths: ["control-plane/**", "api/**", "proto/**", "templates/catalog.yaml", ".github/workflows/control-plane.yml", "scripts/checks/control-plane.sh"]
+  # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
+  # would block the merge. Pushes to main still run only for the paths that matter.
   pull_request:
-    paths: ["control-plane/**", "api/**", "proto/**", "templates/catalog.yaml", ".github/workflows/control-plane.yml", "scripts/checks/control-plane.sh"]
   # Run by hand too, to check any commit against this workflow.
   workflow_dispatch:
 
@@ -19,6 +20,7 @@ permissions:
 
 jobs:
   verify:
+    name: control-plane verify
     runs-on: ubuntu-latest
     defaults:
       run:

@@ -6,8 +6,9 @@ on:
   push:
     branches: [main]
     paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml", "scripts/checks/web.sh"]
+  # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
+  # would block the merge. Pushes to main still run only for the paths that matter.
   pull_request:
-    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml", "scripts/checks/web.sh"]
   workflow_dispatch:
     inputs:
       update_screenshots:
@@ -22,11 +23,10 @@ concurrency:
 
 permissions:
   contents: read
-  # Downloading the visual baselines and the Lighthouse baseline of the last run on main.
-  actions: read
 
 jobs:
   checks:
+    name: web checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -48,8 +48,45 @@ jobs:
         working-directory: .
         run: scripts/checks/web.sh
 
-  browser:
+  # On a pull request the long browser run starts only when something it covers changed (the workflow itself has no
+  # path filter there, so the quick checks above always report).
+  changes:
+    name: web changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      browser: ${{ steps.paths.outputs.browser }}
+    steps:
+      - id: paths
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [[ "$EVENT" != pull_request ]]; then
+            echo "browser=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename')"
+          if grep -Eq '^(web/|api/|docs/site/|templates/|\.github/workflows/web\.yml$|scripts/checks/web\.sh$)' <<<"$files"; then
+            echo "browser=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "browser=false" >>"$GITHUB_OUTPUT"
+            echo "no file the browser run covers changed"
+          fi
+
+  browser:
+    name: web browser
+    needs: changes
+    if: ${{ needs.changes.outputs.browser == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Downloading the visual baselines and the Lighthouse baseline of the last run on main.
+      actions: read
     # Every screen in four projects, the journeys, then Lighthouse three times a screen: about 57 minutes by Oct 14,
     # against 60. The budgets are lighthouserc.json's; this is only how long the runner may take.
     timeout-minutes: 80

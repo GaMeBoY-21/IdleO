@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
     paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml", "scripts/checks/cli.sh"]
+  # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
+  # would block the merge. Pushes to main still run only for the paths that matter.
   pull_request:
-    paths: ["cli/**", "api/**", "docs/site/generated/**", ".github/workflows/cli.yml", "scripts/checks/cli.sh"]
   # Run by hand too, to check any commit against this workflow; by hand and weekly, on macOS and Windows as well.
   workflow_dispatch:
   schedule:
@@ -21,6 +22,7 @@ permissions:
 
 jobs:
   build:
+    name: cli (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -51,6 +53,7 @@ jobs:
         run: test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }
 
   deny:
+    name: cli deny
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
