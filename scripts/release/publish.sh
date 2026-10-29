@@ -12,7 +12,13 @@
 # 1. builds the Windows programs with this version (scripts/build-windows.sh; --release-keys unless --dev);
 # 2. Authenticode-signs them (scripts/release/sign-windows.sh), before anything is hashed;
 # 3. zips the app, takes the distro tarball from dist/distro/ (scripts/build-distro.sh makes it);
-# 4. writes the manifest and signs it; 5. uploads the files, then the manifest and its signature.
+# 4. a real release also writes a CycloneDX software bill of materials for the app and for the Linux image
+#    (scripts/release/sbom.py), which go to the feed beside them;
+# 5. writes the manifest and signs it; 6. uploads the files, then the manifest and its signature.
+#
+# The release workflow (.github/workflows/release.yml) is then run by hand for that version: it attests, on GitHub, the
+# files this script published, and attaches the bills of materials to a GitHub release. It takes no key and no upload
+# credential: it reads the public feed.
 #
 # Production needs IDLEO_RELEASE_KEY (the private key's path, which only idleo-release sign reads),
 # IDLEO_RELEASE_S3_ENDPOINT, IDLEO_RELEASE_S3_ACCESS_KEY_ID and IDLEO_RELEASE_S3_SECRET_ACCESS_KEY, and the setup
@@ -87,6 +93,8 @@ distro_version="$(tr -d '[:space:]' <agent/distro/VERSION)"
 tarball="$root/dist/distro/idleo-distro-$distro_version.tar.gz"
 zip="$release/idleo-app-$version.zip"
 setup="$release/IdleO-Setup.exe"
+app_sbom="$release/idleo-app-$version.cdx.json"
+distro_sbom="$root/dist/distro/idleo-distro-$distro_version.cdx.json"
 manifest="$root/dist/release/latest.json"
 idleo_release() { (cd "$root/agent" && cargo run --quiet --locked -p release --bin idleo-release -- "$@"); }
 
@@ -101,6 +109,16 @@ if ! $manifest_only; then
   cp "$root/dist/windows/IdleO-Setup.exe" "$setup"
 fi
 [[ -s "$zip" && -s "$setup" ]] || { echo "publish: no built files for $version in dist/release/; publish it without --manifest-only first" >&2; exit 1; }
+# The bills of materials: of the crates the Windows programs are built from, and of the Linux image's packages and its
+# runner. A development release doesn't need them; a real one is not published without.
+if ! $dev && ! $manifest_only; then
+  packages="$root/dist/distro/idleo-distro-$distro_version.packages.txt"
+  [[ -s "$packages" ]] || { echo "publish: $packages is missing: scripts/build-distro.sh writes it" >&2; exit 1; }
+  "$root/scripts/release/sbom.py" --name idleo-app --version "$version" --out "$app_sbom" \
+    --workspace agent --target x86_64-pc-windows-msvc --package agent --package tray --package launcher --package setup
+  "$root/scripts/release/sbom.py" --name idleo-distro --version "$distro_version" --out "$distro_sbom" \
+    --packages "$packages" --distro ubuntu-24.04 --workspace agent --target x86_64-unknown-linux-gnu --package runner
+fi
 
 idleo_release manifest --version "$version" --rollout "$rollout" --app "$zip" --distro "$tarball" \
   --distro-version "$distro_version" --setup "$setup" --out "$manifest"
@@ -111,6 +129,9 @@ uploads=()
 if ! $manifest_only; then
   uploads+=("$zip=stable/$version/idleo-app-$version.zip" "$setup=stable/$version/IdleO-Setup.exe"
     "$tarball=stable/distro/idleo-distro-$distro_version.tar.gz")
+  if ! $dev; then
+    uploads+=("$app_sbom=stable/$version/idleo-app-$version.cdx.json" "$distro_sbom=stable/distro/idleo-distro-$distro_version.cdx.json")
+  fi
 fi
 # The files first, then the manifest and its signature: the feed never names a file that isn't there.
 uploads+=("$manifest=stable/latest.json" "$manifest.sig=stable/latest.json.sig")

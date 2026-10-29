@@ -1,0 +1,99 @@
+name: release
+
+# Run by hand, after scripts/release/publish.sh has published a real release from the product owner's machine. It holds no
+# key and no upload credential, and it does not build or sign anything: it reads the public release feed, checks the signed
+# manifest with the committed release key and every file against the manifest's SHA-256, and then, on GitHub:
+#   - makes a build provenance attestation (actions/attest-build-provenance) for the setup program, the app zip, each
+#     program inside it and the Linux image's tarball, so `gh attestation verify FILE --repo OWNER/REPO` shows which
+#     workflow run and commit vouched for those exact bytes;
+#   - attaches the CycloneDX bills of materials publish.sh wrote (and the signed manifest) to a GitHub release.
+# The feed's address is the repository variable IDLEO_RELEASE_FEED_URL (the bucket's public address, no trailing slash).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The app version publish.sh published (X.Y.Z); it must be the feed's latest
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # the GitHub release
+      id-token: write # the signing identity for the attestations
+      attestations: write # storing them
+    env:
+      VERSION: ${{ inputs.version }}
+      FEED: ${{ vars.IDLEO_RELEASE_FEED_URL }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check the inputs
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "the version must be X.Y.Z"; exit 1; }
+          [[ "$FEED" =~ ^https://[^[:space:]]+[^/[:space:]]$ ]] || { echo "set the repository variable IDLEO_RELEASE_FEED_URL to the feed's https address, without a trailing slash"; exit 1; }
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release v$VERSION already exists"; exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Installs the toolchain pinned in agent/rust-toolchain.toml, for idleo-release, the tool that checks manifests.
+      - name: Install the pinned Rust toolchain
+        working-directory: agent
+        run: rustup toolchain install
+      - name: Fetch and check the signed manifest
+        run: |
+          mkdir -p feed
+          curl --fail --silent --show-error --location --retry 3 -o feed/latest.json "$FEED/stable/latest.json"
+          curl --fail --silent --show-error --location --retry 3 -o feed/latest.json.sig "$FEED/stable/latest.json.sig"
+          [[ -s agent/release-keys/release.pub ]] || { echo "agent/release-keys/release.pub is empty: there is no production release key yet"; exit 1; }
+          (cd agent && cargo run --quiet --locked -p release --bin idleo-release -- verify \
+            --public release-keys/release.pub ../feed/latest.json)
+          [[ "$(jq -r .version feed/latest.json)" == "$VERSION" ]] || {
+            echo "the feed's latest is $(jq -r .version feed/latest.json), not $VERSION"; exit 1; }
+      - name: Fetch the files and check them against the manifest
+        run: |
+          mkdir -p files
+          for part in app setup distro; do
+            path="$(jq -r ".$part.file" feed/latest.json)"
+            want="$(jq -r ".$part.sha256" feed/latest.json)"
+            curl --fail --silent --show-error --location --retry 3 -o "files/$(basename "$path")" "$FEED/stable/$path"
+            got="$(sha256sum "files/$(basename "$path")" | cut -d' ' -f1)"
+            [[ "$got" == "$want" ]] || { echo "$path: SHA-256 $got is not the manifest's $want"; exit 1; }
+            echo "$path: matches the signed manifest"
+          done
+          distro_version="$(jq -r .distro.version feed/latest.json)"
+          curl --fail --silent --show-error --location --retry 3 -o "files/idleo-app-$VERSION.cdx.json" \
+            "$FEED/stable/$VERSION/idleo-app-$VERSION.cdx.json"
+          curl --fail --silent --show-error --location --retry 3 -o "files/idleo-distro-$distro_version.cdx.json" \
+            "$FEED/stable/distro/idleo-distro-$distro_version.cdx.json"
+          for sbom in files/*.cdx.json; do
+            jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "$sbom" >/dev/null || { echo "$sbom is not a bill of materials"; exit 1; }
+          done
+          # The programs inside the zip, each its own subject.
+          mkdir -p programs
+          unzip -q -o "files/idleo-app-$VERSION.zip" '*.exe' -d programs
+          ls -l programs files
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            files/IdleO-Setup.exe
+            files/idleo-app-*.zip
+            files/idleo-distro-*.tar.gz
+            programs/*.exe
+      - name: Make the GitHub release
+        run: |
+          cp feed/latest.json feed/latest.json.sig files/
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "IdleO $VERSION" \
+            --notes "The Windows app $VERSION and the Linux image it ships with. The files are on the release feed; this release holds their signed manifest and CycloneDX bills of materials, and GitHub has a build provenance attestation for each file (gh attestation verify FILE --repo $GITHUB_REPOSITORY)." \
+            files/latest.json files/latest.json.sig files/*.cdx.json

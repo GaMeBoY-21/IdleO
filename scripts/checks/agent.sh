@@ -25,6 +25,7 @@ if [[ "$part" == build || "$part" == all ]]; then
     echo "agent checks: SKIPPED the personal-string check: private/go-public-replacements.txt isn't here"
   fi
   ../scripts/release/source-fingerprint-test.sh
+  ../scripts/release/sbom-test.sh
   cargo fmt --all --check
   cargo clippy --workspace --all-targets --locked -- -D warnings
   cargo test --workspace --locked
