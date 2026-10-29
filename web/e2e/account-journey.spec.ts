@@ -58,7 +58,7 @@ test("a new account enters its invite code, edits its account and signs out", as
   await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("menuitem", { name: "Account" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
-  await expect(page.getByText(`${who}@example.com`, { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByText(`${who}@example.com`, { exact: true })).toBeVisible();
   await expect(page.getByText("An email link", { exact: true })).toBeVisible();
   await expect(page.getByRole("switch")).toHaveCount(32);
   for (const title of ["Stopped for credit or cap", "Host lost", "Machine offline"]) {
@@ -72,7 +72,7 @@ test("a new account enters its invite code, edits its account and signs out", as
   await page.getByLabel("Name").fill("  Asha Rao ");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("button", { name: "Edit your name" })).toBeVisible();
-  await expect(page.getByText("Asha Rao", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Asha Rao", { exact: true })).toBeVisible();
 
   // A choice, saved once the server has it, and still there after a reload.
   const lowCredit = page.getByRole("switch", { name: "Low credit: email" });
@@ -80,7 +80,7 @@ test("a new account enters its invite code, edits its account and signs out", as
   await expect(page.getByText("Saved.")).toBeVisible();
   await expect(lowCredit).not.toBeChecked();
   await page.reload();
-  await expect(page.getByText("Asha Rao", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Asha Rao", { exact: true })).toBeVisible();
   await expect(page.getByRole("switch", { name: "Low credit: email" })).not.toBeChecked();
   await expect(page.getByRole("switch", { name: "Low credit: in the app" })).toBeChecked();
 
