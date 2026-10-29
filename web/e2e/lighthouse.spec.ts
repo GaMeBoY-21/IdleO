@@ -4,6 +4,7 @@ import desktopConfig from "lighthouse/core/config/desktop-config.js";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readBaseline, regressions, REGRESSION_LIMIT } from "../scripts/lighthouse-baseline";
 import { API, signIn } from "./support";
 
 /**
@@ -39,6 +40,14 @@ const ONLY = process.env.LIGHTHOUSE_PAGES?.split(",").filter(Boolean) ?? null;
  * real throttling puts every screen at about 2.15 s), but it must stay under this ceiling, so a drift shows before it is a problem.
  */
 const DEVTOOLS_CEILING_MS = 2_500;
+/**
+ * The ceilings above are for the machine they were set on. CI's hosted runner is slower (the same screens read 2.45 to 2.65 s there
+ * against about 2.15 s), so CI sets LIGHTHOUSE_BASELINE to the file the last green run on main left, and then both report-only
+ * figures are held to that instead: reported against the ceiling, never failed by it, and failed when a screen is more than
+ * REGRESSION_LIMIT slower than that run's median. The simulated budget in lighthouserc.json is the same everywhere. Every run
+ * writes its own medians to .lighthouseci-devtools/baseline.json, which CI keeps when it is main's green run (ADR 0018).
+ */
+const BASELINE_FILE = process.env.LIGHTHOUSE_BASELINE ?? null;
 const DEVTOOLS_RUNS = Number(process.env.LIGHTHOUSE_DEVTOOLS_RUNS ?? 3);
 /**
  * Credit with no figures kept from an earlier visit, beside the asserted runs, which have them like every other screen:
@@ -297,25 +306,67 @@ test("the budgets hold on sign-in, Home, Book and the session screen", async () 
     summary["credit (mobile)"]!.inpMs = await payInp(page);
     writeFileSync(".lighthouseci/summary.json", `${JSON.stringify(summary, null, 2)}\n`);
     console.table(summary);
+    const devtools: Record<string, number> = {};
+    const firstVisit: Record<string, number> = {};
     for (const [name, found] of Object.entries(summary)) {
       if (found.devtoolsLcpMs !== undefined) {
-        expect(
-          found.devtoolsLcpMs,
-          `${name}: largest contentful paint with Chrome's own throttling (report-only, ceiling ${DEVTOOLS_CEILING_MS} ms), runs ${found.devtoolsRunsMs?.join(" ")}`,
-        ).toBeLessThanOrEqual(DEVTOOLS_CEILING_MS);
+        devtools[name] = found.devtoolsLcpMs;
       }
       if (found.firstVisitLcpMs !== undefined) {
-        expect(
-          found.firstVisitLcpMs,
-          `${name}: largest contentful paint with no figures kept from an earlier visit (report-only, ceiling ${FIRST_VISIT_CEILING_MS} ms), runs ${found.firstVisitRunsMs?.join(" ")}`,
-        ).toBeLessThanOrEqual(FIRST_VISIT_CEILING_MS);
+        firstVisit[name] = found.firstVisitLcpMs;
+      }
+    }
+    mkdirSync(".lighthouseci-devtools", { recursive: true });
+    writeFileSync(
+      ".lighthouseci-devtools/baseline.json",
+      `${JSON.stringify({ devtools, firstVisit }, null, 2)}\n`,
+    );
+    // Soft: every check below still runs when one fails, so the run reports them all.
+    const baseline = BASELINE_FILE ? readBaseline(BASELINE_FILE) : null;
+    if (BASELINE_FILE && !baseline) {
+      console.log(`no baseline at ${BASELINE_FILE}: this run's medians become the next one's`);
+    }
+    for (const [what, measured, ceiling, before, runsOf] of [
+      [
+        "with Chrome's own throttling",
+        devtools,
+        DEVTOOLS_CEILING_MS,
+        baseline?.devtools,
+        (name: string) => summary[name]?.devtoolsRunsMs,
+      ],
+      [
+        "with no figures kept from an earlier visit",
+        firstVisit,
+        FIRST_VISIT_CEILING_MS,
+        baseline?.firstVisit,
+        (name: string) => summary[name]?.firstVisitRunsMs,
+      ],
+    ] as const) {
+      for (const [name, ms] of Object.entries(measured)) {
+        const message = `${name}: largest contentful paint ${what}, ${ms} ms against a ceiling of ${ceiling} ms`;
+        if (BASELINE_FILE) {
+          if (ms > ceiling) {
+            console.warn(`report-only: ${message}`);
+          }
+        } else {
+          expect
+            .soft(ms, `${message} (report-only), runs ${runsOf(name)?.join(" ")}`)
+            .toBeLessThanOrEqual(ceiling);
+        }
+      }
+      if (before) {
+        expect
+          .soft(
+            regressions(measured, before),
+            `largest contentful paint ${what}: more than ${REGRESSION_LIMIT * 100}% slower than the last green run on main`,
+          )
+          .toEqual([]);
       }
     }
     for (const name of ["home", "book", "session", "machine", "credit"]) {
-      expect(
-        summary[`${name} (mobile)`]!.inpMs,
-        `${name}: interaction to next paint, ms`,
-      ).toBeLessThanOrEqual(200);
+      expect
+        .soft(summary[`${name} (mobile)`]!.inpMs, `${name}: interaction to next paint, ms`)
+        .toBeLessThanOrEqual(200);
     }
   } finally {
     await context.close();

@@ -55,7 +55,7 @@ test("the public pages hold their speed and accessibility budgets", async () => 
         const [json, html] = result.report as string[];
         mkdirSync(".lighthouseci/reports", { recursive: true });
         writeFileSync(`.lighthouseci/lhr-${Date.now()}.json`, json!);
-        writeFileSync(`.lighthouseci/reports/public${path.replaceAll("/", "-")}${run}.html`, html!);
+        writeFileSync(`.lighthouseci/reports/public${path.replaceAll(/[/?]/g, "-")}${run}.html`, html!);
         const audits = result.lhr.audits;
         runs.push({
           lcp: Math.round(audits["largest-contentful-paint"]?.numericValue ?? -1),

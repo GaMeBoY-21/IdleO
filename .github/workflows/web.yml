@@ -22,7 +22,7 @@ concurrency:
 
 permissions:
   contents: read
-  # Downloading the visual baselines of the last run on main.
+  # Downloading the visual baselines and the Lighthouse baseline of the last run on main.
   actions: read
 
 jobs:
@@ -99,9 +99,29 @@ jobs:
           else
             echo "no baselines yet: this run writes them"
           fi
+      # What Chrome's own throttling measured on each screen in the last green run on main (ADR 0018): this run is held to
+      # within 10% of it, since the hosted runner is slower than the machine the 2,500 ms ceiling was set on. Without one
+      # (the first run, or after 90 days) the run only reports, and its own medians become the next baseline.
+      - name: Fetch the Lighthouse baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow web.yml --branch main --status success \
+            --limit 20 --json databaseId --jq '.[].databaseId' | while read -r id; do
+              if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq '.artifacts[].name' | grep -qx lighthouse-baseline; then
+                echo "$id"; break
+              fi
+            done)"
+          if [[ -n "$run_id" ]]; then
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" -n lighthouse-baseline -D web/lighthouse-baseline
+            echo "holding Chrome's own throttling to the medians of run $run_id"
+          else
+            echo "no Lighthouse baseline yet: this run writes it"
+          fi
       - name: Every screen and state, the journey, Lighthouse and the size budget, against the real stack
         env:
           E2E_UPDATE_SNAPSHOTS: ${{ inputs.update_screenshots && 'all' || '' }}
+          LIGHTHOUSE_BASELINE: lighthouse-baseline/baseline.json
         run: scripts/e2e/agent-online.sh --web
       - name: Keep the visual baselines
         if: ${{ false && success() && github.ref == 'refs/heads/main' }}
@@ -109,6 +129,16 @@ jobs:
         with:
           name: visual-baseline
           path: web/visual-baseline
+          retention-days: 90
+      # Only a green run on main is a baseline: a slower run that failed the check must not become the next one's reference.
+      - name: Keep the Lighthouse baseline
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lighthouse-baseline
+          path: web/.lighthouseci-devtools/baseline.json
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 90
       # Every run's reports, passed or failed: three per screen on the mobile profile (the median is asserted), the
       # desktop ones, an HTML report of each, and the summary. The folders start with a dot, which upload-artifact

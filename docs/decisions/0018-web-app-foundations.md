@@ -126,6 +126,8 @@ The constraints:
     - INP isn't part of a page load, so it's measured with `web-vitals` 6.2.3 during real interactions (the menu, the theme switch, moving between screens) on a CPU slowed four times.
     - First-load JavaScript is measured by `scripts/first-load.ts` on the production (Firebase) build: the entry and its static imports, plus the sign-in adapter.
     - Every screen is checked for zero layout shift with the API slowed down (`e2e/layout-shift.spec.ts`).
+    - **The simulated budget is the gate, everywhere.** `pnpm lighthouse` (`scripts/lighthouse.ts`) always runs `lhci assert` after the browser run, so the budgets have a result even when something report-only is over; it fails if either failed.
+    - **Chrome's own throttling is report-only, and held two ways (Oct 29, the product owner).** On the machine the figures were set on, a ceiling of 2,500 ms. On CI, whose hosted runner reads about 0.4 s slower (Book 2,509 / 2,571 / 2,502 ms against about 2,150 ms on the Mac, with the simulated figure at 1,953 to 1,957 ms on both), the ceiling is reported but never fails the run; the run is held instead to the medians of the last green run on main, and fails if a screen is more than 10% slower (`LIGHTHOUSE_BASELINE`, `scripts/lighthouse-baseline.ts`). Credit with no kept figures is held the same way. Every run writes its medians to `.lighthouseci-devtools/baseline.json`, and only a green run on main keeps them (the `lighthouse-baseline` artifact, 90 days), so a slow run that failed never becomes the reference. With no baseline (the first run, or after it expired) the run only reports.
 22. **Two things the measurements taught, both kept as rules:**
     - **What would compete with the first screen waits.** Code for later screens and the user menu loads two seconds in, or at once on hover or tap.
     - **What the first screen needs is preloaded.** Each page preloads its own screen's code and, on the signed-in screens, the sign-in adapter. Each page also preconnects to the API and the token service.
@@ -154,6 +156,7 @@ The constraints:
 - **The Firebase emulator for local sign-in.** Its tokens are unsigned, and a control plane that accepted them would be a control plane that accepts forged tokens.
 - **Keeping tokens in `localStorage` ourselves.** Never: the SDKs keep their sessions in IndexedDB, as they're designed to, and our code never touches a token.
 - **`font-display: swap`.** It shows the brand font sooner on a slow first visit, but the swap moves text. That's a layout shift on every first visit, against a budget of 0.
+- **Raising the Chrome-throttled ceiling for CI (to about 2,700 ms).** It would pass today and say nothing about a drift of 200 ms below it; a baseline from main catches the drift on the machine that will run the check.
 - **Committing visual baselines.** Screenshots differ between a Mac and CI's Linux, and binary churn in git makes every design change noisy. CI's artifact is the reference.
 
 ## Consequences
@@ -161,5 +164,6 @@ The constraints:
 - The signed-in home's production first load is about 124 KB gzipped, with about 26 KB of room under the budget for what the next rounds add to it. Later screens load on their own.
 - Measured on Lighthouse's mobile profile: sign-in's LCP is 1.80 s and the home's 1.95 s. The home is close to its budget, so the next screens must keep the rules in 22, and CI's numbers are the ones that count. The report gives the current values.
 - A deployment must send `dist/headers.json`'s headers and serve the screens' folders. Any host or CDN can.
+- A creeping slowdown of under 10% a run passes each time, since the baseline is only the last green run. The simulated 2.0 s budget, held on every run, is what stops it.
 - Serving the web app and the API from one origin would remove the CORS preflight and a connection, and is worth considering with deployment.
 - Open question: which host serves the web app, with deployment.

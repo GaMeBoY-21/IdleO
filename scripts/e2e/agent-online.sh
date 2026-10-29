@@ -1144,7 +1144,8 @@ if $web_only; then
   cp -R web/.lighthouseci-devtools "$lighthouse_kept/devtools" 2>/dev/null || true
   cp -R web/.lighthouseci-first-visit "$lighthouse_kept/first-visit" 2>/dev/null || true
   summary+=("lighthouse logs and reports kept in private/logs/${lighthouse_kept##*/}/")
-  $lighthouse_failed && fail "a Lighthouse budget failed; see private/logs/${lighthouse_kept##*/}/web-lighthouse.log"
+  # pnpm lighthouse runs the browser checks and then lhci assert, whichever of them fails, and says how each ended.
+  $lighthouse_failed && fail "a Lighthouse check failed ($(grep -h '^lighthouse: ' "$out/web-lighthouse.log" 2>/dev/null | tr '\n' ';')) see private/logs/${lighthouse_kept##*/}/web-lighthouse.log"
   if [[ -n "$measuring" ]]; then
     summary+=("lighthouse measured, $measuring throttling: private/logs/${lighthouse_kept##*/}/mobile/measure-$measuring.json")
   else
@@ -1154,12 +1155,12 @@ for page, m in json.load(open("web/.lighthouseci/summary.json")).items():
     inp = ", INP %d ms" % m["inpMs"] if "inpMs" in m else ""
     runs = m["lcpRunsMs"]
     lcp = "LCP %d ms" % m["lcpMs"] if len(runs) == 1 else "LCP %d ms (median of %s)" % (m["lcpMs"], ", ".join(map(str, runs)))
-    real = ", Chrome's own throttling %d ms (median of %s, report only, ceiling 2500)" % (m["devtoolsLcpMs"], ", ".join(map(str, m["devtoolsRunsMs"]))) if "devtoolsLcpMs" in m else ""
-    first = ", no kept figures %d ms (median of %s, report only, ceiling 2500)" % (m["firstVisitLcpMs"], ", ".join(map(str, m["firstVisitRunsMs"]))) if "firstVisitLcpMs" in m else ""
+    real = ", Chrome's own throttling %d ms (median of %s, report only)" % (m["devtoolsLcpMs"], ", ".join(map(str, m["devtoolsRunsMs"]))) if "devtoolsLcpMs" in m else ""
+    first = ", no kept figures %d ms (median of %s, report only)" % (m["firstVisitLcpMs"], ", ".join(map(str, m["firstVisitRunsMs"]))) if "firstVisitLcpMs" in m else ""
     print("%s: %s, TBT %d ms, CLS %s, accessibility %d%s%s%s" % (page, lcp, m["tbtMs"], m["cls"], m["accessibility"], inp, real, first))
 PY
 )
-    summary+=("lighthouse budgets (mobile, simulated throttling, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS; Chrome's own throttling, and Credit with no kept figures, are report-only, ceiling 2500 ms")
+    summary+=("lighthouse budgets (mobile, simulated throttling, the median of 3 runs: LCP <= 2000 ms, TBT <= 150 ms, CLS 0, accessibility 100; INP <= 200 ms): PASS; Chrome's own throttling, and Credit with no kept figures, are report-only: a ceiling of 2500 ms here, and on CI (LIGHTHOUSE_BASELINE) no more than 10% over the last green run on main")
     # The public pages (ADR 0029), signed out, on their own stricter budgets.
     while IFS= read -r line; do summary+=("lighthouse public $line"); done < <(python3 - <<'PY'
 import json

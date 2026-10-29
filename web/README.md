@@ -111,7 +111,9 @@ Lighthouse measures sign-in, Home, Book (at the fine-tune's screen, where the qu
 
 ### Measuring Lighthouse
 
-Every full Lighthouse run (`pnpm lighthouse`, the browser suite) also records Chrome's own throttling on each asserted mobile screen, the median of three runs, next to the simulated figure: report-only (the budget is the simulated 2.0 s), but it must stay under 2.5 s, so a drift shows before it is a problem. Those reports are in `.lighthouseci-devtools/`, not `.lighthouseci/`, which `lhci assert` holds to the budget.
+Every full Lighthouse run (`pnpm lighthouse`, the browser suite) also records Chrome's own throttling on each asserted mobile screen, the median of three runs, next to the simulated figure: report-only (the budget is the simulated 2.0 s), but it must stay under 2.5 s, so a drift shows before it is a problem. Those reports are in `.lighthouseci-devtools/`, not `.lighthouseci/`, which `lhci assert` holds to the budget. `pnpm lighthouse` runs `lhci assert` whether or not the browser run passed, and exits non-zero if either failed.
+
+On CI (`LIGHTHOUSE_BASELINE` set to the file the last green run on main kept) the 2.5 s is reported but doesn't fail: the hosted runner reads about 0.4 s slower than a Mac. A screen fails there if it is more than 10% slower than that run's median, for Chrome's own throttling and for Credit with no kept figures. Every run writes its medians to `.lighthouseci-devtools/baseline.json`; main's green runs keep it as the `lighthouse-baseline` artifact. ADR 0018.
 
 Credit is measured like every other screen, with the figures an earlier visit kept (src/api/persisted-cache.ts). Beside that, three runs with none kept are report-only, with the same 2.5 s ceiling, in `.lighthouseci-first-visit/`. With nothing kept, its largest paint, the available credit, waits for `/v1/wallet`, which can't be asked for before the app's own script has run, and Credit's own page load costs one more file than Home (ADR 0039, "The Credit page's speed"). That puts it at about 2.4 s.
 

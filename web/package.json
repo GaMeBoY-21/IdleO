@@ -25,7 +25,7 @@
     "screenshots": "node e2e/screenshots.ts",
     "brand-assets": "node scripts/brand-assets.ts",
     "gallery": "GALLERY_DIR=${GALLERY_DIR:-../private/review/web-booking} SKIP_VISUAL=1 playwright test --project='screens-*' --project=recording && GALLERY_DIR=${GALLERY_DIR:-../private/review/web-booking} BEFORE_DIR=${BEFORE_DIR:-../private/review/web-foundations} node scripts/gallery.ts",
-    "lighthouse": "playwright test --project=lighthouse && lhci assert --config=lighthouserc.json"
+    "lighthouse": "node scripts/lighthouse.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
