@@ -1,0 +1,17 @@
+# Production's defaults stay safe: no development services, no scanner (renters' own images off), the prod profile.
+suite: production's defaults
+set:
+  images.tag: test
+values:
+  - ../values-production.yaml
+tests:
+  - it: runs the prod profile
+    template: templates/configmap.yaml
+    asserts:
+      - equal: { path: data.SPRING_PROFILES_ACTIVE, value: "prod,cluster" }
+      - notExists: { path: data.IMAGES_ENABLED }
+      - notExists: { path: data.SESSIONS_TEMPLATES_CATALOG }
+  - it: has no development services, scanner or web server
+    templates: [templates/development.yaml, templates/scanner.yaml, templates/web.yaml]
+    asserts:
+      - hasDocuments: { count: 0 }

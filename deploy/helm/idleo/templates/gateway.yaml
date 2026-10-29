@@ -1,0 +1,125 @@
+{{- $hosts := .Values.gateway.hosts }}
+# The way in for browsers and API clients (ADR 0045): the Gateway API on k3s's Traefik, HTTPS with a certificate from
+# cert-manager, plain HTTP only to redirect. Agents never come this way: their port is the control plane's own
+# (idleo-control-plane-agents).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: idleo
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: {{ .Values.gateway.httpPort }}
+      allowedRoutes:
+        namespaces: { from: Same }
+    - name: https
+      protocol: HTTPS
+      port: {{ .Values.gateway.httpsPort }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: idleo-tls
+      allowedRoutes:
+        namespaces: { from: Same }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: idleo-tls
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  secretName: idleo-tls
+  dnsNames:
+    - {{ $hosts.site }}
+    - {{ $hosts.app }}
+    - {{ $hosts.api }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    kind: {{ .Values.tls.issuer.kind }}
+    name: {{ .Values.tls.issuer.name }}
+{{- if .Values.tls.localCa.enabled }}
+---
+# A CA of our own (the local cluster's): its certificate and key, made by scripts/k8s/up.sh, in a Secret.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.tls.issuer.name }}
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ .Values.tls.localCa.secret }}
+{{- end }}
+---
+# Every plain-HTTP address answers with a permanent redirect to its HTTPS one.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idleo-https-redirect
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - { name: idleo, sectionName: http }
+  hostnames: [{{ $hosts.site | quote }}, {{ $hosts.app | quote }}, {{ $hosts.api | quote }}]
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+            {{- with .Values.gateway.redirectPort }}
+            port: {{ . }}
+            {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idleo-api
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - { name: idleo, sectionName: https }
+  hostnames: [{{ $hosts.api | quote }}]
+  rules:
+    - backendRefs:
+        - { name: idleo-control-plane, port: 8080 }
+{{- if .Values.web.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idleo-app
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - { name: idleo, sectionName: https }
+  hostnames: [{{ $hosts.app | quote }}]
+  rules:
+    - backendRefs:
+        - { name: idleo-web, port: 8080 }
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idleo-site
+  labels:
+    {{- include "idleo.labels" (list . "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - { name: idleo, sectionName: https }
+  hostnames: [{{ $hosts.site | quote }}]
+  rules:
+    - backendRefs:
+        - { name: idleo-web, port: 8081 }
+{{- end }}

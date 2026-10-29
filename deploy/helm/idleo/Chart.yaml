@@ -1,0 +1,7 @@
+apiVersion: v2
+name: idleo
+description: IdleO's server side on one k3s cluster (ADR 0045)
+type: application
+# The chart's own version; the images are tagged with the git commit (images.tag).
+version: 0.1.0
+appVersion: "0.1.0"

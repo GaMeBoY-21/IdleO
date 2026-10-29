@@ -1,0 +1,84 @@
+{{- if .Values.scanner.enabled }}
+# The image scanner (scanner/, ADR 0042): takes checks from the control plane's internal API and pulls renters' images
+# from their registries. It holds no database address and no storage key: its token, and nothing else.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idleo-scanner
+  labels:
+    {{- include "idleo.labels" (list . "scanner") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "scanner") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "idleo.selector" (list . "scanner") | nindent 8 }}
+    spec:
+      {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      containers:
+        - name: scanner
+          image: {{ include "idleo.image" (list . "scanner") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          env:
+            - { name: SCANNER_CONTROL_PLANE, value: "http://idleo-control-plane:8095/" }
+            - name: SCANNER_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .Values.controlPlane.secret }}, key: IMAGES_SCANNER_TOKEN } }
+            {{- range $name, $value := .Values.scanner.settings }}
+            - { name: {{ $name }}, value: {{ $value | toString | quote }} }
+            {{- end }}
+          resources:
+            {{- toYaml .Values.scanner.resources | nindent 12 }}
+          {{- include "idleo.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: scratch, mountPath: /scratch }
+            - { name: cache, mountPath: /cache }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        # What a check downloads, bounded (ADR 0042), and Trivy's database.
+        - name: scratch
+          emptyDir: { sizeLimit: {{ .Values.scanner.scratch }} }
+        - name: cache
+          emptyDir: { sizeLimit: {{ .Values.scanner.trivyCache }} }
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 64Mi }
+---
+# Nobody calls the scanner. It calls the control plane's internal API, DNS, and registries on the internet, never
+# another address inside the cluster or the server's network, whatever an image's reference says.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-scanner
+  labels:
+    {{- include "idleo.labels" (list . "scanner") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "scanner") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list . "control-plane") | nindent 14 }}
+      ports:
+        - { port: 8095, protocol: TCP }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10, 127.0.0.0/8]
+      ports:
+        - { port: 443, protocol: TCP }
+{{- end }}

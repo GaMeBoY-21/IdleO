@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idleo-control-plane
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  replicas: {{ .Values.controlPlane.replicas }}
+  selector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "control-plane") | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # The new pod is ready before the old one goes, so agents always have somewhere to reconnect to.
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "idleo.selector" (list . "control-plane") | nindent 8 }}
+        idleo.in/database-client: "true"
+        idleo.in/valkey-client: "true"
+      annotations:
+        # A changed setting rolls the pods.
+        checksum/settings: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      terminationGracePeriodSeconds: {{ .Values.controlPlane.terminationGracePeriodSeconds }}
+      initContainers:
+        # On a first install the migration Job runs once the database is up (post-install): until the schema is
+        # there, this fails (a division by zero), and the kubelet tries it again. An upgrade's schema is migrated
+        # before its pods roll, so this passes at once.
+        - name: wait-for-schema
+          image: {{ include "idleo.image" (list . "postgres") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          command:
+            - psql
+            - --no-psqlrc
+            - --quiet
+            - --host=idleo-postgres
+            - --username=idleo_app
+            - --dbname={{ .Values.postgres.database }}
+            - --command=select 1 / (to_regclass('modulith.event_publication') is not null)::int
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.secret }}
+                  key: IDLEO_APPLICATION_PASSWORD
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 32Mi }
+          {{- include "idleo.containerSecurity" . | nindent 10 }}
+      containers:
+        - name: control-plane
+          image: {{ include "idleo.image" (list . "control-plane") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          {{- include "idleo.controlPlaneEnv" . | nindent 10 }}
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: agents, containerPort: 9443 }
+            - { name: scanner-api, containerPort: 8095 }
+          # The JVM starts in tens of seconds; liveness waits for it.
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          # The database and a CA inside its validity (ADR 0036): out of rotation, not restarted, when either is gone.
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ .Values.controlPlane.preStopSeconds }}
+          resources:
+            {{- toYaml .Values.controlPlane.resources | nindent 12 }}
+          {{- include "idleo.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- if .Values.development.catalog }}
+            - { name: catalog, mountPath: /etc/idleo/catalog, readOnly: true }
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 64Mi }
+        {{- with .Values.development.catalog }}
+        - name: catalog
+          configMap: { name: {{ . }} }
+        {{- end }}
+---
+# The web API for the ingress, and the scanner's internal API (ADR 0042), inside the cluster only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: idleo-control-plane
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  selector:
+    {{- include "idleo.selector" (list . "control-plane") | nindent 4 }}
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+    - { name: scanner-api, port: 8095, targetPort: scanner-api }
+---
+# The agents' port (ADR 0010): TCP straight to the control plane, so their mutual TLS ends there and nowhere before.
+# A load balancer of its own, not the ingress: a restart or upgrade of Traefik never drops an agent's stream, and the
+# control plane sees each agent's own address (externalTrafficPolicy: Local).
+apiVersion: v1
+kind: Service
+metadata:
+  name: idleo-control-plane-agents
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    {{- include "idleo.selector" (list . "control-plane") | nindent 4 }}
+  ports:
+    - { name: agents, port: {{ .Values.controlPlane.agentPort }}, targetPort: agents, protocol: TCP }
+---
+# Who may reach the control plane: the ingress on the web port (so X-Forwarded-For from the pod network is the
+# ingress's), the scanner on its internal API, and anyone on the agents' port, which mutual TLS guards.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-control-plane
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "control-plane") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressPodLabels | nindent 14 }}
+      ports:
+        - { port: http, protocol: TCP }
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list . "scanner") | nindent 14 }}
+      ports:
+        - { port: scanner-api, protocol: TCP }
+    - ports:
+        - { port: agents, protocol: TCP }

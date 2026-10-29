@@ -1,0 +1,133 @@
+# IdleO on one k3s node (ADR 0045). These defaults are production's and safe: an environment's file
+# (values-local.yaml, values-staging.yaml, values-production.yaml) sets only what must differ: hosts, sizes,
+# replicas, issuers and the development services.
+#
+# Sizes are for one 8 GB node. Memory requests, then limits:
+#   control plane 1024/1536 Mi, migration Job 384/512 Mi (only while it runs), scanner 768/2048 Mi, web 32/64 Mi,
+#   Valkey 64/256 Mi, PostgreSQL 512/1024 Mi
+#   total, steady: requests 2400 Mi, limits 4928 Mi; k3s, Traefik and cert-manager take about 900 Mi, leaving room.
+# CPU requests total 0.95 cores (1.2 while the migration Job runs). The scanner's limit is what one image check needs (ADR 0042); its request is what it
+# idles at, so a check borrows from the node's headroom.
+
+images:
+  # ghcr.io/gameboy-21/idleo-<name>:<tag>, signed by .github/workflows/images.yml.
+  registry: ghcr.io/gameboy-21
+  # The git commit the images were built from. Required.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+controlPlane:
+  replicas: 1
+  # The environment's profile, then the cluster's (application-cluster.yaml).
+  profiles: prod,cluster
+  # Non-secret settings, as environment variables (the ConfigMap). Secrets come from the Secret named below.
+  settings: {}
+  # Made outside the chart: scripts/k8s/secrets.sh locally, SOPS in staging and production.
+  secret: idleo-control-plane
+  # Tomcat believes X-Forwarded-For only from these addresses, a regular expression: the pod network, which the
+  # network policy narrows to the ingress's own pods for this port.
+  ingressProxies: '10\.42\.\d{1,3}\.\d{1,3}'
+  # The agents' gRPC port, published by its own LoadBalancer Service: their mutual TLS ends at the control plane.
+  agentPort: 9443
+  resources:
+    requests: { cpu: 500m, memory: 1024Mi }
+    limits: { memory: 1536Mi }
+  # A rolling update: the new pod is ready before the old one stops. The old one leaves the Service, waits preStop
+  # seconds for the ingress and load balancer to notice, tells its agents to reconnect, drains HTTP within Spring's 30 s
+  # shutdown phase, and is gone within the grace period.
+  preStopSeconds: 10
+  terminationGracePeriodSeconds: 60
+
+migration:
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { memory: 512Mi }
+
+scanner:
+  # Renters' own images are off until the scanner is measured on the real server (ADR 0042).
+  enabled: false
+  resources:
+    requests: { cpu: 100m, memory: 768Mi }
+    limits: { cpu: "2", memory: 2048Mi }
+  scratch: 20Gi
+  trivyCache: 2Gi
+  settings: {}
+
+web:
+  # Production's app and website are on Cloudflare Pages; this serves them in the local cluster, or as a fallback.
+  enabled: false
+  resources:
+    requests: { cpu: 50m, memory: 32Mi }
+    limits: { memory: 64Mi }
+
+valkey:
+  # The official image, pinned (the same as compose.yaml and the tests'). It holds only what may expire (ADR 0011):
+  # nothing is saved to disk.
+  image: valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+postgres:
+  # ops/postgres's image (PostgreSQL with WAL-G); CloudNativePG replaces this StatefulSet later.
+  database: controlplane
+  # Its superuser's, the migration user's and the application user's passwords: made outside the chart.
+  secret: idleo-database
+  storage: 20Gi
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1024Mi }
+
+gateway:
+  # Traefik's Gateway API class (k3s's own Traefik, deploy/k3s/).
+  className: traefik
+  # Traefik's entry points, by their ports inside its pod.
+  httpPort: 8000
+  httpsPort: 8443
+  # The port HTTP is redirected to, when the public HTTPS port isn't 443.
+  redirectPort: null
+  hosts:
+    api: api.idleo.in
+    app: app.idleo.in
+    site: idleo.in
+
+tls:
+  # The cert-manager issuer for the Gateway's certificate. Production's (Let's Encrypt) is made with the server.
+  issuer:
+    kind: ClusterIssuer
+    name: letsencrypt
+  # A CA of our own, from a Secret holding its tls.crt and tls.key (the local cluster's, scripts/k8s/up.sh): the chart
+  # makes an Issuer from it. Off in production.
+  localCa:
+    enabled: false
+    secret: idleo-local-ca
+
+networkPolicy:
+  # Where the ingress's pods are, the only ones that may reach the control plane's web port.
+  ingressNamespace: kube-system
+  ingressPodLabels:
+    app.kubernetes.io/name: traefik
+
+# Development's stand-ins (ADR 0013): the sign-in server, object storage and the mail catcher, each on a port of its
+# own. Never in production (the prod profile refuses all three, ProductionSettingsGuard).
+development:
+  enabled: false
+  # A ConfigMap holding templates/development.yaml, for the agent's development runner.
+  catalog: ""
+  signIn:
+    image: ghcr.io/navikt/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
+    port: 18099
+  storage:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
+    port: 19100
+    allowedOrigins: ""
+  mail:
+    image: axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+    port: 18025
+
+# An operator command (docs/runbooks/granting-credits.md, hosts.md), as a one-off pod: scripts/k8s/ops.sh renders
+# templates/operator-command.yaml with this set and runs it. Empty, nothing is rendered.
+operator:
+  name: ""
+  operatorName: ""
+  args: []

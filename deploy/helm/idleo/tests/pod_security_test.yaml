@@ -1,0 +1,75 @@
+# Every pod the chart makes runs with rule 6's settings (ADR 0045): a fixed non-root user, the runtime's seccomp
+# profile, no service-account token; every container on a read-only root, every capability dropped, no privilege
+# escalation, with requests and a memory limit. The local values turn on every optional workload, so all are checked:
+# each kind of workload in turn, every document of that kind.
+suite: every pod is locked down
+templates:
+  - templates/operator-command.yaml
+  - templates/control-plane.yaml
+  - templates/migration-job.yaml
+  - templates/postgres.yaml
+  - templates/valkey.yaml
+  - templates/scanner.yaml
+  - templates/web.yaml
+  - templates/development.yaml
+  - templates/configmap.yaml
+values:
+  - ../values-local.yaml
+set:
+  images.tag: test
+tests:
+  - it: locks down every Deployment's pod
+    documentSelector: &deployments { path: kind, value: Deployment, matchMany: true, skipEmptyTemplates: true }
+    asserts: &locked
+      - equal: { path: spec.template.spec.securityContext.runAsNonRoot, value: true }
+      - exists: { path: spec.template.spec.securityContext.runAsUser }
+      - notEqual: { path: spec.template.spec.securityContext.runAsUser, value: 0 }
+      - equal: { path: spec.template.spec.securityContext.seccompProfile.type, value: RuntimeDefault }
+      - equal: { path: spec.template.spec.automountServiceAccountToken, value: false }
+      # One container a pod, so the checks below cover each.
+      - lengthEqual: { path: spec.template.spec.containers, count: 1 }
+      - isSubset:
+          path: "spec.template.spec.containers[0].securityContext"
+          content: &container
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            seccompProfile: { type: RuntimeDefault }
+      - exists: { path: "spec.template.spec.containers[0].resources.requests.memory" }
+      - exists: { path: "spec.template.spec.containers[0].resources.requests.cpu" }
+      - exists: { path: "spec.template.spec.containers[0].resources.limits.memory" }
+  - it: locks down every StatefulSet's pod
+    documentSelector: { path: kind, value: StatefulSet, matchMany: true, skipEmptyTemplates: true }
+    asserts: *locked
+  - it: locks down every Job's pod
+    documentSelector: { path: kind, value: Job, matchMany: true, skipEmptyTemplates: true }
+    asserts: *locked
+  - it: locks down the control plane's init container too, the only one
+    documentSelector: *deployments
+    asserts:
+      - isSubset:
+          path: "spec.template.spec.initContainers[0].securityContext"
+          content: *container
+      - exists: { path: "spec.template.spec.initContainers[0].resources.limits.memory" }
+    template: templates/control-plane.yaml
+  - it: gives no other pod an init container the checks above would miss
+    templates: [templates/migration-job.yaml, templates/postgres.yaml, templates/valkey.yaml, templates/scanner.yaml,
+      templates/web.yaml, templates/development.yaml]
+    asserts:
+      - notExists: { path: spec.template.spec.initContainers }
+  - it: locks down an operator command's pod the same way
+    template: templates/operator-command.yaml
+    set:
+      operator.name: idleo-ops-test
+      operator.operatorName: test
+      operator.args: [grant-credits]
+    asserts:
+      - equal: { path: spec.securityContext.runAsNonRoot, value: true }
+      - equal: { path: spec.securityContext.runAsUser, value: 10001 }
+      - equal: { path: spec.securityContext.seccompProfile.type, value: RuntimeDefault }
+      - equal: { path: spec.automountServiceAccountToken, value: false }
+      - isSubset:
+          path: "spec.containers[0].securityContext"
+          content: *container
+      - exists: { path: "spec.containers[0].resources.limits.memory" }

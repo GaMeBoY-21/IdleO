@@ -1,0 +1,45 @@
+{{- if .Values.operator.args }}
+# One operator command (docs/runbooks/granting-credits.md, hosts.md, invites.md): the control plane's image, settings
+# and database user, on the ops profile, which runs the command, prints its result and exits. Rendered and run only
+# by scripts/k8s/ops.sh, never installed with the release.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ required "operator.name names the pod" .Values.operator.name }}
+  labels:
+    {{- include "idleo.labels" (list . "operator-command") | nindent 4 }}
+    idleo.in/database-client: "true"
+    idleo.in/valkey-client: "true"
+spec:
+  {{- include "idleo.podSecurity" 10001 | nindent 2 }}
+  restartPolicy: Never
+  containers:
+    - name: command
+      image: {{ include "idleo.image" (list . "control-plane") }}
+      imagePullPolicy: {{ .Values.images.pullPolicy }}
+      args:
+        - -jar
+        - /app/control-plane.jar
+        - --spring.profiles.active={{ .Values.controlPlane.profiles }},ops
+        {{- range .Values.operator.args }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- include "idleo.controlPlaneEnv" . | nindent 6 }}
+        - name: OPERATOR
+          value: {{ required "operator.operatorName is who runs it, for the audit log" .Values.operator.operatorName | quote }}
+      resources:
+        {{- toYaml .Values.migration.resources | nindent 8 }}
+      {{- include "idleo.containerSecurity" . | nindent 6 }}
+      volumeMounts:
+        - { name: tmp, mountPath: /tmp }
+        {{- if .Values.development.catalog }}
+        - { name: catalog, mountPath: /etc/idleo/catalog, readOnly: true }
+        {{- end }}
+  volumes:
+    - name: tmp
+      emptyDir: { medium: Memory, sizeLimit: 16Mi }
+    {{- with .Values.development.catalog }}
+    - name: catalog
+      configMap: { name: {{ . }} }
+    {{- end }}
+{{- end }}

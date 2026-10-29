@@ -1,0 +1,73 @@
+# Valkey (ADR 0011): presence, limits and hints, all of which may expire, so nothing is saved to disk and a restart
+# starts empty.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: idleo-valkey
+  labels:
+    {{- include "idleo.labels" (list . "valkey") | nindent 4 }}
+spec:
+  serviceName: idleo-valkey
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "valkey") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "idleo.selector" (list . "valkey") | nindent 8 }}
+    spec:
+      {{- include "idleo.podSecurity" 999 | nindent 6 }}
+      containers:
+        - name: valkey
+          image: {{ .Values.valkey.image }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          # Reachable from other pods (protected mode would refuse them); the network policy says which.
+          args: [valkey-server, --save, "", --appendonly, "no", --protected-mode, "no"]
+          ports:
+            - { name: valkey, containerPort: 6379 }
+          readinessProbe:
+            exec: { command: [valkey-cli, ping] }
+            periodSeconds: 5
+          livenessProbe:
+            exec: { command: [valkey-cli, ping] }
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.valkey.resources | nindent 12 }}
+          {{- include "idleo.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          emptyDir: { sizeLimit: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idleo-valkey
+  labels:
+    {{- include "idleo.labels" (list . "valkey") | nindent 4 }}
+spec:
+  selector:
+    {{- include "idleo.selector" (list . "valkey") | nindent 4 }}
+  ports:
+    - { name: valkey, port: 6379, targetPort: valkey }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-valkey
+  labels:
+    {{- include "idleo.labels" (list . "valkey") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "valkey") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              idleo.in/valkey-client: "true"
+      ports:
+        - { port: valkey, protocol: TCP }

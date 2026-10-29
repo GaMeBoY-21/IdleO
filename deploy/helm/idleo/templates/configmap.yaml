@@ -1,0 +1,20 @@
+{{- /* The control plane's settings, as environment variables: what the chart wires up, then the environment's own. */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idleo-control-plane
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.controlPlane.profiles | quote }}
+  INGRESS_PROXIES: {{ .Values.controlPlane.ingressProxies | quote }}
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://idleo-postgres:5432/{{ .Values.postgres.database }}"
+  SPRING_DATASOURCE_USERNAME: idleo_app
+  SPRING_DATA_REDIS_URL: redis://idleo-valkey:6379
+  IDLEO_RELEASE: {{ .Values.images.tag | quote }}
+  {{- with .Values.development.catalog }}
+  SESSIONS_TEMPLATES_CATALOG: file:/etc/idleo/catalog/development.yaml
+  {{- end }}
+  {{- range $name, $value := .Values.controlPlane.settings }}
+  {{ $name }}: {{ $value | toString | quote }}
+  {{- end }}
