@@ -1,0 +1,9 @@
+# An image is named by the commit it was built from: the chart refuses to render without one.
+suite: the image tag
+templates:
+  - templates/postgres.yaml
+tests:
+  - it: refuses to render without an image tag
+    asserts:
+      - failedTemplate:
+          errorPattern: images.tag is required

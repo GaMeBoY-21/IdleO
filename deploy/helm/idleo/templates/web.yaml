@@ -1,0 +1,58 @@
+{{- if .Values.web.enabled }}
+# The app and the website (web/Dockerfile): nginx, the app on 8080 and the website on 8081.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idleo-web
+  labels:
+    {{- include "idleo.labels" (list . "web") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "web") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "idleo.selector" (list . "web") | nindent 8 }}
+    spec:
+      {{- include "idleo.podSecurity" 101 | nindent 6 }}
+      containers:
+        - name: web
+          image: {{ include "idleo.image" (list . "web") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          ports:
+            - { name: app, containerPort: 8080 }
+            - { name: site, containerPort: 8081 }
+          readinessProbe:
+            httpGet: { path: /sign-in/, port: app }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /, port: site }
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          {{- include "idleo.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 16Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idleo-web
+  labels:
+    {{- include "idleo.labels" (list . "web") | nindent 4 }}
+spec:
+  selector:
+    {{- include "idleo.selector" (list . "web") | nindent 4 }}
+  ports:
+    - { name: app, port: 8080, targetPort: app }
+    - { name: site, port: 8081, targetPort: site }
+{{- end }}

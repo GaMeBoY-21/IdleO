@@ -1,0 +1,48 @@
+# Flyway's migrations, as the migration user (ADR 0045): before an upgrade's pods roll (pre-upgrade), so new code only
+# ever meets a migrated schema, and old pods still serving during the roll meet one they work with (migrations only
+# add); on the first install, once the database exists (post-install: nothing older to protect, and the control plane
+# waits for the schema). The last run stays until the next, for its log.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: idleo-migrate
+  labels:
+    {{- include "idleo.labels" (list . "migrate") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  # A first install starts the database at the same time: Flyway fails fast until it answers, and the Job tries again.
+  backoffLimit: 8
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        {{- include "idleo.selector" (list . "migrate") | nindent 8 }}
+        idleo.in/database-client: "true"
+    spec:
+      {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ include "idleo.image" (list . "control-plane") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          args: ["-cp", "/app/control-plane.jar", "com.idleo.migration.DatabaseMigration"]
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://idleo-postgres:5432/{{ .Values.postgres.database }}"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: idleo_migration
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.secret }}
+                  key: IDLEO_MIGRATION_PASSWORD
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          {{- include "idleo.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 16Mi }

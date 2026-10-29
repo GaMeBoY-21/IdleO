@@ -1,0 +1,28 @@
+name: deploy
+
+# The Helm chart's checks (deploy/helm/idleo, ADR 0045): lint, every environment rendered and checked by kubeconform,
+# and the chart's unit tests, from scripts/checks/deploy.sh, the same as on a laptop.
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/**", "scripts/checks/deploy.sh", ".github/workflows/deploy.yml"]
+  # No path filter on pull requests, so the check can be required: a check that never starts would block the merge.
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  chart:
+    name: deploy chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint, kubeconform and helm-unittest
+        run: scripts/checks/deploy.sh

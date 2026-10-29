@@ -1,0 +1,89 @@
+{{- if .Values.development.enabled }}
+{{- $dev := .Values.development }}
+# Development's stand-ins (ADR 0013), the same as compose.yaml's, for the Mac's cluster only: the sign-in server (its
+# issuer address is in every token), object storage (its address is in every presigned link) and the mail catcher.
+# Each has a port of its own on this machine, plain HTTP as in ./start.sh's stack, and the cluster's DNS
+# (deploy/k3s/local/dns.yaml) gives the control plane the same address. The prod profile refuses all three.
+{{- range $name, $service := dict "sign-in" $dev.signIn "storage" $dev.storage "mail" $dev.mail }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idleo-{{ $name }}
+  labels:
+    {{- include "idleo.labels" (list $ $name) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "idleo.selector" (list $ $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "idleo.selector" (list $ $name) | nindent 8 }}
+    spec:
+      {{- include "idleo.podSecurity" (ternary 65532 1000 (eq $name "sign-in")) | nindent 6 }}
+      containers:
+        - name: {{ $name }}
+          image: {{ $service.image }}
+          imagePullPolicy: {{ $.Values.images.pullPolicy }}
+          {{- if eq $name "sign-in" }}
+          env:
+            - { name: JSON_CONFIG_PATH, value: /config/local-sign-in.json }
+            - { name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=60 -Djava.io.tmpdir=/tmp" }
+          ports:
+            - { name: http, containerPort: 8080 }
+          {{- else if eq $name "storage" }}
+          command: [minio, server, /data, --certs-dir, /tmp/certs]
+          env:
+            - { name: HOME, value: /tmp }
+            - { name: MINIO_ROOT_USER, value: local-storage-root }
+            - { name: MINIO_ROOT_PASSWORD, value: local-only-not-a-secret }
+            # Browsers PUT upload parts straight to storage (ADR 0019): only the web app's origins may.
+            - { name: MINIO_API_CORS_ALLOW_ORIGIN, value: {{ $service.allowedOrigins | quote }} }
+          ports:
+            - { name: http, containerPort: 9000 }
+          {{- else }}
+          ports:
+            - { name: http, containerPort: 8025 }
+            - { name: smtp, containerPort: 1025 }
+          {{- end }}
+          resources:
+            requests: { cpu: 20m, memory: {{ ternary "192Mi" "64Mi" (eq $name "sign-in") }} }
+            limits: { memory: {{ ternary "384Mi" (ternary "512Mi" "128Mi" (eq $name "storage")) (eq $name "sign-in") }} }
+          {{- include "idleo.containerSecurity" $ | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- if eq $name "sign-in" }}
+            - { name: config, mountPath: /config, readOnly: true }
+            {{- else if eq $name "storage" }}
+            - { name: data, mountPath: /data }
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 256Mi }
+        {{- if eq $name "sign-in" }}
+        - name: config
+          configMap: { name: idleo-sign-in }
+        {{- else if eq $name "storage" }}
+        - name: data
+          emptyDir: { sizeLimit: 10Gi }
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idleo-{{ $name }}
+  labels:
+    {{- include "idleo.labels" (list $ $name) | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "idleo.selector" (list $ $name) | nindent 4 }}
+  ports:
+    - { name: http, port: {{ $service.port }}, targetPort: http }
+    {{- if eq $name "mail" }}
+    - { name: smtp, port: 1025, targetPort: smtp }
+    {{- end }}
+{{- end }}
+{{- end }}

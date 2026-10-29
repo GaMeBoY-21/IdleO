@@ -1,0 +1,5 @@
+# Production: the chart's defaults are production's (values.yaml). Renters' own images stay off (no scanner, and
+# IMAGES_ENABLED unset) until the scanner is measured on the real server (ADR 0042), and the prod profile refuses
+# every development setting (ProductionSettingsGuard).
+controlPlane:
+  profiles: prod,cluster

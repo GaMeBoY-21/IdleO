@@ -1,0 +1,15 @@
+# Staging: production's settings on its own hosts, with test-mode payment keys (ADR 0039) in its Secret. Its server
+# and issuer come with production's (S5).
+controlPlane:
+  profiles: prod,cluster
+
+gateway:
+  hosts:
+    api: api.staging.idleo.in
+    app: app.staging.idleo.in
+    site: staging.idleo.in
+
+tls:
+  issuer:
+    kind: ClusterIssuer
+    name: letsencrypt-staging

@@ -1,0 +1,57 @@
+# The Mac's k3d cluster (scripts/k8s/up.sh, docs/runbooks/kubernetes.md): the images from the cluster's own registry,
+# the local profile's development settings (fake GPUs, the development sign-in server, MinIO, the fake PAN check),
+# the web image, and addresses on *.idleo.localhost, which is this machine. Ports are this machine's, and Traefik's
+# entry points use the same (deploy/k3s/local/traefik.yaml), so an address is the same in the cluster and out.
+images:
+  registry: k3d-idleo-registry:5050
+  # up.sh sets the tag to the commit it built.
+
+controlPlane:
+  profiles: local,cluster
+  agentPort: 19443
+  settings:
+    IDENTITY_ISSUERS_0_ISSUERURI: http://signin.idleo.localhost:18099/idleo-local
+    IDENTITY_ISSUERS_0_AUDIENCE: idleo-local
+    SESSIONS_STORAGE_ENDPOINT: http://storage.idleo.localhost:19100
+    SPRING_MAIL_HOST: idleo-mail
+    SPRING_MAIL_PORT: "1025"
+    WEB_ALLOWEDORIGINS: https://app.idleo.localhost:8443,https://idleo.localhost:8443
+    IDENTITY_WEB_APP_URL: https://app.idleo.localhost:8443
+    NOTIFICATIONS_WEB_APP_URL: https://app.idleo.localhost:8443
+    HOSTS_LINK_WEB_APP_URL: https://app.idleo.localhost:8443
+    # Anyone signing in is let in, as with ./start.sh: no invite step on this machine.
+    IDENTITY_INVITE_ONLY: "false"
+    # Development's backups bucket isn't made here: the cluster's database isn't backed up yet (CloudNativePG).
+    BACKUPS_CREATEBUCKET: "false"
+
+scanner:
+  enabled: true
+  scratch: 4Gi
+
+web:
+  enabled: true
+
+postgres:
+  storage: 2Gi
+
+gateway:
+  redirectPort: 8443
+  hosts:
+    api: api.idleo.localhost
+    app: app.idleo.localhost
+    site: idleo.localhost
+
+tls:
+  issuer:
+    kind: Issuer
+    name: idleo-local-ca
+  localCa:
+    enabled: true
+    secret: idleo-local-ca
+
+development:
+  enabled: true
+  # up.sh makes it from templates/development.yaml, and the sign-in server's from control-plane/local-sign-in.json.
+  catalog: idleo-development-catalog
+  storage:
+    allowedOrigins: https://app.idleo.localhost:8443
