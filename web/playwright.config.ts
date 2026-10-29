@@ -19,6 +19,8 @@ const laptop = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
 export default defineConfig({
   testDir: "e2e",
   fullyParallel: true,
+  // How many browsers run at once: the machine's half by default; PW_WORKERS=2 keeps a laptop cool on a long run.
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : undefined,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
