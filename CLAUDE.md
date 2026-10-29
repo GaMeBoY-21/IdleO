@@ -73,6 +73,9 @@ Never push to main directly, never force-push it, never weaken a check or the ru
 
 ## Checks
 - `scripts/check-changed.sh`: only the suites the files changed since origin/main touch (`--list` shows which). `scripts/check-all.sh`: every suite. Both print one line per suite, keep the whole output in `private/logs/<date-time>/<suite>.log` and show a failed suite's last 40 lines; `--verbose` prints everything. The path-to-suite map is `scripts/lib/suites.sh`.
-- Suites: agent, cli, scanner, control-plane, ops, drill, proto, distro, images, sdk, web, web-browser, e2e. Change a check in scripts/checks/<suite>.sh, once; CI calls the same scripts.
+- Suites: agent, cli, scanner, control-plane, ops, drill, proto, distro, images, sdk, web, deploy, web-browser, e2e, k8s. Change a check in scripts/checks/<suite>.sh, once; CI calls the same scripts.
 - CI is free for this public repository, so the full suites run there on every pull request; push the branch when the changed suites pass locally.
 - Control plane: `./mvnw verify` from control-plane/ (`./mvnw spotless:apply` fixes formatting). Everything else: docs/reference/commands.md.
+- `deploy/helm/idleo/`: the one Helm chart for the server side, on k3s (ADR 0045); `deploy/k3s/`: k3s's own settings. `scripts/checks/deploy.sh` lints, kubeconforms and unit-tests it.
+- `scripts/k8s/`: the Mac's k3d cluster: `up.sh`, `smoke.sh`, `status.sh`, `down.sh`, `ops.sh` (an operator command as a pod), `secrets.sh` (docs/runbooks/kubernetes.md).
+- `.github/workflows/images.yml` builds, scans, signs and attests the server's images (`control-plane/Dockerfile`, `web/Dockerfile`, `scanner/`, `ops/postgres/`); `scripts/images/verify.sh <image>` checks one.
