@@ -51,20 +51,28 @@ The full rules, area by area, are in [docs/reference/conventions.md](docs/refere
 - One line, plainly human, lowercase, no trailing period. Example: "add heartbeat handling to the agent gateway".
 - Never add Co-authored-by trailers, "Generated with" lines or session links. Attribution is off in .claude/settings.json; leave it off.
 - Use the git identity already configured on this machine. Never change git config.
-- Push only when a remote exists and the prompt says to.
 - Never mention phases, steps or prompts in a commit message. Say what changed.
 - Prompt files are never committed: they stay in `private/` (git-ignored). They are named by topic (for example `identity-sign-in.md`), not by phase or step.
+
+## Pull requests
+Main is protected: changes reach it only through a pull request whose required checks are green, merged by rebase so history stays linear (ADR 0044). Every round works like this:
+1. Branch from an up-to-date main, named after the round (for example `deploy`). Commit there, with the commit rules above.
+2. Locally run `scripts/check-changed.sh` only. The full suites run in CI, which is free for this public repository.
+3. Push the branch and open a pull request with `gh pr create`. Title and body read like a person wrote them: what changed and how it was tested, following `.github/pull_request_template.md`. Never mention Claude, a prompt or a review.
+4. Wait for the required checks (`gh pr checks --watch`) and fix failures on the branch. When green, merge with `gh pr merge --rebase --delete-branch`.
+5. Then look at the long suites that are not required (web browser, e2e, hostile) on main, and fix anything they catch in a follow-up pull request.
+Never push to main directly, never force-push it, never weaken a check or the ruleset to get a merge through: stop and report. The required checks are listed in ADR 0044; a new workflow whose check should gate merges has no `paths:` filter on `pull_request`, or the check never starts for a change outside its paths and blocks the merge.
 
 ## Working rules
 - Measure before fixing; report numbers, not impressions.
 - One implementation per rule. Do not build features that nothing calls.
 - If the prompt file already contains the plan and its decisions, start without asking. Stop only for decisions it doesn't settle.
-- During work, run scripts/check-changed.sh. Run the full scripts/check-all.sh once, before pushing. Read a suite's log only when it fails.
+- During work, run scripts/check-changed.sh; the full suites run in CI on the pull request. scripts/check-all.sh stays for a machine without CI (or a doubt only a full local run settles). Read a suite's log only when it fails.
 - Record significant decisions as ADRs in docs/decisions/ using 0000-template.md.
 - Update this file, and the detail in docs/reference/, when commands, layout or conventions change.
 
 ## Checks
 - `scripts/check-changed.sh`: only the suites the files changed since origin/main touch (`--list` shows which). `scripts/check-all.sh`: every suite. Both print one line per suite, keep the whole output in `private/logs/<date-time>/<suite>.log` and show a failed suite's last 40 lines; `--verbose` prints everything. The path-to-suite map is `scripts/lib/suites.sh`.
 - Suites: agent, cli, scanner, control-plane, ops, drill, proto, distro, images, sdk, web, web-browser, e2e. Change a check in scripts/checks/<suite>.sh, once; CI calls the same scripts.
-- CI is costly: push once at the end of a round, after check-all.sh is green.
+- CI is free for this public repository, so the full suites run there on every pull request; push the branch when the changed suites pass locally.
 - Control plane: `./mvnw verify` from control-plane/ (`./mvnw spotless:apply` fixes formatting). Everything else: docs/reference/commands.md.
