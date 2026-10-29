@@ -35,7 +35,22 @@ Run it again after any change: the cluster stays, the images are rebuilt from ca
 | Storage (development) | http://storage.idleo.localhost:19100 |
 | Mail (development) | http://localhost:18025 |
 
-`*.localhost` is this machine. The HTTPS certificates come from a CA made once, in `private/k8s/ca/ca.pem`, which survives `down.sh`. To open the pages without a warning, trust it once in Keychain Access: drag `ca.pem` into the login keychain, open it, and set "When using this certificate" to Always Trust. Or pass `--cacert private/k8s/ca/ca.pem` to curl.
+`*.localhost` is this machine. The HTTPS certificates come from a CA made once, in `private/k8s/ca/ca.pem`, which survives `down.sh`.
+
+**Trusting the CA is safe,** because it can vouch for this machine only:
+
+- its name constraints permit `localhost` and the names under it (every `*.localhost` is this machine) and the loopback addresses;
+- its key usage permits TLS servers only.
+
+A browser refuses any certificate it signs for another site, even with its key in hand: `smoke.sh` checks that one for `www.example.com` fails with "permitted subtree violation". See for yourself with `openssl x509 -in private/k8s/ca/ca.pem -noout -text` (X509v3 Name Constraints).
+
+To trust it for TLS in your login keychain (macOS asks for your password; Chrome and Safari use the keychain):
+
+```sh
+security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db private/k8s/ca/ca.pem
+```
+
+To stop trusting it, delete "IdleO local cluster CA" in Keychain Access, or run `security remove-trusted-cert private/k8s/ca/ca.pem`. A CA made before the constraints existed is made again by the next `up.sh`, which says so. Delete the old "IdleO local cluster CA" from the keychain if you trusted it, then trust the new one. Without trusting it, pass `--cacert private/k8s/ca/ca.pem` to curl.
 
 An enrolled agent on this machine connects to `localhost:19443` with `private/dev-ca/root.pem`, as with `./start.sh`, since the cluster uses the same development CA.
 

@@ -46,25 +46,32 @@ apply secret generic idleo-control-plane \
   --from-literal=IMAGES_SCANNER_TOKEN="$(key scanner.token)"
 
 # The local CA for the Gateway's certificate: made once and kept, so recreating the cluster doesn't change it (a
-# browser told to trust it once keeps trusting it).
-# OpenSSL 3, found as control-plane/scripts/dev-ca.sh finds it: macOS's LibreSSL writes EC keys with explicit
-# parameters, which Kubernetes refuses.
+# browser told to trust it once keeps trusting it). Its name constraints permit only localhost and names under it
+# (*.idleo.localhost among them; every *.localhost is this machine) and the loopback addresses, and its key usage only
+# TLS servers, so trusting it can't make it vouch for any other site: a browser refuses a certificate it signed for
+# anything else (smoke.sh checks both). One made before the constraints is made again. OpenSSL 3 (lib.sh): macOS's
+# LibreSSL writes EC keys with explicit parameters, which Kubernetes refuses.
+if [[ -s "$local_ca/ca.pem" ]] && ! openssl x509 -in "$local_ca/ca.pem" -noout -text 2>/dev/null | grep -q 'Name Constraints'; then
+  log "making the local CA again, with name constraints (trust the new one, docs/runbooks/kubernetes.md)"
+  rm -f "$local_ca/ca.pem" "$local_ca/ca.key"
+  ca_remade=true
+fi
 if [[ ! -s "$local_ca/ca.pem" ]]; then
-  openssl_bin="${OPENSSL:-}"
-  for candidate in /opt/homebrew/opt/openssl@3/bin/openssl /usr/local/opt/openssl@3/bin/openssl openssl; do
-    [[ -n "$openssl_bin" ]] && break
-    command -v "$candidate" >/dev/null && "$candidate" version | grep -q '^OpenSSL 3' && openssl_bin="$candidate"
-  done
-  [[ -n "$openssl_bin" ]] || fail "needs OpenSSL 3 (macOS ships LibreSSL): brew install openssl@3"
+  openssl_bin="$(openssl3)"
   mkdir -p "$local_ca"
   umask 077
   "$openssl_bin" genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -pkeyopt ec_param_enc:named_curve \
     -out "$local_ca/ca.key"
   "$openssl_bin" req -x509 -new -key "$local_ca/ca.key" -days 3650 -out "$local_ca/ca.pem" \
     -subj "/CN=IdleO local cluster CA" -addext "basicConstraints=critical,CA:true,pathlen:0" \
-    -addext "keyUsage=critical,keyCertSign,cRLSign"
+    -addext "keyUsage=critical,keyCertSign,cRLSign" -addext "extendedKeyUsage=serverAuth" \
+    -addext "nameConstraints=critical,permitted;DNS:localhost,permitted;IP:127.0.0.0/255.0.0.0,permitted;IP:0:0:0:0:0:0:0:1/FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF"
 fi
 apply secret tls idleo-local-ca --cert="$local_ca/ca.pem" --key="$local_ca/ca.key"
+# The Gateway's certificate from the old CA goes once the new one is in place, so cert-manager issues it again from it.
+if [[ "${ca_remade:-}" == true ]]; then
+  kubectl -n "$namespace" delete secret idleo-tls --ignore-not-found >/dev/null
+fi
 
 apply configmap idleo-development-catalog --from-file=development.yaml=templates/development.yaml
 apply configmap idleo-sign-in --from-file=local-sign-in.json=control-plane/local-sign-in.json
