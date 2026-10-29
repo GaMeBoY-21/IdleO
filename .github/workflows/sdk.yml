@@ -6,8 +6,9 @@ on:
   push:
     branches: [main]
     paths: ["sdk/python/**", "api/**", "cli/src/error.rs", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml", "scripts/checks/sdk.sh"]
+  # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
+  # would block the merge. Pushes to main still run only for the paths that matter.
   pull_request:
-    paths: ["sdk/python/**", "api/**", "cli/src/error.rs", "docs/site/generated/sdk.md", ".github/workflows/sdk.yml", "scripts/checks/sdk.sh"]
   # Run by hand too, to check any commit against this workflow.
   workflow_dispatch:
 
@@ -21,6 +22,7 @@ permissions:
 
 jobs:
   checks:
+    name: sdk (python ${{ matrix.python }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
