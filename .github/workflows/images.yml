@@ -62,7 +62,9 @@ jobs:
             "$TRIVY_IMAGE" image --no-progress --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed \
             --ignorefile /ignore.yaml --exit-code 1 "idleo-${{ matrix.image }}:ci"
       - name: Size
-        run: docker image inspect "idleo-${{ matrix.image }}:ci" --format '{{.Size}}' | awk '{printf "idleo-${{ matrix.image }}: %.0f MB\n", $1 / 1000000}' | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          docker image inspect "idleo-${{ matrix.image }}:ci" --format '{{.Size}}' |
+            awk '{printf "idleo-${{ matrix.image }}: %.0f MB\n", $1 / 1000000}' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Keep the scanned image for publishing
         if: github.event_name != 'pull_request'
         run: docker save "idleo-${{ matrix.image }}:ci" | gzip -1 >"idleo-${{ matrix.image }}.tar.gz"
