@@ -20,8 +20,9 @@ import { useTitle } from "@/lib/title";
  */
 export function Agree() {
   useTitle("Before you start");
+  // Blank until sign-in is restored: a card with only its title would grow when the rest arrives.
   return (
-    <RequireAuth fallback={<SignInFrame title="Before you start">{null}</SignInFrame>}>
+    <RequireAuth fallback={<div className="min-h-dvh" />}>
       <AgreeStep />
     </RequireAuth>
   );

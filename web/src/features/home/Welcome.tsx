@@ -12,8 +12,9 @@ import { useTitle } from "@/lib/title";
 /** The first screen of a new account: what this is, the credit they start with, and one way on. Never a form. */
 export function Welcome() {
   useTitle("Welcome");
+  // Blank until sign-in is restored: a card with only its title would grow when the rest arrives.
   return (
-    <RequireAuth fallback={<SignInFrame title={`Welcome to ${brand.name}`}>{null}</SignInFrame>}>
+    <RequireAuth fallback={<div className="min-h-dvh" />}>
       <WelcomeCard />
     </RequireAuth>
   );

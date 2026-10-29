@@ -18,8 +18,9 @@ import { useTitle } from "@/lib/title";
  */
 export function CliLogin() {
   useTitle("Sign in the command line");
+  // Blank until sign-in is restored: a card with only its title would grow when the rest arrives.
   return (
-    <RequireAuth fallback={<SignInFrame title="Sign in the command line">{null}</SignInFrame>}>
+    <RequireAuth fallback={<div className="min-h-dvh" />}>
       <Approval />
     </RequireAuth>
   );
