@@ -138,6 +138,21 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
+    void prodRefusesForwardedHeadersBelievedFromEveryPrivateAddress() {
+        prod("identity.issuers[0].issuer-uri=" + GOOGLE, "server.forward-headers-strategy=native")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("server.forward-headers-strategy is native without "
+                                + "server.tomcat.remoteip.internal-proxies"));
+        prod(
+                        "identity.issuers[0].issuer-uri=" + GOOGLE,
+                        "server.forward-headers-strategy=native",
+                        "server.tomcat.remoteip.internal-proxies=10\\.42\\.\\d{1,3}\\.\\d{1,3}")
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
     void prodStartsWithProductionSettings() {
         prod("agentgateway.allow-development-hosts=false", "identity.issuers[0].issuer-uri=" + GOOGLE)
                 .run(context -> assertThat(context).hasNotFailed());
