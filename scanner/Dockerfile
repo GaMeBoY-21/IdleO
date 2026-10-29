@@ -4,6 +4,9 @@
 # database address, no storage keys and no secret but its own token for the control plane's internal API.
 #
 #   docker build -t idleo-scanner scanner/
+#
+# It serves nothing, so there's no HEALTHCHECK: a scanner that stops taking checks shows as checks the control plane
+# times out (ADR 0042), which is what its alert watches.
 
 # The builder: the toolchain rust-toolchain.toml pins, on Alpine for the same libc as Trivy's image.
 FROM rust:1.99.0-alpine3.24@sha256:0cce0a5e0e8ba67b455257a3a02a1d99005f382748789d6464460028810f1627 AS build
@@ -13,9 +16,18 @@ COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY src src
 RUN cargo build --release --locked --bin idleo-scanner
 
-# Trivy 0.75.0 (aquasec/trivy:0.75.0), its multi-platform index.
-FROM aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
-RUN addgroup -g 10001 scanner && adduser -D -H -u 10001 -G scanner -s /sbin/nologin scanner \
+# Trivy 0.76.1 (aquasec/trivy:0.76.1), its multi-platform index.
+FROM aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+ARG VERSION=development
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="idleo-scanner" \
+      org.opencontainers.image.description="IdleO's checker for renters' own images" \
+      org.opencontainers.image.source="https://github.com/GaMeBoY-21/IdleO" \
+      org.opencontainers.image.licenses="LicenseRef-IdleO-All-Rights-Reserved" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
+# Alpine's packages as patched today, not as the base was built.
+RUN apk upgrade --no-cache && addgroup -g 10001 scanner && adduser -D -H -u 10001 -G scanner -s /sbin/nologin scanner \
     && mkdir -p /scratch /cache/trivy && chown 10001:10001 /scratch /cache/trivy
 COPY --from=build /src/target/release/idleo-scanner /usr/local/bin/idleo-scanner
 USER 10001:10001

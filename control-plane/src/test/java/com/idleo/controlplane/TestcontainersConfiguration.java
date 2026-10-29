@@ -13,7 +13,7 @@ class TestcontainersConfiguration {
 
     /** Same image as compose.yaml; {@link ComposeImageTests} keeps the two identical. */
     static final String POSTGRES_IMAGE =
-            "postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722";
+            "postgres:18.6@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4";
 
     /** Same image as compose.yaml; {@link ComposeImageTests} keeps the two identical. */
     static final String VALKEY_IMAGE =

@@ -1,0 +1,143 @@
+# Findings the images workflow (.github/workflows/images.yml) accepts, each scoped to the one binary it's in, with why
+# we can't fix it here and an expiry, after which the build fails again until it's looked at (ADR 0045). Everything
+# else that is CRITICAL or HIGH with a fix fails the build. Each is in a Go binary that a base image or a release
+# ships, which we don't build.
+vulnerabilities:
+  # usr/local/bin/gosu: gosu, from the official postgres image, built with Go 1.24.6: it only drops to the postgres user
+  # and execs the server when the container starts as root (compose); it opens no connection and parses no certificate,
+  # so the Go library's TLS, x509 and HTTP faults aren't reachable. In the cluster the container starts as 999 and gosu
+  # never runs. Gone when the postgres image is rebuilt with a newer Go, or CloudNativePG replaces it (S3).
+  - id: CVE-2025-61726
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2025-61729
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2025-68121
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-111943
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-25679
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-27145
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-32280
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-32281
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-32283
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-33811
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-33814
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-33818
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-39820
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-39821
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-39822
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-39836
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-42499
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-42504
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56853
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56858
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56859
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56860
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56862
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-78667
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-78669
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-97031
+    paths: ["usr/local/bin/gosu"]
+    expired_at: 2027-01-31
+  # usr/local/bin/trivy: Trivy 0.76.1's own go-jose (a DoS parsing JWKs with RSA keys). The scanner parses no JWK set
+  # from anyone; it pulls images with a registry's token. Fixed in the next Trivy release, which Dependabot proposes.
+  - id: CVE-2026-116587
+    paths: ["usr/local/bin/trivy"]
+    expired_at: 2027-01-31
+  # usr/local/bin/wal-g: WAL-G v3.0.9, the newest release (ops/postgres/Dockerfile, ADR 0036), with Go modules its
+  # maintainers haven't updated. It talks only to our own backup bucket over HTTPS. In the cluster it isn't configured (no
+  # backups there until CloudNativePG, S3); ./start.sh's stack points it at local MinIO. Recheck at each WAL-G release.
+  - id: CVE-2021-38599
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-111943
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-116587
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-33818
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-39821
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-39822
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56853
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56858
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56859
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56860
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-56862
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-78667
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-78669
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-84304
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-84445
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
+  - id: CVE-2026-97031
+    paths: ["usr/local/bin/wal-g"]
+    expired_at: 2027-01-31
