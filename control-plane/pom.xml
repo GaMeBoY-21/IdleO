@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.2</version>
         <relativePath/>
     </parent>
 
@@ -20,18 +20,18 @@
         <java.version>25</java.version>
         <!-- Must match .mvn/wrapper/maven-wrapper.properties; the enforcer checks it. -->
         <maven.version>3.9.16</maven.version>
-        <spring-modulith.version>2.1.1</spring-modulith.version>
-        <spotless-maven-plugin.version>3.10.3</spotless-maven-plugin.version>
+        <spring-modulith.version>2.1.2</spring-modulith.version>
+        <spotless-maven-plugin.version>3.10.4</spotless-maven-plugin.version>
         <palantir-java-format.version>2.101.0</palantir-java-format.version>
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
         <bouncycastle.version>1.86</bouncycastle.version>
         <!-- springdoc 3.1 is built on Spring Boot 4.1 (its parent pom: spring-boot-starter-parent 4.1.0). -->
-        <springdoc.version>3.1.1</springdoc.version>
+        <springdoc.version>3.2.0</springdoc.version>
         <!-- Built on opentelemetry-bom 1.62.0, the SDK Spring Boot 4.1.1 manages. -->
         <!-- Off unless a run skips the tests; the log scan's enforcer rule reads it. -->
         <skipTests>false</skipTests>
-        <opentelemetry-logback-appender.version>2.28.0-alpha</opentelemetry-logback-appender.version>
+        <opentelemetry-logback-appender.version>2.33.0-alpha</opentelemetry-logback-appender.version>
     </properties>
 
     <dependencyManagement>
@@ -42,19 +42,19 @@
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>33.6.0-jre</version>
+                <version>33.7.2-jre</version>
             </dependency>
             <dependency>
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
-                <version>2.50.0</version>
+                <version>2.51.0</version>
             </dependency>
             <!-- Object storage (ADR 0016): S3 calls, pre-signed downloads and MinIO's STS, for MinIO locally and
                  Cloudflare R2 in production. -->
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.55.11</version>
+                <version>2.57.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
