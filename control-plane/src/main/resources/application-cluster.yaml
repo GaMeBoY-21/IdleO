@@ -1,0 +1,43 @@
+# In a Kubernetes cluster (deploy/helm/idleo, ADR 0045): added after the environment's own profile (local,cluster on
+# the Mac's k3d cluster; prod,cluster in staging and production), so these win. Every value the chart sets comes from
+# its ConfigMap and Secrets as environment variables.
+spring:
+  # Flyway runs once per release, as the migration user, from the chart's migration Job (DatabaseMigration); the
+  # control plane serves requests as the application user, which can't change the schema.
+  flyway:
+    enabled: false
+  docker:
+    compose:
+      enabled: false
+  # The agents' TLS and our CA from the environment, as the prod profile has them, whichever profile is first: the
+  # chart's control-plane Secret (scripts/k8s/secrets.sh makes the local cluster's from the development CA; SOPS,
+  # production's), PEM content each. A bundle's name has a dash, which an environment variable can't carry, so it's
+  # named here; every other secret the Secret sets under its own property's name (IDENTITY_INVITECODEKEY, ...).
+  ssl:
+    bundle:
+      pem:
+        agent-grpc:
+          keystore:
+            certificate: ${AGENT_GRPC_TLS_CERTIFICATE}
+            private-key: ${AGENT_GRPC_TLS_PRIVATE_KEY}
+          truststore:
+            certificate: ${HOSTS_CA_ROOT_CERTIFICATE}
+
+server:
+  # Requests reach the control plane through the ingress (Traefik), which writes the client's address into
+  # X-Forwarded-For. Tomcat believes that header only from INGRESS_PROXIES, a regular expression for the ingress's own
+  # addresses (the cluster's pod network); from anyone else the header is ignored and the request counts under its
+  # real address, so a client can't dodge or burn another's limit (docs/runbooks/deployment.md). The chart's network
+  # policy lets only the ingress reach this port.
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: ${INGRESS_PROXIES}
+
+hosts:
+  ca:
+    root-certificate: ${HOSTS_CA_ROOT_CERTIFICATE}
+    intermediate-certificate: ${HOSTS_CA_INTERMEDIATE_CERTIFICATE}
+    intermediate-private-key: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY}
+    intermediate-private-key-password: ${HOSTS_CA_INTERMEDIATE_PRIVATE_KEY_PASSWORD:}
+

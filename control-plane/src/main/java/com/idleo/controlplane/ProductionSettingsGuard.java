@@ -59,7 +59,10 @@ import org.springframework.util.unit.DataSize;
  *       before the CA has confirmed the TDS settings ({@code legal.tds.confirmed}), no PAN key or the tests' one, or the
  *       fake PAN check (ADR 0040); and RazorpayX's live keys anywhere but prod;
  *   <li>an {@code images.platform} other than linux/amd64, any {@code images.dev-registries}, or no scanner token or
- *       registry-token key, or the tests' (ADR 0042).
+ *       registry-token key, or the tests' (ADR 0042);
+ *   <li>{@code server.forward-headers-strategy} on without {@code server.tomcat.remoteip.internal-proxies}, the
+ *       ingress's own addresses: Tomcat's default believes X-Forwarded-For from every private address, so anything
+ *       inside the network could pick the address a request is counted under (ADR 0045).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -264,6 +267,15 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         }
         if (binder.bind("backups.create-bucket", Boolean.class).orElse(false)) {
             problems.add("backups.create-bucket is true");
+        }
+        var forwardedHeaders =
+                binder.bind("server.forward-headers-strategy", String.class).orElse("none");
+        if (!"none".equalsIgnoreCase(forwardedHeaders.strip())
+                && binder.bind("server.tomcat.remoteip.internal-proxies", String.class)
+                        .orElse("")
+                        .isBlank()) {
+            problems.add("server.forward-headers-strategy is " + forwardedHeaders
+                    + " without server.tomcat.remoteip.internal-proxies, the ingress's addresses");
         }
         problems.addAll(paymentProblems(binder));
         problems.addAll(payoutProblems(binder));
