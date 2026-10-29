@@ -14,7 +14,7 @@ COPY src src
 RUN cargo build --release --locked --bin idleo-scanner
 
 # Trivy 0.75.0 (aquasec/trivy:0.75.0), its multi-platform index.
-FROM aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+FROM aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
 RUN addgroup -g 10001 scanner && adduser -D -H -u 10001 -G scanner -s /sbin/nologin scanner \
     && mkdir -p /scratch /cache/trivy && chown 10001:10001 /scratch /cache/trivy
 COPY --from=build /src/target/release/idleo-scanner /usr/local/bin/idleo-scanner
