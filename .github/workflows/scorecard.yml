@@ -1,0 +1,41 @@
+name: scorecard
+
+# OpenSSF Scorecard: how the repository's own supply-chain habits score (pinned actions, branch protection, token
+# permissions, signed releases, an advisory policy). Published, so the badge in README.md reads it.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Uploading the results to the Security tab.
+      security-events: write
+      # Publishing them (the badge), and the workflow's identity for that.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: results.sarif
+          category: scorecard
