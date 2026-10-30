@@ -1,0 +1,118 @@
+# promtool test rules: the database alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../database.yaml
+evaluation_interval: 15s
+tests:
+  # The standby falls 45 s behind: 1 minute of it is fine, 3 aren't.
+  - interval: 1m
+    input_series:
+      - series: 'cnpg_pg_replication_lag{job="database", pod="idleo-database-2"}'
+        values: '0x3 45x6'
+      - series: 'cnpg_pg_replication_streaming_replicas{job="database", pod="idleo-database-1"}'
+        values: '1x9'
+      - series: 'cnpg_pg_replication_in_recovery{job="database", pod="idleo-database-1"}'
+        values: '0x9'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: DatabaseStandbyBehind
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: DatabaseStandbyBehind
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: The database's standby is behind the primary, or gone.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-standby-behind
+  # The standby is gone: the primary streams to none.
+  - interval: 1m
+    input_series:
+      - series: 'cnpg_pg_replication_streaming_replicas{job="database", pod="idleo-database-1"}'
+        values: '1x2 0x6'
+      - series: 'cnpg_pg_replication_in_recovery{job="database", pod="idleo-database-1"}'
+        values: '0x8'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: DatabaseStandbyBehind
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: DatabaseStandbyBehind
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: The database's standby is behind the primary, or gone.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-standby-behind
+  # Archiving fails from minute 2: its last failure is newer than its last success. Never failed is -1.
+  - interval: 1m
+    input_series:
+      - series: 'cnpg_pg_stat_archiver_seconds_since_last_failure{job="database", pod="idleo-database-1"}'
+        values: '-1 -1 5 5 5 5 5 5 5 5 5'
+      - series: 'cnpg_pg_stat_archiver_seconds_since_last_archival{job="database", pod="idleo-database-1"}'
+        values: '10 10 70 130 190 250 310 370 430 490 550'
+      - series: 'cnpg_collector_pg_wal_archive_status{job="database", pod="idleo-database-1", value="ready"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: DatabaseArchivingFailing
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: DatabaseArchivingFailing
+        exp_alerts:
+          - exp_labels: {severity: page, pod: idleo-database-1}
+            exp_annotations:
+              summary: The database's WAL isn't reaching the backups.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-archiving-failing
+  # Segments pile up waiting, with no failure recorded (archiving hangs).
+  - interval: 1m
+    input_series:
+      - series: 'cnpg_pg_stat_archiver_seconds_since_last_failure{job="database", pod="idleo-database-1"}'
+        values: '-1x10'
+      - series: 'cnpg_pg_stat_archiver_seconds_since_last_archival{job="database", pod="idleo-database-1"}'
+        values: '10x10'
+      - series: 'cnpg_collector_pg_wal_archive_status{job="database", pod="idleo-database-1", value="ready"}'
+        values: '0 2 4 6 8 10 12 14 16 18 20'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: DatabaseArchivingFailing
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: DatabaseArchivingFailing
+        exp_alerts:
+          - exp_labels: {severity: page, pod: idleo-database-1}
+            exp_annotations:
+              summary: The database's WAL isn't reaching the backups.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-archiving-failing
+  # The last base backup finished at 0; 25 hours on it's fine, 27 hours on it isn't.
+  - interval: 1m
+    input_series:
+      - series: 'barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{job="database", pod="idleo-database-1"}'
+        values: '0x1700'
+    alert_rule_test:
+      - eval_time: 25h
+        alertname: DatabaseNoBaseBackup
+        exp_alerts: []
+      - eval_time: 27h
+        alertname: DatabaseNoBaseBackup
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: The database has had no base backup for more than a day.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-no-base-backup
+  # A failover at minute 20: timeline 1 to 2. Said for 15 minutes, then quiet.
+  - interval: 1m
+    input_series:
+      - series: 'cnpg_timeline_timeline_id{job="database", pod="idleo-database-2"}'
+        values: '1x19 2x30'
+    alert_rule_test:
+      - eval_time: 19m
+        alertname: DatabaseFailover
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: DatabaseFailover
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: The database failed over to its standby.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-failover
+      - eval_time: 40m
+        alertname: DatabaseFailover
+        exp_alerts: []

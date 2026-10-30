@@ -1,0 +1,39 @@
+{{- $scaling := .Values.controlPlane.autoscaling }}
+# How many control planes run (ADR 0047). The autoscaler keeps the count between its bounds by CPU. With canaries this
+# is the canary's (one copy, during a release), and Flagger makes idleo-control-plane-primary's from it with the
+# primary's own bounds (canary.yaml's autoscalerRef).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: idleo-control-plane
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: idleo-control-plane
+  minReplicas: {{ ternary 1 $scaling.minReplicas .Values.canary.enabled }}
+  maxReplicas: {{ ternary 1 $scaling.maxReplicas .Values.canary.enabled }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $scaling.cpuUtilization }}
+---
+# A drain or a rolling update takes down at most one at a time, never the last (ADR 0047): either version's pods, by
+# the label Flagger leaves alone.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: idleo-control-plane
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      idleo.in/control-plane: "true"

@@ -1,136 +1,130 @@
 #!/usr/bin/env bash
-# Restores the database from its backups into a NEW PostgreSQL, never over the live one (ADR 0036,
-# docs/runbooks/backups.md "Restoring"): the newest full backup finished before the target, then the archived WAL
-# replayed up to the target, in a container and volume of its own. It never archives, so it can't write into the
-# backups it came from. Run ops/backup/verify-ledger.sh against it before anyone uses it.
+# Restores the database from its backups into a NEW CloudNativePG Cluster, never over the live one (ADR 0047,
+# docs/runbooks/backups.md "Restoring"): the newest base backup from before the target, then the archived WAL replayed
+# up to the target, in a Cluster of its own (idleo-restore-<name>, one instance) beside the live idleo-database. It
+# archives nothing, so it can't write into the backups it came from. Run ops/backup/verify-ledger.sh --cluster against
+# it before anyone uses it.
 #
 #   ops/backup/restore.sh --to 2026-10-20T14:05:00+05:30   to that moment (ISO 8601, with its zone)
 #   ops/backup/restore.sh --to latest                         to the last archived WAL
 #
-# Options: --name NAME (the container and volume, idleo-restore-<NAME>; default the time now), --port PORT (on this
-# machine; default 55432), --key FILE (the backup key's private half; default private/backup-dev/backup.key.asc,
-# development's), --network NETWORK (a Docker network the storage is on, for a local MinIO), --jar FILE (the control
-# plane's jar, in production), --no-reapply (leave erased accounts as the backup had them, only to compare it with the
-# moment restored to, as the drill does).
+# Options: --name NAME (the Cluster is idleo-restore-<NAME>; default the time now), --namespace NAMESPACE (default
+# idleo), --no-reapply (leave erased accounts as the backup had them, only to compare it with the moment restored to,
+# as the drill does).
 #
-# Once it's up, every account on the erased list is erased again (ops/backup/reapply-erasures.sh, ADR 0037): a backup
-# never brings back someone who asked to be deleted.
+# Once it's up, every account on the erased list is erased again (the control plane's reapply-erasures, run as an
+# operator command against it, ADR 0037): a backup never brings back someone who asked to be deleted.
 #
-# Reads the backups' location from the environment, as the database's container has it: WALG_S3_PREFIX, AWS_ENDPOINT,
-# AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (a key that may read the bucket), and AWS_S3_FORCE_PATH_STYLE;
-# WALG_PGP_KEY_PASSPHRASE when the key has one. Prints the container, its port, the backup it started from and how
-# long the restore took. Exits 0 once the new database accepts connections, out of recovery.
+# kubectl reaches the cluster through KUBECONFIG (the Mac's cluster's, private/k8s/kubeconfig, when it's unset). The
+# backups are read through the live Cluster's ObjectStore (idleo-backups), with its keys. Prints the Cluster, the base
+# backup it started from and how long the restore took, from creating it to its being ready. Exits 0 once the new
+# database accepts connections, out of recovery.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
+export KUBECONFIG="${KUBECONFIG:-$root/private/k8s/kubeconfig}"
 
 target=""
 name="$(date -u +%Y%m%dt%H%M%S)"
-port=55432
-key="$root/private/backup-dev/backup.key.asc"
-network=""
-jar=""
+namespace=idleo
 reapply=true
 while (($#)); do
   case "$1" in
     --to) target="$2"; shift 2 ;;
     --name) name="$2"; shift 2 ;;
-    --port) port="$2"; shift 2 ;;
-    --key) key="$2"; shift 2 ;;
-    --network) network="$2"; shift 2 ;;
-    --jar) jar="$2"; shift 2 ;;
+    --namespace) namespace="$2"; shift 2 ;;
     --no-reapply) reapply=false; shift ;;
     -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "restore: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
 [[ -n "$target" ]] || { echo "restore: say where to restore to: --to '<time with zone>' or --to latest" >&2; exit 2; }
-[[ -r "$key" ]] || { echo "restore: can't read the backup key's private half at $key" >&2; exit 2; }
-for variable in WALG_S3_PREFIX AWS_ENDPOINT AWS_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
-  [[ -n "${!variable:-}" ]] || { echo "restore: set $variable (docs/runbooks/backups.md)" >&2; exit 2; }
-done
-
-container="idleo-restore-$name"
-if docker ps -a --format '{{.Names}}' | grep -qx "$container"; then
-  echo "restore: $container already exists; choose another --name, or remove it (docker rm -f $container; docker volume rm $container)" >&2
+if [[ "$target" != latest ]]; then
+  python3 -c '
+import datetime, sys
+moment = datetime.datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00"))
+sys.exit(0 if moment.tzinfo else "restore: give the time with its zone, for example 2026-10-20T14:05:00+05:30")' "$target"
+fi
+in_namespace() { kubectl -n "$namespace" "$@"; }
+cluster="idleo-restore-$name"
+if in_namespace get cluster "$cluster" >/dev/null 2>&1; then
+  echo "restore: $cluster already exists; choose another --name, or remove it (kubectl -n $namespace delete cluster $cluster)" >&2
   exit 2
 fi
-image="$("$root/ops/backup/image.sh")"
+image="$(in_namespace get cluster idleo-database -o jsonpath='{.spec.imageName}')" ||
+  { echo "restore: there's no idleo-database Cluster in $namespace to restore the backups of" >&2; exit 1; }
+storage="$(in_namespace get cluster idleo-database -o jsonpath='{.spec.storage.size}')"
+
 started_ms="$(perl -MTime::HiRes=time -e 'printf "%d", time * 1000')"
+python3 - "$cluster" "$image" "$storage" "$target" <<'PY' | in_namespace apply -f - >/dev/null
+import sys, yaml
+cluster, image, storage, target = sys.argv[1:]
+recovery = {"source": "idleo-database"}
+if target != "latest":
+    recovery["recoveryTarget"] = {"targetTime": target}
+manifests = [
+    {
+        "apiVersion": "postgresql.cnpg.io/v1",
+        "kind": "Cluster",
+        "metadata": {"name": cluster, "labels": {"app.kubernetes.io/part-of": "idleo", "idleo.in/restore": "true"}},
+        "spec": {
+            "instances": 1,
+            "imageName": image,
+            "enableSuperuserAccess": False,
+            "storage": {"size": storage},
+            "resources": {"requests": {"cpu": "250m", "memory": "512Mi"}, "limits": {"memory": "1024Mi"}},
+            # The live Cluster's backups, by its name: no WAL archiver of its own, so nothing is written back.
+            "bootstrap": {"recovery": recovery},
+            "externalClusters": [{
+                "name": "idleo-database",
+                "plugin": {
+                    "name": "barman-cloud.cloudnative-pg.io",
+                    "parameters": {"barmanObjectName": "idleo-backups", "serverName": "idleo-database"},
+                },
+            }],
+        },
+    },
+    # The same doors as the live database's (deploy/helm/idleo/templates/database.yaml): its clients, itself and the
+    # operator.
+    {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {"name": cluster},
+        "spec": {
+            "podSelector": {"matchLabels": {"cnpg.io/cluster": cluster}},
+            "policyTypes": ["Ingress"],
+            "ingress": [
+                {"from": [{"podSelector": {"matchLabels": {"idleo.in/database-client": "true"}}},
+                          {"podSelector": {"matchLabels": {"cnpg.io/cluster": cluster}}}],
+                 "ports": [{"port": 5432, "protocol": "TCP"}]},
+                {"from": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "cnpg-system"}}},
+                          {"podSelector": {"matchLabels": {"cnpg.io/cluster": cluster}}}],
+                 "ports": [{"port": 8000, "protocol": "TCP"}]},
+            ],
+        },
+    },
+]
+print(yaml.safe_dump_all(manifests))
+PY
 
-walg_env=(-e WALG_S3_PREFIX -e AWS_ENDPOINT -e AWS_REGION -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY
-  -e AWS_S3_FORCE_PATH_STYLE="${AWS_S3_FORCE_PATH_STYLE:-true}")
-[[ -n "$network" ]] && walg_env+=(--network "$network")
-
-# The newest full backup that finished before the target (or the newest of all, for latest).
-listing="$(docker run --rm "${walg_env[@]}" --entrypoint wal-g "$image" backup-list --detail --json 2>/dev/null)" ||
-  { echo "restore: can't list the backups at $WALG_S3_PREFIX; check the storage settings" >&2; exit 1; }
-backup="$(TARGET="$target" python3 -c '
-import datetime, json, os, re, sys
-def moment(text):
-    # Python before 3.11 takes only 3 or 6 digits after the second; WAL-G drops trailing zeros.
-    text = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], text.replace("Z", "+00:00"))
-    return datetime.datetime.fromisoformat(text)
-target = os.environ["TARGET"]
-cutoff = None if target == "latest" else moment(target)
-if cutoff is not None and cutoff.tzinfo is None:
-    sys.exit("restore: give the time with its zone, for example 2026-10-20T14:05:00+05:30")
-best = None
-for b in json.loads(sys.stdin.read() or "[]"):
-    finished = moment(b["finish_time"])
-    if (cutoff is None or finished <= cutoff) and (best is None or finished > best[0]):
-        best = (finished, b["backup_name"])
-print(best[1] if best else "")
-' <<<"$listing")"
-[[ -n "$backup" ]] || { echo "restore: no full backup finished before $target" >&2; exit 3; }
-
-# Inside the container, as postgres: fetch the backup and set the target, then run PostgreSQL without archiving. The
-# image's own entrypoint is skipped, since it would archive whenever WALG_S3_PREFIX is set.
-inside='
-set -euo pipefail
-chown postgres:postgres /var/lib/postgresql
-gosu postgres bash -s <<"AS_POSTGRES"
-set -euo pipefail
-mkdir -p "$PGDATA" && chmod 700 "$PGDATA"
-wal-g backup-fetch "$PGDATA" "$RESTORE_BACKUP"
-{
-  echo "restore_command = '"'"'wal-g wal-fetch %f %p'"'"'"
-  echo "recovery_target_action = '"'"'promote'"'"'"
-  echo "recovery_target_timeline = '"'"'latest'"'"'"
-  if [[ "$RESTORE_TARGET" != latest ]]; then
-    echo "recovery_target_time = '"'"'$RESTORE_TARGET'"'"'"
-    echo "recovery_target_inclusive = on"
-  fi
-  echo "archive_mode = off"
-} >> "$PGDATA/postgresql.auto.conf"
-touch "$PGDATA/recovery.signal"
-AS_POSTGRES
-exec gosu postgres postgres -c archive_mode=off -c listen_addresses="*"
-'
-docker volume create "$container" >/dev/null
-args=(--name "$container" -d -p "127.0.0.1:$port:5432" -v "$container:/var/lib/postgresql"
-  -v "$key:/run/backup.key.asc:ro" -e WALG_PGP_KEY_PATH=/run/backup.key.asc "${walg_env[@]}"
-  -e RESTORE_TARGET="$target" -e RESTORE_BACKUP="$backup")
-[[ -n "${WALG_PGP_KEY_PASSPHRASE:-}" ]] && args+=(-e WALG_PGP_KEY_PASSPHRASE)
-docker run "${args[@]}" --entrypoint bash "$image" -c "$inside" >/dev/null
-
-# Ready once it has finished recovery and promoted: out of recovery, accepting connections.
+# Ready once its one instance has replayed to the target, been promoted and answers.
 deadline=$((SECONDS + ${RESTORE_TIMEOUT:-1800}))
-until docker exec "$container" psql -U "${PGUSER:-controlplane}" -d "${PGDATABASE:-controlplane}" -Atc 'select pg_is_in_recovery()' 2>/dev/null | grep -qx f; do
-  if [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" != true ]]; then
-    echo "restore: the restored database stopped; its log:" >&2
-    docker logs --tail 30 "$container" >&2
+until [[ "$(in_namespace get cluster "$cluster" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)" == True ]]; do
+  phase="$(in_namespace get cluster "$cluster" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  if [[ "$phase" == *[Ff]ail* ]]; then
+    echo "restore: $cluster failed ($phase); kubectl -n $namespace describe cluster $cluster, and the full-recovery job's log" >&2
     exit 1
   fi
-  ((SECONDS < deadline)) || { echo "restore: not ready in time; docker logs $container" >&2; exit 1; }
-  sleep 1
+  ((SECONDS < deadline)) || { echo "restore: $cluster not ready in time ($phase); kubectl -n $namespace describe cluster $cluster" >&2; exit 1; }
+  sleep 2
 done
 took_ms=$(($(perl -MTime::HiRes=time -e 'printf "%d", time * 1000') - started_ms))
+primary="$(in_namespace get cluster "$cluster" -o jsonpath='{.status.currentPrimary}')"
+backup="$(in_namespace logs -l "cnpg.io/cluster=$cluster,cnpg.io/jobRole=full-recovery" --all-containers --tail=-1 2>/dev/null |
+  sed -n 's/.*"backupName":"\([^"]*\)".*/\1/p;s/.*"backupId":"\([^"]*\)".*/\1/p' | head -1)"
 if $reapply; then
-  reapply_args=(--port "$port")
-  [[ -n "$jar" ]] && reapply_args+=(--jar "$jar")
-  "$root/ops/backup/reapply-erasures.sh" "${reapply_args[@]}" >&2 ||
-    { echo "restore: erasing the erased list again failed; don't use $container until it has run" >&2; exit 1; }
+  IDLEO_DATABASE="$cluster" OPERATOR="${OPERATOR:-restore}" "$root/scripts/k8s/ops.sh" reapply-erasures >&2 ||
+    { echo "restore: erasing the erased list again failed; don't use $cluster until it has run" >&2; exit 1; }
 fi
-printf 'restore: %s is ready on 127.0.0.1:%s, from %s to %s, in %d.%03d s\n' \
-  "$container" "$port" "$backup" "$target" $((took_ms / 1000)) $((took_ms % 1000))
+printf 'restore: %s is ready (%s), from %s to %s, in %d.%03d s\n' \
+  "$cluster" "$primary" "${backup:-the newest base backup before it}" "$target" $((took_ms / 1000)) $((took_ms % 1000))

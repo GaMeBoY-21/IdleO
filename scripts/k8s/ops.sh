@@ -5,7 +5,8 @@
 #
 #   OPERATOR=nikki scripts/k8s/ops.sh grant-credits --user <id> --paise 50000 --reason "Pilot credit" --key pilot-1
 #
-# OPERATOR is who runs it, recorded with the change (local-cluster if unset).
+# OPERATOR is who runs it, recorded with the change (local-cluster if unset). IDLEO_DATABASE names another database
+# Cluster to run it against, a restored one (ops/backup/restore.sh); the live one when unset.
 set -euo pipefail
 log() { printf 'k8s: %s\n' "$*" >&2; }
 fail() { printf 'k8s: FAIL: %s\n' "$*" >&2; exit 1; }
@@ -20,6 +21,7 @@ trap 'rm -f "$values"; kubectl -n "$namespace" delete pod "$pod" --ignore-not-fo
 helm get values idleo --namespace "$namespace" -o yaml >"$values"
 helm template idleo deploy/helm/idleo --namespace "$namespace" -f "$values" \
   --set operator.name="$pod" --set operator.operatorName="${OPERATOR:-local-cluster}" \
+  --set operator.database="${IDLEO_DATABASE:-}" \
   --set-json "operator.args=$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "$@")" \
   --show-only templates/operator-command.yaml | kubectl -n "$namespace" apply -f - >/dev/null
 

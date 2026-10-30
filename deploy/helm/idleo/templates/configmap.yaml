@@ -8,7 +8,7 @@ metadata:
 data:
   SPRING_PROFILES_ACTIVE: {{ .Values.controlPlane.profiles | quote }}
   INGRESS_PROXIES: {{ .Values.controlPlane.ingressProxies | quote }}
-  SPRING_DATASOURCE_URL: "jdbc:postgresql://idleo-postgres:5432/{{ .Values.postgres.database }}"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://idleo-database-rw:5432/{{ .Values.database.name }}"
   SPRING_DATASOURCE_USERNAME: idleo_app
   SPRING_DATA_REDIS_URL: redis://idleo-valkey:6379
   IDLEO_RELEASE: {{ .Values.images.tag | quote }}

@@ -2,8 +2,9 @@
 # The local cluster's Secrets (ADR 0045, 0046): SOPS files in deploy/clusters/local/secrets/idleo/, committed, encrypted
 # for the local age key (private/k8s/age/local.agekey; scripts/deploy/age-key.sh local), the way staging's and
 # production's are for theirs. Flux decrypts them in the cluster (up.sh --gitops); plain Helm (up.sh) has this apply
-# them. What they hold is development's: the database's three passwords, the control plane's secrets from the
-# development CA and keys (control-plane/scripts/dev-ca.sh), and the local CA the Gateway's certificate comes from.
+# them. What they hold is development's: the database's two users (CloudNativePG's basic-auth Secrets, ADR 0047) and the
+# development MinIO's keys for its backups, the control plane's secrets from the development CA and keys
+# (control-plane/scripts/dev-ca.sh), and the local CA the Gateway's certificate comes from.
 #
 #   scripts/k8s/secrets.sh            apply them and the development ConfigMaps to the cluster (plain Helm), and write
 #                                     this machine's copies (below)
@@ -25,17 +26,17 @@ command -v sops >/dev/null || fail "sops isn't installed (macOS: brew install so
 [[ -s "$SOPS_AGE_KEY_FILE" ]] ||
   fail "there's no local age key at private/k8s/age/local.agekey: it's the one the committed local Secrets are encrypted for (docs/runbooks/kubernetes.md)"
 secrets_dir=deploy/clusters/local/secrets/idleo
+secret_files="database-migration database-application backup-storage control-plane local-ca"
 
 make_secrets() {
   local dev_ca="$k8s_root/private/dev-ca" database_env="$k8s_state/database.env" work
   control-plane/scripts/dev-ca.sh >/dev/null
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' RETURN
-  # The database's passwords: kept if this machine has them (its database volume was made with them).
+  # The database's passwords: kept if this machine has them.
   if [[ ! -s "$database_env" ]]; then
     (
       umask 077
-      printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)"
       printf 'IDLEO_MIGRATION_PASSWORD=%s\n' "$(openssl rand -hex 24)"
       printf 'IDLEO_APPLICATION_PASSWORD=%s\n' "$(openssl rand -hex 24)"
     ) >"$database_env"
@@ -66,7 +67,16 @@ make_secrets() {
   fi
 
   manifest() { kubectl create --namespace "$namespace" "$@" --dry-run=client -o yaml; }
-  manifest secret generic idleo-database --from-env-file="$database_env" >"$work/database.yaml"
+  password() { sed -n "s/^$1=//p" "$database_env"; }
+  manifest secret generic idleo-database-migration --type=kubernetes.io/basic-auth \
+    --from-literal=username=idleo_migration --from-literal=password="$(password IDLEO_MIGRATION_PASSWORD)" \
+    >"$work/database-migration.yaml"
+  manifest secret generic idleo-database-application --type=kubernetes.io/basic-auth \
+    --from-literal=username=idleo_app --from-literal=password="$(password IDLEO_APPLICATION_PASSWORD)" \
+    >"$work/database-application.yaml"
+  # The development MinIO's own keys (templates/development.yaml), not a secret, but a Secret as staging's R2 keys are.
+  manifest secret generic idleo-backup-storage --from-literal=ACCESS_KEY_ID=local-storage-root \
+    --from-literal=ACCESS_SECRET_KEY=local-only-not-a-secret >"$work/backup-storage.yaml"
   # The control plane's: PEM and base64 content, each under the name of the setting it fills (application-cluster.yaml
   # names the TLS bundle's and the CA's; the keys go by their properties' own names).
   key() { tr -d '[:space:]' <"$dev_ca/$1"; }
@@ -84,7 +94,7 @@ make_secrets() {
   manifest secret tls idleo-local-ca --cert="$local_ca/ca.pem" --key="$local_ca/ca.key" >"$work/local-ca.yaml"
 
   local name
-  for name in database control-plane local-ca; do
+  for name in $secret_files; do
     # kubectl's empty creationTimestamp would make every run a change.
     sed -i.bak '/creationTimestamp: null/d' "$work/$name.yaml"
     sops encrypt --filename-override "$secrets_dir/$name.yaml" "$work/$name.yaml" >"$secrets_dir/$name.yaml"
@@ -104,9 +114,10 @@ write_files() {
   (
     umask 077
     secret_value local-ca tls.key >"$local_ca/ca.key"
-    for name in POSTGRES_PASSWORD IDLEO_MIGRATION_PASSWORD IDLEO_APPLICATION_PASSWORD; do
-      printf '%s=%s\n' "$name" "$(secret_value database "$name")"
-    done >"$k8s_state/database.env"
+    {
+      printf 'IDLEO_MIGRATION_PASSWORD=%s\n' "$(secret_value database-migration password)"
+      printf 'IDLEO_APPLICATION_PASSWORD=%s\n' "$(secret_value database-application password)"
+    } >"$k8s_state/database.env"
   )
   secret_value local-ca tls.crt >"$local_ca/ca.pem"
   secret_value control-plane HOSTS_CA_ROOT_CERTIFICATE >"$k8s_state/agent-ca.pem"
@@ -122,7 +133,7 @@ case "$mode" in
   apply)
     write_files
     kubectl get namespace "$namespace" >/dev/null 2>&1 || kubectl create namespace "$namespace" >/dev/null
-    for name in database control-plane local-ca; do
+    for name in $secret_files; do
       sops decrypt "$secrets_dir/$name.yaml" | kubectl apply -f - >/dev/null
     done
     kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/clusters/local/development | kubectl apply -f - >/dev/null

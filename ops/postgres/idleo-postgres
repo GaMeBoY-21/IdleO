@@ -1,5 +1,5 @@
 #!/bin/bash
-# The image's entrypoint (ADR 0036): PostgreSQL's own, with WAL archiving through WAL-G when backups are configured
+# The image's entrypoint (ADR 0036; ./start.sh's stack): PostgreSQL's own, with WAL archiving through WAL-G when backups are configured
 # (WALG_S3_PREFIX set), and without when they aren't (the tests' and the end-to-end stacks'). Archiving switches to a
 # new WAL segment at least every 30 seconds, so at most about 30 seconds of committed work is ever only on this disk.
 #

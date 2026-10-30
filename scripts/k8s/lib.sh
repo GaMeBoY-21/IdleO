@@ -67,6 +67,19 @@ flux_repository=https://github.com/GaMeBoY-21/IdleO
 flux_version=v2.9.6
 chart_version="$(sed -n 's/^version: //p' "$k8s_root/deploy/helm/idleo/Chart.yaml")"
 
+# CloudNativePG's HelmRelease $1 as Flux installs it (deploy/infrastructure/base/cloudnative-pg.yaml), for plain Helm:
+# prints its release name and its chart by digest, and writes its values to $2.
+cnpg_release() {
+  python3 - "$k8s_root/deploy/infrastructure/base/cloudnative-pg.yaml" "$1" "$2" <<'PY'
+import sys, yaml
+documents = [d for d in yaml.safe_load_all(open(sys.argv[1])) if d]
+release = next(d for d in documents if d["kind"] == "HelmRelease" and d["metadata"]["name"] == sys.argv[2])
+source = next(d for d in documents if d["kind"] == "OCIRepository" and d["metadata"]["name"] == release["spec"]["chartRef"]["name"])
+yaml.safe_dump(release["spec"].get("values") or {}, open(sys.argv[3], "w"))
+print(release["spec"]["releaseName"], source["spec"]["url"] + "@" + source["spec"]["ref"]["digest"])
+PY
+}
+
 # Pushes localhost:<registry>/<name:tag> to the cluster's registry and prints its digest.
 local_push() {
   local pushed
@@ -91,7 +104,7 @@ local_chart() {
 # image tag, the chart's digest, and each image's digest as up.sh pushed it, or the control plane's given as $3.
 release_settings() {
   local image digests=()
-  for image in control-plane web scanner postgres; do
+  for image in control-plane web scanner; do
     local name
     name="$(tr '[:lower:]-' '[:upper:]_' <<<"$image")_DIGEST"
     if [[ "$image" == control-plane && -n "${3:-}" ]]; then

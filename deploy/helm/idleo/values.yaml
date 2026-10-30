@@ -18,19 +18,25 @@ images:
   registry: ghcr.io/gameboy-21
   # The git commit the images were built from. Required: it names the release (IDLEO_RELEASE).
   tag: ""
-  # Each image's digest (control-plane, web, scanner, postgres: sha256:...), which pins it to the bytes the images
+  # Each image's digest (control-plane, web, scanner: sha256:...), which pins it to the bytes the images
   # workflow scanned and signed. Staging and production set every one (deploy/clusters/<env>/release.yaml); without
   # one, an image is pulled by its tag.
   digests: {}
   pullPolicy: IfNotPresent
 
 controlPlane:
-  replicas: 1
+  # Two copies, always (ADR 0047): losing one, or a rolling update, costs renters and hosts nothing. The autoscaler
+  # keeps between these, by CPU; with canaries Flagger gives the primary the same and runs one canary copy beside it.
+  # Three don't fit one 8 GB node at a canary's peak (above), so the most is 2 until there are more nodes.
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 2
+    cpuUtilization: 70
   # The environment's profile, then the cluster's (application-cluster.yaml).
   profiles: prod,cluster
   # Non-secret settings, as environment variables (the ConfigMap). Secrets come from the Secret named below.
   settings: {}
-  # Made outside the chart: scripts/k8s/secrets.sh locally, SOPS in staging and production.
+  # Made outside the chart: SOPS files, as every Secret is (ADR 0046).
   secret: idleo-control-plane
   # Tomcat believes X-Forwarded-For only from these addresses, a regular expression: the pod network, which the
   # network policy narrows to the ingress's own pods for this port.
@@ -102,15 +108,50 @@ valkey:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { memory: 256Mi }
 
-postgres:
-  # ops/postgres's image (PostgreSQL with WAL-G); CloudNativePG replaces this StatefulSet later.
-  database: controlplane
-  # Its superuser's, the migration user's and the application user's passwords: made outside the chart.
-  secret: idleo-database
+# The database (ADR 0047): CloudNativePG's Cluster, a primary and a streaming standby that takes over by itself, made
+# by the operator in deploy/infrastructure/ (cnpg-system). The control plane, the migration Job and operator commands
+# reach the primary through the Cluster's -rw Service, whichever instance it is.
+database:
+  name: controlplane
+  # PostgreSQL 18.6, CloudNativePG's minimal image (no Barman inside: the backup plugin's sidecar has it), pinned.
+  image: ghcr.io/cloudnative-pg/postgresql:18.6-minimal-trixie@sha256:64abc98a4387361afd6821a3a99f975763bbd87bbdde9449e75ad6002528a318
+  instances: 2
+  # Each instance's volume.
   storage: 20Gi
   resources:
     requests: { cpu: 250m, memory: 512Mi }
     limits: { memory: 1024Mi }
+  # Sized for that limit: shared buffers a quarter of it, and the connections ADR 0047 counts (2 control planes and a
+  # canary at Hikari's 10 each, the migration Job, operator commands and CloudNativePG's own: about 45 of these).
+  parameters:
+    max_connections: "100"
+    shared_buffers: 256MB
+    effective_cache_size: 512MB
+    work_mem: 4MB
+    maintenance_work_mem: 64MB
+    # A WAL segment goes to the backups at least every 30 seconds while anything is written: the most a lost node and
+    # its disk cost (docs/runbooks/backups.md).
+    archive_timeout: 30s
+  # The users' passwords, each a kubernetes.io/basic-auth Secret made outside the chart (SOPS): the migration user,
+  # which owns the database and so everything in it, and the application user the control plane serves as (ADR 0045).
+  migrationSecret: idleo-database-migration
+  applicationSecret: idleo-database-application
+  # Backups (ADR 0047): the Barman Cloud plugin archives every WAL segment and keeps a daily base backup, 30 days of
+  # both, in S3-compatible storage (R2 in staging and production, the development MinIO here). Its keys are the Secret
+  # named here, ACCESS_KEY_ID and ACCESS_SECRET_KEY.
+  backups:
+    enabled: true
+    endpoint: ""
+    # s3://<bucket>/<folder>: one folder a cluster.
+    destination: ""
+    secret: idleo-backup-storage
+    retention: 30d
+    # Seconds first: 03:00 India time, 21:30 UTC.
+    schedule: "0 30 21 * * *"
+    # The sidecar each instance runs to archive and back up.
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits: { memory: 256Mi }
 
 gateway:
   # Traefik's Gateway API class (k3s's own Traefik, deploy/k3s/).
@@ -165,3 +206,5 @@ operator:
   name: ""
   operatorName: ""
   args: []
+  # Another database Cluster to run it against (a restored one, ops/backup/restore.sh); the live one when empty.
+  database: ""

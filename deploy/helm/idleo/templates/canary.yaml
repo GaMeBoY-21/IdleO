@@ -22,6 +22,14 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: idleo-control-plane
+  # The primary's count: its own autoscaler, made from control-plane-scaling.yaml's with the primary's bounds.
+  autoscalerRef:
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    name: idleo-control-plane
+    primaryScalerReplicas:
+      minReplicas: {{ .Values.controlPlane.autoscaling.minReplicas }}
+      maxReplicas: {{ .Values.controlPlane.autoscaling.maxReplicas }}
   # A canary pod that isn't ready within 15 minutes fails the release.
   progressDeadlineSeconds: 900
   service:

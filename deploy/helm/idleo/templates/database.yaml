@@ -1,0 +1,190 @@
+{{- $db := .Values.database }}
+{{- $backups := $db.backups }}
+# The database (ADR 0047): CloudNativePG's Cluster, a primary and a standby streaming from it. The operator watches the
+# primary; when it fails, the operator promotes the standby and points idleo-database-rw at it, with nobody's help.
+# Commits wait for the standby to have the WAL while it's there (synchronous, "preferred"), so a failover loses no
+# committed write; with the standby gone, the primary carries on alone rather than refuse writes.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: idleo-database
+  labels:
+    {{- include "idleo.labels" (list . "database") | nindent 4 }}
+spec:
+  instances: {{ $db.instances }}
+  imageName: {{ $db.image }}
+  # No superuser login over the network: the operator has its own way in, and people use kubectl exec (the runbooks).
+  enableSuperuserAccess: false
+  # A changed setting or image restarts the standby first, then moves the primary to it: one short pause in writes.
+  primaryUpdateStrategy: unsupervised
+  primaryUpdateMethod: switchover
+  postgresql:
+    parameters:
+      {{- toYaml $db.parameters | nindent 6 }}
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+  bootstrap:
+    initdb:
+      database: {{ $db.name }}
+      # The migration user owns the database, and so every schema and table Flyway makes (ADR 0045).
+      owner: idleo_migration
+      secret:
+        name: {{ $db.migrationSecret }}
+  # The users (ADR 0045), kept as written here: idleo_application, the role every migration grants its tables to;
+  # idleo_app, the control plane's login, a member of it (and of pg_monitor, to see WAL waiting to be archived); and the
+  # migration user. Their passwords come from the Secrets, and a changed Secret changes the password.
+  managed:
+    roles:
+      - name: idleo_migration
+        ensure: present
+        login: true
+        passwordSecret:
+          name: {{ $db.migrationSecret }}
+      - name: idleo_application
+        ensure: present
+        login: false
+      - name: idleo_app
+        ensure: present
+        login: true
+        inRoles: [idleo_application, pg_monitor]
+        passwordSecret:
+          name: {{ $db.applicationSecret }}
+  storage:
+    size: {{ $db.storage }}
+  resources:
+    {{- toYaml $db.resources | nindent 4 }}
+  # One instance a node when there are several nodes; on one node both share it (ADR 0047, "What 3 nodes add").
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: preferred
+    topologyKey: kubernetes.io/hostname
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          cnpg.io/cluster: idleo-database
+  # Each instance's meters on port 9187, scraped by the in-cluster Prometheus, with the timeline, which moves on at
+  # every failover (DatabaseFailover, ops/alerts/database.yaml).
+  monitoring:
+    customQueriesConfigMap:
+      - name: idleo-database-monitoring
+        key: queries.yaml
+  {{- if $backups.enabled }}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: idleo-backups
+  {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idleo-database-monitoring
+  labels:
+    {{- include "idleo.labels" (list . "database") | nindent 4 }}
+data:
+  queries.yaml: |
+    timeline:
+      query: "SELECT timeline_id FROM pg_control_checkpoint()"
+      metrics:
+        - timeline_id:
+            usage: GAUGE
+            description: The timeline this instance is on; a failover starts a new one
+{{- if $backups.enabled }}
+---
+# Where the backups go (ADR 0047): every WAL segment as it's done (at least every archive_timeout), and the daily base
+# backups, compressed, 30 days kept; a point-in-time restore is a new Cluster bootstrapped from here
+# (ops/backup/restore.sh).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: idleo-backups
+  labels:
+    {{- include "idleo.labels" (list . "database") | nindent 4 }}
+spec:
+  retentionPolicy: {{ $backups.retention | quote }}
+  configuration:
+    destinationPath: {{ required "database.backups.destination is where the backups go: s3://<bucket>/<folder>" $backups.destination | quote }}
+    endpointURL: {{ required "database.backups.endpoint is the storage's S3 address" $backups.endpoint | quote }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ $backups.secret }}
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: {{ $backups.secret }}
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: gzip
+      maxParallel: 2
+    data:
+      compression: gzip
+      jobs: 2
+  instanceSidecarConfiguration:
+    resources:
+      {{- toYaml $backups.resources | nindent 6 }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: idleo-database-daily
+  labels:
+    {{- include "idleo.labels" (list . "database") | nindent 4 }}
+spec:
+  schedule: {{ $backups.schedule | quote }}
+  # The first at once, so a new cluster can be restored from the start.
+  immediate: true
+  backupOwnerReference: self
+  cluster:
+    name: idleo-database
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+{{- end }}
+---
+# Who reaches the database's instances: the control plane, the migration Job and operator commands on PostgreSQL's
+# port; the cluster's own instances and jobs (streaming and joining); the operator, on the instance manager's port;
+# and the in-cluster Prometheus, on the meters'.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-database
+  labels:
+    {{- include "idleo.labels" (list . "database") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: idleo-database
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              idleo.in/database-client: "true"
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: idleo-database
+      ports:
+        - { port: 5432, protocol: TCP }
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: idleo-database
+      ports:
+        - { port: 8000, protocol: TCP }
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - { port: 9187, protocol: TCP }

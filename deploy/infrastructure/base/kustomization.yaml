@@ -1,9 +1,11 @@
-# What every cluster runs beside IdleO (ADR 0046), applied by Flux before the idleo release: cert-manager (the
-# Gateway's certificates), Flagger (canary releases of the control plane) and a small Prometheus that Flagger judges
-# each canary by. Staging and production add Prometheus's remote write (../remote-write/).
+# What every cluster runs beside IdleO (ADR 0046, 0047), applied by Flux before the idleo release: cert-manager (the
+# Gateway's certificates), CloudNativePG and its backup plugin (the database), Flagger (canary releases of the control
+# plane) and a small Prometheus that Flagger judges each canary by and that keeps the database's meters. Staging and
+# production add Prometheus's remote write (../remote-write/).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - cert-manager.yaml
+  - cloudnative-pg.yaml
   - flagger.yaml
   - prometheus

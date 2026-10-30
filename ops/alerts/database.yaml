@@ -1,0 +1,56 @@
+# The database in the cluster (ADR 0047): CloudNativePG's primary and standby, and the Barman Cloud plugin's backups.
+# Their meters reach Grafana Cloud through the in-cluster Prometheus's remote write (job "database",
+# deploy/infrastructure/). Same format and rules as platform.yaml.
+groups:
+  - name: database
+    rules:
+      - alert: DatabaseStandbyBehind
+        # The standby more than 30 seconds behind the primary for 2 minutes, or no standby streaming at all for 5: a
+        # failover now would wait for it, or there's nothing to fail over to.
+        expr: |
+          max(cnpg_pg_replication_lag{job="database"}) > 30
+          or
+          max(cnpg_pg_replication_streaming_replicas{job="database"}
+            and on(pod) cnpg_pg_replication_in_recovery{job="database"} == 0) < 1
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: The database's standby is behind the primary, or gone.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-standby-behind
+
+      - alert: DatabaseArchivingFailing
+        # WAL archiving's last attempt failed (its last failure is newer than its last success), or more than 5 segments
+        # wait to go (at least two and a half minutes' worth), for 5 minutes. Point-in-time recovery stops at the last
+        # segment archived.
+        expr: |
+          min by (pod) (cnpg_pg_stat_archiver_seconds_since_last_failure{job="database"} >= 0)
+            < min by (pod) (cnpg_pg_stat_archiver_seconds_since_last_archival{job="database"})
+          or
+          max by (pod) (cnpg_collector_pg_wal_archive_status{job="database", value="ready"}) > 5
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: The database's WAL isn't reaching the backups.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-archiving-failing
+
+      - alert: DatabaseNoBaseBackup
+        # No base backup finished in 26 hours (one runs daily, at 03:00 India time).
+        expr: time() - max(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{job="database"}) > 26 * 3600
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: The database has had no base backup for more than a day.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-no-base-backup
+
+      - alert: DatabaseFailover
+        # The standby was promoted in the last 15 minutes: every failover starts a new timeline. It healed itself; look
+        # at why the primary went.
+        expr: max(cnpg_timeline_timeline_id{job="database"}) > max(cnpg_timeline_timeline_id{job="database"} offset 15m)
+        labels:
+          severity: digest
+        annotations:
+          summary: The database failed over to its standby.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-failover

@@ -21,7 +21,7 @@ controlPlane:
     HOSTS_LINK_WEB_APP_URL: https://app.idleo.localhost:8443
     # Anyone signing in is let in, as with ./start.sh: no invite step on this machine.
     IDENTITY_INVITE_ONLY: "false"
-    # Development's backups bucket isn't made here: the cluster's database isn't backed up yet (CloudNativePG).
+    # The control plane's backup watch is ./start.sh's (WAL-G); here the database's backups are CloudNativePG's.
     BACKUPS_CREATEBUCKET: "false"
 
 # Plain Helm (scripts/k8s/up.sh) has no Flagger; up.sh --gitops turns canaries on, as every Flux cluster has them.
@@ -35,8 +35,12 @@ scanner:
 web:
   enabled: true
 
-postgres:
+database:
   storage: 2Gi
+  # Into the development MinIO, which makes the bucket as it starts (templates/development.yaml).
+  backups:
+    endpoint: http://idleo-storage:19100
+    destination: s3://idleo-backups/local
 
 gateway:
   redirectPort: 8443

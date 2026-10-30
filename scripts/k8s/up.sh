@@ -81,23 +81,31 @@ kubectl apply -f deploy/k3s/local/dns.yaml >/dev/null
 kubectl -n kube-system rollout restart deployment/coredns >/dev/null
 kubectl -n kube-system rollout status deployment/coredns --timeout=120s >/dev/null
 
-# 2. cert-manager, for the Gateway's certificate (under Flux, the infrastructure has it).
+# 2. cert-manager, for the Gateway's certificate, and CloudNativePG with its backup plugin, for the database (under
+#    Flux, the infrastructure has them). The operator's and plugin's charts and values are Flux's own
+#    (deploy/infrastructure/base/cloudnative-pg.yaml), by the same digests.
 if [[ "$gitops" == false ]]; then
   log "installing cert-manager $cert_manager_version"
   helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager --version "$cert_manager_version" \
     --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 5m >>"$logs/up.log" 2>&1 ||
     fail "cert-manager didn't install; see private/k8s/logs/up.log"
+  for release in cloudnative-pg plugin-barman-cloud; do
+    log "installing $release"
+    read -r name chart <<<"$(cnpg_release "$release" "$k8s_state/$release-values.yaml")"
+    helm upgrade --install "$name" "$chart" --namespace cnpg-system --create-namespace \
+      -f "$k8s_state/$release-values.yaml" --wait --timeout 5m >>"$logs/up.log" 2>&1 ||
+      fail "$release didn't install; see private/k8s/logs/up.log"
+  done
 fi
 
 # 3. The images, built from this tree for this machine and pushed to the cluster's registry, tagged with the commit
 #    (and the time, when the tree has changes, so a rebuild always rolls out), each one's digest kept.
 tag="$(git rev-parse --short=12 HEAD)"
 [[ -z "$(git status --porcelain)" ]] || tag="$tag-$(date +%Y%m%d%H%M%S)"
-for image in control-plane web scanner postgres; do
+for image in control-plane web scanner; do
   case "$image" in
     control-plane | web) context=. dockerfile="$image/Dockerfile" ;;
     scanner) context=scanner dockerfile=scanner/Dockerfile ;;
-    postgres) context=ops/postgres dockerfile=ops/postgres/Dockerfile ;;
   esac
   log "building idleo-$image"
   started=$SECONDS
@@ -147,7 +155,9 @@ else
   control_plane=deployment/idleo-control-plane-primary
 fi
 
-for workload in statefulset/idleo-postgres statefulset/idleo-valkey "$control_plane" \
+kubectl -n "$namespace" wait cluster/idleo-database --for=condition=Ready --timeout=10m >/dev/null ||
+  fail "the database isn't ready; kubectl -n $namespace describe cluster idleo-database says why"
+for workload in statefulset/idleo-valkey "$control_plane" \
   deployment/idleo-web deployment/idleo-scanner deployment/idleo-sign-in deployment/idleo-storage deployment/idleo-mail; do
   kubectl -n "$namespace" rollout status "$workload" --timeout=10m >/dev/null ||
     fail "$workload isn't ready; kubectl -n $namespace describe $workload says why"

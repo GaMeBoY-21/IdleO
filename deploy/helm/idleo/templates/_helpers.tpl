@@ -70,6 +70,6 @@ env:
   - name: SPRING_DATASOURCE_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: {{ .Values.postgres.secret }}
-        key: IDLEO_APPLICATION_PASSWORD
+        name: {{ .Values.database.applicationSecret }}
+        key: password
 {{- end }}

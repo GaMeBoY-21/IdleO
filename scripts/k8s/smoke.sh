@@ -4,7 +4,8 @@
 #
 #   1. the website and the app load over HTTPS, with their security headers, and plain HTTP redirects to HTTPS;
 #   2. the control plane's readiness is UP through the ingress;
-#   3. the migration Job ran as the migration user, and the application user can't create a table;
+#   3. the database is CloudNativePG's primary and standby, streaming; the migration Job ran as the migration user, the
+#      application user can't create a table, and the S1 privilege test (ApplicationRoleTests) passes against it;
 #   4. a made-up X-Forwarded-For from outside is counted under the address the ingress saw, never the made-up one;
 #   5. a fake-GPU agent outside the cluster enrols and connects over mutual TLS, straight to the control plane, and its
 #      host shows online;
@@ -79,9 +80,13 @@ readiness="$(curl -sf "$api/actuator/health/readiness")" || fail "readiness didn
 grep -q '"status":"UP"' <<<"$readiness" || fail "readiness isn't UP: $readiness"
 pass "readiness is UP: $readiness"
 
-# 3. Two database users: every migration installed by the migration user, the tables its, and the application user
-#    refused a table of its own.
-psql_superuser() { in_namespace exec idleo-postgres-0 -c postgres -- psql -U postgres -d controlplane -tAX -c "$1"; }
+# 3. The database: a primary and a streaming standby (ADR 0047). Two users: every migration installed by the migration
+#    user, the tables its, and the application user refused a table of its own; then the privilege test itself.
+primary="$(in_namespace get cluster idleo-database -o jsonpath='{.status.currentPrimary}')"
+[[ -n "$primary" ]] || fail "the database has no primary: kubectl -n $namespace describe cluster idleo-database"
+psql_superuser() { in_namespace exec "$primary" -c postgres -- psql -U postgres -d controlplane -tAX -c "$1"; }
+streaming="$(psql_superuser "select count(*) from pg_stat_replication where state = 'streaming'")"
+[[ "$streaming" == 1 ]] || fail "the primary $primary has $streaming standbys streaming, not 1"
 installed_by="$(psql_superuser "select string_agg(distinct installed_by, ',') from flyway.flyway_schema_history")"
 [[ "$installed_by" == idleo_migration ]] || fail "the migrations were installed by $installed_by, not idleo_migration"
 owners="$(psql_superuser "select string_agg(distinct pg_get_userbyid(c.relowner), ',') from pg_class c
@@ -93,10 +98,30 @@ migration_log="$(in_namespace logs -l batch.kubernetes.io/job-name=idleo-migrate
 grep -q "The database is at version $version" <<<"$migration_log" ||
   fail "the migration Job's log doesn't say it brought the database to version $version"
 application_password="$(sed -n 's/^IDLEO_APPLICATION_PASSWORD=//p' "$k8s_state/database.env")"
-refused="$(in_namespace exec idleo-postgres-0 -c postgres -- env PGPASSWORD="$application_password" \
+refused="$(in_namespace exec "$primary" -c postgres -- env PGPASSWORD="$application_password" \
   psql -h 127.0.0.1 -U idleo_app -d controlplane -tAX -c 'create table metering.smoke (id int)' 2>&1 || true)"
 grep -q 'permission denied' <<<"$refused" || fail "the application user could create a table: $refused"
 pass "the migration Job brought the database to V$version as idleo_migration, which owns the tables; idleo_app can't create one"
+# The S1 privilege test, against this database's users as CloudNativePG made them, through a port-forward to the
+# primary's Service.
+migration_password="$(sed -n 's/^IDLEO_MIGRATION_PASSWORD=//p' "$k8s_state/database.env")"
+# kubectl's port-forward ends when a connection through it is reset (a pool closing), so it's started again each time.
+(while true; do in_namespace port-forward service/idleo-database-rw 15432:5432 >>"$out/smoke.log" 2>&1; sleep 0.2; done) &
+forward_pid=$!
+deadline=$((SECONDS + 30))
+until nc -z localhost 15432 2>/dev/null; do
+  ((SECONDS < deadline)) || fail "the port-forward to the database didn't open"
+  sleep 1
+done
+(
+  . "$root/scripts/lib/toolchains.sh"
+  cd control-plane && ./mvnw -B -q test -Dtest=ApplicationRoleTests -Dsurefire.failIfNoSpecifiedTests=false \
+    -Droles.url="jdbc:postgresql://localhost:15432/controlplane?sslmode=disable" -Droles.migration-password="$migration_password" \
+    -Droles.application-password="$application_password"
+) >"$out/smoke-roles.log" 2>&1 || fail "ApplicationRoleTests failed against the cluster's database; see private/k8s/logs/smoke-roles.log"
+pkill -P "$forward_pid" 2>/dev/null || true
+kill "$forward_pid" 2>/dev/null || true
+pass "the database is $primary and a standby, streaming; ApplicationRoleTests passes against its users"
 
 # 4. The client's address: a request writing its own X-Forwarded-For is counted under the address the ingress saw.
 forged=203.0.113.77

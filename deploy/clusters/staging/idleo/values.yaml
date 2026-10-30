@@ -14,3 +14,10 @@ tls:
   issuer:
     kind: ClusterIssuer
     name: letsencrypt-staging
+
+# The database's backups (ADR 0047) in R2: its address and bucket come from the Secret r2-backups (flux-system), which
+# Flux substitutes here (idleo.yaml); the keys are the Secret idleo-backup-storage. Both are made with the server (S5).
+database:
+  backups:
+    endpoint: ${R2_BACKUPS_ENDPOINT}
+    destination: s3://${R2_BACKUPS_BUCKET}/staging

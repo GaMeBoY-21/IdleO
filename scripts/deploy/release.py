@@ -22,7 +22,7 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 REGISTRY = "ghcr.io"
 OWNER = "gameboy-21"
-IMAGES = ("control-plane", "web", "scanner", "postgres")
+IMAGES = ("control-plane", "web", "scanner")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 ACCEPT = ", ".join((

@@ -27,6 +27,11 @@ spec:
       {{- include "idleo.controlPlaneEnv" . | nindent 6 }}
         - name: OPERATOR
           value: {{ required "operator.operatorName is who runs it, for the audit log" .Values.operator.operatorName | quote }}
+        {{- with .Values.operator.database }}
+        # Another Cluster's primary, not the live database's: a restored one (ops/backup/restore.sh).
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://{{ . }}-rw:5432/{{ $.Values.database.name }}"
+        {{- end }}
       resources:
         {{- toYaml .Values.migration.resources | nindent 8 }}
       {{- include "idleo.containerSecurity" . | nindent 6 }}

@@ -29,4 +29,3 @@ spec:
         control-plane: ${CONTROL_PLANE_DIGEST}
         web: ${WEB_DIGEST}
         scanner: ${SCANNER_DIGEST}
-        postgres: ${POSTGRES_DIGEST}
