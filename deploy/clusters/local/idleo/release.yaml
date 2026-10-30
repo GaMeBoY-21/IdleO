@@ -8,7 +8,9 @@ metadata:
   name: idleo-chart
   namespace: idleo
 spec:
-  url: oci://k3d-idleo-registry:5050/charts/idleo
+  # The registry's own port on k3d's network (this machine reaches it as localhost:5050; the nodes' containerd maps
+  # the images' k3d-idleo-registry:5050 to it, but Flux's controllers connect to it directly).
+  url: oci://k3d-idleo-registry:5000/charts/idleo
   insecure: true
   ref:
     digest: ${CHART_DIGEST}
