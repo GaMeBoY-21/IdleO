@@ -18,7 +18,7 @@ Watch it on the server with `kubectl -n flux-system get kustomizations` and `kub
 1. Run the **promote** workflow (Actions → promote → "Run workflow"), or `gh workflow run promote.yml`.
 2. It copies staging's release into production's, verifies it again, and opens **"Promote <short sha> to production"** with the commits between production's release and staging's.
 3. Read the summary, wait for the checks, and merge it. Nothing merges it for you.
-4. Flux applies it. The control plane goes out as a canary: 10%, 25%, 50%, then 100% of the API's traffic, two minutes a step, about ten minutes in all. Each step checks three things: the share of 5xx stays below 1%, p95 latency stays below 800 ms, and session starts aren't more than 10 points down. A failure rolls it back at once (see "A failed canary").
+4. Flux applies it. The control plane goes out as a canary: 10%, 25%, 50%, then 100% of the API's traffic, two minutes a step, about ten minutes in all. Each step checks three things: the share of 5xx stays below 1%, p95 latency stays below 800 ms, and session starts aren't more than 10 points down. A failed check halts it at once, and the next step, within 2 minutes, rolls it back (see "A failed canary").
 
 The migration Job runs before the canary, so the release before keeps serving on the new schema. That is why every migration must work with both releases (expand and contract below).
 

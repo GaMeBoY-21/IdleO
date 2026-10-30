@@ -19,6 +19,8 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
         target_label: app
   - job_name: flagger
+    # Its meters carry the canary's own namespace label, which must win over the pod's.
+    honor_labels: true
     kubernetes_sd_configs:
       - role: pod
         namespaces:
@@ -27,5 +29,3 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name, __meta_kubernetes_pod_container_port_number]
         regex: flagger;8080
         action: keep
-      - source_labels: [__meta_kubernetes_namespace]
-        target_label: namespace
