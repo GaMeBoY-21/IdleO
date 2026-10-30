@@ -20,3 +20,13 @@ images:
     digest: sha256:0d52fff5c4d476277b8fcb6beb9041e269adb5db943fe69f5a806ea0c92b1511
   - name: ghcr.io/fluxcd/notification-controller
     digest: sha256:840f318265ee26f0d2c48a158bf7896b22aa4e998e320a18646309f0e40b15da
+patches:
+  # A new commit cancels a health check still waiting on the last one, so reverting a release that is failing its
+  # canary applies at once rather than after the failing one's 30-minute timeout.
+  - target:
+      kind: Deployment
+      name: kustomize-controller
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --feature-gates=CancelHealthCheckOnNewRevision=true
