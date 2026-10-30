@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.idleo.controlplane.ControlPlaneTest;
+import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestHosts.ConnectedHost;
 import com.idleo.controlplane.TestUsers;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +51,15 @@ class BookingConcurrencyTests {
 
     @Autowired
     SessionMatcher matcher;
+
+    @Autowired
+    OfferStore offers;
+
+    @Autowired
+    OfferOutcomes outcomes;
+
+    @Autowired
+    MutableClock clock;
 
     @LocalGrpcServerPort
     int grpcPort;
@@ -233,5 +244,67 @@ class BookingConcurrencyTests {
                 Thread.sleep(50);
             }
         }
+    }
+
+    /**
+     * The scheduled jobs run side by side (SchedulingConfiguration), so offer expiry can meet a host's reply to the
+     * same offer. While the reply holds the offer's row, expiry passes it by (SKIP LOCKED) without waiting; once the
+     * offer is answered, expiry never touches it. Each offer ends once, and its session is never also declined.
+     */
+    @Test
+    void anOfferBeingAnsweredIsNeitherWaitedOnNorExpiredByTheSweep() throws Exception {
+        var host = TestHosts.ready(mvc, grpcPort, jdbc, 2);
+        hosts.add(host);
+        var renter = TestUsers.signUp(mvc).id();
+        TestCredit.grant(context, renter, 10_000);
+        var session = requestedSession(renter);
+        matcher.match(session);
+        var offerId = jdbc.queryForObject(
+                "select id from scheduling.offers where session_id = ? and status = 'pending'", UUID.class, session);
+
+        var replying = new CountDownLatch(1);
+        var expired = new CountDownLatch(1);
+        var transactions = new TransactionTemplate(transactionManager);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            // A reply in flight: the offer's row locked, as onReply holds it.
+            var reply = pool.submit(() -> transactions.executeWithoutResult(status -> {
+                offers.lock(offerId);
+                replying.countDown();
+                try {
+                    expired.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }));
+            assertThat(replying.await(10, TimeUnit.SECONDS)).isTrue();
+            try {
+                clock.advance(java.time.Duration.ofMinutes(1));
+                var sweep = pool.submit(outcomes::expire);
+                sweep.get(5, TimeUnit.SECONDS);
+            } finally {
+                clock.reset();
+                expired.countDown();
+            }
+            reply.get(10, TimeUnit.SECONDS);
+        }
+        assertThat(jdbc.queryForObject("select status from scheduling.offers where id = ?", String.class, offerId))
+                .as("the sweep passed the locked offer by")
+                .isEqualTo("pending");
+
+        outcomes.onReply(host.id(), offerId, true, "");
+        try {
+            clock.advance(java.time.Duration.ofMinutes(1));
+            outcomes.expire();
+        } finally {
+            clock.reset();
+        }
+
+        assertThat(jdbc.queryForObject("select status from scheduling.offers where id = ?", String.class, offerId))
+                .isEqualTo("accepted");
+        assertThat(jdbc.queryForList(
+                        "select to_state from sessions.session_events where session_id = ? order by at",
+                        String.class,
+                        session))
+                .doesNotContain("OFFER_DECLINED", "NO_HOST_FREE");
     }
 }
