@@ -19,6 +19,11 @@ spec:
     provider: sops
     secretRef:
       name: sops-age
+  # The backups' R2 address and bucket, for the release's values (idleo/values.yaml).
+  postBuild:
+    substituteFrom:
+      - kind: Secret
+        name: r2-backups
   # The migration Job, then a canary of about ten minutes (four steps of two).
   timeout: 30m
   healthChecks:

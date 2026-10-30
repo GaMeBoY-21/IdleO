@@ -36,9 +36,9 @@ suites_for_path() {
     scanner/Dockerfile*) echo scanner e2e k8s ;;
     control-plane/Dockerfile* | web/Dockerfile*) echo k8s ;;
     web/scripts/nginx-config.ts) echo web web-browser k8s ;;
-    # ops/postgres's first start makes the database's two users, which the control plane's tests check.
-    ops/postgres/Dockerfile) echo drill ops control-plane k8s ;;
-    ops/postgres/*) echo drill ops control-plane ;;
+    # ./start.sh's PostgreSQL (WAL-G); its first start makes the database's two users, which the control plane's tests
+    # check.
+    ops/postgres/*) echo ops control-plane ;;
     deploy/* | .sops.yaml) echo deploy k8s gitops ;;
     scripts/deploy/*) echo deploy ;;
     scripts/k8s/*) echo k8s gitops ;;

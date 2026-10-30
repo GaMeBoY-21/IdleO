@@ -1,13 +1,14 @@
 # Every pod the chart makes runs with rule 6's settings (ADR 0045): a fixed non-root user, the runtime's seccomp
 # profile, no service-account token; every container on a read-only root, every capability dropped, no privilege
 # escalation, with requests and a memory limit. The local values turn on every optional workload, and canaries are on
-# too (the load tester), so all are checked: each kind of workload in turn, every document of that kind.
+# too (the load tester), so all are checked: each kind of workload in turn, every document of that kind. The database's
+# pods are CloudNativePG's, made by its operator with these same settings (ADR 0047); database_test.yaml checks the
+# Cluster.
 suite: every pod is locked down
 templates:
   - templates/operator-command.yaml
   - templates/control-plane.yaml
   - templates/migration-job.yaml
-  - templates/postgres.yaml
   - templates/valkey.yaml
   - templates/scanner.yaml
   - templates/web.yaml
@@ -56,8 +57,8 @@ tests:
       - exists: { path: "spec.template.spec.initContainers[0].resources.limits.memory" }
     template: templates/control-plane.yaml
   - it: gives no other pod an init container the checks above would miss
-    templates: [templates/migration-job.yaml, templates/postgres.yaml, templates/valkey.yaml, templates/scanner.yaml,
-      templates/web.yaml, templates/development.yaml, templates/canary.yaml]
+    templates: [templates/migration-job.yaml, templates/valkey.yaml, templates/scanner.yaml, templates/web.yaml,
+      templates/development.yaml, templates/canary.yaml]
     asserts:
       - notExists: { path: spec.template.spec.initContainers }
   - it: locks down an operator command's pod the same way

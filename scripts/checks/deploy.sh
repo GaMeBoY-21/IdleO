@@ -100,7 +100,7 @@ python3 - "$tree/deploy/clusters/local" "$zero_digest" <<'PY'
 import glob, sys
 folder, digest = sys.argv[1:]
 values = {"GIT_BRANCH": "main", "GIT_COMMIT": "c" * 40, "IMAGE_TAG": "check", "CHART_DIGEST": digest,
-          "CONTROL_PLANE_DIGEST": digest, "WEB_DIGEST": digest, "SCANNER_DIGEST": digest, "POSTGRES_DIGEST": digest}
+          "CONTROL_PLANE_DIGEST": digest, "WEB_DIGEST": digest, "SCANNER_DIGEST": digest}
 for path in glob.glob(f"{folder}/**/*.yaml", recursive=True):
     text = open(path).read()
     for name, value in values.items():
@@ -159,7 +159,7 @@ merge(values, release["spec"].get("values") or {})
 images = values.get("images", {})
 if not re.match(r"^[0-9a-f]{40}$", str(images.get("tag", ""))):
     problems.append(f"images.tag isn't a commit: {images.get('tag')}")
-for name in ("control-plane", "web", "scanner", "postgres"):
+for name in ("control-plane", "web", "scanner"):
     if not digest.match(str((images.get("digests") or {}).get(name, ""))):
         problems.append(f"the {name} image isn't pinned by digest")
 if problems:
@@ -171,7 +171,7 @@ python3 - "$root/deploy/helm/idleo/values-local.yaml" "$work/values-local-gitops
 import sys, yaml
 values = yaml.safe_load(open(sys.argv[1]))
 values["canary"] = {"enabled": True}
-values["images"].update({"tag": "check", "digests": {name: sys.argv[3] for name in ("control-plane", "web", "scanner", "postgres")}})
+values["images"].update({"tag": "check", "digests": {name: sys.argv[3] for name in ("control-plane", "web", "scanner")}})
 yaml.safe_dump(values, open(sys.argv[2], "w"))
 PY
 # Helm's image runs as a user of its own, which must be able to read them.

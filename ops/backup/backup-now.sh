@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# A full backup of the database now (ADR 0036), as the nightly timer takes one (systemd/idleo-backup.timer), then
-# backups older than 30 days deleted; runs ops/postgres/backup-full inside the database's container, which has the
-# backup settings. Prints the backup's name, size and how long it took.
+# A full backup of ./start.sh's database now (ADR 0036; WAL-G, the development stack's; the cluster's database is
+# CloudNativePG's, ADR 0047), then backups older than 30 days deleted; runs ops/postgres/backup-full inside the
+# database's container, which has the backup settings. Prints the backup's name, size and how long it took.
 #
 #   ops/backup/backup-now.sh                         the local stack's database (./start.sh)
-#   ops/backup/backup-now.sh --container NAME        another one (production's, on the server)
+#   ops/backup/backup-now.sh --container NAME        another stack's (scripts/ops/alert-drill.sh)
 set -euo pipefail
 container="${IDLEO_DATABASE_CONTAINER:-idleo-local-postgres-1}"
 if [[ "${1:-}" == --container ]]; then container="$2"; fi

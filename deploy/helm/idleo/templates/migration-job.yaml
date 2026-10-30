@@ -12,7 +12,8 @@ metadata:
     helm.sh/hook: post-install,pre-upgrade
     helm.sh/hook-delete-policy: before-hook-creation
 spec:
-  # A first install starts the database at the same time: Flyway fails fast until it answers, and the Job tries again.
+  # A first install starts the database at the same time: Flyway fails fast until it answers (CloudNativePG makes the
+  # primary, then the migration user's database), and the Job tries again.
   backoffLimit: 8
   activeDeadlineSeconds: 900
   template:
@@ -30,14 +31,14 @@ spec:
           args: ["-cp", "/app/control-plane.jar", "com.idleo.migration.DatabaseMigration"]
           env:
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:postgresql://idleo-postgres:5432/{{ .Values.postgres.database }}"
+              value: "jdbc:postgresql://idleo-database-rw:5432/{{ .Values.database.name }}"
             - name: SPRING_DATASOURCE_USERNAME
               value: idleo_migration
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.postgres.secret }}
-                  key: IDLEO_MIGRATION_PASSWORD
+                  name: {{ .Values.database.migrationSecret }}
+                  key: password
           resources:
             {{- toYaml .Values.migration.resources | nindent 12 }}
           {{- include "idleo.containerSecurity" . | nindent 10 }}

@@ -1,6 +1,7 @@
 name: images
 
-# The server's container images (ADR 0045): control-plane, web, scanner and postgres. On every pull request each is
+# The server's container images (ADR 0045): control-plane, web and scanner (the database's is CloudNativePG's own, ADR
+# 0047). On every pull request each is
 # built and scanned; on main (and a release tag) the very bytes that were scanned are pushed to GHCR, signed keylessly
 # with cosign (this workflow's GitHub identity; no key is stored anywhere), and given a CycloneDX bill of materials and
 # a build provenance attestation. scripts/images/verify.sh checks all three. The Helm chart (deploy/helm/idleo) is
@@ -44,7 +45,6 @@ jobs:
           - { image: control-plane, context: ., file: control-plane/Dockerfile }
           - { image: web, context: ., file: web/Dockerfile }
           - { image: scanner, context: scanner, file: scanner/Dockerfile }
-          - { image: postgres, context: ops/postgres, file: ops/postgres/Dockerfile }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -90,7 +90,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [control-plane, web, scanner, postgres]
+        image: [control-plane, web, scanner]
     # Only this job may push packages, ask GitHub for an OIDC token (cosign's keyless signature) and write attestations.
     permissions:
       contents: read

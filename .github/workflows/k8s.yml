@@ -1,12 +1,12 @@
 name: k8s
 
 # The Mac's cluster, on a runner (ADR 0045): scripts/k8s/up.sh builds the server's images and installs the chart on
-# k3d, and scripts/k8s/smoke.sh proves it (HTTPS, readiness, the two database users, the client's address, an agent
+# k3d, and scripts/k8s/smoke.sh proves it (HTTPS, readiness, the database and its two users, the client's address, an agent
 # over mutual TLS, a booking to the end, a rolling restart that loses no agent). On changes to what the cluster is
 # made of, and weekly. Not a required check yet.
 on:
   pull_request:
-    paths: ["deploy/**", ".sops.yaml", "**/Dockerfile", "**/Dockerfile.dockerignore", "scripts/k8s/**", "ops/postgres/**",
+    paths: ["deploy/**", ".sops.yaml", "**/Dockerfile", "**/Dockerfile.dockerignore", "scripts/k8s/**", "ops/backup/**",
       "web/scripts/nginx-config.ts", "scripts/lib/stack.sh", ".github/workflows/images.yml", ".github/workflows/k8s.yml"]
   schedule:
     - cron: "17 4 * * 1"
@@ -33,6 +33,13 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: agent
+      # The S1 privilege test the smoke test runs against the cluster's database (ApplicationRoleTests).
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: control-plane/pom.xml
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1

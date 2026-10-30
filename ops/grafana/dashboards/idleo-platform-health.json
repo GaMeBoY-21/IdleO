@@ -1016,8 +1016,8 @@
     },
     {
       "type": "stat",
-      "title": "Last full backup",
-      "description": "Nightly; alert NoBackup past 26 hours.",
+      "title": "Last base backup",
+      "description": "The database's newest base backup (daily, 03:00 India time); alert DatabaseNoBaseBackup past 26 hours.",
       "id": 21,
       "datasource": {
         "type": "prometheus",
@@ -1067,15 +1067,15 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "max(backups_full_age_seconds{job=\"control-plane\"})",
+          "expr": "time() - max(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{job=\"database\"})",
           "instant": true
         }
       ]
     },
     {
       "type": "stat",
-      "title": "WAL archiving behind",
-      "description": "The oldest WAL segment waiting to be archived; alert NoBackup past 10 minutes.",
+      "title": "WAL waiting to be archived",
+      "description": "Segments the database has finished but not yet archived (one goes at least every 30 s); alert DatabaseArchivingFailing past 5.",
       "id": 22,
       "datasource": {
         "type": "prometheus",
@@ -1089,7 +1089,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "none",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1099,7 +1099,7 @@
               },
               {
                 "color": "red",
-                "value": 600
+                "value": 5
               }
             ]
           }
@@ -1125,7 +1125,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "max(backups_wal_lag_seconds{job=\"control-plane\"})",
+          "expr": "max(cnpg_collector_pg_wal_archive_status{job=\"database\", value=\"ready\"})",
           "instant": true
         }
       ]

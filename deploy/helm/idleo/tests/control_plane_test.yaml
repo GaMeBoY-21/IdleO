@@ -1,5 +1,6 @@
-# The control plane's own promises (ADR 0045): probes on the health groups, a drained rolling update, Flyway as the
-# migration user only, the client's address believed only from the ingress, and agents' TLS straight to it.
+# The control plane's own promises (ADR 0045, 0047): probes on the health groups, a drained rolling update, two copies
+# spread across nodes with never fewer than one up, Flyway as the migration user only, the client's address believed
+# only from the ingress, and agents' TLS straight to it.
 suite: the control plane
 values:
   - ../values-local.yaml
@@ -14,6 +15,33 @@ tests:
       - equal: { path: "spec.template.spec.containers[0].livenessProbe.httpGet.path", value: /actuator/health/liveness }
       - equal: { path: spec.strategy.rollingUpdate.maxUnavailable, value: 0 }
       - equal: { path: "spec.template.spec.containers[0].lifecycle.preStop.sleep.seconds", value: 10 }
+  - it: runs two copies, spread across nodes, at most one taken down at a time
+    template: templates/control-plane.yaml
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - equal: { path: spec.replicas, value: 2 }
+      - equal: { path: "spec.template.spec.topologySpreadConstraints[0].topologyKey", value: kubernetes.io/hostname }
+      - equal:
+          path: "spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchLabels"
+          value: { app.kubernetes.io/instance: RELEASE-NAME, idleo.in/control-plane: "true" }
+  - it: never lets a drain take the last copy, and scales between 2 and 2 by CPU
+    template: templates/control-plane-scaling.yaml
+    asserts:
+      - equal: { path: spec.minAvailable, value: 1 }
+        documentSelector: { path: kind, value: PodDisruptionBudget }
+      - equal: { path: spec.selector.matchLabels, value: { app.kubernetes.io/instance: RELEASE-NAME, idleo.in/control-plane: "true" } }
+        documentSelector: { path: kind, value: PodDisruptionBudget }
+      - equal: { path: spec.minReplicas, value: 2 }
+        documentSelector: { path: kind, value: HorizontalPodAutoscaler }
+      - equal: { path: spec.maxReplicas, value: 2 }
+        documentSelector: { path: kind, value: HorizontalPodAutoscaler }
+  - it: gives Flagger's primary the two copies and the canary one
+    template: templates/canary.yaml
+    set:
+      canary.enabled: true
+    documentSelector: { path: kind, value: Canary }
+    asserts:
+      - equal: { path: spec.autoscalerRef.primaryScalerReplicas, value: { minReplicas: 2, maxReplicas: 2 } }
   - it: serves as the application user, with Flyway off on the cluster profile
     template: templates/configmap.yaml
     asserts:

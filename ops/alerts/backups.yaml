@@ -1,6 +1,7 @@
-# The database's backups (ADR 0036, docs/runbooks/backups.md). The control plane reads the backup bucket and the
-# database's archiver, so a backup that never reached storage is a backup that didn't happen. Same format and rules
-# as platform.yaml.
+# The development stack's backups (./start.sh's PostgreSQL with WAL-G, ADR 0036): the control plane reads its backup
+# bucket and the database's archiver, so a backup that never reached storage is a backup that didn't happen;
+# scripts/ops/alert-drill.sh proves it. The cluster's database (staging and production) is CloudNativePG's, with alerts
+# of its own (database.yaml, ADR 0047). Same format and rules as platform.yaml.
 groups:
   - name: backups
     rules:

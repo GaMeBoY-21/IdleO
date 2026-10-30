@@ -21,27 +21,44 @@
 #  14. a receivable is only ever recovered or waived, never paid out: no host_receivable in a payout's transaction,
 #      and nobody's receivable below zero.
 #
-#   ops/backup/verify-ledger.sh --container idleo-restore-<name>     a restored database (ops/backup/restore.sh)
-#   ops/backup/verify-ledger.sh --container <the live database's>    the live one
+#   ops/backup/verify-ledger.sh --cluster idleo-restore-<name>   a restored database in the cluster (ops/backup/restore.sh)
+#   ops/backup/verify-ledger.sh --cluster idleo-database         the cluster's live one
+#   ops/backup/verify-ledger.sh --container <name>               a database in a Docker container (./start.sh's stack)
 #
-# --user and --database name the account and database (default controlplane, as compose.yaml and the drill have
-# them). Exits 0 when every check passes, 4 when one doesn't (the operator commands' code for a problem found), 2 on
-# a bad command line.
+# A cluster's is read on its primary, as its superuser, through kubectl (KUBECONFIG, the Mac's cluster's when unset;
+# --namespace, default idleo). --user and --database name a container's account and database (default controlplane,
+# as compose.yaml has them). Exits 0 when every check passes, 4 when one doesn't (the operator commands' code for a
+# problem found), 2 on a bad command line.
 set -euo pipefail
 
 container=""
+cluster=""
+namespace=idleo
 user="${PGUSER:-controlplane}"
 database="${PGDATABASE:-controlplane}"
 while (($#)); do
   case "$1" in
     --container) container="$2"; shift 2 ;;
+    --cluster) cluster="$2"; shift 2 ;;
+    --namespace) namespace="$2"; shift 2 ;;
     --user) user="$2"; shift 2 ;;
     --database) database="$2"; shift 2 ;;
-    -h | --help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "verify-ledger: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
-[[ -n "$container" ]] || { echo "verify-ledger: say which database: --container NAME" >&2; exit 2; }
+[[ -n "$container" || -n "$cluster" ]] || { echo "verify-ledger: say which database: --cluster NAME or --container NAME" >&2; exit 2; }
+if [[ -n "$cluster" ]]; then
+  export KUBECONFIG="${KUBECONFIG:-$(cd "$(dirname "$0")/../.." && pwd)/private/k8s/kubeconfig}"
+  primary="$(kubectl -n "$namespace" get cluster "$cluster" -o jsonpath='{.status.currentPrimary}')" ||
+    { echo "verify-ledger: there's no Cluster $cluster in $namespace" >&2; exit 2; }
+  database="${PGDATABASE:-controlplane}"
+  target="$cluster"
+  sql() { kubectl -n "$namespace" exec -i "$primary" -c postgres -- psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -Atc "$1"; }
+else
+  target="$container"
+  sql() { docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U "$user" -d "$database" -Atc "$1"; }
+fi
 
 checks=(
   "each transaction balances|select count(*) from (select txn_id from billing.ledger_entries group by txn_id
@@ -110,8 +127,8 @@ failed=0
 for check in "${checks[@]}"; do
   name="${check%%|*}"
   sql="${check#*|}"
-  found="$(docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U "$user" -d "$database" -Atc "$sql")" || {
-    echo "verify-ledger: couldn't run \"$name\" against $container" >&2
+  found="$(sql "$sql")" || {
+    echo "verify-ledger: couldn't run \"$name\" against $target" >&2
     exit 1
   }
   if [[ "$found" == 0 ]]; then
@@ -121,7 +138,7 @@ for check in "${checks[@]}"; do
     failed=1
   fi
 done
-summary="$(docker exec -i "$container" psql -X -U "$user" -d "$database" -Atc "
+summary="$(sql "
   select count(distinct txn_id) || ' transactions, ' || count(*) || ' entries, '
          || coalesce(sum(amount_paise) filter (where direction = 'debit'), 0) || ' paise each side'
   from billing.ledger_entries")"

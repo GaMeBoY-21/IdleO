@@ -1,6 +1,7 @@
 #!/bin/bash
-# The database's two users (ADR 0045, docs/runbooks/deployment.md), made once, on a new volume's first start, by the
-# official entrypoint (it runs /docker-entrypoint-initdb.d/ as the superuser):
+# The database's two users (ADR 0045), made once, on a new volume's first start, by the official entrypoint (it runs
+# /docker-entrypoint-initdb.d/ as the superuser). The cluster's database makes the same from its managed roles
+# (deploy/helm/idleo/templates/database.yaml, ADR 0047); ApplicationRoleTests checks both:
 #
 #   idleo_migration   owns the database, and so every schema and table Flyway makes; only the migration Job logs in
 #                     as it, and it can't create roles or read past its own database

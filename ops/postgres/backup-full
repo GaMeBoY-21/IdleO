@@ -1,6 +1,6 @@
 #!/bin/bash
 # A full backup now, then backups older than 30 days deleted, keeping every one a point in the last 30 days needs
-# (ADR 0036). Run nightly by ops/backup/systemd/idleo-backup.timer in production, and by hand with
+# (ADR 0036). ./start.sh's stack (the cluster's database is CloudNativePG's, ADR 0047): run by start.sh and by hand with
 # ops/backup/backup-now.sh. Runs inside the database's container, as postgres.
 set -euo pipefail
 : "${WALG_S3_PREFIX:?backups are not configured: WALG_S3_PREFIX is empty}"

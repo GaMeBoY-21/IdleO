@@ -1,0 +1,69 @@
+# The database (ADR 0047): CloudNativePG's Cluster, a primary and a standby that takes over by itself, the users as S1
+# made them (ADR 0045), backups to object storage, and the control plane, the migration Job and operator commands on
+# the -rw Service, whichever instance is primary.
+suite: the database
+values:
+  - ../values-local.yaml
+set:
+  images.tag: test
+templates:
+  - templates/database.yaml
+  - templates/configmap.yaml
+  - templates/migration-job.yaml
+tests:
+  - it: is a primary and a standby, committing only once the standby has the WAL while it's there
+    template: templates/database.yaml
+    documentSelector: { path: kind, value: Cluster }
+    asserts:
+      - equal: { path: spec.instances, value: 2 }
+      - equal: { path: spec.enableSuperuserAccess, value: false }
+      - equal: { path: spec.postgresql.synchronous, value: { method: any, number: 1, dataDurability: preferred } }
+      - equal: { path: spec.postgresql.parameters.archive_timeout, value: 30s }
+      - equal: { path: spec.affinity.podAntiAffinityType, value: preferred }
+  - it: makes the users S1 made, the migration user owning the database
+    template: templates/database.yaml
+    documentSelector: { path: kind, value: Cluster }
+    asserts:
+      - equal: { path: spec.bootstrap.initdb.owner, value: idleo_migration }
+      - equal: { path: spec.bootstrap.initdb.database, value: controlplane }
+      - contains:
+          path: spec.managed.roles
+          content: { name: idleo_application, ensure: present, login: false }
+      - contains:
+          path: spec.managed.roles
+          content:
+            name: idleo_app
+            ensure: present
+            login: true
+            inRoles: [idleo_application, pg_monitor]
+            passwordSecret: { name: idleo-database-application }
+  - it: archives every WAL segment and backs up daily, 30 days kept, through the Barman Cloud plugin
+    template: templates/database.yaml
+    asserts:
+      - equal:
+          path: spec.plugins
+          value: [{ name: barman-cloud.cloudnative-pg.io, isWALArchiver: true, parameters: { barmanObjectName: idleo-backups } }]
+        documentSelector: { path: kind, value: Cluster }
+      - equal: { path: spec.retentionPolicy, value: 30d }
+        documentSelector: { path: kind, value: ObjectStore }
+      - equal: { path: spec.configuration.destinationPath, value: s3://idleo-backups/local }
+        documentSelector: { path: kind, value: ObjectStore }
+      - equal: { path: spec.method, value: plugin }
+        documentSelector: { path: kind, value: ScheduledBackup }
+      - equal: { path: spec.immediate, value: true }
+        documentSelector: { path: kind, value: ScheduledBackup }
+  - it: refuses to render without somewhere for the backups to go
+    template: templates/database.yaml
+    set:
+      database.backups.destination: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: database.backups.destination
+  - it: serves and migrates through the primary's Service
+    asserts:
+      - equal: { path: data.SPRING_DATASOURCE_URL, value: "jdbc:postgresql://idleo-database-rw:5432/controlplane" }
+        template: templates/configmap.yaml
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content: { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://idleo-database-rw:5432/controlplane" }
+        template: templates/migration-job.yaml

@@ -6,10 +6,10 @@ metadata:
     {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
 spec:
   {{- if not .Values.canary.enabled }}
-  replicas: {{ .Values.controlPlane.replicas }}
+  replicas: {{ .Values.controlPlane.autoscaling.minReplicas }}
   {{- end }}
-  {{- /* With canaries, Flagger owns the count: this Deployment is the canary, scaled to zero between releases, and
-  its copy idleo-control-plane-primary serves (canary.yaml). */}}
+  {{- /* The autoscaler owns the count (control-plane-scaling.yaml). With canaries, Flagger does: this Deployment is
+  the canary, scaled to zero between releases, and its copy idleo-control-plane-primary serves (canary.yaml). */}}
   selector:
     matchLabels:
       {{- include "idleo.selector" (list . "control-plane") | nindent 6 }}
@@ -34,27 +34,47 @@ spec:
     spec:
       {{- include "idleo.podSecurity" 10001 | nindent 6 }}
       terminationGracePeriodSeconds: {{ .Values.controlPlane.terminationGracePeriodSeconds }}
+      # Copies on different nodes when there are several (ADR 0047); on one node, all on it. Either version's pods
+      # count, by the label Flagger leaves alone.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              idleo.in/control-plane: "true"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: {{ .Release.Name }}
+                    idleo.in/control-plane: "true"
       initContainers:
         # On a first install the migration Job runs once the database is up (post-install): until the schema is
         # there, this fails (a division by zero), and the kubelet tries it again. An upgrade's schema is migrated
         # before its pods roll, so this passes at once.
         - name: wait-for-schema
-          image: {{ include "idleo.image" (list . "postgres") }}
+          image: {{ .Values.database.image }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           command:
             - psql
             - --no-psqlrc
             - --quiet
-            - --host=idleo-postgres
+            - --host=idleo-database-rw
             - --username=idleo_app
-            - --dbname={{ .Values.postgres.database }}
+            - --dbname={{ .Values.database.name }}
             - --command=select 1 / (to_regclass('modulith.event_publication') is not null)::int
           env:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.postgres.secret }}
-                  key: IDLEO_APPLICATION_PASSWORD
+                  name: {{ .Values.database.applicationSecret }}
+                  key: password
             - name: PGCONNECT_TIMEOUT
               value: "5"
           resources:

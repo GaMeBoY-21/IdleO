@@ -2,22 +2,23 @@
 # pins an image by digest gets exactly those bytes.
 suite: the image tag and digests
 templates:
-  - templates/postgres.yaml
   - templates/control-plane.yaml
   - templates/configmap.yaml
+  - templates/web.yaml
 tests:
   - it: refuses to render without an image tag
-    template: templates/postgres.yaml
+    template: templates/control-plane.yaml
     asserts:
       - failedTemplate:
           errorPattern: images.tag is required
   - it: pulls by tag when no digest is given
-    template: templates/postgres.yaml
+    template: templates/web.yaml
     set:
       images.tag: abc123
-    documentSelector: { path: kind, value: StatefulSet }
+      web.enabled: true
+    documentSelector: { path: kind, value: Deployment }
     asserts:
-      - equal: { path: "spec.template.spec.containers[0].image", value: "ghcr.io/gameboy-21/idleo-postgres:abc123" }
+      - equal: { path: "spec.template.spec.containers[0].image", value: "ghcr.io/gameboy-21/idleo-web:abc123" }
   - it: pulls by digest alone when one is given, image by image
     template: templates/control-plane.yaml
     set:
@@ -28,13 +29,14 @@ tests:
       - equal:
           path: "spec.template.spec.containers[0].image"
           value: ghcr.io/gameboy-21/idleo-control-plane@sha256:1111111111111111111111111111111111111111111111111111111111111111
-      # The wait-for-schema container is the postgres image, which has no digest here.
-      - equal: { path: "spec.template.spec.initContainers[0].image", value: "ghcr.io/gameboy-21/idleo-postgres:abc123" }
+      # The wait-for-schema container is the database's own image, pinned in the values (ADR 0047).
+      - matchRegex: { path: "spec.template.spec.initContainers[0].image", pattern: "^ghcr\\.io/cloudnative-pg/postgresql:18\\.6-minimal-trixie@sha256:[0-9a-f]{64}$" }
   - it: refuses a digest that isn't one
-    template: templates/postgres.yaml
+    template: templates/web.yaml
     set:
       images.tag: abc123
-      images.digests.postgres: latest
+      web.enabled: true
+      images.digests.web: latest
     asserts:
       - failedTemplate:
-          errorPattern: images.digests.postgres must be sha256
+          errorPattern: images.digests.web must be sha256

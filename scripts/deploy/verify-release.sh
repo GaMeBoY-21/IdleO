@@ -17,7 +17,7 @@ expected = [release["chart"]["digest"]] + [f"{name} {digest}" for name, digest i
 if sorted(pinned) != sorted(expected):
     sys.exit(f"verify: the release file pins {pinned}, not what GHCR holds for {release['commit']}: {expected}")
 PY
-for image in control-plane web scanner postgres; do
+for image in control-plane web scanner; do
   digest="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["images"][sys.argv[2]])' "$release" "$image")"
   scripts/images/verify.sh "ghcr.io/gameboy-21/idleo-$image@$digest"
 done

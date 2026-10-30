@@ -1,7 +1,7 @@
-# The PostgreSQL we run, in development and production (ADR 0036): the same image the tests use, pinned by digest,
-# with WAL-G pinned by version and checksum, archiving every WAL segment and taking full backups to S3-compatible
-# storage (R2 in production, MinIO locally), encrypted with the backup key's public half before anything leaves the
-# server. docs/runbooks/backups.md.
+# The PostgreSQL of ./start.sh's stack and the tests (ADR 0036): the same image the tests use, pinned by digest, with
+# WAL-G pinned by version and checksum, archiving every WAL segment and taking full backups to the stack's MinIO,
+# encrypted with the development backup key's public half. The cluster's database (staging and production) is
+# CloudNativePG's own image, with its backups (ADR 0047). docs/runbooks/backups.md.
 FROM postgres:18.6@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 AS fetch
 ARG TARGETARCH
 # github.com/wal-g/wal-g/releases/tag/v3.0.9, the PostgreSQL build for Ubuntu 24.04 (glibc 2.39; this image's is newer).
