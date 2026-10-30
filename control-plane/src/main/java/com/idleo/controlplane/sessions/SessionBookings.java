@@ -57,10 +57,13 @@ public interface SessionBookings {
     /** REQUESTED to CANCELLED by the system, for example when the renter's credit no longer covers the hold. */
     boolean cancel(UUID sessionId, String reason);
 
-    /** A session being matched again after a lost host, REQUESTED since {@code since}. */
+    /** A session waiting in REQUESTED for the re-match loop, since {@code since}. */
     record AwaitingRematch(UUID sessionId, Instant since) {}
 
-    /** Sessions being matched again after a lost host (attempt 2 or later) that are waiting in REQUESTED. */
+    /**
+     * Sessions the re-match loop tries: being matched again after a lost host (attempt 2 or later), and first attempts
+     * still REQUESTED well after they were requested, which missed their match (presence couldn't be read).
+     */
     List<AwaitingRematch> awaitingRematch();
 
     /**

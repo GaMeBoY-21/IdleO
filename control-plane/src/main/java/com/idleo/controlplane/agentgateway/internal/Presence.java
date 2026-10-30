@@ -158,12 +158,12 @@ class Presence implements HostPresence, AgentPresence {
         return instance == null ? Optional.empty() : Optional.of(UUID.fromString(instance.toString()));
     }
 
-    /** One round trip for all the hosts. If Valkey can't answer, none is live, and the miss is counted. */
+    /** One round trip for all the hosts. If Valkey can't answer, presence is unknown, and the miss is counted. */
     @Override
-    public Map<UUID, LiveAgent> live(Collection<UUID> hostIds) {
+    public Lookup lookup(Collection<UUID> hostIds) {
         var ids = List.copyOf(hostIds);
         if (ids.isEmpty()) {
-            return Map.of();
+            return new Lookup(Map.of(), true);
         }
         try {
             var records = redis.executePipelined((RedisCallback<Object>) connection -> {
@@ -178,11 +178,11 @@ class Presence implements HostPresence, AgentPresence {
                     live.put(ids.get(i), liveAgent(ids.get(i), fields));
                 }
             }
-            return live;
+            return new Lookup(live, true);
         } catch (RuntimeException e) {
             metrics.presenceUnavailable();
-            log.debug("Presence lookup failed; no host counts as live", e);
-            return Map.of();
+            log.debug("Presence lookup failed; presence is unknown", e);
+            return new Lookup(Map.of(), false);
         }
     }
 

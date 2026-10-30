@@ -45,32 +45,49 @@ class CandidateFinder {
      */
     record Looked(SchedulableHosts.Candidate candidate, boolean online, boolean free, List<String> cachedImages) {}
 
+    /**
+     * Candidates for a booking, best first.
+     *
+     * @param presenceKnown presence was read: when it wasn't, an empty list says nothing about whether a host could
+     *     take the session, and the booking isn't ended for it (SessionMatcher)
+     */
+    record Found(List<Scoring.Scored> ranked, boolean presenceKnown) {}
+
     /** Each listed host, with whether it's online and free for a session that needs {@code diskNeededMb}. */
     List<Looked> look(List<SchedulableHosts.Candidate> listed, int diskNeededMb) {
+        return lookAll(listed, diskNeededMb).hosts();
+    }
+
+    private record Looks(List<Looked> hosts, boolean presenceKnown) {}
+
+    private Looks lookAll(List<SchedulableHosts.Candidate> listed, int diskNeededMb) {
         if (listed.isEmpty()) {
-            return List.of();
+            return new Looks(List.of(), true);
         }
         var ids = listed.stream().map(SchedulableHosts.Candidate::hostId).toList();
-        var live = presence.live(ids);
+        var lookup = presence.lookup(ids);
+        var live = lookup.agents();
         var busy = sessions.hostsWithLiveSessions(ids);
-        return listed.stream()
-                .map(candidate -> {
-                    var agent = live.get(candidate.hostId());
-                    boolean free = agent != null
-                            && !candidate.paused()
-                            && !agent.updateRequired()
-                            && !agent.ownerActive()
-                            && agent.gpuTempsC().stream().allMatch(temp -> temp < candidate.gpuTempCapC())
-                            && agent.freeDiskMb() != null
-                            && agent.freeDiskMb() - candidate.keepFreeMb() >= diskNeededMb
-                            && !busy.contains(candidate.hostId());
-                    return new Looked(
-                            candidate,
-                            agent != null && !candidate.paused(),
-                            free,
-                            agent == null ? List.of() : agent.cachedImages());
-                })
-                .toList();
+        return new Looks(
+                listed.stream()
+                        .map(candidate -> {
+                            var agent = live.get(candidate.hostId());
+                            boolean free = agent != null
+                                    && !candidate.paused()
+                                    && !agent.updateRequired()
+                                    && !agent.ownerActive()
+                                    && agent.gpuTempsC().stream().allMatch(temp -> temp < candidate.gpuTempCapC())
+                                    && agent.freeDiskMb() != null
+                                    && agent.freeDiskMb() - candidate.keepFreeMb() >= diskNeededMb
+                                    && !busy.contains(candidate.hostId());
+                            return new Looked(
+                                    candidate,
+                                    agent != null && !candidate.paused(),
+                                    free,
+                                    agent == null ? List.of() : agent.cachedImages());
+                        })
+                        .toList(),
+                lookup.known());
     }
 
     /**
@@ -94,37 +111,50 @@ class CandidateFinder {
             int diskNeededMb,
             @Nullable String cudaNeeded,
             Collection<UUID> excluded) {
+        return freeLooks(maxPricePaisePerMin, vramNeededMb, diskNeededMb, cudaNeeded, excluded)
+                .hosts();
+    }
+
+    private Looks freeLooks(
+            int maxPricePaisePerMin,
+            int vramNeededMb,
+            int diskNeededMb,
+            @Nullable String cudaNeeded,
+            Collection<UUID> excluded) {
         var listed = hosts.batchCandidates(maxPricePaisePerMin, vramNeededMb).stream()
                 .filter(candidate -> !excluded.contains(candidate.hostId()))
                 .filter(candidate ->
                         cudaNeeded == null || CudaDrivers.supports(candidate.gpuDriverVersion(), cudaNeeded))
                 .toList();
-        return look(listed, diskNeededMb).stream().filter(Looked::free).toList();
+        var looks = lookAll(listed, diskNeededMb);
+        return new Looks(looks.hosts().stream().filter(Looked::free).toList(), looks.presenceKnown());
     }
 
-    /** Candidates, best first. */
-    List<Scoring.Scored> find(SessionBookings.BookingRequest request, Collection<UUID> alreadyOffered) {
+    /** Candidates, best first, and whether presence was known. */
+    Found find(SessionBookings.BookingRequest request, Collection<UUID> alreadyOffered) {
         var digest = Scoring.digest(request.spec().getImage());
-        return freeLooked(
-                        request.maxPricePaisePerMin(),
-                        request.vramNeededMb(),
-                        request.diskNeededMb(),
-                        request.cudaNeeded(),
-                        alreadyOffered)
-                .stream()
-                .map(looked -> {
-                    var candidate = looked.candidate();
-                    return new Scoring.Scored(
-                            new Scoring.Candidate(
-                                    candidate.hostId(), candidate.pricePaisePerMin(), candidate.gpuUuid()),
-                            Scoring.score(
-                                    candidate.pricePaisePerMin(),
-                                    request.maxPricePaisePerMin(),
-                                    candidate.reliability(),
-                                    candidate.bandwidth(),
-                                    looked.cachedImages().contains(digest)));
-                })
-                .sorted(Scoring.BEST_FIRST)
-                .toList();
+        var looks = freeLooks(
+                request.maxPricePaisePerMin(),
+                request.vramNeededMb(),
+                request.diskNeededMb(),
+                request.cudaNeeded(),
+                alreadyOffered);
+        return new Found(
+                looks.hosts().stream()
+                        .map(looked -> {
+                            var candidate = looked.candidate();
+                            return new Scoring.Scored(
+                                    new Scoring.Candidate(
+                                            candidate.hostId(), candidate.pricePaisePerMin(), candidate.gpuUuid()),
+                                    Scoring.score(
+                                            candidate.pricePaisePerMin(),
+                                            request.maxPricePaisePerMin(),
+                                            candidate.reliability(),
+                                            candidate.bandwidth(),
+                                            looked.cachedImages().contains(digest)));
+                        })
+                        .sorted(Scoring.BEST_FIRST)
+                        .toList(),
+                looks.presenceKnown());
     }
 }
