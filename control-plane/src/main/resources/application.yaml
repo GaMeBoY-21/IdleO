@@ -95,6 +95,11 @@ management:
       service.version: ${IDLEO_RELEASE:development}
       service.instance.id: ${IDLEO_INSTANCE:${HOSTNAME:local}}
       deployment.environment.name: ${IDLEO_ENVIRONMENT:local}
+  # The same meters in Prometheus's format only in a cluster (application-cluster.yaml, MetricsPort, ADR 0046).
+  prometheus:
+    metrics:
+      export:
+        enabled: false
   otlp:
     metrics:
       export:

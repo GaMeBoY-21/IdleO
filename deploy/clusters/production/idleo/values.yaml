@@ -1,0 +1,6 @@
+# Production's values (ADR 0046; the chart's defaults are production's, deploy/helm/idleo/values.yaml). Renters' own
+# images stay off (no scanner, and IMAGES_ENABLED unset) until the scanner is measured on the real server (ADR 0042),
+# and the prod profile refuses every development setting (ProductionSettingsGuard). The release itself, the chart's
+# and the images' digests, is release.yaml.
+controlPlane:
+  profiles: prod,cluster

@@ -78,6 +78,16 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
+    void prodRefusesToStartFailingApiCallsOnPurpose() {
+        prod("web.faults.server-error-percent=30", "identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining(
+                                "web.faults.server-error-percent is 30, which fails API calls on purpose"));
+    }
+
+    @Test
     void prodRefusesToStartWithLocalObjectStorage() {
         prod("sessions.storage.provider=minio", "identity.issuers[0].issuer-uri=" + GOOGLE)
                 .run(context -> assertThat(context)

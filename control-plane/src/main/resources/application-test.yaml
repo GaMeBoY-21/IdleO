@@ -18,6 +18,14 @@ management:
     export:
       otlp:
         enabled: false
+  # The cluster's view of them in Prometheus's format, on its own port (MetricsPort), as a cluster has it.
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+metrics:
+  prometheus:
+    port: 19464
 
 # Web origins as a YAML list, as the local profile writes them, for the CORS test (ADR 0018).
 web:
