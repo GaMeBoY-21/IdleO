@@ -16,6 +16,10 @@ spec:
   # Long enough for the migration Job (its deadline is 15 minutes) and the rollout of what isn't a canary.
   timeout: 20m
   install:
+    # On a first install the migration Job is a post-install hook and the control plane waits for its schema, so
+    # Helm must not wait for the pods before running hooks (it would see the control plane stalled). It still waits
+    # for the Job; the Kustomization's health checks then wait for the release and its canary.
+    disableWait: true
     remediation:
       retries: 3
   # A failed upgrade is left as it is and alerted on: undoing it would run an older release's hook against a database
