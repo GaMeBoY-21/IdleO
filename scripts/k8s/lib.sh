@@ -112,13 +112,15 @@ flux_reconcile() {
   kubectl -n flux-system annotate --overwrite kustomization --all "reconcile.fluxcd.io/requestedAt=$flux_requested" >/dev/null
 }
 
-# Waits up to $2 seconds for Kustomization $1 to have handled the last flux_reconcile and be Ready.
+# Waits up to $2 seconds for Kustomization $1 to be Ready after the last flux_reconcile: having handled it, or, made
+# since (a first bootstrap's infrastructure and idleo), never asked.
 flux_ready() {
-  local deadline=$((SECONDS + $2)) handled ready
+  local deadline=$((SECONDS + $2)) handled asked ready
   while ((SECONDS < deadline)); do
     handled="$(kubectl -n flux-system get kustomization "$1" -o jsonpath='{.status.lastHandledReconcileAt}' 2>/dev/null || true)"
+    asked="$(kubectl -n flux-system get kustomization "$1" -o jsonpath='{.metadata.annotations.reconcile\.fluxcd\.io/requestedAt}' 2>/dev/null || true)"
     ready="$(kubectl -n flux-system get kustomization "$1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
-    [[ "$handled" == "$flux_requested" && "$ready" == True ]] && return 0
+    [[ ("$handled" == "$flux_requested" || "$asked" != "$flux_requested") && "$ready" == True ]] && return 0
     sleep 5
   done
   return 1
