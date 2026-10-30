@@ -20,7 +20,6 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.server.observation.ServerRequestObservationContext;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
@@ -62,8 +61,8 @@ class MetricsPort {
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
         return http.securityMatcher(request -> request.getLocalPort() == port || PATH.equals(request.getRequestURI()))
                 .addFilterBefore(new Gate(port, registry, resolver), SecurityContextHolderFilter.class)
+                // CSRF stays on: the gate answers every request before its filter would run.
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
-                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
     }
