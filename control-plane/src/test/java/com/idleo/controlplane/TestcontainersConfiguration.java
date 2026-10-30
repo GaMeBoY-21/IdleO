@@ -33,8 +33,15 @@ class TestcontainersConfiguration {
         return newPostgres();
     }
 
+    /**
+     * Without persistence, as the cluster runs it (deploy/helm/idleo, valkey): it holds only what may expire. Its
+     * default snapshots fork and write to disk on a busy minute, which on a loaded CI runner coincided with commands
+     * timing out.
+     */
     static GenericContainer<?> newValkey() {
-        return new GenericContainer<>(DockerImageName.parse(VALKEY_IMAGE)).withExposedPorts(6379);
+        return new GenericContainer<>(DockerImageName.parse(VALKEY_IMAGE))
+                .withCommand("valkey-server", "--save", "", "--appendonly", "no")
+                .withExposedPorts(6379);
     }
 
     /** Valkey speaks the Redis protocol; Spring Boot connects to it as Redis. */
