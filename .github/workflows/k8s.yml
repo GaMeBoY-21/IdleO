@@ -6,7 +6,7 @@ name: k8s
 # made of, and weekly. Not a required check yet.
 on:
   pull_request:
-    paths: ["deploy/**", "**/Dockerfile", "**/Dockerfile.dockerignore", "scripts/k8s/**", "ops/postgres/**",
+    paths: ["deploy/**", ".sops.yaml", "**/Dockerfile", "**/Dockerfile.dockerignore", "scripts/k8s/**", "ops/postgres/**",
       "web/scripts/nginx-config.ts", "scripts/lib/stack.sh", ".github/workflows/images.yml", ".github/workflows/k8s.yml"]
   schedule:
     - cron: "17 4 * * 1"
@@ -36,11 +36,21 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1
-      - name: Install k3d v5.9.0
+      - name: Install k3d v5.9.0 and sops v3.13.3
         run: |
           curl -fsSLo k3d https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64
           echo "06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0  k3d" | sha256sum -c -
-          sudo install -m 0755 k3d /usr/local/bin/k3d && rm k3d
+          curl -fsSLo sops https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+          echo "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b  sops" | sha256sum -c -
+          sudo install -m 0755 k3d sops /usr/local/bin/ && rm k3d sops
+      # The local cluster's age key, which its committed Secrets (development's stand-ins) are encrypted for (ADR 0046).
+      - name: The local age key
+        env:
+          KEY: ${{ secrets.SOPS_AGE_KEY_LOCAL }}
+        run: |
+          [[ -n "$KEY" ]] || { echo "the repository secret SOPS_AGE_KEY_LOCAL is missing (docs/runbooks/deploying.md)"; exit 1; }
+          mkdir -p private/k8s/age
+          (umask 077 && printf '%s\n' "$KEY" >private/k8s/age/local.agekey)
       # The cluster's addresses are names under .localhost, which systemd-resolved answers with this machine.
       - name: The cluster's names are this machine
         run: getent hosts api.idleo.localhost storage.idleo.localhost signin.idleo.localhost

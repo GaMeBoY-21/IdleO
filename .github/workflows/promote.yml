@@ -1,0 +1,76 @@
+name: promote
+
+# Production is a reviewed pull request (ADR 0046): run by hand, this opens one that copies staging's release (the
+# chart's and every image's digest, deploy/clusters/staging/idleo/release.yaml) into production's, with the commits
+# between the two releases. A person merges it; Flux then releases the control plane as a canary, which rolls back by
+# itself if errors or latency rise. Reverting the pull request rolls production back (docs/runbooks/deploying.md).
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    name: Promote staging to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Pushing the branch, opening the pull request, and starting the required checks on it.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The commits between production's release and staging's, for the summary.
+          fetch-depth: 0
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Copy staging's release, once it verifies
+        id: release
+        run: |
+          staging="$(scripts/deploy/release.py commit staging)"
+          production="$(scripts/deploy/release.py commit production)"
+          if [[ "$staging" == "$production" ]]; then
+            echo "Production already runs staging's release (${staging:0:7}); nothing to promote." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "promote=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          scripts/deploy/release.py copy staging production
+          scripts/deploy/verify-release.sh production
+          echo "promote=true" >>"$GITHUB_OUTPUT"
+          echo "staging=$staging" >>"$GITHUB_OUTPUT"
+          echo "production=$production" >>"$GITHUB_OUTPUT"
+      - name: Open the pull request, for a person to review and merge
+        if: steps.release.outputs.promote == 'true'
+        env:
+          STAGING: ${{ steps.release.outputs.staging }}
+          PRODUCTION: ${{ steps.release.outputs.production }}
+        run: |
+          short="${STAGING:0:7}"
+          {
+            echo "Promotes ${short} from staging to production: the chart and the four images staging runs, pinned by"
+            echo "digest in \`deploy/clusters/production/idleo/release.yaml\`, the only file this changes. Every digest was"
+            echo "verified again before it was copied."
+            echo
+            echo "Merging it releases the control plane as a canary (10, 25, 50, then 100% of the API's traffic, two"
+            echo "minutes a step), rolled back by itself if errors, latency or session starts get worse. Reverting it"
+            echo "rolls production back to ${PRODUCTION:0:7}."
+            echo
+            echo "## What changes (${PRODUCTION:0:7}..${short})"
+            echo
+            if git cat-file -e "$PRODUCTION^{commit}" 2>/dev/null; then
+              git log --no-merges --format='- %h %s' "$PRODUCTION..$STAGING" -- . ':!deploy/clusters'
+            else
+              echo "- production's release ${PRODUCTION:0:7} isn't in this repository's history"
+            fi
+          } >body.md
+          scripts/deploy/open-pull-request.sh production "deploy/production-$short" "Promote $short to production" body.md
