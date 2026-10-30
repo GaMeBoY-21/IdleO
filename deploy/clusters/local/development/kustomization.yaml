@@ -6,6 +6,9 @@ kind: Kustomization
 namespace: idleo
 generatorOptions:
   disableNameSuffixHash: true
+  # Their contents are the sign-in server's and the catalog's own, its templates included: Flux substitutes nothing in them.
+  annotations:
+    kustomize.toolkit.fluxcd.io/substitute: disabled
 configMapGenerator:
   - name: idleo-development-catalog
     files:
