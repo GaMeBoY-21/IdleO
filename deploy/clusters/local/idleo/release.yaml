@@ -1,7 +1,7 @@
 # The release up.sh --gitops built on this machine (ADR 0046): the chart and images in the cluster's own registry,
-# pinned by the digests it pushed (the ConfigMap flux-system/local-release). The chart's signature is checked as on
-# the server, against this machine's own cosign key (private/k8s/cosign/; its public half is the Secret cosign-local),
-# since a chart built here has no signature from the images workflow.
+# pinned by the digests it pushed (the ConfigMap flux-system/local-release). A chart built here has no signature from
+# the images workflow, so this one source isn't verified; canary-test.sh has this cluster verify a real one, staging's,
+# with the same verify block.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
@@ -12,11 +12,7 @@ spec:
   insecure: true
   ref:
     digest: ${CHART_DIGEST}
-  verify:
-    provider: cosign
-    secretRef:
-      name: cosign-local
-    matchOIDCIdentity: null
+  verify: null
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease

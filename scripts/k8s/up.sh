@@ -9,8 +9,7 @@
 #   scripts/k8s/up.sh --gitops   as staging and production run: Flux, bootstrapped from this repository on GitHub at
 #                                this commit (push the branch first), installs the infrastructure (cert-manager,
 #                                Flagger, Prometheus) and the release; the chart and images are this tree's, pushed to
-#                                the cluster's registry, the chart signed with this machine's cosign key. Again after a
-#                                change: what changed is released as a canary.
+#                                the cluster's registry. Again after a change: what changed is released as a canary.
 #   scripts/k8s/down.sh          delete it (needed to switch between the two)
 #   scripts/k8s/status.sh        what's running, and its memory
 #   scripts/k8s/smoke.sh         the proof that it works (either way)
@@ -36,7 +35,6 @@ esac
 k8s_tools
 command -v sops >/dev/null || fail "sops isn't installed (macOS: brew install sops age)"
 if [[ "$gitops" == true ]]; then
-  command -v cosign >/dev/null || fail "cosign isn't installed (macOS: brew install cosign)"
   # Flux reads the commit from GitHub: it must be there, and what the cluster reads must be what's committed.
   commit="$(git rev-parse HEAD)"
   branch="${GITOPS_BRANCH:-$(git symbolic-ref --short -q HEAD || true)}"
@@ -123,14 +121,12 @@ if [[ "$gitops" == false ]]; then
     fail "the chart didn't install; see private/k8s/logs/up.log and kubectl -n $namespace get pods"
   control_plane=deployment/idleo-control-plane
 else
-  # 4. The chart, packaged from this tree, pushed beside the images and signed with this machine's cosign key, which
-  #    the cluster checks it against (the server checks the images workflow's keyless signature instead).
+  # 4. The chart, packaged from this tree and pushed beside the images.
   scripts/k8s/secrets.sh --files
-  chart_digest="$(local_chart "$tag")" || fail "the chart couldn't be published to the cluster's registry; see private/k8s/logs/up.log"
-  log "the chart: idleo $chart_version-$tag, signed"
+  chart_digest="$(local_chart "$tag")" || fail "the chart couldn't be published to the cluster's registry"
+  log "the chart: idleo $chart_version-$tag"
 
-  # 5. Flux, then what it reads: the local age key (sops-age), the chart's public key, the commit to follow and the
-  #    build to release.
+  # 5. Flux, then what it reads: the local age key (sops-age), the commit to follow and the build to release.
   log "bootstrapping Flux ${flux_version} from $flux_repository at $branch ($commit)"
   kubectl apply --server-side --force-conflicts -k deploy/flux >>"$logs/up.log" 2>&1 ||
     fail "Flux's components didn't apply; see private/k8s/logs/up.log"
@@ -138,8 +134,6 @@ else
     fail "Flux's controllers aren't ready; kubectl -n flux-system get pods"
   apply() { kubectl create "$@" --dry-run=client -o yaml | kubectl apply -f - >/dev/null; }
   apply secret generic sops-age --namespace flux-system --from-file=age.agekey="$SOPS_AGE_KEY_FILE"
-  kubectl get namespace "$namespace" >/dev/null 2>&1 || kubectl create namespace "$namespace" >/dev/null
-  apply secret generic cosign-local --namespace "$namespace" --from-file=cosign.pub="$k8s_state/cosign/cosign.pub"
   apply configmap local-source --namespace flux-system --from-literal=GIT_BRANCH="$branch" --from-literal=GIT_COMMIT="$commit"
   release_settings "$tag" "$chart_digest"
   # The sync itself, as Flux will keep it from then on.
