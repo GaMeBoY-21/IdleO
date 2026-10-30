@@ -153,6 +153,12 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1
+      # Docker's login, which cosign uses to push the signature; Helm keeps its own.
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       # <Chart.yaml's version>-<commit>, so every build of main is its own version; the chart's first source links the
       # package to this repository, which makes it public as the images are (Flux pulls it with no token).
       - name: Package and push, versioned with the commit
