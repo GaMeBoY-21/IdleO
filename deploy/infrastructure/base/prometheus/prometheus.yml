@@ -1,0 +1,7 @@
+# The in-cluster Prometheus's settings (ADR 0046). The scrape jobs are scrape.yml, shared with staging's and
+# production's copy of this file, which adds a remote write (deploy/infrastructure/remote-write/).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+scrape_config_files:
+  - /etc/prometheus/scrape.yml

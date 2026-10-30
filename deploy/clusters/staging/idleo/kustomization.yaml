@@ -1,0 +1,19 @@
+# IdleO in staging (ADR 0046): the shared release (deploy/apps/idleo), staging's values and Secrets, and release.yaml,
+# which pins the chart and every image by digest. A pull request changes release.yaml and nothing else to deploy.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../apps/idleo
+  - ../secrets/idleo
+patches:
+  - path: release.yaml
+configMapGenerator:
+  - name: idleo-values
+    namespace: idleo
+    files:
+      - values.yaml
+    options:
+      disableNameSuffixHash: true
+      # A change to the values reconciles the release at once.
+      labels:
+        reconcile.fluxcd.io/watch: Enabled

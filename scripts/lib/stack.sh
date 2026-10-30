@@ -239,7 +239,7 @@ stack_build_agent() {
 # Writes agent $1's config, with its own data folder, trusting the development CA.
 stack_agent_config() {
   cat >"$state/agent-$1.toml" <<TOML
-ca_root = "$root/private/dev-ca/root.pem"
+ca_root = "${agent_ca_root:-$root/private/dev-ca/root.pem}"
 data_dir = "$state/agent-$1"
 log_format = "text"
 

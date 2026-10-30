@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
-# The Mac's cluster (ADR 0045, docs/runbooks/kubernetes.md): what production runs, on this machine. A k3d cluster (k3s,
-# pinned, one server node, a registry of its own), the server's images built from this tree and pushed to it, the local
-# Secrets, cert-manager, and the idleo chart with values-local.yaml; then it prints the addresses.
+# The Mac's cluster (ADR 0045, 0046; docs/runbooks/kubernetes.md): what production runs, on this machine. A k3d cluster
+# (k3s, pinned, one server node, a registry of its own) and the server's images built from this tree and pushed to it;
+# then it prints the addresses. Two ways to run what's in it:
 #
-#   scripts/k8s/up.sh          create or update it (again after a change: the images are rebuilt, the chart upgraded)
-#   scripts/k8s/down.sh        delete it
-#   scripts/k8s/status.sh      what's running, and its memory
-#   scripts/k8s/smoke.sh       the proof that it works
+#   scripts/k8s/up.sh            plain Helm, for quick work: the local Secrets, cert-manager and the idleo chart with
+#                                values-local.yaml, installed from this tree (again after a change: the images are
+#                                rebuilt, the chart upgraded)
+#   scripts/k8s/up.sh --gitops   as staging and production run: Flux, bootstrapped from this repository on GitHub at
+#                                this commit (push the branch first), installs the infrastructure (cert-manager,
+#                                Flagger, Prometheus) and the release; the chart and images are this tree's, pushed to
+#                                the cluster's registry, the chart signed with this machine's cosign key. Again after a
+#                                change: what changed is released as a canary.
+#   scripts/k8s/down.sh          delete it (needed to switch between the two)
+#   scripts/k8s/status.sh        what's running, and its memory
+#   scripts/k8s/smoke.sh         the proof that it works (either way)
+#   scripts/k8s/canary-test.sh   the proof of the canaries (--gitops)
 #
 # The cluster and ./start.sh's stack fit in Docker Desktop's memory together only while both idle (3.9 of 7.75 GiB,
 # measured 2026-10-29), not at the chart's limits, so this stops that stack first (./start.sh --stop; start it again
@@ -18,8 +26,27 @@ fail() { printf 'k8s: FAIL: %s\n' "$*" >&2; exit 1; }
 cd "$k8s_root"
 mkdir -p "$k8s_state/logs"
 logs="$k8s_state/logs"
+gitops=false
+case "${1:-}" in
+  --gitops) gitops=true ;;
+  "") ;;
+  *) fail "usage: $0 [--gitops]" ;;
+esac
 
 k8s_tools
+command -v sops >/dev/null || fail "sops isn't installed (macOS: brew install sops age)"
+if [[ "$gitops" == true ]]; then
+  command -v cosign >/dev/null || fail "cosign isn't installed (macOS: brew install cosign)"
+  # Flux reads the commit from GitHub: it must be there, and what the cluster reads must be what's committed.
+  commit="$(git rev-parse HEAD)"
+  branch="${GITOPS_BRANCH:-$(git symbolic-ref --short -q HEAD || true)}"
+  [[ -n "$branch" ]] || fail "HEAD isn't on a branch; check one out (or set GITOPS_BRANCH)"
+  [[ -z "$(git status --porcelain -- deploy .sops.yaml templates/development.yaml control-plane/local-sign-in.json)" ]] ||
+    fail "deploy/ has changes that aren't committed: Flux reads the cluster from GitHub, so commit and push them first"
+  remote="$(git ls-remote "$flux_repository" "refs/heads/$branch" | cut -f1)"
+  [[ "$remote" == "$commit" ]] ||
+    fail "$branch on GitHub is ${remote:-missing}, not this commit ($commit): push it first (Flux reads the cluster from there)"
+fi
 
 if [[ -f private/local/control-plane.pid ]] && kill -0 "$(cat private/local/control-plane.pid)" 2>/dev/null; then
   log "stopping ./start.sh's stack first: it and the cluster fit in Docker's memory together only while idle"
@@ -45,19 +72,27 @@ if ! cluster_exists; then
 fi
 k3d kubeconfig get "$cluster" >"$KUBECONFIG"
 chmod 600 "$KUBECONFIG"
+# One way at a time: Flux would fight a release plain Helm installed, and the other way round.
+if kubectl get namespace flux-system >/dev/null 2>&1; then
+  [[ "$gitops" == true ]] || fail "this cluster is run by Flux (up.sh --gitops): run down.sh first to use plain Helm"
+elif [[ "$gitops" == true ]] && helm status idleo --namespace "$namespace" >/dev/null 2>&1; then
+  fail "this cluster's release was installed by plain Helm (up.sh): run down.sh first to put it under Flux"
+fi
 kubectl apply -f deploy/k3s/local/dns.yaml >/dev/null
 # CoreDNS reads the custom names only as it starts.
 kubectl -n kube-system rollout restart deployment/coredns >/dev/null
 kubectl -n kube-system rollout status deployment/coredns --timeout=120s >/dev/null
 
-# 2. cert-manager, for the Gateway's certificate.
-log "installing cert-manager $cert_manager_version"
-helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager --version "$cert_manager_version" \
-  --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 5m >>"$logs/up.log" 2>&1 ||
-  fail "cert-manager didn't install; see private/k8s/logs/up.log"
+# 2. cert-manager, for the Gateway's certificate (under Flux, the infrastructure has it).
+if [[ "$gitops" == false ]]; then
+  log "installing cert-manager $cert_manager_version"
+  helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager --version "$cert_manager_version" \
+    --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 5m >>"$logs/up.log" 2>&1 ||
+    fail "cert-manager didn't install; see private/k8s/logs/up.log"
+fi
 
 # 3. The images, built from this tree for this machine and pushed to the cluster's registry, tagged with the commit
-#    (and the time, when the tree has changes, so a rebuild always rolls out).
+#    (and the time, when the tree has changes, so a rebuild always rolls out), each one's digest kept.
 tag="$(git rev-parse --short=12 HEAD)"
 [[ -z "$(git status --porcelain)" ]] || tag="$tag-$(date +%Y%m%d%H%M%S)"
 for image in control-plane web scanner postgres; do
@@ -71,21 +106,54 @@ for image in control-plane web scanner postgres; do
   docker build -f "$dockerfile" -t "localhost:$registry_port/idleo-$image:$tag" \
     --build-arg VERSION="$tag" --build-arg REVISION="$(git rev-parse HEAD)" "$context" >"$logs/build-$image.log" 2>&1 ||
     fail "idleo-$image didn't build; see private/k8s/logs/build-$image.log"
-  docker push -q "localhost:$registry_port/idleo-$image:$tag" >>"$logs/build-$image.log" 2>&1 ||
+  local_push "idleo-$image:$tag" >"$k8s_state/digest-$image" 2>>"$logs/build-$image.log" ||
     fail "idleo-$image couldn't be pushed; see private/k8s/logs/build-$image.log"
   log "  idleo-$image: $(docker image inspect "localhost:$registry_port/idleo-$image:$tag" --format '{{.Size}}' |
     awk '{printf "%.0f MB", $1 / 1000000}'), $((SECONDS - started)) s"
 done
 
-# 4. The Secrets and development settings.
-scripts/k8s/secrets.sh
+if [[ "$gitops" == false ]]; then
+  # 4. The Secrets and development settings.
+  scripts/k8s/secrets.sh
 
-# 5. The chart. Helm waits for the migration Job (a hook); the rollouts are waited for after.
-log "installing the idleo chart ($tag)"
-helm upgrade --install idleo deploy/helm/idleo --namespace "$namespace" -f deploy/helm/idleo/values-local.yaml \
-  --set images.tag="$tag" --timeout 15m >>"$logs/up.log" 2>&1 ||
-  fail "the chart didn't install; see private/k8s/logs/up.log and kubectl -n $namespace get pods"
-for workload in statefulset/idleo-postgres statefulset/idleo-valkey deployment/idleo-control-plane \
+  # 5. The chart. Helm waits for the migration Job (a hook); the rollouts are waited for after.
+  log "installing the idleo chart ($tag)"
+  helm upgrade --install idleo deploy/helm/idleo --namespace "$namespace" -f deploy/helm/idleo/values-local.yaml \
+    --set images.tag="$tag" --timeout 15m >>"$logs/up.log" 2>&1 ||
+    fail "the chart didn't install; see private/k8s/logs/up.log and kubectl -n $namespace get pods"
+  control_plane=deployment/idleo-control-plane
+else
+  # 4. The chart, packaged from this tree, pushed beside the images and signed with this machine's cosign key, which
+  #    the cluster checks it against (the server checks the images workflow's keyless signature instead).
+  scripts/k8s/secrets.sh --files
+  chart_digest="$(local_chart "$tag")" || fail "the chart couldn't be published to the cluster's registry; see private/k8s/logs/up.log"
+  log "the chart: idleo $chart_version-$tag, signed"
+
+  # 5. Flux, then what it reads: the local age key (sops-age), the chart's public key, the commit to follow and the
+  #    build to release.
+  log "bootstrapping Flux ${flux_version} from $flux_repository at $branch ($commit)"
+  kubectl apply --server-side --force-conflicts -k deploy/flux >>"$logs/up.log" 2>&1 ||
+    fail "Flux's components didn't apply; see private/k8s/logs/up.log"
+  kubectl -n flux-system wait --for=condition=Available deployment --all --timeout=5m >/dev/null ||
+    fail "Flux's controllers aren't ready; kubectl -n flux-system get pods"
+  apply() { kubectl create "$@" --dry-run=client -o yaml | kubectl apply -f - >/dev/null; }
+  apply secret generic sops-age --namespace flux-system --from-file=age.agekey="$SOPS_AGE_KEY_FILE"
+  kubectl get namespace "$namespace" >/dev/null 2>&1 || kubectl create namespace "$namespace" >/dev/null
+  apply secret generic cosign-local --namespace "$namespace" --from-file=cosign.pub="$k8s_state/cosign/cosign.pub"
+  apply configmap local-source --namespace flux-system --from-literal=GIT_BRANCH="$branch" --from-literal=GIT_COMMIT="$commit"
+  release_settings "$tag" "$chart_digest"
+  # The sync itself, as Flux will keep it from then on.
+  sed -e "s|\${GIT_BRANCH}|$branch|" -e "s|\${GIT_COMMIT}|$commit|" deploy/clusters/local/flux-system/sync.yaml |
+    kubectl apply -f - >/dev/null
+  flux_reconcile
+  log "waiting for Flux: the infrastructure, then the release (its migration Job, then the control plane)"
+  for kustomization in flux-system infrastructure idleo; do
+    flux_ready "$kustomization" 1800 || fail "Flux's $kustomization isn't ready: kubectl -n flux-system describe kustomization $kustomization"
+  done
+  control_plane=deployment/idleo-control-plane-primary
+fi
+
+for workload in statefulset/idleo-postgres statefulset/idleo-valkey "$control_plane" \
   deployment/idleo-web deployment/idleo-scanner deployment/idleo-sign-in deployment/idleo-storage deployment/idleo-mail; do
   kubectl -n "$namespace" rollout status "$workload" --timeout=10m >/dev/null ||
     fail "$workload isn't ready; kubectl -n $namespace describe $workload says why"
@@ -95,8 +163,9 @@ kubectl -n "$namespace" wait certificate/idleo-tls --for=condition=Ready --timeo
 
 cat <<TEXT
 
-  The cluster is up (images $tag). Its certificates come from private/k8s/ca/ca.pem: trust it to open the pages
-  without a warning (docs/runbooks/kubernetes.md), or use curl --cacert private/k8s/ca/ca.pem.
+  The cluster is up (images $tag$([[ "$gitops" == true ]] && echo ", under Flux at ${commit:0:12}")). Its certificates
+  come from private/k8s/ca/ca.pem: trust it to open the pages without a warning (docs/runbooks/kubernetes.md), or use
+  curl --cacert private/k8s/ca/ca.pem.
 
   Website        $site_url/
   App            $app_url/

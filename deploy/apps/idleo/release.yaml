@@ -1,0 +1,32 @@
+# IdleO on Flux (ADR 0046). The chart's defaults are production's; an environment's values come from its idleo-values
+# ConfigMap (deploy/clusters/<env>/idleo/), and its release.yaml sets the release: the chart's digest, the commit and
+# every image's digest. The control plane is released as a canary (Flagger): the migration Job runs first, as Helm's
+# pre-upgrade hook, so a canary always meets the new schema while the old version still serves.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: idleo
+  namespace: idleo
+spec:
+  interval: 10m
+  releaseName: idleo
+  chartRef:
+    kind: OCIRepository
+    name: idleo-chart
+  # Long enough for the migration Job (its deadline is 15 minutes) and the rollout of what isn't a canary.
+  timeout: 20m
+  install:
+    remediation:
+      retries: 3
+  # A failed upgrade is left as it is and alerted on: undoing it would run an older release's hook against a database
+  # a newer migration may already have changed. Rolling back is reverting the release's pull request.
+  upgrade:
+    remediation:
+      retries: 0
+  valuesFrom:
+    - kind: ConfigMap
+      name: idleo-values
+      valuesKey: values.yaml
+  values:
+    canary:
+      enabled: true

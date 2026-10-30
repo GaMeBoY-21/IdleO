@@ -1,0 +1,10 @@
+# Production's cluster (ADR 0046): what Flux applies from this folder of main. Flux itself, then the infrastructure
+# (cert-manager, Flagger, Prometheus), then IdleO's release, and the commit statuses Flux posts back to GitHub.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - flux-system
+  - secrets/flux-system
+  - infrastructure.yaml
+  - idleo.yaml
+  - notifications.yaml

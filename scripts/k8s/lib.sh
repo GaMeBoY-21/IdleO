@@ -29,6 +29,8 @@ sign_in_url="http://signin.idleo.localhost:$sign_in_port/idleo-local"
 k8s_state="$k8s_root/private/k8s"
 export KUBECONFIG="$k8s_state/kubeconfig"
 local_ca="$k8s_state/ca"
+# The local age key: the one deploy/clusters/local/secrets/ is encrypted for (scripts/deploy/age-key.sh local).
+export SOPS_AGE_KEY_FILE="$k8s_state/age/local.agekey"
 
 # OpenSSL 3, found as control-plane/scripts/dev-ca.sh finds it (OPENSSL names another); macOS ships LibreSSL.
 openssl3() {
@@ -57,4 +59,75 @@ k8s_tools() {
     brew install "$formula" >/dev/null || fail "brew install $formula failed"
   done
   docker info >/dev/null 2>&1 || fail "Docker isn't running: start Docker Desktop, then run this again"
+}
+
+# Under Flux (up.sh --gitops, ADR 0046): the repository it follows, its release (deploy/flux) and the chart's own
+# version, which the local build is published as <version>-<image tag>.
+flux_repository=https://github.com/GaMeBoY-21/IdleO
+flux_version=v2.9.6
+chart_version="$(sed -n 's/^version: //p' "$k8s_root/deploy/helm/idleo/Chart.yaml")"
+
+# Pushes localhost:<registry>/<name:tag> to the cluster's registry and prints its digest.
+local_push() {
+  local pushed
+  pushed="$(docker push "localhost:$registry_port/$1" 2>&1)" || { printf '%s\n' "$pushed" >&2; return 1; }
+  sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' <<<"$pushed" | tail -1 | grep . || return 1
+}
+
+# Packages the chart from this tree as <version>-<tag>, pushes it to the cluster's registry, signs it with this
+# machine's cosign key (made once in private/k8s/cosign/, no password; the cluster has its public half as the Secret
+# cosign-local) and prints its digest. The signature stays in that registry: nothing goes to a public log.
+local_chart() {
+  local tag="$1" folder digest
+  if [[ ! -s "$k8s_state/cosign/cosign.key" ]]; then
+    mkdir -p "$k8s_state/cosign"
+    (umask 077 && cd "$k8s_state/cosign" && COSIGN_PASSWORD='' cosign generate-key-pair >/dev/null 2>&1) || return 1
+  fi
+  folder="$(mktemp -d)"
+  helm package "$k8s_root/deploy/helm/idleo" --version "$chart_version-$tag" --app-version "$tag" \
+    --destination "$folder" >/dev/null || return 1
+  digest="$(helm push "$folder/idleo-$chart_version-$tag.tgz" "oci://localhost:$registry_port/charts" --plain-http 2>&1 |
+    sed -n 's/^Digest: //p')"
+  rm -rf "$folder"
+  [[ "$digest" == sha256:* ]] || return 1
+  COSIGN_PASSWORD='' cosign sign --key "$k8s_state/cosign/cosign.key" --use-signing-config=false --tlog-upload=false \
+    --yes "localhost:$registry_port/charts/idleo@$digest" >>"$k8s_state/logs/up.log" 2>&1 || return 1
+  printf '%s\n' "$digest"
+}
+
+# The build Flux releases (the ConfigMap flux-system/local-release, deploy/clusters/local/idleo/release.yaml): the
+# image tag, the chart's digest, and each image's digest as up.sh pushed it, or the control plane's given as $3.
+release_settings() {
+  local image digests=()
+  for image in control-plane web scanner postgres; do
+    local name
+    name="$(tr '[:lower:]-' '[:upper:]_' <<<"$image")_DIGEST"
+    if [[ "$image" == control-plane && -n "${3:-}" ]]; then
+      digests+=(--from-literal="$name=$3")
+    else
+      digests+=(--from-literal="$name=$(cat "$k8s_state/digest-$image")")
+    fi
+  done
+  kubectl create configmap local-release --namespace flux-system --from-literal=IMAGE_TAG="$1" \
+    --from-literal=CHART_DIGEST="$2" "${digests[@]}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+}
+
+# Asks Flux to read the source and apply every Kustomization now, rather than at its interval.
+flux_reconcile() {
+  flux_requested="$(date +%s)"
+  kubectl -n flux-system annotate --overwrite gitrepository/flux-system \
+    "reconcile.fluxcd.io/requestedAt=$flux_requested" >/dev/null
+  kubectl -n flux-system annotate --overwrite kustomization --all "reconcile.fluxcd.io/requestedAt=$flux_requested" >/dev/null
+}
+
+# Waits up to $2 seconds for Kustomization $1 to have handled the last flux_reconcile and be Ready.
+flux_ready() {
+  local deadline=$((SECONDS + $2)) handled ready
+  while ((SECONDS < deadline)); do
+    handled="$(kubectl -n flux-system get kustomization "$1" -o jsonpath='{.status.lastHandledReconcileAt}' 2>/dev/null || true)"
+    ready="$(kubectl -n flux-system get kustomization "$1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
+    [[ "$handled" == "$flux_requested" && "$ready" == True ]] && return 0
+    sleep 5
+  done
+  return 1
 }

@@ -1,0 +1,19 @@
+# The in-cluster Prometheus's settings in staging and production (ADR 0046): ../base/prometheus/prometheus.yml's, plus
+# a remote write of Flagger's canary meters, and nothing else, to Grafana Cloud. Flux fills in the variables as it applies
+# this; the token is read from the mounted Secret.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: ${ENVIRONMENT}
+scrape_config_files:
+  - /etc/prometheus/scrape.yml
+remote_write:
+  - url: ${GRAFANA_CLOUD_PROMETHEUS_URL}
+    basic_auth:
+      username: ${GRAFANA_CLOUD_PROMETHEUS_USER}
+      password_file: /etc/prometheus/remote-write/GRAFANA_CLOUD_PROMETHEUS_TOKEN
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: flagger_canary_.*
+        action: keep

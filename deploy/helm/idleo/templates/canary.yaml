@@ -1,0 +1,204 @@
+{{- if .Values.canary.enabled }}
+{{- $selector := printf "namespace=\"%s\", app=\"control-plane\", uri!~\"/actuator.*\"" .Release.Namespace }}
+# The control plane's releases as canaries (Flagger, ADR 0046). Flagger copies this chart's Deployment to
+# idleo-control-plane-primary, which serves, and scales the Deployment itself to zero. A new release starts it again as
+# the canary: the migration Job has already run (Helm's pre-upgrade hook), so the canary meets the new schema while
+# the primary, the release before, still serves. Flagger makes the Services (idleo-control-plane for the primary, and
+# -primary and -canary) and the API's HTTPRoute, and moves the route's weights a step at a time; at 100% and a last
+# good check it promotes the canary to primary. One failed check sends all traffic back to the primary at once and
+# marks the canary Failed (ops/alerts' CanaryFailed pages).
+#
+# Agents' gRPC streams don't follow the weights: their Service reaches both versions' pods, so the agent protocol and
+# the database must work with the release before and the new one at once.
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: idleo-control-plane
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  provider: gatewayapi:v1
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: idleo-control-plane
+  # A canary pod that isn't ready within 15 minutes fails the release.
+  progressDeadlineSeconds: 900
+  service:
+    name: idleo-control-plane
+    port: 8080
+    portName: http
+    targetPort: http
+    # The scanner's API, the agents' and the meters' ports too, on every Service Flagger makes.
+    portDiscovery: true
+    hosts:
+      - {{ .Values.gateway.hosts.api | quote }}
+    gatewayRefs:
+      - name: idleo
+        namespace: {{ .Release.Namespace }}
+        sectionName: https
+  analysis:
+    interval: {{ .Values.canary.interval }}
+    threshold: 1
+    stepWeights: {{ toJson .Values.canary.stepWeights }}
+    metrics:
+      - name: server-error-percent
+        templateRef:
+          name: idleo-server-error-percent
+        thresholdRange:
+          max: {{ .Values.canary.maxServerErrorPercent }}
+        interval: {{ .Values.canary.interval }}
+      - name: latency-p95-ms
+        templateRef:
+          name: idleo-latency-p95-ms
+        thresholdRange:
+          max: {{ .Values.canary.maxLatencyP95Ms }}
+        interval: {{ .Values.canary.interval }}
+      - name: session-start-drop-points
+        templateRef:
+          name: idleo-session-start-drop-points
+        thresholdRange:
+          max: {{ .Values.canary.maxSessionStartDropPoints }}
+        interval: 10m
+    # A request a second to the canary itself, from before its first step to its last (the load tester runs one copy of
+    # a command at a time, so each step's call carries it on), on the public availability endpoint.
+    webhooks:
+      {{- range $type := list "pre-rollout" "rollout" }}
+      - name: load-{{ $type }}
+        type: {{ $type }}
+        url: http://idleo-loadtester.{{ $.Release.Namespace }}/
+        timeout: 15s
+        metadata:
+          type: cmd
+          cmd: hey -z {{ $.Values.canary.interval }} -q 1 -c 1 http://idleo-control-plane-canary.{{ $.Release.Namespace }}:8080/v1/public/availability
+      {{- end }}
+---
+# The share of the canary's API requests that answered 5xx, in percent (none at all is 0). Probes are left out.
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: idleo-server-error-percent
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  provider:
+    type: prometheus
+    address: {{ .Values.canary.prometheus }}
+  query: |
+    100 * (
+      sum(rate(http_server_requests_seconds_count{ {{- $selector }}, outcome="SERVER_ERROR"}[{{`{{ interval }}`}}]))
+      or on() vector(0)
+    )
+    /
+    sum(rate(http_server_requests_seconds_count{ {{- $selector }}}[{{`{{ interval }}`}}]))
+---
+# The 95th percentile of the canary's API requests, in milliseconds (the timer's SLO buckets, application.yaml).
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: idleo-latency-p95-ms
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  provider:
+    type: prometheus
+    address: {{ .Values.canary.prometheus }}
+  query: |
+    1000 * histogram_quantile(0.95,
+      sum by (le) (rate(http_server_requests_seconds_bucket{ {{- $selector }}}[{{`{{ interval }}`}}]))
+    )
+---
+# How far the session-start success rate fell, in percentage points: the hour before the interval against the
+# interval itself. A start succeeds when the session reaches minute 0 (sessions_started_total) and fails when it ends
+# before, timed out on its host or unable to fetch its input. Across both versions, since an agent's stream may be on
+# either; with fewer than 5 attempts in the interval there's nothing to judge, and it's 0.
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: idleo-session-start-drop-points
+  labels:
+    {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
+spec:
+  provider:
+    type: prometheus
+    address: {{ .Values.canary.prometheus }}
+  query: |
+    (
+      100 * (
+        (sum(increase(sessions_started_total{namespace="{{ .Release.Namespace }}"}[1h] offset {{`{{ interval }}`}})) or on() vector(0))
+        /
+        clamp_min(
+          (sum(increase(sessions_started_total{namespace="{{ .Release.Namespace }}"}[1h] offset {{`{{ interval }}`}})) or on() vector(0))
+          + (sum(increase(sessions_ended_total{namespace="{{ .Release.Namespace }}", state="FAILED", reason=~"start_timeout|input_unavailable"}[1h] offset {{`{{ interval }}`}})) or on() vector(0)),
+          1)
+      )
+      -
+      100 * (
+        (sum(increase(sessions_started_total{namespace="{{ .Release.Namespace }}"}[{{`{{ interval }}`}}])) or on() vector(0))
+        /
+        clamp_min(
+          (sum(increase(sessions_started_total{namespace="{{ .Release.Namespace }}"}[{{`{{ interval }}`}}])) or on() vector(0))
+          + (sum(increase(sessions_ended_total{namespace="{{ .Release.Namespace }}", state="FAILED", reason=~"start_timeout|input_unavailable"}[{{`{{ interval }}`}}])) or on() vector(0)),
+          1)
+      )
+    )
+    and on() (
+      (sum(increase(sessions_started_total{namespace="{{ .Release.Namespace }}"}[{{`{{ interval }}`}}])) or on() vector(0))
+      + (sum(increase(sessions_ended_total{namespace="{{ .Release.Namespace }}", state="FAILED", reason=~"start_timeout|input_unavailable"}[{{`{{ interval }}`}}])) or on() vector(0))
+      >= 5
+    )
+    or on() vector(0)
+---
+# Flagger's load tester: runs the canary's load (hey) when Flagger's webhooks ask. It holds nothing and reaches only
+# the canary's web port, which the control plane's network policy lets it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idleo-loadtester
+  labels:
+    {{- include "idleo.labels" (list . "loadtester") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "loadtester") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "idleo.selector" (list . "loadtester") | nindent 8 }}
+    spec:
+      {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      containers:
+        - name: loadtester
+          image: {{ .Values.canary.loadtester.image }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          command: ["./loadtester", "-port=8080", "-log-level=info", "-timeout=1h"]
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.canary.loadtester.resources | nindent 12 }}
+          {{- include "idleo.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 16Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idleo-loadtester
+  labels:
+    {{- include "idleo.labels" (list . "loadtester") | nindent 4 }}
+spec:
+  selector:
+    {{- include "idleo.selector" (list . "loadtester") | nindent 4 }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+{{- end }}
