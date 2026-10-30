@@ -3,7 +3,9 @@ name: images
 # The server's container images (ADR 0045): control-plane, web, scanner and postgres. On every pull request each is
 # built and scanned; on main (and a release tag) the very bytes that were scanned are pushed to GHCR, signed keylessly
 # with cosign (this workflow's GitHub identity; no key is stored anywhere), and given a CycloneDX bill of materials and
-# a build provenance attestation. scripts/images/verify.sh checks all three.
+# a build provenance attestation. scripts/images/verify.sh checks all three. The Helm chart (deploy/helm/idleo) is
+# published beside them as an OCI artifact, versioned with the commit and signed the same way, for Flux to verify.
+# Only main and release tags publish: a run by hand on any other branch builds and scans, nothing more.
 on:
   push:
     branches: [main]
@@ -66,9 +68,9 @@ jobs:
           docker image inspect "idleo-${{ matrix.image }}:ci" --format '{{.Size}}' |
             awk '{printf "idleo-${{ matrix.image }}: %.0f MB\n", $1 / 1000000}' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Keep the scanned image for publishing
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         run: docker save "idleo-${{ matrix.image }}:ci" | gzip -1 >"idleo-${{ matrix.image }}.tar.gz"
-      - if: github.event_name != 'pull_request'
+      - if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: image-${{ matrix.image }}
@@ -78,7 +80,7 @@ jobs:
   publish:
     name: publish ${{ matrix.image }}
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -134,3 +136,40 @@ jobs:
           subject-name: ${{ steps.push.outputs.name }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+  chart:
+    name: publish chart
+    needs: publish
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      # <Chart.yaml's version>-<commit>, so every build of main is its own version; the chart's first source links the
+      # package to this repository, which makes it public as the images are (Flux pulls it with no token).
+      - name: Package and push, versioned with the commit
+        id: push
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          version="$(sed -n 's/^version: //p' deploy/helm/idleo/Chart.yaml)-$GITHUB_SHA"
+          helm package deploy/helm/idleo --version "$version" --app-version "$GITHUB_SHA" --destination chart
+          helm push "chart/idleo-$version.tgz" "oci://$REGISTRY/charts" 2>&1 | tee push.log
+          digest="$(sed -n 's/^Digest: //p' push.log)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "helm push gave no digest"; exit 1; }
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+          echo "$REGISTRY/charts/idleo:$version@$digest" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Sign
+        run: cosign sign --yes "$REGISTRY/charts/idleo@${{ steps.push.outputs.digest }}"

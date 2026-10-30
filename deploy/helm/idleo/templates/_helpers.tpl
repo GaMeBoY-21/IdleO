@@ -1,7 +1,21 @@
-{{/* An image of ours: <registry>/idleo-<name>:<tag>. */}}
+{{/*
+An image of ours. Pinned by digest when the environment gives one (staging and production give one for every image,
+deploy/clusters/<env>/release.yaml): <registry>/idleo-<name>@<digest>, so only the bytes that were signed run.
+Without one, <registry>/idleo-<name>:<tag> (the Mac's cluster). The tag is required either way: it names the release.
+*/}}
 {{- define "idleo.image" -}}
 {{- $root := index . 0 -}}
-{{- required "images.tag is required: the git commit the images were built from" $root.Values.images.tag | printf "%s/idleo-%s:%s" $root.Values.images.registry (index . 1) -}}
+{{- $name := index . 1 -}}
+{{- $tag := required "images.tag is required: the git commit the images were built from" $root.Values.images.tag -}}
+{{- $digest := index ($root.Values.images.digests | default dict) $name | default "" -}}
+{{- if $digest -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $digest) -}}
+{{- fail (printf "images.digests.%s must be sha256:<64 hex digits>, not %s" $name $digest) -}}
+{{- end -}}
+{{- printf "%s/idleo-%s@%s" $root.Values.images.registry $name $digest -}}
+{{- else -}}
+{{- printf "%s/idleo-%s:%s" $root.Values.images.registry $name $tag -}}
+{{- end -}}
 {{- end }}
 
 {{- define "idleo.labels" -}}
