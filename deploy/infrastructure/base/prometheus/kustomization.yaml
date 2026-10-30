@@ -1,0 +1,13 @@
+# A small Prometheus v3.15.1 (ADR 0046), only for Flagger: it scrapes the control plane's meters on their internal
+# port (never reachable through the ingress) and Flagger's own, keeps two hours, and is held to 256 MiB. Production's
+# meters still leave through OTLP to Grafana Cloud (ADR 0036); this is not a second monitoring system.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - prometheus.yaml
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus.yml
+      - scrape.yml

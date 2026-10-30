@@ -79,7 +79,10 @@ spec:
             {{- with .Values.gateway.redirectPort }}
             port: {{ . }}
             {{- end }}
+{{- if not .Values.canary.enabled }}
 ---
+# The API. With canaries, Flagger makes this route itself (named idleo-control-plane), weighting the primary and the
+# canary (canary.yaml).
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -93,6 +96,7 @@ spec:
   rules:
     - backendRefs:
         - { name: idleo-control-plane, port: 8080 }
+{{- end }}
 {{- if .Values.web.enabled }}
 ---
 apiVersion: gateway.networking.k8s.io/v1

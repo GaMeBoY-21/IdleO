@@ -1,0 +1,30 @@
+# Flux posts each deployment's outcome back to its commit on GitHub (ADR 0046): one status a Kustomization, failed
+# when a health check fails, the control plane's canary among them. The token, which may only write commit statuses,
+# is the SOPS-encrypted Secret github-commit-status in secrets/flux-system/ (made with the server, S5).
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: github
+  namespace: flux-system
+spec:
+  type: github
+  address: https://github.com/GaMeBoY-21/IdleO
+  secretRef:
+    name: github-commit-status
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: github
+  namespace: flux-system
+spec:
+  providerRef:
+    name: github
+  eventSeverity: info
+  eventSources:
+    - kind: Kustomization
+      name: flux-system
+    - kind: Kustomization
+      name: infrastructure
+    - kind: Kustomization
+      name: idleo

@@ -1,0 +1,35 @@
+# How production's Flux follows this repository (ADR 0046): main, over HTTPS with no token (the repository is public),
+# read only; Flux never writes to git. Bootstrapping is applying this folder once, with the cluster's age key as the
+# Secret sops-age (docs/runbooks/deploying.md); from then on Flux keeps itself up to date from here too.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 2m
+  url: https://github.com/GaMeBoY-21/IdleO
+  ref:
+    branch: main
+  # Only what the cluster reads.
+  ignore: |
+    /*
+    !/deploy/
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deploy/clusters/production
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  # secrets/flux-system/'s Secrets, encrypted for production's age key.
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

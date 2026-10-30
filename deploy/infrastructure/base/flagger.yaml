@@ -1,0 +1,51 @@
+# Flagger v1.45.0 (ADR 0046): canary releases of the control plane through the Gateway API (k3s's Traefik), judged by
+# the in-cluster Prometheus. Its chart is pinned by digest and its signature checked against Flagger's own release
+# workflow before Flux installs it; its image is pinned by digest too.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flagger-system
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: flagger
+  namespace: flagger-system
+spec:
+  interval: 1h
+  url: oci://ghcr.io/fluxcd/charts/flagger
+  ref:
+    # 1.45.0
+    digest: sha256:a442a581eec96b8ca45df6c5d2b8a5a7a00fc7de2aac80a96675ae978095b672
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/fluxcd/flagger/\.github/workflows/release\.yml@refs/tags/v1\.45\.0$
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: flagger
+  namespace: flagger-system
+spec:
+  interval: 1h
+  releaseName: flagger
+  chartRef:
+    kind: OCIRepository
+    name: flagger
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    image:
+      tag: 1.45.0@sha256:15b372d35012f9ae450f9030bc82217369c0aee082ed5a5225830010cf972b2b
+    meshProvider: gatewayapi:v1
+    metricsServer: http://prometheus.monitoring:9090
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }

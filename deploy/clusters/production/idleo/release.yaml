@@ -1,0 +1,26 @@
+# Production's release (ADR 0046): the build of main it runs, the chart and every image pinned by digest.
+# Written by scripts/deploy/release.py; a deploy is a pull request that changes this file and nothing else.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: idleo-chart
+  namespace: idleo
+spec:
+  ref:
+    # ghcr.io/gameboy-21/charts/idleo:0.1.0-72202fc34bc476bd101513ddc64c80fa04d11efb
+    digest: sha256:f6cdfe991c64ec10556f0430d795d10782b6d0a839f106ab7a14876eeda45c8b
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: idleo
+  namespace: idleo
+spec:
+  values:
+    images:
+      tag: "72202fc34bc476bd101513ddc64c80fa04d11efb"
+      digests:
+        control-plane: sha256:676ccde3da0de6192e2c841ff7a473c7c377f724558c7e6d00a08bd721b238c9
+        web: sha256:33095a00150a41f60f695cee6b3ffe32380dce595fd456b7420f5d0805232aaf
+        scanner: sha256:71db4c7bf765302efbf38e35f4986bc4f51047cd001ca6d9ac4f33a53e5ca690
+        postgres: sha256:9f95055cf14bbf3a5198c084ed3668384d6ab82fda2c8733835d41205d4a6a83

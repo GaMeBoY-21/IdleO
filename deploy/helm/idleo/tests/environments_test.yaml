@@ -1,9 +1,17 @@
-# Production's defaults stay safe: no development services, no scanner (renters' own images off), the prod profile.
+# Production's defaults stay safe: no development services, no scanner (renters' own images off), the prod profile,
+# and the control plane released as a canary (ADR 0046). Staging's and production's own values are checked by
+# scripts/checks/deploy.sh, which renders the chart as each cluster's HelmRelease sets it.
 suite: production's defaults
 set:
   images.tag: test
-values:
-  - ../values-production.yaml
+templates:
+  - templates/configmap.yaml
+  - templates/development.yaml
+  - templates/scanner.yaml
+  - templates/web.yaml
+  - templates/control-plane.yaml
+  - templates/gateway.yaml
+  - templates/canary.yaml
 tests:
   - it: runs the prod profile
     template: templates/configmap.yaml
@@ -15,3 +23,35 @@ tests:
     templates: [templates/development.yaml, templates/scanner.yaml, templates/web.yaml]
     asserts:
       - hasDocuments: { count: 0 }
+  - it: releases the control plane as a canary, judged on errors, latency and session starts, rolled back at one failure
+    template: templates/canary.yaml
+    documentSelector: { path: kind, value: Canary }
+    asserts:
+      - equal: { path: spec.provider, value: "gatewayapi:v1" }
+      - equal: { path: spec.analysis.stepWeights, value: [10, 25, 50, 100] }
+      - equal: { path: spec.analysis.interval, value: 2m }
+      - equal: { path: spec.analysis.threshold, value: 1 }
+      - equal: { path: "spec.analysis.metrics[0].thresholdRange.max", value: 1 }
+      - equal: { path: "spec.analysis.metrics[1].thresholdRange.max", value: 800 }
+      - equal: { path: "spec.analysis.metrics[2].name", value: session-start-drop-points }
+      - equal: { path: "spec.service.hosts[0]", value: api.idleo.in }
+  - it: leaves the count, the API's Service and its route to Flagger
+    templates: [templates/control-plane.yaml, templates/gateway.yaml]
+    asserts:
+      - notExists: { path: spec.replicas }
+        documentSelector: { path: kind, value: Deployment }
+        template: templates/control-plane.yaml
+      # Its Services are the agents' alone: Flagger makes idleo-control-plane and its -primary and -canary.
+      - equal: { path: metadata.name, value: idleo-control-plane-agents }
+        documentSelector: { path: kind, value: Service, matchMany: true }
+        template: templates/control-plane.yaml
+      - hasDocuments: { count: 0 }
+        documentSelector: { path: metadata.name, value: idleo-api, skipEmptyTemplates: true }
+        template: templates/gateway.yaml
+  - it: sends agents to either version's pods, by the label Flagger leaves alone
+    template: templates/control-plane.yaml
+    documentSelector: { path: metadata.name, value: idleo-control-plane-agents }
+    asserts:
+      - equal:
+          path: spec.selector
+          value: { app.kubernetes.io/instance: RELEASE-NAME, idleo.in/control-plane: "true" }

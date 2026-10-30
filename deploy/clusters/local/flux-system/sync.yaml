@@ -1,0 +1,38 @@
+# How the Mac's Flux follows this repository (ADR 0046): over HTTPS with no token, read only, as staging's and
+# production's do, but at the branch and commit up.sh --gitops was run on (so the branch must be pushed first), from
+# the ConfigMap flux-system/local-source it makes. Pinned to that commit, the cluster changes only when up.sh is run
+# again.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/GaMeBoY-21/IdleO
+  ref:
+    branch: "${GIT_BRANCH}"
+    commit: "${GIT_COMMIT}"
+  # Only what the cluster reads: deploy/, and the development catalog and sign-in users (development/).
+  ignore: |
+    /*
+    !/deploy/
+    !/templates/development.yaml
+    !/control-plane/local-sign-in.json
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deploy/clusters/local
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: local-source

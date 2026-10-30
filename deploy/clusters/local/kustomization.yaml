@@ -1,0 +1,10 @@
+# The Mac's cluster under Flux (scripts/k8s/up.sh --gitops, ADR 0046): managed as staging and production are, from
+# this repository on GitHub, at the commit up.sh was run on. Flux itself, then the infrastructure (cert-manager,
+# Flagger, Prometheus), then IdleO's release, built from this machine's tree. No commit statuses: nothing here is
+# deployed anywhere.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - flux-system
+  - infrastructure.yaml
+  - idleo.yaml

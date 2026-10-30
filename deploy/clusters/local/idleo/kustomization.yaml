@@ -1,0 +1,19 @@
+# IdleO on the Mac (ADR 0046): the shared release (deploy/apps/idleo) with the chart's values-local.yaml, the
+# development ConfigMaps, the local Secrets and release.yaml, which points at what up.sh --gitops built.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../apps/idleo
+  - ../secrets/idleo
+  - ../development
+patches:
+  - path: release.yaml
+configMapGenerator:
+  - name: idleo-values
+    namespace: idleo
+    files:
+      - values.yaml=../../../helm/idleo/values-local.yaml
+    options:
+      disableNameSuffixHash: true
+      labels:
+        reconcile.fluxcd.io/watch: Enabled

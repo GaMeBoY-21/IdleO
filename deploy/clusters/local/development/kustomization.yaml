@@ -1,0 +1,15 @@
+# Development's settings for the Mac's cluster (ADR 0045): the development template catalog for the agent's
+# development runner, and the development sign-in server's users. Flux applies them with the release
+# (../idleo/); plain Helm has scripts/k8s/secrets.sh apply them.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: idleo
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: idleo-development-catalog
+    files:
+      - development.yaml=../../../../templates/development.yaml
+  - name: idleo-sign-in
+    files:
+      - local-sign-in.json=../../../../control-plane/local-sign-in.json

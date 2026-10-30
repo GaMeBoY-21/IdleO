@@ -1,0 +1,27 @@
+# cert-manager, Flagger and the in-cluster Prometheus, with its remote write of Flagger's meters to Grafana Cloud
+# (deploy/infrastructure/, ADR 0046). The Grafana Cloud address and user come from secrets/flux-system/, the token
+# from secrets/monitoring/.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 1h
+  path: ./deploy/clusters/production/infrastructure
+  prune: true
+  wait: true
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  postBuild:
+    substitute:
+      ENVIRONMENT: production
+    substituteFrom:
+      - kind: Secret
+        name: grafana-cloud-metrics

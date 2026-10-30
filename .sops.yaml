@@ -1,0 +1,7 @@
+# SOPS's rules (ADR 0046; docs/runbooks/deploying.md, "Secrets"): a Secret manifest under deploy/clusters/<env>/secrets/
+# has its data and stringData encrypted for that environment's age key, and nothing else in the repository is.
+# scripts/deploy/age-key.sh <env> writes each environment's rule; staging's and production's come with their keys.
+creation_rules:
+  - path_regex: deploy/clusters/local/secrets/.*\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1ksgktdxsg5zc7zfqjs7f4n564fzafy69t40xw2wrr3xcrnwyaccq96ddva

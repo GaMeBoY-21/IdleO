@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The proof that the Mac's cluster works as production will (ADR 0045), against the cluster up.sh made:
+# The proof that the Mac's cluster works as production will (ADR 0045), against the cluster up.sh made, by plain Helm
+# or under Flux (--gitops, where the control plane that serves is Flagger's primary):
 #
 #   1. the website and the app load over HTTPS, with their security headers, and plain HTTP redirects to HTTPS;
 #   2. the control plane's readiness is UP through the ingress;
@@ -32,6 +33,8 @@ api="$api_url"
 sign_in="$sign_in_url"
 grpc_port="$agents_port"
 operator_name=k8s-smoke
+# The agents' CA, from the local Secrets (scripts/k8s/secrets.sh writes it).
+agent_ca_root="$k8s_state/agent-ca.pem"
 mkdir -p "$out" "$state"
 # shellcheck source=scripts/lib/stack.sh
 . "$root/scripts/lib/stack.sh"
@@ -154,12 +157,15 @@ pass "a booking (cuda-smoke-test, the development runner) ran to COMPLETED in $(
 # 7. A rolling restart: the new pod is ready first; the old one tells its agents to reconnect as it stops, and the
 #    agent is back, through the load balancer, on the new one. What an agent loses is the time from being told to
 #    being connected again, by its own log; meanwhile the API answers every request (readiness, which has no limit).
-old_pod="$(in_namespace get pods -l app.kubernetes.io/name=control-plane -o jsonpath='{.items[0].metadata.name}')"
+control_plane=deployment/idleo-control-plane
+in_namespace get deployment idleo-control-plane-primary >/dev/null 2>&1 && control_plane=deployment/idleo-control-plane-primary
+old_pod="$(in_namespace get pods -l idleo.in/control-plane=true --field-selector=status.phase=Running \
+  -o jsonpath='{.items[0].metadata.name}')"
 agent_lines="$(wc -l <"$out/agent-1.log")"
-in_namespace rollout restart deployment/idleo-control-plane >/dev/null
+in_namespace rollout restart "$control_plane" >/dev/null
 restarted=$SECONDS requests=0 failed=0
 while in_namespace get pod "$old_pod" >/dev/null 2>&1 ||
-  ! in_namespace rollout status deployment/idleo-control-plane --timeout=1s >/dev/null 2>&1; do
+  ! in_namespace rollout status "$control_plane" --timeout=1s >/dev/null 2>&1; do
   requests=$((requests + 1))
   curl -sf -o /dev/null --max-time 3 "$api/actuator/health/readiness" || failed=$((failed + 1))
   ((SECONDS - restarted < 300)) || fail "the rolling restart didn't finish within 300 s"

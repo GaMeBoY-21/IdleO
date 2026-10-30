@@ -5,7 +5,11 @@ metadata:
   labels:
     {{- include "idleo.labels" (list . "control-plane") | nindent 4 }}
 spec:
+  {{- if not .Values.canary.enabled }}
   replicas: {{ .Values.controlPlane.replicas }}
+  {{- end }}
+  {{- /* With canaries, Flagger owns the count: this Deployment is the canary, scaled to zero between releases, and
+  its copy idleo-control-plane-primary serves (canary.yaml). */}}
   selector:
     matchLabels:
       {{- include "idleo.selector" (list . "control-plane") | nindent 6 }}
@@ -19,6 +23,9 @@ spec:
     metadata:
       labels:
         {{- include "idleo.selector" (list . "control-plane") | nindent 8 }}
+        {{- /* Flagger renames the primary's name label (control-plane-primary), so the agents' Service and the
+        network policies find the control plane's pods, either version, by this one. */}}
+        idleo.in/control-plane: "true"
         idleo.in/database-client: "true"
         idleo.in/valkey-client: "true"
       annotations:
@@ -63,6 +70,7 @@ spec:
             - { name: http, containerPort: 8080 }
             - { name: agents, containerPort: 9443 }
             - { name: scanner-api, containerPort: 8095 }
+            - { name: metrics, containerPort: {{ .Values.controlPlane.metricsPort }} }
           # The JVM starts in tens of seconds; liveness waits for it.
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
@@ -96,8 +104,10 @@ spec:
         - name: catalog
           configMap: { name: {{ . }} }
         {{- end }}
+{{- if not .Values.canary.enabled }}
 ---
-# The web API for the ingress, and the scanner's internal API (ADR 0042), inside the cluster only.
+# The web API for the ingress, and the scanner's internal API (ADR 0042), inside the cluster only. With canaries,
+# Flagger makes this Service (for the primary) and its -primary and -canary siblings, with every port (canary.yaml).
 apiVersion: v1
 kind: Service
 metadata:
@@ -110,10 +120,12 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
     - { name: scanner-api, port: 8095, targetPort: scanner-api }
+{{- end }}
 ---
 # The agents' port (ADR 0010): TCP straight to the control plane, so their mutual TLS ends there and nowhere before.
 # A load balancer of its own, not the ingress: a restart or upgrade of Traefik never drops an agent's stream, and the
-# control plane sees each agent's own address (externalTrafficPolicy: Local).
+# control plane sees each agent's own address (externalTrafficPolicy: Local). During a canary it reaches both
+# versions' pods: traffic weights don't apply to long-lived streams, so either version serves any agent (ADR 0046).
 apiVersion: v1
 kind: Service
 metadata:
@@ -124,12 +136,14 @@ spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
   selector:
-    {{- include "idleo.selector" (list . "control-plane") | nindent 4 }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    idleo.in/control-plane: "true"
   ports:
     - { name: agents, port: {{ .Values.controlPlane.agentPort }}, targetPort: agents, protocol: TCP }
 ---
 # Who may reach the control plane: the ingress on the web port (so X-Forwarded-For from the pod network is the
-# ingress's), the scanner on its internal API, and anyone on the agents' port, which mutual TLS guards.
+# ingress's), the scanner on its internal API, the in-cluster Prometheus on the meters' port, and anyone on the
+# agents' port, which mutual TLS guards. With canaries, also the load tester on the web port.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -139,7 +153,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      {{- include "idleo.selector" (list . "control-plane") | nindent 6 }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      idleo.in/control-plane: "true"
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -157,5 +172,22 @@ spec:
               {{- include "idleo.selector" (list . "scanner") | nindent 14 }}
       ports:
         - { port: scanner-api, protocol: TCP }
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - { port: metrics, protocol: TCP }
+    {{- if .Values.canary.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list . "loadtester") | nindent 14 }}
+      ports:
+        - { port: http, protocol: TCP }
+    {{- end }}
     - ports:
         - { port: agents, protocol: TCP }

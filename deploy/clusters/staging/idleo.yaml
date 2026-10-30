@@ -1,0 +1,37 @@
+# IdleO's release in staging (ADR 0046): idleo/ (the shared HelmRelease, staging's values, its Secrets and the pinned
+# release), once the infrastructure is ready. It is healthy when the release is installed and the control plane's
+# canary has been promoted; a failed canary fails it, and the commit status says so (notifications.yaml).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: idleo
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infrastructure
+  interval: 10m
+  path: ./deploy/clusters/staging/idleo
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  # The migration Job, then a canary of about ten minutes (four steps of two).
+  timeout: 30m
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: idleo
+      namespace: idleo
+    - apiVersion: flagger.app/v1beta1
+      kind: Canary
+      name: idleo-control-plane
+      namespace: idleo
+  healthCheckExprs:
+    - apiVersion: flagger.app/v1beta1
+      kind: Canary
+      current: status.phase in ['Initialized', 'Succeeded']
+      failed: status.phase == 'Failed'

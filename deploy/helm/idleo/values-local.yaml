@@ -24,6 +24,10 @@ controlPlane:
     # Development's backups bucket isn't made here: the cluster's database isn't backed up yet (CloudNativePG).
     BACKUPS_CREATEBUCKET: "false"
 
+# Plain Helm (scripts/k8s/up.sh) has no Flagger; up.sh --gitops turns canaries on, as every Flux cluster has them.
+canary:
+  enabled: false
+
 scanner:
   enabled: true
   scratch: 4Gi

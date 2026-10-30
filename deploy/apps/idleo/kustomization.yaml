@@ -1,0 +1,9 @@
+# IdleO's release (ADR 0046), the same in every cluster: its namespace, the chart from GHCR (pinned by digest and its
+# signature checked before Flux installs it), and the HelmRelease. Each cluster's idleo/ folder adds its values, its
+# Secrets and release.yaml, which pins the chart and every image by digest.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - chart.yaml
+  - release.yaml

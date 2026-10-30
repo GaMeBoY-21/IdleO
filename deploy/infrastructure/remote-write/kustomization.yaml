@@ -1,0 +1,32 @@
+# Staging's and production's infrastructure (ADR 0046): everything in ../base, with Prometheus also sending Flagger's
+# canary meters to Grafana Cloud, where ops/alerts' CanaryFailed pages through the alerting every other alert uses.
+# Two SOPS-encrypted Secrets named grafana-cloud-metrics, made with the server (S5; docs/runbooks/deploying.md): the
+# one in flux-system gives Flux GRAFANA_CLOUD_PROMETHEUS_URL and _USER to substitute into prometheus.yml, and the one
+# in monitoring holds the token Prometheus reads from a file, so it is never in a ConfigMap.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+configMapGenerator:
+  - name: prometheus-config
+    namespace: monitoring
+    behavior: merge
+    files:
+      - prometheus.yml
+patches:
+  - target:
+      kind: Deployment
+      name: prometheus
+    patch: |
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: remote-write
+          secret:
+            secretName: grafana-cloud-metrics
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          name: remote-write
+          mountPath: /etc/prometheus/remote-write
+          readOnly: true

@@ -62,7 +62,8 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              {{- include "idleo.selector" (list . "control-plane") | nindent 14 }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              idleo.in/control-plane: "true"
       ports:
         - { port: 8095, protocol: TCP }
     - to:

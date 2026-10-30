@@ -1,6 +1,6 @@
-# IdleO on one k3s node (ADR 0045). These defaults are production's and safe: an environment's file
-# (values-local.yaml, values-staging.yaml, values-production.yaml) sets only what must differ: hosts, sizes,
-# replicas, issuers and the development services.
+# IdleO on one k3s node (ADR 0045). These defaults are production's and safe: an environment's values (values-local.yaml
+# here; deploy/clusters/<env>/idleo/values.yaml for staging and production, ADR 0046) set only what must differ: hosts,
+# sizes, replicas, issuers and the development services.
 #
 # Sizes are for one 8 GB node. Memory requests, then limits:
 #   control plane 1024/1536 Mi, migration Job 384/512 Mi (only while it runs), scanner 768/2048 Mi, web 32/64 Mi,
@@ -33,6 +33,9 @@ controlPlane:
   ingressProxies: '10\.42\.\d{1,3}\.\d{1,3}'
   # The agents' gRPC port, published by its own LoadBalancer Service: their mutual TLS ends at the control plane.
   agentPort: 9443
+  # The meters in Prometheus's format, on a port of their own (application-cluster.yaml) that only the in-cluster
+  # Prometheus may reach and no route leads to: what Flagger judges a canary by (ADR 0046).
+  metricsPort: 9464
   resources:
     requests: { cpu: 500m, memory: 1024Mi }
     limits: { memory: 1536Mi }
@@ -41,6 +44,28 @@ controlPlane:
   # shutdown phase, and is gone within the grace period.
   preStopSeconds: 10
   terminationGracePeriodSeconds: 60
+
+# The control plane is released as a canary (Flagger, ADR 0046): the new version takes 10%, then 25%, 50% and 100% of
+# the API's traffic, a step each interval while every check passes, then becomes the primary. One failed check rolls
+# it back at once. Off where Flagger isn't installed (plain Helm on the Mac, values-local.yaml).
+canary:
+  enabled: true
+  interval: 2m
+  stepWeights: [10, 25, 50, 100]
+  # A step fails when, over its interval, more than this percent of the canary's API requests answer 5xx, or their
+  # 95th percentile takes longer than this many milliseconds; or when the session-start success rate over the last
+  # 10 minutes (both versions: an agent's stream may be on either) is more than this many points below the hour before.
+  maxServerErrorPercent: 1
+  maxLatencyP95Ms: 800
+  maxSessionStartDropPoints: 10
+  prometheus: http://prometheus.monitoring:9090
+  # Flagger's load tester, which sends the canary one request a second through each step, so a quiet hour still gives
+  # it something to be judged by.
+  loadtester:
+    image: ghcr.io/fluxcd/flagger-loadtester:0.39.0@sha256:6a8546993cb574cdd9d42a84430eca2b74c30bf91349e36aa60969b46655f059
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 64Mi }
 
 migration:
   resources:

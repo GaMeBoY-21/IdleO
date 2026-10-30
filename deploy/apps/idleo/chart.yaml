@@ -1,0 +1,19 @@
+# The chart, as .github/workflows/images.yml publishes it from main: Flux installs it only if its cosign signature was
+# made by that workflow on main, through GitHub's OIDC issuer (keyless: no key exists to leak). Each environment's
+# release.yaml pins the digest.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: idleo-chart
+  namespace: idleo
+spec:
+  interval: 10m
+  url: oci://ghcr.io/gameboy-21/charts/idleo
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/GaMeBoY-21/IdleO/\.github/workflows/images\.yml@refs/heads/main$
