@@ -154,6 +154,14 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** fix the cause: a deployment, a dependency, or data the listener didn't expect, which may need a code fix. Then hand the event back to its retries by setting `completion_attempts = 0` on its row; it's tried again within the next minute. An event that should never have been made (its subject is gone) can be deleted, once you've checked that nothing it would have done is still owed.
 
+## Presence unavailable
+
+**Means:** the control plane can't read hosts' presence from Valkey (ADR 0011): more than 5 lookups a minute have failed for 2 minutes (`agents_presence_unavailable_total`). Presence is then unknown, not offline. A booking made now waits in REQUESTED, shown as "Finding your GPU", and is tried again after 1, 2, 4 and 8 s; after that the re-match loop keeps trying it for `scheduling.rematch-wait` (10 minutes). Nothing new starts until Valkey answers, and pages show hosts as offline meanwhile. Running sessions go on: leases and heartbeats don't depend on reading presence.
+
+**Check first:** Valkey itself: the `valkey` pod's state and memory (`kubectl -n idleo get pod idleo-valkey-0`, `kubectl -n idleo top pod idleo-valkey-0`), and the control plane's log for `RedisCommandTimeoutException` or connection errors. A restart of Valkey empties presence; agents fill it again within a heartbeat (5 s).
+
+**Do:** bring Valkey back (restart its pod; give it more memory if it was killed for running out). Waiting bookings are matched by themselves once lookups succeed. If it lasted beyond the re-match wait, renters whose bookings ended were told no GPU was free and can book again.
+
 ## Retention stopped
 
 **Means:** one retention rule (the alert's `rule`) hasn't run on any instance for a day and a half. Each runs once a day and deletes what the personal data map (docs/reference/personal-data-map.md) says is kept only for a while: uploads, checkpoints, outputs, logs, exports, the security log and the rest. Nothing is lost while it's stopped; things are kept longer than we promise.

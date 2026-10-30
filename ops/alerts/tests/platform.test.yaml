@@ -176,3 +176,20 @@ tests:
             exp_annotations:
               summary: '1 event(s) failed every retry and are no longer retried.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#events-failing-permanently
+
+  # 10 failed lookups a minute from 5m; a single blip of 3 at 1m doesn't fire it.
+  - interval: 1m
+    input_series:
+      - series: 'agents_presence_unavailable_total{job="control-plane", instance="a"}'
+        values: '0 3 3 3 3 3 13 23 33 43 53 63'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PresenceUnavailable
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: PresenceUnavailable
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '10 host presence lookups a minute are failing; bookings are waiting.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#presence-unavailable
