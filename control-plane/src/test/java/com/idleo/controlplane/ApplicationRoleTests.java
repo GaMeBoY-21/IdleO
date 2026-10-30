@@ -22,11 +22,18 @@ import org.testcontainers.utility.MountableFile;
  * then has only what serving requests needs. It reads its own privileges, as the runbook says, and fails on any
  * change, removal or truncation of an append-only table, on anything it owns, on any schema it could create in, and on
  * a table a migration left without its grants.
+ *
+ * <p>Given {@code roles.url}, {@code roles.migration-password} and {@code roles.application-password}, it checks that
+ * database instead: the cluster's, whose users CloudNativePG makes from the chart's managed roles (ADR 0047;
+ * scripts/k8s/smoke.sh runs it through a port-forward).
  */
 class ApplicationRoleTests {
 
-    private static final String MIGRATION_PASSWORD = "tc-only-migration-7b2e04";
-    private static final String APPLICATION_PASSWORD = "tc-only-application-5d81c9";
+    private static final String URL = System.getProperty("roles.url", "");
+    private static final String MIGRATION_PASSWORD =
+            System.getProperty("roles.migration-password", "tc-only-migration-7b2e04");
+    private static final String APPLICATION_PASSWORD =
+            System.getProperty("roles.application-password", "tc-only-application-5d81c9");
 
     private static final PostgreSQLContainer postgres = TestcontainersConfiguration.newPostgres()
             .withCopyFileToContainer(
@@ -37,9 +44,11 @@ class ApplicationRoleTests {
 
     @BeforeAll
     static void migrateAsTheMigrationUser() {
-        postgres.start();
+        if (URL.isEmpty()) {
+            postgres.start();
+        }
         DatabaseMigration.main(new String[] {
-            "--spring.datasource.url=" + postgres.getJdbcUrl(),
+            "--spring.datasource.url=" + url(),
             "--spring.datasource.username=idleo_migration",
             "--spring.datasource.password=" + MIGRATION_PASSWORD
         });
@@ -47,11 +56,17 @@ class ApplicationRoleTests {
 
     @AfterAll
     static void stop() {
-        postgres.stop();
+        if (URL.isEmpty()) {
+            postgres.stop();
+        }
+    }
+
+    private static String url() {
+        return URL.isEmpty() ? postgres.getJdbcUrl() : URL;
     }
 
     private static Connection as(String user, String password) throws SQLException {
-        return DriverManager.getConnection(postgres.getJdbcUrl(), user, password);
+        return DriverManager.getConnection(url(), user, password);
     }
 
     private static Connection application() throws SQLException {
@@ -71,8 +86,8 @@ class ApplicationRoleTests {
 
     @Test
     void theMigrationUserOwnsEverySchemaAndTable() throws SQLException {
-        try (var superuser = as(postgres.getUsername(), postgres.getPassword())) {
-            assertThat(strings(superuser, """
+        try (var migration = as("idleo_migration", MIGRATION_PASSWORD)) {
+            assertThat(strings(migration, """
                             select n.nspname || ' ' || pg_get_userbyid(n.nspowner) from pg_namespace n
                             where n.nspname not like 'pg\\_%' and n.nspname not in ('information_schema', 'public')
                               and pg_get_userbyid(n.nspowner) <> 'idleo_migration'

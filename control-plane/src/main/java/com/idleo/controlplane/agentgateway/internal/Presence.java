@@ -3,6 +3,7 @@ package com.idleo.controlplane.agentgateway.internal;
 import com.idleo.controlplane.agentgateway.AgentPresence;
 import com.idleo.controlplane.hosts.HostPresence;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,12 +31,21 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>It also answers the hosts module's {@link HostPresence} port: a host is online while its record
  * exists (ADR 0013).
+ *
+ * <p>Valkey keeps nothing on disk, so a restarted Valkey has no records at all, though every agent is still connected
+ * (ADR 0047). Until each has heartbeated once since, an empty answer would say they're all offline. So presence keeps
+ * {@link #SINCE_KEY}, when this Valkey's records began. An instance starting writes it as 0, from the beginning, unless
+ * it's there; a lookup that finds it gone writes the time now. For one presence TTL after that time, longer than any
+ * live agent goes between heartbeats, presence is unknown rather than read.
  */
 @Component
 @EnableConfigurationProperties(AgentGatewayProperties.class)
 class Presence implements HostPresence, AgentPresence {
 
     static final String KEY_PREFIX = "agentgateway:presence:";
+
+    /** When this Valkey's presence records began, in epoch milliseconds (0: before any agent); gone with its data. */
+    static final String SINCE_KEY = "agentgateway:presence-since";
 
     /** A new stream owns the host's presence: replace whatever was there. */
     private static final RedisScript<Long> REGISTER = RedisScript.of("""
@@ -74,16 +84,24 @@ class Presence implements HostPresence, AgentPresence {
     private final AgentGatewayMetrics metrics;
 
     private final JsonMapper json;
+    private final Clock clock;
 
     Presence(
             StringRedisTemplate redis,
             AgentGatewayProperties properties,
             AgentGatewayMetrics metrics,
-            JsonMapper json) {
+            JsonMapper json,
+            Clock clock) {
         this.redis = redis;
         this.properties = properties;
         this.metrics = metrics;
         this.json = json;
+        this.clock = clock;
+        try {
+            redis.opsForValue().setIfAbsent(SINCE_KEY, "0");
+        } catch (RuntimeException valkeyDown) {
+            log.debug("Valkey didn't answer at start; presence begins at the first lookup", valkeyDown);
+        }
     }
 
     /** One round trip for all the hosts. If Valkey can't answer, none is online, and the miss is counted. */
@@ -164,23 +182,37 @@ class Presence implements HostPresence, AgentPresence {
         return instance == null ? Optional.empty() : Optional.of(UUID.fromString(instance.toString()));
     }
 
-    /** One round trip for all the hosts. If Valkey can't answer, presence is unknown, and the miss is counted. */
+    /**
+     * One round trip for all the hosts. If Valkey can't answer, presence is unknown, and the miss is counted; so it is
+     * for one presence TTL after Valkey first answers with none of its records (restarted), until agents heartbeat.
+     */
     @Override
     public Lookup lookup(Collection<UUID> hostIds) {
         var ids = List.copyOf(hostIds);
         if (ids.isEmpty()) {
             return new Lookup(Map.of(), true);
         }
+        var now = Instant.now(clock);
         try {
-            var records = redis.executePipelined((RedisCallback<Object>) connection -> {
+            var replies = redis.executePipelined((RedisCallback<Object>) connection -> {
+                var since = SINCE_KEY.getBytes(StandardCharsets.UTF_8);
+                connection
+                        .stringCommands()
+                        .setNX(since, Long.toString(now.toEpochMilli()).getBytes(StandardCharsets.UTF_8));
+                connection.stringCommands().get(since);
                 for (var id : ids) {
                     connection.hashCommands().hGetAll(key(id).getBytes(StandardCharsets.UTF_8));
                 }
                 return null;
             });
+            var since = Instant.ofEpochMilli(Long.parseLong(text(replies.get(1))));
+            if (since.plus(properties.presenceTtl()).isAfter(now)) {
+                log.debug("Presence has been kept only since {}; unknown until agents have heartbeated", since);
+                return new Lookup(Map.of(), false);
+            }
             var live = new java.util.HashMap<UUID, LiveAgent>();
             for (int i = 0; i < ids.size(); i++) {
-                if (records.get(i) instanceof Map<?, ?> fields && !fields.isEmpty()) {
+                if (replies.get(i + 2) instanceof Map<?, ?> fields && !fields.isEmpty()) {
                     live.put(ids.get(i), liveAgent(ids.get(i), fields));
                 }
             }
@@ -224,6 +256,10 @@ class Presence implements HostPresence, AgentPresence {
                 text(fields, "cached_images").isEmpty()
                         ? List.of()
                         : List.of(text(fields, "cached_images").split(",")));
+    }
+
+    private static String text(@Nullable Object reply) {
+        return reply instanceof byte[] bytes ? new String(bytes, StandardCharsets.UTF_8) : String.valueOf(reply);
     }
 
     private static String text(Map<?, ?> fields, String name) {

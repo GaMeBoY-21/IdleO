@@ -1,5 +1,6 @@
 package com.idleo.controlplane.trust.internal;
 
+import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.hosts.HostRatings;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -49,12 +50,19 @@ class Ratings implements HostRatings {
     private final EndedSessions sessions;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
+    private final OneAtATime oneAtATime;
     private final Clock clock;
 
-    Ratings(EndedSessions sessions, JdbcClient jdbc, PlatformTransactionManager transactionManager, Clock clock) {
+    Ratings(
+            EndedSessions sessions,
+            JdbcClient jdbc,
+            PlatformTransactionManager transactionManager,
+            OneAtATime oneAtATime,
+            Clock clock) {
         this.sessions = sessions;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.oneAtATime = oneAtATime;
         this.clock = clock;
     }
 
@@ -169,7 +177,8 @@ class Ratings implements HostRatings {
     /** The daily refresh of what hosts see (ADR 0028). */
     @Scheduled(cron = "${trust.ratings.refresh-cron}", zone = "${trust.ratings.zone}")
     void daily() {
-        refreshHostRatings();
+        // One instance at a time (ADR 0047): two refreshes at once would each insert every host's row.
+        oneAtATime.run("trust:host-ratings", this::refreshHostRatings);
     }
 
     /**

@@ -29,6 +29,19 @@ public interface AgentCommands {
             @Nullable Instant expiresAt,
             boolean requiresAck);
 
+    /**
+     * Queues {@code message} as {@link #enqueue} does, but once for {@code messageId}: a second call with the same id,
+     * from an event delivered again, changes nothing. For a command that answers one event and must not run twice,
+     * such as RunSelfTest.
+     */
+    void enqueueOnce(
+            UUID messageId,
+            UUID hostId,
+            String type,
+            OpenStreamResponse.Builder message,
+            @Nullable Instant expiresAt,
+            boolean requiresAck);
+
     /** Stops delivery of the session's commands of {@code type} that haven't been delivered, or acked. */
     void withdraw(UUID sessionId, String type);
 

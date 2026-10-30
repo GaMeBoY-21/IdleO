@@ -2,6 +2,7 @@ package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.Rupees;
@@ -63,6 +64,7 @@ class CreditRefunds {
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
+    private final OneAtATime oneAtATime;
     private final Clock clock;
     private final Gst gst;
     private final Invoices invoices;
@@ -76,6 +78,7 @@ class CreditRefunds {
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
+            OneAtATime oneAtATime,
             Clock clock,
             Gst gst,
             Invoices invoices,
@@ -87,6 +90,7 @@ class CreditRefunds {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
+        this.oneAtATime = oneAtATime;
         this.clock = clock;
         this.gst = gst;
         this.invoices = invoices;
@@ -371,9 +375,15 @@ class CreditRefunds {
     /**
      * Sends every part Razorpay hasn't accepted yet: after an approval, and every minute for any that couldn't be sent
      * (Razorpay unreachable). A part sent before whose answer was lost is found by its receipt, never refunded again.
+     * One instance at a time (ADR 0047): Razorpay takes no idempotency key for a refund, so two instances sending the
+     * same part at once could refund it twice. An instance that finds another sending leaves the parts to it.
      */
     @Scheduled(fixedDelayString = "${billing.refunds.send-every}")
     void send() {
+        oneAtATime.run("billing:refund-parts", this::sendParts);
+    }
+
+    private void sendParts() {
         var sending = jdbc.sql("select * from billing.refund_parts where status = 'sending' order by created_at")
                 .query(CreditRefunds::part)
                 .list();

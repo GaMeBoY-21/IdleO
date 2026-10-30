@@ -12,6 +12,7 @@ import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.MutableClock;
+import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.TestAdmins;
 import com.idleo.controlplane.TestRazorpayConfiguration;
@@ -72,6 +73,9 @@ class InvoiceAndGstTests {
     IdGenerator ids;
 
     @Autowired
+    OneAtATime oneAtATime;
+
+    @Autowired
     MutableClock clock;
 
     @Autowired
@@ -116,7 +120,7 @@ class InvoiceAndGstTests {
     }
 
     private Invoices invoices(Gst gst) {
-        return new Invoices(jdbc, ids, clock, gst, audit, transactionManager);
+        return new Invoices(jdbc, ids, oneAtATime, clock, gst, audit, transactionManager);
     }
 
     private TestUser renterIn(String state) throws Exception {
