@@ -81,7 +81,15 @@ function HostSearch() {
                 <Cell>
                   <HostStatus status={host.status} />
                 </Cell>
-                <Cell>{host.online ? <Pill tone="running">online</Pill> : <Pill>offline</Pill>}</Cell>
+                <Cell>
+                  {host.online ? (
+                    <Pill tone="running">online</Pill>
+                  ) : host.presence === "UNKNOWN" ? (
+                    <Pill>unknown, checking…</Pill>
+                  ) : (
+                    <Pill>offline</Pill>
+                  )}
+                </Cell>
                 <Cell>{host.gpuModels.join(", ") || "—"}</Cell>
                 <Cell>
                   <Id value={host.ownerId} />
@@ -258,7 +266,9 @@ function HostRecord({ id }: { id: string }) {
                       {found.agentVersion ? `, version ${found.agentVersion}` : ""}
                     </span>
                   ) : (
-                    `offline${found.agentVersion ? `, version ${found.agentVersion}` : ""}`
+                    `${found.presence === "UNKNOWN" ? "status unknown, checking…" : "offline"}${
+                      found.agentVersion ? `, version ${found.agentVersion}` : ""
+                    }`
                   ),
                 ],
                 [

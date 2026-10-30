@@ -20,6 +20,7 @@ const host = (overrides: Partial<Host> = {}): Host => ({
   name: "Nikki's ROG Strix",
   status: "active",
   online: true,
+  presence: "ONLINE",
   paused: false,
   updateRequired: false,
   updateWaiting: false,
@@ -171,13 +172,22 @@ describe("a machine's state", () => {
   });
 
   it("is offline, with its GPU when it has reported one", () => {
-    expect(machineState(host({ online: false }), MORNING)).toMatchObject({
+    expect(machineState(host({ online: false, presence: "OFFLINE" }), MORNING)).toMatchObject({
       kind: "offline",
       detail: "Offline · RTX 4080 Laptop · 12 GB",
     });
-    expect(machineState(host({ online: false, gpus: [] }), MORNING).detail).toBe(
+    expect(machineState(host({ online: false, presence: "OFFLINE", gpus: [] }), MORNING).detail).toBe(
       "Offline · waiting for the host app",
     );
+  });
+
+  it("is never offline when its status couldn't be read: it says it's checking", () => {
+    expect(machineState(host({ online: false, presence: "UNKNOWN" }), MORNING)).toEqual({
+      kind: "unknown",
+      label: "Status unknown",
+      detail: "Status unknown, checking…",
+      active: false,
+    });
   });
 
   it("needs an update when its agent is too old", () => {

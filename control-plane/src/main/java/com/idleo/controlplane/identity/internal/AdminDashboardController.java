@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,9 +25,9 @@ class AdminDashboardController {
         this.clock = clock;
     }
 
-    /** The pilot's figures now, counted when asked. */
+    /** The pilot's figures now, counted when asked; {@code hostsOnline} is null while presence can't be read. */
     record AdminDashboard(
-            long hostsOnline,
+            @Nullable Long hostsOnline,
             long sessionsRunning,
             long sessionsToday,
             long settlementBacklog,
@@ -52,9 +53,10 @@ class AdminDashboardController {
         var figures = new EnumMap<Figure, Long>(Figure.class);
         for (var module : modules) {
             module.figures().forEach((figure, value) -> {
-                if (figures.put(figure, value) != null) {
+                if (figures.containsKey(figure)) {
                     throw new IllegalStateException(figure + " is counted by two modules");
                 }
+                figures.put(figure, value);
             });
         }
         for (var figure : Figure.values()) {

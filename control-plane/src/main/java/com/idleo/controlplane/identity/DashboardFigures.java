@@ -5,7 +5,8 @@ import java.util.Map;
 /**
  * The admin console's dashboard (ADR 0027): each module counts its own figures and the identity module shows them
  * together. Identity declares this port and the modules that own the figures implement it, so the dependency points
- * at identity, never from it; nothing has to depend on metering. Every figure comes from exactly one module.
+ * at identity, never from it; nothing has to depend on metering. Every figure comes from exactly one module, which
+ * gives it as null when it can't be counted now (hosts online while presence can't be read): unknown, never zero.
  */
 public interface DashboardFigures {
 
@@ -24,6 +25,6 @@ public interface DashboardFigures {
         REVIEW_QUEUE
     }
 
-    /** This module's figures, now. */
+    /** This module's figures, now; null for one that can't be counted now. */
     Map<Figure, Long> figures();
 }

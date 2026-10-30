@@ -163,7 +163,8 @@ export function formatCountdown(expiresAt: string, now: number): string | null {
   return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export type MachineKind = "running" | "paused" | "update" | "offline" | "pending" | "suspended" | "idle";
+export type MachineKind =
+  "running" | "paused" | "update" | "unknown" | "offline" | "pending" | "suspended" | "idle";
 
 export interface MachineState {
   kind: MachineKind;
@@ -177,8 +178,9 @@ export interface MachineState {
 
 /**
  * A machine's state in words (web/DESIGN.md "Hosting"). One state at a time: a session that's running comes first
- * (a paused machine finishes it), then a pause, then an agent that must update, then offline, then a machine that
- * hasn't been activated, a suspended one, and at last idle.
+ * (a paused machine finishes it), then a pause, then an agent that must update, then a status we can't read just now
+ * (never shown as offline: the laptop is likely fine), then offline, then a machine that hasn't been activated, a
+ * suspended one, and at last idle.
  */
 export function machineState(host: Host, now: number): MachineState {
   const gpu = host.gpus.find((candidate) => !candidate.gone);
@@ -211,6 +213,9 @@ export function machineState(host: Host, now: number): MachineState {
   }
   if (host.status === "suspended") {
     return { kind: "suspended", label: "Suspended", detail: "Suspended by IdleO. Contact us", active: false };
+  }
+  if (host.presence === "UNKNOWN") {
+    return { kind: "unknown", label: "Status unknown", detail: "Status unknown, checking…", active: false };
   }
   if (!host.online) {
     return {

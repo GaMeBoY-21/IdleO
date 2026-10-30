@@ -113,11 +113,17 @@ class Presence implements HostPresence, AgentPresence {
 
     @Override
     public Map<UUID, Connection> connections(Collection<UUID> hostIds) {
+        return seen(hostIds).connections();
+    }
+
+    @Override
+    public Seen seen(Collection<UUID> hostIds) {
+        var lookup = lookup(hostIds);
         var connections = new java.util.HashMap<UUID, Connection>();
-        live(hostIds)
+        lookup.agents()
                 .forEach((hostId, agent) ->
                         connections.put(hostId, new Connection(agent.connectedAt(), agent.updateRequired())));
-        return connections;
+        return new Seen(connections, lookup.known());
     }
 
     /** What a presence record holds. */

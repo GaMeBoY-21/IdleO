@@ -42,9 +42,12 @@ export function Dashboard() {
           <>
             <ul aria-label="Figures" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
               {FIGURES.map(([key, label, means]) => {
-                const value = figures[key] as number;
+                // Null while it can't be counted (hosts online while presence can't be read): unknown, never zero.
+                const value = figures[key] as number | null;
                 const attention =
-                  (key === "reconciliationMismatches" || key === "settlementBacklog") && value > 0;
+                  (key === "reconciliationMismatches" || key === "settlementBacklog") &&
+                  value !== null &&
+                  value > 0;
                 return (
                   <li
                     key={key}
@@ -58,10 +61,14 @@ export function Dashboard() {
                           : "tabular font-title text-title"
                       }
                     >
-                      {value}
+                      {value ?? "Unknown"}
                     </span>
                     <span className="text-caption text-text-2">
-                      {attention ? `Needs a look: ${means}` : means}
+                      {value === null
+                        ? "Status unknown, checking…"
+                        : attention
+                          ? `Needs a look: ${means}`
+                          : means}
                     </span>
                   </li>
                 );

@@ -178,6 +178,7 @@ const base = (machine: { id: string; name: string; price: number }): Host => ({
   name: machine.name,
   status: "active",
   online: true,
+  presence: "ONLINE",
   onlineSince: iso(Date.parse("2026-10-07T04:10:00Z")),
   lastSeenAt: iso(NOW.getTime()),
   paused: false,
@@ -227,6 +228,7 @@ export const hostOffline: Host = {
   id: id(0xb005),
   name: "Spare laptop",
   online: false,
+  presence: "OFFLINE",
   onlineSince: null,
   lastSeenAt: ago(3 * HOUR),
   // Lost two sessions with its app offline and failed a self-test; renters' reports counted too.

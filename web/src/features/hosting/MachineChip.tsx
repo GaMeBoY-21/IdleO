@@ -7,6 +7,7 @@ const tones: Record<MachineKind, string> = {
   paused: "bg-warn text-warn-fg",
   update: "bg-warn text-warn-fg",
   suspended: "bg-danger-soft text-danger",
+  unknown: "bg-panel text-text-2",
   offline: "bg-panel text-text-2",
   pending: "bg-panel text-text-2",
 };

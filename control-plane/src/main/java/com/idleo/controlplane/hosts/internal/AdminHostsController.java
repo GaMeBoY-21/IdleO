@@ -69,13 +69,17 @@ class AdminHostsController {
         this.audit = audit;
     }
 
-    /** A host in a list: who owns it, its status, whether its agent is connected, and its GPUs' models. */
+    /**
+     * A host in a list: who owns it, its status, whether its agent is connected ({@code presence} UNKNOWN when presence
+     * couldn't be read), and its GPUs' models.
+     */
     record AdminHostSummary(
             UUID id,
             UUID ownerId,
             String name,
             String status,
             boolean online,
+            HostPresence.State presence,
             List<String> gpuModels,
             Instant createdAt,
             @Nullable Instant lastSeenAt) {}
@@ -152,6 +156,7 @@ class AdminHostsController {
             String name,
             String status,
             boolean online,
+            HostPresence.State presence,
             @Nullable Instant connectedSince,
             @Nullable String agentVersion,
             @Nullable Integer pricePaisePerMin,
@@ -218,7 +223,7 @@ class AdminHostsController {
                                 : rs.getTimestamp("last_seen_at").toInstant()))
                 .list();
         var page = rows.size() > size ? rows.subList(0, size) : rows;
-        var online = presence.online(page.stream().map(Row::id).toList());
+        var seen = presence.seen(page.stream().map(Row::id).toList());
         return new AdminHostPage(
                 page.stream()
                         .map(row -> new AdminHostSummary(
@@ -226,7 +231,8 @@ class AdminHostsController {
                                 row.ownerId(),
                                 row.name(),
                                 row.status(),
-                                online.contains(row.id()),
+                                seen.connections().containsKey(row.id()),
+                                seen.state(row.id()),
                                 row.models(),
                                 row.createdAt(),
                                 row.lastSeenAt()))
@@ -327,7 +333,8 @@ class AdminHostsController {
                         rs.getString("changed_by"),
                         rs.getTimestamp("created_at").toInstant()))
                 .list();
-        var connection = presence.connections(List.of(id)).get(id);
+        var seen = presence.seen(List.of(id));
+        var connection = seen.connections().get(id);
         var selfTest = jdbc.sql("select * from hosts.self_tests where host_id = :id")
                 .param("id", id)
                 .query((rs, n) -> new AdminSelfTest(
@@ -354,6 +361,7 @@ class AdminHostsController {
                 host.name(),
                 host.status(),
                 connection != null,
+                seen.state(id),
                 connection == null ? null : connection.since(),
                 host.agentVersion(),
                 price,

@@ -24,7 +24,9 @@ export function GpuLine({ host }: { host: Host }) {
         {gpu ? `${gpuName(gpu.model)} · ${gigabytes(gpu.vramMb)}` : "No GPU reported yet"}
       </p>
       {/* Two lines are always kept for the reading, which can wrap on a phone, so it arriving moves nothing. */}
-      {!host.online ? (
+      {host.presence === "UNKNOWN" ? (
+        <p className="min-h-10 text-small text-text-2">Status unknown, checking…</p>
+      ) : !host.online ? (
         <p className="min-h-10 text-small text-text-2">
           {host.lastSeenAt ? (
             <>
