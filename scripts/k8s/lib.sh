@@ -74,15 +74,9 @@ local_push() {
   sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' <<<"$pushed" | tail -1 | grep . || return 1
 }
 
-# Packages the chart from this tree as <version>-<tag>, pushes it to the cluster's registry, signs it with this
-# machine's cosign key (made once in private/k8s/cosign/, no password; the cluster has its public half as the Secret
-# cosign-local) and prints its digest. The signature stays in that registry: nothing goes to a public log.
+# Packages the chart from this tree as <version>-<tag>, pushes it to the cluster's registry and prints its digest.
 local_chart() {
   local tag="$1" folder digest
-  if [[ ! -s "$k8s_state/cosign/cosign.key" ]]; then
-    mkdir -p "$k8s_state/cosign"
-    (umask 077 && cd "$k8s_state/cosign" && COSIGN_PASSWORD='' cosign generate-key-pair >/dev/null 2>&1) || return 1
-  fi
   folder="$(mktemp -d)"
   helm package "$k8s_root/deploy/helm/idleo" --version "$chart_version-$tag" --app-version "$tag" \
     --destination "$folder" >/dev/null || return 1
@@ -90,8 +84,6 @@ local_chart() {
     sed -n 's/^Digest: //p')"
   rm -rf "$folder"
   [[ "$digest" == sha256:* ]] || return 1
-  COSIGN_PASSWORD='' cosign sign --key "$k8s_state/cosign/cosign.key" --use-signing-config=false --tlog-upload=false \
-    --yes "localhost:$registry_port/charts/idleo@$digest" >>"$k8s_state/logs/up.log" 2>&1 || return 1
   printf '%s\n' "$digest"
 }
 

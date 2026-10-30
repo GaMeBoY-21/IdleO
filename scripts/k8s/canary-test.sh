@@ -2,8 +2,9 @@
 # The proof of GitOps and canary releases (ADR 0046; .github/workflows/gitops.yml runs it on pull requests that touch
 # deploy/, and weekly), on the Mac's cluster under Flux:
 #
-#   1. up.sh --gitops: Flux bootstrapped from this commit on GitHub; the chart's signature checked before it's
-#      installed; the Secrets decrypted from SOPS; the release installed, the control plane as Flagger's primary;
+#   1. up.sh --gitops: Flux bootstrapped from this commit on GitHub; the Secrets decrypted from SOPS; the release
+#      installed, the control plane as Flagger's primary; and the cluster's Flux verifying staging's real chart with
+#      deploy/apps/idleo's verify block (the images workflow's keyless signature), and refusing it for another identity;
 #   2. a good release (the same control plane as a new version) rolls through every step, 10, 25, 50 and 100%, to
 #      promotion, after its migration Job, with renters' requests through the Gateway answered all along; timed;
 #   3. a bad release (a development build that fails 30% of API calls on purpose, web.faults.server-error-percent,
@@ -35,13 +36,38 @@ started_at=$SECONDS
 log "bringing the cluster up under Flux (up.sh --gitops)"
 scripts/k8s/up.sh --gitops || fail "up.sh --gitops failed; see private/k8s/logs/up.log"
 in_namespace() { kubectl -n "$namespace" "$@"; }
-verified="$(in_namespace get ocirepository idleo-chart -o jsonpath='{.status.conditions[?(@.type=="SourceVerified")].status}')"
-[[ "$verified" == True ]] || fail "Flux didn't verify the chart's signature: kubectl -n $namespace describe ocirepository idleo-chart"
 phase="$(in_namespace get canary idleo-control-plane -o jsonpath='{.status.phase}')"
 [[ "$phase" == Initialized || "$phase" == Succeeded ]] || fail "the canary is $phase, not Initialized"
 tag="$(kubectl -n flux-system get configmap local-release -o jsonpath='{.data.IMAGE_TAG}')"
 chart_digest="$(kubectl -n flux-system get configmap local-release -o jsonpath='{.data.CHART_DIGEST}')"
-pass "Flux bootstrapped from GitHub at $(git rev-parse --short HEAD); the chart's signature verified; the Secrets decrypted; the control plane is Flagger's primary ($phase), $((SECONDS - started_at)) s"
+pass "Flux bootstrapped from GitHub at $(git rev-parse --short HEAD); the Secrets decrypted; the control plane is Flagger's primary ($phase), $((SECONDS - started_at)) s"
+
+# The chart's signature, as staging and production check it: staging's pinned chart through deploy/apps/idleo's
+# OCIRepository (its verify block, unchanged), and the same with another workflow's identity, which must be refused.
+python3 - "$namespace" <<'PY' | kubectl apply -f - >/dev/null
+import re, sys, yaml
+chart = yaml.safe_load(open("deploy/apps/idleo/chart.yaml"))
+digest = re.search(r"digest: (sha256:[0-9a-f]{64})", open("deploy/clusters/staging/idleo/release.yaml").read()).group(1)
+good = {**chart, "metadata": {"name": "verify-staging", "namespace": sys.argv[1]},
+        "spec": {**chart["spec"], "ref": {"digest": digest}}}
+bad = yaml.safe_load(yaml.safe_dump(good))
+bad["metadata"]["name"] = "verify-other-identity"
+bad["spec"]["verify"]["matchOIDCIdentity"][0]["subject"] = (
+    r"^https://github\.com/GaMeBoY-21/IdleO/\.github/workflows/release\.yml@refs/heads/main$")
+print(yaml.safe_dump_all([good, bad]))
+PY
+source_state() { in_namespace get ocirepository "$1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'; }
+deadline=$((SECONDS + 180))
+until [[ "$(source_state verify-staging)" =~ ^(True|False)$ && "$(source_state verify-other-identity)" =~ ^(True|False)$ ]]; do
+  ((SECONDS < deadline)) || fail "Flux didn't finish checking staging's chart; kubectl -n $namespace describe ocirepository verify-staging"
+  sleep 3
+done
+[[ "$(in_namespace get ocirepository verify-staging -o jsonpath='{.status.conditions[?(@.type=="SourceVerified")].status}')" == True ]] ||
+  fail "Flux didn't verify staging's chart: $(in_namespace get ocirepository verify-staging -o jsonpath='{.status.conditions[0].message}')"
+refused="$(in_namespace get ocirepository verify-other-identity -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}')"
+[[ "$refused" == *"failed to verify the signature"* ]] || fail "Flux accepted staging's chart for another identity: $refused"
+in_namespace delete ocirepository verify-staging verify-other-identity >/dev/null
+pass "Flux verified staging's chart (signed by the images workflow on main) and refused it for another workflow's identity"
 
 # The stack's shared steps (scripts/lib/stack.sh), pointed at the cluster, for the agent and the renter.
 api="$api_url"

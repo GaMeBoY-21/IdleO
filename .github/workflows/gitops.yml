@@ -1,7 +1,7 @@
 name: gitops
 
 # GitOps and canary releases, proven on the Mac's cluster on a runner (ADR 0046): scripts/k8s/canary-test.sh bootstraps
-# Flux from this pull request's commit on GitHub (the chart's signature checked, the Secrets decrypted from SOPS), then
+# Flux from this pull request's commit on GitHub (the Secrets decrypted from SOPS, staging's chart's signature checked), then
 # releases a good version, which rolls through every canary step to promotion, and a bad one, which Flagger rolls back
 # by itself; an agent from the previous release works against both, and an incompatible migration is refused. On
 # changes to the deployment, and weekly. Not a required check: it takes about 40 minutes.
@@ -41,9 +41,6 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1
-      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-        with:
-          cosign-release: v3.1.3
       - name: Install k3d v5.9.0 and sops v3.13.3
         run: |
           curl -fsSLo k3d https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64

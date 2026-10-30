@@ -15,7 +15,7 @@ scripts/k8s/up.sh            # plain Helm, for quick work
 scripts/k8s/up.sh --gitops   # under Flux, as staging and production: push your branch first
 ```
 
-It needs the local age key, `private/k8s/age/local.agekey`, which the committed local Secrets are encrypted for (see "The local Secrets" below). It installs k3d, kubectl and helm with Homebrew if they're missing, and says so; sops (and cosign, for `--gitops`) it asks you to install (`brew install sops age cosign`). It stops `./start.sh`'s stack first. The two fit in Docker Desktop's 7.75 GiB together only while both idle: 3.9 GiB measured, with the cluster about 2.3 GiB of it. The chart's limits alone are about 6 GiB with the development services, so a busy cluster would starve the stack. Then it does six things:
+It needs the local age key, `private/k8s/age/local.agekey`, which the committed local Secrets are encrypted for (see "The local Secrets" below). It installs k3d, kubectl and helm with Homebrew if they're missing, and says so; sops it asks you to install (`brew install sops age`). It stops `./start.sh`'s stack first. The two fit in Docker Desktop's 7.75 GiB together only while both idle: 3.9 GiB measured, with the cluster about 2.3 GiB of it. The chart's limits alone are about 6 GiB with the development services, so a busy cluster would starve the stack. Then it does six things:
 
 1. Creates the cluster: k3s pinned by digest, one server node and a registry, `k3d-idleo-registry` on `localhost:5050`.
 2. Installs cert-manager.
@@ -28,7 +28,7 @@ Run it again after any change: the cluster stays, the images are rebuilt from ca
 
 **Under Flux (`--gitops`).** The same cluster and images, then, in place of steps 2, 4 and 5:
 
-- The chart is packaged from the tree, pushed beside the images and signed with this machine's cosign key (made once in `private/k8s/cosign/`; the signature stays in the cluster's registry). The cluster has the public half, and Flux checks the chart against it, as the server checks the images workflow's signature.
+- The chart is packaged from the tree and pushed beside the images. A chart built on this machine has no signature from the images workflow, so this one source isn't verified; `canary-test.sh` has the cluster verify staging's real chart instead.
 - Flux v2.9.6 is applied from `deploy/flux`. It is given the local age key (`sops-age`) and two ConfigMaps in `flux-system`: `local-source` (the branch and commit to follow) and `local-release` (this build's tag and digests).
 - Flux then reads `deploy/clusters/local` from GitHub at this commit, so the branch must be pushed and `deploy/` committed; `up.sh` refuses otherwise. It installs cert-manager, Flagger and Prometheus, decrypts the Secrets, and installs the release with the control plane as Flagger's primary (`idleo-control-plane-primary`).
 
@@ -98,7 +98,7 @@ scripts/k8s/canary-test.sh
 
 It runs `up.sh --gitops` and then proves five things:
 
-1. The chart's signature was verified.
+1. The cluster's Flux verifies staging's real chart (signed by the images workflow on main) with the same verify block staging and production use, and refuses it for another workflow's identity.
 2. A good release goes through 10, 25, 50 and 100% to promotion, after its migration Job, with every renter's request answered.
 3. A bad release (`web.faults.server-error-percent=30`, development only) is rolled back by Flagger at its first failed check, the renters' requests return to the good version, and CanaryFailed's expression is true.
 4. A migration that drops a column without a contract line is refused.
