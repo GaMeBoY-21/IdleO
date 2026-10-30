@@ -103,7 +103,20 @@ class HostScoreService implements HostScores {
                 .list());
     }
 
-    private void refresh(Collection<UUID> hostIds) {
+    private void refresh(Collection<UUID> requested) {
+        // A score belongs to a host we know: an event naming any other id has nothing to score, so it completes
+        // rather than failing on the score's foreign key and being retried for nothing.
+        var hostIds = requested.isEmpty()
+                ? List.<UUID>of()
+                : jdbc.sql("select id from hosts.hosts where id in (:ids)")
+                        .param("ids", requested)
+                        .query(UUID.class)
+                        .list();
+        if (hostIds.size() < requested.size()) {
+            log.debug(
+                    "No score kept for hosts we don't know: {}",
+                    requested.stream().filter(id -> !hostIds.contains(id)).toList());
+        }
         if (hostIds.isEmpty()) {
             return;
         }
