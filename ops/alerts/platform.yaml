@@ -111,3 +111,15 @@ groups:
         annotations:
           summary: '{{ $value }} event(s) failed every retry and are no longer retried.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#events-failing-permanently
+
+      - alert: PresenceUnavailable
+        # More than 5 presence lookups a minute couldn't read Valkey, for 2 minutes. Presence is then unknown, never
+        # offline: bookings wait and are tried again rather than told no GPU was free (SessionMatcher), but nothing new
+        # starts until Valkey answers, and hosts show as offline on pages.
+        expr: sum(rate(agents_presence_unavailable_total{job="control-plane"}[2m])) * 60 > 5
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | humanize }} host presence lookups a minute are failing; bookings are waiting.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#presence-unavailable
