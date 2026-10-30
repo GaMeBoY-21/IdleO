@@ -325,6 +325,54 @@ class SettlementTests {
     }
 
     @Test
+    void aSessionFarBehindCatchesUpAFewWindowsATurn() {
+        var fixture = session(10_000, 2, 100_000);
+        var behind = Instant.now().truncatedTo(ChronoUnit.MILLIS).minus(Duration.ofDays(30));
+        jdbcTemplate.update(
+                "update metering.metered_sessions set next_window_at = ? where session_id = ?",
+                Timestamp.from(behind),
+                fixture.sessionId());
+        var jobs = jobs();
+
+        long started = System.nanoTime();
+        tx(() -> jobs.meter(fixture.sessionId()));
+        var took = Duration.ofNanos(System.nanoTime() - started);
+
+        assertThat(jdbcTemplate
+                        .queryForObject(
+                                "select next_window_at from metering.metered_sessions where session_id = ?",
+                                Timestamp.class,
+                                fixture.sessionId())
+                        .toInstant())
+                .as("30 days behind, it moves on %d windows, not 2,880", MeteringJobs.WINDOWS_PER_TURN)
+                .isEqualTo(behind.plus(Duration.ofMinutes(15).multipliedBy(MeteringJobs.WINDOWS_PER_TURN)));
+        assertThat(took).isLessThan(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void anEndedSessionFarBehindStillClosesInOneTurn() {
+        var fixture = session(10_000, 2, 100_000);
+        minutes(fixture.sessionId(), 0, 3, true, true);
+        jdbcTemplate.update(
+                "update metering.metered_sessions set ended_at = ?, next_window_at = ? where session_id = ?",
+                Timestamp.from(Instant.now().minus(Duration.ofMinutes(6))),
+                Timestamp.from(Instant.now().minus(Duration.ofDays(30))),
+                fixture.sessionId());
+        var jobs = jobs();
+
+        tx(() -> jobs.meter(fixture.sessionId()));
+
+        assertThat(jdbcTemplate.queryForObject(
+                        "select closed_at is not null from metering.metered_sessions where session_id = ?",
+                        Boolean.class,
+                        fixture.sessionId()))
+                .isTrue();
+        assertThat(wallet(fixture.renterId()))
+                .containsEntry("balance_paise", 10_000L - 6)
+                .containsEntry("reserved_paise", 0L);
+    }
+
+    @Test
     void closingSettlesWhatsLeftReviewsTheRestAndReleasesTheHold() {
         var fixture = session(10_000, 2, 100_000);
         minutes(fixture.sessionId(), 0, 3, true, true);
