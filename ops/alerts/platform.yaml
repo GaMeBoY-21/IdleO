@@ -115,7 +115,7 @@ groups:
       - alert: PresenceUnavailable
         # More than 5 presence lookups a minute couldn't read Valkey, for 2 minutes. Presence is then unknown, never
         # offline: bookings wait and are tried again rather than told no GPU was free (SessionMatcher), but nothing new
-        # starts until Valkey answers, and hosts show as offline on pages.
+        # starts until Valkey answers, and pages show hosts' status as unknown ("Status unknown, checking…").
         expr: sum(rate(agents_presence_unavailable_total{job="control-plane"}[2m])) * 60 > 5
         for: 2m
         labels:
@@ -123,3 +123,15 @@ groups:
         annotations:
           summary: '{{ $value | humanize }} host presence lookups a minute are failing; bookings are waiting.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#presence-unavailable
+
+      - alert: CanaryFailed
+        # A release of the control plane failed one of its canary's checks (HTTP 5xx, p95 latency or session starts,
+        # ADR 0046) and Flagger rolled it back: the environment runs the release before, and git asks for one it
+        # refused. Flagger's own meter, sent from the cluster's Prometheus (deploy/infrastructure/remote-write); it
+        # stays failed until the next release, so this repeats until the release is reverted or fixed.
+        expr: max by (name, namespace, environment) (flagger_canary_status{job="flagger"}) == 2
+        labels:
+          severity: page
+        annotations:
+          summary: 'The release of {{ $labels.name }} in {{ $labels.environment }} failed its canary and was rolled back.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#canary-failed
