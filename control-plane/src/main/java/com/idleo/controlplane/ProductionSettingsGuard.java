@@ -62,7 +62,9 @@ import org.springframework.util.unit.DataSize;
  *       registry-token key, or the tests' (ADR 0042);
  *   <li>{@code server.forward-headers-strategy} on without {@code server.tomcat.remoteip.internal-proxies}, the
  *       ingress's own addresses: Tomcat's default believes X-Forwarded-For from every private address, so anything
- *       inside the network could pick the address a request is counted under (ADR 0045).
+ *       inside the network could pick the address a request is counted under (ADR 0045);
+ *   <li>{@code web.faults.server-error-percent} above 0, which fails that share of API calls on purpose, for the
+ *       proof that a broken canary is rolled back (ServerErrorFaults, ADR 0046).
  * </ul>
  *
  * <p>It runs before any other bean is created, so nothing starts with such a setting, not even briefly.
@@ -276,6 +278,11 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
                         .isBlank()) {
             problems.add("server.forward-headers-strategy is " + forwardedHeaders
                     + " without server.tomcat.remoteip.internal-proxies, the ingress's addresses");
+        }
+        var faults =
+                binder.bind("web.faults.server-error-percent", Integer.class).orElse(0);
+        if (faults > 0) {
+            problems.add("web.faults.server-error-percent is " + faults + ", which fails API calls on purpose");
         }
         problems.addAll(paymentProblems(binder));
         problems.addAll(payoutProblems(binder));

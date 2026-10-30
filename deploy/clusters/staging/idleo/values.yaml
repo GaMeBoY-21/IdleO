@@ -1,0 +1,16 @@
+# Staging's values (ADR 0046): production's settings on its own hosts, with test-mode payment keys (ADR 0039) in its
+# Secret. Its server and issuer come with production's (S5). The release itself, the chart's and the images' digests,
+# is release.yaml, which a pull request moves after every build of main.
+controlPlane:
+  profiles: prod,cluster
+
+gateway:
+  hosts:
+    api: api.staging.idleo.in
+    app: app.staging.idleo.in
+    site: staging.idleo.in
+
+tls:
+  issuer:
+    kind: ClusterIssuer
+    name: letsencrypt-staging

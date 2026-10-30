@@ -34,6 +34,17 @@ server:
     remoteip:
       internal-proxies: ${INGRESS_PROXIES}
 
+# The meters in Prometheus's format on a port of their own, which only the in-cluster Prometheus may reach and no
+# route leads to: what Flagger judges a canary by (MetricsPort, ADR 0046). They leave through OTLP as everywhere else.
+management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+metrics:
+  prometheus:
+    port: 9464
+
 hosts:
   ca:
     root-certificate: ${HOSTS_CA_ROOT_CERTIFICATE}
