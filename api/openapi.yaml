@@ -6361,7 +6361,9 @@ components:
           type: string
           format: date-time
         hostsOnline:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int64
         reconciliationMismatches:
           type: integer
@@ -6380,7 +6382,6 @@ components:
           format: int64
       required:
       - at
-      - hostsOnline
       - reconciliationMismatches
       - reviewQueue
       - sessionsRunning
@@ -6625,6 +6626,12 @@ components:
           - string
           - "null"
           format: date-time
+        presence:
+          type: string
+          enum:
+          - ONLINE
+          - OFFLINE
+          - UNKNOWN
         pricePaisePerMin:
           type:
           - integer
@@ -6660,6 +6667,7 @@ components:
       - name
       - online
       - ownerId
+      - presence
       - status
       - statusHistory
       - telemetry
@@ -6823,6 +6831,12 @@ components:
         ownerId:
           type: string
           format: uuid
+        presence:
+          type: string
+          enum:
+          - ONLINE
+          - OFFLINE
+          - UNKNOWN
         status:
           type: string
       required:
@@ -6832,6 +6846,7 @@ components:
       - name
       - online
       - ownerId
+      - presence
       - status
     AdminImage:
       type: object
@@ -9868,6 +9883,12 @@ components:
           - string
           - "null"
           format: date-time
+        presence:
+          type: string
+          enum:
+          - ONLINE
+          - OFFLINE
+          - UNKNOWN
         rating:
           oneOf:
           - $ref: "#/components/schemas/Rating"
@@ -9892,6 +9913,7 @@ components:
       - name
       - online
       - paused
+      - presence
       - reliability
       - status
       - updateRequired

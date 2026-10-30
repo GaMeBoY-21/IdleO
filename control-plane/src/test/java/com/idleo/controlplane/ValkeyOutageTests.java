@@ -1,11 +1,13 @@
 package com.idleo.controlplane;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
@@ -60,6 +63,12 @@ class ValkeyOutageTests {
     MeterRegistry meters;
 
     @Autowired
+    JdbcTemplate jdbc;
+
+    @Autowired
+    Clock clock;
+
+    @Autowired
     @Qualifier("dedicatedValkey")
     GenericContainer<?> valkey;
 
@@ -88,14 +97,28 @@ class ValkeyOutageTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("UP"));
 
-            // The host page still answers, showing the host offline, and the miss is counted (ADR 0013). The request
-            // limit, counted in Valkey, lets it through rather than refusing it (RequestLimits, ADR 0025).
+            // The host page still answers, its presence unknown (never offline: the page says it's checking), and the
+            // miss is counted (ADR 0013). The request limit, counted in Valkey, lets it through rather than refusing it
+            // (RequestLimits, ADR 0025).
             var unavailableBefore =
                     meters.counter("agents.presence.unavailable").count();
             mvc.perform(get("/v1/hosts/" + agent.hostId).header("Authorization", agent.bearer))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.online").value(false));
+                    .andExpect(jsonPath("$.online").value(false))
+                    .andExpect(jsonPath("$.presence").value("UNKNOWN"));
             assertThat(meters.counter("agents.presence.unavailable").count()).isEqualTo(unavailableBefore + 1);
+
+            // The admin console's hosts online are unknown too, not zero, and its host list and page say so.
+            var admin = TestAdmins.signIn(mvc, jdbc, clock);
+            mvc.perform(admin.as(get("/admin/v1/dashboard")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.hostsOnline").value(nullValue()));
+            mvc.perform(admin.as(get("/admin/v1/hosts")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.hosts[0].presence").value("UNKNOWN"));
+            mvc.perform(admin.as(get("/admin/v1/hosts/" + agent.hostId)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.presence").value("UNKNOWN"));
         } finally {
             channel.shutdownNow();
         }

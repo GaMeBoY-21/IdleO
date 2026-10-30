@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -59,10 +60,11 @@ class HostMetrics {
                 .register(registry);
     }
 
+    private record Host(UUID id, String state) {}
+
     /** Once a minute, when scheduling runs (never for an operator command). */
     @Scheduled(fixedDelayString = "PT1M", initialDelayString = "PT5S")
     void refresh() {
-        record Host(UUID id, String state) {}
         var all = jdbc.sql("""
                         select id,
                                case when status = 'active' and paused_at is not null
@@ -73,7 +75,24 @@ class HostMetrics {
                 .param("now", Timestamp.from(Instant.now(clock)))
                 .query((rs, n) -> new Host(rs.getObject("id", UUID.class), rs.getString("state")))
                 .list();
-        var online = presence.online(all.stream().map(Host::id).toList());
+        var seen = presence.seen(all.stream().map(Host::id).toList());
+        if (!seen.known()) {
+            // Presence couldn't be read: the counts are unknown, a gap in the series, never a fleet gone offline.
+            hosts.register(List.of(), true);
+        } else {
+            registerCounts(all, seen.connections().keySet());
+        }
+
+        var results = jdbc.sql("select version, outcome, count(*) as hosts from hosts.update_results group by 1, 2")
+                .query((rs, n) -> MultiGauge.Row.of(
+                        Tags.of("version", code(rs.getString("version")), "outcome", rs.getString("outcome")),
+                        rs.getLong("hosts")))
+                .list();
+        updateResults.register(new ArrayList<>(results), true);
+    }
+
+    /** Hosts by state and by whether their agent is connected, every pair counted, zero included. */
+    private void registerCounts(List<Host> all, Set<UUID> online) {
         var counts = new HashMap<Tags, Long>();
         for (var state : List.of("pending", "verified", "active", "paused", "suspended")) {
             counts.put(Tags.of("state", state, "online", "true"), 0L);
@@ -88,13 +107,6 @@ class HostMetrics {
         var rows = new ArrayList<MultiGauge.Row<?>>();
         counts.forEach((tags, count) -> rows.add(MultiGauge.Row.of(tags, count)));
         hosts.register(rows, true);
-
-        var results = jdbc.sql("select version, outcome, count(*) as hosts from hosts.update_results group by 1, 2")
-                .query((rs, n) -> MultiGauge.Row.of(
-                        Tags.of("version", code(rs.getString("version")), "outcome", rs.getString("outcome")),
-                        rs.getLong("hosts")))
-                .list();
-        updateResults.register(new ArrayList<>(results), true);
     }
 
     void linkStarted() {

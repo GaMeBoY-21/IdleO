@@ -50,7 +50,13 @@ export function MachineTile({ host, className }: { host: Host; className?: strin
             {label}
           </span>
           <span className="w-32 shrink-0 text-left text-text-2 tabular">
-            {reading ? `${reading.tempC}°C · ${reading.utilPct}% busy` : host.online ? "online" : "offline"}
+            {reading
+              ? `${reading.tempC}°C · ${reading.utilPct}% busy`
+              : host.online
+                ? "online"
+                : host.presence === "UNKNOWN"
+                  ? "checking…"
+                  : "offline"}
           </span>
         </span>
         <span className="flex flex-col gap-3">

@@ -31,7 +31,9 @@ class HostViews {
     record Reliability(String label, List<Lowers> lowers) {}
 
     /**
-     * A host as its owner sees it. {@code online} is whether its agent has a live stream now; {@code
+     * A host as its owner sees it. {@code online} is whether its agent has a live stream now, and {@code presence}
+     * says it in full: ONLINE, OFFLINE, or UNKNOWN when presence couldn't be read (then {@code online} is false, which
+     * says nothing: the page says it's checking, never that the laptop is offline); {@code
      * lastSeenAt} is when the agent was last seen, to the minute. {@code paused} is true from the owner's pause until
      * it ends or they resume; {@code pausedUntil} is empty for a pause with no end. {@code agentVersion} is what
      * the agent last reported; {@code updateRequired} says it's older than the oldest release we support, and {@code
@@ -47,6 +49,7 @@ class HostViews {
             String name,
             String status,
             boolean online,
+            HostPresence.State presence,
             @Nullable Instant lastSeenAt,
             boolean paused,
             @Nullable Instant pausedUntil,
@@ -106,7 +109,8 @@ class HostViews {
     /** One presence lookup and one GPU query for the whole list. */
     List<HostResponse> views(Collection<Host> list) {
         var ids = list.stream().map(Host::id).toList();
-        var connections = ids.isEmpty() ? Map.<UUID, HostPresence.Connection>of() : presence.connections(ids);
+        var seen = ids.isEmpty() ? new HostPresence.Seen(Map.of(), true) : presence.seen(ids);
+        var connections = seen.connections();
         var gpus = hosts.gpus(ids);
         var current = work.current(ids);
         var rated = ids.isEmpty() ? Map.<UUID, HostRatings.Rating>of() : ratings.of(ids);
@@ -122,6 +126,7 @@ class HostViews {
                             host.name(),
                             host.status(),
                             connection != null,
+                            seen.state(host.id()),
                             host.lastSeenAt(),
                             paused,
                             paused ? host.pausedUntil() : null,
