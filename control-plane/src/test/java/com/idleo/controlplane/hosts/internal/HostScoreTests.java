@@ -107,6 +107,20 @@ class HostScoreTests {
     }
 
     @Test
+    void anEventAboutAHostWeDontKnowCompletesWithoutAScore() throws Exception {
+        var unknown = UUID.randomUUID();
+        var known = newHost();
+
+        service().refresh(unknown);
+        service().refresh(known);
+
+        assertThat(jdbcTemplate.queryForObject(
+                        "select count(*) from hosts.host_scores where host_id = ?", Integer.class, unknown))
+                .isZero();
+        assertThat(reliability(known)).isEqualTo(0.5);
+    }
+
+    @Test
     void aHostWithNoDataStartsAtAverageOnBothAndIsNew() throws Exception {
         var host = newHost();
 
