@@ -5,8 +5,8 @@
 # the canary: the migration Job has already run (Helm's pre-upgrade hook), so the canary meets the new schema while
 # the primary, the release before, still serves. Flagger makes the Services (idleo-control-plane for the primary, and
 # -primary and -canary) and the API's HTTPRoute, and moves the route's weights a step at a time; at 100% and a last
-# good check it promotes the canary to primary. One failed check sends all traffic back to the primary at once and
-# marks the canary Failed (ops/alerts' CanaryFailed pages).
+# good check it promotes the canary to primary. One failed check halts it at its weight, and the next step (within an
+# interval) sends all traffic back to the primary and marks the canary Failed (ops/alerts' CanaryFailed pages).
 #
 # Agents' gRPC streams don't follow the weights: their Service reaches both versions' pods, so the agent protocol and
 # the database must work with the release before and the new one at once.

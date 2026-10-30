@@ -6,6 +6,10 @@
 #   control plane 1024/1536 Mi, migration Job 384/512 Mi (only while it runs), scanner 768/2048 Mi, web 32/64 Mi,
 #   Valkey 64/256 Mi, PostgreSQL 512/1024 Mi
 #   total, steady: requests 2400 Mi, limits 4928 Mi; k3s, Traefik and cert-manager take about 900 Mi, leaving room.
+# Under Flux (ADR 0046) add the canary's load tester (32/64 Mi), and outside the chart Flux's four controllers
+# (4 x 64 Mi requested), Flagger (32/128 Mi) and Prometheus (128/256 Mi): used, measured on the Mac on 2026-10-30,
+# 211 Mi, 18 Mi and 40 Mi. During a canary a second control plane runs (another 1024/1536 Mi): the Mac's node went
+# from 3.0 to 3.6 GiB.
 # CPU requests total 0.95 cores (1.2 while the migration Job runs). The scanner's limit is what one image check needs (ADR 0042); its request is what it
 # idles at, so a check borrows from the node's headroom.
 
@@ -47,7 +51,8 @@ controlPlane:
 
 # The control plane is released as a canary (Flagger, ADR 0046): the new version takes 10%, then 25%, 50% and 100% of
 # the API's traffic, a step each interval while every check passes, then becomes the primary. One failed check rolls
-# it back at once. Off where Flagger isn't installed (plain Helm on the Mac, values-local.yaml).
+# it back: halted at once at its weight, and all traffic back to the primary at the next step. Off where Flagger isn't
+# installed (plain Helm on the Mac, values-local.yaml).
 canary:
   enabled: true
   interval: 2m

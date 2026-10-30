@@ -213,9 +213,16 @@ bad_digest="$(release_image "$bad" WEB_FAULTS_SERVERERRORPERCENT=30)"
 log "releasing $bad, which fails 30% of API calls: Flagger should roll it back at its first failed check"
 release "$bad" "$bad_digest"
 released=$SECONDS
+# The phase reads the good release's Succeeded until Flagger notices the new one.
+until [[ "$(in_namespace get canary idleo-control-plane -o jsonpath='{.status.phase}')" == Progressing ]]; do
+  ((SECONDS - released < 600)) || fail "the bad release's canary didn't start within 600 s"
+  sleep 3
+done
 follow_canary Failed 900 Succeeded
 bad_seconds=$((SECONDS - released))
 from_first_weight=$((SECONDS - ${progressing_at:-$released}))
+halted="$(in_namespace get events --field-selector involvedObject.kind=Canary,involvedObject.name=idleo-control-plane \
+  --sort-by=.lastTimestamp -o jsonpath='{range .items[*]}{.message}{"\n"}{end}' | grep 'Halt' | tail -1)"
 reason="$(in_namespace get canary idleo-control-plane -o jsonpath='{.status.conditions[?(@.type=="Promoted")].message}')"
 weight="$(in_namespace get canary idleo-control-plane -o jsonpath='{.status.canaryWeight}')"
 [[ "${weight:-0}" == 0 ]] || fail "the canary still has $weight% of the traffic after it failed"
@@ -227,7 +234,7 @@ after="$(answered_between "$((SECONDS - 60))" "$SECONDS")"
 after_failed="$(grep -c '^5' <<<"$after" || true)"
 ((after_failed == 0)) || fail "$after_failed of $(wc -l <<<"$after") renters' requests still failed after the rollback"
 during="$(answered_between "$released" "$((SECONDS - 60))")"
-pass "a bad release (30% of API calls fail) was rolled back by Flagger in $bad_seconds s from its release ($from_first_weight s after its canary began): \"$reason\"; $(grep -c '^5' <<<"$during" || true) of $(wc -l <<<"$during" | tr -d ' ') renters' requests failed while it had traffic, none of $(wc -l <<<"$after" | tr -d ' ') after"
+pass "a bad release (30% of API calls fail) was rolled back by Flagger in $bad_seconds s from its release ($from_first_weight s after its canary began): \"$halted\", then \"$reason\"; $(grep -c '^5' <<<"$during" || true) of $(wc -l <<<"$during" | tr -d ' ') renters' requests failed while it had traffic, none of $(wc -l <<<"$after" | tr -d ' ') after"
 
 # The signal ops/alerts' CanaryFailed pages on (through Grafana Cloud in staging and production): the in-cluster
 # Prometheus has Flagger saying this canary failed.
