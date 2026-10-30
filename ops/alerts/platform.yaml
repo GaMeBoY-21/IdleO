@@ -100,3 +100,14 @@ groups:
         annotations:
           summary: 'A certificate expires in {{ $value | humanizeDuration }}.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#certificates
+
+      - alert: EventsFailingPermanently
+        # An event between modules failed every retry (EventPublicationRetry: 8 tries over about two hours) and is no
+        # longer retried, so whatever its listener does (a charge settled, a score kept, an email sent) hasn't
+        # happened and won't until a person fixes the cause. Read from the database, the same on every instance.
+        expr: max(events_publications_failed_permanently{job="control-plane"}) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value }} event(s) failed every retry and are no longer retried.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#events-failing-permanently
