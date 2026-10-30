@@ -154,9 +154,17 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** fix the cause: a deployment, a dependency, or data the listener didn't expect, which may need a code fix. Then hand the event back to its retries by setting `completion_attempts = 0` on its row; it's tried again within the next minute. An event that should never have been made (its subject is gone) can be deleted, once you've checked that nothing it would have done is still owed.
 
+## Canary failed
+
+**Means:** a release of the control plane failed one of its canary's checks and Flagger rolled it back by itself (ADR 0046): more than 1% of the canary's API requests answered 5xx, their 95th percentile took over 800 ms, or the session-start success rate fell more than 10 points below the hour before. All traffic went back to the release before at once; that release is still serving, and the database already has the new release's migrations, which it works with (expand and contract). Git still asks for the failed release.
+
+**Check first:** what failed and when: `kubectl -n idleo describe canary idleo-control-plane` (its events name the check and its value) and Flagger's log (`kubectl -n flagger-system logs deploy/flagger --since=1h`). The canary's own log, if its pod is still there, or the failed release's commit status on GitHub, which Flux set to failed. A latency or error failure caused by something outside the release (a slow database, Valkey down) shows in the primary's meters too.
+
+**Do:** revert the release's pull request (docs/runbooks/deploying.md, "Rolling back"), so git asks for what runs again and the alert clears with the next release; then fix the cause and release again. If the failure was outside the release, fix that and release it again unchanged: a new commit to main redeploys staging, and production is promoted again. Never edit the cluster by hand to push the release through.
+
 ## Presence unavailable
 
-**Means:** the control plane can't read hosts' presence from Valkey (ADR 0011): more than 5 lookups a minute have failed for 2 minutes (`agents_presence_unavailable_total`). Presence is then unknown, not offline. A booking made now waits in REQUESTED, shown as "Finding your GPU", and is tried again after 1, 2, 4 and 8 s; after that the re-match loop keeps trying it for `scheduling.rematch-wait` (10 minutes). Nothing new starts until Valkey answers, and pages show hosts as offline meanwhile. Running sessions go on: leases and heartbeats don't depend on reading presence.
+**Means:** the control plane can't read hosts' presence from Valkey (ADR 0011): more than 5 lookups a minute have failed for 2 minutes (`agents_presence_unavailable_total`). Presence is then unknown, not offline. A booking made now waits in REQUESTED, shown as "Finding your GPU", and is tried again after 1, 2, 4 and 8 s; after that the re-match loop keeps trying it for `scheduling.rematch-wait` (10 minutes). Nothing new starts until Valkey answers, and pages show hosts' status as "Status unknown, checking…" meanwhile (never "offline", which would tell a host their laptop had dropped); the admin dashboard's hosts online shows Unknown. Running sessions go on: leases and heartbeats don't depend on reading presence.
 
 **Check first:** Valkey itself: the `valkey` pod's state and memory (`kubectl -n idleo get pod idleo-valkey-0`, `kubectl -n idleo top pod idleo-valkey-0`), and the control plane's log for `RedisCommandTimeoutException` or connection errors. A restart of Valkey empties presence; agents fill it again within a heartbeat (5 s).
 

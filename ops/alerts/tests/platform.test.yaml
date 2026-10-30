@@ -193,3 +193,20 @@ tests:
             exp_annotations:
               summary: '10 host presence lookups a minute are failing; bookings are waiting.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#presence-unavailable
+
+  # A canary progressing (0) for 4 minutes, then failed (2) and rolled back: it pages at once, and not before.
+  - interval: 1m
+    input_series:
+      - series: 'flagger_canary_status{job="flagger", name="idleo-control-plane", namespace="idleo", environment="production"}'
+        values: '1 0 0 0 0 2 2 2'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CanaryFailed
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CanaryFailed
+        exp_alerts:
+          - exp_labels: {severity: page, name: idleo-control-plane, namespace: idleo, environment: production}
+            exp_annotations:
+              summary: 'The release of idleo-control-plane in production failed its canary and was rolled back.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#canary-failed
