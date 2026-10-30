@@ -389,6 +389,12 @@ class HistoryReference(BaseModel):
     type: str
 
 
+class Presence(Enum):
+    online = "ONLINE"
+    offline = "OFFLINE"
+    unknown = "UNKNOWN"
+
+
 class HostSession(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1773,6 +1779,7 @@ class HostResponse(BaseModel):
     online_since: Annotated[AwareDatetime | None, Field(alias="onlineSince")] = None
     paused: bool
     paused_until: Annotated[AwareDatetime | None, Field(alias="pausedUntil")] = None
+    presence: Presence
     rating: Rating | None = None
     reliability: Reliability
     status: str
