@@ -29,7 +29,8 @@ git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git switch -c "$branch"
 git add "$release"
 git commit -q -m "$(tr '[:upper:]' '[:lower:]' <<<"${title:0:1}")${title:1}"
-git push -q origin "$branch"
+# The branch is this script's alone: a re-run of a failed job replaces what the last attempt pushed.
+git push -q --force origin "$branch"
 
 url="$(gh pr create --base main --head "$branch" --title "$title" --body-file "$body")"
 echo "deploy: opened $url"
