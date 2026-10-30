@@ -12,6 +12,7 @@ paths = [
   '''^control-plane/src/main/resources/application-test\.yaml$''',
   '''^control-plane/src/test/java/com/idleo/controlplane/(CreditCommandProcessTests|LogScanTests|ProductionSettingsGuardTests|TestAgent)\.java$''',
   '''^control-plane/src/test/java/com/idleo/controlplane/identity/internal/(ProviderAccountsTests|TotpTests)\.java$''',
+  '''^control-plane/src/test/java/com/idleo/controlplane/notifications/internal/EmailSamples\.java$''',
   '''^scripts/e2e/(make-image\.py|real-runner\.sh)$''',
   '''^web/e2e/fixtures-admin\.ts$''',
   '''^web/src/features/account/keys\.test\.tsx$''',
