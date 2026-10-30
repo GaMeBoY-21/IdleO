@@ -70,8 +70,9 @@ class BookingJobs {
     }
 
     /**
-     * Sessions being matched again after a lost host that no host could take yet (ADR 0016): tried again,
-     * until they've waited {@code rematch-wait}, then NO_HOST_FREE with the hold released.
+     * Sessions being matched again after a lost host that no host could take yet (ADR 0016), and first bookings that
+     * missed their match while presence couldn't be read (SessionMatcher): tried again, until they've waited
+     * {@code rematch-wait}, then NO_HOST_FREE with the hold released.
      */
     @Scheduled(fixedDelayString = "${scheduling.rematch-retry-every}")
     void retryRematches() {

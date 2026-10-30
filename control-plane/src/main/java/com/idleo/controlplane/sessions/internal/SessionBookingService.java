@@ -2,6 +2,8 @@ package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.images.CheckedImages;
 import com.idleo.controlplane.sessions.SessionBookings;
+import java.sql.Timestamp;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -16,6 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 /** The scheduler's view of sessions (ADR 0015): every change a state machine transition. */
 @Service
 class SessionBookingService implements SessionBookings {
+
+    /**
+     * A first attempt still REQUESTED this long after it was requested has missed its match: presence couldn't be read
+     * through all of SessionMatcher's quick retries (1, 2, 4 and 8 s), or the match never ran. The re-match loop
+     * takes it from there.
+     */
+    static final Duration STRANDED_AFTER = Duration.ofSeconds(20);
 
     private final SessionStore store;
     private final SessionJobs jobs;
@@ -115,14 +124,20 @@ class SessionBookingService implements SessionBookings {
     @Override
     public List<AwaitingRematch> awaitingRematch() {
         return jdbc.sql("""
-                        select id, state_changed_at from sessions.sessions
-                        where state = 'REQUESTED' and attempt > 1
+                        select id, attempt, state_changed_at from sessions.sessions
+                        where state = 'REQUESTED' and (attempt > 1 or state_changed_at < :stranded)
                         order by state_changed_at
                         limit 100
                         """)
+                .param("stranded", Timestamp.from(store.now().minus(STRANDED_AFTER)))
+                // A stranded first attempt has waited for the loop since it was stranded, not since it was requested.
                 .query((rs, n) -> new AwaitingRematch(
                         rs.getObject("id", UUID.class),
-                        rs.getTimestamp("state_changed_at").toInstant()))
+                        rs.getInt("attempt") > 1
+                                ? rs.getTimestamp("state_changed_at").toInstant()
+                                : rs.getTimestamp("state_changed_at")
+                                        .toInstant()
+                                        .plus(STRANDED_AFTER)))
                 .list();
     }
 

@@ -12,11 +12,14 @@ import gpu.agent.v1.Session.Offer;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -45,6 +48,20 @@ class SessionMatcher {
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final TaskScheduler scheduler;
+
+    /**
+     * When presence couldn't be read, the match is tried again after each of these, then left to the re-match loop
+     * (BookingJobs): a Valkey blip never tells a renter no GPU was free.
+     */
+    static final List<java.time.Duration> PRESENCE_RETRIES = List.of(
+            java.time.Duration.ofSeconds(1),
+            java.time.Duration.ofSeconds(2),
+            java.time.Duration.ofSeconds(4),
+            java.time.Duration.ofSeconds(8));
+
+    /** The tries used so far, by session, while presence is unknown. */
+    private final ConcurrentHashMap<UUID, Integer> presenceRetries = new ConcurrentHashMap<>();
 
     SessionMatcher(
             SessionBookings sessions,
@@ -57,7 +74,8 @@ class SessionMatcher {
             SchedulingMetrics metrics,
             PlatformTransactionManager transactionManager,
             IdGenerator ids,
-            Clock clock) {
+            Clock clock,
+            TaskScheduler scheduler) {
         this.sessions = sessions;
         this.hosts = hosts;
         this.reservations = reservations;
@@ -69,6 +87,7 @@ class SessionMatcher {
         this.transactions = new TransactionTemplate(transactionManager);
         this.ids = ids;
         this.clock = clock;
+        this.scheduler = scheduler;
     }
 
     /** What happened to one candidate. */
@@ -97,17 +116,20 @@ class SessionMatcher {
         long started = System.nanoTime();
         var request = sessions.bookingRequest(sessionId).orElse(null);
         if (request == null || !request.state().equals("REQUESTED")) {
+            presenceRetries.remove(sessionId);
             return;
         }
         if (offers.count(sessionId, request.attempt()) >= properties.maxOffers()) {
             endWithoutHost(sessionId, "offers_exhausted");
             return;
         }
-        var ranked = candidates.find(request, offers.hostsOffered(sessionId, request.attempt()));
+        var found = candidates.find(request, offers.hostsOffered(sessionId, request.attempt()));
+        var ranked = found.ranked();
         for (var scored : ranked) {
             var attempt = tryCandidate(request, scored.candidate());
             switch (attempt) {
                 case MATCHED -> {
+                    presenceRetries.remove(sessionId);
                     metrics.matched(java.time.Duration.ofNanos(System.nanoTime() - started), ranked.size());
                     return;
                 }
@@ -123,12 +145,36 @@ class SessionMatcher {
                 }
             }
         }
+        if (!found.presenceKnown()) {
+            // Whether any host is online isn't known (Valkey didn't answer), so this says nothing about whether one is
+            // free: the booking waits, still REQUESTED, and is tried again shortly.
+            metrics.outcome("presence_unknown");
+            retryWhilePresenceUnknown(sessionId);
+            return;
+        }
+        presenceRetries.remove(sessionId);
         if (request.attempt() > 1) {
             // A session that already ran waits for a host rather than ending; the re-match retries try again.
             metrics.outcome("waiting_for_host");
             return;
         }
         endWithoutHost(sessionId, "no_candidate");
+    }
+
+    /**
+     * Tries the match again after the next of {@link #PRESENCE_RETRIES}. Once they're used up, the re-match loop
+     * (BookingJobs, SessionBookings.awaitingRematch) keeps trying a booking left REQUESTED, as it does for a re-match.
+     */
+    private void retryWhilePresenceUnknown(UUID sessionId) {
+        int tries = presenceRetries.merge(sessionId, 1, Integer::sum);
+        if (tries > PRESENCE_RETRIES.size()) {
+            presenceRetries.remove(sessionId);
+            log.info("Session {} waits for presence to come back; the re-match loop tries it", sessionId);
+            return;
+        }
+        // The scheduler's own clock: a delay, not a business time.
+        scheduler.schedule(
+                () -> match(sessionId), scheduler.getClock().instant().plus(PRESENCE_RETRIES.get(tries - 1)));
     }
 
     private Attempt tryCandidate(SessionBookings.BookingRequest request, Scoring.Candidate candidate) {

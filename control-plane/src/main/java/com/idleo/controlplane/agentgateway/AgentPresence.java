@@ -52,6 +52,35 @@ public interface AgentPresence {
         }
     }
 
-    /** The live agents among {@code hostIds}; empty if presence can't be read. */
-    Map<UUID, LiveAgent> live(Collection<UUID> hostIds);
+    /** Where a host stands: its agent's record is live, or isn't, or presence couldn't be read. */
+    enum State {
+        ONLINE,
+        OFFLINE,
+        UNKNOWN
+    }
+
+    /**
+     * One presence lookup.
+     *
+     * @param agents the live agents among the hosts asked about
+     * @param known presence was read: false when Valkey couldn't answer, which says nothing about whether a host is
+     *     online, so no host is offline because of it (the scheduler tries again, SessionMatcher)
+     */
+    record Lookup(Map<UUID, LiveAgent> agents, boolean known) {
+
+        public State state(UUID hostId) {
+            if (!known) {
+                return State.UNKNOWN;
+            }
+            return agents.containsKey(hostId) ? State.ONLINE : State.OFFLINE;
+        }
+    }
+
+    /** The live agents among {@code hostIds}, in one round trip; {@code known} false if presence can't be read. */
+    Lookup lookup(Collection<UUID> hostIds);
+
+    /** The live agents among {@code hostIds}, for a view of what's known now: empty if presence can't be read. */
+    default Map<UUID, LiveAgent> live(Collection<UUID> hostIds) {
+        return lookup(hostIds).agents();
+    }
 }
