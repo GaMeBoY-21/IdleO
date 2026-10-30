@@ -1,6 +1,6 @@
 # Deployment
 
-What a production deployment needs that the local stack doesn't, and what must be done before launch. The server side runs from signed images and one Helm chart on k3s (ADR 0045, kubernetes.md); the deployment rounds fill in the rest: Flux and SOPS, CloudNativePG, the cluster's policies, and the server with its domain.
+What a production deployment needs that the local stack doesn't, and what must be done before launch. The server side runs from signed images and one Helm chart on k3s (ADR 0045, kubernetes.md); Flux deploys it from git, with SOPS-encrypted Secrets and canary releases (ADR 0046, deploying.md); the deployment rounds fill in the rest: CloudNativePG, the cluster's policies, and the server with its domain.
 
 ## Secrets the control plane won't start without
 
