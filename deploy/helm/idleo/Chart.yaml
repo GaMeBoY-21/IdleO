@@ -2,6 +2,12 @@ apiVersion: v2
 name: idleo
 description: IdleO's server side on one k3s cluster (ADR 0045)
 type: application
-# The chart's own version; the images are tagged with the git commit (images.tag).
+# The chart's own version. Each build of main publishes it to GHCR as <version>-<commit>, signed like the images
+# (.github/workflows/images.yml); the images are named by the commit too (images.tag) and pinned by digest.
 version: 0.1.0
 appVersion: "0.1.0"
+home: https://github.com/GaMeBoY-21/IdleO
+# The first source becomes the published chart's org.opencontainers.image.source, which links the package to this
+# repository on GHCR (and so makes it public, as the repository is).
+sources:
+  - https://github.com/GaMeBoY-21/IdleO

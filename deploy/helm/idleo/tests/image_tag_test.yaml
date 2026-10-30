@@ -1,9 +1,40 @@
-# An image is named by the commit it was built from: the chart refuses to render without one.
-suite: the image tag
+# An image is named by the commit it was built from: the chart refuses to render without one. An environment that
+# pins an image by digest gets exactly those bytes.
+suite: the image tag and digests
 templates:
   - templates/postgres.yaml
+  - templates/control-plane.yaml
+  - templates/configmap.yaml
 tests:
   - it: refuses to render without an image tag
+    template: templates/postgres.yaml
     asserts:
       - failedTemplate:
           errorPattern: images.tag is required
+  - it: pulls by tag when no digest is given
+    template: templates/postgres.yaml
+    set:
+      images.tag: abc123
+    documentSelector: { path: kind, value: StatefulSet }
+    asserts:
+      - equal: { path: "spec.template.spec.containers[0].image", value: "ghcr.io/gameboy-21/idleo-postgres:abc123" }
+  - it: pulls by digest alone when one is given, image by image
+    template: templates/control-plane.yaml
+    set:
+      images.tag: abc123
+      images.digests.control-plane: sha256:1111111111111111111111111111111111111111111111111111111111111111
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - equal:
+          path: "spec.template.spec.containers[0].image"
+          value: ghcr.io/gameboy-21/idleo-control-plane@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      # The wait-for-schema container is the postgres image, which has no digest here.
+      - equal: { path: "spec.template.spec.initContainers[0].image", value: "ghcr.io/gameboy-21/idleo-postgres:abc123" }
+  - it: refuses a digest that isn't one
+    template: templates/postgres.yaml
+    set:
+      images.tag: abc123
+      images.digests.postgres: latest
+    asserts:
+      - failedTemplate:
+          errorPattern: images.digests.postgres must be sha256

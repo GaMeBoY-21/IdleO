@@ -12,8 +12,12 @@
 images:
   # ghcr.io/gameboy-21/idleo-<name>:<tag>, signed by .github/workflows/images.yml.
   registry: ghcr.io/gameboy-21
-  # The git commit the images were built from. Required.
+  # The git commit the images were built from. Required: it names the release (IDLEO_RELEASE).
   tag: ""
+  # Each image's digest (control-plane, web, scanner, postgres: sha256:...), which pins it to the bytes the images
+  # workflow scanned and signed. Staging and production set every one (deploy/clusters/<env>/release.yaml); without
+  # one, an image is pulled by its tag.
+  digests: {}
   pullPolicy: IfNotPresent
 
 controlPlane:
