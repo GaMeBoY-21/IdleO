@@ -8,7 +8,7 @@ Nobody deploys by hand (ADR 0046). Flux keeps each cluster as its folder of `mai
 2. The images workflow (`.github/workflows/images.yml`) builds, scans and publishes the four images and the chart for that commit, each signed with cosign keyless.
 3. Its last job, "deploy to staging", writes the commit's digests into `deploy/clusters/staging/idleo/release.yaml` (`scripts/deploy/release.py write staging <commit>`). It then verifies every one with `scripts/deploy/verify-release.sh`: each image's signature, bill of materials and provenance, and the chart's signature.
 4. It opens **"Deploy <short sha> to staging"** and turns on auto-merge. An older open staging pull request is closed as superseded.
-5. The required checks run on it, started by the job itself, since GitHub doesn't start workflows for a pull request opened with Actions' token. When they pass, GitHub merges it by rebase.
+5. It is opened as the deploy app (a GitHub App on this repository only; the variable `DEPLOY_APP_ID` and secret `DEPLOY_APP_PRIVATE_KEY`), so its own required checks start as a person's would. When they pass, GitHub merges it by rebase.
 6. Flux sees the new commit within 2 minutes. It applies the release: the migration Job first, then Flagger's canary of the control plane, while the web, scanner and database roll as usual.
 
 Watch it on the server with `kubectl -n flux-system get kustomizations` and `kubectl -n idleo get canary -w`. The commit's status on GitHub shows each Kustomization's outcome (Flux's notification controller).
@@ -102,6 +102,10 @@ What each environment's Secrets hold:
 | `grafana-cloud-metrics` | flux-system | `GRAFANA_CLOUD_PROMETHEUS_URL` and `_USER`, which Flux substitutes into Prometheus's remote write |
 | `grafana-cloud-metrics` | monitoring | `GRAFANA_CLOUD_PROMETHEUS_TOKEN`, a Grafana Cloud token that may only write metrics |
 | `github-commit-status` | flux-system | `token`: a fine-grained GitHub token for this repository with "Commit statuses: write" and nothing else |
+
+## The deploy app
+
+The deploy pull requests come from a GitHub App installed on this repository alone, with read and write access to Contents and Pull requests and nothing else. The workflows take a one-run token from it (`actions/create-github-app-token`). The App ID is the repository variable `DEPLOY_APP_ID` and its private key the secret `DEPLOY_APP_PRIVATE_KEY`. If a deploy job fails with "Bad credentials" or "not installed", check that the app is still installed on the repository and that its key hasn't been revoked. To rotate the key, generate a new one in the app's settings, replace the secret, then delete the old key.
 
 ## Bootstrapping a server's Flux (S5)
 

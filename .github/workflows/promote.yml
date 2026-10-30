@@ -19,16 +19,24 @@ jobs:
     name: Promote staging to production
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Pushing the branch, opening the pull request, and starting the required checks on it.
+    # The branch and its pull request are the deploy app's, with a token of its own; this job's own token only reads.
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
+      contents: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      # The deploy app's token (ADR 0046): its pull request starts its own required checks, as a person's does.
+      - name: The deploy app's token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.DEPLOY_APP_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          token: ${{ steps.app.outputs.token }}
           # The commits between production's release and staging's, for the summary.
           fetch-depth: 0
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -52,6 +60,8 @@ jobs:
       - name: Open the pull request, for a person to review and merge
         if: steps.release.outputs.promote == 'true'
         env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          DEPLOY_APP_SLUG: ${{ steps.app.outputs.app-slug }}
           STAGING: ${{ steps.release.outputs.staging }}
           PRODUCTION: ${{ steps.release.outputs.production }}
         run: |
