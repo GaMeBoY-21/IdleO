@@ -174,6 +174,8 @@ values["canary"] = {"enabled": True}
 values["images"].update({"tag": "check", "digests": {name: sys.argv[3] for name in ("control-plane", "web", "scanner", "postgres")}})
 yaml.safe_dump(values, open(sys.argv[2], "w"))
 PY
+# Helm's image runs as a user of its own, which must be able to read them.
+chmod -R a+rX "$work"
 for values in values-local.yaml /work/values-local-gitops.yaml /work/values-staging.yaml /work/values-production.yaml; do
   echo "deploy: the chart with $(basename "$values"): lint and kubeconform"
   # Plain Helm's values name no release; up.sh gives the tag.
