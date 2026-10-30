@@ -34,6 +34,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 class MeteringJobs {
 
+    /**
+     * The most 15-minute windows one session settles in a turn. A session far behind (the control plane was down for
+     * hours, or a test moved the clock a week) catches up over several ticks rather than in one, so its backlog never
+     * holds up every other session's settlement, credit check and close: one tick once spent nine minutes settling a
+     * week of empty windows, and sessions that had ended waited that long for their holds back.
+     */
+    static final int WINDOWS_PER_TURN = 4;
+
     private static final Logger log = LoggerFactory.getLogger(MeteringJobs.class);
 
     private final MeteredSessions sessions;
@@ -158,8 +166,9 @@ class MeteringJobs {
             @Nullable Instant endedAt) {}
 
     /**
-     * One session's turn, under its row lock; skipped if another instance has it: decide its minutes, settle
-     * every window that has ended, and close it once it has ended and its minutes are settled or waited for.
+     * One session's turn, under its row lock; skipped if another instance has it: decide its minutes, settle the
+     * windows that have ended (at most {@link #WINDOWS_PER_TURN}; the rest next turn), and close it once it has ended and
+     * its minutes are settled or waited for (closing settles whatever is left in one go).
      */
     void meter(UUID sessionId) {
         var row = lock(sessionId);
@@ -170,7 +179,7 @@ class MeteringJobs {
         witnesses.decide(sessionId, row.startedAt(), now);
         waivers.waiveLateMinutes(sessionId);
         var nextWindowAt = row.nextWindowAt();
-        while (!nextWindowAt.isAfter(now)) {
+        for (int turn = 0; turn < WINDOWS_PER_TURN && !nextWindowAt.isAfter(now); turn++) {
             settlements.settle(metered(sessionId), nextWindowAt, now);
             updates.changed(sessionId);
             nextWindowAt = nextWindowAt.plus(window);
