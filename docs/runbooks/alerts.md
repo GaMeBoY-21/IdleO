@@ -138,6 +138,22 @@ Two alerts share this section.
 
 **Do:** measure the route on Lighthouse's mobile profile (`E2E_LIGHTHOUSE_MEASURE=simulate scripts/e2e/agent-online.sh --web`, web/README.md "Measuring Lighthouse") and compare with the budgets in CLAUDE.md. Never loosen a budget without the product owner's say.
 
+## Events failing permanently
+
+**Means:** an event between modules (ADR 0015) failed at every try: its listener threw 8 times over about two hours (EventPublicationRetry), and it's now left alone instead of being retried forever. Whatever that listener does hasn't happened: a charge settled, a host's score kept, an email sent.
+
+**Check first:** which listener and why:
+
+```sql
+select id, listener_id, event_type, publication_date, completion_attempts, serialized_event
+from modulith.event_publication
+where completion_date is null and completion_attempts >= 8;
+```
+
+Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the listener's name, for the exception each try logged.
+
+**Do:** fix the cause: a deployment, a dependency, or data the listener didn't expect, which may need a code fix. Then hand the event back to its retries by setting `completion_attempts = 0` on its row; it's tried again within the next minute. An event that should never have been made (its subject is gone) can be deleted, once you've checked that nothing it would have done is still owed.
+
 ## Retention stopped
 
 **Means:** one retention rule (the alert's `rule`) hasn't run on any instance for a day and a half. Each runs once a day and deletes what the personal data map (docs/reference/personal-data-map.md) says is kept only for a while: uploads, checkpoints, outputs, logs, exports, the security log and the rest. Nothing is lost while it's stopped; things are kept longer than we promise.

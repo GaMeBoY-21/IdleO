@@ -159,3 +159,20 @@ tests:
             exp_annotations:
               summary: 'A certificate expires in 13d 0h 0m 0s.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#certificates
+
+  # One event runs out of retries at 5m; none before.
+  - interval: 1m
+    input_series:
+      - series: 'events_publications_failed_permanently{job="control-plane", instance="a"}'
+        values: '0x4 1x5'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: EventsFailingPermanently
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: EventsFailingPermanently
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: '1 event(s) failed every retry and are no longer retried.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#events-failing-permanently
