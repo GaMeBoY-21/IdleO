@@ -1,5 +1,6 @@
 package com.idleo.controlplane.privacy.internal;
 
+import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.PersonalData;
 import com.idleo.controlplane.PersonalData.ErasureStep;
 import com.idleo.controlplane.identity.AuditTrail;
@@ -17,8 +18,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.ConnectionCallback;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -52,7 +51,7 @@ class Erasure {
     private static final TypeReference<List<Map<String, String>>> IDENTITIES = new TypeReference<>() {};
 
     private final JdbcClient jdbc;
-    private final JdbcTemplate template;
+    private final OneAtATime oneAtATime;
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final List<PersonalData> modules;
@@ -66,7 +65,7 @@ class Erasure {
 
     Erasure(
             JdbcClient jdbc,
-            JdbcTemplate template,
+            OneAtATime oneAtATime,
             TransactionTemplate transactions,
             Clock clock,
             List<PersonalData> modules,
@@ -78,7 +77,7 @@ class Erasure {
             AuditTrail audit,
             JsonMapper json) {
         this.jdbc = jdbc;
-        this.template = template;
+        this.oneAtATime = oneAtATime;
         this.transactions = transactions;
         this.clock = clock;
         this.modules = List.copyOf(modules);
@@ -124,27 +123,9 @@ class Erasure {
      * way); whether it got that far. One instance at a time, under the request's own advisory lock.
      */
     boolean erase(UUID requestId, int through) {
-        // A session-level lock on one connection held for the whole erasure; every step uses its own.
-        return Boolean.TRUE.equals(template.execute((ConnectionCallback<Boolean>) connection -> {
-            var key = "erasure:" + requestId;
-            try (var lock = connection.prepareStatement("select pg_try_advisory_lock(hashtextextended(?, 0))")) {
-                lock.setString(1, key);
-                try (var result = lock.executeQuery()) {
-                    result.next();
-                    if (!result.getBoolean(1)) {
-                        return false;
-                    }
-                }
-            }
-            try {
-                return locked(requestId, through);
-            } finally {
-                try (var unlock = connection.prepareStatement("select pg_advisory_unlock(hashtextextended(?, 0))")) {
-                    unlock.setString(1, key);
-                    unlock.execute();
-                }
-            }
-        }));
+        return oneAtATime
+                .run("erasure", requestId.toString(), () -> locked(requestId, through))
+                .orElse(false);
     }
 
     private boolean locked(UUID requestId, int through) {

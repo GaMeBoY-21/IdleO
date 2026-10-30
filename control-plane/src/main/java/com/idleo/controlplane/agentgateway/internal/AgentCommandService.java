@@ -42,13 +42,39 @@ class AgentCommandService implements AgentCommands {
             @Nullable Instant expiresAt,
             boolean requiresAck) {
         var messageId = ids.newId();
+        insert(messageId, hostId, sessionId, type, message, expiresAt, requiresAck);
+        return messageId;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void enqueueOnce(
+            UUID messageId,
+            UUID hostId,
+            String type,
+            OpenStreamResponse.Builder message,
+            @Nullable Instant expiresAt,
+            boolean requiresAck) {
+        insert(messageId, hostId, null, type, message, expiresAt, requiresAck);
+    }
+
+    /** The command's row, unless one with its message id is already there. */
+    private void insert(
+            UUID messageId,
+            UUID hostId,
+            @Nullable UUID sessionId,
+            String type,
+            OpenStreamResponse.Builder message,
+            @Nullable Instant expiresAt,
+            boolean requiresAck) {
         var payload = message.setMessageId(messageId.toString()).build().toByteArray();
-        jdbc.sql("""
+        int inserted = jdbc.sql("""
                         insert into agentgateway.agent_commands
                             (id, host_id, session_id, type, payload, message_id, requires_ack, status, attempts,
                              expires_at, created_at)
                         values (:id, :hostId, :sessionId, :type, :payload, :messageId, :requiresAck, 'pending', 0,
                                 :expiresAt, :now)
+                        on conflict (message_id) do nothing
                         """)
                 .param("id", ids.newId())
                 .param("hostId", hostId)
@@ -60,10 +86,11 @@ class AgentCommandService implements AgentCommands {
                 .param("expiresAt", expiresAt == null ? null : Timestamp.from(expiresAt))
                 .param("now", Timestamp.from(Instant.now(clock).truncatedTo(ChronoUnit.MICROS)))
                 .update();
-        // After commit, tell whichever instance holds the host's stream. Only a hint: the sweep and the next
-        // Welcome deliver it anyway.
-        ValkeyHints.afterCommit(() -> delivery.ifAvailable(commands -> commands.hint(hostId)));
-        return messageId;
+        if (inserted == 1) {
+            // After commit, tell whichever instance holds the host's stream. Only a hint: the sweep and the next
+            // Welcome deliver it anyway.
+            ValkeyHints.afterCommit(() -> delivery.ifAvailable(commands -> commands.hint(hostId)));
+        }
     }
 
     @Override

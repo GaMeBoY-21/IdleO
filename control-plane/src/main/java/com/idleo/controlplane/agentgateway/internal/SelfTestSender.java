@@ -4,9 +4,11 @@ import com.idleo.controlplane.agentgateway.AgentCommands;
 import com.idleo.controlplane.hosts.SelfTestRequested;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
 import gpu.agent.v1.Host.RunSelfTest;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
@@ -31,9 +33,10 @@ class SelfTestSender {
 
     @ApplicationModuleListener
     void on(SelfTestRequested event) {
-        commands.enqueue(
+        // Once a run (ADR 0047): its message id comes from the run's, so the event delivered again queues nothing.
+        commands.enqueueOnce(
+                UUID.nameUUIDFromBytes(("self-test:" + event.runId()).getBytes(StandardCharsets.UTF_8)),
                 event.hostId(),
-                null,
                 RUN_SELF_TEST,
                 OpenStreamResponse.newBuilder()
                         .setRunSelfTest(

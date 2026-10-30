@@ -1,6 +1,7 @@
 package com.idleo.controlplane.payouts.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.billing.HostPayouts;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -35,6 +36,7 @@ class BalanceCheck {
     private final PayoutRuns runs;
     private final PayoutsProperties properties;
     private final IdGenerator ids;
+    private final OneAtATime oneAtATime;
     private final Clock clock;
     private final PayoutsMetrics metrics;
     private final ZoneId zone;
@@ -46,6 +48,7 @@ class BalanceCheck {
             PayoutRuns runs,
             PayoutsProperties properties,
             IdGenerator ids,
+            OneAtATime oneAtATime,
             Clock clock,
             PayoutsMetrics metrics,
             @Value("${payouts.zone}") String zone) {
@@ -55,6 +58,7 @@ class BalanceCheck {
         this.runs = runs;
         this.properties = properties;
         this.ids = ids;
+        this.oneAtATime = oneAtATime;
         this.clock = clock;
         this.metrics = metrics;
         this.zone = ZoneId.of(zone);
@@ -72,7 +76,8 @@ class BalanceCheck {
     @Scheduled(cron = "${payouts.balance-check-cron}", zone = "${payouts.zone}")
     void beforePayday() {
         if (razorpayx.enabled()) {
-            check();
+            // One instance at a time (ADR 0047): one check of RazorpayX's balance a payday, not one an instance.
+            oneAtATime.run("payouts:balance-check", this::check);
         }
     }
 

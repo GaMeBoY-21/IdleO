@@ -22,6 +22,11 @@ import org.springframework.stereotype.Component;
  * alone: retrying something that can never succeed only burns work and hides it. Those are counted by
  * {@code events.publications.failed_permanently} (EventPublicationMetrics) and alerted on (docs/runbooks/alerts.md,
  * "Events failing permanently").
+ *
+ * <p>One instance at a time (ADR 0047). Spring Modulith claims a publication before handing it back (it marks it
+ * RESUBMITTED unless it already is), but two instances working through the list at once could each claim one in turn:
+ * the second after the first's listener had already completed it, which delivers it twice. With the lock, a
+ * publication is only ever handed back by the instance that read it last.
  */
 @Component
 @Profile("!ops")
@@ -35,14 +40,17 @@ class EventPublicationRetry {
     private static final Logger log = LoggerFactory.getLogger(EventPublicationRetry.class);
 
     private final IncompleteEventPublications incomplete;
+    private final OneAtATime oneAtATime;
     private final Duration olderThan;
     private final Clock clock;
 
     EventPublicationRetry(
             IncompleteEventPublications incomplete,
+            OneAtATime oneAtATime,
             @Value("${events.retry-older-than}") Duration olderThan,
             Clock clock) {
         this.incomplete = incomplete;
+        this.oneAtATime = oneAtATime;
         this.olderThan = olderThan;
         this.clock = clock;
     }
@@ -50,8 +58,10 @@ class EventPublicationRetry {
     @Scheduled(fixedDelayString = "${events.retry-every}", initialDelayString = "${events.retry-every}")
     void retry() {
         try {
-            var now = Instant.now(clock);
-            incomplete.resubmitIncompletePublications(publication -> due(publication, now, olderThan));
+            oneAtATime.run("events:retry", () -> {
+                var now = Instant.now(clock);
+                incomplete.resubmitIncompletePublications(publication -> due(publication, now, olderThan));
+            });
         } catch (RuntimeException e) {
             log.warn("Retrying incomplete event publications failed; trying again later", e);
         }

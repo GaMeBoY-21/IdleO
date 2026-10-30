@@ -1,6 +1,7 @@
 package com.idleo.controlplane.payouts.internal;
 
 import com.idleo.controlplane.IdGenerator;
+import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.payouts.PayoutMethodChanged;
 import java.sql.Timestamp;
@@ -50,6 +51,7 @@ class PayoutMethods {
     private final Pans pans;
     private final PayoutsProperties properties;
     private final IdGenerator ids;
+    private final OneAtATime oneAtATime;
     private final Clock clock;
     private final ApplicationEventPublisher events;
     private final AuditTrail audit;
@@ -62,6 +64,7 @@ class PayoutMethods {
             Pans pans,
             PayoutsProperties properties,
             IdGenerator ids,
+            OneAtATime oneAtATime,
             Clock clock,
             ApplicationEventPublisher events,
             AuditTrail audit,
@@ -72,6 +75,7 @@ class PayoutMethods {
         this.pans = pans;
         this.properties = properties;
         this.ids = ids;
+        this.oneAtATime = oneAtATime;
         this.clock = clock;
         this.events = events;
         this.audit = audit;
@@ -250,9 +254,13 @@ class PayoutMethods {
     /** Checks RazorpayX hasn't answered yet, asked again; given up after a day. */
     @Scheduled(fixedDelayString = "${payouts.send-every}", initialDelayString = "${payouts.send-every}")
     void sweep() {
-        if (!razorpayx.enabled()) {
-            return;
+        if (razorpayx.enabled()) {
+            // One instance at a time (ADR 0047): a check's answer is applied once, and its change announced once.
+            oneAtATime.run("payouts:method-checks", this::askAgain);
         }
+    }
+
+    private void askAgain() {
         var waiting = jdbc.sql("""
                         select id, validation_id, checked_at from payouts.methods
                         where state = 'checking' and validation_id is not null order by checked_at limit 50

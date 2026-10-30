@@ -2,6 +2,7 @@ package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
+import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
@@ -56,6 +57,7 @@ class Invoices {
 
     private final JdbcClient jdbc;
     private final IdGenerator ids;
+    private final OneAtATime oneAtATime;
     private final Clock clock;
     private final Gst gst;
     private final AuditTrail audit;
@@ -65,12 +67,14 @@ class Invoices {
     Invoices(
             JdbcClient jdbc,
             IdGenerator ids,
+            OneAtATime oneAtATime,
             Clock clock,
             Gst gst,
             AuditTrail audit,
             PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.ids = ids;
+        this.oneAtATime = oneAtATime;
         this.clock = clock;
         this.gst = gst;
         this.audit = audit;
@@ -220,7 +224,11 @@ class Invoices {
     @Scheduled(cron = "${billing.invoices.usage-cron}", zone = "Asia/Kolkata")
     void monthly() {
         if (gst.settings().mode() == LegalSettings.InvoiceMode.MONTHLY_USAGE) {
-            usage(YearMonth.from(clock.instant().atZone(INDIA)).minusMonths(1));
+            // One instance at a time (ADR 0047): each renter's month is issued once anyway (a unique index), but two
+            // at once would race on the same renters and throw on the loser's.
+            oneAtATime.run(
+                    "billing:usage-invoices",
+                    () -> usage(YearMonth.from(clock.instant().atZone(INDIA)).minusMonths(1)));
         }
     }
 
