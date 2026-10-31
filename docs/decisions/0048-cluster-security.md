@@ -163,7 +163,7 @@ kube-bench v0.16.0 ran the k3s CIS 1.9 benchmark (the newest it has targets for)
 
 ### The proof
 
-`scripts/k8s/security-test.sh` runs on the Mac's cluster under Flux (the `security` workflow: pull requests touching `deploy/`, `scripts/k8s/` or `scripts/deploy/`, and weekly). Every attempt that must fail has a control that may: Prometheus reaches the meters and the node's API port that the web pod can't, the control plane reaches the database that the scanner can't. Network probes run in a debug container inside the pod, which shares its network and so its policies. On the Mac, the last run: 52 checks, none failed, 229 s.
+`scripts/k8s/security-test.sh` runs on the Mac's cluster under Flux (the `security` workflow: pull requests touching `deploy/`, `scripts/k8s/` or `scripts/deploy/`, and weekly). Every attempt that must fail has a control that may: Prometheus reaches the meters and the node's API port that the web pod can't, the control plane reaches the database that the scanner can't. Network probes run in a debug container inside the pod, which shares its network and so its policies. On the Mac, the last run: 60 checks, none failed, 347 s (S4: 52, 229 s, before check 12).
 
 | # | What was tried | What happened |
 | --- | --- | --- |
@@ -199,6 +199,23 @@ Then the smoke, canary and failover tests, against S3's numbers: all pass.
 
 The two that moved more than 10% are the ones that make new database pods, and each new PostgreSQL pod now waits for Kyverno to check its signature (1.5 to 2.2 s an admission, measured); the restore makes several. Writes refused includes the control planes' pools reconnecting, which varied by 8.6 s across S3's own runs. The canary test needed one fix first: each step's load (`hey -z 2m`) ran the whole interval, and the load tester refuses a call while the last one runs, so a call that came a moment early started nothing and the next check found no requests ("no values found"), failing a good release. Each step's load then ran 110 s (`canary.loadSeconds`); since replaced by a plain loop ("The canary's load", below).
 
+**The canary's load.** Flagger's load tester (`flagger-loadtester`) carried 3 CRITICAL and 141 HIGH, needed webhooks from Flagger and its own network rules, and refused a call while the last ran, the race above. A canary needs only a request a second to the canary's own Service for Flagger to judge, so `idleo-canary-load` is a pinned `curlimages/curl` that loops `curl` against `idleo-control-plane-canary` (5m CPU and 8 MiB requested, 16 MiB at most; no ingress; egress only to the control plane's 8080 and DNS). It runs all the time, so no step can start without load; with no canary the Service has no endpoints and each call fails at once, which costs about 10m of CPU and 1 MiB, measured. The webhooks, the load tester and `canary.loadSeconds` are gone.
+
+**Rerun after the outage work, the upgrades and the load's change** (the canary test from a fresh cluster, the others on it), against S4's:
+
+| Test | S4 | Now |
+| --- | --- | --- |
+| Canary: a good release to promotion | 886 s, 573 answered | 888 s, all 580 answered |
+| Canary: a bad release rolled back | 479 s | 475 s |
+| Failover: a control plane killed; agents back | 1.8 s and 1.2 s | 1.7 s and 1.4 s, 0 of 122 failed |
+| Failover: the database's primary killed | promoted in 20.3 s; writes refused 27.4 s | 21.0 s (+3%); writes refused 19.9 s, within S3's 16.2 to 24.8 s |
+| Failover: Valkey restarted | 15.9 s | 15.9 s |
+| Failover: the restore drill | 60.9 s | 52.6 s, within S3's 52.3 to 54.5 s; RPO 10.4 s |
+| Smoke: a booking to COMPLETED | 21 s | 21 s |
+| Smoke: a rolling restart; the agent back | 25 s; 879 ms | 27, 32 and 33 s in three runs, every request answered; 231 to 569 ms |
+
+The writes refused and the restore are back because a new PostgreSQL pod no longer waits for Kyverno: its image is known. The rolling restart isn't comparable: since S4 the smoke test waits for every old control plane to go, not only the first (its fix just before this round); each new pod is admitted at once, its init container done in 1 s (it waited 1.5 to 2.2 s for Kyverno before) and ready at 10 to 11 s.
+
 ## Alternatives considered
 
 - **Kyverno ClusterPolicies (verifyImages and validate rules) for everything.** One engine, but ClusterPolicy is deprecated in Kyverno 1.19, and every rule would depend on Kyverno answering. Native ValidatingAdmissionPolicies run in the API server, so the digest, registry and privilege rules hold with Kyverno down; only signatures, which need the registry and the transparency log, wait for it.
@@ -216,6 +233,8 @@ The two that moved more than 10% are the ones that make new database pods, and e
 - While Kyverno is down, no new pod starts outside kube-system and its own namespace: a crash during a deploy or a failover waits for it (measured above). Each of our pods takes 12 to 14 s longer to admit than before, which a rolling update or a canary pays per pod.
 - A new connection that isn't in the table times out. Adding one is a change in two places (both ends), a row here and a probe in the security test (docs/runbooks/network-rules.md).
 - **Memory, measured** on the Mac's node under Flux: at rest the pods use about 2.0 GiB (Kyverno 56 MiB of it, 156 MiB at its peak under three verifications at once), and the node's working set was 4.4 to 5.1 GiB at rest and 5.5 GiB at a canary's peak (S3: 4.0 to 4.4 and 5.3), sampled every 10 s through the whole canary test; the pods themselves use what they did in S3 or less, and the rest is page cache from a day of image builds on the same node. Requested in production: 4.9 GiB at rest and 6.3 GiB at a canary's peak with Kyverno's 160 MiB, against 8 GB with about 1 GiB for the OS: about 0.75 GiB spare at the peak, where ADR 0047 had 1 GiB. Nothing existing was cut.
+- **Memory, after the outage work** (sampled every 10 s through the whole canary test, 232 samples): the node's working set 4.4 GiB at rest and 5.6 GiB at the canary's peak (its promotion; S4 5.5 GiB), the pods 3.0 GiB at the peak; Kyverno 100 to 106 MiB with its watched copies of every pod controller (S4: 56 MiB at rest), inside its 160 MiB request. The load tester's 3 MiB became curl's 1 MiB.
 - **What a second node changes:** the topology spread and anti-affinities (ADR 0047) spread the workloads, and Kyverno could run two copies (its PodDisruptionBudget on) so one node's loss doesn't stop admission. The network policies are by label, not address, so they hold across nodes; "traffic from the node itself" becomes traffic from either node, which kube-router allows the same way.
 - S5 must: put `deploy/k3s/server/` in place before k3s first starts (the config, the audit and Pod Security files, the sysctl file); add the server's public address to `networkPolicy.internetExcept`; make the `idleo-valkey` Secret for staging and production; keep k3s's backups apart from its `server/cred` folder; and run kube-bench there, where journald lets it read k3s's flags.
-- Open question: whether a cache for image verification arrives in Kyverno's ImageValidatingPolicy (it has one for the deprecated ClusterPolicy), which would take the 12 to 14 s off every pod after the first.
+- Open question: whether a cache for image verification arrives in Kyverno's ImageValidatingPolicy that keeps attestations (today's costs each entry by its size, so it never does) and survives a restart; it would take the 12 to 14 s off a new digest's every pod after the first, and the match condition above could then go.
+- A new digest still can't start while GHCR or Sigstore is down: a deploy or a vendor upgrade waits for them, by design.
