@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.idleo.controlplane.ControlPlaneTest;
+import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.SecretScan;
 import com.idleo.controlplane.TestAgent;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
@@ -45,6 +46,9 @@ class SessionStartTests {
 
     @Autowired
     StorageProperties storage;
+
+    @Autowired
+    MutableClock clock;
 
     @LocalGrpcServerPort
     int grpcPort;
@@ -106,10 +110,13 @@ class SessionStartTests {
                 from sessions.sessions s join sessions.attempts a on a.session_id = s.id and a.attempt = s.attempt
                 where s.id = ?
                 """, booked.sessionId());
+        var readAt = clock.instant();
         var deliveredAt = ((Timestamp) lease.get("start_delivered_at")).toInstant();
+        // The renewal job (every 30 s) may have run since the send: it moves the lease to its own send time plus the
+        // lease, so the lease is the send time plus two minutes, or a later send's, never past the read's.
         assertThat(((Timestamp) lease.get("lease_expires_at")).toInstant())
-                .as("send time plus the lease")
-                .isEqualTo(deliveredAt.plus(Duration.ofMinutes(2)));
+                .as("send time plus the lease, or a renewal's since")
+                .isBetween(deliveredAt.plus(Duration.ofMinutes(2)), readAt.plus(Duration.ofMinutes(2)));
 
         booked.host().ack(envelope);
         awaitCommandStatus(booked.sessionId(), "acked");
