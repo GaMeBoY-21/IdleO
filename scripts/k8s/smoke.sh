@@ -184,13 +184,15 @@ pass "a booking (cuda-smoke-test, the development runner) ran to COMPLETED in $(
 #    being connected again, by its own log; meanwhile the API answers every request (readiness, which has no limit).
 control_plane=deployment/idleo-control-plane
 in_namespace get deployment idleo-control-plane-primary >/dev/null 2>&1 && control_plane=deployment/idleo-control-plane-primary
-old_pod="$(in_namespace get pods -l idleo.in/control-plane=true --field-selector=status.phase=Running \
-  -o jsonpath='{.items[0].metadata.name}')"
+# Every copy is replaced, and the agent's stream is on one of them: wait until all the old ones are gone (a rollout
+# reads complete while the last old pod is still in its preStop sleep, before it has told the agent anything).
+old_pods=($(in_namespace get pods -l idleo.in/control-plane=true --field-selector=status.phase=Running \
+  -o jsonpath='{.items[*].metadata.name}'))
 agent_lines="$(wc -l <"$out/agent-1.log")"
 in_namespace rollout restart "$control_plane" >/dev/null
 restarted=$SECONDS requests=0 failed=0
-while in_namespace get pod "$old_pod" >/dev/null 2>&1 ||
-  ! in_namespace rollout status "$control_plane" --timeout=1s >/dev/null 2>&1; do
+old_pods_left() { in_namespace get pods "${old_pods[@]}" --ignore-not-found -o name 2>/dev/null | grep -q .; }
+while old_pods_left || ! in_namespace rollout status "$control_plane" --timeout=1s >/dev/null 2>&1; do
   requests=$((requests + 1))
   curl -sf -o /dev/null --max-time 3 "$api/actuator/health/readiness" || failed=$((failed + 1))
   ((SECONDS - restarted < 300)) || fail "the rolling restart didn't finish within 300 s"
