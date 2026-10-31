@@ -26,6 +26,7 @@ The message names it:
 | `ImageValidatingPolicy idleo-images-signed ... no signature` (or `bill of materials`, `provenance`) | One of ours without the images workflow's signature or attestations | See "Signing or policy?" below |
 | `idleo-<vendor>-signed ... no signature` | A vendor image without its release workflow's signature | The pinned digest isn't the vendor's release: check it (below). A vendor that changed how it signs needs its policy changed, in a reviewed pull request |
 | `failed calling webhook ... kyverno` | Kyverno isn't answering: the check failed closed | kyverno.md |
+| `Get "https://ghcr.io/v2/": ...` or `... (or GHCR or Sigstore could not be reached to check one ...)` | A new digest while Kyverno can't reach GHCR or Sigstore: it can't be checked, so it's refused | kyverno.md, "It's up but can't verify". Pods whose images a verified controller already names still start |
 
 ## Signing or policy?
 
