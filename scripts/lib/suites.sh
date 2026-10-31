@@ -12,7 +12,9 @@ suite_command() {
   local root="$1" suite="$2"
   case "$suite" in
     agent | cli | scanner | control-plane | ops | proto | distro | images | sdk | web | deploy) "$root/scripts/checks/$suite.sh" ;;
-    drill) "$root/ops/backup/drill.sh" ;;
+    # The restore drill runs on the Mac's cluster (ADR 0047): up.sh brings it up (stopping ./start.sh's stack) or
+    # updates it.
+    drill) "$root/scripts/k8s/up.sh" && "$root/ops/backup/drill.sh" ;;
     web-browser) "$root/scripts/e2e/agent-online.sh" --web ;;
     e2e) "$root/scripts/e2e/agent-online.sh" && "$root/scripts/e2e/real-runner.sh" && "$root/scripts/e2e/start-check.sh" ;;
     # The Mac's cluster from the images up, and the proof (ADR 0045); up.sh stops ./start.sh's stack first.

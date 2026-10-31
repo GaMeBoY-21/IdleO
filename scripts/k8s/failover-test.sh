@@ -129,6 +129,7 @@ pass "two fake-GPU agents online and listed; a renter with credit; reads and wri
 # the time, read or write, the status.
 traffic="$state/traffic"
 : >"$traffic"
+: >"$state/booking-failures"
 for kind in read write; do
   (
     while true; do
@@ -170,10 +171,23 @@ await_free_host() {
   done
   fail "neither host was free to book within 300 s"
 }
+# Books template $2 under Idempotency-Key $1 and prints its id. Tried again with the same key, as a renter's client
+# does, if an attempt fails; each failed attempt is written to booking-failures and said in the step's result.
 book() {
   await_free_host
-  as "$renter" "$api/v1/sessions" -X POST -H 'Content-Type: application/json' -H "Idempotency-Key: \"$1\"" \
-    -d "{\"templateId\": \"$2\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 5000}" | json_get .id
+  local try answer
+  for try in 1 2 3 4 5; do
+    answer="$(curl -s -w '\n%{http_code}' -X POST "$api/v1/sessions" -H "Authorization: Bearer $renter" \
+      -H 'Content-Type: application/json' -H "Idempotency-Key: \"$1\"" \
+      -d "{\"templateId\": \"$2\", \"maxPricePaisePerMin\": 5, \"maxSpendPaise\": 5000}" || true)"
+    if [[ "$(tail -1 <<<"$answer")" =~ ^20[01]$ ]]; then
+      sed '$d' <<<"$answer" | json_get .id
+      return 0
+    fi
+    printf '%s %s %s\n' "$(now)" "$1" "$(tr '\n' ' ' <<<"$answer" | cut -c1-300)" >>"$state/booking-failures"
+    sleep 2
+  done
+  return 1
 }
 session_field() { as "$renter" "$api/v1/sessions/$1" | json_get ".$2"; }
 await_session() {
@@ -293,6 +307,10 @@ states="$state/presence"
 ) &
 watcher=$!
 pids+=("$watcher")
+# A renter of its own: a new account may book 2 sessions in its first hour (ADR 0025), and the first renter has.
+renter="$(person "failover-renter-b-$run_id")"
+ops grant-credits --user "$(as "$renter" "$api/v1/me" | json_get .id)" --paise 100000 --reason "'Failover test'" \
+  --key "failover-$run_id-b" || fail "grant-credits failed; see private/k8s/logs/failover-test-ops.log"
 sleep 3
 restarted="$(now)"
 in_namespace delete pod idleo-valkey-0 >/dev/null
@@ -308,7 +326,8 @@ kill "$watcher" 2>/dev/null || true
 grep -q ' OFFLINE$' "$states" && fail "a host was shown OFFLINE while Valkey restarted: $(grep -m1 ' OFFLINE$' "$states")"
 unknown="$(awk -v from="$restarted" '$1 > from && $2 == "UNKNOWN" { if (!first) first = $1; last = $1 }
   END { if (first) printf "%.1f", last - first; else print "0" }' "$states")"
-pass "Valkey restarted: the host was UNKNOWN for about $unknown s and never OFFLINE; a booking made meanwhile waited, then matched and COMPLETED"
+retried="$(grep -c "failover-$run_id-3" "$state/booking-failures" || true)"
+pass "Valkey restarted: the host was UNKNOWN for about $unknown s and never OFFLINE; a booking made meanwhile ($retried failed tries before it was taken: $(grep "failover-$run_id-3" "$state/booking-failures" | head -1 | cut -d' ' -f3- | cut -c1-120)) waited, then matched and COMPLETED"
 
 # 4. The control-plane pods evicted one at a time, as a drain does: the budget lets one go, refuses the next until the
 #    first's replacement is ready, and renters notice nothing.

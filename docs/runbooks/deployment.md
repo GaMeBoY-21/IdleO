@@ -25,7 +25,7 @@ In a cluster the control plane no longer runs as the database's owner. The owner
    - no DDL: no `CREATE` on any schema, and it owns nothing. Next months' usage partitions come from `metering.ensure_usage_partition`, a function the migration user owns.
 3. **Every new table's migration grants the role what the table needs,** in the same migration, so a table can't ship without its grants.
 
-The database's first start makes both users from the passwords in its Secret (`ops/postgres/initdb/10-idleo-users.sh`). `ApplicationRoleTests` connects as the application user, reads its own privileges, and fails on any `UPDATE`, `DELETE` or `TRUNCATE` on an append-only table, any object it owns, any schema it can create in, or any table left ungranted. `scripts/k8s/smoke.sh` checks the same in the cluster. `./start.sh` and the tests still run Flyway as the database's superuser.
+CloudNativePG makes both users, as the Cluster's managed roles, from the passwords in their Secrets (`templates/database.yaml`, ADR 0047; database.md says how to add one). `ApplicationRoleTests` connects as the application user, reads its own privileges, and fails on any `UPDATE`, `DELETE` or `TRUNCATE` on an append-only table, any object it owns, any schema it can create in, or any table left ungranted. `scripts/k8s/smoke.sh` runs it against the cluster's database. `./start.sh` and the tests still run Flyway as the database's superuser.
 
 ## The address a request comes from (ADR 0045)
 
@@ -63,16 +63,15 @@ The prod profile refuses to start without each of these (`ProductionSettingsGuar
 
 And beside the control plane:
 
-- **The database runs `ops/postgres/`'s image** (PostgreSQL with WAL-G), with `WALG_S3_PREFIX`, `AWS_ENDPOINT`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (an R2 token with read and write on the backup bucket, which must exist first) and `WALG_PGP_KEY_PATH` (the backup key's public half, mounted read-only). Its nightly backup is `ops/backup/systemd/idleo-backup.timer` (backups.md).
-- **The application's database user gets `pg_monitor`** (`GRANT pg_monitor TO <application user>`), so the backup watch can see WAL waiting to be archived. Without it the no-backup alert fires, which is how you'd notice.
+- **The database is CloudNativePG's Cluster** (ADR 0047), with its backups through the Barman Cloud plugin to R2: the bucket must exist first, and its address, bucket and token are the Secrets `r2-backups` and `idleo-backup-storage` (deploying.md, backups.md).
 - **Only `/actuator/health/liveness` and `/readiness` are reachable from outside.** The load balancer waits for readiness (the database and the CA; object storage isn't part of it, ADR 0036) before sending traffic; the external uptime check reads liveness.
 - **The web builds are made with `IDLEO_RELEASE`** set to the same release, so a JavaScript error names it, and their `*-sourcemaps/` folders go to `VITALS_SOURCE_MAPS`, never to the site's host.
 
-## The database is ours (ADR 0036)
+## The database is ours (ADR 0036, ADR 0047)
 
-Production runs **our own PostgreSQL**, `ops/postgres/`'s image with WAL-G, on our server, not a managed database (decided 2026-10-21). That means:
+Production runs **our own PostgreSQL**, on our server, not a managed database (decided 2026-10-21): since ADR 0047 a CloudNativePG Cluster of a primary and a standby on the same node. That means:
 
-- **Its disk is ours to watch:** the disk alert covers it (alerts.md, "Disk"); give the database its own volume, so a full root disk can't stop it.
-- **Backups and restores are ours:** WAL archived at least every 30 seconds and a full backup nightly (backups.md); rehearse a restore monthly.
-- **Upgrades are ours:** a PostgreSQL minor release is a new pinned digest in `ops/postgres/Dockerfile` (and the tests' image, which a test keeps identical), rolled out by restarting the container; a major release is a restore into the new version, rehearsed first with the drill.
-- **No standby yet:** a lost server is a restore onto a new one (backups.md, "Restoring"), under 4 hours by the technical design's target. A standby with failover is for when the pilot needs it.
+- **Its disk is ours to watch:** the disk alert covers it (alerts.md, "Disk"); each instance has its own volume.
+- **Backups and restores are ours:** WAL archived at least every 30 seconds and a base backup daily (backups.md); rehearse a restore monthly.
+- **Upgrades are ours:** a PostgreSQL minor release is a new pinned image in the chart's `database.image`, rolled out by the operator standby first, then a switchover; a major release is a restore into the new version, rehearsed first with the drill. The operator and its plugin are upgraded by their pins in `deploy/infrastructure/base/cloudnative-pg.yaml`.
+- **One node:** the standby takes over when the primary's process, pod or disk fails, but not when the server does; a lost server is a restore onto a new one (backups.md). More nodes put the instances apart (ADR 0047, "What three nodes add").

@@ -2,16 +2,20 @@
 # here; deploy/clusters/<env>/idleo/values.yaml for staging and production, ADR 0046) set only what must differ: hosts,
 # sizes, replicas, issuers and the development services.
 #
-# Sizes are for one 8 GB node. Memory requests, then limits:
-#   control plane 1024/1536 Mi, migration Job 384/512 Mi (only while it runs), scanner 768/2048 Mi, web 32/64 Mi,
-#   Valkey 64/256 Mi, PostgreSQL 512/1024 Mi
-#   total, steady: requests 2400 Mi, limits 4928 Mi; k3s, Traefik and cert-manager take about 900 Mi, leaving room.
-# Under Flux (ADR 0046) add the canary's load tester (32/64 Mi), and outside the chart Flux's four controllers
-# (4 x 64 Mi requested), Flagger (32/128 Mi) and Prometheus (128/256 Mi): used, measured on the Mac on 2026-10-30,
-# 211 Mi, 18 Mi and 40 Mi. During a canary a second control plane runs (another 1024/1536 Mi): the Mac's node went
-# from 3.0 to 3.6 GiB.
-# CPU requests total 0.95 cores (1.2 while the migration Job runs). The scanner's limit is what one image check needs (ADR 0042); its request is what it
-# idles at, so a check borrows from the node's headroom.
+# Sizes are for one 8 GB node (ADR 0047). Memory requests, then limits, in production (no scanner, web or development
+# services):
+#   control plane 2 x 1024/1536 Mi, migration Job 384/512 Mi (only while it runs), Valkey 64/256 Mi,
+#   database 2 x (512/1024 Mi + its backup sidecar 64/256 Mi), the canary's load tester 32/64 Mi
+#   total, steady: requests 3296 Mi, limits 5952 Mi.
+# Beside the chart: Flux's four controllers (4 x 64 Mi requested), Flagger (32/128 Mi), Prometheus (128/256 Mi),
+# CloudNativePG's operator (128/384 Mi) and backup plugin (32/128 Mi): 576 Mi requested; k3s, Traefik and cert-manager
+# use about 900 Mi. So 4.7 GiB requested at rest, with about 1 GiB for the OS: 2.3 GiB spare. During a canary its one
+# copy (1024/1536 Mi) and the migration Job add 1.4 GiB: 1 GiB spare. A third control plane would leave none, so the
+# autoscaler's most is 2 (controlPlane.autoscaling).
+# Measured on the Mac's k3d node under Flux, 2026-10-31, with the development services: 4.4 GiB in use at rest (each
+# control plane about 585 Mi, the database's instances 116 and 189 Mi, the operator 38 Mi, the plugin 19 Mi).
+# The scanner (768/2048 Mi), when renters' own images are on, borrows from the spare: its limit is what one image check
+# needs (ADR 0042); its request is what it idles at.
 
 images:
   # ghcr.io/gameboy-21/idleo-<name>:<tag>, signed by .github/workflows/images.yml.

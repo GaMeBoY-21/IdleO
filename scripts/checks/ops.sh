@@ -60,8 +60,10 @@ for path in sorted(glob.glob(f"{sys.argv[1]}/ops/grafana/dashboards/*.json")):
         if panel.get("datasource", {}).get("uid") != "${datasource}":
             problems.append(f"{path}: {panel['title']} doesn't use the datasource variable")
         for target in panel.get("targets", []):
-            if 'job="control-plane"' not in target["expr"]:
-                problems.append(f"{path}: {panel['title']} reads beyond the control plane's meters")
+            # The control plane's meters, or the database's (CloudNativePG's, remote-written by the cluster's
+            # Prometheus, ADR 0047).
+            if 'job="control-plane"' not in target["expr"] and 'job="database"' not in target["expr"]:
+                problems.append(f"{path}: {panel['title']} reads beyond the control plane's and the database's meters")
             if re.search(r"service_name|service_instance_id", target["expr"]):
                 problems.append(f"{path}: {panel['title']} uses a label Grafana Cloud doesn't keep")
 sys.exit("\n".join(problems) if problems else 0)

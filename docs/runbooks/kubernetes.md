@@ -15,11 +15,11 @@ scripts/k8s/up.sh            # plain Helm, for quick work
 scripts/k8s/up.sh --gitops   # under Flux, as staging and production: push your branch first
 ```
 
-It needs the local age key, `private/k8s/age/local.agekey`, which the committed local Secrets are encrypted for (see "The local Secrets" below). It installs k3d, kubectl and helm with Homebrew if they're missing, and says so; sops it asks you to install (`brew install sops age`). It stops `./start.sh`'s stack first. The two fit in Docker Desktop's 7.75 GiB together only while both idle: 3.9 GiB measured, with the cluster about 2.3 GiB of it. The chart's limits alone are about 6 GiB with the development services, so a busy cluster would starve the stack. Then it does six things:
+It needs the local age key, `private/k8s/age/local.agekey`, which the committed local Secrets are encrypted for (see "The local Secrets" below). It installs k3d, kubectl and helm with Homebrew if they're missing, and says so; sops it asks you to install (`brew install sops age`). It stops `./start.sh`'s stack first: with two control planes and two database instances (ADR 0047) the cluster alone uses about 4.4 GiB of Docker Desktop's 7.75 GiB at rest under Flux (measured 2026-10-31), so the two no longer fit together. Then it does six things:
 
 1. Creates the cluster: k3s pinned by digest, one server node and a registry, `k3d-idleo-registry` on `localhost:5050`.
-2. Installs cert-manager.
-3. Builds the four images from the working tree and pushes them to the registry. Each is tagged with the commit, plus the time when the tree has changes, so a rebuild always rolls out.
+2. Installs cert-manager, and CloudNativePG with its Barman Cloud plugin, from the same pinned charts and values Flux uses (`deploy/infrastructure/base/cloudnative-pg.yaml`).
+3. Builds the three images (control plane, web, scanner) from the working tree and pushes them to the registry. Each is tagged with the commit, plus the time when the tree has changes, so a rebuild always rolls out.
 4. Applies the local Secrets, decrypted from their SOPS files, and the development ConfigMaps (`scripts/k8s/secrets.sh`).
 5. Installs or upgrades the chart.
 6. Prints the addresses.
@@ -65,11 +65,11 @@ An enrolled agent on this machine connects to `localhost:19443` trusting `privat
 
 ## The local Secrets
 
-The cluster's Secrets are committed in `deploy/clusters/local/secrets/idleo/` as SOPS files, encrypted for the local age key (ADR 0046): development's three database passwords, the control plane's development CA and keys, and the local CA. Nothing in them is used outside a cluster on a laptop.
+The cluster's Secrets are committed in `deploy/clusters/local/secrets/idleo/` as SOPS files, encrypted for the local age key (ADR 0046): development's two database users (CloudNativePG's basic-auth Secrets, `database-migration.yaml` and `database-application.yaml`), the development MinIO's keys for the database's backups (`backup-storage.yaml`), the control plane's development CA and keys, and the local CA. Nothing in them is used outside a cluster on a laptop.
 
 - **The key:** `private/k8s/age/local.agekey`, made by `scripts/deploy/age-key.sh local`. The same key is the repository secret `SOPS_AGE_KEY_LOCAL`, for the k8s and gitops workflows. On a new machine, copy the key from the old one (or from the password manager).
-- **Read one:** `SOPS_AGE_KEY_FILE=private/k8s/age/local.agekey sops decrypt deploy/clusters/local/secrets/idleo/database.yaml`.
-- **Change them:** `scripts/k8s/secrets.sh --make` encrypts this machine's development secrets again: `private/k8s/database.env`, `private/dev-ca` and `private/k8s/ca`, each made first if it's missing. Commit the result. New database passwords need a new database: `down.sh`, then `up.sh`.
+- **Read one:** `SOPS_AGE_KEY_FILE=private/k8s/age/local.agekey sops decrypt deploy/clusters/local/secrets/idleo/database-application.yaml`.
+- **Change them:** `scripts/k8s/secrets.sh --make` encrypts this machine's development secrets again: `private/k8s/database.env`, `private/dev-ca` and `private/k8s/ca`, each made first if it's missing. Commit the result. New database passwords change the users' passwords in place (the operator follows the Secrets); restart the control plane to pick them up.
 - **A new local key:** `scripts/deploy/age-key.sh local --rotate` encrypts the files for the new key. Commit them and `.sops.yaml`, then put the new key in the repository secret: `gh secret set SOPS_AGE_KEY_LOCAL < private/k8s/age/local.agekey`, and `gh secret set SOPS_AGE_KEY_LOCAL --app dependabot` the same way.
 
 ## Proof
@@ -82,7 +82,7 @@ It checks, in order:
 
 1. The website and the app load over HTTPS with their headers, and HTTP redirects.
 2. Readiness is UP.
-3. The migration Job ran as `idleo_migration`, and `idleo_app` can't create a table.
+3. The database is a CloudNativePG primary with one standby streaming; the migration Job ran as `idleo_migration`, `idleo_app` can't create a table, and `ApplicationRoleTests` passes against the cluster's users (through a port-forward; it needs Java 25).
 4. A made-up X-Forwarded-For is ignored.
 5. A fake-GPU agent on this machine enrols, connects through the agents' load balancer and shows online.
 6. A booking runs to COMPLETED.
@@ -106,14 +106,23 @@ It runs `up.sh --gitops` and then proves five things:
 
 It prints how long each release took. It takes about 40 minutes and leaves the cluster on the good release, with the bad one failed. The `gitops` workflow runs it on pull requests that touch `deploy/`, and weekly.
 
+## Failover
+
+```sh
+scripts/k8s/failover-test.sh            # up.sh --gitops first (push your branch)
+scripts/k8s/failover-test.sh --no-up    # on the cluster that's there
+```
+
+With renters' reads and writes through the Gateway the whole time and two fake-GPU agents connected (ADR 0047), it kills a control-plane pod hard, kills the database's primary hard, restarts Valkey, evicts the control planes one at a time, and ends with the restore drill (`ops/backup/drill.sh`). It prints what renters saw at each step, the agents' time back online, the seconds writes were refused, and the RPO and RTO; ADR 0047 has the numbers. About 15 minutes on a cluster that's up. The `failover` workflow runs it weekly. docs/runbooks/database.md says what a failover does and what to check.
+
 ## Status, memory and down
 
 ```sh
 scripts/k8s/status.sh     # pods, memory by pod and node, and the cluster's containers as Docker counts them
-scripts/k8s/down.sh       # delete the cluster and its registry, with the database in it
+scripts/k8s/down.sh       # delete the cluster and its registry, with the database and its local backups in it
 ```
 
-Under Flux the cluster also runs Flux's four controllers, Flagger, its load tester and Prometheus, and during a canary a second control plane. `status.sh` shows each one's memory.
+The cluster runs two control planes and two database instances, the CloudNativePG operator and its backup plugin. Under Flux it also runs Flux's four controllers, Flagger, its load tester and Prometheus, and during a canary a third control plane (the canary's one copy). `status.sh` shows each one's memory.
 
 The chart's requests and limits are sized for one 8 GB node: the sums are in `deploy/helm/idleo/values.yaml`. After `down.sh`, start `./start.sh` again if you want the normal stack.
 
@@ -139,7 +148,7 @@ kubectl -n idleo debug -it deploy/idleo-control-plane --image=busybox:1.37 --tar
 From there, `ps`, `wget -qO- localhost:8080/actuator/health/readiness` and `/proc/1/root/app/` reach the running container. The ephemeral container stays in the pod's spec until the pod is replaced, so roll the deployment afterwards (`kubectl -n idleo rollout restart deploy/idleo-control-plane`). The database has a shell of its own:
 
 ```sh
-kubectl -n idleo exec -it idleo-postgres-0 -- psql -U postgres -d controlplane
+kubectl -n idleo exec -it "$(kubectl -n idleo get cluster idleo-database -o jsonpath='{.status.currentPrimary}')" -c postgres -- psql -d controlplane
 ```
 
 ## Redeploying one image
@@ -167,7 +176,7 @@ OPERATOR=nikki scripts/k8s/ops.sh activate-host --host <id> --reason "'Checked b
 
 ## The two database users
 
-The database's first start makes them (`ops/postgres/initdb/10-idleo-users.sh`), with the passwords from the local Secrets (a copy is in `private/k8s/database.env`):
+CloudNativePG makes them, as the Cluster's managed roles (`templates/database.yaml`, ADR 0047), with the passwords from the local Secrets (a copy is in `private/k8s/database.env`); docs/runbooks/database.md says how to add one:
 
 - `idleo_migration` owns the database. Only the migration Job, a Helm hook, logs in as it.
 - `idleo_app` is the control plane's login, in the role `idleo_application`. It owns nothing, has no DDL, and has only SELECT and INSERT on the append-only tables.
@@ -175,7 +184,7 @@ The database's first start makes them (`ops/postgres/initdb/10-idleo-users.sh`),
 A migration that adds a table grants `idleo_application` what that table needs, in the same migration: `ApplicationRoleTests` fails otherwise. Check by hand:
 
 ```sh
-kubectl -n idleo exec idleo-postgres-0 -- psql -U postgres -d controlplane -c '\dp billing.ledger_entries'
+kubectl -n idleo exec "$(kubectl -n idleo get cluster idleo-database -o jsonpath='{.status.currentPrimary}')" -c postgres -- psql -d controlplane -c '\dp billing.ledger_entries'
 ```
 
 ## Images and signatures
