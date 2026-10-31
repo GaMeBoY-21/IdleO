@@ -83,7 +83,8 @@ canary:
   # Where Flagger runs: its webhooks are the only callers of the load tester.
   flaggerNamespace: flagger-system
   # Flagger's load tester, which sends the canary one request a second through each step, so a quiet hour still gives
-  # it something to be judged by.
+  # it something to be judged by: for this many seconds a step, ending before the next step's call (canary.yaml).
+  loadSeconds: 110
   loadtester:
     image: ghcr.io/fluxcd/flagger-loadtester:0.39.0@sha256:6a8546993cb574cdd9d42a84430eca2b74c30bf91349e36aa60969b46655f059
     resources:
