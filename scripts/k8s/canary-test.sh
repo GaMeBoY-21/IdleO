@@ -56,16 +56,18 @@ bad["spec"]["verify"]["matchOIDCIdentity"][0]["subject"] = (
     r"^https://github\.com/GaMeBoY-21/IdleO/\.github/workflows/release\.yml@refs/heads/main$")
 print(yaml.safe_dump_all([good, bad]))
 PY
-source_state() { in_namespace get ocirepository "$1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'; }
+# The verdict is SourceVerified, True or False; Ready flips between the refusal and "building artifact" as Flux retries.
+verified() { in_namespace get ocirepository "$1" -o jsonpath='{.status.conditions[?(@.type=="SourceVerified")].status}'; }
 deadline=$((SECONDS + 180))
-until [[ "$(source_state verify-staging)" =~ ^(True|False)$ && "$(source_state verify-other-identity)" =~ ^(True|False)$ ]]; do
+until [[ "$(verified verify-staging)" =~ ^(True|False)$ && "$(verified verify-other-identity)" =~ ^(True|False)$ ]]; do
   ((SECONDS < deadline)) || fail "Flux didn't finish checking staging's chart; kubectl -n $namespace describe ocirepository verify-staging"
   sleep 3
 done
-[[ "$(in_namespace get ocirepository verify-staging -o jsonpath='{.status.conditions[?(@.type=="SourceVerified")].status}')" == True ]] ||
-  fail "Flux didn't verify staging's chart: $(in_namespace get ocirepository verify-staging -o jsonpath='{.status.conditions[0].message}')"
-refused="$(in_namespace get ocirepository verify-other-identity -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}')"
-[[ "$refused" == *"failed to verify the signature"* ]] || fail "Flux accepted staging's chart for another identity: $refused"
+[[ "$(verified verify-staging)" == True ]] ||
+  fail "Flux didn't verify staging's chart: $(in_namespace get ocirepository verify-staging -o jsonpath='{.status.conditions[?(@.type=="SourceVerified")].message}')"
+refused="$(in_namespace get ocirepository verify-other-identity -o jsonpath='{.status.conditions[?(@.type=="SourceVerified")].message}')"
+[[ "$(verified verify-other-identity)" == False && "$refused" == *"failed to verify the signature"* ]] ||
+  fail "Flux accepted staging's chart for another identity: ${refused:-verified}"
 in_namespace delete ocirepository verify-staging verify-other-identity >/dev/null
 pass "Flux verified staging's chart (signed by the images workflow on main) and refused it for another workflow's identity"
 
