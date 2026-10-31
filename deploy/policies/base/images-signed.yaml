@@ -2,6 +2,11 @@
 # kube-system and Kyverno's own. Each fails closed: if Kyverno can't answer, the pod isn't admitted
 # (docs/runbooks/kyverno.md). Which vendors sign, and which are held by their digest alone, is in the ADR and in
 # images-pinned.yaml's list.
+#
+# One of our images takes 12 to 14 s to admit, measured on the Mac's cluster: its signature and two attestations, each
+# fetched from GHCR and checked against the transparency log, with no cache for this kind of policy. So each webhook
+# waits the most Kubernetes allows, 30 s; a pod that waits longer is refused, never admitted unchecked.
+
 # Our images (ADR 0048): signed keylessly by this repository's images workflow on main or a release tag, through
 # GitHub's OIDC issuer and the public transparency log, with the same workflow's CycloneDX bill of materials and SLSA
 # build provenance: the three checks scripts/images/verify.sh makes, made by Kyverno as each pod is admitted. An image
@@ -13,7 +18,7 @@ metadata:
 spec:
   failurePolicy: Fail
   webhookConfiguration:
-    timeoutSeconds: 15
+    timeoutSeconds: 30
   evaluation:
     background:
       enabled: false
@@ -75,7 +80,7 @@ metadata:
 spec:
   failurePolicy: Fail
   webhookConfiguration:
-    timeoutSeconds: 15
+    timeoutSeconds: 30
   evaluation:
     background:
       enabled: false
@@ -127,7 +132,7 @@ metadata:
 spec:
   failurePolicy: Fail
   webhookConfiguration:
-    timeoutSeconds: 15
+    timeoutSeconds: 30
   evaluation:
     background:
       enabled: false
@@ -177,7 +182,7 @@ metadata:
 spec:
   failurePolicy: Fail
   webhookConfiguration:
-    timeoutSeconds: 15
+    timeoutSeconds: 30
   evaluation:
     background:
       enabled: false
@@ -226,7 +231,7 @@ metadata:
 spec:
   failurePolicy: Fail
   webhookConfiguration:
-    timeoutSeconds: 15
+    timeoutSeconds: 30
   evaluation:
     background:
       enabled: false
@@ -275,7 +280,7 @@ metadata:
 spec:
   failurePolicy: Fail
   webhookConfiguration:
-    timeoutSeconds: 15
+    timeoutSeconds: 30
   evaluation:
     background:
       enabled: false

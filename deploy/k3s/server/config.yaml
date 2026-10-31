@@ -1,0 +1,36 @@
+# The server's k3s (ADR 0048; S5 puts it in place): /etc/rancher/k3s/config.yaml, read as k3s starts, with
+# ../audit-policy.yaml and ../pod-security.yaml beside it in /etc/rancher/k3s/, and sysctl.conf in /etc/sysctl.d/
+# (90-kubelet.conf) before k3s first starts. The Mac's k3d cluster (scripts/k8s/up.sh) runs the same encryption, audit
+# log and Pod Security default; the kernel and kubelet hardening below is the server's alone (a laptop's Docker
+# Desktop VM owns its kernel), from k3s's CIS hardening guide and what kube-bench found (ADR 0048).
+
+# Secrets encrypted in the datastore (AES-CBC, k3s's stable provider; its secretbox is still experimental). Rotating
+# the key: k3s secrets-encrypt rotate-keys, then reencrypt (docs/runbooks/kubernetes.md).
+secrets-encryption: true
+# The kubelet refuses to start if the kernel's settings aren't what it expects (sysctl.conf), rather than change them.
+protect-kernel-defaults: true
+# The admin kubeconfig k3s writes is root's alone.
+write-kubeconfig-mode: "0600"
+
+kube-apiserver-arg:
+  # Pod Security "restricted" for any namespace that doesn't say otherwise; kube-system as k3s ships it.
+  - admission-control-config-file=/etc/rancher/k3s/pod-security.yaml
+  # The audit log (docs/runbooks/audit-log.md): metadata of Secrets, exec and RBAC, at most 50 MB a file, four old
+  # files kept, none older than 30 days: at most 250 MB of the disk.
+  - audit-policy-file=/etc/rancher/k3s/audit-policy.yaml
+  - audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log
+  - audit-log-maxsize=50
+  - audit-log-maxbackup=4
+  - audit-log-maxage=30
+  # A service account's token is refused once the account is gone.
+  - service-account-lookup=true
+
+kube-controller-manager-arg:
+  # Finished pods are cleaned up after 10, not 12,500.
+  - terminated-pod-gc-threshold=10
+
+kubelet-arg:
+  # An idle kubectl exec, attach or port-forward is closed after 5 minutes.
+  - streaming-connection-idle-timeout=5m
+  # The kubelet's TLS: modern ciphers only.
+  - tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
