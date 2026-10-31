@@ -1,0 +1,53 @@
+# Every pod controller in the cluster, kept by Kyverno as a watched copy in memory (ADR 0048): what the signature
+# policies' match condition reads (images-signed.yaml) to tell an image a verified controller already names, with no
+# call to the API server, let alone GHCR or Rekor, as a pod is admitted. Kyverno's own namespace and kube-system are
+# left out where they're read.
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: idleo-deployments
+spec:
+  kubernetesResource:
+    group: apps
+    version: v1
+    resource: deployments
+---
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: idleo-statefulsets
+spec:
+  kubernetesResource:
+    group: apps
+    version: v1
+    resource: statefulsets
+---
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: idleo-daemonsets
+spec:
+  kubernetesResource:
+    group: apps
+    version: v1
+    resource: daemonsets
+---
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: idleo-jobs
+spec:
+  kubernetesResource:
+    group: batch
+    version: v1
+    resource: jobs
+---
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: idleo-cronjobs
+spec:
+  kubernetesResource:
+    group: batch
+    version: v1
+    resource: cronjobs

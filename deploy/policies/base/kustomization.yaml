@@ -7,4 +7,5 @@ kind: Kustomization
 resources:
   - images-pinned.yaml
   - pods-unprivileged.yaml
+  - pod-controllers.yaml
   - images-signed.yaml

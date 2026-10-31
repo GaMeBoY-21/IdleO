@@ -207,7 +207,9 @@ cp -R "$root/deploy/helm/idleo/." "$chart_copy/"
 chmod -R a+rwX "$chart_copy"
 docker run --rm -v "$chart_copy:/apps" "$helm_image" .
 
-# 6. The policies. Staging and production admit only what production may run: no Mac registry, no development list.
+# 6. The policies. The signature policies are written from one list (scripts/deploy/signed-policies.py), and staging
+#    and production admit only what production may run: no Mac registry, no development list.
+scripts/deploy/signed-policies.py --check
 echo "deploy: staging's and production's policies hold no local exception, and kyverno test"
 local_exception_check() {
   python3 - "$@" <<'PY'
