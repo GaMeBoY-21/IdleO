@@ -10,6 +10,7 @@ import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.grpc.test.autoconfigure.LocalGrpcServerPort;
 import org.springframework.context.ApplicationContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,6 +45,9 @@ class SessionInputTests {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    StringRedisTemplate redis;
 
     @LocalGrpcServerPort
     int grpcPort;
@@ -437,7 +442,7 @@ class SessionInputTests {
         // As if it were 300 MiB: with the 1,024 MB scratch disk and a 10% margin, the session needs 1,457 MB.
         jdbc.update("update sessions.uploads set size_bytes = ? where id = ?", 300L << 20, upload);
         host.freeDiskMb().set(1_456 + TestHosts.DEFAULT_KEEP_FREE_MB);
-        Thread.sleep(Duration.ofSeconds(1));
+        awaitFreeDisk(host.id(), 1_456 + TestHosts.DEFAULT_KEEP_FREE_MB);
 
         var cramped = UUID.fromString(JSON.readTree(
                         book(renter, "cramped", echo(Map.of("greeting", "hi"), Map.of("uploadId", upload)))
@@ -453,10 +458,25 @@ class SessionInputTests {
         assertThat(told.get("email_wanted")).as("in the app only").isEqualTo(false);
 
         host.freeDiskMb().set(1_457 + TestHosts.DEFAULT_KEEP_FREE_MB);
-        Thread.sleep(Duration.ofSeconds(1));
+        awaitFreeDisk(host.id(), 1_457 + TestHosts.DEFAULT_KEEP_FREE_MB);
         book(renter, "roomy", echo(Map.of("greeting", "hi"), Map.of("uploadId", upload)))
                 .andExpect(status().isCreated());
         assertThat(host.awaitOffer(TestBookings.WAIT).getSpec().getScratchMb()).isEqualTo(1_024);
+    }
+
+    /**
+     * Waits until the host's presence, which the matcher reads, has the free disk its heartbeats now report: a slow
+     * runner can take longer than a heartbeat or two to record it.
+     */
+    private void awaitFreeDisk(UUID hostId, int freeDiskMb) throws InterruptedException {
+        var deadline = Instant.now().plus(TestBookings.WAIT);
+        while (!Integer.toString(freeDiskMb)
+                .equals(redis.opsForHash().get("agentgateway:presence:" + hostId, "free_disk_mb"))) {
+            assertThat(Instant.now())
+                    .as("host %s's presence with %d MB free", hostId, freeDiskMb)
+                    .isBefore(deadline);
+            Thread.sleep(50);
+        }
     }
 
     @Test
