@@ -5,7 +5,7 @@
 # Sizes are for one 8 GB node (ADR 0047). Memory requests, then limits, in production (no scanner, web or development
 # services):
 #   control plane 2 x 1024/1536 Mi, migration Job 384/512 Mi (only while it runs), Valkey 64/256 Mi,
-#   database 2 x (512/1024 Mi + its backup sidecar 64/256 Mi), the canary's load tester 32/64 Mi
+#   database 2 x (512/1024 Mi + its backup sidecar 64/256 Mi), the canary's load 8/16 Mi
 #   total, steady: requests 3296 Mi, limits 5952 Mi.
 # Beside the chart: Flux's four controllers (4 x 64 Mi requested), Flagger (32/128 Mi), Prometheus (128/256 Mi),
 # CloudNativePG's operator (128/384 Mi) and backup plugin (32/128 Mi): 576 Mi requested; k3s, Traefik and cert-manager
@@ -80,16 +80,13 @@ canary:
   maxLatencyP95Ms: 800
   maxSessionStartDropPoints: 10
   prometheus: http://prometheus.monitoring:9090
-  # Where Flagger runs: its webhooks are the only callers of the load tester.
-  flaggerNamespace: flagger-system
-  # Flagger's load tester, which sends the canary one request a second through each step, so a quiet hour still gives
-  # it something to be judged by: for this many seconds a step, ending before the next step's call (canary.yaml).
-  loadSeconds: 110
-  loadtester:
-    image: ghcr.io/fluxcd/flagger-loadtester:0.39.0@sha256:6a8546993cb574cdd9d42a84430eca2b74c30bf91349e36aa60969b46655f059
+  # The canary's floor of traffic (canary.yaml): one curl a second at the canary, so a quiet hour still gives each step
+  # something to judge. The curl project's image, pinned (its signature can't be verified: digest only, ADR 0048).
+  load:
+    image: docker.io/curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
     resources:
-      requests: { cpu: 10m, memory: 32Mi }
-      limits: { memory: 64Mi }
+      requests: { cpu: 5m, memory: 8Mi }
+      limits: { memory: 16Mi }
 
 migration:
   resources:
@@ -116,7 +113,7 @@ web:
 valkey:
   # The official image, pinned (the same as compose.yaml and the tests'), its registry named as the image policy
   # wants (ADR 0048). It holds only what may expire (ADR 0011): nothing is saved to disk.
-  image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+  image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
   # Its one user (ADR 0048), whose password is the Secret's "password" (and, during a rotation, "previous-password"):
   # a SOPS file, made outside the chart.
   user: idleo

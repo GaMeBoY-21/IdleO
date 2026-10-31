@@ -163,7 +163,7 @@ spec:
 ---
 # Who may reach the control plane: the ingress on the web port (so X-Forwarded-For from the pod network is the
 # ingress's), the scanner on its internal API, the in-cluster Prometheus on the meters' port, and anyone on the
-# agents' port, which mutual TLS guards. With canaries, also the load tester on the web port.
+# agents' port, which mutual TLS guards. With canaries, also the canary's load on the web port.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -200,7 +200,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              {{- include "idleo.selector" (list . "loadtester") | nindent 14 }}
+              {{- include "idleo.selector" (list . "canary-load") | nindent 14 }}
       ports:
         - { port: http, protocol: TCP }
     {{- end }}

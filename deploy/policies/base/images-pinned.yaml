@@ -89,7 +89,6 @@ data:
     ghcr.io/fluxcd/helm-controller
     ghcr.io/fluxcd/notification-controller
     ghcr.io/fluxcd/flagger
-    ghcr.io/fluxcd/flagger-loadtester
     # CloudNativePG: the operator and PostgreSQL signed by their workflows; the backup plugin unsigned (digest only).
     ghcr.io/cloudnative-pg/cloudnative-pg
     ghcr.io/cloudnative-pg/postgresql
@@ -109,3 +108,5 @@ data:
     # Unsigned official images (digest only).
     docker.io/prom/prometheus
     docker.io/valkey/valkey
+    # The curl project's image, the canary's floor of traffic: signed, but not verifiably (digest only).
+    docker.io/curlimages/curl

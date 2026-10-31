@@ -29,7 +29,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
   initContainers:
   - name: init
     image: ghcr.io/gameboy-21/idleo-control-plane@sha256:644720e28c77372bca9b5b62809112e0c9ae5d3dd36ed4d818a71da7d355adab
@@ -42,7 +42,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
 ---
 apiVersion: v1
 kind: Pod
@@ -52,7 +52,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.2
+    image: docker.io/valkey/valkey:9.1.3
 ---
 apiVersion: v1
 kind: Pod
@@ -72,7 +72,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    image: valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
 ---
 apiVersion: v1
 kind: Pod
@@ -102,7 +102,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
     securityContext:
       privileged: true
 ---
@@ -114,7 +114,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
   volumes:
   - name: node
     hostPath:
@@ -128,7 +128,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    image: docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
   hostNetwork: true
 ---
 apiVersion: v1
@@ -150,16 +150,6 @@ spec:
   containers:
   - name: main
     image: ghcr.io/fluxcd/flagger:1.45.0@sha256:15b372d35012f9ae450f9030bc82217369c0aee082ed5a5225830010cf972b2b
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: flagger-loadtester-signed
-  namespace: idleo
-spec:
-  containers:
-  - name: main
-    image: ghcr.io/fluxcd/flagger-loadtester:0.39.0@sha256:6a8546993cb574cdd9d42a84430eca2b74c30bf91349e36aa60969b46655f059
 ---
 apiVersion: v1
 kind: Pod

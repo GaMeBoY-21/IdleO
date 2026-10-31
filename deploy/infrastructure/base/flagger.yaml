@@ -87,9 +87,8 @@ spec:
       requests: { cpu: 10m, memory: 32Mi }
       limits: { memory: 128Mi }
 ---
-# Deny by default (ADR 0048). Flagger reaches DNS, the Kubernetes API (it moves the HTTPRoute's weights), the
-# in-cluster Prometheus (each canary's checks) and the load tester in idleo (its webhooks); only Prometheus reaches it,
-# for its meters.
+# Deny by default (ADR 0048). Flagger reaches DNS, the Kubernetes API (it moves the HTTPRoute's weights) and the
+# in-cluster Prometheus (each canary's checks); only Prometheus reaches it, for its meters.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -159,12 +158,3 @@ spec:
               app.kubernetes.io/name: prometheus
       ports:
         - { port: 9090, protocol: TCP }
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: idleo
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: loadtester
-      ports:
-        - { port: 8080, protocol: TCP }

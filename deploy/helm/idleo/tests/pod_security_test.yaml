@@ -1,7 +1,7 @@
 # Every pod the chart makes runs with rule 6's settings (ADR 0045): a fixed non-root user, the runtime's seccomp
 # profile, no service-account token; every container on a read-only root, every capability dropped, no privilege
 # escalation, with requests and a memory limit. The local values turn on every optional workload, and canaries are on
-# too (the load tester), so all are checked: each kind of workload in turn, every document of that kind. The database's
+# too (the canary's load), so all are checked: each kind of workload in turn, every document of that kind. The database's
 # pods are CloudNativePG's, made by its operator with these same settings (ADR 0047); database_test.yaml checks the
 # Cluster.
 suite: every pod is locked down
