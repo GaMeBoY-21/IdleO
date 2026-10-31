@@ -4,8 +4,9 @@ name: scan
 # workflow pins it, on the exact image digests staging and production run (deploy/clusters/<env>/idleo/release.yaml),
 # then brings up a k3d cluster from main under Flux, as production runs, and scans every running image in the
 # namespaces we own (ours and the vendors'), their manifests, RBAC and secrets. A CRITICAL or HIGH vulnerability with a
-# fix, or a CRITICAL or HIGH finding, fails it; the accepted ones are scripts/images/trivyignore.yaml, each with an
-# expiry of at most 60 days. A fix published after an image was built shows up here the next night, and a red run is
+# fix, a secret in an image, or a CRITICAL or HIGH finding, fails it; the accepted ones are vendors' only, in
+# scripts/images/trivyignore.yaml, each scoped, with a reason and an expiry of at most 60 days, and an expired one fails
+# too. A fix published after an image was built shows up here the next night, and a red run is
 # a digest-level alert (NightlyScanFailing), never a page. Chosen over the Trivy Operator in the cluster, whose scans
 # don't fit the server's memory at a canary's peak (ADR 0048).
 on:
