@@ -35,7 +35,7 @@ spec:
   interval: 1h
   url: oci://ghcr.io/kyverno/charts/kyverno
   ref:
-    # 3.9.2, Kyverno v1.19.2
+    tag: 3.9.2
     digest: sha256:83054f30148c3cfc001087c1f5772eda7c7224e9b74b7f0e70c39c9cafe009d1
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
@@ -63,6 +63,7 @@ spec:
         podSecurityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
         image:
           registry: ghcr.io
+          # renovate: image=ghcr.io/kyverno/kyverno-cli
           tag: v1.19.2@sha256:322ec5044d600930cb3af0e56dc33154a2d1d1fba58f4cadad3f47be7e78b11c
     config:
       # Images are checked as written: a name without its registry is refused (deploy/policies), never filled in.
@@ -70,9 +71,11 @@ spec:
     webhooksCleanup:
       podSecurityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
       image:
+        # renovate: image=ghcr.io/kyverno/readiness-checker
         tag: v1.19.2@sha256:02600428e7c956e222f4376413525866ed9fec28e6bcb1222774ce6bf5fc904a
     test:
       image:
+        # renovate: image=ghcr.io/kyverno/readiness-checker
         tag: v1.19.2@sha256:02600428e7c956e222f4376413525866ed9fec28e6bcb1222774ce6bf5fc904a
     # Nothing reads policy reports, and no policy acts on existing resources.
     features:
@@ -105,6 +108,7 @@ spec:
       initContainer:
         image:
           registry: ghcr.io
+          # renovate: image=ghcr.io/kyverno/kyvernopre
           tag: v1.19.2@sha256:27f3cc52e628559b56d08363b85316819802086c9808606914f7805a244148f4
         resources:
           requests: { cpu: 10m, memory: 32Mi }
@@ -112,6 +116,7 @@ spec:
       container:
         image:
           registry: ghcr.io
+          # renovate: image=ghcr.io/kyverno/kyverno
           tag: v1.19.2@sha256:c8c4dd09e720d2cd7fd24ca73ac28e46651001372f988e0cba3f2f612f04b955
         resources:
           requests: { cpu: 50m, memory: 160Mi }
