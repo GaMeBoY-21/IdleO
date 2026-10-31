@@ -5,7 +5,7 @@
 # Desktop VM owns its kernel), from k3s's CIS hardening guide and what kube-bench found (ADR 0048).
 
 # Secrets encrypted in the datastore (AES-CBC, k3s's stable provider; its secretbox is still experimental). Rotating
-# the key: k3s secrets-encrypt rotate-keys, then reencrypt (docs/runbooks/kubernetes.md).
+# the key: k3s secrets-encrypt rotate-keys (docs/runbooks/kubernetes.md, "Secrets at rest").
 secrets-encryption: true
 # The kubelet refuses to start if the kernel's settings aren't what it expects (sysctl.conf), rather than change them.
 protect-kernel-defaults: true
@@ -32,5 +32,8 @@ kube-controller-manager-arg:
 kubelet-arg:
   # An idle kubectl exec, attach or port-forward is closed after 5 minutes.
   - streaming-connection-idle-timeout=5m
+  # No pod may start more than 4096 processes and threads: a broken-into pod can't fork the node to a halt (CIS 4.2.13).
+  # The busiest pod on the Mac's cluster peaked at 598.
+  - pod-max-pids=4096
   # The kubelet's TLS: modern ciphers only.
   - tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384

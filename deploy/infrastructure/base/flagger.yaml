@@ -11,6 +11,15 @@ metadata:
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
 ---
+# The namespace's default service account mounts no token (ADR 0048; kube-bench 5.1.5): every pod here that calls the
+# Kubernetes API has an account of its own.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: flagger-system
+automountServiceAccountToken: false
+---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
@@ -46,6 +55,17 @@ spec:
     crds: CreateReplace
   upgrade:
     crds: CreateReplace
+  # The chart sets a security context on its container only; the pod gets one too (Trivy's KSV-0118).
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: flagger
+            patch: |
+              - op: add
+                path: /spec/template/spec/securityContext
+                value: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
   values:
     image:
       tag: 1.45.0@sha256:15b372d35012f9ae450f9030bc82217369c0aee082ed5a5225830010cf972b2b

@@ -4,14 +4,15 @@
 # report to private/k8s/logs/kube-bench.txt. What it found, what was fixed and why the rest stays, is in ADR 0048; the
 # server's k3s flags are deploy/k3s/server/config.yaml.
 #
-#   scripts/k8s/kube-bench.sh [benchmark]     k3s-cis-1.11 when not given
+#   scripts/k8s/kube-bench.sh [benchmark]     k3s-cis-1.9 when not given: the newest k3s benchmark kube-bench v0.16.0
+#                                             has targets for (its 1.10 and 1.11 folders have none yet)
 set -euo pipefail
 log() { printf 'kube-bench: %s\n' "$*"; }
 fail() { printf 'kube-bench: FAIL: %s\n' "$*" >&2; exit 1; }
 . "$(dirname "$0")/lib.sh"
 cd "$k8s_root"
 cluster_exists || fail "there's no cluster; scripts/k8s/up.sh makes it"
-benchmark="${1:-k3s-cis-1.11}"
+benchmark="${1:-k3s-cis-1.9}"
 image=docker.io/aquasec/kube-bench:v0.16.0@sha256:75506f222d1eb6ce2a751a5533bdc0a3b54c898e2e49e7751d0ee22cfb862679
 report="$k8s_state/logs/kube-bench.txt"
 mkdir -p "$(dirname "$report")"
@@ -31,8 +32,11 @@ print(json.dumps({
                         "volumeMounts": [{"name": name(p), "mountPath": p, "readOnly": True} for p in mounts]}],
         "volumes": [{"name": name(p), "hostPath": {"path": p}} for p in mounts]}}}}))
 PY
-kubectl -n kube-system wait --for=condition=complete job/kube-bench --timeout=300s >/dev/null ||
-  kubectl -n kube-system wait --for=condition=failed job/kube-bench --timeout=1s >/dev/null || true
+deadline=$((SECONDS + 300))
+until [[ -n "$(kubectl -n kube-system get job kube-bench -o jsonpath='{.status.succeeded}{.status.failed}')" ]]; do
+  ((SECONDS < deadline)) || fail "kube-bench didn't finish within 300 s"
+  sleep 2
+done
 kubectl -n kube-system logs job/kube-bench >"$report"
 kubectl -n kube-system delete job kube-bench >/dev/null
 log "the report is in private/k8s/logs/kube-bench.txt:"

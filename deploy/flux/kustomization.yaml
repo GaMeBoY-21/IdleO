@@ -13,6 +13,7 @@ kind: Kustomization
 resources:
   - gotk-components.yaml
   - network.yaml
+  - service-account.yaml
 images:
   - name: ghcr.io/fluxcd/source-controller
     digest: sha256:6a6693172589f8ff26123a231d5fa6ceb194a6efb4dc647cdf057c959f76a2e3

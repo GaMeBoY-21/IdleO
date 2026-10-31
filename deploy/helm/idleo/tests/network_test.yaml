@@ -1,0 +1,83 @@
+# Who may talk to whom (ADR 0048): every pod in the namespace is denied everything, both ways, unless a policy allows
+# it; the ways out are labels a pod opts into, and the web server and Valkey carry none; "the internet" is never the
+# private ranges or the cloud's metadata address. scripts/k8s/security-test.sh proves the same on a running cluster.
+suite: deny by default, allow exactly
+templates:
+  - templates/network.yaml
+  - templates/control-plane.yaml
+  - templates/web.yaml
+  - templates/valkey.yaml
+  - templates/scanner.yaml
+  - templates/migration-job.yaml
+  - templates/configmap.yaml
+values:
+  - ../values-local.yaml
+set:
+  images.tag: test
+tests:
+  - it: denies every pod's traffic both ways by default
+    template: templates/network.yaml
+    documentSelector: { path: metadata.name, value: idleo-default-deny }
+    asserts:
+      - equal: { path: spec.podSelector, value: {} }
+      - equal: { path: spec.policyTypes, value: [Ingress, Egress] }
+      - notExists: { path: spec.ingress }
+      - notExists: { path: spec.egress }
+  - it: never lets "the internet" mean a private range or the metadata address
+    template: templates/network.yaml
+    documentSelector: { path: metadata.name, value: idleo-internet }
+    asserts:
+      - equal: { path: "spec.egress[0].to[0].ipBlock.cidr", value: 0.0.0.0/0 }
+      - contains: { path: "spec.egress[0].to[0].ipBlock.except", content: 10.0.0.0/8 }
+      - contains: { path: "spec.egress[0].to[0].ipBlock.except", content: 172.16.0.0/12 }
+      - contains: { path: "spec.egress[0].to[0].ipBlock.except", content: 192.168.0.0/16 }
+      - contains: { path: "spec.egress[0].to[0].ipBlock.except", content: 169.254.0.0/16 }
+      - equal: { path: "spec.egress[0].ports", value: [{ port: 443, protocol: TCP }] }
+  - it: gives the web server no way out at all
+    template: templates/web.yaml
+    documentSelector: { path: kind, value: Deployment }
+    asserts:
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/dns-client"]' }
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/internet-client"]' }
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/database-client"]' }
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/valkey-client"]' }
+  - it: lets only the ingress reach the web server
+    template: templates/web.yaml
+    documentSelector: { path: kind, value: NetworkPolicy }
+    asserts:
+      - equal: { path: spec.policyTypes, value: [Ingress] }
+      - lengthEqual: { path: spec.ingress, count: 1 }
+      - equal: { path: "spec.ingress[0].from[0].namespaceSelector.matchLabels", value: { kubernetes.io/metadata.name: kube-system } }
+  - it: gives Valkey no way out, and lets only its clients in
+    template: templates/valkey.yaml
+    asserts:
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/dns-client"]' }
+        documentSelector: { path: kind, value: StatefulSet }
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/internet-client"]' }
+        documentSelector: { path: kind, value: StatefulSet }
+      - equal: { path: "spec.ingress[0].from[0].podSelector.matchLabels", value: { idleo.in/valkey-client: "true" } }
+        documentSelector: { path: kind, value: NetworkPolicy }
+  - it: turns Valkey's default user off and refuses its dangerous commands
+    template: templates/valkey.yaml
+    documentSelector: { path: kind, value: StatefulSet }
+    asserts:
+      - matchRegex: { path: "spec.template.spec.containers[0].args[0]", pattern: "user default off" }
+      - matchRegex: { path: "spec.template.spec.containers[0].args[0]", pattern: "-flushall .*-config .*-debug .*-keys " }
+      - equal: { path: "spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef", value: { name: idleo-valkey, key: password } }
+  - it: gives the scanner DNS and the internet, and the control plane's internal API alone inside the cluster
+    template: templates/scanner.yaml
+    asserts:
+      - equal: { path: 'spec.template.metadata.labels["idleo.in/internet-client"]', value: "true" }
+        documentSelector: { path: kind, value: Deployment }
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/database-client"]' }
+        documentSelector: { path: kind, value: Deployment }
+      - notExists: { path: 'spec.template.metadata.labels["idleo.in/valkey-client"]' }
+        documentSelector: { path: kind, value: Deployment }
+      - equal: { path: spec.egress, value: [{ to: [{ podSelector: { matchLabels: { app.kubernetes.io/instance: RELEASE-NAME, idleo.in/control-plane: "true" } } }], ports: [{ port: 8095, protocol: TCP }] }] }
+        documentSelector: { path: kind, value: NetworkPolicy }
+  - it: gives the migration Job the database and DNS, nothing else
+    template: templates/migration-job.yaml
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels
+          value: { app.kubernetes.io/name: migrate, app.kubernetes.io/instance: RELEASE-NAME, idleo.in/database-client: "true", idleo.in/dns-client: "true" }
