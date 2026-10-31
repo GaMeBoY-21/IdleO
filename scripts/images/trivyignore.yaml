@@ -1,16 +1,201 @@
-# Findings the images workflow (.github/workflows/images.yml) and the nightly scan (scripts/images/scan-deployed.sh,
-# ADR 0048) accept, each scoped as narrowly as Trivy allows, with why we can't fix it here and an expiry, after which
-# the scan fails again until it's looked at (ADR 0045). Everything else that is CRITICAL or HIGH with a fix fails. Each
-# vulnerability is in a Go binary that a base image or a release ships, which we don't build.
+# Findings the nightly scan (scripts/images/scan-deployed.sh, ADR 0048) accepts in vendors' images, each scoped to the
+# binary or package it's in, with why and an expiry at most 60 days away, after which it fails again until it's
+# looked at; scripts/checks/deploy.sh refuses an entry without a reason, scope or such an expiry. Every vendor below is
+# on its latest release; the entries go when Renovate's weekly pull request brings the one with the fix. Nothing on our
+# own images is ever accepted: they're scanned without this file, here and in .github/workflows/images.yml.
 vulnerabilities:
-  # usr/local/bin/trivy: Trivy 0.76.1's own go-jose (a DoS parsing JWKs with RSA keys). The scanner parses no JWK set
-  # from anyone; it pulls images with a registry's token. Fixed in the next Trivy release, which Dependabot proposes.
+  # CloudNativePG's operator 1.30.1 (ghcr.io/cloudnative-pg/cloudnative-pg), its latest release (2026-09-23), is built
+  # with Go 1.27.1 and golang.org/x/net 0.58.0 (fixed in Go 1.27.3, x/net 0.60.0). It takes traffic only from the API
+  # server and Prometheus inside the cluster, never from the internet (deploy/infrastructure/base/cloudnative-pg.yaml).
+  - id: CVE-2026-78669
+    paths: ["operator/manager_amd64", "operator/manager_arm64"]
+    statement: in CloudNativePG 1.30.1's operator, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-111943
+    paths: ["operator/manager_amd64", "operator/manager_arm64"]
+    statement: in CloudNativePG 1.30.1's operator, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-78667
+    paths: ["operator/manager_amd64", "operator/manager_arm64"]
+    statement: in CloudNativePG 1.30.1's operator, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-97031
+    paths: ["operator/manager_amd64", "operator/manager_arm64"]
+    statement: in CloudNativePG 1.30.1's operator, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  # The Barman Cloud plugin v0.15.1 (ghcr.io/cloudnative-pg/plugin-barman-cloud and -sidecar), its latest release
+  # (2026-09-30): the manager in both is built with Go 1.26.6 and x/net 0.58.0; the plugin's UBI 9.8 has pcre2 10.40-6;
+  # the sidecar's Debian 13.7 has expat 2.8.3 and OpenSSL 3.5.7-1~deb13u2, and its Python has older certifi, msgpack,
+  # pyasn1, setuptools and urllib3. The sidecar talks only to the backup store, over TLS; the plugin only to the
+  # operator and the database's instances, inside the cluster.
+  - id: CVE-2026-78669
+    paths: ["manager"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-111943
+    paths: ["manager"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-78667
+    paths: ["manager"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-97031
+    paths: ["manager"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-103111
+    purls: ["pkg:rpm/redhat/pcre2@10.40-6.el9", "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-86145
+    purls: ["pkg:rpm/redhat/pcre2@10.40-6.el9", "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-89161
+    purls: ["pkg:rpm/redhat/pcre2@10.40-6.el9", "pkg:rpm/redhat/pcre2-syntax@10.40-6.el9"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-66046
+    purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-76956
+    purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-76957
+    purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-77214
+    purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-93990
+    purls: ["pkg:deb/debian/libexpat1@2.8.3-1~deb13u1"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-84782
+    purls: ["pkg:deb/debian/libssl3t64@3.5.7-1~deb13u2"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: GHSA-6q48-6c7w-9gw2
+    purls: ["pkg:pypi/certifi@2026.7.22", "pkg:pypi/certifi@2026.6.17"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-114613
+    purls: ["pkg:pypi/msgpack@1.1.2"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: GHSA-6v7p-g79w-8964
+    purls: ["pkg:pypi/msgpack@1.1.2"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-119194
+    purls: ["pkg:pypi/pyasn1@0.6.4"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-119195
+    purls: ["pkg:pypi/pyasn1@0.6.4"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-119196
+    purls: ["pkg:pypi/pyasn1@0.6.4"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-119197
+    purls: ["pkg:pypi/pyasn1@0.6.4"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2025-47273
+    purls: ["pkg:pypi/setuptools@70.3.0"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-97687
+    purls: ["pkg:pypi/urllib3@2.7.0"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-97689
+    purls: ["pkg:pypi/urllib3@2.7.0"]
+    statement: in the Barman Cloud plugin v0.15.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  # Flagger 1.45.0 (ghcr.io/fluxcd/flagger), its latest release (2026-09-01): Alpine 3.22.5's OpenSSL 3.5.7, and Go
+  # 1.26.7 with older x/crypto, x/mod, x/net, x/text and gRPC. It reads the API server and Prometheus and takes no
+  # traffic from outside the cluster; it uses neither SSH nor Go's checksum database (x/crypto/ssh, x/mod/sumdb).
+  - id: CVE-2026-14456
+    purls: ["pkg:apk/alpine/libcrypto3@3.5.7-r0", "pkg:apk/alpine/libssl3@3.5.7-r0"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-56854
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-56864
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-56865
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-78669
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-56851
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-84304
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-84445
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-111943
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-78667
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-97031
+    paths: ["flagger"]
+    statement: in Flagger 1.45.0, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  # Kyverno 1.19.2 (ghcr.io/kyverno/kyverno and kyvernopre), its latest release (2026-10-20): go-jose 4.1.4 (a crafted
+  # JWK set with RSA keys exhausts the parser) and Go 1.26.9. Kyverno takes traffic only from the API server and fetches
+  # no JWK set; it reaches only GHCR and Sigstore, over TLS.
   - id: CVE-2026-116587
-    paths: ["usr/local/bin/trivy"]
-    expired_at: 2027-01-31
+    paths: ["ko-app/kyverno", "ko-app/kyverno-init"]
+    statement: in Kyverno 1.19.2, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  - id: CVE-2026-111943
+    paths: ["ko-app/kyverno", "ko-app/kyverno-init"]
+    statement: in Kyverno 1.19.2, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+  # cert-manager v1.21.3's controller (quay.io/jetstack/cert-manager-controller), its latest release (2026-10-23):
+  # go-jose 4.1.4, for its ACME client, which talks only to the issuer it's given, over TLS, and parses no JWK set.
+  - id: CVE-2026-116587
+    paths: ["app/cmd/controller/controller"]
+    statement: in cert-manager v1.21.3, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2026-12-30
+secrets:
+  # CloudNativePG's PostgreSQL image (ghcr.io/cloudnative-pg/postgresql) ships Debian's ssl-cert snakeoil key, made when
+  # the image was built and so the same in every copy. Nothing uses it: CloudNativePG serves the certificates it issues.
+  - id: private-key
+    paths: ["/etc/ssl/private/ssl-cert-snakeoil.key"]
+    statement: Debian's unused snakeoil key in CloudNativePG's PostgreSQL image, not a secret of ours
+    expired_at: 2026-12-30
 misconfigurations:
   # KSV-0109 ("ConfigMap with secrets") on idleo-values, the release's values (deploy/clusters/<env>/idleo/): its keys
   # named "secret" hold the names of Secrets (controlPlane.secret, valkey.secret, database.backups.secret), never a
-  # value; every value is in a SOPS-encrypted Secret (ADR 0046). The nightly cluster scan (scan-deployed.sh) reads this.
+  # value; every value is in a SOPS-encrypted Secret (ADR 0046).
   - id: KSV-0109
-    expired_at: 2027-10-31
+    paths: ["*ConfigMap*idleo-values*"]
+    statement: a false positive, the keys named secret hold Secrets' names, not values
+    expired_at: 2026-12-30

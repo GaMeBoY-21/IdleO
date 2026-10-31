@@ -45,7 +45,7 @@ suites_for_path() {
     # check.
     ops/postgres/*) echo ops control-plane ;;
     deploy/* | .sops.yaml) echo deploy k8s gitops security ;;
-    scripts/deploy/*) echo deploy ;;
+    scripts/deploy/* | scripts/images/trivyignore.yaml) echo deploy ;;
     scripts/k8s/*) echo k8s gitops security ;;
     agent/distro/*) echo agent distro e2e ;;
     agent/images/*) echo images ;;

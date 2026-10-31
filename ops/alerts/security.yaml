@@ -1,0 +1,25 @@
+# The nightly scan of what is deployed (ADR 0048; .github/workflows/scan.yml, scripts/images/scan-deployed.sh): Trivy
+# on every image staging and production run and on a cluster built from main. The workflow reports its result to
+# Grafana Cloud as idleo_nightly_scan_passed (1 or 0) and idleo_nightly_scan_findings (fixable CRITICAL or HIGH, and
+# CRITICAL or HIGH misconfigurations, RBAC and secrets, after trivyignore.yaml). Something to fix this week, never a
+# wake-up: both go to the daily digest. Same format and rules as platform.yaml.
+groups:
+  - name: security
+    rules:
+      - alert: NightlyScanFailing
+        # The last scan found something it doesn't accept: a new fixable vulnerability, an accepted one past its
+        # expiry, or a misconfiguration.
+        expr: last_over_time(idleo_nightly_scan_passed[30h]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The nightly scan of what is deployed found something to fix.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-failing
+      - alert: NightlyScanMissing
+        # No scan has reported for 30 hours: the workflow didn't run, or couldn't send its result.
+        expr: absent_over_time(idleo_nightly_scan_passed[30h])
+        labels:
+          severity: digest
+        annotations:
+          summary: The nightly scan of what is deployed hasn't reported for 30 hours.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-missing
