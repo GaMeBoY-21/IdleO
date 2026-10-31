@@ -57,7 +57,9 @@ spec:
       initContainers:
         # On a first install the migration Job runs once the database is up (post-install): until the schema is
         # there, this fails (a division by zero), and the kubelet tries it again. An upgrade's schema is migrated
-        # before its pods roll, so this passes at once.
+        # before its pods roll, so this passes at once. It's the database's own image, so this Deployment names that
+        # digest, verified with it, and CloudNativePG's pods, which no controller of their own names, are admitted
+        # without GHCR or Sigstore when either is down (ADR 0048).
         - name: wait-for-schema
           image: {{ .Values.database.image }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
