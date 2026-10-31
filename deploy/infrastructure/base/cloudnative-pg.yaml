@@ -31,7 +31,7 @@ spec:
   interval: 1h
   url: oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg
   ref:
-    # 0.29.1, CloudNativePG 1.30.1
+    tag: 0.29.1
     digest: sha256:3245fa051bb21d0dd9246272f57a2760b4234817a164a3167d2a1e7fb9f63fd9
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
@@ -59,6 +59,7 @@ spec:
     crds: CreateReplace
   values:
     image:
+      # renovate: image=ghcr.io/cloudnative-pg/cloudnative-pg
       tag: 1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07
     # The platform: evicted last (ADR 0048).
     priorityClassName: idleo-platform
@@ -75,7 +76,7 @@ spec:
   interval: 1h
   url: oci://ghcr.io/cloudnative-pg/charts/plugin-barman-cloud
   ref:
-    # 0.8.1, the plugin v0.15.1
+    tag: 0.8.1
     digest: sha256:b48511269e2c75603ee2f06f6c5444e8154542103a3c3b9d692344725bac37b7
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
@@ -108,8 +109,10 @@ spec:
     crds: CreateReplace
   values:
     image:
+      # renovate: image=ghcr.io/cloudnative-pg/plugin-barman-cloud
       tag: v0.15.1@sha256:c75acad19a36e8176cfe2885761ff1b836c6ef977d7257e298c99a28b5c302ef
     sidecarImage:
+      # renovate: image=ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar
       tag: v0.15.1@sha256:2287a793a804db751edd0d07d44cd549e357677e98a800eb12e2cf7c0d53f9b0
     resources:
       requests: { cpu: 10m, memory: 32Mi }

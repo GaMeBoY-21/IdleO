@@ -29,7 +29,7 @@ spec:
   interval: 1h
   url: oci://ghcr.io/fluxcd/charts/flagger
   ref:
-    # 1.45.0
+    tag: 1.45.0
     digest: sha256:a442a581eec96b8ca45df6c5d2b8a5a7a00fc7de2aac80a96675ae978095b672
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
@@ -68,6 +68,7 @@ spec:
                 value: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
   values:
     image:
+      # renovate: image=ghcr.io/fluxcd/flagger
       tag: 1.45.0@sha256:15b372d35012f9ae450f9030bc82217369c0aee082ed5a5225830010cf972b2b
     meshProvider: gatewayapi:v1
     # Pod Security "restricted" (ADR 0048): the chart's own context is only a user and a read-only root.
