@@ -68,8 +68,10 @@ spec:
         thresholdRange:
           max: {{ .Values.canary.maxSessionStartDropPoints }}
         interval: 10m
-    # A request a second to the canary itself, from before its first step to its last (the load tester runs one copy of
-    # a command at a time, so each step's call carries it on), on the public availability endpoint.
+    # A request a second to the canary itself, from before its first step to its last, on the public availability
+    # endpoint. The load tester runs one copy of a command at a time and refuses a call while it runs, so each step's
+    # load ends a little before the next call (canary.loadSeconds): one that ran the whole interval could still be
+    # running when the next call came, which would then start nothing and leave a step with no requests to judge.
     webhooks:
       {{- range $type := list "pre-rollout" "rollout" }}
       - name: load-{{ $type }}
@@ -78,7 +80,7 @@ spec:
         timeout: 15s
         metadata:
           type: cmd
-          cmd: hey -z {{ $.Values.canary.interval }} -q 1 -c 1 http://idleo-control-plane-canary.{{ $.Release.Namespace }}:8080/v1/public/availability
+          cmd: hey -z {{ $.Values.canary.loadSeconds }}s -q 1 -c 1 http://idleo-control-plane-canary.{{ $.Release.Namespace }}:8080/v1/public/availability
       {{- end }}
 ---
 # The share of the canary's API requests that answered 5xx, in percent (none at all is 0). Probes are left out.
