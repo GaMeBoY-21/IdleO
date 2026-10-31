@@ -12,8 +12,9 @@
 # use about 900 Mi. So 4.7 GiB requested at rest, with about 1 GiB for the OS: 2.3 GiB spare. During a canary its one
 # copy (1024/1536 Mi) and the migration Job add 1.4 GiB: 1 GiB spare. A third control plane would leave none, so the
 # autoscaler's most is 2 (controlPlane.autoscaling).
-# Measured on the Mac's k3d node under Flux, 2026-10-31, with the development services: 4.4 GiB in use at rest (each
-# control plane about 585 Mi, the database's instances 116 and 189 Mi, the operator 38 Mi, the plugin 19 Mi).
+# Measured on the Mac's k3d node under Flux, 2026-10-31, with the development services: 4.0 to 4.4 GiB in use at rest
+# (each control plane about 585 Mi, the database's instances 116 and 189 Mi, the operator 38 Mi, the plugin 19 Mi), and
+# 5.3 GiB at a canary's peak.
 # The scanner (768/2048 Mi), when renters' own images are on, borrows from the spare: its limit is what one image check
 # needs (ADR 0042); its request is what it idles at.
 
