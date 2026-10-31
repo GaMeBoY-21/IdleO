@@ -40,8 +40,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>An admin approves an amount ({@link #approve}), at most the bought credit not held for a running session. In
  *       one transaction the credit leaves the renter's bought lots, newest first, for {@code refunds_pending}, with the
  *       GST it carried in per_topup no longer owed, and one part a payment is written down.
- *   <li>Each part goes to Razorpay's Refunds API ({@link #send}), keyed by our receipt, so sending it again refunds
- *       nothing twice. Razorpay answers {@code processed}, {@code pending} or {@code failed}; a pending one is settled by
+ *   <li>Each part goes to Razorpay's Refunds API ({@link #send}), its receipt as the request's idempotency key
+ *       ({@code X-Refund-Idempotency}) with the same body every time, so sending it again refunds nothing twice. Razorpay answers {@code processed}, {@code pending} or {@code failed}; a pending one is settled by
  *       its {@code refund.processed} or {@code refund.failed} webhook.
  *   <li>Processed: the part leaves {@code refunds_pending} for {@code gateway_clearing} (Razorpay pays it back), and a
  *       credit note goes against the top-up's document. Failed: the credit, and its GST, come back to the lot.
@@ -374,7 +374,9 @@ class CreditRefunds {
 
     /**
      * Sends every part Razorpay hasn't accepted yet: after an approval, and every minute for any that couldn't be sent
-     * (Razorpay unreachable). A part sent before whose answer was lost is found by its receipt, never refunded again.
+     * (Razorpay unreachable, or still working on it). Each is sent the same way every time, its receipt as the idempotency
+     * key, so a part whose answer was lost is answered with the refund already made, never refunded again; a 409 means
+     * Razorpay is still working on that key, and the part stays as it is until the next turn.
      * One instance at a time (ADR 0047): Razorpay takes no idempotency key for a refund, so two instances sending the
      * same part at once could refund it twice. An instance that finds another sending leaves the parts to it.
      */
@@ -396,6 +398,11 @@ class CreditRefunds {
                         part.receipt(),
                         Map.of("refund_id", part.refundId().toString()));
             } catch (RazorpayClient.Refused refused) {
+                if (refused.status == 409) {
+                    // The body is the same for the key every time, so this is the request still in progress.
+                    log.info("Razorpay is still working on refund part {}; it's sent again next turn", part.id());
+                    continue;
+                }
                 var earlier = existing(part);
                 if (earlier.isEmpty()) {
                     log.error("Razorpay refused refund part {}: {}", part.id(), refused.getMessage());
@@ -411,6 +418,10 @@ class CreditRefunds {
         }
     }
 
+    /**
+     * The refund Razorpay already made for a part, by its receipt: when a send is refused for anything but a request in
+     * progress (the payment already refunded that far, say), the part may still have gone through.
+     */
     private Optional<RazorpayClient.Refund> existing(Part part) {
         try {
             return razorpay.refundsOf(part.paymentId()).stream()

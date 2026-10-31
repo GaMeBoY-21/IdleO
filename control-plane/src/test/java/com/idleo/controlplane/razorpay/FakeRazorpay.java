@@ -7,6 +7,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.extension.ResponseDefinitionTransformerV2;
+import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.http.HttpHeader;
 import com.github.tomakehurst.wiremock.http.HttpHeaders;
 import com.github.tomakehurst.wiremock.http.ResponseDefinition;
@@ -65,11 +66,23 @@ public final class FakeRazorpay implements AutoCloseable {
     private final Map<String, ObjectNode> orders = new ConcurrentHashMap<>();
     private final Map<String, ObjectNode> payments = new ConcurrentHashMap<>();
     private final Map<String, ObjectNode> refunds = new ConcurrentHashMap<>();
+    /** Each X-Refund-Idempotency key Razorpay has seen: the request's body and the refund it made. */
+    private final Map<String, Keyed> refundKeys = new ConcurrentHashMap<>();
+
+    private record Keyed(JsonNode body, String refundId) {}
+
+    /** Every refund request's X-Refund-Idempotency header, in order ("" when it had none). */
+    public final List<String> refundKeysSent = new java.util.concurrent.CopyOnWriteArrayList<>();
+
     private final AtomicLong sequence = new AtomicLong();
     private final HttpClient http = HttpClient.newHttpClient();
 
     /** What a new refund is: {@code processed} at once, {@code pending} (a test settles it), or {@code failed}. */
     public volatile String refundOutcome = "processed";
+    /** How many refund requests to come are answered 409, Razorpay still working on their key: nothing is refunded. */
+    public volatile int refundsInProgress;
+    /** The next refund request is made, and then its answer is lost: the connection is reset. */
+    public volatile boolean loseNextRefundAnswer;
     /** Where the local stack's fake sends webhooks; null in tests, which post their own. */
     public volatile @Nullable URI webhookTarget;
 
@@ -189,7 +202,11 @@ public final class FakeRazorpay implements AutoCloseable {
         orders.clear();
         payments.clear();
         refunds.clear();
+        refundKeys.clear();
+        refundKeysSent.clear();
         refundOutcome = "processed";
+        refundsInProgress = 0;
+        loseNextRefundAnswer = false;
         clock = java.time.Clock.systemUTC();
     }
 
@@ -455,7 +472,8 @@ public final class FakeRazorpay implements AutoCloseable {
                 }
                 if (method.equals("POST") && path.startsWith("/v1/payments/") && path.endsWith("/refund")) {
                     var id = path.substring("/v1/payments/".length(), path.length() - "/refund".length());
-                    return createRefund(id, JSON.readTree(request.getBodyAsString()));
+                    return createRefund(
+                            id, JSON.readTree(request.getBodyAsString()), request.getHeader("X-Refund-Idempotency"));
                 }
                 return error(404, "The requested URL was not found on the server.");
             } catch (RuntimeException e) {
@@ -490,13 +508,36 @@ public final class FakeRazorpay implements AutoCloseable {
             return json(200, order);
         }
 
-        private ResponseDefinition createRefund(String paymentId, JsonNode body) {
+        /**
+         * A refund, idempotent by its X-Refund-Idempotency key as the documentation says
+         * (https://razorpay.com/docs/api/refunds/normal-refunds-idempotent/): a key of at least 10 letters, digits, hyphens
+         * or underscores; the same key and body again answer with the refund already made, a different body is refused
+         * with 409, and so is a request whose key is still being worked on.
+         */
+        private synchronized ResponseDefinition createRefund(String paymentId, JsonNode body, @Nullable String key) {
+            refundKeysSent.add(key == null ? "" : key);
             var payment = payments.get(paymentId);
             if (payment == null) {
                 return sampleError("api-payment-fetch-error", 400);
             }
+            if (key != null) {
+                if (!key.matches("[A-Za-z0-9_-]{10,}")) {
+                    return error(400, "The idempotency key is invalid.");
+                }
+                if (refundsInProgress > 0) {
+                    refundsInProgress--;
+                    return error(409, "A request with the same idempotency key is being processed.");
+                }
+                var earlier = refundKeys.get(key);
+                if (earlier != null) {
+                    return earlier.body().equals(body)
+                            ? json(200, refunds.get(earlier.refundId()))
+                            : error(409, "Different request with the same idempotency key has already been processed.");
+                }
+            }
             var receipt = body.path("receipt").asString();
-            if (!receipt.isEmpty()
+            if (key == null
+                    && !receipt.isEmpty()
                     && refundsOf(paymentId).stream().anyMatch(refund -> receipt.equals(text(refund, "receipt")))) {
                 // The documentation's own words for a reused receipt.
                 return error(400, "Duplicate receipt found for this refund request.");
@@ -520,11 +561,18 @@ public final class FakeRazorpay implements AutoCloseable {
                     .put("created_at", clock.instant().getEpochSecond());
             refund.set("notes", body.path("notes"));
             refunds.put(text(refund, "id"), refund);
+            if (key != null) {
+                refundKeys.put(key, new Keyed(body, text(refund, "id")));
+            }
             if (!"failed".equals(refundOutcome)) {
                 payment.put("amount_refunded", refunded + amount);
                 payment.put(
                         "refund_status",
                         refunded + amount == payment.path("amount").asLong() ? "full" : "partial");
+            }
+            if (loseNextRefundAnswer) {
+                loseNextRefundAnswer = false;
+                return aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER).build();
             }
             return json(200, refund);
         }

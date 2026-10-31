@@ -50,6 +50,8 @@ class RefundTests {
     @AfterEach
     void reset() {
         RAZORPAY.refundOutcome = "processed";
+        RAZORPAY.refundsInProgress = 0;
+        RAZORPAY.loseNextRefundAnswer = false;
         clock.reset();
     }
 
@@ -189,6 +191,50 @@ class RefundTests {
                         .orElseThrow()
                         .status())
                 .isEqualTo("failed");
+    }
+
+    /**
+     * Razorpay first still working on the part (409), then refunding it and the answer lost: the part is sent again
+     * each turn with its receipt as the X-Refund-Idempotency key and the same body, and the payment is refunded once.
+     */
+    @Test
+    void aPartIsSentWithItsReceiptAsTheIdempotencyKeyAndRefundedOnceWhateverAnswerIsLost() throws Exception {
+        var user = renter();
+        var payment = buy(user, 20_000);
+        var request = ask(user, "{\"amountPaise\":20000}");
+        var admin = TestAdmins.signIn(mvc, jdbc, clock);
+        RAZORPAY.refundKeysSent.clear();
+        RAZORPAY.refundsInProgress = 1;
+        RAZORPAY.loseNextRefundAnswer = true;
+
+        mvc.perform(admin.as(post("/admin/v1/refunds/" + request.path("id").asString() + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountPaise\":20000,\"reason\":\"renter asked, credit unused\"}")))
+                .andExpect(status().isOk());
+        String partStatus;
+        int turns = 0;
+        do {
+            refunds.send();
+            partStatus = jdbc.queryForObject(
+                    "select status from billing.refund_parts where refund_id = ?::uuid",
+                    String.class,
+                    request.path("id").asString());
+        } while (!partStatus.equals("processed") && ++turns < 10);
+
+        assertThat(partStatus).isEqualTo("processed");
+        assertThat(RAZORPAY.refundsInProgress).isZero();
+        assertThat(RAZORPAY.loseNextRefundAnswer).isFalse();
+        var receipt = jdbc.queryForObject(
+                "select receipt from billing.refund_parts where refund_id = ?::uuid",
+                String.class,
+                request.path("id").asString());
+        // Refused while in progress, made with its answer lost, then answered with the refund already made.
+        assertThat(RAZORPAY.refundKeysSent).hasSizeGreaterThanOrEqualTo(3).containsOnly(receipt);
+        assertThat(RAZORPAY.refundsOf(payment))
+                .singleElement()
+                .satisfies(refund -> assertThat(refund.path("amount").asLong()).isEqualTo(20_000));
+        assertThat(bought(user.id())).isZero();
+        assertThat(account("refunds_pending", user.id())).isZero();
     }
 
     @Test
