@@ -199,7 +199,8 @@ One bucket for sessions (`sessions.storage.bucket`), one for releases, one for b
 | `erasures/` + `{user}` | The erased list outside the database (ADR 0037): one object a person, holding only when; a restore re-applies every one | No: an opaque id | As long as `privacy.erased_users` | It is the erasure's record |
 | `speedtest/` + `{host}/probe` | A host's upload speed test (no person) | No | Overwritten each test | Deleted with the host |
 | `web/` | Not a storage prefix: source paths in the web app's source maps, read to name a browser error's line | No | Per release | Nothing |
-| `<env>/idleo-database/base/` (backups bucket) | The database's base backups (CloudNativePG's Barman Cloud plugin, ADR 0047); `wals/` beside it, its WAL. In R2, encrypted at rest; ./start.sh's WAL-G keeps its own in the local MinIO | Everything in the database | 30 days (the ObjectStore's retention policy), LEGAL(confirm) | Stays up to 30 days; a restore re-applies every erasure (`privacy.erased_users`) |
+| `<env>/idleo-database/base/` (backups bucket) | The database's base backups (CloudNativePG's Barman Cloud plugin, ADR 0047); `wals/` beside it, its WAL. In R2, encrypted at rest | Everything in the database | 30 days (the ObjectStore's retention policy), LEGAL(confirm) | Stays up to 30 days; a restore re-applies every erasure (`privacy.erased_users`) |
+| `basebackups_005/` (./start.sh's backups bucket) | The development stack's WAL-G full backups; `wal_005/` its WAL, in its local MinIO, OpenPGP-encrypted with the development key | Everything in that database | 30 days (`ops/postgres/backup-full`) | Stays up to 30 days; development data only |
 | `stable/` (releases bucket) | The signed release manifest and setup programs | No | Per release | Nothing |
 
 ## Valkey
