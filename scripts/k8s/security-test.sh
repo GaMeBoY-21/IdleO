@@ -315,6 +315,13 @@ expect 10 "k3s's secrets encryption" "$encryption" Enabled
 
 log "11. Kyverno and a control-plane pod killed together"
 now() { perl -MTime::HiRes=time -e 'printf "%.1f", time'; }
+# The control planes that are ready, not on their way out (a hard kill sets deletionTimestamp at once).
+ready_control_planes() {
+  in_namespace get pods -l idleo.in/control-plane=true -o json | python3 -c '
+import json, sys
+print(sum(1 for p in json.load(sys.stdin)["items"] if not p["metadata"].get("deletionTimestamp")
+          and any(c["type"] == "Ready" and c["status"] == "True" for c in p["status"].get("conditions", []))))'
+}
 victim="${control_planes[0]}"
 replicas_before="${#control_planes[@]}"
 requests=0
@@ -338,10 +345,7 @@ while [[ -z "$kyverno_back" || -z "$control_plane_back" ]]; do
     -o jsonpath='{.items[*].status.containerStatuses[0].ready}' 2>/dev/null)" == true ]]; then
     kyverno_back="$(now)"
   fi
-  ready="$(in_namespace get pods -l idleo.in/control-plane=true -o json | python3 -c '
-import json, sys
-print(sum(1 for p in json.load(sys.stdin)["items"] if not p["metadata"].get("deletionTimestamp")
-          and any(c["type"] == "Ready" and c["status"] == "True" for c in p["status"].get("conditions", []))))')"
+  ready="$(ready_control_planes)"
   [[ -z "$control_plane_back" && "$ready" -ge "$replicas_before" ]] && control_plane_back="$(now)"
   sleep 1
 done
@@ -465,22 +469,20 @@ else
 fi
 
 victim="$(in_namespace get pods -l idleo.in/control-plane=true -o jsonpath='{.items[0].metadata.name}')"
+before="$(ready_control_planes)"
 killed="$(now)"
 in_namespace delete pod "$victim" --grace-period=0 --force --wait=false >/dev/null 2>&1
 back=""
 deadline=$((SECONDS + 300))
 while [[ -z "$back" ]] && ((SECONDS < deadline)); do
-  ready="$(in_namespace get pods -l idleo.in/control-plane=true -o json | python3 -c '
-import json, sys
-print(sum(1 for p in json.load(sys.stdin)["items"] if not p["metadata"].get("deletionTimestamp")
-          and any(c["type"] == "Ready" and c["status"] == "True" for c in p["status"].get("conditions", []))))')"
-  [[ "$ready" -ge 2 ]] && back="$(python3 -c "print(round($(now) - $killed, 1))")"
+  ready="$(ready_control_planes)"
+  [[ "$ready" -ge "$before" ]] && back="$(python3 -c "print(round($(now) - $killed, 1))")"
   sleep 1
 done
 if [[ -n "$back" ]]; then
-  row 12 "offline: a control-plane pod killed" "back to two ready at ${back} s" PASS
+  row 12 "offline: a control-plane pod killed" "back to $before ready at ${back} s" PASS
 else
-  row 12 "offline: a control-plane pod killed" "not back to two ready within 300 s" FAIL
+  row 12 "offline: a control-plane pod killed" "not back to $before ready within 300 s" FAIL
 fi
 refused_offline="$(in_namespace get events --field-selector reason=FailedCreate -o json | python3 -c '
 import json, sys
