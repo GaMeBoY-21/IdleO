@@ -99,6 +99,13 @@ checksums_sql() {
   printf ' order by 1;\n'
 }
 
+# The newest WAL segment archived: a full segment's name (a failover also archives a .partial and a .history, which
+# pg_stat_archiver may name last), from the archiver and from the .done marks still in pg_wal.
+archived_sql="select max(wal) from (
+  select substr(name, 1, 24) as wal from pg_ls_archive_statusdir() where name ~ '^[0-9A-F]{24}\\.done\$'
+  union all
+  select last_archived_wal from pg_stat_archiver where last_archived_wal ~ '^[0-9A-F]{24}\$') archived"
+
 results=()
 for run in $(seq 1 "$runs"); do
   stamp="$(date -u +%Y%m%d%H%M%S)"
@@ -177,7 +184,7 @@ delete from identity.users where id = '$person';
 SQL
   # T can be restored to once the WAL segment holding it is archived: within archive_timeout.
   deadline=$((SECONDS + 150))
-  until [[ "$(live -c "select coalesce(last_archived_wal, '') >= '$wal_at_t' from pg_stat_archiver")" == t ]]; do
+  until [[ "$(live -c "select coalesce(($archived_sql), '') >= '$wal_at_t'")" == t ]]; do
     ((SECONDS < deadline)) || fail "the WAL holding T ($wal_at_t) wasn't archived in time"
     sleep 1
   done
@@ -210,12 +217,12 @@ SQL
   wait_before_loss=$((RANDOM % 60))
   log "run $run: measuring a loss in ${wait_before_loss} s"
   sleep "$wait_before_loss"
-  data_lost="$(live <<'SQL'
-with archived as (
-  select ('x' || substr(last_archived_wal, 9, 8))::bit(32)::bigint * 4294967296
-         + ('x' || substr(last_archived_wal, 17, 8))::bit(32)::bigint * setting::bigint
+  data_lost="$(live <<SQL
+with newest as ($archived_sql), archived as (
+  select ('x' || substr(newest.max, 9, 8))::bit(32)::bigint * 4294967296
+         + ('x' || substr(newest.max, 17, 8))::bit(32)::bigint * setting::bigint
          + setting::bigint as wal_end
-  from pg_stat_archiver, pg_settings where name = 'wal_segment_size'
+  from newest, pg_settings where name = 'wal_segment_size'
 )
 select round(extract(epoch from clock_timestamp() - max(t.at))::numeric, 1)
 from drill.ticks t, archived where (t.lsn - '0/0'::pg_lsn) < archived.wal_end

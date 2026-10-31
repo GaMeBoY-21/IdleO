@@ -15,9 +15,9 @@
 #   scripts/k8s/smoke.sh         the proof that it works (either way)
 #   scripts/k8s/canary-test.sh   the proof of the canaries (--gitops)
 #
-# The cluster and ./start.sh's stack fit in Docker Desktop's memory together only while both idle (3.9 of 7.75 GiB,
-# measured 2026-10-29), not at the chart's limits, so this stops that stack first (./start.sh --stop; start it again
-# after down.sh). Everything it keeps is under the gitignored private/k8s/.
+# The cluster uses about 4.4 of Docker Desktop's 7.75 GiB at rest (two control planes and two database instances,
+# measured 2026-10-31), too much beside ./start.sh's stack, so this stops that stack first (./start.sh --stop; start it
+# again after down.sh). Everything it keeps is under the gitignored private/k8s/.
 set -euo pipefail
 log() { printf 'k8s: %s\n' "$*"; }
 fail() { printf 'k8s: FAIL: %s\n' "$*" >&2; exit 1; }
@@ -47,7 +47,7 @@ if [[ "$gitops" == true ]]; then
 fi
 
 if [[ -f private/local/control-plane.pid ]] && kill -0 "$(cat private/local/control-plane.pid)" 2>/dev/null; then
-  log "stopping ./start.sh's stack first: it and the cluster fit in Docker's memory together only while idle"
+  log "stopping ./start.sh's stack first: it and the cluster don't fit in Docker's memory together"
   ./start.sh --stop >>"$logs/up.log" 2>&1 || fail "./start.sh --stop failed; see private/k8s/logs/up.log"
 fi
 

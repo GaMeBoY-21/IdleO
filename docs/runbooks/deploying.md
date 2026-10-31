@@ -90,14 +90,17 @@ rm /tmp/idleo-control-plane.yaml
 **If a private age key leaks,** everything ever encrypted for it is readable by whoever has it, including every past version in git's history:
 
 1. Rotate the key at once (above), so new values aren't readable with the old one.
-2. Change **every** value that environment's Secrets hold: the database passwords, the signing and sealing keys (deployment.md says what changing each means), the Razorpay and RazorpayX keys, the Grafana Cloud and GitHub tokens. Re-encrypt each one.
+2. Change **every** value that environment's Secrets hold: the database passwords, the backups' R2 token, the signing and sealing keys (deployment.md says what changing each means), the Razorpay and RazorpayX keys, the Grafana Cloud and GitHub tokens. Re-encrypt each one.
 3. Treat it as a breach if any of those keys could reach personal data (breach.md).
 
 What each environment's Secrets hold:
 
 | Secret | Namespace | What |
 | --- | --- | --- |
-| `idleo-database` | idleo | The superuser's, migration user's and application user's passwords |
+| `idleo-database-migration` | idleo | `kubernetes.io/basic-auth`: `username` `idleo_migration` and its `password` (CloudNativePG's managed role, ADR 0047) |
+| `idleo-database-application` | idleo | `kubernetes.io/basic-auth`: `username` `idleo_app` and its `password` |
+| `idleo-backup-storage` | idleo | `ACCESS_KEY_ID` and `ACCESS_SECRET_KEY`: an R2 API token with Object Read & Write on the backups bucket only (backups.md) |
+| `r2-backups` | flux-system | `R2_BACKUPS_ENDPOINT` (`https://<account id>.r2.cloudflarestorage.com`) and `R2_BACKUPS_BUCKET`, which Flux substitutes into the release's values |
 | `idleo-control-plane` | idleo | The control plane's keys and the agents' CA (deployment.md lists them) |
 | `grafana-cloud-metrics` | flux-system | `GRAFANA_CLOUD_PROMETHEUS_URL` and `_USER`, which Flux substitutes into Prometheus's remote write |
 | `grafana-cloud-metrics` | monitoring | `GRAFANA_CLOUD_PROMETHEUS_TOKEN`, a Grafana Cloud token that may only write metrics |

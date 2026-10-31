@@ -45,7 +45,7 @@ A pull request from the app starts its own required checks, as a person's does. 
 
 **What S5 adds.** The real clusters, and these with them:
 
-- staging's and production's age keys, and their SOPS-encrypted Secrets (`idleo-database`, `idleo-control-plane`, `grafana-cloud-metrics` twice, `github-commit-status`);
+- staging's and production's age keys, and their SOPS-encrypted Secrets (`idleo-database`, since ADR 0047 the two users' and the backups' Secrets, `idleo-control-plane`, `grafana-cloud-metrics` twice, `github-commit-status`);
 - the Let's Encrypt issuers;
 - the server's Traefik on ports 80 and 443;
 - applying `deploy/flux` and `flux-system/sync.yaml` once on each server.

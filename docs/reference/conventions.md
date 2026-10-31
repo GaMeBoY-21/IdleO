@@ -147,7 +147,9 @@ Operations (ADR 0036): metrics, traces and logs leave only through OTLP (Spring 
 
 ## Backups (ADR 0036)
 
-Backups (ADR 0036, docs/runbooks/backups.md): PostgreSQL is `ops/postgres/`'s image (the tests' digest plus WAL-G by checksum), archiving every WAL segment (at least every 30 seconds) and a nightly full backup, 30 days kept, OpenPGP-encrypted to a key whose private half is offline (the server holds only `backup.pub.asc`; development's is `ops/backup/dev-key.sh`'s, in private/backup-dev/). The control plane watches them itself (`BackupWatch`). `ops/backup/restore.sh --to <time|latest>` restores only into a new database; `verify-ledger.sh` checks the ledger before reopening; `drill.sh` proves both. Valkey is never backed up.
+Backups (ADR 0036, 0047, docs/runbooks/backups.md): the cluster's database is a CloudNativePG Cluster (a primary and a synchronous standby), backed up by the Barman Cloud plugin: every WAL segment (at least every 30 seconds) and a daily base backup, 30 days kept, in R2 (MinIO locally). `ops/backup/restore.sh --to <time|latest>` restores only into a new Cluster; `verify-ledger.sh --cluster` checks the ledger before reopening; `drill.sh` proves both and measures the RPO and RTO. ./start.sh's stack keeps `ops/postgres/`'s image (the tests' digest plus WAL-G by checksum), OpenPGP-encrypted with the development key (`ops/backup/dev-key.sh`), watched by the control plane's `BackupWatch`. Valkey is never backed up.
+
+Two control planes (ADR 0047): a scheduled job is safe on both (rows claimed with `FOR UPDATE SKIP LOCKED`, or idempotent by a unique key), per instance by design (this instance's streams or gauges), or must run once: then it runs under `OneAtATime` (a session advisory lock by name), or `pg_try_advisory_xact_lock` when the job is one transaction. No other lock. Anything shared between instances lives in Postgres or Valkey, never in one instance's memory. A listener of a durable event must be safe to run twice. `TwoInstancesTests` runs two whole control planes against one database and one Valkey.
 
 ## Real email (ADR 0036)
 

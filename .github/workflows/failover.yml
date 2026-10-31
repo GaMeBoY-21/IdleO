@@ -1,0 +1,72 @@
+name: failover
+
+# Losing one of anything loses nothing (ADR 0047), proven on the Mac's cluster on a runner: scripts/k8s/failover-test.sh
+# bootstraps Flux from this commit on GitHub, then kills a control-plane pod and the database's primary hard, restarts
+# Valkey and drains the control planes one at a time, with renters' traffic and two fake-GPU agents throughout, and ends
+# with the point-in-time restore drill. It prints what renters saw and the RPO and RTO. Weekly, and by hand. Not a
+# required check: it takes about 40 minutes.
+on:
+  schedule:
+    - cron: "11 5 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  failover:
+    name: failover test
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The agents it runs outside the cluster (agent/rust-toolchain.toml pins the toolchain).
+      - name: Install the pinned Rust toolchain
+        working-directory: agent
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: agent
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Install k3d v5.9.0 and sops v3.13.3
+        run: |
+          curl -fsSLo k3d https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64
+          echo "06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0  k3d" | sha256sum -c -
+          curl -fsSLo sops https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+          echo "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b  sops" | sha256sum -c -
+          sudo install -m 0755 k3d sops /usr/local/bin/ && rm k3d sops
+      # The local cluster's age key, which its committed Secrets (development's stand-ins) are encrypted for (ADR 0046).
+      - name: The local age key
+        env:
+          KEY: ${{ secrets.SOPS_AGE_KEY_LOCAL }}
+        run: |
+          [[ -n "$KEY" ]] || { echo "the repository secret SOPS_AGE_KEY_LOCAL is missing (docs/runbooks/deploying.md)"; exit 1; }
+          mkdir -p private/k8s/age
+          (umask 077 && printf '%s\n' "$KEY" >private/k8s/age/local.agekey)
+      - name: Failover test
+        env:
+          GITOPS_BRANCH: ${{ github.ref_name }}
+        run: scripts/k8s/failover-test.sh
+      - name: Memory
+        if: always()
+        run: scripts/k8s/status.sh || true
+      - name: What the cluster said
+        if: failure()
+        run: |
+          export KUBECONFIG=private/k8s/kubeconfig
+          kubectl get pods -A -o wide || true
+          kubectl -n idleo describe cluster idleo-database || true
+          kubectl -n idleo get events --sort-by=.lastTimestamp | tail -50 || true
+          for pod in $(kubectl -n idleo get pods -o name); do echo "== $pod"; kubectl -n idleo logs "$pod" --all-containers --tail=80 || true; done
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: failover-logs
+          path: private/k8s/logs/
+          retention-days: 7

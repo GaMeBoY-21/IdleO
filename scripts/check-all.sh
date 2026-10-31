@@ -7,7 +7,7 @@
 #   scripts/check-all.sh --verbose       print each suite's whole output as it runs (the old behaviour)
 #   scripts/check-all.sh --no-distro     every suite but the sealed Linux image's (it downloads a few hundred MB)
 #   scripts/check-all.sh --no-images     every suite but the job environment image's (it downloads a few GB, and builds under emulation)
-#   scripts/check-all.sh --no-drill      every suite but the restore drill (ops/backup/drill.sh: a fresh stack, about 5 minutes)
+#   scripts/check-all.sh --no-drill      every suite but the restore drill (ops/backup/drill.sh, on the Mac's cluster: about 2 minutes once it's up)
 #
 # Suites and the files each answers for: scripts/lib/suites.sh. Output is quiet: one line per suite (name, PASS or FAIL,
 # time); the whole output is in private/logs/<date-time>/<suite>.log, and a FAIL also prints that log's last 40 lines

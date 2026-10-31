@@ -116,11 +116,43 @@ Two alerts share this section.
 
 ## No backup
 
-**Means:** no full backup of the database has finished in 26 hours (one runs nightly), WAL archiving is more than 10 minutes behind, or the control plane can't read the backup bucket. Point-in-time recovery depends on all three.
+**Means:** ./start.sh's development stack (WAL-G, ADR 0036): no full backup there has finished in 26 hours, its WAL archiving is more than 10 minutes behind, or the control plane can't read its backup bucket. `scripts/ops/alert-drill.sh` proves the alert. The cluster's database (staging and production) has its own alerts, below.
 
-**Check first:** Platform health, "Last full backup" and "WAL archiving behind". On the server: `systemctl status idleo-backup.timer` and `journalctl -u idleo-backup` for the nightly backup; `docker logs <postgres> | grep -i archive` for archiving, which logs each failed `wal-g wal-push`.
+**Check first:** `docker logs <the stack's postgres container> 2>&1 | grep -i archive`, which logs each failed `wal-g wal-push`, and `logs/backup.log`.
 
-**Do:** follow docs/runbooks/backups.md, "When a backup fails": the usual causes are the storage key (rotated or without write access), the bucket's name, or a full disk. Once fixed, take a full backup by hand (`ops/backup/backup-now.sh`) and watch the alert clear.
+**Do:** take a full backup by hand (`ops/backup/backup-now.sh`) and watch the alert clear; the usual causes are the stack's MinIO not running or the development backup key missing (`ops/backup/dev-key.sh` makes it).
+
+## Database standby behind
+
+**Means:** the database's standby (CloudNativePG, ADR 0047) is more than 30 seconds behind the primary for 2 minutes, or no standby has streamed from the primary for 2 minutes. A failover now would wait for it, or there's nothing to fail over to: one more loss is an outage.
+
+**Check first:** `kubectl -n idleo get cluster idleo-database` (instances ready) and Platform health's database row. Is the standby's pod running (`kubectl -n idleo get pods -l cnpg.io/cluster=idleo-database`)? Its log says why it isn't streaming.
+
+**Do:** docs/runbooks/database.md. A standby that can't follow is rebuilt by the operator; one stuck pending wants memory or disk on the node. While it's away, commits don't wait for it (`dataDurability: preferred`), so nothing stops, but nothing is spare.
+
+## Database archiving failing
+
+**Means:** the database's WAL isn't reaching the backups: the last attempt failed, or more than 5 segments wait. Point-in-time recovery stops at the last segment archived, and the waiting ones fill the primary's disk.
+
+**Check first:** the plugin's log on the primary: `kubectl -n idleo logs <primary> -c plugin-barman-cloud --tail=50`, and Platform health's "WAL waiting to be archived".
+
+**Do:** docs/runbooks/database.md, "When WAL archiving stops". Never turn archiving off to free the disk.
+
+## Database no base backup
+
+**Means:** no base backup of the database has finished in 26 hours (one runs daily at 03:00 India time). Restores replay WAL from the last one, so they get slower, and if it's the storage, the WAL isn't going either.
+
+**Check first:** `kubectl -n idleo get backups --sort-by=.metadata.creationTimestamp | tail -3`: the last one's phase and error.
+
+**Do:** docs/runbooks/backups.md, "When a backup fails"; then take one by hand and watch the alert clear.
+
+## Database failover
+
+**Means:** the database's standby was promoted in the last 15 minutes (its timeline moved on): the primary went, and the cluster healed itself. A digest, not a page.
+
+**Check first:** `kubectl -n idleo get cluster idleo-database`: healthy, 2 ready, and which is primary.
+
+**Do:** docs/runbooks/database.md, "A failover": find out why the old primary went, and check the standby streams again and archiving carries on.
 
 ## Browser errors
 
