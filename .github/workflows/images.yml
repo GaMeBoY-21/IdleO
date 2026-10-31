@@ -61,13 +61,13 @@ jobs:
             REVISION=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
-      # Any CRITICAL or HIGH finding that has a fix fails the build, but for the few scripts/images/trivyignore.yaml
-      # accepts, each with its reason and an expiry; one without a fix is reported, not fatal.
+      # Any CRITICAL or HIGH vulnerability that has a fix, or secret, fails the build: nothing on our own images is
+      # accepted (scripts/images/trivyignore.yaml is the vendors' only). One without a fix is reported, not fatal.
       - name: Scan with Trivy
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/scripts/images/trivyignore.yaml:/ignore.yaml:ro" \
-            "$TRIVY_IMAGE" image --no-progress --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed \
-            --ignorefile /ignore.yaml --exit-code 1 "idleo-${{ matrix.image }}:ci"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            "$TRIVY_IMAGE" image --no-progress --scanners vuln,secret --severity CRITICAL,HIGH --ignore-unfixed \
+            --exit-code 1 "idleo-${{ matrix.image }}:ci"
       - name: Size
         run: |
           docker image inspect "idleo-${{ matrix.image }}:ci" --format '{{.Size}}' |
