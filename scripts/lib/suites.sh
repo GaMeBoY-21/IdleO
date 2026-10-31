@@ -2,10 +2,11 @@
 # The suites and which files each one answers for: the one place scripts/check-all.sh and scripts/check-changed.sh
 # read. Source it; don't run it.
 #
-# A suite's checks are scripts/checks/<suite>.sh, except drill, web-browser, e2e, k8s and gitops (suite_command). Its
+# A suite's checks are scripts/checks/<suite>.sh, except drill, web-browser, e2e, k8s, gitops and security
+# (suite_command). Its
 # paths follow the workflows' `paths:` filters (.github/workflows/*.yml), so a change runs what CI would run for it.
 
-ALL_SUITES=(agent cli scanner control-plane ops drill proto distro images sdk web deploy web-browser e2e k8s gitops)
+ALL_SUITES=(agent cli scanner control-plane ops drill proto distro images sdk web deploy web-browser e2e k8s gitops security)
 
 # suite_command SUITE: runs the suite, from the repository root, and returns its status.
 suite_command() {
@@ -21,6 +22,8 @@ suite_command() {
     k8s) "$root/scripts/k8s/up.sh" && "$root/scripts/k8s/smoke.sh" ;;
     # The same cluster under Flux, and its canaries: a good release, a bad one rolled back, an old agent (ADR 0046).
     gitops) "$root/scripts/k8s/canary-test.sh" ;;
+    # The same cluster under Flux, attacked from a broken-into pod: every attempt must fail (ADR 0048).
+    security) "$root/scripts/k8s/security-test.sh" ;;
     *)
       echo "no suite called $suite; the suites are: ${ALL_SUITES[*]}" >&2
       return 2
@@ -41,9 +44,9 @@ suites_for_path() {
     # ./start.sh's PostgreSQL (WAL-G); its first start makes the database's two users, which the control plane's tests
     # check.
     ops/postgres/*) echo ops control-plane ;;
-    deploy/* | .sops.yaml) echo deploy k8s gitops ;;
+    deploy/* | .sops.yaml) echo deploy k8s gitops security ;;
     scripts/deploy/*) echo deploy ;;
-    scripts/k8s/*) echo k8s gitops ;;
+    scripts/k8s/*) echo k8s gitops security ;;
     agent/distro/*) echo agent distro e2e ;;
     agent/images/*) echo images ;;
     agent/*) echo agent e2e ;;

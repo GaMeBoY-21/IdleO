@@ -1,0 +1,75 @@
+name: security
+
+# The cluster's security, proven on the Mac's cluster on a runner (ADR 0048): scripts/k8s/security-test.sh bootstraps
+# Flux from this pull request's commit on GitHub, then attacks from inside, as from a broken-into pod: an unsigned image
+# under our name, an image by tag, root, privileged and hostPath pods; connections from the web, scanner and control
+# plane pods to what each mustn't reach (with controls that must reach it); Valkey without its password; the pods'
+# tokens and every service account's rights; a Secret on k3s's disk; and Kyverno killed with a control-plane pod. Every
+# attempt must fail. On changes to the deployment, and weekly. Not a required check: it takes about 25 minutes.
+on:
+  pull_request:
+    paths: ["deploy/**", ".sops.yaml", "scripts/k8s/**", "scripts/deploy/**", ".github/workflows/security.yml"]
+  schedule:
+    - cron: "29 5 * * 4"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: security test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The pull request's own commit, which Flux reads from GitHub (not the merge commit, which isn't there).
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Install k3d v5.9.0 and sops v3.13.3
+        run: |
+          curl -fsSLo k3d https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64
+          echo "06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0  k3d" | sha256sum -c -
+          curl -fsSLo sops https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+          echo "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b  sops" | sha256sum -c -
+          sudo install -m 0755 k3d sops /usr/local/bin/ && rm k3d sops
+      # The local cluster's age key, which its committed Secrets (development's stand-ins) are encrypted for: the one
+      # secret this workflow reads, and only the local environment's.
+      - name: The local age key
+        env:
+          KEY: ${{ secrets.SOPS_AGE_KEY_LOCAL }}
+        run: |
+          [[ -n "$KEY" ]] || { echo "the repository secret SOPS_AGE_KEY_LOCAL is missing (docs/runbooks/deploying.md)"; exit 1; }
+          mkdir -p private/k8s/age
+          (umask 077 && printf '%s\n' "$KEY" >private/k8s/age/local.agekey)
+      - name: The cluster's names are this machine
+        run: getent hosts api.idleo.localhost storage.idleo.localhost signin.idleo.localhost
+      - name: Security test
+        env:
+          GITOPS_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: scripts/k8s/security-test.sh
+      - name: Memory
+        if: always()
+        run: scripts/k8s/status.sh || true
+      - name: What the cluster said
+        if: failure()
+        run: |
+          export KUBECONFIG=private/k8s/kubeconfig
+          kubectl get pods -A -o wide || true
+          kubectl -n flux-system get gitrepositories,kustomizations,helmreleases,ocirepositories -A || true
+          kubectl get imagevalidatingpolicies,validatingadmissionpolicies || true
+          kubectl -n kyverno logs deploy/kyverno-admission-controller --tail=200 || true
+          kubectl -n idleo get events --sort-by=.lastTimestamp | tail -50 || true
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-logs
+          path: private/k8s/logs/
+          retention-days: 7

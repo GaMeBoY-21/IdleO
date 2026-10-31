@@ -1,0 +1,86 @@
+# kyverno test (scripts/checks/deploy.sh, ADR 0048) on staging's and production's policies as Flux builds them,
+# written beside this file as policies.yaml and params.yaml (the allowed list): what each admits and refuses.
+# The signatures are checked against the real registries and the public transparency log (--registry).
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: idleo-policies
+policies:
+- policies.yaml
+paramResources:
+- params.yaml
+resources:
+- resources.yaml
+results:
+- policy: idleo-images-pinned
+  resources:
+  - ours-signed
+  - vendor-pinned
+  - privileged
+  - host-path
+  - host-network
+  - flux-signed
+  - flagger-signed
+  - flagger-loadtester-signed
+  - cloudnative-pg-signed
+  - postgresql-signed
+  kind: Pod
+  result: pass
+- policy: idleo-images-pinned
+  resources:
+  - by-tag
+  - tagged-latest
+  - registry-unnamed
+  - repository-unlisted
+  - local-registry
+  kind: Pod
+  result: fail
+- policy: idleo-pods-unprivileged
+  resources:
+  - ours-signed
+  - vendor-pinned
+  kind: Pod
+  result: pass
+- policy: idleo-pods-unprivileged
+  resources:
+  - privileged
+  - host-path
+  - host-network
+  kind: Pod
+  result: fail
+- policy: idleo-images-signed
+  resources:
+  - ours-signed
+  kind: Pod
+  result: pass
+- policy: idleo-images-signed
+  resources:
+  - ours-unsigned
+  - ours-unsigned-init
+  kind: Pod
+  result: fail
+- policy: idleo-flux-signed
+  resources:
+  - flux-signed
+  kind: Pod
+  result: pass
+- policy: idleo-flagger-signed
+  resources:
+  - flagger-signed
+  kind: Pod
+  result: pass
+- policy: idleo-flagger-loadtester-signed
+  resources:
+  - flagger-loadtester-signed
+  kind: Pod
+  result: pass
+- policy: idleo-cloudnative-pg-signed
+  resources:
+  - cloudnative-pg-signed
+  kind: Pod
+  result: pass
+- policy: idleo-postgresql-signed
+  resources:
+  - postgresql-signed
+  kind: Pod
+  result: pass
