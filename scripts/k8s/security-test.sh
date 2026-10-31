@@ -154,12 +154,17 @@ expect 2 "a debug container by tag in the web pod" "$(refused_by "$answer" "pinn
 # --- The network (4-7): a debug container in the pod shares its network, so its policies are the pod's. -----------
 
 # Runs bash script $3 (with the rest as its arguments) in a debug container in pod $2 of namespace $1, and prints what
-# it printed. The image is Valkey's, already on the node and allowed by every policy; it has bash and valkey-cli.
+# it printed. The image is Valkey's, already on the node and allowed by every policy; it has bash and valkey-cli. It
+# runs as a user of its own, for pods (Kyverno's) that want a non-root user without naming one.
+debug_user="$(mktemp)"
+trap 'rm -f "$debug_user"' EXIT
+echo '{"securityContext": {"runAsUser": 65532}}' >"$debug_user"
 debug_run() {
   local ns="$1" target="$2" script="$3" container
   shift 3
   container="probe-$(openssl rand -hex 3)"
-  kubectl -n "$ns" debug "pod/$target" --image="$valkey_image" --profile=restricted --container="$container" \
+  kubectl -n "$ns" debug "pod/$target" --image="$valkey_image" --profile=restricted --custom="$debug_user" \
+    --container="$container" \
     -- bash -c "$script" probe "$@" >>"$out/security-test.log" 2>&1 || { echo "debug container refused"; return; }
   local deadline=$((SECONDS + 120))
   until [[ -n "$(kubectl -n "$ns" get pod "$target" \
@@ -378,7 +383,7 @@ for key in ("resourceVersion", "uid", "creationTimestamp", "managedFields", "gen
 print(json.dumps(p))' "$kyverno_policy" | kubectl replace -f - >/dev/null
   kubectl -n flux-system patch kustomization infrastructure --type merge -p '{"spec":{"suspend":false}}' >/dev/null
 }
-trap 'reconnect_kyverno 2>/dev/null || true' EXIT
+trap 'reconnect_kyverno 2>/dev/null || true; rm -f "$debug_user"' EXIT
 kubectl -n flux-system patch kustomization infrastructure --type merge -p '{"spec":{"suspend":true}}' >/dev/null
 python3 -c '
 import json, sys
@@ -391,6 +396,18 @@ print(json.dumps(p))' "$kyverno_policy" | kubectl replace -f - >/dev/null
 # A fresh process: no connection still open from before, nothing cached, no trust root loaded.
 kubectl -n kyverno rollout restart deployment/kyverno-admission-controller >/dev/null
 kubectl -n kyverno rollout status deployment/kyverno-admission-controller --timeout=180s >/dev/null
+# kube-router puts a new pod's policy in place some seconds after the pod starts, and a connection opened before then
+# outlives it: nothing is asserted until Kyverno's new pod itself can't reach GHCR.
+kyverno_pod="$(kubectl -n kyverno get pods -l app.kubernetes.io/component=admission-controller \
+  --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')"
+cut_off="$(debug_run kyverno "$kyverno_pod" 'for s in $(seq 120); do
+  timeout 3 bash -c "exec 3<>/dev/tcp/ghcr.io/443" 2>/dev/null || { echo "cut off at $s s"; exit; }; sleep 1; done
+  echo "still reaches GHCR after 120 s"')"
+if [[ "$cut_off" == "cut off"* ]]; then
+  row 12 "offline: Kyverno's new pod can't reach GHCR" "$cut_off" PASS
+else
+  row 12 "offline: Kyverno's new pod can't reach GHCR" "$cut_off" FAIL
+fi
 deadline=$((SECONDS + 120))
 until [[ "$(pod ready "$valkey_image" | admit "$namespace")" == admitted ]] || ((SECONDS > deadline)); do sleep 2; done
 
@@ -470,7 +487,7 @@ import json, sys
 print(sum(1 for e in json.load(sys.stdin)["items"] if "could not be reached" in e.get("message", "")))')"
 
 reconnect_kyverno
-trap - EXIT
+trap 'rm -f "$debug_user"' EXIT
 answer=refused
 deadline=$((SECONDS + 180))
 while [[ "$answer" != admitted ]] && ((SECONDS < deadline)); do
