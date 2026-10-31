@@ -1,0 +1,43 @@
+# promtool test rules: the nightly scan's alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../security.yaml
+evaluation_interval: 15m
+tests:
+  # A scan passes, the next night's fails, the one after passes again.
+  - interval: 24h
+    input_series:
+      - series: 'idleo_nightly_scan_passed'
+        values: '1 0 1'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: NightlyScanFailing
+        exp_alerts: []
+      - eval_time: 25h
+        alertname: NightlyScanFailing
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: The nightly scan of what is deployed found something to fix.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-failing
+      - eval_time: 49h
+        alertname: NightlyScanFailing
+        exp_alerts: []
+      - eval_time: 49h
+        alertname: NightlyScanMissing
+        exp_alerts: []
+  # The scan stops reporting: missing once 30 hours pass with nothing.
+  - interval: 1h
+    input_series:
+      - series: 'idleo_nightly_scan_passed'
+        values: '1x2'
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: NightlyScanMissing
+        exp_alerts: []
+      - eval_time: 40h
+        alertname: NightlyScanMissing
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: The nightly scan of what is deployed hasn't reported for 30 hours.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-missing

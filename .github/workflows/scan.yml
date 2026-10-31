@@ -5,8 +5,9 @@ name: scan
 # then brings up a k3d cluster from main under Flux, as production runs, and scans every running image in the
 # namespaces we own (ours and the vendors'), their manifests, RBAC and secrets. A CRITICAL or HIGH vulnerability with a
 # fix, or a CRITICAL or HIGH finding, fails it; the accepted ones are scripts/images/trivyignore.yaml, each with an
-# expiry. A fix published after an image was built shows up here the next night. Chosen over the Trivy Operator in
-# the cluster, whose scans don't fit the server's memory at a canary's peak (ADR 0048).
+# expiry of at most 60 days. A fix published after an image was built shows up here the next night, and a red run is
+# a digest-level alert (NightlyScanFailing), never a page. Chosen over the Trivy Operator in the cluster, whose scans
+# don't fit the server's memory at a canary's peak (ADR 0048).
 on:
   schedule:
     - cron: "37 21 * * *"
@@ -49,9 +50,37 @@ jobs:
           GITOPS_BRANCH: ${{ github.ref_name }}
         run: scripts/k8s/up.sh --gitops
       - name: Scan
+        id: scan
         env:
           KUBECONFIG: private/k8s/kubeconfig
         run: scripts/images/scan-deployed.sh --cluster --verbose
+      # The result, to Grafana Cloud, where NightlyScanFailing and NightlyScanMissing (ops/alerts/security.yaml) read it:
+      # a digest, never a page. The OTLP endpoint and its Authorization header are production's own (ADR 0036), as
+      # repository secrets; until they exist, the alert's missing-result rule is what says so.
+      - name: Report
+        if: always() && steps.scan.outcome != 'skipped'
+        env:
+          ENDPOINT: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+          AUTHORIZATION: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
+          PASSED: ${{ steps.scan.outcome == 'success' && 1 || 0 }}
+        run: |
+          if [[ -z "$ENDPOINT" || -z "$AUTHORIZATION" ]]; then
+            echo "::warning::GRAFANA_CLOUD_OTLP_ENDPOINT and GRAFANA_CLOUD_OTLP_AUTHORIZATION aren't set: the result isn't reported"
+            exit 0
+          fi
+          findings="$(cat private/scan-findings.txt 2>/dev/null || echo 0)"
+          python3 - "$PASSED" "$findings" >body.json <<'PY'
+          import json, sys, time
+          now = str(time.time_ns())
+          point = lambda value: {"gauge": {"dataPoints": [{"asInt": str(value), "timeUnixNano": now}]}}
+          print(json.dumps({"resourceMetrics": [{
+              "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "nightly-scan"}}]},
+              "scopeMetrics": [{"metrics": [
+                  {"name": "idleo_nightly_scan_passed", **point(int(sys.argv[1]))},
+                  {"name": "idleo_nightly_scan_findings", **point(int(sys.argv[2]))}]}]}]}))
+          PY
+          curl -fsS -X POST "$ENDPOINT/v1/metrics" -H "Authorization: $AUTHORIZATION" -H 'Content-Type: application/json' \
+            --data-binary @body.json >/dev/null
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

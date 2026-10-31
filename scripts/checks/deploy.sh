@@ -13,7 +13,9 @@
 #   5. the chart's unit tests (helm-unittest), which hold every pod to the security settings;
 #   6. the policies each cluster admits pods by (ADR 0048): staging's and production's never allow the Mac's registry
 #      or development's images (the check is shown to refuse a cluster that does), and kyverno test proves what they
-#      admit and refuse, signatures included, against the real registries (scripts/deploy/policy-test.sh).
+#      admit and refuse, signatures included, against the real registries (scripts/deploy/policy-test.sh);
+#   7. every finding the nightly scan accepts (scripts/images/trivyignore.yaml) has a reason, a scope and an expiry
+#      within 60 days (and the check is shown to refuse one that hasn't).
 #
 # Each tool runs from its own image, pinned by digest, so a laptop and CI run the same ones and neither needs them
 # installed.
@@ -236,3 +238,33 @@ fi
 for environment in staging production; do
   scripts/deploy/policy-test.sh "$work/$environment-policies.yaml"
 done
+
+# 7. The findings the nightly scan accepts (scripts/images/trivyignore.yaml): each has a reason, is scoped to a binary,
+#    package or resource, and expires within 60 days; none is on our own images (they're scanned without the file).
+echo "deploy: the accepted scan findings have a reason, a scope and an expiry within 60 days"
+ignore_check() {
+  python3 - "$1" <<'PY'
+import datetime, sys, yaml
+entries = yaml.safe_load(open(sys.argv[1])) or {}
+latest = datetime.date.today() + datetime.timedelta(days=60)
+problems = [f"{kind}: not a kind Trivy reads" for kind in entries if kind not in ("vulnerabilities", "secrets", "misconfigurations")]
+for kind, found in entries.items():
+    for entry in found or []:
+        name = f"{kind} {entry.get('id', '(no id)')}"
+        if not str(entry.get("statement", "")).strip():
+            problems.append(f"{name}: no statement (why it's accepted, or its tracking issue)")
+        if not (entry.get("paths") or entry.get("purls")):
+            problems.append(f"{name}: no paths or purls, so it would apply to every image")
+        expiry = entry.get("expired_at")
+        if not isinstance(expiry, datetime.date) or expiry > latest:
+            problems.append(f"{name}: expired_at must be a date no later than {latest}, not {expiry}")
+sys.exit("\n".join(problems) if problems else 0)
+PY
+}
+ignore_check scripts/images/trivyignore.yaml
+# The check refuses an entry with no scope, no reason and a year's expiry.
+printf 'vulnerabilities:\n  - id: CVE-2026-0001\n    expired_at: %s\n' "$(($(date +%Y) + 1))-01-01" >"$work/ignore.yaml"
+if ignore_check "$work/ignore.yaml" 2>/dev/null; then
+  echo "deploy: the ignore check let an unscoped, unexplained, year-long entry through" >&2
+  exit 1
+fi

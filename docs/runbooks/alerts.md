@@ -194,6 +194,22 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** revert the release's pull request (docs/runbooks/deploying.md, "Rolling back"), so git asks for what runs again and the alert clears with the next release; then fix the cause and release again. If the failure was outside the release, fix that and release it again unchanged: a new commit to main redeploys staging, and production is promoted again. Never edit the cluster by hand to push the release through.
 
+## Nightly scan failing
+
+**Means:** last night's scan of what is deployed (ADR 0048; `.github/workflows/scan.yml`) found something it doesn't accept: a fixable CRITICAL or HIGH vulnerability in an image staging or production runs (ours, at the digests `release.yaml` pins, or a vendor's), an accepted one whose entry in `scripts/images/trivyignore.yaml` has expired, or a CRITICAL or HIGH misconfiguration, RBAC or secret finding in the cluster built from main. A digest, not a page: nothing is down.
+
+**Check first:** the failed run's log (the workflow's page on GitHub): one line per image, `FAIL` with each finding's package, installed and fixed versions, and the cluster's findings below.
+
+**Do:** for our own image, update the dependency and let the next build of main deploy it; nothing on our own images is ever accepted. For a vendor's, take its release with the fix (Renovate's weekly pull request may already have it). If no release has it yet, add one entry per finding to `trivyignore.yaml`: the finding's id and the binary it's in (`paths`), the vendor's tracking issue or why it can't affect us, and an expiry no more than 60 days away (the deploy check refuses one further). An expired entry is looked at again, not extended without a reason.
+
+## Nightly scan missing
+
+**Means:** no nightly scan has reported a result for 30 hours: the workflow didn't run (Actions disabled, a scheduling outage) or ran but couldn't send its result to Grafana Cloud (its `GRAFANA_CLOUD_OTLP_*` secrets).
+
+**Check first:** the `scan` workflow's recent runs on GitHub, and their "Report" step.
+
+**Do:** run it by hand (`gh workflow run scan.yml`); fix whatever stopped it. Until it reports, nobody is told about a new vulnerability.
+
 ## Presence unavailable
 
 **Means:** the control plane can't read hosts' presence from Valkey (ADR 0011): more than 5 lookups a minute have failed for 2 minutes (`agents_presence_unavailable_total`). Presence is then unknown, not offline. A booking made now waits in REQUESTED, shown as "Finding your GPU", and is tried again after 1, 2, 4 and 8 s; after that the re-match loop keeps trying it for `scheduling.rematch-wait` (10 minutes). Nothing new starts until Valkey answers, and pages show hosts' status as "Status unknown, checking…" meanwhile (never "offline", which would tell a host their laptop had dropped); the admin dashboard's hosts online shows Unknown. Running sessions go on: leases and heartbeats don't depend on reading presence.
