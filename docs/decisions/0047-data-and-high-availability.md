@@ -122,11 +122,13 @@ So: 17 safe as is, 8 per instance, 11 must run once (5 already were, 6 fixed), n
 
 | Step | What renters and hosts saw |
 | --- | --- |
-| A control-plane pod killed hard (`--grace-period=0`), holding both agents' streams | Agents back on the other in 1.9 s and 1.9 s; the self-test queued while they reconnected was delivered; the running booking COMPLETED, billed once; 0 of 121 reads and 0 of 121 writes failed |
-| The database's primary pod killed hard | The standby promoted in 19.8 s; writes refused for 19.8 s; 12 of 115 reads and 12 of 115 writes failed; the booking COMPLETED, billed once; the old primary back as the standby; the money check passes |
-| Valkey restarted | See the final run below |
-| Both control planes evicted one at a time | See the final run below |
-| A point-in-time restore drill | See the final run below |
+| A control-plane pod killed hard (`--grace-period=0`), holding both agents' streams | Agents back on the other in 1.9 s and 1.3 s; the self-test queued while they reconnected was delivered; the running booking COMPLETED, billed once (3 minutes, 6 paise); 0 of 122 reads and 0 of 122 writes failed |
+| The database's primary pod killed hard | The standby promoted in 19.6 s; writes refused for 24.8 s (the promotion, then the control planes' pools reconnecting); 12 of 113 reads and 12 of 113 writes failed; the booking COMPLETED, billed once; the old primary back as the standby; the money check passes |
+| Valkey restarted | The host's presence UNKNOWN for 15.9 s, never OFFLINE; a booking made while Valkey was gone waited, then matched and COMPLETED |
+| Both control planes evicted one at a time, as a drain does | The disruption budget refused the second while the first's replacement started; 0 of 24 reads and 0 of 24 writes failed |
+| A point-in-time restore drill (`ops/backup/drill.sh`) | Restored to T in 52.3 s (the RTO), every table's checksum equal to T's, the marker and the deleted person back, the money check passing; a loss of the whole database at a random moment would have cost 5.6 s (the RPO) |
+
+The whole run took 539 s. Across the five runs on the Mac that day, the promotion took 19.6 to 19.8 s, writes were refused for 16.2 to 24.8 s, the restore took 52.3 to 54.5 s, and the RPO was 5.6, 20.1 and 29.5 s. The RPO is bounded by `archive_timeout`: up to 30 s, plus one segment's upload. The 20 s promotion is mostly the operator noticing the primary has gone (its probes), not the promotion itself: a planned switchover (database.md) took about 6 s.
 
 **Connections, measured.** At rest the primary holds 20 connections from `idleo_app` (two control planes at Hikari's default of 10 each) and the operator's and exporter's few, 31 backends in all against `max_connections = 100`. The peak adds 10 for a canary's control plane, 10 for the migration Job and 10 for an operator command (each a JVM with a pool), about 61. That leaves room, so there is no PgBouncer. **The trigger:** add it when the planned peak (control planes, plus one canary, times their pool, plus 30 for the Job, a command and CloudNativePG) passes 80, 80% of `max_connections`, which is more than 4 control planes at today's pool. Raising `max_connections` instead costs each backend's memory on the 1 GiB instance. When it comes, it must be session pooling for the control plane, or the migration Job and the advisory locks bypass it. Transaction pooling breaks session-level advisory locks (`OneAtATime`: the lock and its unlock could land on different server connections), Flyway's own session lock, and server-side prepared statements unless PgBouncer's prepared-statement support is on.
 
