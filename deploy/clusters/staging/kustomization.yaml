@@ -6,5 +6,6 @@ resources:
   - flux-system
   - secrets/flux-system
   - infrastructure.yaml
+  - policies.yaml
   - idleo.yaml
   - notifications.yaml

@@ -9,6 +9,7 @@ metadata:
 spec:
   dependsOn:
     - name: infrastructure
+    - name: policies
   interval: 10m
   path: ./deploy/clusters/local/idleo
   prune: true

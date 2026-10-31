@@ -21,8 +21,10 @@ spec:
       labels:
         {{- include "idleo.selector" (list . "migrate") | nindent 8 }}
         idleo.in/database-client: "true"
+        idleo.in/dns-client: "true"
     spec:
       {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      priorityClassName: {{ .Values.priorityClasses.core }}
       restartPolicy: Never
       containers:
         - name: migrate

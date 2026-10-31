@@ -4,7 +4,8 @@
 # production's are for theirs. Flux decrypts them in the cluster (up.sh --gitops); plain Helm (up.sh) has this apply
 # them. What they hold is development's: the database's two users (CloudNativePG's basic-auth Secrets, ADR 0047) and the
 # development MinIO's keys for its backups, the control plane's secrets from the development CA and keys
-# (control-plane/scripts/dev-ca.sh), and the local CA the Gateway's certificate comes from.
+# (control-plane/scripts/dev-ca.sh), Valkey's password (ADR 0048), and the local CA the Gateway's certificate comes
+# from.
 #
 #   scripts/k8s/secrets.sh            apply them and the development ConfigMaps to the cluster (plain Helm), and write
 #                                     this machine's copies (below)
@@ -13,7 +14,7 @@
 #                                     only to change them (commit the result)
 #
 # This machine's copies, under the gitignored private/k8s/: the local CA (ca/ca.pem to trust, ca/ca.key for smoke.sh's
-# name-constraint check), the database's passwords (database.env) and the agents' CA root (agent-ca.pem).
+# name-constraint check), the database's and Valkey's passwords (database.env) and the agents' CA root (agent-ca.pem).
 set -euo pipefail
 log() { printf 'k8s: %s\n' "$*"; }
 fail() { printf 'k8s: FAIL: %s\n' "$*" >&2; exit 1; }
@@ -26,7 +27,7 @@ command -v sops >/dev/null || fail "sops isn't installed (macOS: brew install so
 [[ -s "$SOPS_AGE_KEY_FILE" ]] ||
   fail "there's no local age key at private/k8s/age/local.agekey: it's the one the committed local Secrets are encrypted for (docs/runbooks/kubernetes.md)"
 secrets_dir=deploy/clusters/local/secrets/idleo
-secret_files="database-migration database-application backup-storage control-plane local-ca"
+secret_files="database-migration database-application backup-storage control-plane local-ca valkey"
 
 make_secrets() {
   local dev_ca="$k8s_root/private/dev-ca" database_env="$k8s_state/database.env" work
@@ -41,6 +42,8 @@ make_secrets() {
       printf 'IDLEO_APPLICATION_PASSWORD=%s\n' "$(openssl rand -hex 24)"
     ) >"$database_env"
   fi
+  grep -q '^VALKEY_PASSWORD=' "$database_env" ||
+    (umask 077 && printf 'VALKEY_PASSWORD=%s\n' "$(openssl rand -hex 24)" >>"$database_env")
   # The local CA for the Gateway's certificate: kept if this machine has one (a browser told to trust it keeps trusting
   # it). Its name constraints permit only localhost and names under it (*.idleo.localhost among them; every *.localhost
   # is this machine) and the loopback addresses, and its key usage only TLS servers, so trusting it can't make it vouch
@@ -74,6 +77,8 @@ make_secrets() {
   manifest secret generic idleo-database-application --type=kubernetes.io/basic-auth \
     --from-literal=username=idleo_app --from-literal=password="$(password IDLEO_APPLICATION_PASSWORD)" \
     >"$work/database-application.yaml"
+  # Valkey's one user's password (deploy/helm/idleo/templates/valkey.yaml).
+  manifest secret generic idleo-valkey --from-literal=password="$(password VALKEY_PASSWORD)" >"$work/valkey.yaml"
   # The development MinIO's own keys (templates/development.yaml), not a secret, but a Secret as staging's R2 keys are.
   manifest secret generic idleo-backup-storage --from-literal=ACCESS_KEY_ID=local-storage-root \
     --from-literal=ACCESS_SECRET_KEY=local-only-not-a-secret >"$work/backup-storage.yaml"
@@ -117,6 +122,7 @@ write_files() {
     {
       printf 'IDLEO_MIGRATION_PASSWORD=%s\n' "$(secret_value database-migration password)"
       printf 'IDLEO_APPLICATION_PASSWORD=%s\n' "$(secret_value database-application password)"
+      printf 'VALKEY_PASSWORD=%s\n' "$(secret_value valkey password)"
     } >"$k8s_state/database.env"
   )
   secret_value local-ca tls.crt >"$local_ca/ca.pem"

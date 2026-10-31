@@ -1,0 +1,131 @@
+{{- $net := .Values.networkPolicy }}
+# Deny by default (ADR 0048): no pod in the namespace takes a connection or makes one unless a policy below, or its
+# component's own (control-plane.yaml, database.yaml, ...), says so. Each way out is a label a pod opts into, so a
+# broken-into pod reaches only what its kind needs: the web server and Valkey carry none of them.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-default-deny
+  labels:
+    {{- include "idleo.labels" (list . "network") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# The cluster's DNS, for the pods that look names up (idleo.in/dns-client).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-dns
+  labels:
+    {{- include "idleo.labels" (list . "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      idleo.in/dns-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- include "idleo.dnsPeer" . | nindent 8 }}
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+---
+# PostgreSQL on the database's instances (idleo.in/database-client): the control plane, the migration Job and operator
+# commands. A restored Cluster's instances count too (ops/backup/restore.sh runs a command against one).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-database-clients
+  labels:
+    {{- include "idleo.labels" (list . "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      idleo.in/database-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - { key: cnpg.io/cluster, operator: Exists }
+      ports:
+        - { port: 5432, protocol: TCP }
+---
+# Valkey (idleo.in/valkey-client): the control plane and operator commands.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-valkey-clients
+  labels:
+    {{- include "idleo.labels" (list . "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      idleo.in/valkey-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list . "valkey") | nindent 14 }}
+      ports:
+        - { port: 6379, protocol: TCP }
+---
+# The internet on HTTPS (idleo.in/internet-client): Razorpay and RazorpayX, Identity Platform's keys, R2, Grafana
+# Cloud, the PAN check and the agents' release feed for the control plane; renters' registries for the scanner. Never
+# the server's own networks, the cluster's, or the cloud's metadata address (networkPolicy.internetExcept). A policy
+# can't name hosts: per-host egress is the next step (ADR 0048).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-internet
+  labels:
+    {{- include "idleo.labels" (list . "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      idleo.in/internet-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- include "idleo.internetPeer" . | nindent 8 }}
+      ports:
+        - { port: 443, protocol: TCP }
+---
+# Email's mail server, by SMTP submission with STARTTLS (idleo.in/mail-client; application-prod.yaml's MAIL_PORT).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-mail
+  labels:
+    {{- include "idleo.labels" (list . "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      idleo.in/mail-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- include "idleo.internetPeer" . | nindent 8 }}
+      ports:
+        - { port: {{ $net.mailPort }}, protocol: TCP }
+---
+# cert-manager's HTTP-01 solver, which it starts in this namespace while Let's Encrypt checks a name (S5): reached by
+# the ingress alone, on its own port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-acme-solver
+  labels:
+    {{- include "idleo.labels" (list . "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- include "idleo.ingressPeer" . | nindent 8 }}
+      ports:
+        - { port: 8089, protocol: TCP }

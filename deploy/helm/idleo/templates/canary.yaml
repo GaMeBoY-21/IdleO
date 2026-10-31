@@ -174,6 +174,7 @@ spec:
     metadata:
       labels:
         {{- include "idleo.selector" (list . "loadtester") | nindent 8 }}
+        idleo.in/dns-client: "true"
     spec:
       {{- include "idleo.podSecurity" 10001 | nindent 6 }}
       containers:
@@ -209,4 +210,33 @@ spec:
     {{- include "idleo.selector" (list . "loadtester") | nindent 4 }}
   ports:
     - { name: http, port: 80, targetPort: http }
+---
+# Flagger's webhooks reach the load tester; the load tester reaches the canary's web port (and DNS, by its label), and
+# nothing else.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-loadtester
+  labels:
+    {{- include "idleo.labels" (list . "loadtester") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "idleo.selector" (list . "loadtester") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.canary.flaggerNamespace }}
+      ports:
+        - { port: http, protocol: TCP }
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              idleo.in/control-plane: "true"
+      ports:
+        - { port: 8080, protocol: TCP }
 {{- end }}

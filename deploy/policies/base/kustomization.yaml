@@ -1,0 +1,10 @@
+# What every cluster admits (ADR 0048), applied by Flux once Kyverno is installed (deploy/clusters/<env>/policies.yaml):
+# images pinned by digest from the allowed repositories and no privileged pods (native admission policies, which the
+# API server checks itself), and signatures (Kyverno). Each environment applies this folder as it is, except the Mac's
+# cluster (../local), which adds its own registry and development's stand-ins to the list.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - images-pinned.yaml
+  - pods-unprivileged.yaml
+  - images-signed.yaml

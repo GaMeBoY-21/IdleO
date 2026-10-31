@@ -1,0 +1,317 @@
+# Signed images (ADR 0048), checked by Kyverno as each pod or debug container is admitted, in every namespace but
+# kube-system and Kyverno's own. Each fails closed: if Kyverno can't answer, the pod isn't admitted
+# (docs/runbooks/kyverno.md). Which vendors sign, and which are held by their digest alone, is in the ADR and in
+# images-pinned.yaml's list.
+# Our images (ADR 0048): signed keylessly by this repository's images workflow on main or a release tag, through
+# GitHub's OIDC issuer and the public transparency log, with the same workflow's CycloneDX bill of materials and SLSA
+# build provenance: the three checks scripts/images/verify.sh makes, made by Kyverno as each pod is admitted. An image
+# with our name and anything less (re-tagged, built elsewhere, or signed by another workflow) is refused.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: idleo-images-signed
+spec:
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 15
+  evaluation:
+    background:
+      enabled: false
+  validationActions:
+  - Deny
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        - kube-system
+        - kyverno
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+      - pods/ephemeralcontainers
+  matchImageReferences:
+  - glob: ghcr.io/gameboy-21/idleo-*
+  attestors:
+  - name: workflow
+    cosign:
+      keyless:
+        identities:
+        - issuer: https://token.actions.githubusercontent.com
+          subjectRegExp: ^https://github\.com/GaMeBoY-21/IdleO/\.github/workflows/images\.yml@refs/(heads/main|tags/v.+)$
+      ctlog:
+        url: https://rekor.sigstore.dev
+  validations:
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyImageSignatures(image,
+      [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-images-signed: no signature from ^https://github\.com/GaMeBoY-21/IdleO/\.github/workflows/images\.yml@refs/(heads/main|tags/v.+)$'
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyAttestationSignatures(image,
+      attestations.sbom, [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-images-signed: no CycloneDX bill of materials attested by the images workflow'
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyAttestationSignatures(image,
+      attestations.provenance, [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-images-signed: no SLSA build provenance attested by the images workflow'
+  attestations:
+  - name: sbom
+    intoto:
+      type: https://cyclonedx.org/bom
+  - name: provenance
+    intoto:
+      type: https://slsa.dev/provenance/v1
+---
+# Flux's controllers: signed by Flux's shared controller release workflow at a release tag.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: idleo-flux-signed
+spec:
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 15
+  evaluation:
+    background:
+      enabled: false
+  validationActions:
+  - Deny
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        - kube-system
+        - kyverno
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+      - pods/ephemeralcontainers
+  matchImageReferences:
+  - glob: ghcr.io/fluxcd/source-controller*
+  - glob: ghcr.io/fluxcd/kustomize-controller*
+  - glob: ghcr.io/fluxcd/helm-controller*
+  - glob: ghcr.io/fluxcd/notification-controller*
+  attestors:
+  - name: workflow
+    cosign:
+      keyless:
+        identities:
+        - issuer: https://token.actions.githubusercontent.com
+          subjectRegExp: ^https://github\.com/fluxcd/gha-workflows/\.github/workflows/controller-release\.yaml@refs/tags/v.+$
+      ctlog:
+        url: https://rekor.sigstore.dev
+  validations:
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyImageSignatures(image,
+      [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-flux-signed: no signature from ^https://github\.com/fluxcd/gha-workflows/\.github/workflows/controller-release\.yaml@refs/tags/v.+$'
+---
+# Flagger: signed by its release workflow at a release tag.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: idleo-flagger-signed
+spec:
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 15
+  evaluation:
+    background:
+      enabled: false
+  validationActions:
+  - Deny
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        - kube-system
+        - kyverno
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+      - pods/ephemeralcontainers
+  matchImageReferences:
+  - glob: ghcr.io/fluxcd/flagger:*
+  - glob: ghcr.io/fluxcd/flagger@*
+  attestors:
+  - name: workflow
+    cosign:
+      keyless:
+        identities:
+        - issuer: https://token.actions.githubusercontent.com
+          subjectRegExp: ^https://github\.com/fluxcd/flagger/\.github/workflows/release\.yml@refs/tags/v.+$
+      ctlog:
+        url: https://rekor.sigstore.dev
+  validations:
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyImageSignatures(image,
+      [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-flagger-signed: no signature from ^https://github\.com/fluxcd/flagger/\.github/workflows/release\.yml@refs/tags/v.+$'
+---
+# Flagger's load tester: signed by its own workflow in Flagger's repository, from a branch.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: idleo-flagger-loadtester-signed
+spec:
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 15
+  evaluation:
+    background:
+      enabled: false
+  validationActions:
+  - Deny
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        - kube-system
+        - kyverno
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+      - pods/ephemeralcontainers
+  matchImageReferences:
+  - glob: ghcr.io/fluxcd/flagger-loadtester*
+  attestors:
+  - name: workflow
+    cosign:
+      keyless:
+        identities:
+        - issuer: https://token.actions.githubusercontent.com
+          subjectRegExp: ^https://github\.com/fluxcd/flagger/\.github/workflows/push-ld\.yml@refs/heads/.+$
+      ctlog:
+        url: https://rekor.sigstore.dev
+  validations:
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyImageSignatures(image,
+      [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-flagger-loadtester-signed: no signature from ^https://github\.com/fluxcd/flagger/\.github/workflows/push-ld\.yml@refs/heads/.+$'
+---
+# CloudNativePG's operator: signed by its release workflow at a release tag.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: idleo-cloudnative-pg-signed
+spec:
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 15
+  evaluation:
+    background:
+      enabled: false
+  validationActions:
+  - Deny
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        - kube-system
+        - kyverno
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+      - pods/ephemeralcontainers
+  matchImageReferences:
+  - glob: ghcr.io/cloudnative-pg/cloudnative-pg*
+  attestors:
+  - name: workflow
+    cosign:
+      keyless:
+        identities:
+        - issuer: https://token.actions.githubusercontent.com
+          subjectRegExp: ^https://github\.com/cloudnative-pg/cloudnative-pg/\.github/workflows/release-publish\.yml@refs/tags/v.+$
+      ctlog:
+        url: https://rekor.sigstore.dev
+  validations:
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyImageSignatures(image,
+      [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-cloudnative-pg-signed: no signature from ^https://github\.com/cloudnative-pg/cloudnative-pg/\.github/workflows/release-publish\.yml@refs/tags/v.+$'
+---
+# CloudNativePG's PostgreSQL images: signed by the postgres-containers build on main.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: idleo-postgresql-signed
+spec:
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 15
+  evaluation:
+    background:
+      enabled: false
+  validationActions:
+  - Deny
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        - kube-system
+        - kyverno
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+      - pods/ephemeralcontainers
+  matchImageReferences:
+  - glob: ghcr.io/cloudnative-pg/postgresql*
+  attestors:
+  - name: workflow
+    cosign:
+      keyless:
+        identities:
+        - issuer: https://token.actions.githubusercontent.com
+          subjectRegExp: ^https://github\.com/cloudnative-pg/postgres-containers/\.github/workflows/bake_targets\.yml@refs/heads/main$
+      ctlog:
+        url: https://rekor.sigstore.dev
+  validations:
+  - expression: (images.containers + images.initContainers + images.ephemeralContainers).map(image, verifyImageSignatures(image,
+      [attestors.workflow])).all(e, e > 0)
+    message: 'idleo-postgresql-signed: no signature from ^https://github\.com/cloudnative-pg/postgres-containers/\.github/workflows/bake_targets\.yml@refs/heads/main$'

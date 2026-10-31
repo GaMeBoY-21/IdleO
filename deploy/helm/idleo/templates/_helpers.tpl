@@ -72,4 +72,65 @@ env:
       secretKeyRef:
         name: {{ .Values.database.applicationSecret }}
         key: password
+  - name: VALKEY_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.valkey.secret }}
+        key: password
+{{- end }}
+
+{{/* The ingress's pods (Traefik), as a network policy's peer: the only way in for browsers and API clients. */}}
+{{- define "idleo.ingressPeer" -}}
+- namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressNamespace }}
+  podSelector:
+    matchLabels:
+      {{- toYaml .Values.networkPolicy.ingressPodLabels | nindent 6 }}
+{{- end }}
+
+{{/* The cluster's DNS (CoreDNS), as a network policy's peer. */}}
+{{- define "idleo.dnsPeer" -}}
+- namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: {{ .Values.networkPolicy.dns.namespace }}
+  podSelector:
+    matchLabels:
+      {{- toYaml .Values.networkPolicy.dns.podLabels | nindent 6 }}
+{{- end }}
+
+{{/* The internet, as a network policy's peer: every address but the server's and the cluster's own networks and the
+cloud's metadata address (ADR 0048). */}}
+{{- define "idleo.internetPeer" -}}
+- ipBlock:
+    cidr: 0.0.0.0/0
+    except:
+      {{- toYaml .Values.networkPolicy.internetExcept | nindent 6 }}
+{{- end }}
+
+{{/* The Kubernetes API, as network policy rules: its Service's address, and the server's own port behind it, which is
+what a policy sees once the Service has been resolved. */}}
+{{- define "idleo.apiServerEgress" -}}
+- to:
+    - ipBlock:
+        cidr: {{ .Values.networkPolicy.apiServer.serviceAddress }}/32
+  ports:
+    - { port: 443, protocol: TCP }
+- to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  ports:
+    - { port: {{ .Values.networkPolicy.apiServer.port }}, protocol: TCP }
+{{- end }}
+
+{{/* What the control plane's own pods, and operator commands (the same application), may reach (ADR 0048,
+templates/network.yaml): the database, Valkey, DNS, the internet on HTTPS and the mail server; and on the Mac,
+development's stand-ins (development.yaml). */}}
+{{- define "idleo.controlPlaneClient" -}}
+idleo.in/database-client: "true"
+idleo.in/valkey-client: "true"
+idleo.in/dns-client: "true"
+idleo.in/internet-client: "true"
+idleo.in/mail-client: "true"
+idleo.in/development-client: "true"
 {{- end }}

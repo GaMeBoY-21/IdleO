@@ -7,4 +7,5 @@ kind: Kustomization
 resources:
   - flux-system
   - infrastructure.yaml
+  - policies.yaml
   - idleo.yaml

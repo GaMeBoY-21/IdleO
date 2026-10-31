@@ -10,7 +10,8 @@ data:
   INGRESS_PROXIES: {{ .Values.controlPlane.ingressProxies | quote }}
   SPRING_DATASOURCE_URL: "jdbc:postgresql://idleo-database-rw:5432/{{ .Values.database.name }}"
   SPRING_DATASOURCE_USERNAME: idleo_app
-  SPRING_DATA_REDIS_URL: redis://idleo-valkey:6379
+  # Valkey as its one user (ADR 0048); the password comes from its Secret (VALKEY_PASSWORD, idleo.controlPlaneEnv).
+  SPRING_DATA_REDIS_URL: "redis://{{ .Values.valkey.user }}:${VALKEY_PASSWORD}@idleo-valkey:6379"
   IDLEO_RELEASE: {{ .Values.images.tag | quote }}
   {{- with .Values.development.catalog }}
   SESSIONS_TEMPLATES_CATALOG: file:/etc/idleo/catalog/development.yaml

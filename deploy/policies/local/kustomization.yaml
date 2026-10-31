@@ -1,0 +1,22 @@
+# The Mac's cluster (ADR 0048): every policy in ../base, with the cluster's own registry, which up.sh pushes unsigned
+# images to (a laptop's build has no signature from the images workflow), and development's stand-ins added to the
+# allowed repositories. Never in staging or production: scripts/checks/deploy.sh fails if either cluster's policies
+# name the local registry.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+patches:
+  - target:
+      kind: ConfigMap
+      name: idleo-allowed-images
+    patch: |
+      - op: add
+        path: /data/development
+        value: |
+          k3d-idleo-registry:5050/idleo-control-plane
+          k3d-idleo-registry:5050/idleo-web
+          k3d-idleo-registry:5050/idleo-scanner
+          ghcr.io/navikt/mock-oauth2-server
+          docker.io/pgsty/minio
+          docker.io/axllent/mailpit

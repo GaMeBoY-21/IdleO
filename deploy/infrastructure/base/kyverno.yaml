@@ -1,0 +1,155 @@
+# Kyverno v1.19.2 (ADR 0048): it checks, as each pod is admitted, that our images carry the images workflow's keyless
+# signature, bill of materials and provenance, and that the vendors' images that are signed were signed by their own
+# release workflows (deploy/policies/). Its chart is pinned by digest, and every image it runs by digest too. Kyverno's
+# images aren't signed, but each carries SLSA provenance from the SLSA GitHub generator, which its own policy checks.
+#
+# Only the admission controller runs, one copy, held to 384 MiB: the policies need no background, cleanup or reports
+# controller, and nothing reads policy reports. It is the last thing evicted (idleo-platform). Its webhooks fail
+# closed: while it is down, no pod whose images it must check is admitted. Its own namespace and kube-system are never
+# sent to it, so it and the cluster can always come back (docs/runbooks/kyverno.md).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  interval: 1h
+  url: oci://ghcr.io/kyverno/charts/kyverno
+  ref:
+    # 3.9.2, Kyverno v1.19.2
+    digest: sha256:83054f30148c3cfc001087c1f5772eda7c7224e9b74b7f0e70c39c9cafe009d1
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  interval: 1h
+  releaseName: kyverno
+  chartRef:
+    kind: OCIRepository
+    name: kyverno
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    crds:
+      migration:
+        image:
+          registry: ghcr.io
+          tag: v1.19.2@sha256:322ec5044d600930cb3af0e56dc33154a2d1d1fba58f4cadad3f47be7e78b11c
+    config:
+      # Images are checked as written: a name without its registry is refused (deploy/policies), never filled in.
+      enableDefaultRegistryMutation: false
+    webhooksCleanup:
+      image:
+        tag: v1.19.2@sha256:02600428e7c956e222f4376413525866ed9fec28e6bcb1222774ce6bf5fc904a
+    test:
+      image:
+        tag: v1.19.2@sha256:02600428e7c956e222f4376413525866ed9fec28e6bcb1222774ce6bf5fc904a
+    # Nothing reads policy reports, and no policy acts on existing resources.
+    features:
+      admissionReports:
+        enabled: false
+      aggregateReports:
+        enabled: false
+      policyReports:
+        enabled: false
+      validatingAdmissionPolicyReports:
+        enabled: false
+      backgroundScan:
+        enabled: false
+      generateValidatingAdmissionPolicy:
+        enabled: false
+      reporting:
+        validate: false
+        mutate: false
+        mutateExisting: false
+        imageVerify: false
+        generate: false
+    admissionController:
+      replicas: 1
+      priorityClassName: idleo-platform
+      initContainer:
+        image:
+          registry: ghcr.io
+          tag: v1.19.2@sha256:27f3cc52e628559b56d08363b85316819802086c9808606914f7805a244148f4
+        resources:
+          requests: { cpu: 10m, memory: 32Mi }
+          limits: { memory: 128Mi }
+      container:
+        image:
+          registry: ghcr.io
+          tag: v1.19.2@sha256:c8c4dd09e720d2cd7fd24ca73ac28e46651001372f988e0cba3f2f612f04b955
+        resources:
+          requests: { cpu: 50m, memory: 160Mi }
+          limits: { memory: 384Mi }
+    backgroundController:
+      enabled: false
+    cleanupController:
+      enabled: false
+    reportsController:
+      enabled: false
+---
+# Deny by default; the admission controller reaches DNS, the Kubernetes API, and registries and Sigstore's public
+# services on HTTPS (to fetch signatures, attestations and the transparency log's roots). The API server reaches its
+# webhook from the node itself, which k3s's policy controller always allows.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: kyverno
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - { port: 443, protocol: TCP }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - { port: 6443, protocol: TCP }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10, 127.0.0.0/8]
+      ports:
+        - { port: 443, protocol: TCP }

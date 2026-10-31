@@ -98,6 +98,10 @@ kubectl -n kube-system rollout status deployment/coredns --timeout=120s >/dev/nu
 #    Flux, the infrastructure has them). The operator's and plugin's charts and values are Flux's own
 #    (deploy/infrastructure/base/cloudnative-pg.yaml), by the same digests.
 if [[ "$gitops" == false ]]; then
+  # The priority classes the chart's pods name, and IdleO's namespace with its Pod Security label (ADR 0048). Under
+  # Flux the infrastructure and the release bring them, with Kyverno, the image policies and the other namespaces'
+  # network policies, which plain Helm leaves out (the chart's own network policies it installs).
+  kubectl apply -f deploy/infrastructure/base/priority-classes.yaml -f deploy/apps/idleo/namespace.yaml >/dev/null
   log "installing cert-manager $cert_manager_version"
   helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager --version "$cert_manager_version" \
     --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 5m >>"$logs/up.log" 2>&1 ||
