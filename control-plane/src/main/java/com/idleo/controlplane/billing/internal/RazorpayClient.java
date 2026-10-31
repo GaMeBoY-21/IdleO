@@ -24,9 +24,9 @@ import tools.jackson.databind.json.JsonMapper;
  * The calls we make to Razorpay's API (ADR 0039), each with only the fields its documentation lists: create an order
  * (https://razorpay.com/docs/api/orders/create/), fetch a payment (…/api/payments/fetch-with-id/), list a period's
  * payments and refunds (…/api/payments/fetch-all-payments/, …/api/refunds/fetch-all/), and refund a payment
- * (…/api/refunds/create-normal/). HTTP basic authentication with the key id and secret; amounts in paise. A call
- * Razorpay refuses throws {@link Refused} with Razorpay's error code and description; one that can't be made throws
- * {@link Unreachable}.
+ * (…/api/refunds/create-normal/, with an idempotency key: …/api/refunds/normal-refunds-idempotent/). HTTP basic
+ * authentication with the key id and secret; amounts in paise. A call Razorpay refuses throws {@link Refused} with its
+ * HTTP status, Razorpay's error code and description; one that can't be made throws {@link Unreachable}.
  */
 @Component
 @EnableConfigurationProperties(RazorpayProperties.class)
@@ -158,7 +158,10 @@ class RazorpayClient {
 
     /**
      * Refunds {@code amountPaise} of a payment, at the normal speed, always to where it was paid from. {@code receipt}
-     * is ours and Razorpay treats it as the refund's idempotency key: the same receipt again is refused as a duplicate.
+     * is ours (letters, digits and underscores, at least 10 of them) and goes as the request's idempotency key too, in
+     * {@code X-Refund-Idempotency}: the same receipt with the same body, which the caller makes from the same part every
+     * time, refunds nothing twice however often it's sent, so a request whose answer was lost can be sent again.
+     * Razorpay answers 409 while a request with the key is still being worked on: send it again later, as it was.
      */
     Refund refund(String paymentId, long amountPaise, String receipt, Map<String, String> notes) {
         var body = new LinkedHashMap<String, Object>();
@@ -166,7 +169,11 @@ class RazorpayClient {
         body.put("speed", "normal");
         body.put("receipt", receipt);
         body.put("notes", notes);
-        return refund(call("POST", "/v1/payments/" + encode(paymentId) + "/refund", body));
+        return refund(call(
+                "POST",
+                "/v1/payments/" + encode(paymentId) + "/refund",
+                body,
+                Map.of("X-Refund-Idempotency", receipt)));
     }
 
     /** The refunds of one payment (https://razorpay.com/docs/api/refunds/fetch-multiple-refund-payment/). */
@@ -208,6 +215,10 @@ class RazorpayClient {
     }
 
     private JsonNode call(String method, String path, @Nullable Object body) {
+        return call(method, path, body, Map.of());
+    }
+
+    private JsonNode call(String method, String path, @Nullable Object body, Map<String, String> headers) {
         if (!properties.enabled()) {
             throw new IllegalStateException("Razorpay isn't configured: RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET");
         }
@@ -218,6 +229,7 @@ class RazorpayClient {
                 .timeout(properties.timeout())
                 .header("Authorization", "Basic " + credentials)
                 .header("Accept", "application/json");
+        headers.forEach(request::header);
         if (body == null) {
             request.GET();
         } else {
