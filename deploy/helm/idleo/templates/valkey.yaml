@@ -22,24 +22,50 @@ spec:
         - name: valkey
           image: {{ .Values.valkey.image }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
-          # Reachable from other pods (protected mode would refuse them); the network policy says which.
-          args: [valkey-server, --save, "", --appendonly, "no", --protected-mode, "no"]
+          # One user, from the Secret (ADR 0048): the default user is off, so nothing gets in without the password, and
+          # the commands that could wipe, reconfigure or sweep it are gone for everyone (the control plane uses none of
+          # them). During a rotation the previous password is accepted too (docs/runbooks/valkey-password.md). The
+          # list is written to memory at each start and never to disk. Reachable from other pods (protected mode
+          # would refuse them); the network policy says which.
+          command: [sh, -c]
+          args:
+            - |
+              umask 077
+              {
+                echo 'user default off'
+                printf 'user %s on >%s' "$VALKEY_USER" "$VALKEY_PASSWORD"
+                if [ -n "$VALKEY_PREVIOUS_PASSWORD" ]; then printf ' >%s' "$VALKEY_PREVIOUS_PASSWORD"; fi
+                echo ' ~* &* +@all {{ range .Values.valkey.refusedCommands }}-{{ . }} {{ end }}'
+              } >/run/valkey/users.acl
+              exec valkey-server --save "" --appendonly no --protected-mode no --aclfile /run/valkey/users.acl
+          env:
+            - { name: VALKEY_USER, value: {{ .Values.valkey.user }} }
+            - name: VALKEY_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Values.valkey.secret }}, key: password } }
+            - name: VALKEY_PREVIOUS_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Values.valkey.secret }}, key: previous-password, optional: true } }
+            # valkey-cli's password, for the probes and kubectl exec (valkey-cli --user {{ .Values.valkey.user }}).
+            - name: VALKEYCLI_AUTH
+              valueFrom: { secretKeyRef: { name: {{ .Values.valkey.secret }}, key: password } }
           ports:
             - { name: valkey, containerPort: 6379 }
           readinessProbe:
-            exec: { command: [valkey-cli, ping] }
+            exec: { command: [valkey-cli, --user, {{ .Values.valkey.user }}, ping] }
             periodSeconds: 5
           livenessProbe:
-            exec: { command: [valkey-cli, ping] }
+            exec: { command: [valkey-cli, --user, {{ .Values.valkey.user }}, ping] }
             periodSeconds: 10
           resources:
             {{- toYaml .Values.valkey.resources | nindent 12 }}
           {{- include "idleo.containerSecurity" . | nindent 10 }}
           volumeMounts:
             - { name: data, mountPath: /data }
+            - { name: acl, mountPath: /run/valkey }
       volumes:
         - name: data
           emptyDir: { sizeLimit: 64Mi }
+        - name: acl
+          emptyDir: { medium: Memory, sizeLimit: 1Mi }
 ---
 apiVersion: v1
 kind: Service
@@ -53,6 +79,7 @@ spec:
   ports:
     - { name: valkey, port: 6379, targetPort: valkey }
 ---
+# Reached by its clients alone (idleo.in/valkey-client); it reaches nothing.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

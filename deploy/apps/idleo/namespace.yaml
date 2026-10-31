@@ -1,4 +1,10 @@
+# IdleO's namespace (ADR 0048): Pod Security "restricted", enforced; every pod in the chart meets it.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: idleo
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest

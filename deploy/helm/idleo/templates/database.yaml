@@ -15,6 +15,8 @@ spec:
   imageName: {{ $db.image }}
   # No superuser login over the network: the operator has its own way in, and people use kubectl exec (the runbooks).
   enableSuperuserAccess: false
+  # Evicted after everything but the platform on a full node, with the control plane (ADR 0048).
+  priorityClassName: {{ .Values.priorityClasses.core }}
   # A changed setting or image restarts the standby first, then moves the primary to it: one short pause in writes.
   primaryUpdateStrategy: unsupervised
   primaryUpdateMethod: switchover
@@ -148,7 +150,8 @@ spec:
 ---
 # Who reaches the database's instances: the control plane, the migration Job and operator commands on PostgreSQL's
 # port; the cluster's own instances and jobs (streaming and joining); the operator, on the instance manager's port;
-# and the in-cluster Prometheus, on the meters'.
+# and the in-cluster Prometheus, on the meters'. Every CloudNativePG Cluster here counts, a restored one too
+# (ops/backup/restore.sh).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -157,17 +160,17 @@ metadata:
     {{- include "idleo.labels" (list . "database") | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      cnpg.io/cluster: idleo-database
-  policyTypes: [Ingress]
+    matchExpressions:
+      - { key: cnpg.io/cluster, operator: Exists }
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         - podSelector:
             matchLabels:
               idleo.in/database-client: "true"
         - podSelector:
-            matchLabels:
-              cnpg.io/cluster: idleo-database
+            matchExpressions:
+              - { key: cnpg.io/cluster, operator: Exists }
       ports:
         - { port: 5432, protocol: TCP }
     - from:
@@ -175,8 +178,8 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: cnpg-system
         - podSelector:
-            matchLabels:
-              cnpg.io/cluster: idleo-database
+            matchExpressions:
+              - { key: cnpg.io/cluster, operator: Exists }
       ports:
         - { port: 8000, protocol: TCP }
     - from:
@@ -188,3 +191,24 @@ spec:
               app.kubernetes.io/name: prometheus
       ports:
         - { port: 9187, protocol: TCP }
+  # The instances reach each other (streaming, and a new standby joining), DNS, the Kubernetes API (CloudNativePG's
+  # instance manager keeps the Cluster's state there) and the backups' store on HTTPS (R2; development's MinIO on the
+  # Mac, development.yaml).
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - { key: cnpg.io/cluster, operator: Exists }
+      ports:
+        - { port: 5432, protocol: TCP }
+        - { port: 8000, protocol: TCP }
+    - to:
+        {{- include "idleo.dnsPeer" . | nindent 8 }}
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    {{- include "idleo.apiServerEgress" . | nindent 4 }}
+    - to:
+        {{- include "idleo.internetPeer" . | nindent 8 }}
+      ports:
+        - { port: 443, protocol: TCP }

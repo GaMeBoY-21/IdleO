@@ -18,6 +18,11 @@
 # The scanner (768/2048 Mi), when renters' own images are on, borrows from the spare: its limit is what one image check
 # needs (ADR 0042); its request is what it idles at.
 
+# Who goes last on a full node (ADR 0048; deploy/infrastructure/base/priority-classes.yaml): the platform (Kyverno,
+# Traefik, CloudNativePG's operator, Flux), then the control plane and the database (this class), then the rest.
+priorityClasses:
+  core: idleo-core
+
 images:
   # ghcr.io/gameboy-21/idleo-<name>:<tag>, signed by .github/workflows/images.yml.
   registry: ghcr.io/gameboy-21
@@ -75,6 +80,8 @@ canary:
   maxLatencyP95Ms: 800
   maxSessionStartDropPoints: 10
   prometheus: http://prometheus.monitoring:9090
+  # Where Flagger runs: its webhooks are the only callers of the load tester.
+  flaggerNamespace: flagger-system
   # Flagger's load tester, which sends the canary one request a second through each step, so a quiet hour still gives
   # it something to be judged by.
   loadtester:
@@ -106,9 +113,18 @@ web:
     limits: { memory: 64Mi }
 
 valkey:
-  # The official image, pinned (the same as compose.yaml and the tests'). It holds only what may expire (ADR 0011):
-  # nothing is saved to disk.
-  image: valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+  # The official image, pinned (the same as compose.yaml and the tests'), its registry named as the image policy
+  # wants (ADR 0048). It holds only what may expire (ADR 0011): nothing is saved to disk.
+  image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+  # Its one user (ADR 0048), whose password is the Secret's "password" (and, during a rotation, "previous-password"):
+  # a SOPS file, made outside the chart.
+  user: idleo
+  secret: idleo-valkey
+  # Refused to that user: wiping (FLUSHALL, FLUSHDB), reconfiguring or inspecting the server (CONFIG, DEBUG, MODULE,
+  # ACL, MONITOR), sweeping every key at once (KEYS), saving to disk, replicating elsewhere and stopping it. The
+  # control plane uses none of them.
+  refusedCommands: [flushall, flushdb, config, debug, keys, module, acl, monitor, save, bgsave, bgrewriteaof,
+    replicaof, slaveof, failover, shutdown]
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { memory: 256Mi }
@@ -182,11 +198,29 @@ tls:
     enabled: false
     secret: idleo-local-ca
 
+# Who may talk to whom (ADR 0048): every pod is denied everything by default (templates/network.yaml), then allowed
+# exactly what its kind needs. The table is in the ADR; docs/runbooks/network-rules.md says how to add one.
 networkPolicy:
   # Where the ingress's pods are, the only ones that may reach the control plane's web port.
   ingressNamespace: kube-system
   ingressPodLabels:
     app.kubernetes.io/name: traefik
+  dns:
+    namespace: kube-system
+    podLabels:
+      k8s-app: kube-dns
+  # "The internet" for the pods allowed it: every address but these, which are the private ranges (the server's
+  # networks, and the cluster's pods 10.42/16 and Services 10.43/16), link-local (the cloud's metadata address,
+  # 169.254.169.254), carrier-grade NAT (Tailscale's addresses) and loopback. An environment adds its server's own
+  # public address (S5).
+  internetExcept: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10, 127.0.0.0/8]
+  # SMTP submission, to the mail server (application-prod.yaml's MAIL_PORT).
+  mailPort: 587
+  # The Kubernetes API, which only the database's instances call here (CloudNativePG's instance manager): its Service
+  # (k3s's first Service address), and k3s's own port behind it.
+  apiServer:
+    serviceAddress: 10.43.0.1
+    port: 6443
 
 # Development's stand-ins (ADR 0013): the sign-in server, object storage and the mail catcher, each on a port of its
 # own. Never in production (the prod profile refuses all three, ProductionSettingsGuard).
@@ -198,11 +232,11 @@ development:
     image: ghcr.io/navikt/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
     port: 18099
   storage:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
+    image: docker.io/pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     port: 19100
     allowedOrigins: ""
   mail:
-    image: axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+    image: docker.io/axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
     port: 18025
 
 # An operator command (docs/runbooks/granting-credits.md, hosts.md), as a one-off pod: scripts/k8s/ops.sh renders

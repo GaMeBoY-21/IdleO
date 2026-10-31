@@ -1,0 +1,111 @@
+# Every image, ours or a vendor's, pinned by digest and from a repository on the list (ADR 0048). A native
+# ValidatingAdmissionPolicy: the API server itself checks it as each pod (or a debug container) is admitted, so it
+# holds even while Kyverno is down. Everywhere but kube-system, which stays as k3s ships it.
+#
+# An image must name its registry (docker.io/valkey/valkey, not valkey/valkey), carry @sha256:, never be tagged latest,
+# and be one of the repositories in the ConfigMap idleo-allowed-images (one a line). The Mac's cluster adds its own
+# registry and development's stand-ins under a key of their own, "development" (deploy/policies/local);
+# scripts/checks/deploy.sh fails if staging's or production's policies have that key or name the local registry.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: idleo-images-pinned
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods, pods/ephemeralcontainers]
+  variables:
+    - name: images
+      expression: >-
+        object.spec.containers.map(c, c.image)
+        + (has(object.spec.initContainers) ? object.spec.initContainers.map(c, c.image) : [])
+        + (has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(c, c.image) : [])
+    # Each image's repository: its name without the digest or the tag (a registry's port is before the first slash).
+    - name: repositories
+      expression: >-
+        variables.images.map(i, i.split('@')[0]).map(n,
+          n.lastIndexOf(':') > n.lastIndexOf('/') ? n.substring(0, n.lastIndexOf(':')) : n)
+    # The list, and on the Mac the development list beside it (deploy/policies/local).
+    - name: allowed
+      expression: >-
+        (params.data.repositories + '\n' + ('development' in params.data ? params.data.development : ''))
+          .split('\n').map(r, r.trim()).filter(r, r != '' && !r.startsWith('#'))
+  validations:
+    - expression: variables.images.all(i, i.contains('@sha256:'))
+      messageExpression: >-
+        'every image must be pinned by digest (name@sha256:...), not by tag: '
+        + variables.images.filter(i, !i.contains('@sha256:')).join(', ')
+      reason: Forbidden
+    - expression: "!variables.images.exists(i, i.split('@')[0].endsWith(':latest'))"
+      messageExpression: >-
+        'no image may be tagged latest: ' + variables.images.filter(i, i.split('@')[0].endsWith(':latest')).join(', ')
+      reason: Forbidden
+    - expression: variables.repositories.all(r, r in variables.allowed)
+      messageExpression: >-
+        'images must come from the allowed repositories (ConfigMap kyverno/idleo-allowed-images, ADR 0048), with
+        their registry named: ' + variables.repositories.filter(r, !(r in variables.allowed)).join(', ')
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: idleo-images-pinned
+spec:
+  policyName: idleo-images-pinned
+  validationActions: [Deny]
+  paramRef:
+    name: idleo-allowed-images
+    namespace: kyverno
+    # No list, no pods: a missing ConfigMap refuses everything rather than allowing everything.
+    parameterNotFoundAction: Deny
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - { key: kubernetes.io/metadata.name, operator: NotIn, values: [kube-system] }
+---
+# The repositories images may come from, by their full names (ADR 0048). Each vendor whose images are signed also has
+# its signer checked by Kyverno (images-signed.yaml); the rest are held by their digest alone.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idleo-allowed-images
+  namespace: kyverno
+data:
+  repositories: |
+    # Ours: signed by the images workflow, with a bill of materials and provenance (images-signed.yaml).
+    ghcr.io/gameboy-21/idleo-control-plane
+    ghcr.io/gameboy-21/idleo-web
+    ghcr.io/gameboy-21/idleo-scanner
+    # Flux and Flagger: keyless signatures from their release workflows.
+    ghcr.io/fluxcd/source-controller
+    ghcr.io/fluxcd/kustomize-controller
+    ghcr.io/fluxcd/helm-controller
+    ghcr.io/fluxcd/notification-controller
+    ghcr.io/fluxcd/flagger
+    ghcr.io/fluxcd/flagger-loadtester
+    # CloudNativePG: the operator and PostgreSQL signed by their workflows; the backup plugin unsigned (digest only).
+    ghcr.io/cloudnative-pg/cloudnative-pg
+    ghcr.io/cloudnative-pg/postgresql
+    ghcr.io/cloudnative-pg/plugin-barman-cloud
+    ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar
+    # cert-manager: signed with a key whose published half doesn't verify them (digest only).
+    quay.io/jetstack/cert-manager-controller
+    quay.io/jetstack/cert-manager-webhook
+    quay.io/jetstack/cert-manager-cainjector
+    quay.io/jetstack/cert-manager-startupapicheck
+    quay.io/jetstack/cert-manager-acmesolver
+    # Kyverno: SLSA provenance, checked when pinned; its own namespace never reaches its webhooks (digest only here).
+    ghcr.io/kyverno/kyverno
+    ghcr.io/kyverno/kyvernopre
+    ghcr.io/kyverno/kyverno-cli
+    ghcr.io/kyverno/readiness-checker
+    # Unsigned official images (digest only).
+    docker.io/prom/prometheus
+    docker.io/valkey/valkey

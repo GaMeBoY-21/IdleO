@@ -16,6 +16,8 @@ spec:
     metadata:
       labels:
         {{- include "idleo.selector" (list . "scanner") | nindent 8 }}
+        idleo.in/dns-client: "true"
+        idleo.in/internet-client: "true"
     spec:
       {{- include "idleo.podSecurity" 10001 | nindent 6 }}
       containers:
@@ -45,8 +47,9 @@ spec:
         - name: tmp
           emptyDir: { medium: Memory, sizeLimit: 64Mi }
 ---
-# Nobody calls the scanner. It calls the control plane's internal API, DNS, and registries on the internet, never
-# another address inside the cluster or the server's network, whatever an image's reference says.
+# Nobody calls the scanner. It calls the control plane's internal API (here), DNS and registries on the internet (by
+# its labels, templates/network.yaml), never another address inside the cluster or the server's network, whatever an
+# image's reference says.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -66,20 +69,4 @@ spec:
               idleo.in/control-plane: "true"
       ports:
         - { port: 8095, protocol: TCP }
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - { port: 53, protocol: UDP }
-        - { port: 53, protocol: TCP }
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10, 127.0.0.0/8]
-      ports:
-        - { port: 443, protocol: TCP }
 {{- end }}

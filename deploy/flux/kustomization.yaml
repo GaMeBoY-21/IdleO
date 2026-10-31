@@ -6,11 +6,13 @@
 #     > deploy/flux/gotk-components.yaml
 #
 # and each controller's image pinned by digest here. Flux reads this repository over HTTPS with no token and never
-# writes to it (deploy/clusters/<env>/flux-system/sync.yaml).
+# writes to it (deploy/clusters/<env>/flux-system/sync.yaml). Its namespace enforces Pod Security "restricted", and
+# network.yaml replaces the network policies it ships (ADR 0048).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - gotk-components.yaml
+  - network.yaml
 images:
   - name: ghcr.io/fluxcd/source-controller
     digest: sha256:6a6693172589f8ff26123a231d5fa6ceb194a6efb4dc647cdf057c959f76a2e3
@@ -21,6 +23,27 @@ images:
   - name: ghcr.io/fluxcd/notification-controller
     digest: sha256:840f318265ee26f0d2c48a158bf7896b22aa4e998e320a18646309f0e40b15da
 patches:
+  # Pod Security "restricted" enforced, not only warned of (ADR 0048): Flux's controllers already meet it.
+  - target:
+      kind: Namespace
+      name: flux-system
+    patch: |
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1enforce
+        value: restricted
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1enforce-version
+        value: latest
+  # Flux's own network policies let every controller reach anything; network.yaml says exactly what each may.
+  - target:
+      kind: NetworkPolicy
+      name: allow-egress|allow-scraping|allow-webhooks
+    patch: |
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: ignored
   # A new commit cancels a health check still waiting on the last one, so reverting a release that is failing its
   # canary applies at once rather than after the failing one's 30-minute timeout.
   - target:

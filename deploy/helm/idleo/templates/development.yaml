@@ -96,5 +96,77 @@ spec:
     {{- if eq $name "mail" }}
     - { name: smtp, port: 1025, targetPort: smtp }
     {{- end }}
+---
+# Reached from this machine on its published port (the browser, the agent, the tests), as compose.yaml's are, and
+# from the control plane (below); it reaches nothing.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-{{ $name }}
+  labels:
+    {{- include "idleo.labels" (list $ $name) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "idleo.selector" (list $ $name) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - { port: http, protocol: TCP }
+        {{- if eq $name "mail" }}
+        - { port: smtp, protocol: TCP }
+        {{- end }}
 {{- end }}
+---
+# The control plane and operator commands reach the sign-in server's keys, storage and the mail catcher; the
+# database's instances reach storage for their backups.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-development-clients
+  labels:
+    {{- include "idleo.labels" (list $ "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      idleo.in/development-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list $ "sign-in") | nindent 14 }}
+      ports:
+        - { port: 8080, protocol: TCP }
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list $ "storage") | nindent 14 }}
+      ports:
+        - { port: 9000, protocol: TCP }
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list $ "mail") | nindent 14 }}
+      ports:
+        - { port: 1025, protocol: TCP }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: idleo-database-backups-development
+  labels:
+    {{- include "idleo.labels" (list $ "database") | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: cnpg.io/cluster, operator: Exists }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "idleo.selector" (list $ "storage") | nindent 14 }}
+      ports:
+        - { port: 9000, protocol: TCP }
 {{- end }}

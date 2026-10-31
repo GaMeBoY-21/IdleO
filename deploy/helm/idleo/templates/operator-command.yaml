@@ -8,8 +8,7 @@ metadata:
   name: {{ required "operator.name names the pod" .Values.operator.name }}
   labels:
     {{- include "idleo.labels" (list . "operator-command") | nindent 4 }}
-    idleo.in/database-client: "true"
-    idleo.in/valkey-client: "true"
+    {{- include "idleo.controlPlaneClient" . | nindent 4 }}
 spec:
   {{- include "idleo.podSecurity" 10001 | nindent 2 }}
   restartPolicy: Never

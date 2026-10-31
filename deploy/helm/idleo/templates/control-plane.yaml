@@ -26,13 +26,13 @@ spec:
         {{- /* Flagger renames the primary's name label (control-plane-primary), so the agents' Service and the
         network policies find the control plane's pods, either version, by this one. */}}
         idleo.in/control-plane: "true"
-        idleo.in/database-client: "true"
-        idleo.in/valkey-client: "true"
+        {{- include "idleo.controlPlaneClient" . | nindent 8 }}
       annotations:
         # A changed setting rolls the pods.
         checksum/settings: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      priorityClassName: {{ .Values.priorityClasses.core }}
       terminationGracePeriodSeconds: {{ .Values.controlPlane.terminationGracePeriodSeconds }}
       # Copies on different nodes when there are several (ADR 0047); on one node, all on it. Either version's pods
       # count, by the label Flagger leaves alone.
@@ -178,12 +178,7 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressNamespace }}
-          podSelector:
-            matchLabels:
-              {{- toYaml .Values.networkPolicy.ingressPodLabels | nindent 14 }}
+        {{- include "idleo.ingressPeer" . | nindent 8 }}
       ports:
         - { port: http, protocol: TCP }
     - from:

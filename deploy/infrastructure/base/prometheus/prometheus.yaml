@@ -2,6 +2,11 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: monitoring
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
 ---
 # It finds the pods to scrape through the Kubernetes API, so it, unlike IdleO's own pods, has a token: one that may
 # only read pods.
@@ -62,7 +67,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: prometheus
-          image: prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
+          image: docker.io/prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus
@@ -110,7 +115,17 @@ spec:
   ports:
     - { name: http, port: 9090, targetPort: http }
 ---
-# Only Flagger asks it anything.
+# Deny by default (ADR 0048). Only Flagger asks it anything; it reaches DNS, the Kubernetes API (to find the pods it
+# scrapes) and the meters' ports: the control plane's (9464) and the database's (9187) in idleo, and Flagger's. Staging
+# and production let it reach Grafana Cloud too, for the remote write (../../remote-write).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -119,7 +134,7 @@ spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: prometheus
-  policyTypes: [Ingress]
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         - namespaceSelector:
@@ -127,3 +142,51 @@ spec:
               kubernetes.io/metadata.name: flagger-system
       ports:
         - { port: http, protocol: TCP }
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - { port: 443, protocol: TCP }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - { port: 6443, protocol: TCP }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: idleo
+          podSelector:
+            matchLabels:
+              idleo.in/control-plane: "true"
+      ports:
+        - { port: 9464, protocol: TCP }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: idleo
+          podSelector:
+            matchExpressions:
+              - { key: cnpg.io/cluster, operator: Exists }
+      ports:
+        - { port: 9187, protocol: TCP }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: flagger-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: flagger
+      ports:
+        - { port: 8080, protocol: TCP }

@@ -1,0 +1,19 @@
+# Who is evicted last when the node runs out of memory, and who may push others out to be scheduled (ADR 0048): the
+# platform, without which nothing else can start or be admitted (Kyverno, Traefik, CloudNativePG's operator; Flux keeps
+# its own system-cluster-critical), then IdleO's control plane and database, then everything else at the default, 0.
+# The kubelet evicts first the pods using most beyond their requests, and among those the lowest priority.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: idleo-platform
+value: 1000000
+globalDefault: false
+description: The platform IdleO runs on (ADR 0048), evicted last.
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: idleo-core
+value: 100000
+globalDefault: false
+description: IdleO's control plane and database (ADR 0048), evicted after everything but the platform.
