@@ -1,7 +1,8 @@
 # The API server's audit log (ADR 0048; docs/runbooks/audit-log.md): who read or changed a Secret, opened a shell or a
 # port into a pod, or changed who may do what. Metadata only (who, what, when, from where, the answer), never a
 # request's or a response's body, so a Secret's value is never in it. Everything else is left out, which keeps it small:
-# measured on the Mac's cluster through every test, about 2 MB an hour (k3s rotates it: server/config.yaml).
+# measured on the Mac's cluster, about 1.2 MB an hour at rest and 2.4 MB through every test (k3s rotates it at 250 MB in
+# all: server/config.yaml).
 apiVersion: audit.k8s.io/v1
 kind: Policy
 omitStages: [RequestReceived]
