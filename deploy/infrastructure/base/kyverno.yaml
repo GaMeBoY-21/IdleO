@@ -64,6 +64,10 @@ spec:
         tag: v1.19.2@sha256:02600428e7c956e222f4376413525866ed9fec28e6bcb1222774ce6bf5fc904a
     # Nothing reads policy reports, and no policy acts on existing resources.
     features:
+      # Every image it checks is public: no cloud's credential helper, which would ask the metadata address the
+      # network policy blocks.
+      registryClient:
+        credentialHelpers: [default]
       admissionReports:
         enabled: false
       aggregateReports:

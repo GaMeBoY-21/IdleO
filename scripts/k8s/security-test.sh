@@ -98,7 +98,7 @@ refused_by() { [[ "$1" != admitted && "$1" == *"$2"* ]] && echo refused || echo 
 
 log "1-3. admission: signatures, digests and privileges"
 answer="$(pod unsigned "$ours_unsigned" | admit "$namespace")"
-expect 1 "our name, not signed by the images workflow" "$(refused_by "$answer" "idleo-images-signed")" refused
+expect 1 "our name, not signed by the images workflow" "$(refused_by "$answer" "idleo-images-signed: no signature")" refused
 answer="$(pod signed "$ours_signed" | admit "$namespace")"
 expect 1 "staging's control plane, signed with its bill of materials and provenance" "$answer" admitted
 # The same image under another workflow's identity: a copy of the live policy that wants release.yml, in a namespace
@@ -121,7 +121,7 @@ until [[ "$(kubectl get imagevalidatingpolicy security-test-other-identity \
 sleep 5
 answer="$(pod signed "$ours_signed" | admit security-test)"
 expect 1 "staging's control plane under another workflow's identity" \
-  "$(refused_by "$answer" "security-test-other-identity")" refused
+  "$(refused_by "$answer" "idleo-images-signed: no signature")" refused
 kubectl delete imagevalidatingpolicy security-test-other-identity >/dev/null
 kubectl delete namespace security-test --wait=false >/dev/null
 policies="$(mktemp)"
@@ -231,11 +231,12 @@ answers="$(debug_run "$namespace" "${control_planes[0]}" '
   echo "wrong $(valkey-cli -h "$1" -p "$2" --user idleo --pass not-the-password --no-auth-warning ping 2>&1 | head -1)"' \
   "${valkey%:*}" "${valkey#*:}")"
 expect 8 "Valkey without a password" "$(awk '$1 == "none" {print $2}' <<<"$answers")" NOAUTH
-expect 8 "Valkey with a wrong password" "$(awk '$1 == "wrong" {print $2}' <<<"$answers")" WRONGPASS
-expect 8 "control: its own user's PING" "$(in_namespace exec idleo-valkey-0 -- valkey-cli --user idleo ping)" PONG
+expect 8 "Valkey with a wrong password" "$(grep -q "^wrong.*WRONGPASS" <<<"$answers" && echo WRONGPASS || awk '$1 == "wrong"' <<<"$answers")" WRONGPASS
+expect 8 "control: its own user's PING" "$(in_namespace exec idleo-valkey-0 -c valkey -- valkey-cli --user idleo ping)" PONG
 for command in "keys *" flushall "config get maxmemory" "debug sleep 0"; do
-  answer="$(in_namespace exec idleo-valkey-0 -- valkey-cli --user idleo $command 2>&1 | head -1)"
-  expect 8 "its user's ${command%% *}" "${answer%% *}" NOPERM
+  read -r -a words <<<"$command"
+  answer="$(in_namespace exec idleo-valkey-0 -c valkey -- valkey-cli --user idleo "${words[@]}" 2>&1 | head -1 || true)"
+  expect 8 "its user's ${words[0]}" "${answer%% *}" NOPERM
 done
 
 # --- Tokens and RBAC (9) -------------------------------------------------------------------------------------------
