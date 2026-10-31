@@ -1,0 +1,356 @@
+#!/usr/bin/env bash
+# The proof of the cluster's security (ADR 0048; .github/workflows/security.yml runs it on pull requests that touch
+# deploy/, and weekly), on the Mac's cluster under Flux, as production runs. It assumes a pod has been broken into and
+# tries what the attacker would; every attempt must fail, and each "unreachable" has a control showing the same
+# address answers someone allowed to reach it, so a refusal means the policy and not an empty port.
+#
+#   1. an image with our name that the images workflow didn't sign is refused; staging's real one is admitted, and
+#      refused under another workflow's identity; kyverno test on staging's policies as Flux builds them;
+#   2. an image by tag, not digest, is refused (a pod, and a debug container);
+#   3. a root, a privileged and a hostPath pod in our namespace are refused;
+#   4. from the web pod: PostgreSQL, Valkey, the control plane's meters, DNS and the internet are unreachable;
+#   5. from the scanner pod: PostgreSQL, Valkey and the control plane's web and meters ports are unreachable; its
+#      internal API and the internet on HTTPS, which the table allows, are reachable;
+#   6. from every pod of ours: the cloud's metadata address and the node's own API port, a private address, are
+#      unreachable;
+#   7. from the control plane: PostgreSQL, Valkey and the internet on HTTPS are reachable (it still works);
+#   8. Valkey refuses a connection without its password, and a wrong one; its user can't run KEYS, FLUSHALL, CONFIG
+#      or DEBUG;
+#   9. no pod of ours has a service-account token, and none of our namespace's service accounts can read Secrets or
+#      make pods (every service account's rights are written to private/k8s/logs/security-rbac.txt);
+#  10. a Secret is encrypted in k3s's datastore on disk (a ConfigMap beside it is the control: it's there in plain);
+#  11. Kyverno killed together with a control-plane pod: while Kyverno is down a pod is refused (fail closed), the
+#      remaining control plane serves, and both come back; timed.
+#
+# It prints a table, PASS or FAIL a row; one FAIL exits non-zero. Logs: private/k8s/logs/security-test.log.
+#
+#   scripts/k8s/security-test.sh            up.sh --gitops first (push the branch), then every check
+#   scripts/k8s/security-test.sh --no-up    on the cluster that's there (under Flux)
+set -euo pipefail
+. "$(dirname "$0")/../lib/quiet.sh"
+quiet_entry k8s-security-test "$@"
+set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
+log() { printf 'security-test: %s\n' "$*"; }
+fail() { printf 'security-test: FAIL: %s\n' "$*" >&2; exit 1; }
+. "$(dirname "$0")/lib.sh"
+cd "$k8s_root"
+out="$k8s_state/logs"
+mkdir -p "$out"
+started_at=$SECONDS
+
+if [[ "${1:-}" != --no-up ]]; then
+  log "bringing the cluster up under Flux (up.sh --gitops)"
+  scripts/k8s/up.sh --gitops || fail "up.sh --gitops failed; see private/k8s/logs/up.log"
+fi
+kubectl get namespace flux-system >/dev/null 2>&1 || fail "this cluster isn't under Flux: run up.sh --gitops (or without --no-up)"
+in_namespace() { kubectl -n "$namespace" "$@"; }
+export CURL_CA_BUNDLE="$local_ca/ca.pem"
+
+rows=()
+failures=0
+# A row of the table: check, attempt, what happened, and whether that's what must happen.
+row() {
+  rows+=("$1|$2|$3|$4")
+  printf 'security-test: %s %s %s: %s\n' "$4" "$1" "$2" "$3"
+  [[ "$4" == PASS ]] || failures=$((failures + 1))
+}
+expect() { if [[ "$3" == "$4" ]]; then row "$1" "$2" "$3" PASS; else row "$1" "$2" "$3 (must be $4)" FAIL; fi; }
+
+# --- Admission (1-3): server-side dry runs, which go through every admission check and run nothing. ---------------
+
+ours_signed="$(python3 - <<'PY'
+import re
+text = open("deploy/clusters/staging/idleo/release.yaml").read()
+print("ghcr.io/gameboy-21/idleo-control-plane@" + re.search(r"control-plane: (sha256:[0-9a-f]{64})", text).group(1))
+PY
+)"
+# A real digest under our name that nobody signed: that build's CycloneDX attestation, as the tests use.
+ours_unsigned="$(sed -n 's/^ *image: \(ghcr\.io\/gameboy-21\/idleo-control-plane@sha256:644720[0-9a-f]*\)$/\1/p' \
+  deploy/policies/tests/resources.yaml | head -1)"
+valkey_image="$(in_namespace get pod idleo-valkey-0 -o jsonpath='{.spec.containers[0].image}')"
+# A pod that passes Pod Security "restricted" in every way but the one $3 (a JSON patch of its spec) changes.
+pod() {
+  python3 - "$1" "$2" "${3:-[]}" <<'PY'
+import json, sys
+name, image, patch = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])
+pod = {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name},
+       "spec": {"automountServiceAccountToken": False,
+                "securityContext": {"runAsNonRoot": True, "runAsUser": 10001, "seccompProfile": {"type": "RuntimeDefault"}},
+                "containers": [{"name": "main", "image": image, "securityContext": {
+                    "allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}}}]}}
+for path, value in patch:
+    target = pod["spec"]
+    *parents, last = path
+    for key in parents:
+        target = target[key]
+    target[last] = value
+print(json.dumps(pod))
+PY
+}
+# Admits the pod on stdin into namespace $1 (a dry run) and prints "admitted", or who refused it and why.
+admit() {
+  local answer
+  if answer="$(kubectl -n "$1" create --dry-run=server -f - 2>&1)"; then echo admitted; else
+    sed -e 's/^Error from server ([A-Za-z]*): //' -e 's/^error when creating "STDIN": //' <<<"$answer" | head -1
+  fi
+}
+refused_by() { [[ "$1" != admitted && "$1" == *"$2"* ]] && echo refused || echo "$1"; }
+
+log "1-3. admission: signatures, digests and privileges"
+answer="$(pod unsigned "$ours_unsigned" | admit "$namespace")"
+expect 1 "our name, not signed by the images workflow" "$(refused_by "$answer" "idleo-images-signed")" refused
+answer="$(pod signed "$ours_signed" | admit "$namespace")"
+expect 1 "staging's control plane, signed with its bill of materials and provenance" "$answer" admitted
+# The same image under another workflow's identity: a copy of the live policy that wants release.yml, in a namespace
+# of its own, refuses it.
+kubectl create namespace security-test --dry-run=client -o yaml |
+  kubectl label --local -f - pod-security.kubernetes.io/enforce=restricted -o yaml | kubectl apply -f - >/dev/null
+kubectl get imagevalidatingpolicy idleo-images-signed -o json | python3 -c '
+import json, sys
+p = json.load(sys.stdin)
+p["metadata"] = {"name": "security-test-other-identity"}
+p["spec"]["matchConstraints"]["namespaceSelector"] = {"matchLabels": {"kubernetes.io/metadata.name": "security-test"}}
+for a in p["spec"]["attestors"]:
+    for i in a["cosign"]["keyless"]["identities"]:
+        i["subjectRegExp"] = i["subjectRegExp"].replace("images\\.yml", "release\\.yml")
+p.pop("status", None)
+print(json.dumps(p))' | kubectl apply -f - >/dev/null
+deadline=$((SECONDS + 60))
+until [[ "$(kubectl get imagevalidatingpolicy security-test-other-identity \
+  -o jsonpath='{.status.conditionStatus.ready}' 2>/dev/null)" == true ]] || ((SECONDS > deadline)); do sleep 2; done
+sleep 5
+answer="$(pod signed "$ours_signed" | admit security-test)"
+expect 1 "staging's control plane under another workflow's identity" \
+  "$(refused_by "$answer" "security-test-other-identity")" refused
+kubectl delete imagevalidatingpolicy security-test-other-identity >/dev/null
+kubectl delete namespace security-test --wait=false >/dev/null
+policies="$(mktemp)"
+kubectl kustomize deploy/policies/base >"$policies"
+if scripts/deploy/policy-test.sh "$policies" >>"$out/security-test.log" 2>&1; then
+  expect 1 "kyverno test on staging's policies (28 expectations, signatures against GHCR)" passed passed
+else
+  expect 1 "kyverno test on staging's policies" failed passed
+fi
+rm -f "$policies"
+
+answer="$(pod by-tag "${valkey_image%@*}" | admit "$namespace")"
+expect 2 "an image by tag, not digest" "$(refused_by "$answer" "pinned by digest")" refused
+answer="$(pod root "$valkey_image" '[[["securityContext","runAsUser"],0],[["securityContext","runAsNonRoot"],false]]' | admit "$namespace")"
+expect 3 "a root pod" "$(refused_by "$answer" "PodSecurity")" refused
+answer="$(pod privileged "$valkey_image" '[[["containers",0,"securityContext"],{"privileged":true}]]' | admit "$namespace")"
+expect 3 "a privileged pod" "$(refused_by "$answer" "privileged")" refused
+answer="$(pod host-path "$valkey_image" '[[["volumes"],[{"name":"node","hostPath":{"path":"/var/lib/rancher"}}]]]' | admit "$namespace")"
+expect 3 "a pod mounting the node's folder" "$(refused_by "$answer" "hostPath")" refused
+web_pod="$(in_namespace get pods -l app.kubernetes.io/name=web -o jsonpath='{.items[0].metadata.name}')"
+answer="$(kubectl -n "$namespace" debug "pod/$web_pod" --image="${valkey_image%@*}" --profile=restricted \
+  --container=by-tag -- true 2>&1 || true)"
+expect 2 "a debug container by tag in the web pod" "$(refused_by "$answer" "pinned by digest")" refused
+
+# --- The network (4-7): a debug container in the pod shares its network, so its policies are the pod's. -----------
+
+# Runs bash script $3 (with the rest as its arguments) in a debug container in pod $2 of namespace $1, and prints what
+# it printed. The image is Valkey's, already on the node and allowed by every policy; it has bash and valkey-cli.
+debug_run() {
+  local ns="$1" target="$2" script="$3" container
+  shift 3
+  container="probe-$(openssl rand -hex 3)"
+  kubectl -n "$ns" debug "pod/$target" --image="$valkey_image" --profile=restricted --container="$container" \
+    -- bash -c "$script" probe "$@" >>"$out/security-test.log" 2>&1 || { echo "debug container refused"; return; }
+  local deadline=$((SECONDS + 120))
+  until [[ -n "$(kubectl -n "$ns" get pod "$target" \
+    -o jsonpath="{.status.ephemeralContainerStatuses[?(@.name==\"$container\")].state.terminated.reason}")" ]]; do
+    ((SECONDS < deadline)) || { echo "debug container didn't finish"; return; }
+    sleep 1
+  done
+  kubectl -n "$ns" logs "$target" -c "$container"
+}
+# Tries each name=address:port from pod $2 (namespace $1) and prints "name open" or "name closed" (refused, dropped or
+# nothing within 3 s).
+probe() {
+  local ns="$1" target="$2"
+  shift 2
+  debug_run "$ns" "$target" 'for t in "$@"; do n="${t%%=*}"; a="${t#*=}"
+    if timeout 3 bash -c "exec 3<>/dev/tcp/${a%:*}/${a##*:}" 2>/dev/null; then echo "$n open"; else echo "$n closed"; fi
+    done' "$@"
+}
+state_of() { awk -v n="$2" '$1 == n {print $2}' <<<"$1"; }
+
+service_ip() { kubectl -n "$1" get service "$2" -o jsonpath='{.spec.clusterIP}'; }
+database="$(service_ip "$namespace" idleo-database-rw):5432"
+valkey="$(service_ip "$namespace" idleo-valkey):6379"
+dns="$(service_ip kube-system kube-dns):53"
+control_planes=($(in_namespace get pods -l idleo.in/control-plane=true --field-selector=status.phase=Running \
+  -o jsonpath='{.items[*].metadata.name}'))
+((${#control_planes[@]} >= 2)) || fail "fewer than two control planes are running"
+control_plane_ip="$(in_namespace get pod "${control_planes[1]}" -o jsonpath='{.status.podIP}')"
+node_ip="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
+internet=1.1.1.1:443
+metadata=169.254.169.254:80
+scanner_pod="$(in_namespace get pods -l app.kubernetes.io/name=scanner -o jsonpath='{.items[0].metadata.name}')"
+loadtester_pod="$(in_namespace get pods -l app.kubernetes.io/name=loadtester -o jsonpath='{.items[0].metadata.name}')"
+prometheus_pod="$(kubectl -n monitoring get pods -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].metadata.name}')"
+targets=(postgres="$database" valkey="$valkey" meters="$control_plane_ip:9464" web-port="$control_plane_ip:8080"
+  scanner-api="$control_plane_ip:8095" dns="$dns" internet="$internet" metadata="$metadata" node-api="$node_ip:6443")
+
+log "4-7. the network: probing from the web, scanner, control plane, Valkey, load tester and Prometheus pods"
+from_web="$(probe "$namespace" "$web_pod" "${targets[@]}")"
+from_scanner="$(probe "$namespace" "$scanner_pod" "${targets[@]}")"
+from_control_plane="$(probe "$namespace" "${control_planes[0]}" "${targets[@]}")"
+from_valkey="$(probe "$namespace" idleo-valkey-0 "${targets[@]}")"
+from_loadtester="$(probe "$namespace" "$loadtester_pod" "${targets[@]}")"
+# The controls: Prometheus may reach the meters and the node's API port (it finds its targets there).
+from_prometheus="$(probe monitoring "$prometheus_pod" "${targets[@]}")"
+printf '%s\n' "web:" "$from_web" "scanner:" "$from_scanner" "control plane:" "$from_control_plane" "valkey:" \
+  "$from_valkey" "load tester:" "$from_loadtester" "prometheus:" "$from_prometheus" >>"$out/security-test.log"
+
+for target in postgres valkey meters dns internet; do
+  expect 4 "from the web pod: $target" "$(state_of "$from_web" "$target")" closed
+done
+for target in postgres valkey meters web-port; do
+  expect 5 "from the scanner pod: $target" "$(state_of "$from_scanner" "$target")" closed
+done
+expect 5 "from the scanner pod: its internal API (allowed)" "$(state_of "$from_scanner" scanner-api)" open
+expect 5 "from the scanner pod: the internet on HTTPS (allowed)" "$(state_of "$from_scanner" internet)" open
+for source in web scanner control_plane valkey loadtester; do
+  probed="from_$source"
+  for target in metadata node-api; do
+    expect 6 "from the ${source/_/ } pod: $target" "$(state_of "${!probed}" "$target")" closed
+  done
+done
+expect 6 "control: Prometheus reaches the node's API port" "$(state_of "$from_prometheus" node-api)" open
+expect 6 "control: Prometheus reaches the control plane's meters" "$(state_of "$from_prometheus" meters)" open
+for target in postgres valkey internet; do
+  expect 7 "from the control plane: $target" "$(state_of "$from_control_plane" "$target")" open
+done
+
+# --- Valkey (8) ----------------------------------------------------------------------------------------------------
+
+log "8. Valkey's password and its refused commands"
+answers="$(debug_run "$namespace" "${control_planes[0]}" '
+  echo "none $(valkey-cli -h "$1" -p "$2" ping 2>&1 | head -1)"
+  echo "wrong $(valkey-cli -h "$1" -p "$2" --user idleo --pass not-the-password --no-auth-warning ping 2>&1 | head -1)"' \
+  "${valkey%:*}" "${valkey#*:}")"
+expect 8 "Valkey without a password" "$(awk '$1 == "none" {print $2}' <<<"$answers")" NOAUTH
+expect 8 "Valkey with a wrong password" "$(awk '$1 == "wrong" {print $2}' <<<"$answers")" WRONGPASS
+expect 8 "control: its own user's PING" "$(in_namespace exec idleo-valkey-0 -- valkey-cli --user idleo ping)" PONG
+for command in "keys *" flushall "config get maxmemory" "debug sleep 0"; do
+  answer="$(in_namespace exec idleo-valkey-0 -- valkey-cli --user idleo $command 2>&1 | head -1)"
+  expect 8 "its user's ${command%% *}" "${answer%% *}" NOPERM
+done
+
+# --- Tokens and RBAC (9) -------------------------------------------------------------------------------------------
+
+log "9. service-account tokens and what every service account may do"
+tokens="$(in_namespace get pods -l app.kubernetes.io/part-of=idleo -o json | python3 -c '
+import json, sys
+pods = json.load(sys.stdin)["items"]
+with_token = [p["metadata"]["name"] for p in pods
+              if p["spec"].get("automountServiceAccountToken") is not False
+              or any("serviceAccountToken" in str(v.get("projected", {})) for v in p["spec"].get("volumes", []))]
+print(len(pods), ",".join(with_token) or "none")')"
+expect 9 "pods of ours with a service-account token (of ${tokens%% *})" "${tokens#* }" none
+rbac="$out/security-rbac.txt"
+: >"$rbac"
+while read -r sa_namespace sa_name; do
+  {
+    echo "== system:serviceaccount:$sa_namespace:$sa_name"
+    kubectl auth can-i --list --as="system:serviceaccount:$sa_namespace:$sa_name" -n "$namespace" 2>&1 | sed 1d
+  } >>"$rbac"
+done < <(kubectl get serviceaccounts -A -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}')
+for sa in $(in_namespace get serviceaccounts -o jsonpath='{.items[*].metadata.name}'); do
+  # CloudNativePG's instances' own account reads its Cluster's Secrets by name (the operator's, ADR 0048); every other
+  # account here may do nothing.
+  [[ "$sa" == idleo-database* ]] && continue
+  rights="$(for verb in "get secrets" "list secrets" "create pods" "create pods/exec"; do
+    kubectl auth can-i $verb -n "$namespace" --as="system:serviceaccount:$namespace:$sa" >/dev/null 2>&1 && echo "$verb"
+  done | paste -sd, -)"
+  expect 9 "service account $sa: reads Secrets or makes pods" "${rights:-no}" no
+done
+
+# --- Secrets at rest (10) ------------------------------------------------------------------------------------------
+
+log "10. a Secret in k3s's datastore on disk"
+marker="security-test-$(openssl rand -hex 12)"
+kubectl -n "$namespace" create secret generic security-test-at-rest --from-literal=value="$marker" >/dev/null
+kubectl -n "$namespace" create configmap security-test-at-rest --from-literal=value="$marker-plain" >/dev/null
+sleep 2
+datastore="$(mktemp -d)"
+for file in state.db state.db-wal; do
+  docker cp "k3d-$cluster-server-0:/var/lib/rancher/k3s/server/db/$file" "$datastore/" >/dev/null 2>&1 || true
+done
+found="$(python3 - "$datastore" "$marker" <<'PY'
+import glob, sys
+data = b"".join(open(f, "rb").read() for f in glob.glob(sys.argv[1] + "/*"))
+secret, configmap = sys.argv[2].encode(), sys.argv[2].encode() + b"-plain"
+# The marker is the Secret value; the ConfigMap value starts with it, so only the excess counts as the Secret.
+print("plain" if data.count(secret) > data.count(configmap) else "absent",
+      "control" if configmap in data else "no-control",
+      "encrypted" if b"k8s:enc:aescbc:v1:" in data else "unencrypted")
+PY
+)"
+rm -rf "$datastore"
+kubectl -n "$namespace" delete secret/security-test-at-rest configmap/security-test-at-rest >/dev/null
+expect 10 "the Secret's value in the datastore" "$(cut -d' ' -f1 <<<"$found")" absent
+expect 10 "control: the ConfigMap's value in the datastore" "$(cut -d' ' -f2 <<<"$found")" control
+expect 10 "Secrets stored encrypted (k8s:enc:aescbc:v1)" "$(cut -d' ' -f3 <<<"$found")" encrypted
+encryption="$(docker exec "k3d-$cluster-server-0" k3s secrets-encrypt status 2>/dev/null | sed -n 's/^Encryption Status: //p')"
+expect 10 "k3s's secrets encryption" "$encryption" Enabled
+
+# --- Kyverno down (11) ---------------------------------------------------------------------------------------------
+
+log "11. Kyverno and a control-plane pod killed together"
+now() { perl -MTime::HiRes=time -e 'printf "%.1f", time'; }
+victim="${control_planes[0]}"
+replicas_before="${#control_planes[@]}"
+requests=0
+failed=0
+killed="$(now)"
+kubectl -n kyverno delete pod -l app.kubernetes.io/component=admission-controller --grace-period=0 --force \
+  --wait=false >/dev/null 2>&1
+in_namespace delete pod "$victim" --grace-period=0 --force --wait=false >/dev/null 2>&1
+refused_while_down="" kyverno_back="" control_plane_back=""
+deadline=$((SECONDS + 600))
+while [[ -z "$kyverno_back" || -z "$control_plane_back" ]]; do
+  ((SECONDS < deadline)) || break
+  requests=$((requests + 1))
+  curl -sf -o /dev/null --max-time 3 "$api_url/v1/public/availability" || failed=$((failed + 1))
+  if [[ -z "$refused_while_down" && -z "$kyverno_back" ]]; then
+    answer="$(pod while-down "$valkey_image" | admit "$namespace")"
+    [[ "$answer" == *"failed calling webhook"* || "$answer" == *"kyverno"* ]] && refused_while_down="$answer"
+  fi
+  if [[ -z "$kyverno_back" ]] && [[ "$(kubectl -n kyverno get pods -l app.kubernetes.io/component=admission-controller \
+    -o jsonpath='{.items[*].status.containerStatuses[0].ready}' 2>/dev/null)" == true ]]; then
+    kyverno_back="$(now)"
+  fi
+  ready="$(in_namespace get pods -l idleo.in/control-plane=true -o json | python3 -c '
+import json, sys
+print(sum(1 for p in json.load(sys.stdin)["items"] if not p["metadata"].get("deletionTimestamp")
+          and any(c["type"] == "Ready" and c["status"] == "True" for c in p["status"].get("conditions", []))))')"
+  [[ -z "$control_plane_back" && "$ready" -ge "$replicas_before" ]] && control_plane_back="$(now)"
+  sleep 1
+done
+refusals="$(in_namespace get events --field-selector reason=FailedCreate -o json | python3 -c '
+import json, sys
+print(sum(e.get("count", 1) for e in json.load(sys.stdin)["items"] if "webhook" in e.get("message", "")))')"
+kyverno_took="$(python3 -c "print(round(float('${kyverno_back:-0}') - $killed, 1))")"
+control_plane_took="$(python3 -c "print(round(float('${control_plane_back:-0}') - $killed, 1))")"
+expect 11 "a pod while Kyverno was down" "${refused_while_down:+refused}" refused
+[[ -n "$kyverno_back" ]] && row 11 "Kyverno back" "ready ${kyverno_took} s after the kill" PASS ||
+  row 11 "Kyverno back" "not within 600 s" FAIL
+[[ -n "$control_plane_back" ]] &&
+  row 11 "the control plane back to $replicas_before ready" \
+    "${control_plane_took} s after the kill ($refusals pod creations refused while Kyverno was down)" PASS ||
+  row 11 "the control plane back to $replicas_before ready" "not within 600 s" FAIL
+expect 11 "renters' requests failed meanwhile (of $requests)" "$failed" 0
+echo "kill: kyverno ${kyverno_took} s, control plane ${control_plane_took} s, $refusals refusals, $failed of $requests failed; while down: $refused_while_down" \
+  >>"$out/security-test.log"
+
+echo
+printf '  %-3s %-78s %-6s %s\n' "#" "attempt" "result" "what happened"
+for line in "${rows[@]}"; do
+  IFS='|' read -r number attempt outcome verdict <<<"$line"
+  printf '  %-3s %-78s %-6s %s\n' "$number" "$attempt" "$verdict" "$outcome"
+done
+echo
+log "${#rows[@]} checks, $failures failed, $((SECONDS - started_at)) s"
+((failures == 0)) || exit 1

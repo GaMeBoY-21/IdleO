@@ -10,7 +10,10 @@
 #   4. the chart rendered as each environment's HelmRelease sets it (and plain Helm's values-local.yaml), linted and
 #      checked by kubeconform, strict, against Kubernetes' schemas and the custom resources' (the Gateway API's,
 #      cert-manager's, Flux's and Flagger's);
-#   5. the chart's unit tests (helm-unittest), which hold every pod to the security settings.
+#   5. the chart's unit tests (helm-unittest), which hold every pod to the security settings;
+#   6. the policies each cluster admits pods by (ADR 0048): staging's and production's never allow the Mac's registry
+#      or development's images (the check is shown to refuse a cluster that does), and kyverno test proves what they
+#      admit and refuse, signatures included, against the real registries (scripts/deploy/policy-test.sh).
 #
 # Each tool runs from its own image, pinned by digest, so a laptop and CI run the same ones and neither needs them
 # installed.
@@ -128,6 +131,9 @@ PY
     echo ---
     flux_build infrastructure "$infrastructure_path" "$clusters/infrastructure.yaml"
     echo ---
+    flux_build policies "$(sed -n 's|^  path: \./||p' "$tree/$clusters/policies.yaml")" "$clusters/policies.yaml" |
+      tee "$work/$environment-policies.yaml"
+    echo ---
     flux_build idleo "$clusters/idleo" "$clusters/idleo.yaml" | tee "$work/$environment-idleo.yaml"
   } | kubeconform
 done
@@ -183,7 +189,14 @@ for values in values-local.yaml /work/values-local-gitops.yaml /work/values-stag
   tag=()
   [[ "$values" == values-local.yaml ]] && tag=(--set images.tag=check)
   helm_run lint --strict . -f "$values" ${tag[@]+"${tag[@]}"}
-  helm_run template idleo . --namespace idleo -f "$values" ${tag[@]+"${tag[@]}"} | kubeconform
+  helm_run template idleo . --namespace idleo -f "$values" ${tag[@]+"${tag[@]}"} | tee "$work/rendered.yaml" | kubeconform
+  # Two objects of one kind and name would be refused at install (Helm's post-render), which kubeconform can't see.
+  python3 - "$work/rendered.yaml" <<'PY'
+import collections, sys, yaml
+names = collections.Counter((d["kind"], d["metadata"]["name"]) for d in yaml.safe_load_all(open(sys.argv[1])) if d)
+twice = [f"{kind} {name}" for (kind, name), count in names.items() if count > 1]
+sys.exit(f"the chart renders these twice: {', '.join(twice)}" if twice else 0)
+PY
 done
 
 # 5. The chart's unit tests, on a copy: helm-unittest writes a snapshot folder into the chart's tests, even with no
@@ -193,3 +206,31 @@ chart_copy="$work/chart"
 cp -R "$root/deploy/helm/idleo/." "$chart_copy/"
 chmod -R a+rwX "$chart_copy"
 docker run --rm -v "$chart_copy:/apps" "$helm_image" .
+
+# 6. The policies. Staging and production admit only what production may run: no Mac registry, no development list.
+echo "deploy: staging's and production's policies hold no local exception, and kyverno test"
+local_exception_check() {
+  python3 - "$@" <<'PY'
+import sys, yaml
+problems = []
+for path in sys.argv[1:]:
+    text = open(path).read()
+    if "k3d-idleo-registry" in text:
+        problems.append(f"{path}: names the Mac's registry (k3d-idleo-registry)")
+    for document in yaml.safe_load_all(text):
+        if document and document.get("kind") == "ConfigMap" and "development" in (document.get("data") or {}):
+            problems.append(f"{path}: ConfigMap {document['metadata']['name']} has the development list")
+    if "idleo-images-signed" not in text:
+        problems.append(f"{path}: doesn't check our images' signatures (idleo-images-signed)")
+sys.exit("\n".join(problems) if problems else 0)
+PY
+}
+local_exception_check "$work/staging-policies.yaml" "$work/production-policies.yaml"
+# The check refuses the Mac's policies, which have the exception.
+if local_exception_check "$work/local-policies.yaml" 2>/dev/null; then
+  echo "deploy: the policy check let the local exception through" >&2
+  exit 1
+fi
+for environment in staging production; do
+  scripts/deploy/policy-test.sh "$work/$environment-policies.yaml"
+done

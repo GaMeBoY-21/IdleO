@@ -67,7 +67,7 @@ control_plane_pods() {
 # The control-plane pod that holds a host's agent stream: its presence names the instance, and each pod logs its own.
 pod_of_host() {
   local instance pod
-  instance="$(in_namespace exec idleo-valkey-0 -- valkey-cli hget "agentgateway:presence:$1" instance_id 2>/dev/null)"
+  instance="$(in_namespace exec idleo-valkey-0 -- valkey-cli --user idleo hget "agentgateway:presence:$1" instance_id 2>/dev/null)"
   [[ -n "$instance" ]] || return 1
   for pod in $(control_plane_pods); do
     # Read whole first: grep -q would end the pipe early, which pipefail counts as a failure.

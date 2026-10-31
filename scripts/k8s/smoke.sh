@@ -127,7 +127,7 @@ pass "the database is $primary and a standby, streaming; ApplicationRoleTests pa
 forged=203.0.113.77
 curl -sf -o /dev/null -H "X-Forwarded-For: $forged" "$api/v1/public/availability" ||
   fail "GET /v1/public/availability failed"
-counters="$(in_namespace exec idleo-valkey-0 -- valkey-cli --scan --pattern 'limits:requests:ip:*')"
+counters="$(in_namespace exec idleo-valkey-0 -- valkey-cli --user idleo --scan --pattern 'limits:requests:ip:*')"
 ! grep -q "$forged" <<<"$counters" || fail "the made-up address $forged was counted: $counters"
 counted="$(sed -n 's/^limits:requests:ip:\(.*\):[0-9]*$/\1/p' <<<"$counters" | grep -v '^10\.42\.' | head -1)"
 [[ -n "$counted" ]] || fail "no request was counted under the client's own address (only the ingress's?): $counters"

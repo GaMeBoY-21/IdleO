@@ -97,7 +97,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: idleo-mail
+  name: idleo-smtp
   labels:
     {{- include "idleo.labels" (list . "network") | nindent 4 }}
 spec:
