@@ -60,11 +60,13 @@ ops/backup/drill.sh --keep     # leave the restored Cluster up to look at
 
 `scripts/k8s/failover-test.sh` runs it as its last step; `scripts/check-all.sh` runs it (the drill suite) after bringing the cluster up.
 
-Measured on the development Mac, 2026-10-30, with `archive_timeout = 30s` (112 tables):
+Measured on the development Mac, 2026-10-30 and 31, with `archive_timeout = 30s` (111 and 112 tables; the last two runs after a failover had moved the primary):
 
 | Run | Loss came | Data lost (RPO) | Restore to T (RTO) | Base backup |
 | --- | --- | --- | --- | --- |
 | 1 | 23 s after T's WAL was archived | 20.1 s | 52.5 s | 4 s |
+| 2 | 30 s after | 29.5 s | 54.5 s | 21 s |
+| 3 | 9 s after | 5.6 s | 52.3 s | 27 s |
 
 The restore's time is mostly CloudNativePG making the new Cluster (a recovery job, then the instance's own start), not the data: it is about 50 s at today's size and grows with the data and the WAL since the last base backup, so rehearse it monthly and note the time. ./start.sh's WAL-G restored the same in about 3 s (ADR 0036); the Cluster is the price of restoring the way production runs.
 
