@@ -1,0 +1,20 @@
+# Pod Security for a namespace that says nothing itself (ADR 0048): restricted, enforced. Every namespace we make
+# labels itself as well (deploy/), so this only catches one that doesn't. kube-system stays as k3s ships it.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: restricted
+        enforce-version: latest
+        audit: restricted
+        audit-version: latest
+        warn: restricted
+        warn-version: latest
+      exemptions:
+        namespaces: [kube-system]
+        usernames: []
+        runtimeClasses: []

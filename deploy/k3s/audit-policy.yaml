@@ -1,0 +1,29 @@
+# The API server's audit log (ADR 0048; docs/runbooks/audit-log.md): who read or changed a Secret, opened a shell or a
+# port into a pod, or changed who may do what. Metadata only (who, what, when, from where, the answer), never a
+# request's or a response's body, so a Secret's value is never in it. Everything else is left out, which keeps it small:
+# measured on the Mac's cluster through every test, about 2 MB an hour (k3s rotates it: server/config.yaml).
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: [RequestReceived]
+rules:
+  # Secrets, read or changed. Watches are left out: a controller's long watch is one line a reconnect, and the reads
+  # that matter (a get or a list) are logged.
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: [secrets]
+    verbs: [get, list, create, update, patch, delete, deletecollection]
+  # A shell, an attached terminal, a port-forward or a debug container: a way into a running pod.
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: [pods/exec, pods/attach, pods/portforward, pods/ephemeralcontainers]
+  # Who may do what: roles, bindings, and tokens made for a service account.
+  - level: Metadata
+    resources:
+      - group: rbac.authorization.k8s.io
+        resources: [roles, rolebindings, clusterroles, clusterrolebindings]
+      - group: ""
+        resources: [serviceaccounts/token]
+    verbs: [create, update, patch, delete, deletecollection]
+  - level: None

@@ -62,9 +62,22 @@ if ! cluster_exists; then
   for port in "$https_port" "$plain_http_port" "$agents_port" "$sign_in_port" "$storage_port" "$mail_port"; do
     ports+=(--port "127.0.0.1:$port:$port@loadbalancer")
   done
+  # As the server's k3s (deploy/k3s/server/config.yaml, ADR 0048): Secrets encrypted in the datastore, the API's audit
+  # log, and Pod Security "restricted" for any namespace that doesn't say otherwise.
+  server_args=()
+  for arg in --secrets-encryption \
+    --kube-apiserver-arg=admission-control-config-file=/etc/rancher/k3s/pod-security.yaml \
+    --kube-apiserver-arg=audit-policy-file=/etc/rancher/k3s/audit-policy.yaml \
+    --kube-apiserver-arg=audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log \
+    --kube-apiserver-arg=audit-log-maxsize=50 --kube-apiserver-arg=audit-log-maxbackup=4 \
+    --kube-apiserver-arg=audit-log-maxage=30; do
+    server_args+=(--k3s-arg "$arg@server:0")
+  done
   k3d cluster create "$cluster" --image "$k3s_image" --servers 1 --agents 0 \
-    --registry-use "$registry_name:$registry_port" "${ports[@]}" \
+    --registry-use "$registry_name:$registry_port" "${ports[@]}" "${server_args[@]}" \
     --volume "$k8s_root/deploy/k3s/local/traefik.yaml:/var/lib/rancher/k3s/server/manifests/traefik-config.yaml@server:0" \
+    --volume "$k8s_root/deploy/k3s/pod-security.yaml:/etc/rancher/k3s/pod-security.yaml@server:0" \
+    --volume "$k8s_root/deploy/k3s/audit-policy.yaml:/etc/rancher/k3s/audit-policy.yaml@server:0" \
     --kubeconfig-update-default=false --kubeconfig-switch-context=false --wait >>"$logs/up.log" 2>&1 ||
     fail "k3d couldn't create the cluster; see private/k8s/logs/up.log"
 fi
