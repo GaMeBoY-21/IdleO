@@ -1,5 +1,9 @@
 # kyverno test (scripts/checks/deploy.sh, ADR 0048) on staging's and production's policies as Flux builds them,
-# written beside this file as policies.yaml and params.yaml (the allowed list): what each admits and refuses.
+# written beside this file as policies.yaml and params.yaml (the allowed list): what each admits and refuses, a pod
+# and, through autogen, a Deployment. globalContextEntries stand in for the pod controllers the signature policies'
+# match condition reads (pod-controllers.yaml): one of each kind, none naming a digest the pods here use, so each pod
+# is checked in full. That a digest a controller names is admitted with no check, offline, is security-test.sh's to
+# prove: kyverno test reports nothing for a policy whose condition doesn't hold.
 # The signatures are checked against the real registries and the public transparency log (--registry).
 apiVersion: cli.kyverno.io/v1alpha1
 kind: Test
@@ -11,6 +15,69 @@ paramResources:
 - params.yaml
 resources:
 - resources.yaml
+globalContextEntries:
+- name: idleo-deployments
+  resources:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: web
+    spec:
+      template:
+        spec:
+          containers:
+          - name: main
+            image: ghcr.io/gameboy-21/idleo-web@sha256:5a863da4e62fee55469254141eb48fe3412b23c950a838c85dec8eb4507fdaed
+- name: idleo-statefulsets
+  resources:
+  - apiVersion: apps/v1
+    kind: StatefulSet
+    metadata:
+      name: valkey
+    spec:
+      template:
+        spec:
+          containers:
+          - name: main
+            image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+- name: idleo-daemonsets
+  resources:
+  - apiVersion: apps/v1
+    kind: DaemonSet
+    metadata:
+      name: none
+    spec:
+      template:
+        spec:
+          containers:
+          - name: main
+            image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+- name: idleo-jobs
+  resources:
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: none
+    spec:
+      template:
+        spec:
+          containers:
+          - name: main
+            image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+- name: idleo-cronjobs
+  resources:
+  - apiVersion: batch/v1
+    kind: CronJob
+    metadata:
+      name: none
+    spec:
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: main
+                image: docker.io/valkey/valkey:9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
 results:
 - policy: idleo-images-pinned
   resources:
@@ -83,4 +150,14 @@ results:
   resources:
   - postgresql-signed
   kind: Pod
+  result: pass
+- policy: idleo-images-signed
+  resources:
+  - deployment-unsigned
+  kind: Deployment
+  result: fail
+- policy: idleo-images-signed
+  resources:
+  - deployment-signed
+  kind: Deployment
   result: pass

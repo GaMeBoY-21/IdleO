@@ -22,6 +22,10 @@
 #  11. Kyverno killed together with a control-plane pod: while Kyverno is down a pod is refused (fail closed), the
 #      remaining control plane serves (a request in flight as the pod dies may fail; none after), and both come back;
 #      timed.
+#  12. Kyverno cut off from the internet (GHCR, Rekor, Sigstore's TUF mirror: everything) and restarted, the worst
+#      case: a digest a verified pod controller already names is admitted in under a second; a never-seen unsigned
+#      digest is refused, and so is a never-seen signed one, with a message that says why; a killed PostgreSQL primary
+#      fails over and is rebuilt, and a killed control plane comes back; reconnected, the signed digest is admitted.
 #
 # It prints a table, PASS or FAIL a row; one FAIL exits non-zero. Logs: private/k8s/logs/security-test.log.
 #
@@ -359,6 +363,122 @@ else
 fi
 echo "kill: kyverno ${kyverno_took} s, control plane ${control_plane_took} s, $refusals refusals, ${#failures_at[@]} of $requests failed (${failed_list:-none}); while down: $refused_while_down" \
   >>"$out/security-test.log"
+
+# --- GHCR and Sigstore unreachable (12) ----------------------------------------------------------------------------
+
+log "12. admission with Kyverno cut off from the internet, and restarted"
+# Kyverno's network policy without its way to the internet; Flux would put it back, so its infrastructure waits.
+kyverno_policy="$(kubectl -n kyverno get networkpolicy kyverno -o json)"
+reconnect_kyverno() {
+  python3 -c '
+import json, sys
+p = json.loads(sys.argv[1])
+for key in ("resourceVersion", "uid", "creationTimestamp", "managedFields", "generation"):
+    p["metadata"].pop(key, None)
+print(json.dumps(p))' "$kyverno_policy" | kubectl replace -f - >/dev/null
+  kubectl -n flux-system patch kustomization infrastructure --type merge -p '{"spec":{"suspend":false}}' >/dev/null
+}
+trap 'reconnect_kyverno 2>/dev/null || true' EXIT
+kubectl -n flux-system patch kustomization infrastructure --type merge -p '{"spec":{"suspend":true}}' >/dev/null
+python3 -c '
+import json, sys
+p = json.loads(sys.argv[1])
+p["spec"]["egress"] = [r for r in p["spec"]["egress"]
+                       if not any("except" in t.get("ipBlock", {}) for t in r.get("to", []))]
+for key in ("resourceVersion", "uid", "creationTimestamp", "managedFields", "generation"):
+    p["metadata"].pop(key, None)
+print(json.dumps(p))' "$kyverno_policy" | kubectl replace -f - >/dev/null
+# A fresh process: no connection still open from before, nothing cached, no trust root loaded.
+kubectl -n kyverno rollout restart deployment/kyverno-admission-controller >/dev/null
+kubectl -n kyverno rollout status deployment/kyverno-admission-controller --timeout=180s >/dev/null
+deadline=$((SECONDS + 120))
+until [[ "$(pod ready "$valkey_image" | admit "$namespace")" == admitted ]] || ((SECONDS > deadline)); do sleep 2; done
+
+# Known: the database's image, which the control plane's Deployment names (its schema-wait init container).
+known="$(in_namespace get cluster idleo-database -o jsonpath='{.spec.imageName}')"
+named="$(in_namespace get deployments -o jsonpath='{range .items[*]}{.spec.template.spec.initContainers[*].image}{"\n"}{end}' | grep -cxF "$known" || true)"
+# The admission request's own time, as the API server answered it (kubectl -v=6), in milliseconds: kubectl's own
+# start-up isn't Kyverno's.
+admit_ms() {
+  pod timed "$1" | kubectl -n "$namespace" create --dry-run=server -f - -v=6 2>&1 |
+    sed -n 's/.*verb="POST".*status="201 Created" milliseconds=\([0-9]*\).*/\1/p' | tail -1
+}
+timings=()
+for attempt in 1 2 3 4 5 6; do timings+=("$(admit_ms "$known")"); done
+slowest="$(printf '%s\n' "${timings[@]:1}" | sort -n | tail -1)"
+if [[ -n "${timings[*]:1}" && "$(printf '%s\n' "${timings[@]}" | grep -c .)" == 6 ]]; then
+  row 12 "offline: a digest $named verified Deployment(s) name, admitted" "admitted 6 of 6" PASS
+else
+  row 12 "offline: a digest $named verified Deployment(s) name, admitted" "admitted $(printf '%s\n' "${timings[@]}" | grep -c .) of 6" FAIL
+fi
+if [[ -n "$slowest" ]] && ((slowest < 1000)); then
+  row 12 "offline: how long it takes" "first ${timings[0]} ms, then at most $slowest ms (${timings[*]:1} ms)" PASS
+else
+  row 12 "offline: how long it takes" "first ${timings[0]:-?} ms, then up to ${slowest:-?} ms (must be under 1000)" FAIL
+fi
+# Refused either way: with GHCR unreachable Kyverno can't even fetch the image, and says so; with only Sigstore
+# unreachable it can't check the signature, and the policy's message says that.
+offline_refusal() { [[ "$1" == *'Get "https://ghcr.io'* || "$1" == *"could not be reached to check one"* ]] && echo refused || echo "$1"; }
+answer="$(pod unsigned "$ours_unsigned" | admit "$namespace")"
+expect 12 "offline: a never-seen unsigned digest under our name" "$(offline_refusal "$answer")" refused
+answer="$(pod signed "$ours_signed" | admit "$namespace")"
+expect 12 "offline: a never-seen signed digest, refused and saying why" "$(offline_refusal "$answer")" refused
+echo "offline refusal of a signed digest: $answer" >>"$out/security-test.log"
+
+primary="$(in_namespace get cluster idleo-database -o jsonpath='{.status.currentPrimary}')"
+killed="$(now)"
+in_namespace delete pod "$primary" --grace-period=0 --force --wait=false >/dev/null 2>&1
+promoted="" rebuilt=""
+deadline=$((SECONDS + 300))
+while [[ -z "$rebuilt" ]] && ((SECONDS < deadline)); do
+  current="$(in_namespace get cluster idleo-database -o jsonpath='{.status.currentPrimary}')"
+  if [[ -z "$promoted" && "$current" != "$primary" && -n "$current" ]] &&
+    [[ -n "$(in_namespace get endpointslices -l kubernetes.io/service-name=idleo-database-rw \
+      -o jsonpath='{.items[*].endpoints[*].addresses[0]}')" ]]; then
+    promoted="$(python3 -c "print(round($(now) - $killed, 1))")"
+  fi
+  [[ -n "$promoted" && "$(in_namespace get cluster idleo-database -o jsonpath='{.status.readyInstances}')" == 2 ]] &&
+    rebuilt="$(python3 -c "print(round($(now) - $killed, 1))")"
+  sleep 1
+done
+if [[ -n "$rebuilt" ]]; then
+  row 12 "offline: the database's primary killed" "the standby promoted with writes back at ${promoted} s; the old primary rebuilt as standby at ${rebuilt} s" PASS
+else
+  row 12 "offline: the database's primary killed" "promoted: ${promoted:-never}; not back to two instances within 300 s" FAIL
+fi
+
+victim="$(in_namespace get pods -l idleo.in/control-plane=true -o jsonpath='{.items[0].metadata.name}')"
+killed="$(now)"
+in_namespace delete pod "$victim" --grace-period=0 --force --wait=false >/dev/null 2>&1
+back=""
+deadline=$((SECONDS + 300))
+while [[ -z "$back" ]] && ((SECONDS < deadline)); do
+  ready="$(in_namespace get pods -l idleo.in/control-plane=true -o json | python3 -c '
+import json, sys
+print(sum(1 for p in json.load(sys.stdin)["items"] if not p["metadata"].get("deletionTimestamp")
+          and any(c["type"] == "Ready" and c["status"] == "True" for c in p["status"].get("conditions", []))))')"
+  [[ "$ready" -ge 2 ]] && back="$(python3 -c "print(round($(now) - $killed, 1))")"
+  sleep 1
+done
+if [[ -n "$back" ]]; then
+  row 12 "offline: a control-plane pod killed" "back to two ready at ${back} s" PASS
+else
+  row 12 "offline: a control-plane pod killed" "not back to two ready within 300 s" FAIL
+fi
+refused_offline="$(in_namespace get events --field-selector reason=FailedCreate -o json | python3 -c '
+import json, sys
+print(sum(1 for e in json.load(sys.stdin)["items"] if "could not be reached" in e.get("message", "")))')"
+
+reconnect_kyverno
+trap - EXIT
+answer=refused
+deadline=$((SECONDS + 180))
+while [[ "$answer" != admitted ]] && ((SECONDS < deadline)); do
+  answer="$(pod signed "$ours_signed" | admit "$namespace")"
+  [[ "$answer" == admitted ]] || sleep 5
+done
+expect 12 "reconnected: the same signed digest" "$answer" admitted
+echo "offline: known digest ${timings[*]} ms; ${refused_offline} pods refused for an unverifiable image meanwhile" >>"$out/security-test.log"
 
 echo
 printf '  %-3s %-78s %-6s %s\n' "#" "attempt" "result" "what happened"
