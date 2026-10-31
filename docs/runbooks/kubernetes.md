@@ -29,7 +29,7 @@ Run it again after any change: the cluster stays, the images are rebuilt from ca
 **Under Flux (`--gitops`).** The same cluster and images, then, in place of steps 2, 4 and 5:
 
 - The chart is packaged from the tree and pushed beside the images. A chart built on this machine has no signature from the images workflow, so this one source isn't verified; `canary-test.sh` has the cluster verify staging's real chart instead.
-- Flux v2.9.6 is applied from `deploy/flux`. It is given the local age key (`sops-age`) and two ConfigMaps in `flux-system`: `local-source` (the branch and commit to follow) and `local-release` (this build's tag and digests).
+- Flux v2.10.0 is applied from `deploy/flux`. It is given the local age key (`sops-age`) and two ConfigMaps in `flux-system`: `local-source` (the branch and commit to follow) and `local-release` (this build's tag and digests).
 - Flux then reads `deploy/clusters/local` from GitHub at this commit, so the branch must be pushed and `deploy/` committed; `up.sh` refuses otherwise. It installs cert-manager, Flagger and Prometheus, decrypts the Secrets, and installs the release with the control plane as Flagger's primary (`idleo-control-plane-primary`).
 
 Run it again after a change and what changed is released as a canary. Switching between plain Helm and Flux needs `down.sh` first; `up.sh` says so. Watch Flux with `kubectl -n flux-system get gitrepositories,kustomizations,helmreleases -A` and the canary with `kubectl -n idleo get canary`.
@@ -122,7 +122,7 @@ scripts/k8s/status.sh     # pods, memory by pod and node, and the cluster's cont
 scripts/k8s/down.sh       # delete the cluster and its registry, with the database and its local backups in it
 ```
 
-The cluster runs two control planes and two database instances, the CloudNativePG operator and its backup plugin. Under Flux it also runs Flux's four controllers, Flagger, its load tester and Prometheus, and during a canary a third control plane (the canary's one copy). `status.sh` shows each one's memory.
+The cluster runs two control planes and two database instances, the CloudNativePG operator and its backup plugin. Under Flux it also runs Flux's four controllers, Flagger, the canary's load (a curl a second) and Prometheus, and Kyverno, and during a canary a third control plane (the canary's one copy). `status.sh` shows each one's memory.
 
 The chart's requests and limits are sized for one 8 GB node: the sums are in `deploy/helm/idleo/values.yaml`. After `down.sh`, start `./start.sh` again if you want the normal stack.
 

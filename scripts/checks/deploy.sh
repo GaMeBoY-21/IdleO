@@ -28,7 +28,7 @@ root="$(pwd)"
 helm_image=helmunittest/helm-unittest:4.3.0-1.2.1@sha256:28ea86c3e0b07f501f0c2e9c08b9f41e240f4a4b571cb5106b36cf0f0607e989
 kubeconform_image=ghcr.io/yannh/kubeconform:v0.8.0@sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e
 # The Flux CLI of the Flux the clusters run (deploy/flux), for flux build.
-flux_image=ghcr.io/fluxcd/flux-cli:v2.9.6@sha256:b1ac18156f227af9a524b842a96f2c20986c7a779ef721df3ba4e4540f449d76
+flux_image=ghcr.io/fluxcd/flux-cli:v2.10.0@sha256:1a5178b1770052d6e88ab1c7c8434c5ac9bca8a8ab984dcaf6b9df31814ce9f2
 # The schemas: Kubernetes' for k3s's release (deploy/k3s), and the custom resources' from the CRDs catalog at a pinned
 # commit (the Gateway API's, cert-manager's, Flux's and Flagger's).
 kubernetes_version=1.36.0

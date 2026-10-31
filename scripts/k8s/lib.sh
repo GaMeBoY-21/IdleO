@@ -64,7 +64,7 @@ k8s_tools() {
 # Under Flux (up.sh --gitops, ADR 0046): the repository it follows, its release (deploy/flux) and the chart's own
 # version, which the local build is published as <version>-<image tag>.
 flux_repository=https://github.com/GaMeBoY-21/IdleO
-flux_version=v2.9.6
+flux_version=v2.10.0
 chart_version="$(sed -n 's/^version: //p' "$k8s_root/deploy/helm/idleo/Chart.yaml")"
 
 # CloudNativePG's HelmRelease $1 as Flux installs it (deploy/infrastructure/base/cloudnative-pg.yaml), for plain Helm:

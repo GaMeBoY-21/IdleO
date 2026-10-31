@@ -3,7 +3,8 @@
 # The control plane's releases as canaries (Flagger, ADR 0046). Flagger copies this chart's Deployment to
 # idleo-control-plane-primary, which serves, and scales the Deployment itself to zero. A new release starts it again as
 # the canary: the migration Job has already run (Helm's pre-upgrade hook), so the canary meets the new schema while
-# the primary, the release before, still serves. Flagger makes the Services (idleo-control-plane for the primary, and
+# the primary, the release before, still serves (idleo-canary-load gives each step a request a second to judge, below).
+# Flagger makes the Services (idleo-control-plane for the primary, and
 # -primary and -canary) and the API's HTTPRoute, and moves the route's weights a step at a time; at 100% and a last
 # good check it promotes the canary to primary. One failed check halts it at its weight, and the next step (within an
 # interval) sends all traffic back to the primary and marks the canary Failed (ops/alerts' CanaryFailed pages).
@@ -68,20 +69,6 @@ spec:
         thresholdRange:
           max: {{ .Values.canary.maxSessionStartDropPoints }}
         interval: 10m
-    # A request a second to the canary itself, from before its first step to its last, on the public availability
-    # endpoint. The load tester runs one copy of a command at a time and refuses a call while it runs, so each step's
-    # load ends a little before the next call (canary.loadSeconds): one that ran the whole interval could still be
-    # running when the next call came, which would then start nothing and leave a step with no requests to judge.
-    webhooks:
-      {{- range $type := list "pre-rollout" "rollout" }}
-      - name: load-{{ $type }}
-        type: {{ $type }}
-        url: http://idleo-loadtester.{{ $.Release.Namespace }}/
-        timeout: 15s
-        metadata:
-          type: cmd
-          cmd: hey -z {{ $.Values.canary.loadSeconds }}s -q 1 -c 1 http://idleo-control-plane-canary.{{ $.Release.Namespace }}:8080/v1/public/availability
-      {{- end }}
 ---
 # The share of the canary's API requests that answered 5xx, in percent (none at all is 0). Probes are left out.
 apiVersion: flagger.app/v1beta1
@@ -159,80 +146,53 @@ spec:
     )
     or on() vector(0)
 ---
-# Flagger's load tester: runs the canary's load (hey) when Flagger's webhooks ask. It holds nothing and reaches only
-# the canary's web port, which the control plane's network policy lets it.
+# The canary's floor of traffic (ADR 0046, 0048): a request a second to the canary itself, on the public availability
+# endpoint, so a quiet hour (staging has no users; production has nights) still gives each step something to be
+# judged by. Between canaries its Service has no endpoints and each request fails at once. One curl in a loop: nothing
+# else in the image, nothing listening, nothing to call it.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: idleo-loadtester
+  name: idleo-canary-load
   labels:
-    {{- include "idleo.labels" (list . "loadtester") | nindent 4 }}
+    {{- include "idleo.labels" (list . "canary-load") | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "idleo.selector" (list . "loadtester") | nindent 6 }}
+      {{- include "idleo.selector" (list . "canary-load") | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "idleo.selector" (list . "loadtester") | nindent 8 }}
+        {{- include "idleo.selector" (list . "canary-load") | nindent 8 }}
         idleo.in/dns-client: "true"
     spec:
-      {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      {{- include "idleo.podSecurity" 100 | nindent 6 }}
       containers:
-        - name: loadtester
-          image: {{ .Values.canary.loadtester.image }}
+        - name: load
+          image: {{ .Values.canary.load.image }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
-          command: ["./loadtester", "-port=8080", "-log-level=info", "-timeout=1h"]
-          ports:
-            - { name: http, containerPort: 8080 }
-          readinessProbe:
-            httpGet: { path: /healthz, port: http }
-            periodSeconds: 10
-          livenessProbe:
-            httpGet: { path: /healthz, port: http }
-            periodSeconds: 30
+          command: [/bin/sh, -c]
+          args:
+            - >-
+              while :; do curl -s -o /dev/null --max-time 2
+              http://idleo-control-plane-canary.{{ .Release.Namespace }}:8080/v1/public/availability; sleep 1; done
           resources:
-            {{- toYaml .Values.canary.loadtester.resources | nindent 12 }}
+            {{- toYaml .Values.canary.load.resources | nindent 12 }}
           {{- include "idleo.containerSecurity" . | nindent 10 }}
-          volumeMounts:
-            - { name: tmp, mountPath: /tmp }
-      volumes:
-        - name: tmp
-          emptyDir: { medium: Memory, sizeLimit: 16Mi }
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: idleo-loadtester
-  labels:
-    {{- include "idleo.labels" (list . "loadtester") | nindent 4 }}
-spec:
-  selector:
-    {{- include "idleo.selector" (list . "loadtester") | nindent 4 }}
-  ports:
-    - { name: http, port: 80, targetPort: http }
----
-# Flagger's webhooks reach the load tester; the load tester reaches the canary's web port (and DNS, by its label), and
-# nothing else.
+# It reaches the canary's web port (and DNS, by its label); nothing reaches it.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: idleo-loadtester
+  name: idleo-canary-load
   labels:
-    {{- include "idleo.labels" (list . "loadtester") | nindent 4 }}
+    {{- include "idleo.labels" (list . "canary-load") | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "idleo.selector" (list . "loadtester") | nindent 6 }}
+      {{- include "idleo.selector" (list . "canary-load") | nindent 6 }}
   policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.canary.flaggerNamespace }}
-      ports:
-        - { port: http, protocol: TCP }
   egress:
     - to:
         - podSelector:

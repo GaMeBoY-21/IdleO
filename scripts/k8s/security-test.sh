@@ -192,21 +192,21 @@ node_ip="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type==
 internet=1.1.1.1:443
 metadata=169.254.169.254:80
 scanner_pod="$(in_namespace get pods -l app.kubernetes.io/name=scanner -o jsonpath='{.items[0].metadata.name}')"
-loadtester_pod="$(in_namespace get pods -l app.kubernetes.io/name=loadtester -o jsonpath='{.items[0].metadata.name}')"
+canary_load_pod="$(in_namespace get pods -l app.kubernetes.io/name=canary-load -o jsonpath='{.items[0].metadata.name}')"
 prometheus_pod="$(kubectl -n monitoring get pods -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].metadata.name}')"
 targets=(postgres="$database" valkey="$valkey" meters="$control_plane_ip:9464" web-port="$control_plane_ip:8080"
   scanner-api="$control_plane_ip:8095" dns="$dns" internet="$internet" metadata="$metadata" node-api="$node_ip:6443")
 
-log "4-7. the network: probing from the web, scanner, control plane, Valkey, load tester and Prometheus pods"
+log "4-7. the network: probing from the web, scanner, control plane, Valkey, canary load and Prometheus pods"
 from_web="$(probe "$namespace" "$web_pod" "${targets[@]}")"
 from_scanner="$(probe "$namespace" "$scanner_pod" "${targets[@]}")"
 from_control_plane="$(probe "$namespace" "${control_planes[0]}" "${targets[@]}")"
 from_valkey="$(probe "$namespace" idleo-valkey-0 "${targets[@]}")"
-from_loadtester="$(probe "$namespace" "$loadtester_pod" "${targets[@]}")"
+from_canary_load="$(probe "$namespace" "$canary_load_pod" "${targets[@]}")"
 # The controls: Prometheus may reach the meters and the node's API port (it finds its targets there).
 from_prometheus="$(probe monitoring "$prometheus_pod" "${targets[@]}")"
 printf '%s\n' "web:" "$from_web" "scanner:" "$from_scanner" "control plane:" "$from_control_plane" "valkey:" \
-  "$from_valkey" "load tester:" "$from_loadtester" "prometheus:" "$from_prometheus" >>"$out/security-test.log"
+  "$from_valkey" "canary load:" "$from_canary_load" "prometheus:" "$from_prometheus" >>"$out/security-test.log"
 
 for target in postgres valkey meters dns internet; do
   expect 4 "from the web pod: $target" "$(state_of "$from_web" "$target")" closed
@@ -216,7 +216,7 @@ for target in postgres valkey meters web-port; do
 done
 expect 5 "from the scanner pod: its internal API (allowed)" "$(state_of "$from_scanner" scanner-api)" open
 expect 5 "from the scanner pod: the internet on HTTPS (allowed)" "$(state_of "$from_scanner" internet)" open
-for source in web scanner control_plane valkey loadtester; do
+for source in web scanner control_plane valkey canary_load; do
   probed="from_$source"
   for target in metadata node-api; do
     expect 6 "from the ${source/_/ } pod: $target" "$(state_of "${!probed}" "$target")" closed
