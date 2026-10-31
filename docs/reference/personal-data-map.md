@@ -221,6 +221,7 @@ Only state that may expire; never anything financial (ADR 0013).
 | The control plane's logs (structured JSON, to Grafana Cloud's Loki) | Ids only: `LogScan` fails the build when a test's logs hold an email, a token, a file path or name, or an IP | 14 days (monitoring.md) |
 | Metrics (Prometheus) | Labels are codes only: no user, host, session or file in any label (`TelemetryPrivacyTests`) | 14 days |
 | Traces (Tempo) | Span attributes: the HTTP method, route template and status; the URL path, which holds ids; no query string, header, body or IP (`TelemetryPrivacyTests`) | 14 days |
+| The Kubernetes API's audit log (ADR 0048; `/var/lib/rancher/k3s/server/logs/audit.log` on the server, docs/runbooks/audit-log.md) | Operators only, never a renter or host: the **kubeconfig user's name** and the **source address** of each read of a Secret, shell or port into a pod, and RBAC change. Metadata only, never a body or a Secret's value | Rotated by k3s: 50 MB a file, four kept, none older than 30 days (`deploy/k3s/server/config.yaml`); never copied off the server but into an incident's private record |
 | Browser vitals and errors (`/v1/vitals`) | Route and release as codes; an error's message with anything shaped like an email, a token or a path removed | As logs and metrics |
 | The agent's logs on a host | The agent's own lines, ids only | On the host, rotated |
 | The job's logs on a host | Uploaded to `logs/` above; the file nerdctl keeps of what a job prints is on the session's encrypted scratch disk too (ADR 0038), so it goes with it | Session end |

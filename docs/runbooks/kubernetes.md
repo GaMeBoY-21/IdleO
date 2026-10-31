@@ -139,13 +139,16 @@ kubectl -n idleo get events --sort-by=.lastTimestamp | tail -30
 
 ## A shell for debugging
 
-The images have no shell: the control plane's base is distroless. Attach an ephemeral container that shares the pod's processes and network instead:
+The images have no shell: the control plane's base is distroless. Attach an ephemeral container that shares the pod's processes and network instead. It's admitted like any container (ADR 0048): Pod Security "restricted" (`--profile=restricted`) and an image pinned by digest from the allowed list, such as Valkey's, which has bash:
 
 ```sh
-kubectl -n idleo debug -it deploy/idleo-control-plane --image=busybox:1.37 --target=control-plane -- sh
+image="$(kubectl -n idleo get pod idleo-valkey-0 -o jsonpath='{.spec.containers[0].image}')"
+kubectl -n idleo debug -it pod/<a control-plane pod> --image="$image" --profile=restricted --target=control-plane -- bash
 ```
 
-From there, `ps`, `wget -qO- localhost:8080/actuator/health/readiness` and `/proc/1/root/app/` reach the running container. The ephemeral container stays in the pod's spec until the pod is replaced, so roll the deployment afterwards (`kubectl -n idleo rollout restart deploy/idleo-control-plane`). The database has a shell of its own:
+It runs as the pod's own user and is held by the pod's network policies, so it reaches only what the pod may (docs/runbooks/network-rules.md); opening one is recorded in the API's audit log (audit-log.md).
+
+From there, `ps`, `bash -c 'exec 3<>/dev/tcp/localhost/8080'` and `/proc/1/root/app/` reach the running container. The ephemeral container stays in the pod's spec until the pod is replaced, so roll the deployment afterwards (`kubectl -n idleo rollout restart deploy/idleo-control-plane`). The database has a shell of its own:
 
 ```sh
 kubectl -n idleo exec -it "$(kubectl -n idleo get cluster idleo-database -o jsonpath='{.status.currentPrimary}')" -c postgres -- psql -d controlplane
@@ -196,3 +199,14 @@ scripts/images/verify.sh ghcr.io/gameboy-21/idleo-control-plane:<commit>
 ```
 
 The chart is published beside them as `ghcr.io/gameboy-21/charts/idleo:0.1.0-<commit>`, signed the same way; `cosign verify` checks it against the workflow's identity (`scripts/deploy/verify-release.sh` does both for a whole release).
+
+## Secrets at rest
+
+k3s encrypts every Secret in its datastore (`--secrets-encryption`, AES-CBC; ADR 0048), on the server (`deploy/k3s/server/config.yaml`) and on the Mac (`up.sh`). `scripts/k8s/security-test.sh` proves it: a Secret's value is nowhere in the datastore's files, while a ConfigMap's beside it is.
+
+```sh
+k3s secrets-encrypt status                  # on the server (the Mac: docker exec k3d-idleo-server-0 k3s secrets-encrypt status)
+k3s secrets-encrypt rotate-keys             # a new key, every Secret written again with it (k3s 1.28+, one step)
+```
+
+The key lives in `/var/lib/rancher/k3s/server/cred/encryption-config.json`, beside the datastore: encryption protects a copy of the datastore (a backup, a disk image) that doesn't include the server's own folder. The server's backups of k3s (S5) must keep the two apart.

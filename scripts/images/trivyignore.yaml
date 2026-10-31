@@ -1,10 +1,16 @@
-# Findings the images workflow (.github/workflows/images.yml) accepts, each scoped to the one binary it's in, with why
-# we can't fix it here and an expiry, after which the build fails again until it's looked at (ADR 0045). Everything
-# else that is CRITICAL or HIGH with a fix fails the build. Each is in a Go binary that a base image or a release
-# ships, which we don't build.
+# Findings the images workflow (.github/workflows/images.yml) and the nightly scan (scripts/images/scan-deployed.sh,
+# ADR 0048) accept, each scoped as narrowly as Trivy allows, with why we can't fix it here and an expiry, after which
+# the scan fails again until it's looked at (ADR 0045). Everything else that is CRITICAL or HIGH with a fix fails. Each
+# vulnerability is in a Go binary that a base image or a release ships, which we don't build.
 vulnerabilities:
   # usr/local/bin/trivy: Trivy 0.76.1's own go-jose (a DoS parsing JWKs with RSA keys). The scanner parses no JWK set
   # from anyone; it pulls images with a registry's token. Fixed in the next Trivy release, which Dependabot proposes.
   - id: CVE-2026-116587
     paths: ["usr/local/bin/trivy"]
     expired_at: 2027-01-31
+misconfigurations:
+  # KSV-0109 ("ConfigMap with secrets") on idleo-values, the release's values (deploy/clusters/<env>/idleo/): its keys
+  # named "secret" hold the names of Secrets (controlPlane.secret, valkey.secret, database.backups.secret), never a
+  # value; every value is in a SOPS-encrypted Secret (ADR 0046). The nightly cluster scan (scan-deployed.sh) reads this.
+  - id: KSV-0109
+    expired_at: 2027-10-31

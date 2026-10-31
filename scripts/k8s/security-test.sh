@@ -20,7 +20,8 @@
 #      make pods (every service account's rights are written to private/k8s/logs/security-rbac.txt);
 #  10. a Secret is encrypted in k3s's datastore on disk (a ConfigMap beside it is the control: it's there in plain);
 #  11. Kyverno killed together with a control-plane pod: while Kyverno is down a pod is refused (fail closed), the
-#      remaining control plane serves, and both come back; timed.
+#      remaining control plane serves (a request in flight as the pod dies may fail; none after), and both come back;
+#      timed.
 #
 # It prints a table, PASS or FAIL a row; one FAIL exits non-zero. Logs: private/k8s/logs/security-test.log.
 #
@@ -236,13 +237,15 @@ expect 8 "control: its own user's PING" "$(in_namespace exec idleo-valkey-0 -c v
 for command in "keys *" flushall "config get maxmemory" "debug sleep 0"; do
   read -r -a words <<<"$command"
   answer="$(in_namespace exec idleo-valkey-0 -c valkey -- valkey-cli --user idleo "${words[@]}" 2>&1 | head -1 || true)"
-  expect 8 "its user's ${words[0]}" "${answer%% *}" NOPERM
+  # DEBUG is refused before the user's rights are looked at (enable-debug-command is off): refused all the same.
+  [[ "$answer" == NOPERM* || "$answer" == *"command not allowed"* ]] && answer=refused
+  expect 8 "its user's ${words[0]}" "$answer" refused
 done
 
 # --- Tokens and RBAC (9) -------------------------------------------------------------------------------------------
 
 log "9. service-account tokens and what every service account may do"
-tokens="$(in_namespace get pods -l app.kubernetes.io/part-of=idleo -o json | python3 -c '
+tokens="$(in_namespace get pods -l app.kubernetes.io/instance=idleo -o json | python3 -c '
 import json, sys
 pods = json.load(sys.stdin)["items"]
 with_token = [p["metadata"]["name"] for p in pods
@@ -263,8 +266,10 @@ for sa in $(in_namespace get serviceaccounts -o jsonpath='{.items[*].metadata.na
   # account here may do nothing.
   [[ "$sa" == idleo-database* ]] && continue
   rights="$(for verb in "get secrets" "list secrets" "create pods" "create pods/exec"; do
-    kubectl auth can-i $verb -n "$namespace" --as="system:serviceaccount:$namespace:$sa" >/dev/null 2>&1 && echo "$verb"
-  done | paste -sd, -)"
+    if kubectl auth can-i $verb -n "$namespace" --as="system:serviceaccount:$namespace:$sa" >/dev/null 2>&1; then
+      echo "$verb"
+    fi
+  done | paste -sd, - || true)"
   expect 9 "service account $sa: reads Secrets or makes pods" "${rights:-no}" no
 done
 
@@ -304,7 +309,7 @@ now() { perl -MTime::HiRes=time -e 'printf "%.1f", time'; }
 victim="${control_planes[0]}"
 replicas_before="${#control_planes[@]}"
 requests=0
-failed=0
+failures_at=()
 killed="$(now)"
 kubectl -n kyverno delete pod -l app.kubernetes.io/component=admission-controller --grace-period=0 --force \
   --wait=false >/dev/null 2>&1
@@ -314,7 +319,8 @@ deadline=$((SECONDS + 600))
 while [[ -z "$kyverno_back" || -z "$control_plane_back" ]]; do
   ((SECONDS < deadline)) || break
   requests=$((requests + 1))
-  curl -sf -o /dev/null --max-time 3 "$api_url/v1/public/availability" || failed=$((failed + 1))
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$api_url/v1/public/availability" || true)"
+  [[ "$code" == 200 ]] || failures_at+=("$(python3 -c "print(round($(now) - $killed, 1))") s: ${code:-none}")
   if [[ -z "$refused_while_down" && -z "$kyverno_back" ]]; then
     answer="$(pod while-down "$valkey_image" | admit "$namespace")"
     [[ "$answer" == *"failed calling webhook"* || "$answer" == *"kyverno"* ]] && refused_while_down="$answer"
@@ -342,8 +348,16 @@ expect 11 "a pod while Kyverno was down" "${refused_while_down:+refused}" refuse
   row 11 "the control plane back to $replicas_before ready" \
     "${control_plane_took} s after the kill ($refusals pod creations refused while Kyverno was down)" PASS ||
   row 11 "the control plane back to $replicas_before ready" "not within 600 s" FAIL
-expect 11 "renters' requests failed meanwhile (of $requests)" "$failed" 0
-echo "kill: kyverno ${kyverno_took} s, control plane ${control_plane_took} s, $refusals refusals, $failed of $requests failed; while down: $refused_while_down" \
+# A request in flight to the pod as it's killed can fail before its address leaves the Service (a hard kill has no
+# drain); after that the other control plane must answer every one.
+late="$(printf '%s\n' ${failures_at[@]+"${failures_at[@]}"} | awk -F' s:' '$1 > 5' | paste -sd, -)"
+failed_list="$(printf '%s\n' ${failures_at[@]+"${failures_at[@]}"} | paste -sd, -)"
+if [[ -z "$late" ]]; then
+  row 11 "renters' requests while both were down ($requests)" "${#failures_at[@]} failed${failed_list:+ ($failed_list)}, none after the first 5 s" PASS
+else
+  row 11 "renters' requests while both were down ($requests)" "failed after the first 5 s: $late" FAIL
+fi
+echo "kill: kyverno ${kyverno_took} s, control plane ${control_plane_took} s, $refusals refusals, ${#failures_at[@]} of $requests failed (${failed_list:-none}); while down: $refused_while_down" \
   >>"$out/security-test.log"
 
 echo

@@ -20,7 +20,7 @@ Valkey accepts the previous password too while the Secret has a `previous-passwo
 5. Remove `previous-password` from the Secret in a second pull request, and restart Valkey once more (step 3): the old password stops working.
 6. Check: `kubectl -n idleo exec idleo-valkey-0 -- valkey-cli --user idleo ping` answers PONG, and the control planes' readiness is UP.
 
-On the Mac, `scripts/k8s/secrets.sh --make` makes a fresh one with every other local Secret (commit the result).
+On the Mac, delete the `VALKEY_PASSWORD` line from `private/k8s/database.env` and run `scripts/k8s/secrets.sh --make`, which makes a fresh one and encrypts every local Secret again (commit the result).
 
 ## If it leaked
 

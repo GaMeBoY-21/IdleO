@@ -17,6 +17,15 @@ metadata:
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
 ---
+# The namespace's default service account mounts no token (ADR 0048; kube-bench 5.1.5): every pod here that calls the
+# Kubernetes API has an account of its own.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: kyverno
+automountServiceAccountToken: false
+---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
@@ -48,8 +57,10 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
+    # Each pod's own security context too, not only its containers' (Trivy's KSV-0118).
     crds:
       migration:
+        podSecurityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
         image:
           registry: ghcr.io
           tag: v1.19.2@sha256:322ec5044d600930cb3af0e56dc33154a2d1d1fba58f4cadad3f47be7e78b11c
@@ -57,6 +68,7 @@ spec:
       # Images are checked as written: a name without its registry is refused (deploy/policies), never filled in.
       enableDefaultRegistryMutation: false
     webhooksCleanup:
+      podSecurityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
       image:
         tag: v1.19.2@sha256:02600428e7c956e222f4376413525866ed9fec28e6bcb1222774ce6bf5fc904a
     test:
@@ -88,6 +100,7 @@ spec:
         generate: false
     admissionController:
       replicas: 1
+      podSecurityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
       priorityClassName: idleo-platform
       initContainer:
         image:

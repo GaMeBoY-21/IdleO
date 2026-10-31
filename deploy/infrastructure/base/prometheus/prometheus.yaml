@@ -8,6 +8,15 @@ metadata:
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
 ---
+# The namespace's default service account mounts no token (ADR 0048; kube-bench 5.1.5): every pod here that calls the
+# Kubernetes API has an account of its own.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: monitoring
+automountServiceAccountToken: false
+---
 # It finds the pods to scrape through the Kubernetes API, so it, unlike IdleO's own pods, has a token: one that may
 # only read pods.
 apiVersion: v1
