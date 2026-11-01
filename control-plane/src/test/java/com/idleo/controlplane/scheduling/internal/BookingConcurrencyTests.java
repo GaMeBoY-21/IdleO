@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestHosts;
@@ -42,6 +43,11 @@ class BookingConcurrencyTests {
 
     @Autowired
     ApplicationContext context;
+
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
 
     @Autowired
     JdbcTemplate jdbc;
@@ -236,13 +242,15 @@ class BookingConcurrencyTests {
                                     "select state from sessions.sessions where id = ?", String.class, entry.getKey())))
                     .findFirst()
                     .orElseThrow();
-            var deadline = System.nanoTime() + java.time.Duration.ofSeconds(15).toNanos();
-            while (!"NO_HOST_FREE"
-                            .equals(jdbc.queryForObject(
-                                    "select state from sessions.sessions where id = ?", String.class, matched.getKey()))
-                    && System.nanoTime() < deadline) {
-                Thread.sleep(50);
-            }
+            waits().until(
+                            () -> "NO_HOST_FREE"
+                                            .equals(jdbc.queryForObject(
+                                                    "select state from sessions.sessions where id = ?",
+                                                    String.class,
+                                                    matched.getKey()))
+                                    ? true
+                                    : null,
+                            () -> "session " + matched.getKey() + " never ended without a host");
         }
     }
 

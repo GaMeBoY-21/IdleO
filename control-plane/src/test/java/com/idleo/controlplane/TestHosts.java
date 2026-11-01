@@ -58,12 +58,10 @@ public final class TestHosts {
                     .build());
         }
 
-        /** The next offer this host receives. */
-        public Offer awaitOffer(Duration timeout) throws InterruptedException {
-            return stream.await(OpenStreamResponse::hasOffer, timeout).getOffer();
-        }
-
-        /** The next offer this host receives within {@code timeout}, if one comes. */
+        /**
+         * The next offer this host receives within {@code timeout}, if one comes. A test waits for one after a
+         * booking with {@link BookingWaits#offer}, which follows the matcher.
+         */
         public java.util.Optional<Offer> nextOffer(Duration timeout) throws InterruptedException {
             return stream.next(OpenStreamResponse::hasOffer, timeout).map(OpenStreamResponse::getOffer);
         }

@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.idleo.controlplane.ControlPlaneTest;
+import com.idleo.controlplane.EventStreams;
 import com.idleo.controlplane.TestAgent;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
@@ -63,31 +64,9 @@ class SessionStreamTests {
         bookings.close();
     }
 
-    /** A Server-Sent Event as the stream sent it. */
-    record Event(String name, String data) {}
-
-    static List<Event> events(MvcResult result) throws Exception {
-        var events = new ArrayList<Event>();
-        for (var block : result.getResponse().getContentAsString().split("\n\n")) {
-            String name = null;
-            var data = new StringBuilder();
-            for (var line : block.split("\n")) {
-                if (line.startsWith("event:")) {
-                    name = line.substring(6).strip();
-                } else if (line.startsWith("data:")) {
-                    data.append(line.substring(5).strip());
-                }
-            }
-            if (name != null) {
-                events.add(new Event(name, data.toString()));
-            }
-        }
-        return events;
-    }
-
     static List<JsonNode> sessions(MvcResult result) throws Exception {
         var sessions = new ArrayList<JsonNode>();
-        for (var event : events(result)) {
+        for (var event : EventStreams.events(result)) {
             if (event.name().equals("session")) {
                 sessions.add(JSON.readTree(event.data()));
             }
@@ -99,7 +78,8 @@ class SessionStreamTests {
         var deadline = System.nanoTime() + WAIT.toNanos();
         while (!condition.test(sessions(result))) {
             if (System.nanoTime() > deadline) {
-                throw new AssertionError("the stream never showed " + what + "; it sent " + events(result));
+                throw new AssertionError(
+                        "the stream never showed " + what + "; it sent " + EventStreams.events(result));
             }
             Thread.sleep(50);
         }
@@ -145,11 +125,12 @@ class SessionStreamTests {
                         .setLatestLogSeq(1));
         await(stream, sessions -> sessions.getLast().get("state").asString().equals("RUNNING"), "RUNNING");
         var deadline = System.nanoTime() + WAIT.toNanos();
-        while (events(stream).stream().noneMatch(event -> event.name().equals("logs"))) {
+        while (EventStreams.events(stream).stream()
+                .noneMatch(event -> event.name().equals("logs"))) {
             assertThat(System.nanoTime()).as("a logs event").isLessThan(deadline);
             Thread.sleep(50);
         }
-        var logs = events(stream).stream()
+        var logs = EventStreams.events(stream).stream()
                 .filter(event -> event.name().equals("logs"))
                 .findFirst()
                 .orElseThrow();

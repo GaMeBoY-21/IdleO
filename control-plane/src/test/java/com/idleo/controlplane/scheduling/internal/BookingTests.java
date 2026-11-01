@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestHosts.ConnectedHost;
@@ -41,6 +42,11 @@ class BookingTests {
 
     @Autowired
     ApplicationContext context;
+
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
 
     @Autowired
     JdbcTemplate jdbc;
@@ -83,26 +89,6 @@ class BookingTests {
         return UUID.fromString(JSON.readTree(body).get("id").asString());
     }
 
-    private JsonNode session(TestUser renter, UUID id) throws Exception {
-        return JSON.readTree(mvc.perform(get("/v1/sessions/" + id).header("Authorization", renter.bearer()))
-                .andReturn()
-                .getResponse()
-                .getContentAsString());
-    }
-
-    private JsonNode awaitState(TestUser renter, UUID id, String state) throws Exception {
-        var deadline = System.nanoTime() + WAIT.toNanos();
-        JsonNode session;
-        do {
-            session = session(renter, id);
-            if (session.get("state").asString().equals(state)) {
-                return session;
-            }
-            Thread.sleep(50);
-        } while (System.nanoTime() < deadline);
-        throw new AssertionError("session " + id + " never reached " + state + "; it's " + session);
-    }
-
     private JsonNode wallet(TestUser renter) throws Exception {
         return JSON.readTree(mvc.perform(get("/v1/wallet").header("Authorization", renter.bearer()))
                 .andReturn()
@@ -116,24 +102,24 @@ class BookingTests {
         var renter = renter(50_000);
 
         var id = book(renter, 5);
-        var offer = host.awaitOffer(WAIT);
+        var offer = waits().offer(host);
         assertThat(offer.getSpec().getImage()).contains("@sha256:");
         assertThat(offer.getExpiresIn().getSeconds()).isEqualTo(2);
-        var matched = awaitState(renter, id, "MATCHED");
+        var matched = waits().state(renter, id, "MATCHED");
         assertThat(matched.get("hostId").asString()).isEqualTo(host.id().toString());
         assertThat(matched.get("pricePaisePerMin").asInt()).isEqualTo(2);
         assertThat(wallet(renter).get("reservedPaise").asLong()).isEqualTo(60);
 
         host.reply(offer.getOfferId(), true, NONE);
         host.stream().await(OpenStreamResponse::hasAck, WAIT);
-        awaitState(renter, id, "PROVISIONING");
+        waits().state(renter, id, "PROVISIONING");
         assertThat(wallet(renter).get("reservedPaise").asLong()).isEqualTo(60);
         // The agent acks the StartSession, then never reports RUNNING.
         var start = host.awaitStart(WAIT);
         assertThat(start.getStartSession().getSpec()).isEqualTo(offer.getSpec());
         host.ack(start);
 
-        var failed = awaitState(renter, id, "FAILED");
+        var failed = waits().state(renter, id, "FAILED");
         assertThat(failed.get("events").findValuesAsString("reason")).contains("start_timeout");
         assertThat(wallet(renter).get("availablePaise").asLong()).isEqualTo(50_000);
         assertThat(wallet(renter).get("reservedPaise").asLong()).isZero();
@@ -146,11 +132,11 @@ class BookingTests {
         var renter = renter(50_000);
 
         var id = book(renter, 5);
-        var first = cheap.awaitOffer(WAIT);
+        var first = waits().offer(cheap);
         cheap.reply(first.getOfferId(), false, OfferDeclineReason.OFFER_DECLINE_REASON_OWNER_ACTIVE);
-        var second = dearer.awaitOffer(WAIT);
+        var second = waits().offer(dearer);
 
-        var matched = awaitState(renter, id, "MATCHED");
+        var matched = waits().state(renter, id, "MATCHED");
         assertThat(matched.get("hostId").asString()).isEqualTo(dearer.id().toString());
         assertThat(second.getOfferId()).isNotEqualTo(first.getOfferId());
         assertThat(jdbc.queryForObject(
@@ -168,11 +154,11 @@ class BookingTests {
         var renter = renter(50_000);
 
         var id = book(renter, 5);
-        var first = testing.awaitOffer(WAIT);
+        var first = waits().offer(testing);
         testing.reply(first.getOfferId(), false, OfferDeclineReason.OFFER_DECLINE_REASON_SELF_TEST_RUNNING);
-        other.awaitOffer(WAIT);
+        waits().offer(other);
 
-        var matched = awaitState(renter, id, "MATCHED");
+        var matched = waits().state(renter, id, "MATCHED");
         assertThat(matched.get("hostId").asString()).isEqualTo(other.id().toString());
         assertThat(jdbc.queryForObject(
                         "select decline_reason from scheduling.offers where id = ?::uuid",
@@ -190,10 +176,10 @@ class BookingTests {
 
         var id = book(renter, 5);
         for (var host : List.of(a, b, c)) {
-            host.reply(host.awaitOffer(WAIT).getOfferId(), false, OfferDeclineReason.OFFER_DECLINE_REASON_TOO_HOT);
+            host.reply(waits().offer(host).getOfferId(), false, OfferDeclineReason.OFFER_DECLINE_REASON_TOO_HOT);
         }
 
-        var ended = awaitState(renter, id, "NO_HOST_FREE");
+        var ended = waits().state(renter, id, "NO_HOST_FREE");
         assertThat(ended.get("events").findValuesAsString("reason")).last().isEqualTo("offers_exhausted");
         assertThat(wallet(renter).get("reservedPaise").asLong()).isZero();
         assertThat(wallet(renter).get("availablePaise").asLong()).isEqualTo(50_000);
@@ -206,9 +192,9 @@ class BookingTests {
         var renter = renter(50_000);
 
         var id = book(renter, 5);
-        var ignored = silent.awaitOffer(WAIT);
-        other.awaitOffer(WAIT);
-        var matched = awaitState(renter, id, "MATCHED");
+        var ignored = waits().offer(silent);
+        waits().offer(other);
+        var matched = waits().state(renter, id, "MATCHED");
         assertThat(matched.get("hostId").asString()).isEqualTo(other.id().toString());
         assertThat(jdbc.queryForObject(
                         "select status from scheduling.offers where id = ?::uuid", String.class, ignored.getOfferId()))
@@ -216,9 +202,9 @@ class BookingTests {
 
         silent.reply(ignored.getOfferId(), true, NONE);
         silent.stream().await(OpenStreamResponse::hasAck, WAIT);
-        assertThat(session(renter, id).get("hostId").asString())
+        assertThat(waits().session(renter, id).get("hostId").asString())
                 .isEqualTo(other.id().toString());
-        assertThat(session(renter, id).get("state").asString()).isEqualTo("MATCHED");
+        assertThat(waits().session(renter, id).get("state").asString()).isEqualTo("MATCHED");
     }
 
     @Test
@@ -227,13 +213,13 @@ class BookingTests {
         var renter = renter(50_000);
 
         var id = book(renter, 5);
-        var offer = host.awaitOffer(WAIT);
+        var offer = waits().offer(host);
         mvc.perform(post("/v1/sessions/" + id + "/cancel").header("Authorization", renter.bearer()))
                 .andExpect(status().isOk());
         host.reply(offer.getOfferId(), true, NONE);
         host.stream().await(OpenStreamResponse::hasAck, WAIT);
 
-        assertThat(session(renter, id).get("state").asString()).isEqualTo("CANCELLED");
+        assertThat(waits().session(renter, id).get("state").asString()).isEqualTo("CANCELLED");
         assertThat(wallet(renter).get("reservedPaise").asLong()).isZero();
         var deadline = System.nanoTime() + WAIT.toNanos();
         while (!"withdrawn"
@@ -255,7 +241,7 @@ class BookingTests {
 
         var id = book(renter, 5);
 
-        var ended = awaitState(renter, id, "NO_HOST_FREE");
+        var ended = waits().state(renter, id, "NO_HOST_FREE");
         assertThat(ended.get("events").findValuesAsString("reason")).last().isEqualTo("no_candidate");
         assertThat(wallet(renter).get("reservedPaise").asLong()).isZero();
     }

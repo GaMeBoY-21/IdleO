@@ -62,6 +62,20 @@ class LeaseRenewalTests {
         throw new AssertionError("session " + sessionId + " never got a lease");
     }
 
+    /**
+     * The session's lease expiry once a renewal has moved it past {@code after}: a renewal writes it just after its
+     * send, and one may already be counted in {@code after}.
+     */
+    private Instant leaseExpiresAfter(UUID sessionId, Instant after) throws InterruptedException {
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        var expiresAt = leaseExpiresAt(sessionId);
+        while (!expiresAt.isAfter(after) && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+            expiresAt = leaseExpiresAt(sessionId);
+        }
+        return expiresAt;
+    }
+
     private static boolean renewalFor(OpenStreamResponse message, UUID sessionId) {
         return message.hasLeaseRenew() && message.getLeaseRenew().getSessionId().equals(sessionId.toString());
     }
@@ -77,8 +91,7 @@ class LeaseRenewalTests {
         assertThat(renewal.getLeaseRenew().getAttempt()).isEqualTo(1);
         assertThat(renewal.getLeaseRenew().getLeaseTtl().getSeconds()).isEqualTo(120);
         assertThat(renewal.getMessageId()).isNotBlank();
-        booked.host().stream().await(message -> renewalFor(message, booked.sessionId()), WAIT);
-        assertThat(leaseExpiresAt(booked.sessionId())).isAfter(first);
+        assertThat(leaseExpiresAfter(booked.sessionId(), first)).isAfter(first);
     }
 
     @Test

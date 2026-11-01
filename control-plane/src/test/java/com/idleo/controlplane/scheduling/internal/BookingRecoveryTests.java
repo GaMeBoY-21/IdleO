@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.billing.internal.TestCredit;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.json.JsonMapper;
@@ -27,6 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
  * publication stays incomplete and is retried. Its own context, because the matcher is a spy.
  */
 @ControlPlaneTest
+@DirtiesContext
 class BookingRecoveryTests {
 
     @Autowired
@@ -34,6 +37,11 @@ class BookingRecoveryTests {
 
     @Autowired
     ApplicationContext context;
+
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
 
     @Autowired
     JdbcTemplate jdbc;
@@ -65,11 +73,13 @@ class BookingRecoveryTests {
                 JsonMapper.builder().build().readTree(body).get("id").asString());
 
         var deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
-        String state;
-        do {
-            Thread.sleep(100);
-            state = jdbc.queryForObject("select state from sessions.sessions where id = ?", String.class, id);
-        } while (state.equals("REQUESTED") && System.nanoTime() < deadline);
+        var state = waits().until(
+                        () -> {
+                            var now = jdbc.queryForObject(
+                                    "select state from sessions.sessions where id = ?", String.class, id);
+                            return now.equals("REQUESTED") ? null : now;
+                        },
+                        () -> "session " + id + " stayed REQUESTED");
 
         // No host is online: once retried, matching ends it without a host.
         assertThat(state).isEqualTo("NO_HOST_FREE");

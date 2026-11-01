@@ -191,7 +191,7 @@ class HostLossTests {
 
         booked.host().disconnect();
         leaseEndsAt(booked.sessionId(), Instant.now().minusSeconds(5));
-        other.reply(other.awaitOffer(WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        other.reply(bookings.awaitOffer(other).getOfferId(), true, TestBookings.ACCEPT);
         var envelope = other.awaitStart(WAIT);
         var second = envelope.getStartSession();
 
@@ -448,7 +448,7 @@ class HostLossTests {
 
         var next = bookings.host();
 
-        assertThat(next.awaitOffer(WAIT).getSpec().getImage()).contains("@sha256:");
+        assertThat(bookings.awaitOffer(next).getSpec().getImage()).contains("@sha256:");
         assertThat(activeHolds(booked.sessionId())).isEqualTo(1);
     }
 

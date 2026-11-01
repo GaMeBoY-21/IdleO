@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestUsers;
@@ -55,6 +56,11 @@ class ImageCheckTests {
 
     @Autowired
     ApplicationContext context;
+
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
 
     @Autowired
     JdbcTemplate jdbc;
@@ -572,18 +578,17 @@ class ImageCheckTests {
         // A session that was still waiting is cancelled (sessions' ImageBlockedSessionsTests holds that alone); one
         // that
         // had already ended for want of a host is left as it was.
-        var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
-        while (List.of("REQUESTED", "MATCHED", "PROVISIONING")
-                .contains(jdbc.queryForObject(
-                        "select state from sessions.sessions where id = ?::uuid", String.class, session))) {
-            assertThat(System.nanoTime())
-                    .as("a session not started doesn't stay waiting")
-                    .isLessThan(deadline);
-            Thread.sleep(100);
-        }
-        assertThat(jdbc.queryForObject("select state from sessions.sessions where id = ?::uuid", String.class, session))
-                .as("it never ran")
-                .isIn("CANCELLED", "NO_HOST_FREE");
+        var ended = waits().until(
+                        () -> {
+                            var state = jdbc.queryForObject(
+                                    "select state from sessions.sessions where id = ?::uuid", String.class, session);
+                            return List.of("REQUESTED", "MATCHED", "PROVISIONING")
+                                            .contains(state)
+                                    ? null
+                                    : state;
+                        },
+                        () -> "session " + session + ", not started, stayed waiting");
+        assertThat(ended).as("it never ran").isIn("CANCELLED", "NO_HOST_FREE");
         assertThat(scans.find(digest).orElseThrow().blockedPath()).isEqualTo("/usr/bin/tool (layer 1)");
         // Its owner is told, once.
         var told = System.nanoTime() + Duration.ofSeconds(10).toNanos();

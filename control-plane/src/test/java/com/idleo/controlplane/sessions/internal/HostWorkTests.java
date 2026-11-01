@@ -92,7 +92,7 @@ class HostWorkTests {
         var host = TestHosts.ready(mvc, grpcPort, jdbc, 50);
         var renter = bookings.renter();
         var sessionId = bookings.book(renter, 60, 10_000);
-        host.reply(host.awaitOffer(WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        host.reply(bookings.awaitOffer(host).getOfferId(), true, TestBookings.ACCEPT);
         var booked = new TestBookings.Booked(host, renter, sessionId);
         host.ack(host.awaitStart(WAIT));
         send(
