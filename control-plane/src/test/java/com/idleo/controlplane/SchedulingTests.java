@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * One scheduled job that hangs never stops the others (SchedulingConfiguration): the lapsed-lease sweep, offer expiry
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Component;
 @ControlPlaneTest
 @ExtendWith(OutputCaptureExtension.class)
 @Import(SchedulingTests.AsyncProbe.class)
+@DirtiesContext
 class SchedulingTests {
 
     /** Where an {@code @Async} method runs, as the booking listeners do. */

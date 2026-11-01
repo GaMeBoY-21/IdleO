@@ -13,6 +13,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -22,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @ControlPlaneTest
 @TestPropertySource(properties = {"images.enabled=false", "images.scanner.port=18096"})
+@DirtiesContext
 class ImagesDisabledTests {
 
     @Autowired
