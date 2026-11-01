@@ -85,10 +85,13 @@ Money rules from ADR 0005 and ADR 0014 stand: integer paise, `Ledger.post` only,
 14. **Top-up.** After each settlement the hold returns to 30 minutes at the current attempt's price, limited by:
     - what's left of the spending cap;
     - the renter's available balance.
-15. **A lease never outruns the credit.** The rule: renew only if hold − committed ≥ price × the minutes the new lease would let the attempt start beyond its current one (`MeteredSessions.minutesALeaseStarts`).
+15. **A lease never outruns the credit.** The rule: renew only if hold − committed ≥ price × the minutes the new lease would let the attempt start that committed doesn't count yet (`MeteredSessions.minutesALeaseStarts`).
     - Committed is the cost of minutes both witnesses saw that aren't settled, plus the current attempt's started minutes that aren't decided yet.
-    - Each metering tick writes committed to the hold (`committed_paise`).
+    - Each metering tick writes committed to the hold (`committed_paise`), with the moment it counted (`committed_as_of`): every minute started by then.
+    - A renewal can come between two counts: the next tick may be seconds away, slow, or another instance's that holds the session. The minutes begun since the count are the renewal's to cover too, so a stale count never lets a lease outrun the hold; with a fresh count the rule is the same as before.
+    - A minute counts as started by a lease once it begins before the lease ends, even a moment before: a lease ending 0.4 s into a minute pays for that minute. The renewal checks and records the lease at one moment, taken just before the send, so the lease the credit covered is the one recorded; the agent counts from receipt, a little later.
     - Lease renewal checks the rule before every LeaseRenew. An unrenewed lease lapses and the agent stops (ADR 0016). `sessions.leases.not_renewed` counts these.
+    - Before November 2026 the count had no time and the arithmetic dropped fractions of a second, so a renewal just after a minute began could reach into a minute the hold couldn't pay; the agent ran a moment of it, and it went to review as `over_limit` (`CreditFlowTests` caught it on a slow runner). The renter was never charged past the cap; `ops/backup/verify-ledger.sh` now also checks that no session ever is, and that every billed minute had both witnesses.
 16. **Before that happens, settle early.** When the hold, less committed, can't cover a lease plus one more minute, the hold isn't limited by the cap, and the renter has more available, metering settles now; the top-up then refills the hold.
 17. **Running out.** When the hold can't cover the next lease, metering stops the session with `StopSession`:
     - `checkpoint_first`, with 60 s of grace;

@@ -63,22 +63,30 @@ public interface MeteredSessions {
     Duration leaseTtl();
 
     /**
-     * The minutes a lease sent at {@code sentAt} would let the attempt start beyond those it has already started:
-     * what the credit must still cover before that lease is sent (ADR 0017). The attempt's current minute is
-     * already counted against the credit, so only minutes starting after it count; before its first RUNNING, every
-     * minute the lease spans does.
+     * The minutes a lease sent at {@code sentAt} would let the attempt start beyond those already counted against the
+     * credit: what the credit must still cover before that lease is sent (ADR 0017). Metering's count at {@code
+     * countedAt} includes every minute started by then, the one in progress too; a minute counts as started by a
+     * lease once it begins before the lease ends, even a moment before. A count from an earlier minute, or none
+     * ({@code countedAt} null or before the attempt ran), leaves the minutes started since to the lease. Before its
+     * first RUNNING, every minute the lease spans counts.
      */
-    static long minutesALeaseStarts(@Nullable Instant runningAt, Instant sentAt, Duration ttl) {
+    static long minutesALeaseStarts(
+            @Nullable Instant runningAt, @Nullable Instant countedAt, Instant sentAt, Duration ttl) {
+        if (runningAt == null) {
+            return wholeMinutesIn(ttl);
+        }
         var leaseEnd = sentAt.plus(ttl);
-        if (runningAt == null || sentAt.isBefore(runningAt)) {
-            return (ttl.toSeconds() + 59) / 60;
-        }
-        var currentMinuteEnd = runningAt.plus(
-                Duration.ofMinutes(Duration.between(runningAt, sentAt).toMinutes() + 1));
-        if (!leaseEnd.isAfter(currentMinuteEnd)) {
-            return 0;
-        }
-        var beyond = Duration.between(currentMinuteEnd, leaseEnd);
-        return (beyond.toSeconds() + 59) / 60;
+        long startedByLeaseEnd =
+                leaseEnd.isAfter(runningAt) ? wholeMinutesIn(Duration.between(runningAt, leaseEnd)) : 0;
+        long counted = countedAt == null || countedAt.isBefore(runningAt)
+                ? 0
+                : Duration.between(runningAt, countedAt).toMinutes() + 1;
+        return Math.max(0, startedByLeaseEnd - counted);
+    }
+
+    /** How many minutes a stretch this long touches, the last partly: 60.5 seconds is two. */
+    private static long wholeMinutesIn(Duration stretch) {
+        long minutes = stretch.toMinutes();
+        return stretch.equals(Duration.ofMinutes(minutes)) ? minutes : minutes + 1;
     }
 }

@@ -24,8 +24,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Renews the lease of every attempt that holds one (ADR 0016): the session is PROVISIONING or RUNNING, its
  * StartSession has been delivered, and its host's stream is live on this instance. Only the instance
  * holding a stream renews through it, so several instances never send twice. A lease is renewed only while the
- * session's hold, less what it has used and not yet settled, covers the lease's length at its price (ADR 0017). Each renewal moves {@code
- * sessions.lease_expires_at} to the send time plus the lease's length, as the agent counts from receipt.
+ * session's hold, less what it has used and not yet settled, covers the minutes the lease would let it start
+ * (ADR 0017). Each renewal moves {@code sessions.lease_expires_at} to the moment it was checked, just before the
+ * send, plus the lease's length; the agent counts from receipt, a little later.
  */
 @Component
 class LeaseRenewals {
@@ -74,12 +75,20 @@ class LeaseRenewals {
             @Nullable Instant runningAt) {}
 
     /**
-     * What a lease sent now costs: the minutes it would let the attempt start, at its price. The hold, less what's
-     * committed, must cover it before the lease is sent, so the lease never outruns the credit.
+     * Whether the session's hold, less what metering last counted against it, covers what a lease sent at {@code
+     * sentAt} costs: the minutes it would let the attempt start that the count doesn't include, at its price. A
+     * minute begun since the count, which the next one would include, is the lease's to cover too, so a renewal
+     * between two counts never lets the lease outrun the credit.
      */
-    private Paise leaseCost(Lease lease, Instant now) {
-        return reservations.renterCost(Paise.of(lease.pricePaisePerMin())
-                .times(MeteredSessions.minutesALeaseStarts(lease.runningAt(), now, leases.ttl())));
+    private boolean holdCovers(Lease lease, Instant sentAt) {
+        return reservations
+                .uncommitted(lease.sessionId())
+                .map(uncommitted -> !reservations
+                        .renterCost(Paise.of(lease.pricePaisePerMin())
+                                .times(MeteredSessions.minutesALeaseStarts(
+                                        lease.runningAt(), uncommitted.countedAt(), sentAt, leases.ttl())))
+                        .isGreaterThan(uncommitted.left()))
+                .orElse(false);
     }
 
     @Scheduled(fixedDelayString = "${sessions.leases.renew-every}")
@@ -107,7 +116,9 @@ class LeaseRenewals {
                                     : rs.getTimestamp("running_at").toInstant()))
                     .list();
             for (var lease : held) {
-                if (!reservations.covers(lease.sessionId(), leaseCost(lease, store.now()))) {
+                // One moment for the check and the record: the lease the credit covered is the one recorded.
+                var sentAt = store.now();
+                if (!holdCovers(lease, sentAt)) {
                     notRenewed.increment();
                     log.info("Not renewing session {}'s lease: its hold doesn't cover one", lease.sessionId());
                     continue;
@@ -121,7 +132,6 @@ class LeaseRenewals {
                     continue;
                 }
                 renewed.increment();
-                var sentAt = store.now();
                 transactions.executeWithoutResult(tx -> {
                     if (jdbc.sql("""
                                             update sessions.sessions

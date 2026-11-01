@@ -7,6 +7,7 @@ import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.TestAgent;
 import com.idleo.controlplane.TestHosts.ConnectedHost;
+import com.idleo.controlplane.agentgateway.AgentStreams;
 import com.idleo.controlplane.billing.CreditReservations;
 import gpu.agent.v1.AgentGateway.OpenStreamRequest;
 import gpu.agent.v1.AgentGateway.OpenStreamResponse;
@@ -16,6 +17,8 @@ import gpu.agent.v1.Session.StopReason;
 import gpu.agent.v1.Session.UsageReport;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,6 +58,9 @@ class CreditFlowTests {
     @Autowired
     PlatformTransactionManager transactionManager;
 
+    @Autowired
+    LeaseRenewals renewals;
+
     @LocalGrpcServerPort
     int grpcPort;
 
@@ -82,7 +88,7 @@ class CreditFlowTests {
         var host = bookings.host();
         var renter = bookings.renter(credit);
         var sessionId = bookings.book(renter, 2, maxSpend);
-        host.reply(host.awaitOffer(WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        host.reply(bookings.awaitOffer(host).getOfferId(), true, TestBookings.ACCEPT);
         var booked = new TestBookings.Booked(host, renter, sessionId);
         host.ack(host.awaitStart(WAIT));
         status(booked, SessionState.SESSION_STATE_RUNNING, 0);
@@ -95,7 +101,26 @@ class CreditFlowTests {
                 && System.nanoTime() < deadline) {
             Thread.sleep(20);
         }
-        return new Running(host, booked);
+        var running = new Running(host, booked);
+        // Its first renewal, as one comes every 30 seconds: in minute 0 for the clock's purposes.
+        renew(running);
+        return running;
+    }
+
+    /**
+     * A renewal round, once the host has heartbeated since the clock last moved: renewals go only to a host heard
+     * from within the presence window, on the control plane's clock.
+     */
+    private void renew(Running running) throws InterruptedException {
+        var streams = context.getBean(AgentStreams.class);
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        while (!streams.liveHere().contains(running.host().id())) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("host " + running.host().id() + " never heartbeated on the moved clock");
+            }
+            Thread.sleep(20);
+        }
+        renewals.renew();
     }
 
     private void send(TestBookings.Booked booked, OpenStreamRequest request) throws InterruptedException {
@@ -149,13 +174,30 @@ class CreditFlowTests {
         throw new AssertionError("minute " + index + " of " + sessionId + " was never decided");
     }
 
-    /** The agent runs one more whole minute: the clock moves on, the agent reports it, metering decides it. */
+    /**
+     * The agent runs one more whole minute: the clock moves on, the agent reports it, metering decides it, and the
+     * lease is renewed in the new minute if the credit covers it. Metering decides a minute only on a tick after the
+     * clock moved past it, and checks the credit in that same transaction.
+     */
     private void runMinute(Running running, int index) throws InterruptedException {
         clock.advance(Duration.ofSeconds(60));
         minute(running.booked(), index, 60);
         decided(running.id(), index);
-        // A tick and a renewal have run on the moved clock.
-        Thread.sleep(600);
+        renew(running);
+    }
+
+    /**
+     * Whether metering has stopped the session for its credit, as it decided on the tick that decided the last minute;
+     * if it has, the agent is told.
+     */
+    private boolean stoppedForCredit(Running running) throws InterruptedException {
+        var stoppedFor = jdbc.queryForObject(
+                "select stopped_for from metering.metered_sessions where session_id = ?", String.class, running.id());
+        if (stoppedFor == null) {
+            return false;
+        }
+        running.host().stream().await(OpenStreamResponse::hasStopSession, WAIT);
+        return true;
     }
 
     private long balance(UUID renterId) {
@@ -207,7 +249,7 @@ class CreditFlowTests {
             runMinute(running, index);
             assertThat(balance(renterId)).isNotNegative();
             index++;
-            stopped = running.host().stream().receives(OpenStreamResponse::hasStopSession, Duration.ofMillis(300));
+            stopped = stoppedForCredit(running);
         }
         assertThat(stopped).as("stopped before the credit ran out").isTrue();
         var finishing = bookings.session(running.booked().renter(), running.id());
@@ -246,7 +288,7 @@ class CreditFlowTests {
         while (!stopped && index < 4) {
             runMinute(running, index);
             index++;
-            stopped = running.host().stream().receives(OpenStreamResponse::hasStopSession, Duration.ofMillis(300));
+            stopped = stoppedForCredit(running);
         }
         assertThat(stopped).isTrue();
         assertThat(bookings.session(running.booked().renter(), running.id())
@@ -263,6 +305,64 @@ class CreditFlowTests {
         assertThat(charged).as("and never past the cap").isLessThanOrEqualTo(6);
         assertThat(bookings.awaitNotification(renterId, "stopped-for-credit").get("title"))
                 .isEqualTo("Stopped: it reached your spending cap");
+    }
+
+    @Test
+    void aRenewalBetweenTwoCountsOfWhatsUsedNeverLetsTheLeaseOutrunTheHold() throws Exception {
+        // A 6 paise cap at 2 paise a minute holds minutes 0, 1 and 2: no lease may let minute 3 begin.
+        var running = running(50_000, 6);
+        var runningAt = jdbc.queryForObject(
+                        "select running_at from sessions.attempts where session_id = ? and attempt = 1",
+                        java.sql.Timestamp.class,
+                        running.id())
+                .toInstant();
+        var deadline = System.nanoTime() + WAIT.toNanos();
+        while (jdbc.queryForObject(
+                                "select committed_paise from billing.reservations where session_id = ?",
+                                Long.class,
+                                running.id())
+                        == 0
+                && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
+
+        // Metering counted minute 0. Its next turn waits, as a slow one or another instance's would, while the
+        // clock moves into minute 1 and a renewal runs.
+        try (var _ = meteringTurnHeld(running.id())) {
+            clock.advance(Duration.ofSeconds(60));
+            renew(running);
+
+            var coveredUntil = jdbc.queryForObject(
+                            "select max(covered_until) from sessions.lease_coverage where session_id = ?",
+                            java.sql.Timestamp.class,
+                            running.id())
+                    .toInstant();
+            assertThat(coveredUntil)
+                    .as("the lease ends before minute 3, which the cap can't pay for")
+                    .isBeforeOrEqualTo(runningAt.plus(Duration.ofMinutes(3)));
+        }
+    }
+
+    /** Holds the session's metering row lock until closed, so every metering turn skips it meanwhile. */
+    private AutoCloseable meteringTurnHeld(UUID sessionId) throws InterruptedException {
+        var held = new CountDownLatch(1);
+        var done = new CountDownLatch(1);
+        var holder = Thread.ofPlatform()
+                .start(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    jdbc.queryForList(
+                            "select 1 from metering.metered_sessions where session_id = ? for update", sessionId);
+                    held.countDown();
+                    try {
+                        done.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }));
+        assertThat(held.await(WAIT.toSeconds(), TimeUnit.SECONDS)).isTrue();
+        return () -> {
+            done.countDown();
+            holder.join();
+        };
     }
 
     @Test
@@ -291,14 +391,15 @@ class CreditFlowTests {
         // Everything held is committed: nothing left for another lease.
         var held = reservations.held(booked.sessionId()).orElseThrow();
         new TransactionTemplate(transactionManager)
-                .executeWithoutResult(status -> reservations.markCommitted(booked.sessionId(), held));
+                .executeWithoutResult(status -> reservations.markCommitted(booked.sessionId(), held, clock.instant()));
         Thread.sleep(700);
         booked.host().stream().clear();
 
         assertThat(booked.host().stream().receives(OpenStreamResponse::hasLeaseRenew, Duration.ofSeconds(2)))
                 .isFalse();
         new TransactionTemplate(transactionManager)
-                .executeWithoutResult(status -> reservations.markCommitted(booked.sessionId(), Paise.ZERO));
+                .executeWithoutResult(
+                        status -> reservations.markCommitted(booked.sessionId(), Paise.ZERO, clock.instant()));
         assertThat(booked.host().stream().receives(OpenStreamResponse::hasLeaseRenew, WAIT))
                 .isTrue();
     }

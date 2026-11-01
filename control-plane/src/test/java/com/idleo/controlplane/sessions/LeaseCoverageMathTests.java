@@ -12,8 +12,10 @@ class LeaseCoverageMathTests {
     private static final Instant RUNNING = Instant.parse("2026-10-06T10:00:00Z");
     private static final Duration TWO_MINUTES = Duration.ofMinutes(2);
 
+    /** A lease sent with metering's count from the same moment. */
     private static long at(long secondsAfterRunning, Duration ttl) {
-        return MeteredSessions.minutesALeaseStarts(RUNNING, RUNNING.plusSeconds(secondsAfterRunning), ttl);
+        var sentAt = RUNNING.plusSeconds(secondsAfterRunning);
+        return MeteredSessions.minutesALeaseStarts(RUNNING, sentAt, sentAt, ttl);
     }
 
     @Test
@@ -37,9 +39,39 @@ class LeaseCoverageMathTests {
 
     @Test
     void beforeTheFirstRunningEveryMinuteTheLeaseSpansCounts() {
-        assertThat(MeteredSessions.minutesALeaseStarts(null, RUNNING, TWO_MINUTES))
+        assertThat(MeteredSessions.minutesALeaseStarts(null, null, RUNNING, TWO_MINUTES))
                 .isEqualTo(2);
-        assertThat(MeteredSessions.minutesALeaseStarts(null, RUNNING, Duration.ofSeconds(10)))
+        assertThat(MeteredSessions.minutesALeaseStarts(null, null, RUNNING, Duration.ofSeconds(10)))
                 .isEqualTo(1);
+    }
+
+    @Test
+    void aLeaseEndingAMomentIntoAMinuteLetsThatMinuteStart() {
+        // Sent half a second into minute 0, it ends half a second into minute 2: minutes 1 and 2 begin under it.
+        var sentAt = RUNNING.plusMillis(500);
+        assertThat(MeteredSessions.minutesALeaseStarts(RUNNING, sentAt, sentAt, TWO_MINUTES))
+                .isEqualTo(2);
+        var justBefore = RUNNING.plusSeconds(59).plusMillis(999);
+        assertThat(MeteredSessions.minutesALeaseStarts(RUNNING, justBefore, justBefore, Duration.ofMillis(2)))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void minutesStartedSinceMeteringLastCountedAreTheLeasesToo() {
+        // Counted in minute 0, sent a second into minute 1: minute 1 isn't counted yet, nor are 2 and 3.
+        var sentAt = RUNNING.plusSeconds(61);
+        assertThat(MeteredSessions.minutesALeaseStarts(RUNNING, RUNNING.plusSeconds(30), sentAt, TWO_MINUTES))
+                .isEqualTo(3);
+        assertThat(MeteredSessions.minutesALeaseStarts(RUNNING, sentAt, sentAt, TWO_MINUTES))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void withoutACountSinceTheAttemptRanEveryMinuteItStartsIsTheLeases() {
+        var sentAt = RUNNING.plusSeconds(5);
+        assertThat(MeteredSessions.minutesALeaseStarts(RUNNING, null, sentAt, TWO_MINUTES))
+                .isEqualTo(3);
+        assertThat(MeteredSessions.minutesALeaseStarts(RUNNING, RUNNING.minusSeconds(90), sentAt, TWO_MINUTES))
+                .isEqualTo(3);
     }
 }
