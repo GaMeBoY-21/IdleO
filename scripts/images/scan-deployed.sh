@@ -18,6 +18,8 @@ set -euo pipefail
 . "$(dirname "$0")/../lib/quiet.sh"
 quiet_entry scan-deployed "$@"
 set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
+# Docker mounts a file only by its absolute path: the kubeconfig as the caller named it, from where they ran this.
+[[ -z "${KUBECONFIG:-}" || "$KUBECONFIG" == /* ]] || KUBECONFIG="$PWD/$KUBECONFIG"
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
 # Trivy as .github/workflows/images.yml pins it.
