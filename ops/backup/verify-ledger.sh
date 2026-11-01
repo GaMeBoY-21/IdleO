@@ -20,6 +20,10 @@
 #  13. each person's payouts_paid equals the sum of their processed payouts;
 #  14. a receivable is only ever recovered or waived, never paid out: no host_receivable in a payout's transaction,
 #      and nobody's receivable below zero.
+#  15. no session was charged past its spending cap: its settlements, less what waivers gave back, are within it
+#      (ADR 0017), the reviewed minutes an admin charged included;
+#  16. every minute marked billed had both witnesses, from the same attempt: the agent's report and the control
+#      plane's lease (ADR 0017). A reviewed minute an admin charged is never marked billed.
 #
 #   ops/backup/verify-ledger.sh --cluster idleo-restore-<name>   a restored database in the cluster (ops/backup/restore.sh)
 #   ops/backup/verify-ledger.sh --cluster idleo-database         the cluster's live one
@@ -43,7 +47,7 @@ while (($#)); do
     --namespace) namespace="$2"; shift 2 ;;
     --user) user="$2"; shift 2 ;;
     --database) database="$2"; shift 2 ;;
-    -h | --help) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "verify-ledger: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
@@ -121,6 +125,12 @@ checks=(
      + (select count(*) from (
        select owner_id from billing.ledger_entries where account = 'host_receivable' group by owner_id
        having sum(case direction when 'debit' then amount_paise else -amount_paise end) < 0) negative)"
+  "no session charged past its spending cap|select count(*) from metering.metered_sessions m
+     where (select coalesce(sum(amount_paise), 0) from metering.settlements s where s.session_id = m.session_id)
+         - (select coalesce(sum(refunded_paise), 0) from metering.waivers w where w.session_id = m.session_id)
+         > m.max_spend_paise"
+  "every billed minute had both witnesses|select count(*) from metering.usage_minutes
+     where billed and not (agent_reported and lease_alive and agent_attempt = lease_attempt)"
 )
 
 failed=0

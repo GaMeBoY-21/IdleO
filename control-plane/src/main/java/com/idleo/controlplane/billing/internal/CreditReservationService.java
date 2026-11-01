@@ -144,24 +144,34 @@ class CreditReservationService implements CreditReservations {
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public void markCommitted(UUID sessionId, Paise committed) {
+    public void markCommitted(UUID sessionId, Paise committed, Instant countedAt) {
         if (committed.isNegative()) {
             throw new IllegalArgumentException("committed use can't be negative");
         }
+        // Written on every count, even unchanged: the minutes it covers move on with countedAt.
         jdbc.sql("""
-                        update billing.reservations set committed_paise = :committed
-                        where session_id = :sessionId and status = 'active' and committed_paise <> :committed
+                        update billing.reservations set committed_paise = :committed, committed_as_of = :countedAt
+                        where session_id = :sessionId and status = 'active'
                         """)
                 .param("committed", committed.value())
+                .param("countedAt", Timestamp.from(countedAt))
                 .param("sessionId", sessionId)
                 .update();
     }
 
     @Override
-    public boolean covers(UUID sessionId, Paise needed) {
-        return active(sessionId)
-                .map(hold -> !needed.isGreaterThan(hold.amount().minus(hold.committed())))
-                .orElse(false);
+    public Optional<Uncommitted> uncommitted(UUID sessionId) {
+        return jdbc.sql("""
+                        select amount_paise - committed_paise as left_paise, committed_as_of from billing.reservations
+                        where session_id = :sessionId and status = 'active'
+                        """)
+                .param("sessionId", sessionId)
+                .query((rs, n) -> new Uncommitted(
+                        Paise.of(rs.getLong("left_paise")),
+                        rs.getTimestamp("committed_as_of") == null
+                                ? null
+                                : rs.getTimestamp("committed_as_of").toInstant()))
+                .optional();
     }
 
     @Override

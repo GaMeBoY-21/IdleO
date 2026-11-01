@@ -1,8 +1,10 @@
 package com.idleo.controlplane.billing;
 
 import com.idleo.controlplane.Paise;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Credit held for a booked session (ADR 0015). A hold isn't spent money: it's released when the session
@@ -50,11 +52,19 @@ public interface CreditReservations {
     Optional<Paise> held(UUID sessionId);
 
     /**
-     * Records what the session has used but not yet settled, as metering counts it (ADR 0017), so lease renewal
-     * can tell whether the hold still covers a lease. Does nothing without an active hold.
+     * Records what the session has used but not yet settled, as metering counted it at {@code countedAt}: every
+     * minute started by then (ADR 0017). Lease renewal adds the minutes started since, so the hold still covers
+     * a lease whenever it renews one. Does nothing without an active hold.
      */
-    void markCommitted(UUID sessionId, Paise committed);
+    void markCommitted(UUID sessionId, Paise committed, Instant countedAt);
 
-    /** Whether the session's active hold, less what's committed against it, covers {@code needed}. */
-    boolean covers(UUID sessionId, Paise needed);
+    /**
+     * What's left of a session's hold once what's committed against it is taken off.
+     *
+     * @param countedAt when metering last counted what's committed; null before it first has
+     */
+    record Uncommitted(Paise left, @Nullable Instant countedAt) {}
+
+    /** What's left of the session's active hold, if it has one. */
+    Optional<Uncommitted> uncommitted(UUID sessionId);
 }

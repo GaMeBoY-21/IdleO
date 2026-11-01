@@ -79,7 +79,7 @@ class CreditGuard {
         // What the renter pays: the price plus its GST once that's charged (ADR 0039).
         var price = Paise.of(current.pricePaisePerMin());
         var leaseCost = reservations.renterCost(
-                price.times(MeteredSessions.minutesALeaseStarts(current.runningAt(), now, sessions.leaseTtl())));
+                price.times(MeteredSessions.minutesALeaseStarts(current.runningAt(), now, now, sessions.leaseTtl())));
         var committed = committed(sessionId, current, price, now);
         var hold = reservations.held(sessionId).orElse(Paise.ZERO);
         var available = reservations.available(metered.renterId());
@@ -95,7 +95,7 @@ class CreditGuard {
             capLeft = Paise.of(reread.get().maxSpendPaise()).minus(settlements.chargedNet(sessionId));
             capLimited = !capLeft.isGreaterThan(hold);
         }
-        reservations.markCommitted(sessionId, committed);
+        reservations.markCommitted(sessionId, committed, now);
         if (hold.minus(committed).compareTo(leaseCost) < 0) {
             var reason = capLimited
                     ? SessionControl.CreditStop.MAX_SPEND_REACHED
