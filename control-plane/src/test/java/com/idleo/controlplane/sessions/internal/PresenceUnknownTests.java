@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -29,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @ControlPlaneTest
 @Import(PresenceUnknownTests.FlakyPresenceConfiguration.class)
+@DirtiesContext
 class PresenceUnknownTests {
 
     /** The real presence, except that the next {@code failures} lookups can't be read, as when Valkey times out. */
@@ -97,7 +99,7 @@ class PresenceUnknownTests {
         presence.failures.set(1);
         var session = bookings.book(renter);
 
-        assertThat(host.awaitOffer(TestBookings.WAIT)).isNotNull();
+        assertThat(bookings.awaitOffer(host)).isNotNull();
         assertThat(bookings.session(renter, session).get("state").asString()).isEqualTo("MATCHED");
     }
 
@@ -115,13 +117,13 @@ class PresenceUnknownTests {
                 .isEqualTo("REQUESTED");
 
         // Once it's been waiting 20 s, the re-match loop finds the host.
-        assertThat(host.awaitOffer(Duration.ofSeconds(20))).isNotNull();
+        assertThat(bookings.awaitOffer(host)).isNotNull();
     }
 
     /**
      * The first try and three quick retries can't read presence, so the matcher decides at its fourth retry, some 15 s
      * after the booking: later than {@link TestBookings#WAIT}, as when Valkey keeps missing its timeout on a busy runner.
-     * The tests' waits follow the matcher, not the clock (TestBookings.untilMatcherDecides).
+     * The tests' waits follow the matcher, not the clock (BookingWaits).
      */
     @Test
     void aWaitForASessionsStateLastsWhileTheMatcherCantReadPresence() throws Exception {

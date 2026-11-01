@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -158,7 +159,8 @@ class AuditLogTests {
 
     /**
      * Every row any test has written by now (they share one database): none holds an email, an IP address, or any
-     * account's email or name, in any column.
+     * account's email or name, in any column. A name counts where it stands as a whole word or words, as a person's
+     * name would ("Asha" in "banned Asha", not in "Kashan").
      */
     @Test
     void holdsNoRowNamingAPerson() {
@@ -174,10 +176,13 @@ class AuditLogTests {
                 from identity.audit_log
                 """, String.class);
         assertThat(rows).isNotEmpty();
+        var named = people.stream()
+                .map(value -> Pattern.compile("(?<![\\p{L}\\p{N}])" + Pattern.quote(value) + "(?![\\p{L}\\p{N}])"))
+                .toList();
         for (var row : rows) {
             assertThat(ContactDetails.found(row)).as(row).isFalse();
             var text = row.toLowerCase(Locale.ROOT);
-            assertThat(people).as(row).noneMatch(text::contains);
+            assertThat(named).as(row).noneMatch(name -> name.matcher(text).find());
         }
     }
 }

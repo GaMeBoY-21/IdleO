@@ -42,9 +42,9 @@ class MeEndpointTests {
 
     @Test
     void patchWithStaleETagGets412() throws Exception {
-        mvc.perform(rename("First").header("If-Match", etag)).andExpect(status().isOk());
+        mvc.perform(rename("Farida Begum").header("If-Match", etag)).andExpect(status().isOk());
 
-        mvc.perform(rename("Second").header("If-Match", etag))
+        mvc.perform(rename("Sunil Rao").header("If-Match", etag))
                 .andExpect(status().isPreconditionFailed())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
     }

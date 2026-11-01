@@ -72,6 +72,11 @@ class SessionStreamValkeyOutageTests {
     @Autowired
     ApplicationContext context;
 
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
+
     @Autowired
     JdbcTemplate jdbc;
 
@@ -87,17 +92,16 @@ class SessionStreamValkeyOutageTests {
             throws Exception {
         var deadline = System.nanoTime() + WAIT.toNanos();
         while (true) {
-            var body = stream.getResponse().getContentAsString();
-            var last = body.lastIndexOf("event:session");
-            if (last >= 0) {
-                var data = body.substring(body.indexOf("data:", last) + 5);
-                data = data.substring(0, data.indexOf('\n')).strip();
-                if (condition.test(JSON.readTree(data))) {
-                    return;
-                }
+            var sessions = EventStreams.events(stream).stream()
+                    .filter(event -> event.name().equals("session"))
+                    .toList();
+            if (!sessions.isEmpty()
+                    && condition.test(JSON.readTree(sessions.getLast().data()))) {
+                return;
             }
             if (System.nanoTime() > deadline) {
-                throw new AssertionError("the stream never showed " + what + ": " + body);
+                throw new AssertionError("the stream never showed " + what + ": "
+                        + stream.getResponse().getContentAsString());
             }
             Thread.sleep(50);
         }
@@ -121,7 +125,7 @@ class SessionStreamValkeyOutageTests {
                             .getContentAsString())
                     .get("id")
                     .asString());
-            host.reply(host.awaitOffer(WAIT).getOfferId(), true, OfferDeclineReason.OFFER_DECLINE_REASON_UNSPECIFIED);
+            host.reply(waits().offer(host).getOfferId(), true, OfferDeclineReason.OFFER_DECLINE_REASON_UNSPECIFIED);
             host.ack(host.awaitStart(WAIT));
             var stream = mvc.perform(get("/v1/sessions/" + session + "/events")
                             .header("Authorization", renter.bearer())

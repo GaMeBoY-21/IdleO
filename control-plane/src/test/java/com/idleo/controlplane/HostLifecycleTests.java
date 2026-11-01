@@ -47,6 +47,11 @@ class HostLifecycleTests {
     @Autowired
     ApplicationContext context;
 
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
+
     @Autowired
     JdbcTemplate jdbc;
 
@@ -176,7 +181,7 @@ class HostLifecycleTests {
                         .getContentAsString())
                 .get("id")
                 .asString();
-        var offer = host.awaitOffer(WAIT);
+        var offer = waits().offer(host);
         host.reply(offer.getOfferId(), true, OfferDeclineReason.OFFER_DECLINE_REASON_UNSPECIFIED);
         host.awaitStart(WAIT);
 
@@ -337,7 +342,7 @@ class HostLifecycleTests {
                         .getContentAsString())
                 .get("id")
                 .asString();
-        host.awaitOffer(WAIT);
+        waits().offer(host);
 
         mvc.perform(delete("/v1/hosts/" + host.id()).header("Authorization", host.agent().bearer))
                 .andExpect(status().isConflict())

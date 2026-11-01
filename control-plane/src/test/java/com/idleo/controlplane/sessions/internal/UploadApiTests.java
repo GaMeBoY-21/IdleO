@@ -467,7 +467,7 @@ class UploadApiTests {
                 "insert into sessions.session_inputs (session_id, name, upload_id) values (?, 'file', ?::uuid)",
                 session,
                 uploadId);
-        host.reply(host.awaitOffer(TestBookings.WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        host.reply(bookings.awaitOffer(host).getOfferId(), true, TestBookings.ACCEPT);
         host.ack(host.awaitStart(TestBookings.WAIT));
         report(host, session, gpu.agent.v1.Session.SessionState.SESSION_STATE_RUNNING);
         bookings.awaitState(renter, session, "RUNNING");

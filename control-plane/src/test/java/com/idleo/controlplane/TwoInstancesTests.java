@@ -258,7 +258,7 @@ class TwoInstancesTests {
             var session = book(a.mvc(), renter);
 
             // The offer, made on A, goes down the stream B holds: its presence names B, which A's hint reaches.
-            var offer = offerFor(host, session, jdbc);
+            var offer = offerFor(new BookingWaits(a.mvc(), a.context(), b.context()), host, session, jdbc);
             host.reply(offer, true, gpu.agent.v1.Session.OfferDeclineReason.OFFER_DECLINE_REASON_UNSPECIFIED);
             var start = host.awaitStart(WAIT);
             host.ack(start);
@@ -369,9 +369,10 @@ class TwoInstancesTests {
     }
 
     /** This session's offer on this host, declining any other test's session offered first. */
-    private static String offerFor(ConnectedHost host, UUID session, JdbcTemplate jdbc) throws InterruptedException {
+    private static String offerFor(BookingWaits waits, ConnectedHost host, UUID session, JdbcTemplate jdbc)
+            throws Exception {
         while (true) {
-            var offerId = host.awaitOffer(WAIT).getOfferId();
+            var offerId = waits.offer(host).getOfferId();
             if (Boolean.TRUE.equals(jdbc.queryForObject(
                     "select session_id = ? from scheduling.offers where id = ?",
                     Boolean.class,
@@ -404,13 +405,9 @@ class TwoInstancesTests {
         var deadline = System.nanoTime() + WAIT.toNanos();
         while (true) {
             JsonNode last = null;
-            for (var block : stream.getResponse().getContentAsString().split("\n\n")) {
-                if (block.contains("event:session")) {
-                    for (var line : block.split("\n")) {
-                        if (line.startsWith("data:")) {
-                            last = JSON.readTree(line.substring(5).strip());
-                        }
-                    }
+            for (var event : EventStreams.events(stream)) {
+                if (event.name().equals("session")) {
+                    last = JSON.readTree(event.data());
                 }
             }
             if (last != null && last.get("state").asString().equals(state)) {

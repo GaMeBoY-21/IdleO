@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestHosts.ConnectedHost;
@@ -38,6 +39,11 @@ class NoSessionsLeftWaitingTests {
     @Autowired
     ApplicationContext context;
 
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
+
     @Autowired
     JdbcTemplate jdbc;
 
@@ -66,7 +72,7 @@ class NoSessionsLeftWaitingTests {
                         .content("{\"templateId\": \"cuda-smoke-test\", \"maxPricePaisePerMin\": 5, "
                                 + "\"maxSpendPaise\": 10000}"))
                 .andExpect(status().isCreated());
-        assertThat(host.awaitOffer(Duration.ofSeconds(10)).getOfferId()).isNotBlank();
+        assertThat(waits().offer(host).getOfferId()).isNotBlank();
     }
 
     @Test

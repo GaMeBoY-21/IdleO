@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.google.protobuf.Timestamp;
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestAdmins;
@@ -75,6 +76,11 @@ class HostAgentChannelTests {
 
     @Autowired
     ApplicationContext context;
+
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
 
     @LocalGrpcServerPort
     int grpcPort;
@@ -215,7 +221,7 @@ class HostAgentChannelTests {
                                     {"templateId": "cuda-smoke-test", "maxPricePaisePerMin": 5, "maxSpendPaise": 10000}
                                     """))
                     .andExpect(status().isCreated());
-            host.awaitOffer(WAIT);
+            waits().offer(host);
             var leave = TestAgent.request().setLeave(Leave.getDefaultInstance()).build();
             host.stream().send(leave);
             // No ack while it's busy, so the agent sends it again later; the host stays.

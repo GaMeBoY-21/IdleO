@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.MutableClock;
 import com.idleo.controlplane.TestUsers;
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -45,6 +47,7 @@ import tools.jackson.databind.json.JsonMapper;
             "sessions.limits.new-per-hour-first-day=2",
             "sessions.limits.at-once=2"
         })
+@DirtiesContext
 class RenterLimitsTests {
 
     private static final AtomicInteger ADDRESSES = new AtomicInteger(1);
@@ -60,6 +63,11 @@ class RenterLimitsTests {
 
     @Autowired
     ApplicationContext context;
+
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
 
     @Autowired
     SessionStore store;
@@ -119,12 +127,15 @@ class RenterLimitsTests {
                         .getContentAsString())
                 .get("id")
                 .asString();
-        var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
-        while (!jdbc.queryForObject("select state from sessions.sessions where id = ?::uuid", String.class, id)
-                .equals("NO_HOST_FREE")) {
-            assertThat(System.nanoTime()).as("session %s ended", id).isLessThan(deadline);
-            Thread.sleep(50);
-        }
+        waits().until(
+                        () -> jdbc.queryForObject(
+                                                "select state from sessions.sessions where id = ?::uuid",
+                                                String.class,
+                                                id)
+                                        .equals("NO_HOST_FREE")
+                                ? true
+                                : null,
+                        () -> "session " + id + " never ended without a host");
     }
 
     @Test

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.BookingWaits;
 import com.idleo.controlplane.ControlPlaneTest;
 import com.idleo.controlplane.TestHosts;
 import com.idleo.controlplane.TestHosts.ConnectedHost;
@@ -43,6 +44,11 @@ class HostScoreMatchingTests {
 
     @Autowired
     ApplicationContext context;
+
+    /** The waits on what matching decides (BookingWaits). */
+    private BookingWaits waits() {
+        return new BookingWaits(mvc, context);
+    }
 
     @Autowired
     JdbcTemplate jdbc;
@@ -118,7 +124,7 @@ class HostScoreMatchingTests {
 
         book();
 
-        var offer = warm.awaitOffer(WAIT);
+        var offer = waits().offer(warm);
         assertThat(offer.getSpec().getImage()).endsWith(SMOKE_TEST_DIGEST);
         // The next host is only offered the session once the warm one's offer lapses, two seconds on.
         assertThat(cold.stream().receives(message -> message.hasOffer(), Duration.ofMillis(300)))
@@ -133,7 +139,7 @@ class HostScoreMatchingTests {
 
         book();
 
-        pair.get(1).awaitOffer(WAIT);
+        waits().offer(pair.get(1));
         assertThat(pair.get(0).stream().receives(message -> message.hasOffer(), Duration.ofMillis(300)))
                 .isFalse();
     }
@@ -146,7 +152,7 @@ class HostScoreMatchingTests {
 
         book();
 
-        pair.get(1).awaitOffer(WAIT);
+        waits().offer(pair.get(1));
     }
 
     @Test
