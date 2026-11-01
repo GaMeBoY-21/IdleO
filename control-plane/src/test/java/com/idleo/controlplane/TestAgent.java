@@ -265,17 +265,23 @@ public final class TestAgent {
         /** The next message matching {@code wanted}, skipping others, or fails if none comes in time. */
         public OpenStreamResponse await(java.util.function.Predicate<OpenStreamResponse> wanted, Duration timeout)
                 throws InterruptedException {
+            return next(wanted, timeout).orElseThrow(() -> new AssertionError("no matching message within " + timeout));
+        }
+
+        /** The next message matching {@code wanted}, skipping others, or empty if none comes in time. */
+        public java.util.Optional<OpenStreamResponse> next(
+                java.util.function.Predicate<OpenStreamResponse> wanted, Duration timeout) throws InterruptedException {
             var deadline = System.nanoTime() + timeout.toNanos();
             while (System.nanoTime() < deadline) {
                 var item = received.poll(20, TimeUnit.MILLISECONDS);
                 if (item instanceof OpenStreamResponse response && wanted.test(response)) {
-                    return response;
+                    return java.util.Optional.of(response);
                 }
                 if (item instanceof Status status) {
                     throw new AssertionError("the stream ended: " + status);
                 }
             }
-            throw new AssertionError("no matching message within " + timeout);
+            return java.util.Optional.empty();
         }
 
         /** Whether a message matching {@code wanted} arrives within {@code timeout}. */
