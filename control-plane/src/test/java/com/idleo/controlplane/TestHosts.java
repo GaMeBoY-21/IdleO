@@ -63,6 +63,11 @@ public final class TestHosts {
             return stream.await(OpenStreamResponse::hasOffer, timeout).getOffer();
         }
 
+        /** The next offer this host receives within {@code timeout}, if one comes. */
+        public java.util.Optional<Offer> nextOffer(Duration timeout) throws InterruptedException {
+            return stream.next(OpenStreamResponse::hasOffer, timeout).map(OpenStreamResponse::getOffer);
+        }
+
         /** The next StartSession this host receives, with its envelope (for the message id). */
         public OpenStreamResponse awaitStart(Duration timeout) throws InterruptedException {
             return stream.await(OpenStreamResponse::hasStartSession, timeout);

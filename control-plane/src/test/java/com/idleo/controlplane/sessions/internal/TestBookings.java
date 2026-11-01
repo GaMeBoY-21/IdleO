@@ -10,16 +10,20 @@ import com.idleo.controlplane.TestHosts.ConnectedHost;
 import com.idleo.controlplane.TestUsers;
 import com.idleo.controlplane.TestUsers.TestUser;
 import com.idleo.controlplane.billing.internal.TestCredit;
+import gpu.agent.v1.Session.Offer;
 import gpu.agent.v1.Session.OfferDeclineReason;
 import gpu.agent.v1.Session.SessionError;
 import gpu.agent.v1.Session.SessionState;
 import gpu.agent.v1.Session.SessionStatus;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,6 +35,13 @@ import tools.jackson.databind.json.JsonMapper;
 final class TestBookings implements AutoCloseable {
 
     static final Duration WAIT = Duration.ofSeconds(10);
+
+    /**
+     * The longest a wait on the matcher goes on while it can't read presence: a Valkey that hasn't answered for this long
+     * is down, not slow, and the test fails.
+     */
+    static final Duration PRESENCE_UNKNOWN_LIMIT = Duration.ofMinutes(1);
+
     static final OfferDeclineReason ACCEPT = OfferDeclineReason.OFFER_DECLINE_REASON_UNSPECIFIED;
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -126,9 +137,9 @@ final class TestBookings implements AutoCloseable {
      * session that lost its host waits for the next (a session that already ran isn't ended for want of a host), so the first offer
      * a new host hears may be that one's: it's declined, and the one this test booked comes after.
      */
-    private String offerFor(ConnectedHost host, UUID sessionId) throws InterruptedException {
+    private String offerFor(ConnectedHost host, UUID sessionId) throws Exception {
         while (true) {
-            var offerId = host.awaitOffer(WAIT).getOfferId();
+            var offerId = awaitOffer(host).getOfferId();
             var ours = jdbc.queryForObject(
                     "select session_id = ? from scheduling.offers where id = ?",
                     Boolean.class,
@@ -148,17 +159,68 @@ final class TestBookings implements AutoCloseable {
                 .getContentAsString());
     }
 
+    /** Waits for the session to reach {@code state}, as long as {@link #untilMatcherDecides} lets a booking wait. */
     JsonNode awaitState(TestUser renter, UUID id, String state) throws Exception {
-        var deadline = System.nanoTime() + WAIT.toNanos();
-        JsonNode session;
-        do {
-            session = session(renter, id);
-            if (session.get("state").asString().equals(state)) {
-                return session;
+        var last = new JsonNode[1];
+        return untilMatcherDecides(
+                () -> {
+                    last[0] = session(renter, id);
+                    return last[0].get("state").asString().equals(state) ? last[0] : null;
+                },
+                () -> "session " + id + " never reached " + state + "; it's " + last[0]);
+    }
+
+    /** The next offer to this host, as long as {@link #untilMatcherDecides} lets a booking wait. */
+    Offer awaitOffer(ConnectedHost host) throws Exception {
+        return untilMatcherDecides(
+                () -> host.nextOffer(Duration.ofMillis(50)).orElse(null),
+                () -> "host " + host.id() + " was offered nothing");
+    }
+
+    /** One look at what a test waits for: null until it's there. */
+    @FunctionalInterface
+    interface Look<T> {
+        @Nullable
+        T next() throws Exception;
+    }
+
+    /**
+     * Looks until {@code look} finds what the test waits for, for {@link #WAIT}, and {@link #WAIT} again after each time the
+     * matcher finds presence unreadable. When Valkey doesn't answer in time, which a busy runner sometimes doesn't, the matcher
+     * neither offers a booking nor ends it: it stays REQUESTED and is looked at again a little later (SessionMatcher,
+     * ADR 0016). That moves when the matcher decides, never what it decides, so the wait follows it, until
+     * {@link #PRESENCE_UNKNOWN_LIMIT}.
+     */
+    <T> T untilMatcherDecides(Look<T> look, Supplier<String> failure) throws Exception {
+        long started = System.nanoTime();
+        long deadline = started + WAIT.toNanos();
+        double unknownAtStart = presenceUnknownLooks();
+        double unknown = unknownAtStart;
+        while (true) {
+            var found = look.next();
+            if (found != null) {
+                return found;
+            }
+            double now = presenceUnknownLooks();
+            if (now > unknown) {
+                unknown = now;
+                deadline = Math.min(System.nanoTime() + WAIT.toNanos(), started + PRESENCE_UNKNOWN_LIMIT.toNanos());
+            }
+            if (System.nanoTime() >= deadline) {
+                throw new AssertionError(failure.get() + " (the matcher found presence unreadable "
+                        + (long) (unknown - unknownAtStart) + " times meanwhile)");
             }
             Thread.sleep(50);
-        } while (System.nanoTime() < deadline);
-        throw new AssertionError("session " + id + " never reached " + state + "; it's " + session);
+        }
+    }
+
+    /** How many times the matcher has looked for a host and couldn't read presence (SchedulingMetrics). */
+    private double presenceUnknownLooks() {
+        var counter = context.getBean(MeterRegistry.class)
+                .find("scheduling.match.outcome")
+                .tag("outcome", "presence_unknown")
+                .counter();
+        return counter == null ? 0 : counter.count();
     }
 
     /**

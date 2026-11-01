@@ -102,7 +102,7 @@ class SessionInputTests {
                 .getContentAsString());
         var sessionId = UUID.fromString(booked.get("id").asString());
 
-        var offer = host.awaitOffer(TestBookings.WAIT);
+        var offer = bookings.awaitOffer(host);
         assertThat(offer.getSpec().getEnvMap())
                 .containsExactlyInAnyOrderEntriesOf(Map.of(
                         "SESSION_PARAM_GREETING", "hello",
@@ -145,7 +145,7 @@ class SessionInputTests {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.inputs.file.url").value("https://example.com/d.txt"));
 
-        var offer = host.awaitOffer(TestBookings.WAIT);
+        var offer = bookings.awaitOffer(host);
         assertThat(offer.getSpec().getEnvMap())
                 .containsEntry("SESSION_INPUT_FILE_URL", "https://example.com/d.txt")
                 .containsEntry("SESSION_PARAM_REPEAT", "3")
@@ -268,7 +268,7 @@ class SessionInputTests {
                                 .getContentAsString())
                 .get("id")
                 .asString());
-        small.reply(small.awaitOffer(TestBookings.WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        small.reply(bookings.awaitOffer(small).getOfferId(), true, TestBookings.ACCEPT);
 
         var large = bookings.host();
         var largeUpload = TestUploads.ready(mvc, renter, "large.bin", "l");
@@ -286,7 +286,7 @@ class SessionInputTests {
                         .transform(UUID::fromString));
         var largeSession = jdbc.queryForObject(
                 "select session_id from sessions.session_inputs where upload_id = ?", UUID.class, largeUpload);
-        large.reply(large.awaitOffer(TestBookings.WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        large.reply(bookings.awaitOffer(large).getOfferId(), true, TestBookings.ACCEPT);
 
         var failed = bookings.awaitState(renter, smallSession, "FAILED");
         var events = failed.get("events");
@@ -325,7 +325,7 @@ class SessionInputTests {
                 .andExpect(jsonPath("$.inputs.model.uploadId").value(model.toString()))
                 .andExpect(jsonPath("$.inputs.data.url").value("https://example.com/train.jsonl"));
 
-        var offer = host.awaitOffer(TestBookings.WAIT);
+        var offer = bookings.awaitOffer(host);
         assertThat(offer.getSpec().getEnvMap())
                 .containsEntry("SESSION_INPUT_MODEL_DIR", "/work/input/model/")
                 .containsEntry("SESSION_INPUT_DATA_URL", "https://example.com/train.jsonl");
@@ -356,7 +356,7 @@ class SessionInputTests {
                                 Map.of("model", Map.of("uploadId", model), "data", Map.of("uploadId", data)))))
                 .andExpect(status().isCreated());
 
-        host.reply(host.awaitOffer(TestBookings.WAIT).getOfferId(), true, TestBookings.ACCEPT);
+        host.reply(bookings.awaitOffer(host).getOfferId(), true, TestBookings.ACCEPT);
         var start = host.awaitStart(TestBookings.WAIT).getStartSession();
         assertThat(start.getInputsList())
                 .extracting(input -> input.getSlot() + ":" + input.getName() + ":" + input.getSizeBytes())
@@ -461,7 +461,7 @@ class SessionInputTests {
         awaitFreeDisk(host.id(), 1_457 + TestHosts.DEFAULT_KEEP_FREE_MB);
         book(renter, "roomy", echo(Map.of("greeting", "hi"), Map.of("uploadId", upload)))
                 .andExpect(status().isCreated());
-        assertThat(host.awaitOffer(TestBookings.WAIT).getSpec().getScratchMb()).isEqualTo(1_024);
+        assertThat(bookings.awaitOffer(host).getSpec().getScratchMb()).isEqualTo(1_024);
     }
 
     /**

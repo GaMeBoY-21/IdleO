@@ -118,6 +118,38 @@ class PresenceUnknownTests {
         assertThat(host.awaitOffer(Duration.ofSeconds(20))).isNotNull();
     }
 
+    /**
+     * The first try and three quick retries can't read presence, so the matcher decides at its fourth retry, some 15 s
+     * after the booking: later than {@link TestBookings#WAIT}, as when Valkey keeps missing its timeout on a busy runner.
+     * The tests' waits follow the matcher, not the clock (TestBookings.untilMatcherDecides).
+     */
+    @Test
+    void aWaitForASessionsStateLastsWhileTheMatcherCantReadPresence() throws Exception {
+        var host = bookings.host();
+        var renter = bookings.renter();
+
+        presence.failures.set(4);
+        var session = bookings.book(renter);
+        long started = System.nanoTime();
+        bookings.awaitState(renter, session, "MATCHED");
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isGreaterThan(TestBookings.WAIT);
+        host.reply(bookings.awaitOffer(host).getOfferId(), true, TestBookings.ACCEPT);
+    }
+
+    /** As above, for an offer the host waits for. */
+    @Test
+    void aWaitForAnOfferLastsWhileTheMatcherCantReadPresence() throws Exception {
+        var host = bookings.host();
+        var renter = bookings.renter();
+
+        presence.failures.set(4);
+        bookings.book(renter);
+        long started = System.nanoTime();
+        var offer = bookings.awaitOffer(host);
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isGreaterThan(TestBookings.WAIT);
+        host.reply(offer.getOfferId(), true, TestBookings.ACCEPT);
+    }
+
     @Test
     void aLookupThatFindsNoHostOnlineStillEndsTheBooking() throws Exception {
         var renter = bookings.renter();
