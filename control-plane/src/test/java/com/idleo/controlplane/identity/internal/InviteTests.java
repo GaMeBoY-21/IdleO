@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -28,6 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** Access by invitation (ADR 0024): waiting users, codes, and the limit on tries. */
 @ControlPlaneTest
 @TestPropertySource(properties = "identity.invite-only=true")
+@DirtiesContext
 class InviteTests {
 
     @Autowired

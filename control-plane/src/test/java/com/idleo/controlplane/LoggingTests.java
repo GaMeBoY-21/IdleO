@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * Starts its own context (the extra property keeps it out of the shared one), so the whole startup
@@ -21,6 +22,7 @@ import org.springframework.context.annotation.Import;
     TestPkiConfiguration.class,
     TestStorageConfiguration.class
 })
+@DirtiesContext
 class LoggingTests {
 
     @Test
