@@ -10,7 +10,8 @@ import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,20 +69,30 @@ class TelemetryPrivacyTests {
 
     @Test
     void noTraceAttributeIsPersonal() throws Exception {
-        var seen = new CopyOnWriteArrayList<KeyValue>();
+        // The shared context keeps a handler once it's added (Micrometer can't remove one), so this one records only
+        // while this test runs. Left recording, it copied every later observation in the suite, on whichever thread
+        // made it, Valkey's event loop included, until other tests' Valkey commands missed their 1 s timeout.
+        var recording = new AtomicBoolean(true);
+        var seen = new ConcurrentLinkedQueue<KeyValue>();
         ObservationHandler<Observation.Context> recorder = new ObservationHandler<>() {
             @Override
             public boolean supportsContext(Observation.Context context) {
-                return true;
+                return recording.get();
             }
 
             @Override
             public void onStop(Observation.Context context) {
-                context.getAllKeyValues().forEach(seen::add);
+                if (recording.get()) {
+                    context.getAllKeyValues().forEach(seen::add);
+                }
             }
         };
         observations.observationConfig().observationHandler(recorder);
-        traffic(TestUsers.signUp(mvc));
+        try {
+            traffic(TestUsers.signUp(mvc));
+        } finally {
+            recording.set(false);
+        }
 
         assertThat(seen).isNotEmpty();
         for (var attribute : List.copyOf(seen)) {
