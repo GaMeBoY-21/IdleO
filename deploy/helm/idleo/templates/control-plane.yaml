@@ -55,6 +55,7 @@ spec:
                     app.kubernetes.io/instance: {{ .Release.Name }}
                     idleo.in/control-plane: "true"
       initContainers:
+        {{- include "idleo.networkPolicyWait" $ | nindent 8 }}
         # On a first install the migration Job runs once the database is up (post-install): until the schema is
         # there, this fails (a division by zero), and the kubelet tries it again. An upgrade's schema is migrated
         # before its pods roll, so this passes at once. It's the database's own image, so this Deployment names that
