@@ -57,7 +57,7 @@ services:
     # reference distribution registry, plain HTTP, which only a development distribution's runner will use. The images'
     # digests are what the catalog pins; scripts/images/publish.sh --dev pushes them. ./start.sh --lan opens the port to the
     # LAN (LOCAL_REGISTRY_BIND=0.0.0.0), so a Windows laptop can pull.
-    image: registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
+    image: registry:3@sha256:d4032d4cc323c1731c707931ecada07a53076eac38e3b61ae57533f170f2c6c3
     volumes:
       - registry-data:/var/lib/registry
     ports:
@@ -102,7 +102,7 @@ services:
     # A development sign-in server (navikt/mock-oauth2-server) issuing ID tokens
     # shaped like Identity Platform's for invented users (ADR 0013). The local
     # profile trusts it; the prod profile refuses to start with such an issuer.
-    image: ghcr.io/navikt/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
+    image: ghcr.io/navikt/mock-oauth2-server:6.1.4@sha256:647dd8c78a54f0e6fcd58d79c884e612f8f998a0662276f3e1db22e464a50192
     environment:
       JSON_CONFIG_PATH: /config/local-sign-in.json
     volumes:
@@ -115,7 +115,7 @@ services:
     # A local mail server that keeps every email and shows it in a web page (ADR 0026): nothing is delivered
     # anywhere. The local profile sends to its SMTP port; its API (http://localhost:8025/api/v1/messages) is what
     # the end-to-end test reads.
-    image: axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+    image: axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498
     ports:
       - "127.0.0.1:${LOCAL_MAIL_SMTP_PORT:-1025}:1025"
       - "127.0.0.1:${LOCAL_MAIL_WEB_PORT:-8025}:8025"
@@ -125,7 +125,7 @@ services:
     # an OpenTelemetry collector on 4317 and 4318, which the local profile finds by this image and sends to. Prometheus
     # evaluates ops/alerts and tells alertmanager; Grafana shows ops/grafana's dashboards. Only ./start.sh runs it
     # (profile observability); the end-to-end stack leaves it out.
-    image: grafana/otel-lgtm:0.35.0@sha256:2de1094c593c671cbfca878a28ffcd7e46ff5e32f2ce966c0cf33003f6cf4266
+    image: grafana/otel-lgtm:0.38.1@sha256:0df9bc14142000b161344bd24caf6ddd319b7319055aedaf9b0692b125730af7
     profiles: [observability]
     environment:
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
@@ -145,7 +145,7 @@ services:
   alertmanager:
     # Sends development's alerts to Mailpit as email (ops/alertmanager/development.yaml), where the alert test reads
     # them. Production's go to Grafana Cloud's own (docs/runbooks/monitoring.md).
-    image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    image: prom/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
     profiles: [observability]
     command: ["--config.file=/etc/alertmanager/alertmanager.yaml", "--storage.path=/alertmanager"]
     volumes:
