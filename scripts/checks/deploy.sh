@@ -218,8 +218,8 @@ done
 # ...and that script waits through a kubelet that stops answering for a moment (check 13 of the security suite runs this too).
 python3 -c '
 import sys, yaml
-scanner = next(d for d in yaml.safe_load_all(open(sys.argv[1])) if d and d["kind"] == "Deployment" and d["metadata"]["name"].endswith("scanner"))
-print(scanner["spec"]["template"]["spec"]["initContainers"][0]["command"][2])' "$work/rendered.yaml" >"$work/network-policy-wait.sh"
+pod = next(d for d in yaml.safe_load_all(open(sys.argv[1])) if d and d["kind"] == "Deployment")
+print(pod["spec"]["template"]["spec"]["initContainers"][0]["command"][2])' "$work/rendered.yaml" >"$work/network-policy-wait.sh"
 python3 "$root/scripts/k8s/network-policy-wait-test.py" "$work/network-policy-wait.sh"
 
 # 5. The chart's unit tests, on a copy: helm-unittest writes a snapshot folder into the chart's tests, even with no
