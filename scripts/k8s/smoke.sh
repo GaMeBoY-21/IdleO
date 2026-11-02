@@ -200,24 +200,35 @@ while old_pods_left || ! in_namespace rollout status "$control_plane" --timeout=
 done
 took=$((SECONDS - restarted))
 ((failed == 0)) || fail "$failed of $requests requests to the API failed during the rolling restart"
-gap_ms="$(tail -n +"$((agent_lines + 1))" "$out/agent-1.log" | python3 -c '
-import re, sys
+# The agent may be told more than once: the load balancer can hand it to an old pod that hasn't stopped yet, which
+# tells it again as it stops, a moment before it's gone. Each time it's told, it must be back within the limit below;
+# the last time may still be in its backoff now, so its connection is waited for (by the same limit, from its log).
+# Prints each gap in milliseconds, or "waiting" if the last instruction has no connection after it yet.
+reconnect_gaps() {
+  tail -n +"$((agent_lines + 1))" "$out/agent-1.log" | python3 -c '
+import sys
 from datetime import datetime
-told = back = None
+told, gaps = None, []
 for line in sys.stdin:
     at = datetime.fromisoformat(line.split()[0].replace("Z", "+00:00"))
-    if told is None and "This control plane is stopping; reconnect" in line:
+    if "This control plane is stopping; reconnect" in line:
         told = at
     elif told is not None and " connected host_id=" in line:
-        back = at
-        break
-print(int((back - told).total_seconds() * 1000) if told and back else "")')"
-[[ -n "$gap_ms" ]] || fail "the agent wasn't told to reconnect, or didn't connect again; see private/k8s/logs/agent-1.log"
+        gaps.append(int((at - told).total_seconds() * 1000))
+        told = None
+print(" ".join(map(str, gaps)) + (" waiting" if told is not None else ""))'
+}
+deadline=$((SECONDS + 5))
+while [[ "$(reconnect_gaps)" == *waiting ]] && ((SECONDS < deadline)); do sleep 0.2; done
+gaps="$(reconnect_gaps)"
+[[ -n "$gaps" && "$gaps" != *waiting ]] ||
+  fail "the agent wasn't told to reconnect, or didn't connect again (gaps: ${gaps:-none}); see private/k8s/logs/agent-1.log"
+gap_ms="$(tr ' ' '\n' <<<"$gaps" | sort -n | tail -1)"
 kill -0 "$agent_pid" 2>/dev/null || fail "the agent exited during the rolling restart"
 host_online || fail "the host isn't online after the rolling restart"
 # Its backoff's first delay is at most a second (agent/src/backoff.rs), and a new stream takes a moment more.
 ((gap_ms <= 3000)) || fail "the agent took $gap_ms ms to reconnect after the rolling restart"
-pass "a rolling restart took $took s with all $requests API requests answered; the agent was told to reconnect and was back in $gap_ms ms"
+pass "a rolling restart took $took s with all $requests API requests answered; the agent was told to reconnect $(wc -w <<<"$gaps" | tr -d " ") time(s) and was back each time within $gap_ms ms ($gaps ms)"
 
 echo
 printf '  %s\n' "${summary[@]}"
