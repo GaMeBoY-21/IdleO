@@ -52,7 +52,8 @@ puts a new pod's rules in place only once it has seen the pod: measured 0.3 to 1
 and longer on a busy node. Until then the pod reaches anything, the cloud's metadata address and the internet included.
 This waits, before any other container starts, until the node's kubelet port stops answering: it answers a pod no rule
 covers yet, every pod of ours is denied it, and kube-router writes a pod's rules all at once, so then every one is in
-place. A pod whose rules never arrive doesn't start. Valkey's image: pinned, allowed, with bash. Kyverno's pod runs the
+place. Five failures in a row, 100 ms apart, because one alone may only be a busy kubelet. A pod whose rules never arrive
+doesn't start. Valkey's image: pinned, allowed, with bash. Kyverno's pod runs the
 same container (deploy/infrastructure/base/kyverno.yaml; deploy.sh checks they're the same).
 */}}
 {{- define "idleo.networkPolicyWait" -}}
@@ -64,9 +65,11 @@ same container (deploy/infrastructure/base/kyverno.yaml; deploy.sh checks they'r
     - -c
     - |
       deadline=$((SECONDS + 300))
-      while timeout 1 bash -c "exec 3<>/dev/tcp/$NODE/10250" 2>/dev/null; do
+      failed=0
+      until ((failed == 5)); do
         ((SECONDS < deadline)) || { echo "this pod's network policy isn't in place after 300 s: the node's kubelet port still answers"; exit 1; }
-        sleep 0.05
+        if timeout 1 bash -c "exec 3<>/dev/tcp/$NODE/10250" 2>/dev/null; then failed=0; else failed=$((failed + 1)); fi
+        sleep 0.1
       done
   env:
     - name: NODE

@@ -582,6 +582,14 @@ if [[ "$control" != unfinished && "$(reached "$control" 10)" != none ]]; then
 else
   row 13 "control: the same pods without the wait" "${control:-reached nothing} (must reach something)" FAIL
 fi
+# A kubelet that stops answering for a moment mustn't end the wait: the deployed script against a fake kubelet, since on
+# k3s the real one shares its process with everything else on the node.
+python3 -c 'import json, sys; print(json.loads(sys.argv[1])["command"][2])' "$wait_container" >"$out/network-policy-wait.sh"
+if blips="$(python3 "$k8s_root/scripts/k8s/network-policy-wait-test.py" "$out/network-policy-wait.sh" 2>&1)"; then
+  row 13 "a kubelet that stops answering for a moment doesn't let a pod through" "still waiting; passes after five failures in a row" PASS
+else
+  row 13 "a kubelet that stops answering for a moment doesn't let a pod through" "${blips##*$'\n'}" FAIL
+fi
 # Every pod of ours but CloudNativePG's (its operator makes them, ADR 0047), and Kyverno's, waits first.
 not_waiting="$({ in_namespace get pods -l '!cnpg.io/cluster,!idleo.in/security-test' -o json
   kubectl -n kyverno get pods -l app.kubernetes.io/component=admission-controller -o json; } | python3 -c '
