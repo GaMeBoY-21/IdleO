@@ -27,7 +27,9 @@ afterFirstScreen(() => void loadProblemWords());
 const queryClient = createQueryClient();
 // The sign-in adapter isn't needed to paint a screen with figures kept from an earlier visit, so it loads just after that
 // paint. Anything that needs a token before then, or a visit with nothing kept, has it fetched at once (src/auth/store.ts).
-void keptUser().then((uid) => (uid === null ? void authStore.start() : afterPaint(() => void authStore.start())));
+void keptUser().then((uid) =>
+  uid === null ? void authStore.start() : afterPaint(() => void authStore.start()),
+);
 
 const app = (
   <StrictMode>
