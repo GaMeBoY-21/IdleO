@@ -215,6 +215,12 @@ kyverno = [same(c) for c in release["spec"]["values"]["admissionController"].get
 sys.exit(0 if kyverno[:1] == [ours] else f"Kyverno's first init container isn't the chart's wait-for-network-policy:\n  {kyverno[:1]}\n  {ours}")
 PY
 done
+# ...and that script waits through a kubelet that stops answering for a moment (check 13 of the security suite runs this too).
+python3 -c '
+import sys, yaml
+scanner = next(d for d in yaml.safe_load_all(open(sys.argv[1])) if d and d["kind"] == "Deployment" and d["metadata"]["name"].endswith("scanner"))
+print(scanner["spec"]["template"]["spec"]["initContainers"][0]["command"][2])' "$work/rendered.yaml" >"$work/network-policy-wait.sh"
+python3 "$root/scripts/k8s/network-policy-wait-test.py" "$work/network-policy-wait.sh"
 
 # 5. The chart's unit tests, on a copy: helm-unittest writes a snapshot folder into the chart's tests, even with no
 #    snapshot to keep.
