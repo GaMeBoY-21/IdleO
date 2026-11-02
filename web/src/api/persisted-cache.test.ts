@@ -1,142 +1,45 @@
-import { QueryClient, QueryObserver } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const stored = new Map<string, string>();
+const store = vi.hoisted(() => new Map<string, string>());
 vi.mock("idb-keyval", () => ({
-  get: async (key: string) => stored.get(key),
-  set: async (key: string, value: string) => void stored.set(key, value),
-  del: async (key: string) => void stored.delete(key),
+  get: async (key: string) => store.get(key),
+  set: async (key: string, value: string) => void store.set(key, value),
+  del: async (key: string) => void store.delete(key),
 }));
 
-const { forget, restoreFor } = await import("./persisted-cache");
+const KEY = "idleo.home-cache";
+const kept = (buster: string, timestamp: number) =>
+  JSON.stringify({ buster, timestamp, clientState: { mutations: [], queries: [] } });
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 1_100));
-
-describe("the kept figures", () => {
-  beforeEach(async () => {
-    await forget();
-    stored.clear();
-  });
-
-  it("brings back the same user's figures on their next visit, and only the home's", async () => {
-    const first = new QueryClient();
-    await restoreFor(first, "asha");
-    first.setQueryData(["wallet"], { availablePaise: 49_940 });
-    first.setQueryData(["session", "x"], { id: "x" });
-    await settle();
-
-    // A new page: a fresh module and a fresh client, with only the browser's store carried over.
+describe("the figures kept from an earlier visit", () => {
+  beforeEach(() => {
+    store.clear();
     vi.resetModules();
-    const fresh = await import("./persisted-cache");
-    const next = new QueryClient();
-    await fresh.restoreFor(next, "asha");
-    expect(next.getQueryData(["wallet"])).toEqual({ availablePaise: 49_940 });
-    expect(next.getQueryData(["session", "x"])).toBeUndefined();
-    await fresh.forget();
   });
 
-  it("brings back an owner's machines, a machine and their earnings, but nothing that hangs off a machine", async () => {
-    const first = new QueryClient();
-    await restoreFor(first, "asha");
-    first.setQueryData(["hosts"], { hosts: [] });
-    first.setQueryData(["host", "h1"], { id: "h1" });
-    first.setQueryData(["earnings"], { pages: [], pageParams: [] });
-    first.setQueryData(["host", "h1", "telemetry"], { now: null });
-    first.setQueryData(["host", "h1", "sessions"], { pages: [] });
-    first.setQueryData(["host", "h1", "price-band"], { lowPaisePerMin: 1 });
-    await settle();
+  it("name who they were kept for", async () => {
+    store.set(KEY, kept("asha", Date.now() - 60_000));
+    const { keptUser } = await import("./persisted-cache");
+    expect(await keptUser()).toBe("asha");
+  });
 
+  it("name no one when there are none, or they're over a day old", async () => {
+    const none = await import("./persisted-cache");
+    expect(await none.keptUser()).toBeNull();
     vi.resetModules();
-    const fresh = await import("./persisted-cache");
-    const next = new QueryClient();
-    await fresh.restoreFor(next, "asha");
-    expect(next.getQueryData(["hosts"])).toEqual({ hosts: [] });
-    expect(next.getQueryData(["host", "h1"])).toEqual({ id: "h1" });
-    expect(next.getQueryData(["earnings"])).toEqual({ pages: [], pageParams: [] });
-    expect(next.getQueryData(["host", "h1", "telemetry"])).toBeUndefined();
-    expect(next.getQueryData(["host", "h1", "sessions"])).toBeUndefined();
-    expect(next.getQueryData(["host", "h1", "price-band"])).toBeUndefined();
-    await fresh.forget();
+    store.set(KEY, kept("asha", Date.now() - 25 * 60 * 60_000));
+    const old = await import("./persisted-cache");
+    expect(await old.keptUser()).toBeNull();
   });
 
-  it("refreshes restored figures once the screen has shown them, however recent", async () => {
-    const first = new QueryClient();
-    await restoreFor(first, "asha");
-    first.setQueryData(["sessions"], { sessions: [] });
-    await settle();
-
-    vi.resetModules();
-    const fresh = await import("./persisted-cache");
-    const next = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
-    await fresh.restoreFor(next, "asha");
-    const restored = next.getQueryCache().find({ queryKey: ["sessions"] });
-    expect(restored?.state.data).toEqual({ sessions: [] });
-    expect(restored?.isStale()).toBe(false);
-    fresh.refreshRestored(next);
-    expect(restored?.isStale()).toBe(true);
-    await fresh.forget();
-  });
-
-  it("refreshes only what came from the restore, not what this page has fetched since", async () => {
-    const first = new QueryClient();
-    await restoreFor(first, "asha");
-    first.setQueryData(["sessions"], { sessions: [] });
-    await settle();
-
-    vi.resetModules();
-    const fresh = await import("./persisted-cache");
-    const next = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
-    await fresh.restoreFor(next, "asha");
-    // The screen's own request, made after the restore and answered before the screen's first paint.
-    let fetches = 0;
-    const observer = new QueryObserver(next, {
-      queryKey: ["hosts"],
-      queryFn: () => {
-        fetches++;
-        return Promise.resolve({ hosts: [] });
-      },
-    });
-    const stop = observer.subscribe(() => undefined);
-    await vi.waitFor(() => expect(next.getQueryData(["hosts"])).toEqual({ hosts: [] }));
-
-    fresh.refreshRestored(next);
-
-    expect(fetches, "the screen's own request wasn't sent a second time").toBe(1);
-    expect(
-      next
-        .getQueryCache()
-        .find({ queryKey: ["sessions"] })
-        ?.isStale(),
-    ).toBe(true);
-    expect(
-      next
-        .getQueryCache()
-        .find({ queryKey: ["hosts"] })
-        ?.isStale(),
-    ).toBe(false);
-    stop();
-    await fresh.forget();
-  });
-
-  it("gives a different user nothing of the last one's", async () => {
-    const asha = new QueryClient();
-    await restoreFor(asha, "asha");
-    asha.setQueryData(["wallet"], { availablePaise: 49_940 });
-    await settle();
-    expect(stored.size).toBe(1);
-
-    const ravi = new QueryClient();
-    await restoreFor(ravi, "ravi");
-    expect(ravi.getQueryData(["wallet"])).toBeUndefined();
-  });
-
-  it("forgets everything on sign-out", async () => {
+  it("are cleared from the screen when sign-in names someone else", async () => {
+    store.set(KEY, kept("asha", Date.now() - 60_000));
+    const { restoreFor } = await import("./persisted-cache");
     const client = new QueryClient();
     await restoreFor(client, "asha");
-    client.setQueryData(["wallet"], { availablePaise: 1 });
-    await settle();
-    expect(stored.size).toBe(1);
-    await forget();
-    expect(stored.size).toBe(0);
+    client.setQueryData(["wallet"], { availablePaise: 500 });
+    await restoreFor(client, "ravi");
+    expect(client.getQueryData(["wallet"])).toBeUndefined();
   });
 });

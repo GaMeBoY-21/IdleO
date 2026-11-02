@@ -1,63 +1,10 @@
 /**
  * Every path the app has a screen for (src/App.tsx), and the module that draws it. scripts/postbuild.ts writes an
  * index.html into each path, so any static host serves a deep link without a rewrite rule, and preloads that
- * screen's own code in it, so a lazily loaded screen doesn't wait for the entry script to ask for it. The signed-in
- * screens also preload the sign-in adapter, which they need for a token before their first API call.
+ * screen's own code in it, so a lazily loaded screen doesn't wait for the entry script to ask for it.
  */
-/** The screens that need a signed-in user's token at once. */
-export const SIGNED_IN_SCREENS = [
-  "/",
-  "/credit/",
-  "/session/",
-  "/sessions/",
-  "/book/",
-  "/files/",
-  "/hosting/",
-  "/hosting/machine/",
-  "/hosting/price/",
-  "/hosting/sessions/",
-  "/hosting/earnings/",
-  "/hosting/payout-details/",
-  "/hosting/add/",
-  "/link/",
-  "/welcome/",
-  "/agree/",
-  "/invite/",
-  "/account/",
-  "/account/keys/",
-  "/account/reports/",
-  "/account/images/",
-  "/account/data/",
-  "/account/delete/",
-  "/account/delete/confirm/",
-  "/account/help/",
-  "/account/help/ticket/",
-  "/notifications/",
-  "/admin/",
-  "/admin/users/",
-  "/admin/hosts/",
-  "/admin/sessions/",
-  "/admin/review/",
-  "/admin/disputes/",
-  "/admin/abuse/",
-  "/admin/images/",
-  "/admin/tickets/",
-  "/admin/notices/",
-  "/admin/money/",
-  "/admin/payments/",
-  "/admin/refunds/",
-  "/admin/invoices/",
-  "/admin/chargebacks/",
-  "/admin/payouts/",
-  "/admin/verification/",
-  "/admin/clawbacks/",
-  "/admin/tax/",
-  "/admin/invites/",
-  "/admin/audit/",
-];
-
 export const SCREENS: Record<string, string | null> = {
-  "/": null,
+  "/": "src/features/home/Home.tsx",
   "/credit/": "src/features/credit/CreditHistory.tsx",
   "/session/": "src/features/session/SessionDetail.tsx",
   "/sessions/": "src/features/sessions/AllSessions.tsx",

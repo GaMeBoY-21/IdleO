@@ -1,7 +1,7 @@
 // The first-load JavaScript budget (ADR 0018, web/DESIGN.md "Speed is a feature"): what the signed-in home
 // downloads before it can show the renter's credit. That's the entry script and everything it imports
-// statically, plus the sign-in adapter and its imports, which the home needs for a token before its first API
-// call. Counted gzipped, and failed above the budget. A screen loaded later (credit, sign-in) doesn't count.
+// statically, the home's own chunk, plus the sign-in adapter and its imports, which the home needs for a token before its
+// first API call. Counted gzipped, and failed above the budget. A screen loaded later (credit, sign-in) doesn't count.
 import { readdirSync, readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
@@ -46,7 +46,12 @@ function closure(start: string[], seen = new Set<string>()): Set<string> {
   return seen;
 }
 
-const files = closure([...entries, `assets/${adapter[0]}`]);
+const manifest = JSON.parse(read(".vite/manifest.json")) as Record<string, { file: string }>;
+const home = manifest["src/features/home/Home.tsx"]?.file;
+if (!home) {
+  throw new Error("no chunk for the home screen in the build manifest");
+}
+const files = closure([...entries, home, `assets/${adapter[0]}`]);
 const rows = [...files].map((file) => ({ file, kb: gzipSync(read(file), { level: 9 }).length / 1024 }));
 const total = rows.reduce((sum, row) => sum + row.kb, 0);
 

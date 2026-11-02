@@ -1,13 +1,15 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
+import { keptUser } from "@/api/persisted-cache";
 import { createQueryClient } from "@/api/queries";
 import { App, preloadScreen } from "@/App";
 import { authStore } from "@/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SignedOutCacheReset } from "@/components/shell/SignedOutCacheReset";
 import { config } from "@/config";
-import { afterFirstScreen } from "@/lib/after-first-screen";
+import { afterFirstScreen, afterPaint } from "@/lib/after-first-screen";
+import { loadProblemWords } from "@/lib/problems";
 import { holdEarlyErrors } from "@/telemetry/early-errors";
 import "./styles.css";
 
@@ -20,10 +22,12 @@ afterFirstScreen(() => {
   );
 });
 
+afterFirstScreen(() => void loadProblemWords());
+
 const queryClient = createQueryClient();
-// The sign-in adapter isn't needed to paint the first screen, so it loads just after it; anything that needs a
-// token waits for it (src/auth/store.ts).
-requestAnimationFrame(() => setTimeout(() => void authStore.start(), 0));
+// The sign-in adapter isn't needed to paint a screen with figures kept from an earlier visit, so it loads just after that
+// paint. Anything that needs a token before then, or a visit with nothing kept, has it fetched at once (src/auth/store.ts).
+void keptUser().then((uid) => (uid === null ? void authStore.start() : afterPaint(() => void authStore.start())));
 
 const app = (
   <StrictMode>

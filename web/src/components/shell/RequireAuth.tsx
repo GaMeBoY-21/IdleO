@@ -1,14 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useSearch } from "wouter";
-import { refreshRestored, restoreFor } from "@/api/persisted-cache";
+import { keptUser, refreshRestored, restoreFor } from "@/api/persisted-cache";
 import { useAuth } from "@/auth";
 import { afterPaint } from "@/lib/after-first-screen";
 
 /**
- * The signed-in screens: a signed-out visitor goes to sign-in, and comes back here afterwards. Once sign-in has
- * said who's here, their last figures are restored (src/api/persisted-cache.ts) before the screen shows, and
- * refreshed just after its first frame is painted.
+ * The signed-in screens: a signed-out visitor goes to sign-in, and comes back here afterwards. The last figures of
+ * whoever was here last are restored (src/api/persisted-cache.ts) before the screen shows, and refreshed just after its
+ * first frame is painted, so that frame doesn't wait for the sign-in adapter, which loads after it (src/main.tsx). With
+ * none kept, the screen waits for sign-in to say who's here.
  */
 export function RequireAuth({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   const auth = useAuth();
@@ -16,7 +17,12 @@ export function RequireAuth({ children, fallback }: { children: ReactNode; fallb
   const [path, navigate] = useLocation();
   const search = useSearch();
   const [restoredFor, setRestoredFor] = useState<string | null>(null);
-  const uid = auth.status === "signed-in" ? auth.user.uid : null;
+  const [kept, setKept] = useState<string | null>(null);
+  const uid = auth.status === "signed-in" ? auth.user.uid : auth.status === "loading" ? kept : null;
+
+  useEffect(() => {
+    void keptUser().then(setKept);
+  }, []);
 
   useEffect(() => {
     if (auth.status === "signed-out") {

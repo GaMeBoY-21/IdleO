@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 import { authStore } from "@/auth";
 import { config } from "@/config";
+import { loadProblemWords } from "@/lib/problems";
 import { authedFetch } from "./authed-fetch";
 import { ApiError } from "./errors";
 import type { paths } from "./schema.gen";
@@ -10,10 +11,20 @@ import type { paths } from "./schema.gen";
  * test, so an API change that breaks the web app fails its type check.
  */
 /** Every request to the API: with the caller's token, refreshed and retried once on a 401 (ADR 0018). */
-export const apiFetch = authedFetch({
-  getIdToken: (forceRefresh) => authStore.getIdToken(forceRefresh),
-  signOut: (reason) => authStore.signOut(reason),
-});
+export const apiFetch = authedFetch(
+  {
+    getIdToken: (forceRefresh) => authStore.getIdToken(forceRefresh),
+    signOut: (reason) => authStore.signOut(reason),
+  },
+  async (request) => {
+    const response = await fetch(request);
+    if (!response.ok) {
+      // Whoever reads this refusal will want its words.
+      await loadProblemWords();
+    }
+    return response;
+  },
+);
 
 export const api = createClient<paths>({ baseUrl: config.apiUrl, fetch: apiFetch });
 

@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
-import { PROBLEM_MESSAGES, problemMessage } from "./problems";
+import { PROBLEM_MESSAGES } from "./problem-words";
+import { problemMessage } from "./problems";
 
 /** Written from the control plane's catalog by ProblemCatalogTests (ADR 0019). */
 const published = JSON.parse(
@@ -30,6 +31,20 @@ describe("the words for problem types", () => {
     expect(problemMessage(error)).toBe(PROBLEM_MESSAGES["insufficient-credit"]);
     expect(problemMessage(new TypeError("Failed to fetch"))).toMatch(/Check your connection/);
     expect(problemMessage(ApiError.of(502, "<html>"))).toBe(PROBLEM_MESSAGES["internal-error"]);
+  });
+
+  it("fall back to the network's words if their file couldn't be fetched", async () => {
+    vi.resetModules();
+    vi.doMock("./problem-words", () => Promise.reject(new Error("offline")));
+    const { ApiError: Fresh } = await import("@/api/errors");
+    const fresh = await import("./problems");
+    await fresh.loadProblemWords();
+    expect(fresh.problemMessage(Fresh.of(500, undefined))).toBe(
+      "We couldn't reach IdleO. Check your connection and try again.",
+    );
+    vi.doUnmock("./problem-words");
+    await fresh.loadProblemWords();
+    expect(fresh.problemMessage(Fresh.of(500, undefined))).toBe(PROBLEM_MESSAGES["internal-error"]);
   });
 
   it("keep each invalid field of a validation problem", () => {

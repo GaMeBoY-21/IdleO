@@ -9,8 +9,9 @@ import { del, get, set } from "idb-keyval";
  * owner's (their machines, each machine, their earnings; ADR 0023), so the Hosting tab's figure and a machine's
  * name don't wait on the network for their first paint, which a cold start would otherwise make a second slower
  * than the budget. A machine's telemetry, price band and sessions are never kept. The
- * cache is kept in this browser's IndexedDB for the signed-in user only: it's restored only once sign-in has said
- * who that is, a different user's cache is thrown away, it's dropped after a day, and signing out removes it.
+ * cache is kept in this browser's IndexedDB for the signed-in user only: it's restored for the person it was kept for
+ * (keptUser) while sign-in, which comes after the paint, is still loading, and goes as soon as sign-in says that's someone
+ * else or no one. A different user's cache is thrown away, it's dropped after a day, and signing out removes it.
  * Restored figures always show when they're from until fresh ones arrive, and they're never taken as fresh: however
  * recent, they're refetched once the screen has shown them (refreshRestored), so the network never holds it back.
  */
@@ -31,6 +32,16 @@ const persister = createAsyncStoragePersister({
   throttleTime: 1_000,
 });
 
+let kept: Promise<string | null> | null = null;
+
+/** Whom the figures in this browser were kept for, if they're still good: who was signed in here last. Read once per page. */
+export function keptUser(): Promise<string | null> {
+  kept ??= Promise.resolve(persister.restoreClient())
+    .then((client) => (client && Date.now() - client.timestamp <= MAX_AGE_MS ? client.buster || null : null))
+    .catch(() => null);
+  return kept;
+}
+
 let active: { uid: string; stop: () => void } | null = null;
 let unrefreshed = false;
 /** When the restore finished: what was fetched after it is newer than anything restored. */
@@ -41,7 +52,11 @@ export async function restoreFor(client: QueryClient, uid: string): Promise<void
   if (active?.uid === uid) {
     return;
   }
-  active?.stop();
+  if (active) {
+    // Restored for whoever was here last, and sign-in says it's someone else: nothing of theirs stays on screen.
+    active.stop();
+    client.clear();
+  }
   const [stop, restored] = persistQueryClient({
     queryClient: client,
     persister,

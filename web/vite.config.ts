@@ -14,29 +14,29 @@ function themeBoot(): Plugin {
 }
 
 /**
- * The frame's own code in one chunk (ADR 0018, web/README.md "The budgets"). The shell's small modules are shared with
- * the lazily loaded screens, and the bundler would otherwise give each its own file: every one is another request the
- * first screen waits on. Modules only later screens use stay out of it.
+ * The main script, React and the frame's own code in one chunk (ADR 0018, web/README.md "The budgets"). The shell's small modules are
+ * shared with the lazily loaded screens, and the bundler would otherwise give each its own file: every one is another request the
+ * first screen waits on. Modules only later screens use stay out of it. Each screen's first load is this and one file of its own.
  */
 const LATER =
-  /src\/(lib\/(bytes|endings|log-signals)|api\/(logs|stream|session-follower|useLiveSession|wallet|images)|components\/shell\/(UserMenu|AccountRail|AppearanceChoice))\./;
+  /src\/(lib\/(bytes|endings|log-signals|support|uploads|invite|payouts|problem-words)|api\/(logs|stream|session-follower|useLiveSession|wallet|images|privacy|support|payouts)|components\/shell\/(UserMenu|AccountRail|AppearanceChoice)|design\/theme)\./;
 function shellChunk(id: string): string | undefined {
+  if (/\/src\/(main|App)\.tsx|node_modules\/(\.pnpm\/)?(react|react-dom|scheduler)[@/]/.test(id)) {
+    return "shell";
+  }
   if (LATER.test(id)) {
     return undefined;
   }
   if (
     /\/src\/(components|lib|api|auth\/(index|store|types)|config|design|brand)\b/.test(id) ||
-    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon|icons\/(check|plus|minus|star|copy|cpu|chevron-right)\.)/.test(
+    /lucide-react\/dist\/esm\/(createLucideIcon|defaultAttributes|shared|Icon|icons\/(check|plus|minus|star|copy|cpu|chevron-right|lock)\.)/.test(
       id,
     ) ||
-    // The route a session's progress is drawn on, shared by Book's right panel and the session screen: another file,
-    // and with it another round trip on a slow connection, if left apart (ADR 0031).
-    /\/src\/features\/flow\/Route\./.test(id) ||
-    // What sign-in and the screen its email link opens share, its words and its form's loader: each screen is a chunk
-    // of its own, so they'd otherwise be a shared file beside both.
-    /\/src\/features\/sign-in\/(messages|LazyEmailForm)\./.test(id) ||
-    // The words for every problem and the mutation code: shared by Book and the session screen, which would
-    // otherwise each wait on another small file (ADR 0021).
+    // What sign-in and the screen its email link opens share, its words and its form's loader; a session's title, shared by Home and
+    // the session screen; the listing fields, shared by a machine's price and the link screen. Each would otherwise be another file
+    // beside a screen's own, which on a slow connection costs a round trip (ADR 0018).
+    /\/src\/features\/(sign-in\/(messages|LazyEmailForm)|flow\/headline|hosting\/PriceForm)\./.test(id) ||
+    // The mutation code: shared by Book and the session screen, which would otherwise each wait on another small file (ADR 0021).
     /query-core\/build\/modern\/mutationObserver|react-query\/build\/modern\/useMutation/.test(id) ||
     /node_modules\/(\.pnpm\/)?clsx/.test(id)
   ) {
@@ -69,6 +69,11 @@ export default defineConfig(({ mode }) => {
       // Source maps are made for every build but never served: scripts/postbuild.ts moves them out of dist into
       // dist-sourcemaps/, which the control plane reads to name a JavaScript error's file and line (ADR 0036).
       sourcemap: process.env.IDLEO_SOURCEMAP === "1" ? true : "hidden",
+      // One style sheet, which goes into every page (scripts/postbuild.ts), so no chunk has one to fetch.
+      cssCodeSplit: false,
+      // No helper that preloads a lazy chunk's imports, nor its table of every chunk's file names, whose hashes barely compress:
+      // a page's own chunks are named in its HTML (scripts/postbuild.ts), and the rest are fetched just after its first screen.
+      modulePreload: false,
       rollupOptions: { output: { manualChunks: shellChunk } },
     },
     server: { port: 3000, strictPort: true },

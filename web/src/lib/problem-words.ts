@@ -1,0 +1,127 @@
+import type { ProblemSlug } from "./problems";
+
+/**
+ * What the renter reads for each problem type the API can return (docs/api/problems.md, ADR 0019), in
+ * web/DESIGN.md's voice: what happened, then what to do. The type check fails if the API gains a type without words
+ * here, and a test checks it against api/problems.json. Views branch on the type, never on the API's English.
+ */
+export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
+  "validation-failed": "Some details need fixing. Check the fields marked below.",
+  "malformed-request": "That request couldn't be read. Reload the page and try again.",
+  unauthenticated: "Your sign-in has expired. Sign in again to carry on.",
+  "account-suspended":
+    "Your account is suspended, so nothing can be booked. Contact us to have it reinstated.",
+  "email-not-verified": "Your email address isn't verified yet. Open the link we sent you, then try again.",
+  "access-denied": "This account can't do that.",
+  "terms-not-accepted": "Accept the Terms and the privacy notice first, then try again.",
+  "browser-sign-in-required": "Do this in the web app, signed in: an API key can't.",
+  "api-key-read-only": "This API key can only read. Use a full key, or the web app.",
+  "too-many-api-keys": "You have 20 API keys. Revoke one you no longer use, then create this one.",
+  "invite-required": "Enter your invite code to get started.",
+  "invite-invalid":
+    "That code isn't one we can accept. Check it and try again, or ask the person who invited you.",
+  "fresh-sign-in-required": "For your safety, sign out and sign in again, then try this within 10 minutes.",
+  "export-in-progress": "Your file is still being made. We'll email you when it's ready.",
+  "export-too-soon": "You can make one file a day. Try again tomorrow.",
+  "deletion-blocked": "Your account can't be deleted yet. The list below says what has to end first.",
+  "deletion-already-requested":
+    "You've already asked to delete your account. Check your email to confirm it.",
+  "deletion-link-invalid":
+    "That link doesn't work: it was used already, it's more than a day old, or it's not the latest. Ask again.",
+  "no-deletion-pending": "Your account isn't waiting to be deleted, so there's nothing to cancel.",
+  "message-looks-automated": "That was sent faster than a person writes. Wait a moment, then send it again.",
+  "notices-changed":
+    "The Terms or privacy notice changed while you were reading. Reload to see the new ones.",
+  "age-not-confirmed": "Confirm that you're 18 or older to carry on.",
+  "too-many-attempts": "Too many codes were tried. Wait an hour, then try again.",
+  "notification-locked":
+    "Messages about your money and your safety always stay on, so they can't be turned off.",
+  "not-found": "We couldn't find that. It may have been removed, or the link is wrong.",
+  "method-not-allowed": "That request isn't one we accept. Reload the page and try again.",
+  "not-acceptable": "That request isn't one we accept. Reload the page and try again.",
+  "unsupported-media-type": "That request isn't one we accept. Reload the page and try again.",
+  "secret-shown-once":
+    "That key was already created, and it's shown only once. Revoke it in the list, then create another.",
+  "authorization-pending": "Waiting for you to approve the sign-in in the web app.",
+  "cli-login-expired": "That sign-in link has expired or was already used. Run idleo login again.",
+  "host-link-denied": "That link was denied. Start again from the app on your laptop.",
+  "host-link-expired": "That link has expired. Start again from the app on your laptop.",
+  "host-link-approved": "That laptop is already linked. To take it back, remove it from Hosting.",
+  "rate-limited": "That's a lot of requests at once. Wait a moment, then try again.",
+  "idempotency-key-invalid": "That request couldn't be sent safely. Reload the page and try again.",
+  "request-in-progress": "We're still working on your last request. Wait a moment, then try again.",
+  "idempotency-key-reused":
+    "That repeats an earlier request with different details. Review it, then try again.",
+  "version-required": "This changed since you opened it. Reload to see the latest, then try again.",
+  "version-stale": "This changed since you opened it. Reload to see the latest, then try again.",
+  "insufficient-credit": "You don't have enough credit for this booking's hold. Choose a lower budget.",
+  "no-gpu-free": "No GPU is free right now. Try again in a minute; nothing was charged.",
+  "session-not-cancellable": "This session has already started, so it can't be cancelled. Stop it instead.",
+  "session-not-running": "This session isn't running any more, so there's nothing to stop.",
+  "outputs-not-ready": "The outputs aren't ready yet. You can download them once the session completes.",
+  "input-not-accepted":
+    "This template doesn't take that kind of input. Choose the other kind, or leave it out.",
+  "input-required":
+    "This needs every input marked as needed. Upload it, pick it from My files, or give a link.",
+  "input-not-usable":
+    "That isn't what this input needs. The words under the field say what to upload instead.",
+  "input-too-large": "That's larger than this input takes. Choose a smaller one.",
+  "upload-not-ready":
+    "That upload isn't finished, or has expired. Wait for it to finish, or upload it again.",
+  "upload-parts-invalid": "Your files didn't arrive complete. Upload them again.",
+  "upload-in-use": "A session that hasn't ended uses this upload. You can delete it once the session ends.",
+  "upload-quota-exceeded":
+    "Your uploads are using all their space. Delete ones you no longer need in My files, then try again.",
+  "too-many-new-sessions":
+    "You've booked the most sessions allowed in an hour. Try again a little later; nothing was charged.",
+  "too-many-sessions":
+    "You have 3 sessions that haven't ended, the most at once. Wait for one to finish, or stop one.",
+  "too-many-streams":
+    "Too many sessions are open live in your other tabs. Close some; this page checks every few seconds meanwhile.",
+  "host-busy":
+    "This machine is running a session, so that waits until it ends. To remove a machine, pause it first so it takes no new work.",
+  "host-offline": "This machine isn't connected right now. Open IdleO on it, then try again.",
+  "self-test-running": "A self-test is already running on this machine. Wait for it to finish.",
+  "self-test-limit": "This machine has run its self-test 6 times in the last 24 hours. Try again later.",
+  "host-removed": "This machine was removed. Add it again to rent it out.",
+  "host-no-gpu": "This machine hasn't reported its GPU yet. Wait for it to connect, then try again.",
+  "pause-too-long": "A pause can last 7 days at most. Choose a shorter one, or pause until you resume.",
+  "no-agent-release": "The Windows app isn't out yet. Check back soon.",
+  "install-events-full": "This install has already sent all it can. Nothing more is needed.",
+  "request-too-large": "That was too much to send at once. Try again with less.",
+  "session-not-rateable": "Only a session that ran for at least a minute can be rated.",
+  "rating-closed": "It's too late to rate this session or change its rating: each closes after 7 days.",
+  "report-window-closed": "Problems can be reported within 7 days of a session ending.",
+  "report-already-open": "You've already reported this session. We'll reply within 2 days.",
+  "report-already-made": "You've already reported this session, and we've replied. See Account, Reports.",
+  "admin-code-invalid":
+    "That code isn't right, or was already used. Five wrong codes in 15 minutes lock admin access.",
+  "second-factor-exists": "Your authenticator is already set up. Sign in with a code from it.",
+  "second-factor-missing": "Set up your authenticator first, then sign in with a code from it.",
+  "action-refused": "That was refused, and nothing changed. The reason is shown below.",
+  "payments-unavailable": "Payments can't be taken just now. No money moved; try again in a little while.",
+  "top-up-out-of-limits": "That amount is outside what you can add. The amount field says what you can.",
+  "too-many-failed-payments":
+    "Several payments failed in the last hour, so adding credit is paused for an hour.",
+  "payment-not-verified":
+    "We couldn't confirm that payment, so no credit was added. If money left your account, write to us.",
+  "refund-already-requested": "Your last refund is still on its way. You can ask again once it's done.",
+  "nothing-to-refund":
+    "Only credit you bought can go back, to where you paid from. Free credit can't be paid out.",
+  "billing-details-required": "Choose your state first: it decides the GST on your invoice.",
+  "pan-required":
+    "You've bought a lot of credit this year: give your PAN in Hosting, Payout details, then buy more once it's verified.",
+  "verified-pan-required":
+    "Your own images are for renters with a verified PAN. Give yours in Hosting, Payout details, then check your image.",
+  "image-not-ready": "Your image's check hasn't finished, so it can't be booked yet.",
+  "image-blocked": "Your image didn't pass its check, so it can't run here. My images says why.",
+  "payouts-unavailable": "UPI IDs can't be checked just now. Nothing changed; try again in a little while.",
+  "pan-not-verified": "Your PAN has to be verified first: a UPI ID is checked against the name on it.",
+  "pan-already-verified": "Your PAN is verified already. To change it, write to us from Help.",
+  "too-many-upi-checks": "That's a lot of checks today: each one asks your bank. Try again tomorrow.",
+  "upi-check-not-usable": "That check can't be used any more. Check the UPI ID again.",
+  "payout-in-progress": "A payout is on its way to your UPI ID. Wait for it to arrive first.",
+  "storage-unavailable":
+    "Our file storage can't be reached just now, so files can't be uploaded or read. Your sessions keep running. Try again in a minute.",
+  "internal-error": "Something went wrong on our side. Try again in a moment.",
+};
