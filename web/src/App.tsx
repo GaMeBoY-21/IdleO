@@ -4,16 +4,14 @@ import { useMeAfterPaint } from "@/api/queries";
 import { AppShell, ShellSkeleton } from "@/components/shell/AppShell";
 import { RequireAuth } from "@/components/shell/RequireAuth";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Home } from "@/features/home/Home";
 import { agreeStep } from "@/features/after-sign-in";
 import { SignInFrame } from "@/features/sign-in/SignInFrame";
 import { afterFirstScreen } from "@/lib/after-first-screen";
 import { NotFound } from "@/pages/NotFound";
 
 /**
- * The app's screens (ADR 0018). Home, where a signed-in visit starts, is in the first load; every other screen is its
- * own chunk (sign-in, the CLI's and the invite step's too, so the signed-in first load doesn't carry them), fetched
- * once the first screen has loaded, so moving between screens is still instant. URLs end in a slash: every
+ * The app's screens (ADR 0018). Every screen is its own chunk (Home, sign-in, the CLI's and the invite step's too, so no
+ * first load carries another screen), fetched once the first screen has loaded, so moving between screens is still instant. URLs end in a slash: every
  * screen is a folder with an index.html that any static host serves (scripts/postbuild.ts, src/screens.ts).
  */
 /**
@@ -37,6 +35,7 @@ function screen<P extends object>(load: () => Promise<ComponentType<P>>) {
 }
 
 const screens = {
+  "/": screen(() => import("@/features/home/Home").then((m) => m.Home)),
   "/credit/": screen(() => import("@/features/credit/CreditHistory").then((m) => m.CreditHistory)),
   "/session/": screen(() => import("@/features/session/SessionDetail").then((m) => m.SessionDetail)),
   "/sessions/": screen(() => import("@/features/sessions/AllSessions").then((m) => m.AllSessions)),
@@ -94,6 +93,7 @@ export function preloadScreen(path: string): Promise<unknown> {
   return own ? own.load().catch(() => undefined) : Promise.resolve();
 }
 
+const Home = screens["/"].Screen;
 const CreditHistory = screens["/credit/"].Screen;
 const AllSessions = screens["/sessions/"].Screen;
 const SessionDetail = screens["/session/"].Screen;

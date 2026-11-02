@@ -137,14 +137,15 @@ Both are steady apart from a first, slower run on a page (a cold browser); the m
 The wait for the largest paint (`afterPaint`'s `largestPaintSettled`, used by Add a machine and the link approval, to keep their one request off the way to the page's largest paint) is gone: on the same build, five runs each, LCP with it was 1951 1955 1952 1959 1954 (Add a machine, median 1954) and 1803 1803 1952 1956 1954 (Link, 1952); without it 1954 1806 1955 1956 1952 (1954) and 1955 1957 1952 1956 1802 (1955). The same, so real people no longer wait for it (about 150 ms of settling after the largest paint, up to a second).
 
 - each page's first frame is pre-rendered and adopted, not redrawn;
-- each page preloads only its own screen's code, and the frame's shared modules come in one file (`vite.config.ts`), since every extra file is another request the first screen waits on;
+- each page loads one main script and one file of its own screen's (ADR 0049): the frame's shared modules and React come in that one script (`vite.config.ts`), and a second file beside a screen's own costs a whole round on a slow connection. The main script asks first, so it gets the page's open connection, and the style sheet is in the page;
+- a screen with figures kept from an earlier visit paints them without the sign-in adapter, which loads after that paint (`src/main.tsx`, `RequireAuth`), so no page preloads it;
 - the screen a page opens on is loaded before the first render, so React's Suspense never holds its paint back;
 - anything later screens need loads two seconds in, or on hover or tap; the stop dialog's code only when it's needed;
 - requests a screen doesn't need for its main content (Book's form and price hints, a session's stream and logs and their code, the header's credit, the refresh of restored figures) start after that content has painted, which means after its text is drawn in the app's font and the browser has reported the page's first contentful paint as presented (`afterPaint`, `useAfterPaint`): two frames alone can come before the text, or before a slow machine has put the frame on screen, and a request started then counts against the paint (Book went from 2.41 s to 1.95 s; on CI, a run whose form code started two frames after its paint but before it was presented took 2.14 s, against 1.89 s for one that waited);
 - Book's loading frame already holds what to run (the title and the template choice), so its largest text doesn't wait on the form's code;
-- the words for problems and react-query's mutation code are in the shell, as is the tick icon, rather than files of their own that Book and the session screen would each wait on (the session screen went from 2.10 s to 1.95 s);
+- react-query's mutation code is in the shell, as is the tick icon, rather than files of their own that Book and the session screen would each wait on (the session screen went from 2.10 s to 1.95 s); the words for problems aren't anywhere in a first load, and the API client waits for them before it hands on a refused request;
 - skeletons are exactly the height of what replaces them;
-- a font swapping in moves nothing: each face has an Arial fallback scaled to its metrics (web/DESIGN.md "Typography"), and only Inter and Archivo at 125% / 900 are preloaded.
+- a font swapping in moves nothing: each face has an Arial fallback scaled to its metrics (web/DESIGN.md "Typography"), and the app preloads only Inter and the titles' face. The wordmark is drawn, not set.
 
 ## Looking at the screens by hand
 

@@ -1,11 +1,11 @@
 // After `vite build` and the pre-render build (ADR 0018): computes the hash of each inline script in index.html,
-// puts the Content Security Policy into the page as a <meta> tag, writes the page into a folder for every screen
-// (so any static host serves deep links) with that screen's first frame pre-rendered and its own code preloaded,
+// puts the Content Security Policy into the page as a <meta> tag and the style sheet into a <style>, writes the page into a
+// folder for every screen (so any static host serves deep links) with that screen's first frame pre-rendered and its own code preloaded,
 // and writes dist/headers.json, the headers a host should send.
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { SCREENS, SIGNED_IN_SCREENS } from "../src/screens.ts";
+import { SCREENS } from "../src/screens.ts";
 import {
   checkoutSources,
   contentSecurityPolicy,
@@ -37,6 +37,29 @@ if (html.includes('http-equiv="Content-Security-Policy"')) {
 }
 html = html.replace("<head>", `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`);
 
+// The style sheet goes into each page: the page can then paint with nothing more to fetch, and one file fewer shares the
+// slow first moments of the connection with the code. Every screen uses it, and a move between screens loads no page.
+const sheets = [...html.matchAll(/\s*<link rel="stylesheet"[^>]*href="\/(assets\/[^"]+\.css)"[^>]*>/g)];
+if (sheets.length !== 1) {
+  throw new Error(`expected one style sheet in index.html; found ${sheets.length}`);
+}
+const [sheetLink, sheetFile] = [sheets[0]![0], sheets[0]![1]!];
+html = html.replace(sheetLink, () => `\n    <style>${readFileSync(`${dist}${sheetFile}`, "utf8")}</style>`);
+rmSync(`${dist}${sheetFile}`);
+
+// The main script asks first, ahead of the fonts: the first request after the page takes the page's open connection, which
+// is a round trip ahead of a new one, and this is by far the largest file. Module scripts don't block the page, so this
+// changes nothing else.
+const mainScript = html.match(
+  /\s*<script type="module" crossorigin src="\/assets\/shell-[^"]+"><\/script>/,
+)?.[0];
+if (!mainScript) {
+  throw new Error("no main script in index.html");
+}
+html = html
+  .replace(mainScript, "")
+  .replace(/<meta charset="utf-8" \/>/, (charset) => `${charset}${mainScript}`);
+
 // Open the connections the first API call and token refresh will need while the scripts download.
 const env = process.env;
 const origins = [
@@ -61,12 +84,6 @@ function chunks(key: string, seen = new Set<string>()): Set<string> {
   return seen;
 }
 
-const ADAPTERS = ["src/auth/firebase.ts", "src/auth/oidc.ts"];
-const adapter = ADAPTERS.flatMap((module) => (manifest[module] ? [...chunks(module)] : []));
-if (adapter.length === 0) {
-  throw new Error("no sign-in adapter chunk in the build manifest");
-}
-
 const { render } = (await import(new URL("../dist-ssr/prerender.js", import.meta.url).href)) as {
   render: (path: string) => Promise<string>;
 };
@@ -74,10 +91,7 @@ const withFrame = async (page: string, path: string) =>
   page.replace('<div id="root"></div>', `<div id="root">${await render(path)}</div>`);
 
 for (const [path, module] of Object.entries(SCREENS)) {
-  const own = [
-    ...(module ? chunks(module) : []),
-    ...(SIGNED_IN_SCREENS.includes(path) ? adapter : []),
-  ].filter((file, index, all) => !preloaded.has(file) && all.indexOf(file) === index);
+  const own = [...(module ? chunks(module) : [])].filter((file) => !preloaded.has(file));
   if (module && !manifest[module]) {
     throw new Error(`no chunk for ${module} in the build manifest`);
   }

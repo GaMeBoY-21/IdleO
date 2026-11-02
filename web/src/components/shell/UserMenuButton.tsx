@@ -1,5 +1,6 @@
 import { Ellipsis } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useCachedMe } from "@/api/queries";
 import { useAuth } from "@/auth";
 import { cn } from "@/lib/cn";
 import { afterFirstScreen } from "@/lib/after-first-screen";
@@ -7,7 +8,8 @@ import { afterFirstScreen } from "@/lib/after-first-screen";
 /** The avatar the menu opens from, drawn the same before and after the menu's code arrives, so nothing moves. */
 export function Avatar({ large = false }: { large?: boolean }) {
   const auth = useAuth();
-  const email = auth.status === "signed-in" ? auth.user.email : null;
+  const me = useCachedMe();
+  const email = auth.status === "signed-in" ? auth.user.email : (me.data?.email ?? null);
   return (
     <span
       className={cn(
