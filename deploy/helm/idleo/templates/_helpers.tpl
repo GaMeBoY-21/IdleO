@@ -46,6 +46,39 @@ securityContext:
     type: RuntimeDefault
 {{- end }}
 
+{{/*
+Every pod's first init container (ADR 0048, "A new pod's first moments"). k3s's network policy controller, kube-router,
+puts a new pod's rules in place only once it has seen the pod: measured 0.3 to 10 s after the pod's first instruction,
+and longer on a busy node. Until then the pod reaches anything, the cloud's metadata address and the internet included.
+This waits, before any other container starts, until the node's kubelet port stops answering: it answers a pod no rule
+covers yet, every pod of ours is denied it, and kube-router writes a pod's rules all at once, so then every one is in
+place. A pod whose rules never arrive doesn't start. Valkey's image: pinned, allowed, with bash. Kyverno's pod runs the
+same container (deploy/infrastructure/base/kyverno.yaml; deploy.sh checks they're the same).
+*/}}
+{{- define "idleo.networkPolicyWait" -}}
+- name: wait-for-network-policy
+  image: {{ .Values.valkey.image }}
+  imagePullPolicy: IfNotPresent
+  command:
+    - bash
+    - -c
+    - |
+      deadline=$((SECONDS + 300))
+      while timeout 1 bash -c "exec 3<>/dev/tcp/$NODE/10250" 2>/dev/null; do
+        ((SECONDS < deadline)) || { echo "this pod's network policy isn't in place after 300 s: the node's kubelet port still answers"; exit 1; }
+        sleep 0.05
+      done
+  env:
+    - name: NODE
+      valueFrom:
+        fieldRef:
+          fieldPath: status.hostIP
+  resources:
+    requests: { cpu: 5m, memory: 8Mi }
+    limits: { memory: 32Mi }
+  {{- include "idleo.containerSecurity" . | nindent 2 }}
+{{- end }}
+
 {{/* Every container's: a read-only root, every capability dropped, no way to gain privileges. */}}
 {{- define "idleo.containerSecurity" -}}
 securityContext:

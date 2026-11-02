@@ -23,6 +23,8 @@ spec:
         {{- include "idleo.selector" (list $ $name) | nindent 8 }}
     spec:
       {{- include "idleo.podSecurity" (ternary 65532 1000 (eq $name "sign-in")) | nindent 6 }}
+      initContainers:
+        {{- include "idleo.networkPolicyWait" $ | nindent 8 }}
       containers:
         - name: {{ $name }}
           image: {{ $service.image }}

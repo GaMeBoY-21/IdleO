@@ -199,6 +199,21 @@ names = collections.Counter((d["kind"], d["metadata"]["name"]) for d in yaml.saf
 twice = [f"{kind} {name}" for (kind, name), count in names.items() if count > 1]
 sys.exit(f"the chart renders these twice: {', '.join(twice)}" if twice else 0)
 PY
+  # Kyverno's pod waits for its network policy with the chart's own container (ADR 0048): the same image, script and
+  # node address, its user aside.
+  python3 - "$work/rendered.yaml" "$root/deploy/infrastructure/base/kyverno.yaml" <<'PY'
+import sys, yaml
+same = lambda c: {k: c.get(k) for k in ("name", "image", "imagePullPolicy", "command", "env", "resources")}
+documents = [d for d in yaml.safe_load_all(open(sys.argv[1])) if d]
+release = next(d for d in yaml.safe_load_all(open(sys.argv[2])) if d and d["kind"] == "HelmRelease")
+templates = [d["spec"]["template"]["spec"] for d in documents if d["kind"] in ("Deployment", "StatefulSet", "Job")]
+waits = {yaml.safe_dump(same(t["initContainers"][0])) for t in templates}
+if len(templates) == 0 or len(waits) != 1:
+    sys.exit(f"the chart's pods don't all start with the same wait-for-network-policy: {waits}")
+ours = yaml.safe_load(waits.pop())
+kyverno = [same(c) for c in release["spec"]["values"]["admissionController"].get("extraInitContainers") or []]
+sys.exit(0 if kyverno[:1] == [ours] else f"Kyverno's first init container isn't the chart's wait-for-network-policy:\n  {kyverno[:1]}\n  {ours}")
+PY
 done
 
 # 5. The chart's unit tests, on a copy: helm-unittest writes a snapshot folder into the chart's tests, even with no

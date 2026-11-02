@@ -17,6 +17,8 @@ spec:
         {{- include "idleo.selector" (list . "web") | nindent 8 }}
     spec:
       {{- include "idleo.podSecurity" 101 | nindent 6 }}
+      initContainers:
+        {{- include "idleo.networkPolicyWait" $ | nindent 8 }}
       containers:
         - name: web
           image: {{ include "idleo.image" (list . "web") }}

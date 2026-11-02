@@ -20,6 +20,8 @@ spec:
         idleo.in/internet-client: "true"
     spec:
       {{- include "idleo.podSecurity" 10001 | nindent 6 }}
+      initContainers:
+        {{- include "idleo.networkPolicyWait" $ | nindent 8 }}
       containers:
         - name: scanner
           image: {{ include "idleo.image" (list . "scanner") }}

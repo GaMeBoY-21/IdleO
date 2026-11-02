@@ -26,6 +26,8 @@ spec:
       {{- include "idleo.podSecurity" 10001 | nindent 6 }}
       priorityClassName: {{ .Values.priorityClasses.core }}
       restartPolicy: Never
+      initContainers:
+        {{- include "idleo.networkPolicyWait" $ | nindent 8 }}
       containers:
         - name: migrate
           image: {{ include "idleo.image" (list . "control-plane") }}

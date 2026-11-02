@@ -168,6 +168,8 @@ spec:
         idleo.in/dns-client: "true"
     spec:
       {{- include "idleo.podSecurity" 100 | nindent 6 }}
+      initContainers:
+        {{- include "idleo.networkPolicyWait" $ | nindent 8 }}
       containers:
         - name: load
           image: {{ .Values.canary.load.image }}

@@ -48,19 +48,45 @@ tests:
   - it: locks down every Job's pod
     documentSelector: { path: kind, value: Job, matchMany: true, skipEmptyTemplates: true }
     asserts: *locked
-  - it: locks down the control plane's init container too, the only one
+  - it: starts every Deployment's pod by waiting for its network policy, locked down too
     documentSelector: *deployments
-    asserts:
+    asserts: &waits
+      - equal: { path: "spec.template.spec.initContainers[0].name", value: wait-for-network-policy }
+      - equal: { path: "spec.template.spec.initContainers[0].env[0].valueFrom.fieldRef.fieldPath", value: status.hostIP }
       - isSubset:
           path: "spec.template.spec.initContainers[0].securityContext"
           content: *container
       - exists: { path: "spec.template.spec.initContainers[0].resources.limits.memory" }
-    template: templates/control-plane.yaml
-  - it: gives no other pod an init container the checks above would miss
-    templates: [templates/migration-job.yaml, templates/valkey.yaml, templates/scanner.yaml, templates/web.yaml,
-      templates/development.yaml, templates/canary.yaml]
+  - it: starts every StatefulSet's pod the same way
+    documentSelector: { path: kind, value: StatefulSet, matchMany: true, skipEmptyTemplates: true }
+    asserts: *waits
+  - it: starts every Job's pod the same way
+    documentSelector: { path: kind, value: Job, matchMany: true, skipEmptyTemplates: true }
+    asserts: *waits
+  - it: locks down the control plane's second init container too, the only one
+    documentSelector: *deployments
     asserts:
-      - notExists: { path: spec.template.spec.initContainers }
+      - lengthEqual: { path: spec.template.spec.initContainers, count: 2 }
+      - equal: { path: "spec.template.spec.initContainers[1].name", value: wait-for-schema }
+      - isSubset:
+          path: "spec.template.spec.initContainers[1].securityContext"
+          content: *container
+      - exists: { path: "spec.template.spec.initContainers[1].resources.limits.memory" }
+    template: templates/control-plane.yaml
+  - it: gives no other Deployment's pod an init container the checks above would miss
+    templates: &others [templates/migration-job.yaml, templates/valkey.yaml, templates/scanner.yaml, templates/web.yaml,
+      templates/development.yaml, templates/canary.yaml]
+    documentSelector: *deployments
+    asserts: &one
+      - lengthEqual: { path: spec.template.spec.initContainers, count: 1 }
+  - it: gives no StatefulSet's pod one either
+    templates: *others
+    documentSelector: { path: kind, value: StatefulSet, matchMany: true, skipEmptyTemplates: true }
+    asserts: *one
+  - it: gives no Job's pod one either
+    templates: *others
+    documentSelector: { path: kind, value: Job, matchMany: true, skipEmptyTemplates: true }
+    asserts: *one
   - it: locks down an operator command's pod the same way
     template: templates/operator-command.yaml
     set:
@@ -76,3 +102,5 @@ tests:
           path: "spec.containers[0].securityContext"
           content: *container
       - exists: { path: "spec.containers[0].resources.limits.memory" }
+      - equal: { path: "spec.initContainers[0].name", value: wait-for-network-policy }
+      - lengthEqual: { path: spec.initContainers, count: 1 }

@@ -18,6 +18,8 @@ spec:
         {{- include "idleo.selector" (list . "valkey") | nindent 8 }}
     spec:
       {{- include "idleo.podSecurity" 999 | nindent 6 }}
+      initContainers:
+        {{- include "idleo.networkPolicyWait" $ | nindent 8 }}
       containers:
         - name: valkey
           image: {{ .Values.valkey.image }}
