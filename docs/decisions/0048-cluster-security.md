@@ -72,6 +72,32 @@ In all: 7 default-deny policies, and 24 policies with 58 allow rules in staging 
 
 Agents' gRPC load balancer and the Gateway keep working: the smoke, canary and failover tests pass (below).
 
+### A new pod's first moments
+
+kube-router, k3s's network policy controller, enforces a new pod's rules only once it has seen the pod: it watches the API, and writes the pod's chains on its next sync. Until then nothing stops the pod. Measured from a fresh pod's first instruction under deny-by-default (each target tried every 20 ms for 10 s; the 1st and 3rd columns from the pods' own clocks):
+
+| Where | Pods | Reached | Until (ms) |
+| --- | --- | --- | --- |
+| The Mac, our namespace and Kyverno's | 40 | all: the internet and the node's kubelet (no metadata address on the Mac) | 330 to 507 |
+| CI, a bare k3d cluster | 60 | all: the internet, the kubelet and **the cloud's metadata address** (Azure's) | 339 to 1,579 |
+| CI, the whole stack under Flux, our namespace | 60 | all three | 568 to 2,878 |
+| the same, while every Deployment restarts | 40 | 38 of 40 | up to 5,476 |
+| the same, Kyverno's namespace | 60 | all three | 1,838 to over 10,000 (two still reached the metadata address when the probe stopped) |
+| any of these: PostgreSQL | 160 | none: its own ingress rule lists who may call it, and a pod kube-router hasn't seen isn't on the list | |
+
+The window grows with the cluster: each sync rewrites every pod's rules. It applies to every pod, ours included, and a connection opened inside it outlives the rules that arrive after.
+
+**Built: every pod of ours, and Kyverno's, waits for its rules before it starts.** Its first init container, `wait-for-network-policy` (`idleo.networkPolicyWait`; Kyverno's `extraInitContainers` the same container, which `deploy.sh` checks), tries the node's kubelet port (10250) every 50 ms until it stops answering. That port answers a pod no rule covers yet, and every pod of ours is denied it (check 6). kube-router writes a pod's chains in one `iptables-restore`, so when that port closes, every rule is in place (the probes above saw the internet, the metadata address and the kubelet close within a few milliseconds of each other). After 300 s it fails and the kubelet starts it again: a pod whose rules never arrive never runs. It's Valkey's image (pinned, allowed, with bash), 8 MiB requested while it runs; a pod starts that much later, about 0.3 to 3 s.
+
+Evaluated first:
+- **A setting of k3s's or kube-router's** that holds a pod until its rules exist: there is none. k3s passes kube-router no options, and kube-router has no deny for pods it hasn't seen.
+- **A default deny at the node** for addresses kube-router hasn't seen: a privileged DaemonSet writing iptables rules beside kube-router's, a second policy engine on the node that must agree with the first.
+- **Cilium** in place of flannel and kube-router. Its CNI plugin returns only after the pod's endpoint is built with its policy, so a pod's first packet is already under it. Measured on CI, the same probes on a bare k3d cluster with Cilium 1.20.4: **0 of 60 pods reached anything**. It costs 223 MiB (the agent 184, the operator 39; the node's total 403 MiB more than kube-router's), out of the 0.75 GiB a canary's peak leaves (Consequences), and it replaces the whole cluster's network. It's still the next step, with per-host egress (above): it would close the window for every pod, not only ours and Kyverno's.
+
+What's left: the vendors' other pods (Flux, cert-manager, CloudNativePG's operator and its database pods, Flagger, Prometheus) still have the window. Their images are pinned and their first connections are their own configuration's; Prometheus may reach the kubelet port, so it couldn't use the wait. The wait trusts that the kubelet port answers a pod with no rules: a firewall on the node that closed it to pods would make it pass at once, which check 13's control would show (it's run where the server is set up, S5).
+
+**And why check 12 failed once.** On staging's deploy pull request #40 (2026-11-01) Kyverno's restarted pod never stopped reaching GHCR for the probe's two minutes, and a never-seen signed digest was admitted with Kyverno supposedly offline. The rerun couldn't run (the branch had gone with the merge). On the Mac the same check then failed the same way, and Flux's log showed why: the test suspended `infrastructure` with `kubectl patch`, but `flux-system`, every 10 minutes, applies the `infrastructure` Kustomization from git, and its server-side apply clears a field kubectl set. That run cleared the suspend 13 s into check 12, and `infrastructure` put Kyverno's internet back (shown again by hand: a suspend set by `kubectl patch` didn't survive `flux-system`'s next run; one set under Flux's own field manager did, so the runbooks' `flux suspend` holds). It was the test's setup, intermittent because it needs the 10-minute run to land inside check 12. The check now suspends `flux-system` too, its first probe of GHCR must fail with no waiting for the block, and a last row fails if Kyverno's way out came back before the end.
+
 ### Only pinned, allowed, signed images
 
 Two layers, so the parts that need no network hold even when Kyverno can't answer:
@@ -163,7 +189,7 @@ kube-bench v0.16.0 ran the k3s CIS 1.9 benchmark (the newest it has targets for)
 
 ### The proof
 
-`scripts/k8s/security-test.sh` runs on the Mac's cluster under Flux (the `security` workflow: pull requests touching `deploy/`, `scripts/k8s/` or `scripts/deploy/`, and weekly). Every attempt that must fail has a control that may: Prometheus reaches the meters and the node's API port that the web pod can't, the control plane reaches the database that the scanner can't. Network probes run in a debug container inside the pod, which shares its network and so its policies. On the Mac, the last run: 60 checks, none failed, 347 s (S4: 52, 229 s, before check 12).
+`scripts/k8s/security-test.sh` runs on the Mac's cluster under Flux (the `security` workflow: pull requests touching `deploy/`, `scripts/k8s/` or `scripts/deploy/`, and weekly). Every attempt that must fail has a control that may: Prometheus reaches the meters and the node's API port that the web pod can't, the control plane reaches the database that the scanner can't. Network probes run in a debug container inside the pod, which shares its network and so its policies. On the Mac, the last run: 64 checks, none failed, 359 s (before check 13: 60, 347 s; S4: 52, 229 s, before check 12).
 
 | # | What was tried | What happened |
 | --- | --- | --- |
@@ -181,7 +207,8 @@ kube-bench v0.16.0 ran the k3s CIS 1.9 benchmark (the newest it has targets for)
 | 9 | our pods' tokens; `default`'s rights | none on 13 pods; can't read Secrets or make pods |
 | 10 | a Secret's value in k3s's datastore on disk | absent (the ConfigMap control present; `k8s:enc:aescbc:v1`; encryption Enabled) |
 | 11 | Kyverno and a control-plane pod killed together | above |
-| 12 | Kyverno cut off from the internet and restarted (its new pod's own probe can't reach GHCR) | a digest two verified Deployments name: admitted, 12 to 23 ms; never-seen digests of ours, unsigned and signed: refused, saying why; the database's primary killed: writes back at 20.3 s, the old primary rebuilt at 31.2 to 32.3 s; a control plane killed: back in 10.9 s; reconnected: the signed digest admitted |
+| 12 | Kyverno cut off from the internet and restarted (its new pod waited for its rules, and its first try at GHCR fails; Flux, `flux-system` included, suspended until the end, and the cut checked to have held) | a digest two verified Deployments name: admitted, 12 to 23 ms; never-seen digests of ours, unsigned and signed: refused, saying why; the database's primary killed: writes back at 20.3 s, the old primary rebuilt at 31.2 to 32.3 s; a control plane killed: back in 10.9 s; reconnected: the signed digest admitted |
+| 13 | a new pod's first moments: 20 fresh pods that start as ours do, from their first instruction, try the internet, the metadata address, the kubelet and PostgreSQL for 3 s; every pod of ours and Kyverno's waits first | the 20: nothing reached; the control, 10 the same without the wait: all 10 reached the internet (by 24 ms) and the kubelet (by 6 ms); no pod without the wait |
 
 Then the smoke, canary and failover tests, against S3's numbers: all pass.
 
@@ -221,7 +248,7 @@ The writes refused and the restore are back because a new PostgreSQL pod no long
 - **Kyverno ClusterPolicies (verifyImages and validate rules) for everything.** One engine, but ClusterPolicy is deprecated in Kyverno 1.19, and every rule would depend on Kyverno answering. Native ValidatingAdmissionPolicies run in the API server, so the digest, registry and privilege rules hold with Kyverno down; only signatures, which need the registry and the transparency log, wait for it.
 - **Kyverno failing open (`failurePolicy: Ignore`).** Pods would never wait on Kyverno, but an attacker who can stop it (by exhausting its memory, say) could then run anything. Failing closed, with Kyverno's own namespace and kube-system exempt and Kyverno evicted last, keeps the check and the way back.
 - **Sigstore's policy-controller, or Connaisseur, for signatures.** Each verifies keyless signatures too, but Kyverno also tests policies offline in CI (`kyverno test`), which is how staging's and production's policies are proved on every pull request without a cluster.
-- **Cilium for the network, now.** FQDN egress, and an identity-based policy that would make the table shorter. It replaces k3s's flannel and network policy controller, costs more memory than kube-router, and changes the whole cluster's network for a test-mode service. It's the next step, with per-host egress (above).
+- **Cilium for the network, now.** FQDN egress, an identity-based policy that would make the table shorter, and a pod's rules in place before its first packet ("A new pod's first moments"). It replaces k3s's flannel and network policy controller, costs 223 MiB more than kube-router (measured), and changes the whole cluster's network for a test-mode service. It's the next step, with per-host egress (above).
 - **The Trivy Operator.** Measured, and it doesn't fit (above). A nightly CI scan sees the same images and manifests, costs the server nothing, and fails where people look.
 - **Valkey's password by `requirepass` or renamed commands.** One shared password for the default user, and renaming leaves the commands in place under another name. An ACL user with the commands removed is Valkey's own way, and a second password during a rotation is built in.
 - **secretbox for encryption at rest.** The algorithm Kubernetes recommends over AES-CBC, but experimental in k3s. AES-CBC's weakness is a padding oracle, which needs someone asking the API server to decrypt, not reading a copy of the disk; switch when k3s calls secretbox stable.

@@ -33,7 +33,8 @@ The control plane and operator commands carry all of them (`idleo.controlPlaneCl
 3. **Never widen the internet.** A new outside host on 443 needs nothing (the policy can't name hosts). A new outside port gets its own policy and label, like `mail-client`, never a change to `internet-client`. Nothing gets the private ranges or `169.254.169.254`.
 4. **Ports by number to another pod, by name only on the pod's own ingress.** A policy matches the port after the Service is resolved: the container's port, not the Service's.
 5. **Add the row to ADR 0048's table**, in the same pull request.
-6. **Prove it.** `scripts/checks/deploy.sh` renders it; `scripts/k8s/security-test.sh` (the `security` workflow runs it on the pull request) must still pass, and if the new connection is one a broken-into pod mustn't make, add a probe for it there, with a control that's allowed.
+6. **A new kind of pod** in the chart starts with `{{- include "idleo.networkPolicyWait" $ | nindent 8 }}` as its first init container (the chart's tests fail without it).
+7. **Prove it.** `scripts/checks/deploy.sh` renders it; `scripts/k8s/security-test.sh` (the `security` workflow runs it on the pull request) must still pass, and if the new connection is one a broken-into pod mustn't make, add a probe for it there, with a control that's allowed.
 
 ## Debugging a blocked connection
 
@@ -48,3 +49,5 @@ kubectl -n idleo describe networkpolicy <name>
 ```
 
 k3s enforces policies with its own controller (kube-router). Traffic from the node itself (the kubelet's probes, the API server calling a webhook) is always allowed, so probes and webhooks need no rule.
+
+**A pod stuck in `Init` on `wait-for-network-policy`.** Every pod of ours, and Kyverno's, waits before it starts until kube-router enforces its rules (ADR 0048, "A new pod's first moments"), which it sees as the node's kubelet port, 10250, no longer answering. Normally that takes 0.3 to 3 s. If a pod waits longer, kube-router hasn't caught up: `kubectl -n idleo logs <the pod> -c wait-for-network-policy`, and k3s's own log (`journalctl -u k3s`, or `docker logs k3d-idleo-server-0` on the Mac) for network policy errors. After 300 s the container fails and the kubelet starts it again, so the pod never runs without its rules. Never give a pod of ours a rule to the node's port 10250: its wait would then never end (Prometheus, a vendor's pod, is the one that has it, and doesn't wait).
