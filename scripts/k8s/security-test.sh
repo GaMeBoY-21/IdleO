@@ -26,6 +26,9 @@
 #      case: a digest a verified pod controller already names is admitted in under a second; a never-seen unsigned
 #      digest is refused, and so is a never-seen signed one, with a message that says why; a killed PostgreSQL primary
 #      fails over and is rebuilt, and a killed control plane comes back; reconnected, the signed digest is admitted.
+#  13. a new pod's first moments: fresh pods that start as ours do (waiting for their network policy) reach nothing
+#      from their first instruction, not the internet, the metadata address, the node's kubelet or PostgreSQL, where
+#      the same pods without the wait do; every pod of ours and Kyverno's waits first.
 #
 # It prints a table, PASS or FAIL a row; one FAIL exits non-zero. Logs: private/k8s/logs/security-test.log.
 #
@@ -400,17 +403,17 @@ print(json.dumps(p))' "$kyverno_policy" | kubectl replace -f - >/dev/null
 # A fresh process: no connection still open from before, nothing cached, no trust root loaded.
 kubectl -n kyverno rollout restart deployment/kyverno-admission-controller >/dev/null
 kubectl -n kyverno rollout status deployment/kyverno-admission-controller --timeout=180s >/dev/null
-# kube-router puts a new pod's policy in place some seconds after the pod starts, and a connection opened before then
-# outlives it: nothing is asserted until Kyverno's new pod itself can't reach GHCR.
+# Kyverno's new pod waited for its network policy before any of its own containers started (check 13), so its very
+# first connection to GHCR must fail: one try, no waiting for the block to arrive.
 kyverno_pod="$(kubectl -n kyverno get pods -l app.kubernetes.io/component=admission-controller \
   --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')"
-cut_off="$(debug_run kyverno "$kyverno_pod" 'for s in $(seq 120); do
-  timeout 3 bash -c "exec 3<>/dev/tcp/ghcr.io/443" 2>/dev/null || { echo "cut off at $s s"; exit; }; sleep 1; done
-  echo "still reaches GHCR after 120 s"')"
-if [[ "$cut_off" == "cut off"* ]]; then
-  row 12 "offline: Kyverno's new pod can't reach GHCR" "$cut_off" PASS
+waited="$(kubectl -n kyverno get pod "$kyverno_pod" \
+  -o jsonpath='{.status.initContainerStatuses[?(@.name=="wait-for-network-policy")].state.terminated.reason}')"
+cut_off="$(debug_run kyverno "$kyverno_pod" 'timeout 3 bash -c "exec 3<>/dev/tcp/ghcr.io/443" 2>/dev/null && echo "reached GHCR" || echo "refused at once"')"
+if [[ "$waited" == Completed && "$cut_off" == "refused at once" ]]; then
+  row 12 "offline: Kyverno's new pod can't reach GHCR, from its first connection" "it waited for its policy; $cut_off" PASS
 else
-  row 12 "offline: Kyverno's new pod can't reach GHCR" "$cut_off" FAIL
+  row 12 "offline: Kyverno's new pod can't reach GHCR, from its first connection" "its wait: ${waited:-none}; $cut_off" FAIL
 fi
 deadline=$((SECONDS + 120))
 until [[ "$(pod ready "$valkey_image" | admit "$namespace")" == admitted ]] || ((SECONDS > deadline)); do sleep 2; done
@@ -498,6 +501,85 @@ while [[ "$answer" != admitted ]] && ((SECONDS < deadline)); do
 done
 expect 12 "reconnected: the same signed digest" "$answer" admitted
 echo "offline: known digest ${timings[*]} ms; ${refused_offline} pods refused for an unverifiable image meanwhile" >>"$out/security-test.log"
+
+# --- A new pod's first moments (13) --------------------------------------------------------------------------------
+
+log "13. a new pod's first moments"
+# kube-router enforces a new pod's rules only once it has seen the pod, so until then the pod reaches anything; every
+# pod of ours, and Kyverno's, first waits for them (wait-for-network-policy, ADR 0048). Fresh pods that start as ours do
+# (the scanner Deployment's own wait) try the internet, the metadata address, the node's kubelet and PostgreSQL from
+# their main container's first instruction, every 20 ms for 3 s, and print what answered and when. The control is the
+# same pods without the wait, which must reach something, or the check proves nothing.
+wait_container="$(in_namespace get deployment idleo-scanner -o jsonpath='{.spec.template.spec.initContainers[0]}')"
+first_moments() {
+  local run="$1" count="$2" init="$3"
+  python3 - "$namespace" "$run" "$count" "$valkey_image" "$init" "$internet" "$metadata" "$node_ip:10250" "$database" <<'PY' |
+import json, sys
+namespace, run, count, image, init, *targets = sys.argv[1:]
+names = ["internet", "metadata", "kubelet", "postgres"]
+script = """start=${EPOCHREALTIME/./}; end=$((start + 3000000))
+watch() { while (( ${EPOCHREALTIME/./} < end )); do
+  if timeout 0.25 bash -c "exec 3<>/dev/tcp/${2%:*}/${2##*:}" 2>/dev/null; then
+    echo "$1 $(( (${EPOCHREALTIME/./} - start) / 1000 ))"; return; fi; sleep 0.02; done; }
+""" + "\n".join(f"watch {n} {t} &" for n, t in zip(names, targets)) + "\nwait"
+security = {"runAsNonRoot": True, "readOnlyRootFilesystem": True, "allowPrivilegeEscalation": False,
+            "capabilities": {"drop": ["ALL"]}, "seccompProfile": {"type": "RuntimeDefault"}}
+items = [{"apiVersion": "v1", "kind": "Pod",
+          "metadata": {"name": f"{run}-{i}", "labels": {"idleo.in/security-test": run}},
+          "spec": {"restartPolicy": "Never", "automountServiceAccountToken": False, "enableServiceLinks": False,
+                   "securityContext": {"runAsNonRoot": True, "runAsUser": 65532, "seccompProfile": {"type": "RuntimeDefault"}},
+                   "initContainers": [json.loads(init)] if init else [],
+                   "containers": [{"name": "probe", "image": image, "command": ["bash", "-c", script],
+                                   "resources": {"requests": {"cpu": "10m", "memory": "16Mi"}, "limits": {"memory": "64Mi"}},
+                                   "securityContext": security}]}} for i in range(int(count))]
+print(json.dumps({"apiVersion": "v1", "kind": "List", "items": items}))
+PY
+    in_namespace apply -f - >/dev/null
+  local deadline=$((SECONDS + 360))
+  until [[ "$(in_namespace get pods -l idleo.in/security-test="$run" \
+    -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' | grep -c Succeeded)" == "$count" ]]; do
+    ((SECONDS < deadline)) || { echo "unfinished"; return; }
+    sleep 2
+  done
+  for pod in $(in_namespace get pods -l idleo.in/security-test="$run" -o name); do
+    in_namespace logs "$pod" -c probe | sed "s|^|${pod#pod/} |"
+  done
+  in_namespace delete pods -l idleo.in/security-test="$run" --wait=false >/dev/null
+}
+# "<n> of <count> pods reached <target> (at <ms> ms at the latest), ..." for what $1 (pod target ms lines) shows.
+reached() {
+  python3 -c '
+import collections, sys
+seen = collections.defaultdict(list)
+for line in sys.stdin.read().split("\n"):
+    if line.strip():
+        _, target, ms = line.split()
+        seen[target].append(int(ms))
+print(", ".join(f"{len(v)} of {sys.argv[1]} reached {t} (by {max(v)} ms)" for t, v in sorted(seen.items())) or "none")' "$2" <<<"$1"
+}
+waiting="$(first_moments first-moments 20 "$wait_container")"
+control="$(first_moments first-moments-control 10 "")"
+printf '%s\n' "first moments, waiting:" "$waiting" "first moments, without the wait:" "$control" >>"$out/security-test.log"
+if [[ "$waiting" == unfinished ]]; then
+  row 13 "a new pod of ours, in its first 3 s: the internet, metadata, kubelet, PostgreSQL" "not all 20 pods finished in 360 s" FAIL
+else
+  expect 13 "a new pod of ours, in its first 3 s: the internet, metadata, kubelet, PostgreSQL" "$(reached "$waiting" 20)" none
+fi
+if [[ "$control" != unfinished && "$(reached "$control" 10)" != none ]]; then
+  row 13 "control: the same pods without the wait" "$(reached "$control" 10)" PASS
+else
+  row 13 "control: the same pods without the wait" "${control:-reached nothing} (must reach something)" FAIL
+fi
+# Every pod of ours but CloudNativePG's (its operator makes them, ADR 0047), and Kyverno's, waits first.
+not_waiting="$({ in_namespace get pods -l '!cnpg.io/cluster,!idleo.in/security-test' -o json
+  kubectl -n kyverno get pods -l app.kubernetes.io/component=admission-controller -o json; } | python3 -c '
+import json, sys
+decoder, text, pods = json.JSONDecoder(), sys.stdin.read(), []
+while text.strip():
+    found, end = decoder.raw_decode(text.lstrip()); pods += found["items"]; text = text.lstrip()[end:]
+print(" ".join(p["metadata"]["name"] for p in pods
+               if [c["name"] for c in p["spec"].get("initContainers", [])][:1] != ["wait-for-network-policy"]) or "none")')"
+expect 13 "pods of ours and Kyverno's that don't wait for their network policy first" "$not_waiting" none
 
 echo
 printf '  %-3s %-78s %-6s %s\n' "#" "attempt" "result" "what happened"
