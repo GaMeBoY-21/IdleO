@@ -379,7 +379,9 @@ echo "kill: kyverno ${kyverno_took} s, control plane ${control_plane_took} s, $r
 # --- GHCR and Sigstore unreachable (12) ----------------------------------------------------------------------------
 
 log "12. admission with Kyverno cut off from the internet, and restarted"
-# Kyverno's network policy without its way to the internet; Flux would put it back, so its infrastructure waits.
+# Kyverno's network policy without its way to the internet. Flux would put it back, so it waits: the infrastructure, and
+# flux-system above it, which every 10 minutes applies the infrastructure's Kustomization from git and with it clears a
+# suspend kubectl set (one such run put the internet back 13 s into this check, and the new pod reached GHCR).
 kyverno_policy="$(kubectl -n kyverno get networkpolicy kyverno -o json)"
 reconnect_kyverno() {
   python3 -c '
@@ -389,8 +391,10 @@ for key in ("resourceVersion", "uid", "creationTimestamp", "managedFields", "gen
     p["metadata"].pop(key, None)
 print(json.dumps(p))' "$kyverno_policy" | kubectl replace -f - >/dev/null
   kubectl -n flux-system patch kustomization infrastructure --type merge -p '{"spec":{"suspend":false}}' >/dev/null
+  kubectl -n flux-system patch kustomization flux-system --type merge -p '{"spec":{"suspend":false}}' >/dev/null
 }
 trap 'reconnect_kyverno 2>/dev/null || true; rm -f "$debug_user"' EXIT
+kubectl -n flux-system patch kustomization flux-system --type merge -p '{"spec":{"suspend":true}}' >/dev/null
 kubectl -n flux-system patch kustomization infrastructure --type merge -p '{"spec":{"suspend":true}}' >/dev/null
 python3 -c '
 import json, sys
@@ -420,7 +424,7 @@ until [[ "$(pod ready "$valkey_image" | admit "$namespace")" == admitted ]] || (
 
 # Known: the database's image, which the control plane's Deployment names (its schema-wait init container).
 known="$(in_namespace get cluster idleo-database -o jsonpath='{.spec.imageName}')"
-named="$(in_namespace get deployments -o jsonpath='{range .items[*]}{.spec.template.spec.initContainers[*].image}{"\n"}{end}' | grep -cxF "$known" || true)"
+named="$(in_namespace get deployments -o jsonpath='{range .items[*].spec.template.spec.initContainers[*]}{.image}{"\n"}{end}' | grep -cxF "$known" || true)"
 # The admission request's own time, as the API server answered it (kubectl -v=6), in milliseconds: kubectl's own
 # start-up isn't Kyverno's.
 admit_ms() {
@@ -490,6 +494,14 @@ fi
 refused_offline="$(in_namespace get events --field-selector reason=FailedCreate -o json | python3 -c '
 import json, sys
 print(sum(1 for e in json.load(sys.stdin)["items"] if "could not be reached" in e.get("message", "")))')"
+# Everything above ran with Kyverno cut off only if the cut was still there at the end.
+if [[ "$(kubectl -n kyverno get networkpolicy kyverno -o json | python3 -c '
+import json, sys
+print(sum(1 for r in json.load(sys.stdin)["spec"]["egress"] for t in r.get("to", []) if "except" in t.get("ipBlock", {})))')" == 0 ]]; then
+  row 12 "offline: Kyverno still cut off once every offline check had run" "cut off" PASS
+else
+  row 12 "offline: Kyverno still cut off once every offline check had run" "its way to the internet was back" FAIL
+fi
 
 reconnect_kyverno
 trap 'rm -f "$debug_user"' EXIT
