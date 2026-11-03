@@ -11,6 +11,7 @@ import { useAfterPaint } from "@/lib/after-first-screen";
 import { api, data } from "./client";
 import { ApiError } from "./errors";
 import { sendToInviteStep } from "./invite-required";
+import { KEPT_ME_KEY, keptMe, type KeptMe } from "./kept-me";
 import type { components } from "./schema.gen";
 
 export type Session = components["schemas"]["SessionResponse"];
@@ -144,9 +145,11 @@ export function useMeAfterPaint() {
   return useQuery({ ...meQuery(), enabled: useAfterPaint() });
 }
 
-/** The account only as far as it's already known (restored or fetched by a screen): it never asks for it. */
-export function useCachedMe() {
-  return useQuery({ ...meQuery(), enabled: false });
+/** What the frame draws of the account, as far as it's already known (fetched by a screen, or kept): it never asks for it. */
+export function useCachedMe(): KeptMe | undefined {
+  const me = useQuery({ ...meQuery(), enabled: false });
+  const kept = useQuery<KeptMe>({ queryKey: KEPT_ME_KEY, enabled: false });
+  return me.data ? keptMe(me.data) : kept.data;
 }
 
 export function useSessions(enabled = true) {

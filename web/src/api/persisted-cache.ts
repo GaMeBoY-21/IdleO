@@ -1,11 +1,13 @@
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { persistQueryClient } from "@tanstack/query-persist-client-core";
-import type { QueryClient } from "@tanstack/react-query";
+import { persistQueryClient, type PersistedClient } from "@tanstack/query-persist-client-core";
+import { hashKey, type QueryClient } from "@tanstack/react-query";
 import { del, get, set } from "idb-keyval";
+import { KEPT_ME_KEY, keptMe } from "./kept-me";
+import type { components } from "./schema.gen";
 
 /**
  * What the renter saw last time, shown at once when they come back, then refreshed (web/DESIGN.md principles 3
- * and 5). Only these are kept: the home's (the user, the wallet, the session list and the template names) and an
+ * and 5). Only these are kept: the home's (what the frame draws of the user, the wallet, the session list and the template names) and an
  * owner's (their machines, each machine, their earnings; ADR 0023), so the Hosting tab's figure and a machine's
  * name don't wait on the network for their first paint, which a cold start would otherwise make a second slower
  * than the budget. A machine's telemetry, price band and sessions are never kept. The
@@ -15,15 +17,33 @@ import { del, get, set } from "idb-keyval";
  * Restored figures always show when they're from until fresh ones arrive, and they're never taken as fresh: however
  * recent, they're refetched once the screen has shown them (refreshRestored), so the network never holds it back.
  */
-const KEPT = new Set(["me", "wallet", "sessions", "templates", "hosts", "host", "earnings"]);
+const KEPT = new Set(["me", KEPT_ME_KEY[0], "wallet", "sessions", "templates", "hosts", "host", "earnings"]);
 
 /** A kept query: one of KEPT's, but not what hangs off a machine (its telemetry, price band and sessions). */
 const isKept = (key: readonly unknown[]) =>
   KEPT.has(String(key[0])) && (key[0] !== "host" || key.length === 2);
 const MAX_AGE_MS = 24 * 60 * 60_000;
 
+/** The account never goes into the browser whole: only what a first paint draws of it, under a key of its own (kept-me.ts). */
+function withKeptMe(client: PersistedClient): PersistedClient {
+  const { queries } = client.clientState;
+  const me = queries.find((query) => query.queryKey[0] === "me");
+  if (!me) {
+    return client;
+  }
+  const others = queries.filter((query) => query !== me && query.queryKey[0] !== KEPT_ME_KEY[0]);
+  const kept = {
+    ...me,
+    queryKey: KEPT_ME_KEY,
+    queryHash: hashKey(KEPT_ME_KEY),
+    state: { ...me.state, data: keptMe(me.state.data as components["schemas"]["MeResponse"]) },
+  };
+  return { ...client, clientState: { ...client.clientState, queries: [...others, kept] } };
+}
+
 const persister = createAsyncStoragePersister({
   key: "idleo.home-cache",
+  serialize: (client) => JSON.stringify(withKeptMe(client)),
   storage: {
     getItem: (key) => get<string>(key).then((value) => value ?? null),
     setItem: set,

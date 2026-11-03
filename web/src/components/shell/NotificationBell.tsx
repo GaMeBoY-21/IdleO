@@ -20,7 +20,7 @@ export function NotificationBell() {
 function CountedBell() {
   const inbox = useInbox();
   const me = useCachedMe();
-  return <BellLink unread={unreadOf(inbox.data) ?? me.data?.unreadNotifications ?? 0} />;
+  return <BellLink unread={unreadOf(inbox.data) ?? me?.unreadNotifications ?? 0} />;
 }
 
 function BellLink({ unread }: { unread: number }) {

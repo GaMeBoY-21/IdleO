@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { signOut } from "@/auth";
-import { useMe } from "@/api/queries";
+import { useCachedMe, useMeAfterPaint } from "@/api/queries";
 import { RailColumns } from "@/components/shell/Layout";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
@@ -56,15 +56,20 @@ export function AccountRail({
 
 /** Who this is: the dark tile of the rail. The shapes are drawn first, so the name arriving moves nothing. */
 function ProfileTile() {
-  const me = useMe();
-  const name = me.data ? (me.data.displayName ?? me.data.email ?? "You") : null;
+  const me = useMeAfterPaint();
+  const kept = useCachedMe();
+  const name = me.data
+    ? (me.data.displayName ?? me.data.email ?? "You")
+    : kept
+      ? (kept.displayName ?? kept.emailName ?? "You")
+      : null;
   return (
     <Tile tone="night" size="lg" aria-label="You" className="flex flex-col gap-3.5">
       <span
         aria-hidden="true"
         className="flex size-16 items-center justify-center rounded-full bg-volt text-headline font-bold text-ink"
       >
-        {(name ?? me.data?.email ?? " ").charAt(0).toUpperCase()}
+        {(name ?? " ").charAt(0).toUpperCase()}
       </span>
       {name === null ? (
         <span role="status" aria-label="Loading your account" className="flex flex-col">

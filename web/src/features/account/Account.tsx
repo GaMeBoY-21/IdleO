@@ -1,5 +1,5 @@
 import { useNotifications } from "@/api/account";
-import { useMe } from "@/api/queries";
+import { useCachedMe, useMeAfterPaint } from "@/api/queries";
 import { signOut } from "@/auth";
 import { AccountFrame } from "@/components/shell/AccountFrame";
 import { AppearanceChoice } from "@/components/shell/AppearanceChoice";
@@ -22,9 +22,11 @@ const METHODS: Record<string, string> = { google: "Google", "email-link": "An em
  */
 export function Account() {
   useTitle("Account");
-  const me = useMe();
-  // The choices aren't what the screen paints first, so they're asked for once it has painted: a request made
-  // before the first paint counts against the speed budgets (ADR 0018).
+  // The account and the choices aren't what the screen paints first (what's kept of the account draws its rows, and the rest
+  // fills them), so they're asked for once it has painted: a request made before the first paint counts against the speed
+  // budgets (ADR 0018).
+  const me = useMeAfterPaint();
+  const kept = useCachedMe();
   const painted = useAfterPaint();
   const notifications = useNotifications(painted);
   const since = staleSince(me, notifications);
@@ -39,20 +41,29 @@ export function Account() {
             <span className="md:hidden">You</span>
             <span className="hidden md:inline">Profile</span>
           </SectionTitle>
-          {me.data ? (
+          {me.data || (kept && !me.isError) ? (
             <div className="flex flex-col divide-y divide-line">
-              <NameRow key={me.data.displayName ?? ""} name={me.data.displayName ?? me.data.email ?? "You"} />
+              <NameRow
+                key={me.data?.displayName ?? ""}
+                name={
+                  me.data
+                    ? (me.data.displayName ?? me.data.email ?? "You")
+                    : (kept?.displayName ?? kept?.emailName ?? "You")
+                }
+              />
               <Fact
                 label="Email"
-                value={me.data.email ?? "No email on file"}
-                note={me.data.emailUndeliverable ? UNDELIVERABLE : undefined}
+                value={me.data ? (me.data.email ?? "No email on file") : undefined}
+                note={me.data?.emailUndeliverable ? UNDELIVERABLE : undefined}
                 action={
                   <Link href="/account/help/" className="shrink-0 text-small underline">
                     To change it, write to us
                   </Link>
                 }
               />
-              {methods !== "" && <Fact label="Signed in with" value={methods} />}
+              {(!me.data || methods !== "") && (
+                <Fact label="Signed in with" value={me.data ? methods : undefined} />
+              )}
               <Link href="/account/keys/" className={`${ROW} hover:bg-panel-2 md:hidden`}>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <p className="text-option font-semibold">API keys</p>
@@ -179,7 +190,8 @@ export function Fact({
   action,
 }: {
   label: string;
-  value: string;
+  /** Undefined while it's on its way: the row keeps its height. */
+  value: string | undefined;
   note?: string | undefined;
   action?: React.ReactNode;
 }) {
@@ -187,9 +199,13 @@ export function Fact({
     <div className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="text-caption text-text-2">{label}</p>
-        <p className="truncate text-option font-semibold" title={value}>
-          {value}
-        </p>
+        {value === undefined ? (
+          <SkeletonLine size="option" width="w-1/2" />
+        ) : (
+          <p className="truncate text-option font-semibold" title={value}>
+            {value}
+          </p>
+        )}
         {note !== undefined && <p className="text-small font-semibold text-warn-fg">{note}</p>}
       </div>
       {action}

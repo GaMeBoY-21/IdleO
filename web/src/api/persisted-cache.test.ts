@@ -35,6 +35,71 @@ describe("the kept figures", () => {
     await fresh.forget();
   });
 
+  it("keeps of the account only what the first paint draws, under a key of its own", async () => {
+    const first = new QueryClient();
+    await restoreFor(first, "asha");
+    first.setQueryData(["me"], {
+      id: "0190a1b2-0000-7000-8000-000000000001",
+      displayName: null,
+      email: "asha@mail.example",
+      emailUndeliverable: false,
+      createdAt: "2026-10-01T00:00:00Z",
+      signInMethods: ["google"],
+      status: "active",
+      unreadNotifications: 2,
+      notices: {
+        accepted: true,
+        ageConfirmed: true,
+        minimumAge: 18,
+        privacyVersion: "p1",
+        termsVersion: "t1",
+      },
+    });
+    await settle();
+
+    const written = [...stored.values()].join();
+    for (const held of [
+      "mail.example",
+      "signInMethods",
+      "createdAt",
+      "0190a1b2",
+      "termsVersion",
+      "minimumAge",
+    ]) {
+      expect(written, `${held} isn't kept in the browser`).not.toContain(held);
+    }
+
+    vi.resetModules();
+    const fresh = await import("./persisted-cache");
+    const next = new QueryClient();
+    await fresh.restoreFor(next, "asha");
+    expect(next.getQueryData(["me"]), "no screen reads a partial account as the whole one").toBeUndefined();
+    expect(next.getQueryData(["kept-me"])).toEqual({
+      displayName: null,
+      emailName: "asha",
+      status: "active",
+      accepted: true,
+      unreadNotifications: 2,
+    });
+
+    // Saved again with nothing newer fetched, it stays; a newer account replaces it.
+    next.setQueryData(["wallet"], { availablePaise: 1 });
+    await settle();
+    expect([...stored.values()].join()).toContain("emailName");
+    next.setQueryData(["me"], {
+      displayName: "Asha K",
+      email: "asha@mail.example",
+      status: "active",
+      unreadNotifications: 0,
+      notices: { accepted: true },
+    });
+    await settle();
+    const saved = [...stored.values()].join();
+    expect(saved).toContain("Asha K");
+    expect(saved).not.toContain("mail.example");
+    await fresh.forget();
+  });
+
   it("brings back an owner's machines, a machine and their earnings, but nothing that hangs off a machine", async () => {
     const first = new QueryClient();
     await restoreFor(first, "asha");
