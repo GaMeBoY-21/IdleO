@@ -128,9 +128,19 @@ describe("the fonts", () => {
 
   it("are preloaded where the pages say: the app's index.html and the website's head name exactly these files", () => {
     const links = (source: string) =>
-      [...source.matchAll(/rel="preload" href="\/fonts\/([^"]+)"/g)].map((match) => match[1]).sort();
+      [...source.matchAll(/rel="preload"\s+href="\/fonts\/([^"]+)"[^>]*>/g)]
+        .filter((match) => !match[0].includes("media="))
+        .map((match) => match[1])
+        .sort();
     const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
     expect(links(read("../../index.html"))).toEqual([...preloadedFonts.app].sort());
+    // What a phone doesn't fetch: only from the width where the app's headings use it.
+    const wide = [
+      ...read("../../index.html").matchAll(
+        /rel="preload"\s+href="\/fonts\/([^"]+)"[^>]*media="\(min-width: 768px\)"/g,
+      ),
+    ];
+    expect(wide.map((match) => match[1])).toEqual([...preloadedFonts.appWide]);
     expect(links(read("../../scripts/build-site.ts"))).toEqual([...preloadedFonts.site].sort());
   });
 
