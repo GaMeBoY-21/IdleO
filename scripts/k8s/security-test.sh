@@ -582,13 +582,40 @@ if [[ "$control" != unfinished && "$(reached "$control" 10)" != none ]]; then
 else
   row 13 "control: the same pods without the wait" "${control:-reached nothing} (must reach something)" FAIL
 fi
-# A kubelet that stops answering for a moment mustn't end the wait: the deployed script against a fake kubelet, since on
-# k3s the real one shares its process with everything else on the node.
+# A kubelet that refuses mustn't end the wait: only a silent port means the rules are in place. The deployed script against
+# a fake kubelet, since on k3s the real one shares its process with everything else on the node.
 python3 -c 'import json, sys; print(json.loads(sys.argv[1])["command"][2])' "$wait_container" >"$out/network-policy-wait.sh"
-if blips="$(python3 "$k8s_root/scripts/k8s/network-policy-wait-test.py" "$out/network-policy-wait.sh" 2>&1)"; then
-  row 13 "a kubelet that stops answering for a moment doesn't let a pod through" "still waiting; passes after five failures in a row" PASS
+if refusals="$(python3 "$k8s_root/scripts/k8s/network-policy-wait-test.py" "$out/network-policy-wait.sh" 2>&1)"; then
+  row 13 "a kubelet that refuses doesn't let a pod through" "still waiting; passes only on five silent tries in a row" PASS
 else
-  row 13 "a kubelet that stops answering for a moment doesn't let a pod through" "${blips##*$'\n'}" FAIL
+  row 13 "a kubelet that refuses doesn't let a pod through" "${refusals##*$'\n'}" FAIL
+fi
+# What that rests on: from a pod whose rules are in place, a try at the kubelet's port ends in silence, not a refusal
+# (kube-router's REJECT never gets back, ADR 0048). If a k3s or kernel upgrade changed that, every pod would wait out its 300 s.
+blocked_try="$(python3 - "$valkey_image" "$node_ip" "$wait_container" <<'PY' |
+import json, sys
+image, node, init = sys.argv[1:]
+script = f"""start=${{EPOCHREALTIME/./}}; timeout 1 bash -c "exec 3<>/dev/tcp/{node}/10250" 2>/dev/null; code=$?
+echo "$code $(( (${{EPOCHREALTIME/./}} - start) / 1000 ))" """
+security = {"runAsNonRoot": True, "readOnlyRootFilesystem": True, "allowPrivilegeEscalation": False,
+            "capabilities": {"drop": ["ALL"]}, "seccompProfile": {"type": "RuntimeDefault"}}
+print(json.dumps({"apiVersion": "v1", "kind": "Pod",
+                  "metadata": {"name": "blocked-try", "labels": {"idleo.in/security-test": "blocked-try"}},
+                  "spec": {"restartPolicy": "Never", "automountServiceAccountToken": False, "enableServiceLinks": False,
+                           "securityContext": {"runAsNonRoot": True, "runAsUser": 65532, "seccompProfile": {"type": "RuntimeDefault"}},
+                           "initContainers": [json.loads(init)],
+                           "containers": [{"name": "probe", "image": image, "command": ["bash", "-c", script],
+                                           "resources": {"requests": {"cpu": "10m", "memory": "16Mi"}, "limits": {"memory": "64Mi"}},
+                                           "securityContext": security}]}}))
+PY
+  in_namespace apply -f - >/dev/null
+  in_namespace wait pod/blocked-try --for=jsonpath='{.status.phase}'=Succeeded --timeout=360s >/dev/null 2>&1 || true
+  in_namespace logs pod/blocked-try -c probe 2>/dev/null || true
+  in_namespace delete pod blocked-try --wait=false >/dev/null 2>&1 || true)"
+if [[ "${blocked_try%% *}" == 124 ]]; then
+  row 13 "a blocked pod's try at the kubelet's port ends in silence" "no answer after ${blocked_try##* } ms" PASS
+else
+  row 13 "a blocked pod's try at the kubelet's port ends in silence" "exit and ms: ${blocked_try:-nothing}" FAIL
 fi
 # Every pod of ours but CloudNativePG's (its operator makes them, ADR 0047), and Kyverno's, waits first.
 not_waiting="$({ in_namespace get pods -l '!cnpg.io/cluster,!idleo.in/security-test' -o json
