@@ -26,6 +26,7 @@ if [[ "$part" == build || "$part" == all ]]; then
   fi
   ../scripts/release/source-fingerprint-test.sh
   ../scripts/release/sbom-test.sh
+  python3 runner/tests/hostile/table_test.py
   cargo fmt --all --check
   cargo clippy --workspace --all-targets --locked -- -D warnings
   cargo test --workspace --locked
