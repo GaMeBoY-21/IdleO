@@ -118,11 +118,11 @@ spec:
             - -c
             - |
               deadline=$((SECONDS + 300))
-              failed=0
-              until ((failed == 5)); do
-                ((SECONDS < deadline)) || { echo "this pod's network policy isn't in place after 300 s: the node's kubelet port still answers"; exit 1; }
-                if timeout 1 bash -c "exec 3<>/dev/tcp/$NODE/10250" 2>/dev/null; then failed=0; else failed=$((failed + 1)); fi
-                sleep 0.1
+              blocked=0
+              until ((blocked == 5)); do
+                ((SECONDS < deadline)) || { echo "this pod's network policy isn't in place after 300 s: the node's kubelet port still answers or refuses"; exit 1; }
+                timeout 0.3 bash -c "exec 3<>/dev/tcp/$NODE/10250" 2>/dev/null
+                if (($? == 124)); then blocked=$((blocked + 1)); else blocked=0; sleep 0.1; fi
               done
           env:
             - name: NODE

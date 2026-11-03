@@ -2,26 +2,41 @@
 """
 wait-for-network-policy on its own (ADR 0048): the script a pod's first init container runs, given as the first argument,
 against a fake kubelet on a port of this machine. A pod's real kubelet can't be stopped for a moment on its own, since on
-k3s it shares its process with everything else on the node.
-  - a kubelet that stops answering for a moment doesn't end the wait, however many times it does;
-  - it ends once the port has failed five times in a row, and not before;
-  - a port that never stops answering fails the pod at the limit.
+k3s it shares its process with everything else on the node. Kube-router's rules leave a blocked pod's try unanswered, so
+only silence means they're in place:
+  - a port that answers holds the pod, and fails it at the limit;
+  - a port that refuses (a kubelet that's down or restarting) never lets it through, however fast it refuses;
+  - a port gone silent lets it through after five tries, in about 1.5 s;
+  - silent for fewer than five tries, then refusing, starts the count over.
+An unprivileged test can't make a port silent on both Linux and macOS (macOS makes room in a full queue), so a stand-in for
+timeout gives silence's exit status after its time. That a real pod's try does end that way is check 13's "ends in silence".
 Prints what each did; exits non-zero on the first that went wrong.
 """
-import os, re, socket, stat, subprocess, sys, tempfile, time
+import os, socket, stat, subprocess, sys, tempfile, time
 
-BLIP_S = 0.2  # At most three failed tries, 100 ms apart: well short of five.
-BLIPS = 5
-FIVE_TRIES_S = 0.4  # Five failures in a row are four gaps of 100 ms at the least.
-LIMIT_S = 2
+LIMIT_S = 3
+FIVE_SILENT_S = 1.5  # Five tries of 300 ms.
+SLOW_S = 3.0  # A loaded runner may be late, but not by a second and a half.
+TIMEOUT = """#!/bin/bash
+limit=$1; shift
+[[ -e "$SILENT" ]] && { sleep "$limit"; exit 124; }
+exec "$@"
+"""
 
 
-def listener(port=0):
+def listener():
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("127.0.0.1", port))
+    s.bind(("127.0.0.1", 0))
     s.listen(64)
     return s
+
+
+def closed_port():
+    s = listener()
+    port = s.getsockname()[1]
+    s.close()
+    return port
 
 
 def wait_script(path, port, limit_s=300):
@@ -31,11 +46,6 @@ def wait_script(path, port, limit_s=300):
     return script.replace("/10250", f"/{port}").replace("SECONDS + 300", f"SECONDS + {limit_s}")
 
 
-def start(script, tools):
-    env = {**os.environ, "NODE": "127.0.0.1", "PATH": f"{tools}:{os.environ['PATH']}"}
-    return subprocess.Popen(["bash", "-c", script], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-
-
 def fail(message):
     sys.exit(f"network-policy-wait-test: FAIL: {message}")
 
@@ -43,50 +53,62 @@ def fail(message):
 def main():
     path = sys.argv[1]
     with tempfile.TemporaryDirectory() as tools:
-        # macOS has no timeout; on this machine a closed port refuses at once, so nothing needs one.
-        if subprocess.run(["bash", "-c", "command -v timeout"], capture_output=True).returncode != 0:
-            shim = os.path.join(tools, "timeout")
-            with open(shim, "w") as f:
-                f.write('#!/bin/bash\nshift\nexec "$@"\n')
-            os.chmod(shim, os.stat(shim).st_mode | stat.S_IEXEC)
+        shim = os.path.join(tools, "timeout")
+        with open(shim, "w") as f:
+            f.write(TIMEOUT)
+        os.chmod(shim, os.stat(shim).st_mode | stat.S_IEXEC)
+        silent = os.path.join(tools, "silent")
+        env = {**os.environ, "NODE": "127.0.0.1", "PATH": f"{tools}:{os.environ['PATH']}", "SILENT": silent}
+
+        def start(port, limit_s):
+            script = wait_script(path, port, limit_s)
+            return subprocess.Popen(["bash", "-c", script], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+        def expect_limit(port, what):
+            wait = start(port, LIMIT_S)
+            try:
+                code = wait.wait(timeout=LIMIT_S + 10)
+            except subprocess.TimeoutExpired:
+                wait.kill()
+                fail(f"{what}: it didn't stop at the limit")
+            output = wait.stdout.read()
+            if code != 1 or "isn't in place" not in output:
+                fail(f"{what} ended with exit {code}, not at the limit: {output}")
+            print(f"network-policy-wait-test: {what}: held, and the pod fails at the limit")
 
         kubelet = listener()
-        port = kubelet.getsockname()[1]
-        wait = start(wait_script(path, port), tools)
-        time.sleep(0.5)
-        if wait.poll() is not None:
-            fail(f"it ended while the kubelet answered, exit {wait.returncode}")
-        for blip in range(BLIPS):
-            kubelet.close()
-            time.sleep(BLIP_S)
-            kubelet = listener(port)
-            time.sleep(0.3)
-            if wait.poll() is not None:
-                fail(f"a kubelet that stopped answering for {BLIP_S} s let the pod through, on blip {blip + 1}")
-        print(f"network-policy-wait-test: {BLIPS} blips of {BLIP_S} s: still waiting")
-
+        expect_limit(kubelet.getsockname()[1], "a port that answers")
         kubelet.close()
-        stopped = time.monotonic()
+
+        expect_limit(closed_port(), "a port that refuses")
+
+        open(silent, "w").close()
+        began = time.monotonic()
+        wait = start(closed_port(), 30)
         try:
-            code = wait.wait(timeout=10)
+            code = wait.wait(timeout=30)
         except subprocess.TimeoutExpired:
             wait.kill()
-            fail("it didn't end within 10 s of the port closing for good")
-        took = time.monotonic() - stopped
+            fail("a silent port didn't let it through in 30 s")
+        took = time.monotonic() - began
         if code != 0:
-            fail(f"it exited {code} once the port closed: {wait.stdout.read()}")
-        if took < FIVE_TRIES_S:
-            fail(f"it ended {took:.2f} s after the port closed, sooner than five tries 100 ms apart")
-        print(f"network-policy-wait-test: closed for good: passed after {took:.2f} s")
+            fail(f"a silent port: exit {code}: {wait.stdout.read()}")
+        if not FIVE_SILENT_S * 0.9 <= took <= SLOW_S:
+            fail(f"a silent port let it through after {took:.2f} s, not about {FIVE_SILENT_S} s")
+        print(f"network-policy-wait-test: a silent port: through after {took:.2f} s")
 
-        kubelet = listener()
-        wait = start(wait_script(path, kubelet.getsockname()[1], LIMIT_S), tools)
-        code = wait.wait(timeout=LIMIT_S + 10)
-        output = wait.stdout.read()
-        kubelet.close()
-        if code != 1 or "isn't in place" not in output:
-            fail(f"a port that never closed ended with exit {code}: {output}")
-        print("network-policy-wait-test: never closed: the pod fails at the limit")
+        wait = start(closed_port(), 30)
+        time.sleep(0.8)  # Two or three silent tries.
+        os.remove(silent)
+        time.sleep(0.5)
+        open(silent, "w").close()
+        time.sleep(0.8)  # Two or three more: five in all, but not in a row.
+        os.remove(silent)
+        time.sleep(FIVE_SILENT_S)
+        if wait.poll() is not None:
+            fail(f"silent for a moment, twice, with refusals between, let it through: exit {wait.returncode}")
+        wait.kill()
+        print("network-policy-wait-test: silent for a moment, with refusals between: still held")
 
 
 main()
