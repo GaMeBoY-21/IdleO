@@ -44,6 +44,33 @@ sys.exit("\n".join(problems) if problems else 0)
 PY
 scripts/ops/load-alerts.sh --check
 
+# Every long suite reports through the one reporter, runs on a schedule, and has both alerts, with a window of its interval
+# plus a margin: weekly plus a day, nightly plus a few hours (ADR 0050).
+python3 "$root/scripts/ops/report-suite-test.py"
+python3 - "$root" <<'PY'
+import re, sys, yaml
+root = sys.argv[1]
+SUITES = {"hostile": "hostile", "failover": "failover", "k8s": "k8s", "gitops": "gitops", "security": "security",
+          "e2e": "e2e", "web-browser": "web", "scan": "scan"}
+rules = [rule for name in ("long-suites", "security")
+         for group in yaml.safe_load(open(f"{root}/ops/alerts/{name}.yaml"))["groups"] for rule in group["rules"]]
+problems = []
+for suite, workflow in SUITES.items():
+    text = open(f"{root}/.github/workflows/{workflow}.yml").read()
+    if not re.search(rf"uses: \./\.github/actions/report-suite\n\s+with:\n\s+suite: {suite}\n\s+status: \$\{{\{{ job\.status \}}\}}", text):
+        problems.append(f"{workflow}.yml doesn't report {suite} through .github/actions/report-suite")
+    cron = re.search(r'schedule:\n(?:\s*#.*\n)*\s+- cron: "([^"]+)"', text)
+    if not cron:
+        problems.append(f"{workflow}.yml has no schedule, so {suite} can go silent")
+        continue
+    window = "30h" if cron[1].split()[-1] == "*" else "8d"
+    for kind, function in (("failing", "last_over_time"), ("missing", "absent_over_time")):
+        wanted = f'{function}(idleo_suite_passed{{suite="{suite}"}}[{window}])'
+        if not any(rule["expr"].startswith(wanted) and rule["labels"]["severity"] == "digest" for rule in rules):
+            problems.append(f"no {kind} alert for {suite}: {wanted}")
+sys.exit("\n".join(problems) if problems else 0)
+PY
+
 docker run --rm -v "$root/ops/alertmanager:/config:ro" --entrypoint amtool "$alertmanager" check-config /config/development.yaml
 # Production's routing with stand-in values: its ${…} are filled from the environment only when it's loaded.
 sed -e 's/\${ALERTS_SMTP_HOST}/smtp.example.invalid/' -e 's/\${ALERTS_[A-Z_]*}/x@example.invalid/g' ops/alertmanager/production.yaml |

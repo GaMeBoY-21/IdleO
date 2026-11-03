@@ -51,40 +51,23 @@ jobs:
           GITOPS_BRANCH: ${{ github.ref_name }}
         run: scripts/k8s/up.sh --gitops
       - name: Scan
-        id: scan
         env:
           KUBECONFIG: private/k8s/kubeconfig
         run: scripts/images/scan-deployed.sh --cluster --verbose
-      # The result, to Grafana Cloud, where NightlyScanFailing and NightlyScanMissing (ops/alerts/security.yaml) read it:
-      # a digest, never a page. The OTLP endpoint and its Authorization header are production's own (ADR 0036), as
-      # repository secrets; until they exist, the alert's missing-result rule is what says so.
-      - name: Report
-        if: always() && steps.scan.outcome != 'skipped'
-        env:
-          ENDPOINT: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
-          AUTHORIZATION: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
-          PASSED: ${{ steps.scan.outcome == 'success' && 1 || 0 }}
-        run: |
-          if [[ -z "$ENDPOINT" || -z "$AUTHORIZATION" ]]; then
-            echo "::warning::GRAFANA_CLOUD_OTLP_ENDPOINT and GRAFANA_CLOUD_OTLP_AUTHORIZATION aren't set: the result isn't reported"
-            exit 0
-          fi
-          findings="$(cat private/scan-findings.txt 2>/dev/null || echo 0)"
-          python3 - "$PASSED" "$findings" >body.json <<'PY'
-          import json, sys, time
-          now = str(time.time_ns())
-          point = lambda value: {"gauge": {"dataPoints": [{"asInt": str(value), "timeUnixNano": now}]}}
-          print(json.dumps({"resourceMetrics": [{
-              "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "nightly-scan"}}]},
-              "scopeMetrics": [{"metrics": [
-                  {"name": "idleo_nightly_scan_passed", **point(int(sys.argv[1]))},
-                  {"name": "idleo_nightly_scan_findings", **point(int(sys.argv[2]))}]}]}]}))
-          PY
-          curl -fsS -X POST "$ENDPOINT/v1/metrics" -H "Authorization: $AUTHORIZATION" -H 'Content-Type: application/json' \
-            --data-binary @body.json >/dev/null
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: scan-logs
           path: private/k8s/logs/
           retention-days: 7
+      # The result, to Grafana Cloud, where NightlyScanFailing and NightlyScanMissing (ops/alerts/security.yaml) read it:
+      # a digest, never a page (ADR 0050).
+      - name: Report
+        if: always()
+        uses: ./.github/actions/report-suite
+        with:
+          suite: scan
+          status: ${{ job.status }}
+          endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+          authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
+          findings-file: private/scan-findings.txt

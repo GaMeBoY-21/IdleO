@@ -9,6 +9,9 @@ on:
   # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
   # would block the merge. Pushes to main still run only for the paths that matter.
   pull_request:
+  # So a quiet week still reports the browser run's result (ADR 0050).
+  schedule:
+    - cron: "47 6 * * 6"
   workflow_dispatch:
     inputs:
       update_screenshots:
@@ -205,3 +208,12 @@ jobs:
             private/e2e/*.log
           if-no-files-found: ignore
           retention-days: 7
+      # To Grafana Cloud: on main or on its schedule, a red run or a silent one is a ticket (ADR 0050).
+      - name: Report
+        if: always()
+        uses: ./.github/actions/report-suite
+        with:
+          suite: web-browser
+          status: ${{ job.status }}
+          endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+          authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
