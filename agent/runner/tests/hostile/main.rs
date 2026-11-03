@@ -28,6 +28,15 @@ struct Run {
 }
 
 impl Run {
+    /// How a job ended, and what it printed. A job whose image never arrived ran nothing, so it can't prove anything was
+    /// refused: every test stops here, whatever it was about to check, and the table calls that row a FAIL.
+    fn new(ended: Ended, log: String) -> Self {
+        if let Ended::Failed { code, message, .. } = &ended {
+            assert_ne!(code, code::IMAGE_PULL_FAILED, "the attack never ran: {message}");
+        }
+        Self { ended, log }
+    }
+
     /// The attack's own verdict line.
     fn verdict(&self, attack: &str) -> Option<(bool, String)> {
         self.log.lines().find_map(|line| {
@@ -183,8 +192,7 @@ impl Harness {
                 Ok(_) | Err(_) => {}
             }
         };
-        let log = self.log(session);
-        Run { ended, log }
+        Run::new(ended, self.log(session))
     }
 
     fn log(&self, session: &str) -> String {
@@ -312,7 +320,7 @@ impl Harness {
                 Ok(_) | Err(_) => {}
             }
         };
-        (Run { ended, log: self.log(session) }, told)
+        (Run::new(ended, self.log(session)), told)
     }
 
     /// Waits for a job to end, saying how long its outputs took to upload (from the runner's `uploading` to its end).
@@ -339,7 +347,7 @@ impl Harness {
                 Ok(_) | Err(_) => {}
             }
         };
-        (Run { ended, log: self.log(session) }, took)
+        (Run::new(ended, self.log(session)), took)
     }
 
     fn runner_pid(&self) -> String {
@@ -1114,6 +1122,17 @@ async fn the_runners_own_uploads_are_not_held_by_a_sessions_cap() {
     assert!(busy < alone * 3 + Duration::from_secs(2), "{busy:?} beside the flood against {alone:?} alone");
 }
 
+#[test]
+#[should_panic(expected = "the attack never ran")]
+fn an_image_that_cant_be_pulled_is_never_a_row_that_held() {
+    let ended = Ended::Failed {
+        code: code::IMAGE_PULL_FAILED.to_owned(),
+        message: "connection refused".to_owned(),
+        exit_code: None,
+    };
+    let _ = Run::new(ended, "RESULT write_root HELD nothing happened\n".to_owned());
+}
+
 /// Not an attack: the number that matters, how long from "Start" to the job's first line, with the image already here.
 #[tokio::test]
 #[ignore = "needs the development distribution: agent/runner/tests/hostile/run.sh"]
@@ -1145,6 +1164,7 @@ async fn timing_start_to_first_log_line() {
             "-c",
             &format!("journalctl -u idleo-runner --no-pager -o cat | grep {session} | tail -2"),
         ]);
+        assert_eq!(ended, Ended::Succeeded, "a timing of a job that didn't run is no timing");
         println!(
             "TIMING round {round}: ended {ended:?}; first log chunk in storage after {:?}\n{log_line}",
             first_chunk.unwrap_or_default()
