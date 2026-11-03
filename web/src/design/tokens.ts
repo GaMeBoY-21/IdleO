@@ -315,6 +315,8 @@ export const fonts = {
  */
 export const preloadedFonts = {
   app: [fonts.sans.file, fonts.title.file],
+  /** Only from the app's md width up (the link's `media`), where its headings are set in the display face: a phone never fetches it (ADR 0049). */
+  appWide: [fonts.display.file],
   site: [fonts.sans.file, fonts.display.more.file, fonts.display.file],
 } as const;
 
