@@ -102,6 +102,7 @@ Measured on Lighthouse's mobile profile (a mid-range phone on 4G), and failed in
 | Layout shift | 0 | `lighthouserc.json`, and every screen in `e2e/layout-shift.spec.ts` |
 | Total blocking time | at most 150 ms | `lighthouserc.json` |
 | First-load JavaScript, signed-in home | at most 150 KB gzipped, and none of the admin console's code | `scripts/first-load.ts`, on the production build, sign-in adapter included |
+| The main script before a screen paints | `MAIN_SCRIPT_BUDGET_KB` with Brotli: its size on Nov 3 plus 1 KB, the headroom before Session and Credit go up a round (ADR 0049) | `scripts/first-load.ts`, on the production build, naming the imports that grew it |
 | Accessibility | Lighthouse 100, zero axe violations | `lighthouserc.json`, and every screen and state in `e2e/*screens.spec.ts` |
 | A 10 MiB log | at most 2,000 lines in the page, every interaction within the app's 200 ms on a CPU slowed 4× | `e2e/performance.spec.ts` |
 
