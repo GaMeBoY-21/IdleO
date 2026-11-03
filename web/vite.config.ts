@@ -45,13 +45,34 @@ function shellChunk(id: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Which modules the main script holds, and how many bytes of each, for scripts/first-load.ts to say what grew it (ADR 0049,
+ * "Watch the main script").
+ */
+function mainScriptModules(): Plugin {
+  return {
+    name: "idleo-main-script-modules",
+    generateBundle(_, bundle) {
+      const shell = Object.values(bundle).find((file) => file.type === "chunk" && file.name === "shell");
+      if (shell?.type === "chunk") {
+        const sizes = Object.entries(shell.modules).map(([id, module]) => [id, module.renderedLength]);
+        this.emitFile({
+          type: "asset",
+          fileName: ".vite/main-script-modules.json",
+          source: JSON.stringify(Object.fromEntries(sizes)),
+        });
+      }
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, process.cwd(), ["VITE_", "IDLEO_"]), ...process.env } as BuildEnv;
   // A wrong combination (above all, the mock sign-in adapter outside a local build) stops here, before any
   // bundle exists (ADR 0018).
   assertBuildSettings(env);
   return {
-    plugins: [react(), tailwindcss(), themeBoot()],
+    plugins: [react(), tailwindcss(), themeBoot(), mainScriptModules()],
     resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
     // The adapter not chosen is dead code, so it's left out of the bundle entirely.
     define: {
