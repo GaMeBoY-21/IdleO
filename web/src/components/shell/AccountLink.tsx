@@ -12,8 +12,8 @@ export function AccountLink() {
   const [pathname] = useLocation();
   const auth = useAuth();
   const me = useCachedMe();
-  const email = auth.status === "signed-in" ? auth.user.email : (me.data?.email ?? null);
-  const name = me.data?.displayName ?? email?.split("@")[0] ?? "Account";
+  const emailName = auth.status === "signed-in" ? auth.user.email?.split("@")[0] : me?.emailName;
+  const name = me?.displayName ?? emailName ?? "Account";
   const current = pathname.startsWith("/account");
   return (
     <Link

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from "react";
 import { Route, Switch, useLocation, useSearch } from "wouter";
-import { useMeAfterPaint } from "@/api/queries";
+import { useCachedMe, useMeAfterPaint } from "@/api/queries";
 import { AppShell, ShellSkeleton } from "@/components/shell/AppShell";
 import { RequireAuth } from "@/components/shell/RequireAuth";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -148,10 +148,11 @@ function SignedOutScreen({ children }: { children: ReactNode }) {
  * as soon as the account says so: at once from what the screen already has, else once the screen has painted.
  */
 function NoticesGate() {
-  const me = useMeAfterPaint();
+  useMeAfterPaint();
+  const me = useCachedMe();
   const [path, navigate] = useLocation();
   const search = useSearch();
-  const pending = me.data !== undefined && !me.data.notices.accepted;
+  const pending = me !== undefined && !me.accepted;
   useEffect(() => {
     if (pending) {
       navigate(agreeStep(`${path}${search ? `?${search}` : ""}`), { replace: true });
@@ -187,8 +188,9 @@ function HeldArea() {
 }
 
 function SignedInArea() {
-  const me = useMeAfterPaint();
-  if (me.data?.status === "suspended") {
+  useMeAfterPaint();
+  const me = useCachedMe();
+  if (me?.status === "suspended") {
     return (
       <RequireAuth fallback={<ShellSkeleton />}>
         <Suspense fallback={<ShellSkeleton />}>

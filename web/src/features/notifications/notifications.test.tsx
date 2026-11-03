@@ -36,7 +36,7 @@ vi.mock("@/api/inbox", async (original) => ({
   },
   useMarkRead: () => state.markRead,
 }));
-vi.mock("@/api/queries", () => ({ useCachedMe: () => ({ data: state.cachedMe }) }));
+vi.mock("@/api/queries", () => ({ useCachedMe: () => state.cachedMe }));
 vi.mock("@/lib/after-first-screen", () => ({
   useAfterFirstScreen: () => state.afterFirstScreen,
   useAfterPaint: () => true,

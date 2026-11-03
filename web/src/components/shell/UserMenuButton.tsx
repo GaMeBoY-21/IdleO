@@ -9,7 +9,7 @@ import { afterFirstScreen } from "@/lib/after-first-screen";
 export function Avatar({ large = false }: { large?: boolean }) {
   const auth = useAuth();
   const me = useCachedMe();
-  const email = auth.status === "signed-in" ? auth.user.email : (me.data?.email ?? null);
+  const email = auth.status === "signed-in" ? auth.user.email : (me?.emailName ?? null);
   return (
     <span
       className={cn(
