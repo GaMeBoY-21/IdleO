@@ -1,0 +1,106 @@
+# The long suites (ADR 0050): the ones too slow to be required checks, so a red one on main or on its schedule stops nothing
+# and nobody would notice. .github/actions/report-suite reports each one's result to Grafana Cloud as
+# idleo_suite_passed{suite} (1 or 0). Failing: the last result was red. Missing: no result inside the suite's interval,
+# weekly plus a day here (the nightly scan's are in security.yaml). Something to fix this week, never a wake-up: all go to the
+# daily digest. scripts/checks/ops.sh checks that every suite here has its workflow's reporter and its schedule.
+groups:
+  - name: long-suites
+    rules:
+      - alert: HostileSuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="hostile"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The hostile tests of the job sandbox failed on main or on its schedule.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: HostileSuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="hostile"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The hostile tests of the job sandbox hasn't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+      - alert: FailoverSuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="failover"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The failover test failed on main or on its schedule.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: FailoverSuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="failover"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The failover test hasn't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+      - alert: K8sSuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="k8s"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The cluster's proof failed on main or on its schedule.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: K8sSuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="k8s"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The cluster's proof hasn't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+      - alert: GitopsSuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="gitops"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The canary test failed on main or on its schedule.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: GitopsSuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="gitops"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The canary test hasn't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+      - alert: SecuritySuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="security"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The attacks on the cluster failed on main or on its schedule.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: SecuritySuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="security"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The attacks on the cluster hasn't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+      - alert: E2eSuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="e2e"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The end-to-end test failed on main or on its schedule.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: E2eSuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="e2e"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The end-to-end test hasn't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+      - alert: WebBrowserSuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="web-browser"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The web app's browser run failed on main or on its schedule.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: WebBrowserSuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="web-browser"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The web app's browser run hasn't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing

@@ -1,0 +1,32 @@
+name: Report a long suite
+description: >
+  Tells Grafana Cloud how a long suite ended on main or on its schedule (scripts/ops/report-suite.py), where
+  ops/alerts/long-suites.yaml and security.yaml read it. A pull request's run reports nothing.
+inputs:
+  suite:
+    description: The suite's name, as the alert rules know it
+    required: true
+  status:
+    description: The job's job.status (a composite action's own job.status is only its own)
+    required: true
+  endpoint:
+    description: The GRAFANA_CLOUD_OTLP_ENDPOINT secret
+    required: false
+  authorization:
+    description: The GRAFANA_CLOUD_OTLP_AUTHORIZATION secret
+    required: false
+  findings-file:
+    description: A file holding a count of findings to report beside the result
+    required: false
+runs:
+  using: composite
+  steps:
+    - if: github.ref == 'refs/heads/main'
+      shell: bash
+      env:
+        ENDPOINT: ${{ inputs.endpoint }}
+        AUTHORIZATION: ${{ inputs.authorization }}
+        FINDINGS_FILE: ${{ inputs.findings-file }}
+        SUITE: ${{ inputs.suite }}
+        STATUS: ${{ inputs.status }}
+      run: python3 "$GITHUB_WORKSPACE/scripts/ops/report-suite.py" "$SUITE" "$STATUS"

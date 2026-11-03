@@ -175,7 +175,7 @@ The operators keep what they need, recorded here and accepted:
 
 **Renovate keeps them current** (`.github/renovate.json5`, `.github/workflows/renovate.yml`): Dependabot reads neither Flux's OCIRepositories and kustomize image overrides nor images inside Helm values. Every Monday one grouped pull request moves Flux, the vendors' charts and every image pinned in `deploy/` (and the checks' pinned tools) to the latest stable release, re-pinned by digest; its checks prove the signatures (`kyverno test`) and the cluster (the security, gitops and k8s workflows) before a person merges it. It runs as the deploy app (ADR 0046), with a token for that run that may write only contents and pull requests. Dependabot keeps everything else.
 
-**A red scan opens a ticket.** The workflow pushes `idleo_nightly_scan_passed` (1 or 0) and the findings' count to Grafana Cloud over OTLP, as the other CI jobs that report do; `ops/alerts/security.yaml` raises NightlyScanFailing when the last one in 30 hours was 0, and NightlyScanMissing when none came, both at severity `digest`, the daily ticket route (docs/runbooks/alerts.md).
+**A red scan opens a ticket.** The workflow pushes `idleo_suite_passed{suite="scan"}` (1 or 0) and the findings' count to Grafana Cloud over OTLP, with the long suites' reporter (ADR 0050); `ops/alerts/security.yaml` raises NightlyScanFailing when the last one in 30 hours was 0, and NightlyScanMissing when none came, both at severity `digest`, the daily ticket route (docs/runbooks/alerts.md).
 
 ### kube-bench
 

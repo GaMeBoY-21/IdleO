@@ -1,8 +1,11 @@
 name: e2e
 
 # The compatibility test (ADR 0013): the real agent against the real control plane, and the web app's
-# journey through them (ADR 0018), on every change to any of them or to the protocol between them.
+# journey through them (ADR 0018), on every change to any of them or to the protocol between them, and weekly, so a quiet
+# week still reports a result (ADR 0050).
 on:
+  schedule:
+    - cron: "23 6 * * 5"
   push:
     branches: [main]
     paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "api/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/**", "start.sh"]
@@ -79,3 +82,12 @@ jobs:
             logs/*.log
           if-no-files-found: warn
           retention-days: 7
+      # To Grafana Cloud: on main or on its schedule, a red run or a silent one is a ticket (ADR 0050).
+      - name: Report
+        if: always()
+        uses: ./.github/actions/report-suite
+        with:
+          suite: e2e
+          status: ${{ job.status }}
+          endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+          authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}

@@ -210,6 +210,22 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** run it by hand (`gh workflow run scan.yml`); fix whatever stopped it. Until it reports, nobody is told about a new vulnerability.
 
+## Long suite failing
+
+**Means:** a long suite's last run on main or on its schedule failed (ADR 0050). They're too slow to be required checks, so a red one stops nothing: `HostileSuiteFailing` (`hostile.yml`: the job sandbox's 16 attacks), `FailoverSuiteFailing` (`failover.yml`), `K8sSuiteFailing` (`k8s.yml`), `GitopsSuiteFailing` (`gitops.yml`: canaries and rollback), `SecuritySuiteFailing` (`security.yml`: the attacks on the cluster), `E2eSuiteFailing` (`e2e.yml`), `WebBrowserSuiteFailing` (`web.yml`'s browser job).
+
+**Check first:** the failed run on the workflow's page on GitHub, and whether main moved since. Read the hostile and security suites first: a red one may mean a sandbox or cluster rule stopped holding. Until it's read, what that suite proves is unproven.
+
+**Do:** fix the cause on a branch; a flake is a bug in the test, so fix that too rather than rerunning. It clears when the next run passes (`gh workflow run <workflow>.yml` to run one now).
+
+## Long suite missing
+
+**Means:** a long suite hasn't reported a result for 8 days, against a schedule of once a week: `HostileSuiteMissing`, `FailoverSuiteMissing`, `K8sSuiteMissing`, `GitopsSuiteMissing`, `SecuritySuiteMissing`, `E2eSuiteMissing`, `WebBrowserSuiteMissing`. The workflow didn't run (Actions disabled, a billing stop, a scheduling outage), kept being cancelled or running out of time, or couldn't send its result (its `GRAFANA_CLOUD_OTLP_*` secrets).
+
+**Check first:** the workflow's recent runs on GitHub, and their "Report" step.
+
+**Do:** run it by hand and fix whatever stopped it. Until it reports, nobody hears if that suite goes red.
+
 ## Presence unavailable
 
 **Means:** the control plane can't read hosts' presence from Valkey (ADR 0011): more than 5 lookups a minute have failed for 2 minutes (`agents_presence_unavailable_total`). Presence is then unknown, not offline. A booking made now waits in REQUESTED, shown as "Finding your GPU", and is tried again after 1, 2, 4 and 8 s; after that the re-match loop keeps trying it for `scheduling.rematch-wait` (10 minutes). Nothing new starts until Valkey answers, and pages show hosts' status as "Status unknown, checking…" meanwhile (never "offline", which would tell a host their laptop had dropped); the admin dashboard's hosts online shows Unknown. Running sessions go on: leases and heartbeats don't depend on reading presence.

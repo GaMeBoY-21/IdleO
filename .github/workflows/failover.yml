@@ -70,3 +70,12 @@ jobs:
           name: failover-logs
           path: private/k8s/logs/
           retention-days: 7
+      # To Grafana Cloud: on main or on its schedule, a red run or a silent one is a ticket (ADR 0050).
+      - name: Report
+        if: always()
+        uses: ./.github/actions/report-suite
+        with:
+          suite: failover
+          status: ${{ job.status }}
+          endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+          authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
