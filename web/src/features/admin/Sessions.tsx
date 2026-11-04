@@ -1,7 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearch } from "wouter";
-import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
@@ -228,7 +227,8 @@ function SessionRecord({ id }: { id: string }) {
                 ]}
               />
               {(summary.state === "RUNNING" || summary.state === "FINISHING") && (
-                <ActionButton permission="sessions.stop"
+                <ActionButton
+                  permission="sessions.stop"
                   variant="ghost"
                   className="self-start"
                   onClick={() => setStopping(true)}

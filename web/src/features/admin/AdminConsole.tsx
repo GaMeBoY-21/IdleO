@@ -171,16 +171,18 @@ function Layout({ children }: { children: React.ReactNode }) {
         <nav aria-label="Admin" className="-mx-1 overflow-x-auto md:mx-0 md:mt-3">
           <ul className="flex gap-1 md:hidden">{screens.map(item)}</ul>
           <div className="hidden flex-col gap-4 md:flex">
-            {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map((group) => (
-              <section key={group.label} aria-label={group.label} className="flex flex-col gap-0.5">
-                <h2 className="px-3 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase">
-                  {group.label}
-                </h2>
-                <ul className="flex flex-col gap-0.5">
-                  {screens.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
-                </ul>
-              </section>
-            ))}
+            {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map(
+              (group) => (
+                <section key={group.label} aria-label={group.label} className="flex flex-col gap-0.5">
+                  <h2 className="px-3 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase">
+                    {group.label}
+                  </h2>
+                  <ul className="flex flex-col gap-0.5">
+                    {screens.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
+                  </ul>
+                </section>
+              ),
+            )}
           </div>
         </nav>
         <Button variant="quiet" className="self-start md:mt-auto" onClick={() => void leave()}>

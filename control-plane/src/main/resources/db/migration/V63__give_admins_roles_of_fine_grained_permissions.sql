@@ -21,7 +21,7 @@ CREATE TABLE identity.admin_role_grants (
     PRIMARY KEY (user_id, role_id)
 );
 
-GRANT SELECT ON identity.admin_roles, identity.admin_role_permissions TO idleo_application;
+GRANT SELECT, INSERT ON identity.admin_roles, identity.admin_role_permissions TO idleo_application;
 GRANT SELECT, INSERT, UPDATE, DELETE ON identity.admin_role_grants TO idleo_application;
 
 INSERT INTO identity.admin_roles (id, name) VALUES

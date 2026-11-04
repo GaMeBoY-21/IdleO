@@ -1,7 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
-import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/Inputs";
 import { RelativeTime } from "@/components/ui/Time";
 import { problemMessage } from "@/lib/problems";
@@ -218,17 +217,20 @@ function TicketRecord({ id }: { id: string }) {
               />
               <div className="flex flex-wrap gap-3">
                 {STATUSES.filter((status) => status !== ticket.status).map((status) => (
-                  <ActionButton permission="tickets.reply" key={status} variant="ghost" onClick={() => setChanging(status)}>
+                  <ActionButton
+                    permission="tickets.reply"
+                    key={status}
+                    variant="ghost"
+                    onClick={() => setChanging(status)}
+                  >
                     Mark {STATUS[status]?.toLowerCase()}
                   </ActionButton>
                 ))}
               </div>
             </Section>
-            {(ticket.topic === "privacy" || ticket.topic === "grievance") && ticket.userId && (
-              {can("privacy.read") && (
-                <PrivacyRequest userId={ticket.userId} onExport={() => setExporting(true)} />
-              )}
-            )}
+            {can("privacy.read") &&
+              (ticket.topic === "privacy" || ticket.topic === "grievance") &&
+              ticket.userId && <PrivacyRequest userId={ticket.userId} onExport={() => setExporting(true)} />}
             <Section title="Messages">
               <ol className="flex flex-col gap-3">
                 {messages.map((message) => (
@@ -290,7 +292,13 @@ function TicketRecord({ id }: { id: string }) {
                     ["open", "Still open"],
                   ]}
                 />
-                <ActionButton permission="tickets.reply" type="submit" busy={sending} className="self-start" disabled={!ticket.replyTo}>
+                <ActionButton
+                  permission="tickets.reply"
+                  type="submit"
+                  busy={sending}
+                  className="self-start"
+                  disabled={!ticket.replyTo}
+                >
                   Send the answer
                 </ActionButton>
               </form>

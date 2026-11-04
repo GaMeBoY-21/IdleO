@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { imageSize } from "@/lib/images";
 import { ActionSheet } from "./ActionSheet";
@@ -113,11 +112,19 @@ function ImageRow({ image, onAct }: { image: AdminImage; onAct: (acting: Acting)
       <Cell>{image.secrets > 0 ? image.secrets : ""}</Cell>
       <Cell>
         {image.state === "blocked" && image.reason === "admin" ? (
-          <ActionButton permission="images.unblock" variant="quiet" onClick={() => onAct({ image, action: "unblock" })}>
+          <ActionButton
+            permission="images.unblock"
+            variant="quiet"
+            onClick={() => onAct({ image, action: "unblock" })}
+          >
             Unblock<span className="sr-only"> {image.id}</span>
           </ActionButton>
         ) : image.digest && image.state !== "blocked" ? (
-          <ActionButton permission="images.block" variant="quiet" onClick={() => onAct({ image, action: "block" })}>
+          <ActionButton
+            permission="images.block"
+            variant="quiet"
+            onClick={() => onAct({ image, action: "block" })}
+          >
             Block<span className="sr-only"> {image.id}</span>
           </ActionButton>
         ) : null}

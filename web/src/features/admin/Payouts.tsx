@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
@@ -342,7 +341,11 @@ function Reconciliation() {
                     </Cell>
                     <Cell>
                       {item.state === "open" && (
-                        <ActionButton permission="reconciliation.accept" variant="quiet" onClick={() => setAccepting(item)}>
+                        <ActionButton
+                          permission="reconciliation.accept"
+                          variant="quiet"
+                          onClick={() => setAccepting(item)}
+                        >
                           Accept<span className="sr-only"> {item.subject}</span>
                         </ActionButton>
                       )}

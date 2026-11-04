@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise, parseRupees, rupeeInput } from "@/lib/money";
@@ -113,7 +112,8 @@ export function Refunds() {
                 <Cell>
                   {refund.status === "requested" && (
                     <div className="flex gap-1">
-                      <ActionButton permission="refunds.approve"
+                      <ActionButton
+                        permission="refunds.approve"
                         variant="quiet"
                         onClick={() => {
                           setRupees(
@@ -129,7 +129,11 @@ export function Refunds() {
                       >
                         Approve<span className="sr-only"> refund for {refund.userId}</span>
                       </ActionButton>
-                      <ActionButton permission="refunds.decline" variant="quiet" onClick={() => setActing({ refund, approve: false })}>
+                      <ActionButton
+                        permission="refunds.decline"
+                        variant="quiet"
+                        onClick={() => setActing({ refund, approve: false })}
+                      >
                         Decline<span className="sr-only"> refund for {refund.userId}</span>
                       </ActionButton>
                     </div>

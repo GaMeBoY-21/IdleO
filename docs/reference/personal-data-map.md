@@ -26,6 +26,9 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 | `identity.invite_codes` | id, code_hash, **note**, created_by, created_at, expires_at, used_by, used_at | `used_by = :user` | account: inviteCode | Access by invitation (ADR 0024); the note is the admin's label for whom | Unused: `rule: invite-codes`; used: the account's life | Cleared: the note of the code they used; codes they made as an admin stay, by id |
 | `identity.activation_attempts` | id, user_id, attempted_at | `user_id = :user` | — | 5 invite tries an hour | `rule: activation-attempts` | Deleted |
 | `identity.admins` | user_id, granted_by, granted_at, totp_secret, totp_confirmed_at, last_totp_step, locked_at | `user_id = :user` | — | Who may use the admin console (ADR 0027); the TOTP secret is sealed | While an admin | Deleted (the role is revoked first) |
+| `identity.admin_roles` | id, name | — | — | The console's roles (ADR 0051): no person | Kept | Kept: no person |
+| `identity.admin_role_permissions` | role_id, permission | — | — | What each role may do (ADR 0051): no person | Kept | Kept: no person |
+| `identity.admin_role_grants` | user_id, role_id, granted_by, granted_at | `user_id = :user` | — | Which roles an admin holds (ADR 0051) | While an admin | Deleted |
 | `identity.admin_sessions` | id, user_id, identity_id, token_hash, created_at, expires_at, ends_by, ended_at | `user_id = :user` | — | A live admin console session | `rule: admin-sessions` | Deleted |
 | `identity.admin_recovery_codes` | id, user_id, code_hash, created_at, used_at | `user_id = :user` | — | The admin's one-time codes, hashed | While an admin | Deleted |
 | `identity.admin_code_attempts` | id, user_id, succeeded, attempted_at | `user_id = :user` | — | Locks the console after 5 wrong codes in 15 minutes | `rule: admin-code-attempts` | Deleted |

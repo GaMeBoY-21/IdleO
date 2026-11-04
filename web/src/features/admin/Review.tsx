@@ -1,6 +1,5 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
@@ -104,14 +103,22 @@ export function Review() {
                 <Cell>
                   {minute.resolution === null && (
                     <span className="flex gap-1">
-                      <ActionButton permission="review.charge" variant="ghost" onClick={() => setDeciding({ minute, charge: true })}>
+                      <ActionButton
+                        permission="review.charge"
+                        variant="ghost"
+                        onClick={() => setDeciding({ minute, charge: true })}
+                      >
                         Charge
                         <span className="sr-only">
                           {" "}
                           minute {minute.minuteIndex} of session {minute.sessionId}
                         </span>
                       </ActionButton>
-                      <ActionButton permission="review.waive" variant="ghost" onClick={() => setDeciding({ minute, charge: false })}>
+                      <ActionButton
+                        permission="review.waive"
+                        variant="ghost"
+                        onClick={() => setDeciding({ minute, charge: false })}
+                      >
                         Waive
                         <span className="sr-only">
                           {" "}

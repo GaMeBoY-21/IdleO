@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearch } from "wouter";
-import { Button, buttonClasses } from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise } from "@/lib/money";
 import { ActionSheet } from "./ActionSheet";
@@ -318,28 +318,32 @@ function HostRecord({ id }: { id: string }) {
               ]}
             />
             <div className="flex flex-wrap gap-2">
-              <ActionButton permission="hosts.activate"
+              <ActionButton
+                permission="hosts.activate"
                 variant="ghost"
                 onClick={() => setAction("activate")}
                 disabled={found.status === "active" || found.status === "removed"}
               >
                 Activate
               </ActionButton>
-              <ActionButton permission="hosts.suspend"
+              <ActionButton
+                permission="hosts.suspend"
                 variant="ghost"
                 onClick={() => setAction("suspend")}
                 disabled={found.status === "suspended" || found.status === "removed"}
               >
                 Suspend
               </ActionButton>
-              <ActionButton permission="hosts.certificates.revoke"
+              <ActionButton
+                permission="hosts.certificates.revoke"
                 variant="ghost"
                 onClick={() => setAction("revoke-certificates")}
                 disabled={found.certificates.every((certificate) => certificate.revokedAt !== null)}
               >
                 Revoke certificates
               </ActionButton>
-              <ActionButton permission="hosts.self-test"
+              <ActionButton
+                permission="hosts.self-test"
                 variant="ghost"
                 onClick={() => setAction("run-self-test")}
                 disabled={!selfTest.data?.canRun}
