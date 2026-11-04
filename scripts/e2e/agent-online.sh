@@ -471,7 +471,7 @@ token="$(stack_token "$user")"
 #     taken by index.
 log "making invite codes for the run's accounts"
 ops create-invites --count 19 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 14))
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 19))
 ((${#invite_codes[@]} == 19)) || fail "create-invites didn't print 19 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
@@ -1951,7 +1951,10 @@ scenario_payouts() {
   invite_next=12
   activate_user "$admin_token"
   ops grant-admin "$admin_user@example.com" --reason "'End-to-end payouts'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
-  admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token" "$out/payouts-admin.secret")" || fail "no admin session for the payouts admin"
+  # The authenticator's secret stays in this shell: admin-call.py answers a step-up from it.
+  local admin_secret approver_secret
+  admin_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $admin_token" | json_get .secret)"
+  admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token" "$admin_secret")" || fail "no admin session for the payouts admin"
   # A second admin, who approves what must not rest on one person (ADR 0051).
   local approver_user="$user-payouts-approver" approver_token approver_session
   approver_token="$(stack_token "$approver_user")"
@@ -1959,11 +1962,12 @@ scenario_payouts() {
   invite_next=18
   activate_user "$approver_token"
   ops grant-admin "$approver_user@example.com" --reason "'End-to-end payouts'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
-  approver_session="$(python3 scripts/e2e/admin-session.py "$api" "$approver_token" "$out/payouts-approver.secret")" || fail "no admin session for the payouts approver"
+  approver_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $approver_token" | json_get .secret)"
+  approver_session="$(python3 scripts/e2e/admin-session.py "$api" "$approver_token" "$approver_secret")" || fail "no admin session for the payouts approver"
   # An admin action as the console does it: admin_post [--if-match <version>] <path> [<json body>].
   admin_post() {
-    E2E_API="$api" E2E_ADMIN_TOKEN="$admin_token" E2E_ADMIN_SESSION="$admin_session" E2E_ADMIN_SECRET="$out/payouts-admin.secret" \
-      E2E_APPROVER_TOKEN="$approver_token" E2E_APPROVER_SESSION="$approver_session" E2E_APPROVER_SECRET="$out/payouts-approver.secret" \
+    E2E_API="$api" E2E_ADMIN_TOKEN="$admin_token" E2E_ADMIN_SESSION="$admin_session" E2E_ADMIN_SECRET="$admin_secret" E2E_ADMIN_STEPS="$out/payouts-admin.steps" \
+      E2E_APPROVER_TOKEN="$approver_token" E2E_APPROVER_SESSION="$approver_session" E2E_APPROVER_SECRET="$approver_secret" E2E_APPROVER_STEPS="$out/payouts-approver.steps" \
       python3 scripts/e2e/admin-call.py "$@"
   }
   owner_id="$(api_get /v1/me | json_get .id)"
