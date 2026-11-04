@@ -2,6 +2,7 @@ package com.idleo.controlplane.notifications.internal;
 
 import com.idleo.controlplane.billing.EarningsClawedBack;
 import com.idleo.controlplane.hosts.HostOwners;
+import com.idleo.controlplane.identity.AdminNoticed;
 import com.idleo.controlplane.images.ImageBlocked;
 import com.idleo.controlplane.payouts.PayoutMethodChanged;
 import com.idleo.controlplane.payouts.PayoutSettled;
@@ -46,6 +47,16 @@ class NotificationListeners {
         this.owners = owners;
         this.messages = messages;
         this.notifier = notifier;
+    }
+
+    /** Something an admin must be told about their access or an approval (ADR 0051): in the app and by email. */
+    @ApplicationModuleListener
+    void on(AdminNoticed event) {
+        notifier.tell(
+                event.userId(),
+                NotificationKind.ACCOUNT_AND_DATA,
+                event.dedupeKey(),
+                new Message(event.title(), event.body(), event.link()));
     }
 
     /** A session that ran has ended and its last charge is posted: how it went, with what it cost. */

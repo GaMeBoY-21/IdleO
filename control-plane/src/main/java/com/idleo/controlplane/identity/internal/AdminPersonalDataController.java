@@ -68,7 +68,7 @@ class AdminPersonalDataController {
             @NotBlank @Size(max = 500) @NoContactDetails String reason) {}
 
     /** The whole value, for this one field; it's never kept in the console. */
-    record Revealed(String field, String value) {}
+    record AdminRevealed(String field, String value) {}
 
     /**
      * One entry: which admin, whose data, which field ({@code view} for opening their page), why, when and from which
@@ -89,7 +89,7 @@ class AdminPersonalDataController {
     /** Reads one field whole. Writes the access log and the audit log. 404 when there's no such value. */
     @RequiresPermission(value = AdminPermission.USERS_PII_REVEAL, unmasked = true)
     @PostMapping("/reveal")
-    Revealed reveal(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RevealRequest request) {
+    AdminRevealed reveal(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RevealRequest request) {
         var reason = request.reason().strip();
         if (reason.length() < REASON_MIN && !reason.matches("#?[0-9]+")) {
             throw ApiProblem.invalid("reason", "must be at least 10 characters, or a ticket's number.");
@@ -101,7 +101,7 @@ class AdminPersonalDataController {
         var found =
                 read.apply(request.id()).orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no such value."));
         accessLog.revealed(admin, found.subject(), request.field(), request.id(), reason);
-        return new Revealed(request.field(), found.value());
+        return new AdminRevealed(request.field(), found.value());
     }
 
     /** The access log, newest first; {@code subject} and {@code admin} narrow it to one person or one admin. */

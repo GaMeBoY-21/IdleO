@@ -77,6 +77,7 @@ public enum AdminPermission {
     INVITES_CREATE("invites.create", false),
     NOTICES_PUBLISH("notices.publish", false),
 
+    ADMINS_MANAGE("admins.manage", true),
     AUDIT_READ("audit.read", false),
     EXPORT_CREATE("export.create", true);
 

@@ -266,6 +266,51 @@ paths:
         idToken: []
       tags:
       - adminAbuse
+  /admin/v1/admins/sessions:
+    get:
+      operationId: adminSessionRecordsEveryones
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionRecords"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessionRecords
+  /admin/v1/admins/sessions/{id}/end:
+    post:
+      operationId: adminSessionRecordsEndAnyones
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessionRecords
   /admin/v1/audit:
     get:
       operationId: auditLogList
@@ -287,6 +332,17 @@ paths:
           type: string
       - in: query
         name: targetId
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: approvalId
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: requestId
         required: false
         schema:
           type: string
@@ -319,6 +375,75 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuditPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - auditLog
+  /admin/v1/audit/export:
+    post:
+      operationId: auditLogExport
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditExport"
+        required: true
+      responses:
+        "200":
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: The rows as CSV
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - auditLog
+  /admin/v1/audit/standing:
+    get:
+      operationId: auditLogStanding
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditStanding"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - auditLog
+  /admin/v1/audit/verify:
+    post:
+      operationId: auditLogVerify
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditChainCheck"
           description: OK
         default:
           content:
@@ -1382,6 +1507,51 @@ paths:
         idToken: []
       tags:
       - adminMoney
+  /admin/v1/me/sessions:
+    get:
+      operationId: adminSessionRecordsMine
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionRecords"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessionRecords
+  /admin/v1/me/sessions/{id}/end:
+    post:
+      operationId: adminSessionRecordsEndMine
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessionRecords
   /admin/v1/notices:
     post:
       operationId: adminNoticesSend
@@ -1409,6 +1579,98 @@ paths:
         idToken: []
       tags:
       - adminNotices
+  /admin/v1/passkeys:
+    get:
+      operationId: adminPasskeyList
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPasskeyList"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPasskey
+    post:
+      operationId: adminPasskeyRegister
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyRegistration"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPasskey"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPasskey
+  /admin/v1/passkeys/options:
+    post:
+      operationId: adminPasskeyRegistrationOptions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyRegistrationOptions"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPasskey
+  /admin/v1/passkeys/{id}:
+    delete:
+      operationId: adminPasskeyRemove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPasskey
   /admin/v1/payments:
     get:
       operationId: adminPaymentsPayments
@@ -1793,40 +2055,6 @@ paths:
         idToken: []
       tags:
       - adminPayouts
-  /admin/v1/payouts/verifications/pans/{userId}/reveal:
-    post:
-      operationId: adminPayoutsRevealPan
-      parameters:
-      - in: path
-        name: userId
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdminReason"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AdminPanReveal"
-          description: OK
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: "An error, as an RFC 9457 problem detail"
-      security:
-      - adminSession: []
-        idToken: []
-      tags:
-      - adminPayouts
   /admin/v1/payouts/verifications/pans/{userId}/verify:
     post:
       operationId: adminPayoutsVerifyPan
@@ -1929,6 +2157,78 @@ paths:
         idToken: []
       tags:
       - adminPayouts
+  /admin/v1/personal-data/access-log:
+    get:
+      operationId: adminPersonalDataAccessLog
+      parameters:
+      - in: query
+        name: subject
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: admin
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessLogPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPersonalData
+  /admin/v1/personal-data/reveal:
+    post:
+      operationId: adminPersonalDataReveal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevealRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRevealed"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPersonalData
   /admin/v1/ratings:
     get:
       operationId: adminRatingsList
@@ -2384,6 +2684,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSessionResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - idToken: []
+      tags:
+      - adminSession
+  /admin/v1/session/passkey-options:
+    post:
+      operationId: adminPasskeyAssertionOptions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyAssertionOptions"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPasskey
+  /admin/v1/session/step-up:
+    post:
+      operationId: adminSessionStepUp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSessionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStepUp"
           description: OK
         default:
           content:
@@ -5929,6 +6276,51 @@ components:
       - ageConfirmed
       - privacyVersion
       - termsVersion
+    AccessLogEntry:
+      type: object
+      properties:
+        adminId:
+          type: string
+          format: uuid
+        adminSessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        at:
+          type: string
+          format: date-time
+        field:
+          type: string
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        subjectUserId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - adminId
+      - at
+      - field
+      - id
+      - reason
+    AccessLogPage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccessLogEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - entries
     ActivateRequest:
       type: object
       properties:
@@ -7227,17 +7619,6 @@ components:
       - noticeId
       - sent
       - withoutAddress
-    AdminPanReveal:
-      type: object
-      properties:
-        pan:
-          type: string
-        userId:
-          type: string
-          format: uuid
-      required:
-      - pan
-      - userId
     AdminPanReview:
       type: object
       properties:
@@ -7272,6 +7653,35 @@ components:
       - submittedAt
       - userId
       - verifier
+    AdminPasskey:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        lastUsedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        name:
+          type: string
+      required:
+      - createdAt
+      - id
+      - name
+    AdminPasskeyList:
+      type: object
+      properties:
+        passkeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPasskey"
+      required:
+      - passkeys
     AdminPayment:
       type: object
       properties:
@@ -7922,6 +8332,16 @@ components:
           oneOf:
           - $ref: "#/components/schemas/AdminPayout"
           - type: "null"
+    AdminRevealed:
+      type: object
+      properties:
+        field:
+          type: string
+        value:
+          type: string
+      required:
+      - field
+      - value
     AdminReviewDecision:
       type: object
       properties:
@@ -8246,9 +8666,62 @@ components:
             $ref: "#/components/schemas/AdminSessionSummary"
       required:
       - sessions
+    AdminSessionRecord:
+      type: object
+      properties:
+        current:
+          type: boolean
+        endsBy:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        ip:
+          type:
+          - string
+          - "null"
+        lastUsedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        userAgent:
+          type:
+          - string
+          - "null"
+        userId:
+          type: string
+          format: uuid
+      required:
+      - current
+      - endsBy
+      - expiresAt
+      - id
+      - startedAt
+      - userId
+    AdminSessionRecords:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSessionRecord"
+      required:
+      - sessions
     AdminSessionRequest:
       type: object
       properties:
+        passkey:
+          oneOf:
+          - $ref: "#/components/schemas/PasskeyAssertion"
+          - type: "null"
         recoveryCode:
           type:
           - string
@@ -8284,6 +8757,9 @@ components:
           - string
           - "null"
           format: date-time
+        passkeys:
+          type: integer
+          format: int32
         permissions:
           type: array
           items:
@@ -8295,6 +8771,7 @@ components:
       required:
       - active
       - enrolled
+      - passkeys
       - permissions
       - roles
     AdminSessionSummary:
@@ -8391,6 +8868,14 @@ components:
       - settledAt
       - txnId
       - windowNumber
+    AdminStepUp:
+      type: object
+      properties:
+        until:
+          type: string
+          format: date-time
+      required:
+      - until
     AdminTicket:
       type: object
       properties:
@@ -8816,6 +9301,67 @@ components:
       required:
       - batchPricePaisePerMin
       - name
+    AuditChainCheck:
+      type: object
+      properties:
+        brokenSeq:
+          type:
+          - integer
+          - "null"
+          format: int64
+        checkedAt:
+          type: string
+          format: date-time
+        detail:
+          type:
+          - string
+          - "null"
+        headSeq:
+          type: integer
+          format: int64
+        intact:
+          type: boolean
+        rows:
+          type: integer
+          format: int64
+        tookMs:
+          type: integer
+          format: int64
+        trigger:
+          type: string
+      required:
+      - checkedAt
+      - headSeq
+      - intact
+      - rows
+      - tookMs
+      - trigger
+    AuditCopy:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        headHash:
+          type: string
+        lastSeq:
+          type: integer
+          format: int64
+        objectKey:
+          type: string
+        rows:
+          type: integer
+          format: int64
+        writtenAt:
+          type: string
+          format: date-time
+      required:
+      - day
+      - headHash
+      - lastSeq
+      - objectKey
+      - rows
+      - writtenAt
     AuditEntry:
       type: object
       properties:
@@ -8830,11 +9376,21 @@ components:
           - string
           - "null"
           format: uuid
+        adminSessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
         after:
           type:
           - object
           - "null"
           additionalProperties: {}
+        approvalId:
+          type:
+          - string
+          - "null"
+          format: uuid
         before:
           type:
           - object
@@ -8846,12 +9402,27 @@ components:
         id:
           type: string
           format: uuid
+        ip:
+          type:
+          - string
+          - "null"
         reason:
           type: string
+        requestId:
+          type:
+          - string
+          - "null"
+        seq:
+          type: integer
+          format: int64
         targetId:
           type: string
         targetType:
           type: string
+        userAgent:
+          type:
+          - string
+          - "null"
       required:
       - action
       - actorKind
@@ -8859,8 +9430,53 @@ components:
       - createdAt
       - id
       - reason
+      - seq
       - targetId
       - targetType
+    AuditExport:
+      type: object
+      properties:
+        action:
+          type:
+          - string
+          - "null"
+        actor:
+          type:
+          - string
+          - "null"
+        approvalId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        from:
+          type:
+          - string
+          - "null"
+          format: date-time
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        requestId:
+          type:
+          - string
+          - "null"
+        targetId:
+          type:
+          - string
+          - "null"
+        targetType:
+          type:
+          - string
+          - "null"
+        to:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - reason
     AuditPage:
       type: object
       properties:
@@ -8874,6 +9490,19 @@ components:
           - "null"
       required:
       - entries
+    AuditStanding:
+      type: object
+      properties:
+        copies:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditCopy"
+        latestCheck:
+          oneOf:
+          - $ref: "#/components/schemas/AuditChainCheck"
+          - type: "null"
+      required:
+      - copies
     Availability:
       type: object
       properties:
@@ -9279,6 +9908,21 @@ components:
       - name
       - prefix
       - scope
+    CredentialDescriptor:
+      type: object
+      properties:
+        id:
+          type: string
+        transports:
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+      required:
+      - id
+      - transports
+      - type
     CreditNoteRequest:
       type: object
       properties:
@@ -10891,6 +11535,140 @@ components:
       required:
       - partNumbers
       - path
+    PasskeyAssertion:
+      type: object
+      properties:
+        authenticatorData:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        challengeId:
+          type: string
+          format: uuid
+        clientDataJson:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        credentialId:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        signature:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        userHandle:
+          type:
+          - string
+          - "null"
+          maxLength: 2048
+          minLength: 0
+      required:
+      - authenticatorData
+      - challengeId
+      - clientDataJson
+      - credentialId
+      - signature
+    PasskeyAssertionOptions:
+      type: object
+      properties:
+        allow:
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialDescriptor"
+        challenge:
+          type: string
+        challengeId:
+          type: string
+          format: uuid
+        rpId:
+          type: string
+        timeoutMs:
+          type: integer
+          format: int64
+      required:
+      - allow
+      - challenge
+      - challengeId
+      - rpId
+      - timeoutMs
+    PasskeyRegistration:
+      type: object
+      properties:
+        attestationObject:
+          type: string
+          maxLength: 65536
+          minLength: 0
+        challengeId:
+          type: string
+          format: uuid
+        clientDataJson:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        credentialId:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        name:
+          type: string
+          maxLength: 60
+          minLength: 0
+        transports:
+          type:
+          - array
+          - "null"
+          items:
+            type: string
+          maxItems: 8
+          minItems: 0
+      required:
+      - attestationObject
+      - challengeId
+      - clientDataJson
+      - credentialId
+      - name
+    PasskeyRegistrationOptions:
+      type: object
+      properties:
+        algorithms:
+          type: array
+          items:
+            type: integer
+            format: int32
+        challenge:
+          type: string
+        challengeId:
+          type: string
+          format: uuid
+        exclude:
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialDescriptor"
+        rpId:
+          type: string
+        rpName:
+          type: string
+        timeoutMs:
+          type: integer
+          format: int64
+        userDisplayName:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+      required:
+      - algorithms
+      - challenge
+      - challengeId
+      - exclude
+      - rpId
+      - rpName
+      - timeoutMs
+      - userDisplayName
+      - userId
+      - userName
     PauseRequest:
       type: object
       properties:
@@ -11320,6 +12098,8 @@ components:
           - /problems/second-factor-exists
           - /problems/second-factor-missing
           - /problems/admin-permission-required
+          - /problems/step-up-required
+          - /problems/passkey-not-accepted
           - /problems/action-refused
           - /problems/storage-unavailable
           - /problems/internal-error
@@ -11603,6 +12383,25 @@ components:
       required:
       - reason
       - userId
+    RevealRequest:
+      type: object
+      properties:
+        field:
+          type: string
+          maxLength: 40
+          minLength: 0
+        id:
+          type: string
+          maxLength: 64
+          minLength: 0
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 0
+      required:
+      - field
+      - id
+      - reason
     RunPaymentReconciliation:
       type: object
       properties:
@@ -11645,10 +12444,14 @@ components:
           type:
           - string
           - "null"
+        id:
+          type: string
+          format: uuid
         kind:
           type: string
       required:
       - at
+      - id
       - kind
     SecurityEventPage:
       type: object

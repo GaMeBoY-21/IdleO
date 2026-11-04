@@ -87,6 +87,18 @@ public final class TestAdmins {
                 .asString();
     }
 
+    /**
+     * Gives the admin's session a recent factor, as the console's step-up does: a code half a minute on, since a code is
+     * accepted once. For a test that moved the clock past the five minutes a sensitive action allows.
+     */
+    public static void stepUp(MockMvc mvc, TestAdmin admin, MutableClock clock) throws Exception {
+        clock.advance(Duration.ofSeconds(30));
+        mvc.perform(admin.as(post("/admin/v1/session/step-up"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"totp\":\"" + code(admin.secret(), clock) + "\"}"))
+                .andExpect(status().isOk());
+    }
+
     /** Makes the user an admin and an Owner, as {@code grant-admin --role owner} does. */
     public static void grant(JdbcTemplate jdbc, UUID userId) {
         grant(jdbc, userId, "owner");

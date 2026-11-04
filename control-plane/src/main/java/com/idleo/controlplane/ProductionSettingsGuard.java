@@ -53,6 +53,8 @@ import org.springframework.util.unit.DataSize;
  *       exports turned off ({@link #OTLP_ENDPOINTS}, ADR 0036);
  *   <li>no backup storage to watch ({@code backups.storage.*}), one that is plain HTTP or on this machine, or
  *       {@code backups.create-bucket}, development's (ADR 0036);
+ *   <li>a passkey relying party ({@code identity.admin.passkeys.rp-id}) on this machine, where no passkey made for the
+ *       real web app would work (ADR 0051);
  *   <li>no off-site store for the audit log ({@code identity.audit.offsite.*}), or one that is plain HTTP or on this
  *       machine (ADR 0051);
  *   <li>Razorpay's test keys, an API other than Razorpay's (the fake), live keys without a webhook secret or without
@@ -277,6 +279,10 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         }
         if (binder.bind("backups.create-bucket", Boolean.class).orElse(false)) {
             problems.add("backups.create-bucket is true");
+        }
+        var rpId = binder.bind("identity.admin.passkeys.rp-id", String.class).orElse("localhost");
+        if (rpId.isBlank() || "localhost".equals(rpId.strip())) {
+            problems.add("identity.admin.passkeys.rp-id is " + rpId + ", the development value");
         }
         var auditEndpoint =
                 binder.bind("identity.audit.offsite.endpoint", String.class).orElse("");

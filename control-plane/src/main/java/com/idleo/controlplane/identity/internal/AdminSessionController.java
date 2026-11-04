@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -40,8 +41,20 @@ class AdminSessionController {
     private final AdminSecondFactor secondFactor;
     private final AdminSessions sessions;
     private final AdminPermissions permissions;
+    private final AdminPasskeys passkeys;
+    private final AdminProperties properties;
+    private final java.time.Clock clock;
 
-    AdminSessionController(AdminSecondFactor secondFactor, AdminSessions sessions, AdminPermissions permissions) {
+    AdminSessionController(
+            AdminSecondFactor secondFactor,
+            AdminSessions sessions,
+            AdminPermissions permissions,
+            AdminPasskeys passkeys,
+            AdminProperties properties,
+            java.time.Clock clock) {
+        this.passkeys = passkeys;
+        this.properties = properties;
+        this.clock = clock;
         this.secondFactor = secondFactor;
         this.sessions = sessions;
         this.permissions = permissions;
@@ -50,14 +63,16 @@ class AdminSessionController {
     /**
      * Where the admin stands: whether their authenticator is set up, and whether the admin session in the header is
      * live, with when it lapses unless used. With a live session it also says what the admin may do, so the console
-     * shows only that; the server still judges every call.
+     * shows only that; the server still judges every call. {@code passkeys} says how many they have, so the sign-in can
+     * offer one first.
      */
     record AdminSessionStatus(
             boolean enrolled,
             boolean active,
             @Nullable Instant expiresAt,
             List<String> roles,
-            List<String> permissions) {}
+            List<String> permissions,
+            int passkeys) {}
 
     /** A new authenticator secret, shown once: as text to type in, and as a link for a QR code. */
     record AdminEnrolment(String secret, String otpauthUri) {}
@@ -65,10 +80,26 @@ class AdminSessionController {
     /** A 6-digit code from the authenticator app. */
     record AdminCodeRequest(@NotBlank @Size(max = 16) String totp) {}
 
-    /** A code from the authenticator app, or one of the recovery codes; give one. */
+    /** A passkey's assertion, a code from the authenticator app, or one of the recovery codes; give one. */
     record AdminSessionRequest(
             @Size(max = 16) @Nullable String totp,
-            @Size(max = 32) @Nullable String recoveryCode) {}
+            @Size(max = 32) @Nullable String recoveryCode,
+            @Valid AdminPasskeyController.@Nullable PasskeyAssertion passkey) {
+
+        AdminSecondFactor.Factor factor() {
+            if (java.util.stream.Stream.of(totp, recoveryCode, passkey)
+                            .filter(java.util.Objects::nonNull)
+                            .count()
+                    != 1) {
+                throw ApiProblem.invalid(
+                        "totp", "Give a passkey, a code from your authenticator or a recovery code; one of them.");
+            }
+            return new AdminSecondFactor.Factor(totp, recoveryCode, passkey == null ? null : passkey.assertion());
+        }
+    }
+
+    /** Until when a factor just given counts for sensitive actions. */
+    record AdminStepUp(Instant until) {}
 
     /**
      * An admin session: send {@code token} in the {@code Admin-Session} header with the ID token. It lapses at
@@ -93,7 +124,13 @@ class AdminSessionController {
                 ? null
                 : sessions.expiry(user.id(), identity(authentication), token).orElse(null);
         if (expiry == null) {
-            return new AdminSessionStatus(admin.enrolled(), false, null, List.of(), List.of());
+            return new AdminSessionStatus(
+                    admin.enrolled(),
+                    false,
+                    null,
+                    List.of(),
+                    List.of(),
+                    passkeys.list(user.id()).size());
         }
         return new AdminSessionStatus(
                 admin.enrolled(),
@@ -106,7 +143,8 @@ class AdminSessionController {
                         .filter(permission -> permission != AdminPermission.SELF)
                         .map(AdminPermission::key)
                         .sorted()
-                        .toList());
+                        .toList(),
+                passkeys.list(user.id()).size());
     }
 
     @RequiresPermission(value = AdminPermission.SELF, unmasked = true)
@@ -127,8 +165,8 @@ class AdminSessionController {
             Authentication authentication,
             @Valid @RequestBody AdminCodeRequest request) {
         var accepted = accepted(secondFactor.confirm(user.id(), identity(authentication), request.totp()));
-        return new AdminEnrolmentConfirmed(
-                accepted.session().token(), accepted.session().expiresAt(), accepted.recoveryCodes());
+        var session = Objects.requireNonNull(accepted.session());
+        return new AdminEnrolmentConfirmed(session.token(), session.expiresAt(), accepted.recoveryCodes());
     }
 
     @RequiresPermission(value = AdminPermission.SELF, unmasked = true)
@@ -137,13 +175,21 @@ class AdminSessionController {
             @AuthenticationPrincipal CurrentUser user,
             Authentication authentication,
             @Valid @RequestBody AdminSessionRequest request) {
-        if ((request.totp() == null) == (request.recoveryCode() == null)) {
-            throw ApiProblem.invalid("totp", "Give a code from your authenticator, or a recovery code; one of them.");
-        }
-        var accepted = accepted(
-                secondFactor.signIn(user.id(), identity(authentication), request.totp(), request.recoveryCode()));
-        return new AdminSessionResponse(
-                accepted.session().token(), accepted.session().expiresAt());
+        var accepted = accepted(secondFactor.signIn(user.id(), identity(authentication), request.factor()));
+        var session = Objects.requireNonNull(accepted.session());
+        return new AdminSessionResponse(session.token(), session.expiresAt());
+    }
+
+    /**
+     * Gives this admin session a recent factor, for the sensitive action just refused with {@code step-up-required}:
+     * send that request again with the same Idempotency-Key. A wrong factor counts towards the lockout.
+     */
+    @RequiresPermission(AdminPermission.SELF)
+    @PostMapping("/session/step-up")
+    AdminStepUp stepUp(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody AdminSessionRequest request) {
+        var session = Objects.requireNonNull(AdminRequestContext.adminSession());
+        accepted(secondFactor.stepUp(user.id(), session, request.factor()));
+        return new AdminStepUp(clock.instant().plus(properties.stepUpWindow()));
     }
 
     @RequiresPermission(AdminPermission.SELF)

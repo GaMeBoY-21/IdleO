@@ -41,6 +41,12 @@ class AdminAccessTests {
     MockMvc mvc;
 
     @Autowired
+    org.springframework.context.ApplicationEventPublisher events;
+
+    @Autowired
+    AdminInsiderSignals insider;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @Autowired
@@ -331,8 +337,16 @@ class AdminAccessTests {
                 org.springframework.jdbc.core.simple.JdbcClient.create(jdbc),
                 ids,
                 own,
-                new AdminProperties("unused", Duration.ofMinutes(30), Duration.ofHours(8), "IdleO"),
-                security);
+                new AdminProperties(
+                        "unused",
+                        Duration.ofMinutes(30),
+                        Duration.ofHours(8),
+                        "IdleO",
+                        Duration.ofMinutes(5),
+                        new AdminProperties.Passkeys("localhost", "IdleO")),
+                security,
+                events,
+                insider);
         var issued = transactions.execute(status -> sessions.start(admin.id(), identity));
         for (int i = 0; i < 19; i++) {
             own.advance(Duration.ofMinutes(25));

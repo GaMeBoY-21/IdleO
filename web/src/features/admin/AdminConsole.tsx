@@ -25,6 +25,7 @@ import { Images } from "./Images";
 import { Tax } from "./Tax";
 import { Refunds } from "./Refunds";
 import { Review } from "./Review";
+import { Security } from "./Security";
 import { Sessions } from "./Sessions";
 import { Users } from "./Users";
 
@@ -54,6 +55,7 @@ export const ADMIN_SCREENS = [
   { href: "/admin/invites/", label: "Invites", needs: "invites.read" },
   { href: "/admin/notices/", label: "Notices", needs: "notices.publish" },
   { href: "/admin/audit/", label: "Audit log", needs: "audit.read" },
+  { href: "/admin/security/", label: "Your access", needs: "" },
 ] as const;
 
 /** A screen, once its section's permission is held; it never asks the server for what would be refused. */
@@ -88,6 +90,7 @@ export function AdminConsole() {
           <Route path="/admin/tax/">{guarded("/admin/tax/", <Tax />)}</Route>
           <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
           <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
+          <Route path="/admin/security/" component={Security} />
         </Switch>
       </Layout>
     </Gate>
@@ -121,7 +124,10 @@ const GROUPS: { label: string; hrefs: readonly string[] }[] = [
       "/admin/tax/",
     ],
   },
-  { label: "The service", hrefs: ["/admin/invites/", "/admin/notices/", "/admin/audit/"] },
+  {
+    label: "The service",
+    hrefs: ["/admin/invites/", "/admin/notices/", "/admin/audit/", "/admin/security/"],
+  },
 ];
 
 /**

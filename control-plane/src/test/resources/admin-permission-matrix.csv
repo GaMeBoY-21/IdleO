@@ -1,8 +1,10 @@
 endpoint,permission,owner,operations,support,trust_safety,finance,auditor
+DELETE /admin/v1/passkeys/{id},self,allow,allow,allow,allow,allow,allow
 DELETE /admin/v1/session,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/abuse,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/blocklist-additions,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/{id},abuse.read,allow,403,403,allow,403,allow
+GET /admin/v1/admins/sessions,admins.manage,allow,403,403,403,403,403
 GET /admin/v1/audit,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/audit/standing,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/chargebacks,payments.read,allow,403,allow,403,allow,allow
@@ -24,6 +26,8 @@ GET /admin/v1/invoices,invoices.read,allow,403,allow,403,allow,allow
 GET /admin/v1/invoices/{id},invoices.read,allow,403,allow,403,allow,allow
 GET /admin/v1/invoices/{id}/pdf,invoices.read,allow,403,allow,403,allow,allow
 GET /admin/v1/ledger,money.read,allow,403,403,403,allow,allow
+GET /admin/v1/me/sessions,self,allow,allow,allow,allow,allow,allow
+GET /admin/v1/passkeys,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/payments,payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/payments/reconciliation,payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/payouts,payouts.read,allow,403,403,403,allow,allow
@@ -51,6 +55,7 @@ POST /admin/v1/abuse/{id}/blocklist,abuse.blocklist,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/clear,abuse.clear,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/confirm,abuse.decide,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/notes,abuse.decide,allow,403,403,allow,403,403
+POST /admin/v1/admins/sessions/{id}/end,admins.manage,allow,403,403,403,403,403
 POST /admin/v1/audit/export,export.create,allow,403,403,403,allow,403
 POST /admin/v1/audit/verify,audit.read,allow,403,403,403,403,allow
 POST /admin/v1/clawbacks/{id}/waive,clawbacks.waive,allow,403,403,403,allow,403
@@ -66,7 +71,10 @@ POST /admin/v1/images/{id}/block,images.block,allow,allow,403,allow,403,403
 POST /admin/v1/images/{id}/unblock,images.unblock,allow,403,403,allow,403,403
 POST /admin/v1/invites,invites.create,allow,allow,403,403,403,403
 POST /admin/v1/invoices/{id}/credit-notes,invoices.credit-note,allow,403,403,403,allow,403
+POST /admin/v1/me/sessions/{id}/end,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/notices,notices.publish,allow,allow,403,403,403,403
+POST /admin/v1/passkeys,self,allow,allow,allow,allow,allow,allow
+POST /admin/v1/passkeys/options,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/payments/mismatches/{id}/accept,reconciliation.accept,allow,403,403,403,allow,403
 POST /admin/v1/payments/reconciliation,reconciliation.run,allow,403,403,403,allow,403
 POST /admin/v1/payouts/mismatches/{id}/accept,reconciliation.accept,allow,403,403,403,allow,403
@@ -87,6 +95,8 @@ POST /admin/v1/review-minutes/{sessionId}/{minuteIndex}/waive,review.waive,allow
 POST /admin/v1/second-factor,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/second-factor/confirm,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/session,self,allow,allow,allow,allow,allow,allow
+POST /admin/v1/session/passkey-options,self,allow,allow,allow,allow,allow,allow
+POST /admin/v1/session/step-up,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/sessions/{id}/stop,sessions.stop,allow,allow,403,allow,403,403
 POST /admin/v1/tickets/{id}/answer,tickets.reply,allow,403,allow,403,403,403
 POST /admin/v1/tickets/{id}/status,tickets.reply,allow,403,allow,403,403,403

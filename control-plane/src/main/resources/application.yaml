@@ -155,6 +155,11 @@ limits:
 # The web app, where a CLI sign-in is approved (ADR 0025): its /cli-login/ page is the link `idleo login` shows.
 # Production sets IDENTITY_WEB_APP_URL; the prod profile refuses plain HTTP or this machine (ProductionSettingsGuard).
 identity:
+  admin:
+    passkeys:
+      # The web app's registrable domain, without a scheme: a passkey works only there. The prod profile refuses
+      # localhost (ADR 0051).
+      rp-id: ${IDENTITY_ADMIN_PASSKEYS_RP_ID:localhost}
   # The audit log's daily check and off-site copy (ADR 0051). The prod profile refuses to start without the store.
   audit:
     check-cron: "0 30 1 * * *"

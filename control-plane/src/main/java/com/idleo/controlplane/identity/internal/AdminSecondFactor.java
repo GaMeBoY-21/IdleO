@@ -25,8 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * An admin's second factor (ADR 0027): a TOTP secret (RFC 6238) set up at their first visit and confirmed with a
- * code from it, ten one-time recovery codes, and the check that starts an admin session.
+ * An admin's factors (ADR 0027, ADR 0051): a TOTP secret (RFC 6238) set up at their first visit and confirmed with a
+ * code from it, ten one-time recovery codes, their passkeys, and the check that starts an admin session or gives a live
+ * one a recent factor.
  *
  * <ul>
  *   <li>The secret is shown once, when it's made; asking again before it's confirmed makes a new one. Once it's
@@ -56,6 +57,7 @@ class AdminSecondFactor {
     private final IdGenerator ids;
     private final Clock clock;
     private final SecurityLog security;
+    private final AdminPasskeys passkeys;
     private final String issuer;
     private final SecureRandom random = new SecureRandom();
 
@@ -69,7 +71,9 @@ class AdminSecondFactor {
             Clock clock,
             AdminProperties properties,
             CodeHashes hashes,
-            SecurityLog security) {
+            SecurityLog security,
+            AdminPasskeys passkeys) {
+        this.passkeys = passkeys;
         this.security = security;
         this.hashes = hashes;
         this.jdbc = jdbc;
@@ -89,8 +93,11 @@ class AdminSecondFactor {
     record Enrolment(String secret, String otpauthUri) {}
 
     sealed interface Outcome {
-        /** The code was right: a new admin session, and the recovery codes when this confirmed the enrolment. */
-        record Accepted(AdminSessions.Issued session, List<String> recoveryCodes) implements Outcome {}
+        /**
+         * The code was right: a new admin session (none for a step-up), and the recovery codes when this confirmed the
+         * enrolment.
+         */
+        record Accepted(AdminSessions.@Nullable Issued session, List<String> recoveryCodes) implements Outcome {}
 
         /** The code was wrong or used; {@code locked} when this was the last wrong code allowed. */
         record Wrong(boolean locked) implements Outcome {}
@@ -144,16 +151,42 @@ class AdminSecondFactor {
                 true);
     }
 
-    /** Checks a TOTP code, or one of the recovery codes, and starts an admin session. */
-    Outcome signIn(UUID userId, UUID identityId, @Nullable String code, @Nullable String recoveryCode) {
+    /** A factor an admin gives: a passkey's assertion, a code from their authenticator, or a recovery code. */
+    record Factor(@Nullable String totp, @Nullable String recoveryCode, AdminPasskeys.@Nullable Assertion passkey) {}
+
+    /** Checks a passkey, a TOTP code or one of the recovery codes, and starts an admin session. */
+    Outcome signIn(UUID userId, UUID identityId, Factor factor) {
         return check(
                 userId,
                 identityId,
                 row -> row.confirmed()
                         ? null
                         : new Outcome.NotNow(Problem.SECOND_FACTOR_MISSING, "Set up the second factor first."),
-                row -> recoveryCode != null ? recovery(userId, recoveryCode) : totp(row, code == null ? "" : code),
+                row -> given(row, factor),
                 false);
+    }
+
+    /** Checks a factor for this live admin session: it counts as recent from now, and no new session starts. */
+    Outcome stepUp(UUID userId, UUID sessionId, Factor factor) {
+        return run(
+                userId,
+                row -> row.confirmed()
+                        ? null
+                        : new Outcome.NotNow(Problem.SECOND_FACTOR_MISSING, "Set up the second factor first."),
+                row -> given(row, factor),
+                (now, row) -> {
+                    sessions.factorGiven(sessionId);
+                    return new Outcome.Accepted(null, List.of());
+                });
+    }
+
+    private boolean given(Row row, Factor factor) {
+        if (factor.passkey() != null) {
+            return passkeys.check(row.userId(), factor.passkey());
+        }
+        return factor.recoveryCode() != null
+                ? recovery(row.userId(), factor.recoveryCode())
+                : totp(row, factor.totp() == null ? "" : factor.totp());
     }
 
     private interface Precondition {
@@ -164,8 +197,19 @@ class AdminSecondFactor {
         boolean accept(Row row);
     }
 
+    private interface OnAccepted {
+        Outcome apply(Instant now, Row row);
+    }
+
     private Outcome check(
             UUID userId, UUID identityId, Precondition precondition, Checker checker, boolean confirming) {
+        return run(userId, precondition, checker, (now, row) -> {
+            var codes = confirming ? confirmEnrolment(userId, now) : List.<String>of();
+            return new Outcome.Accepted(sessions.start(userId, identityId), codes);
+        });
+    }
+
+    private Outcome run(UUID userId, Precondition precondition, Checker checker, OnAccepted onAccepted) {
         return Objects.requireNonNull(transactions.execute(status -> {
             var row = lock(userId);
             if (row == null) {
@@ -190,8 +234,7 @@ class AdminSecondFactor {
                 security.record(SecurityLog.Kind.ADMIN_CODE_FAILED, userId);
                 return new Outcome.Wrong(lockIfTooMany(userId, now));
             }
-            var codes = confirming ? confirmEnrolment(userId, now) : List.<String>of();
-            return new Outcome.Accepted(sessions.start(userId, identityId), codes);
+            return onAccepted.apply(now, row);
         }));
     }
 

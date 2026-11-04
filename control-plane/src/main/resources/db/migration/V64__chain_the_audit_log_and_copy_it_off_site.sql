@@ -23,13 +23,13 @@ AS $$
 $$;
 
 -- The newest row's place and hash. Writers wait for its lock, so the chain's order is the order they commit in. The
--- application may read it; only the trigger, which runs as the table's owner, changes it.
+-- application may read it, and its one row is already there; only the trigger, which runs as the table's owner, changes it.
 CREATE TABLE identity.audit_chain_head (
     one  boolean PRIMARY KEY DEFAULT true CHECK (one),
     seq  bigint  NOT NULL,
     hash bytea   NOT NULL
 );
-GRANT SELECT ON identity.audit_chain_head TO idleo_application;
+GRANT SELECT, INSERT ON identity.audit_chain_head TO idleo_application;
 
 -- Today's rows join the chain, oldest first, from a hash of 32 zero bytes. This one migration may change them.
 GRANT UPDATE ON identity.audit_log TO CURRENT_USER;

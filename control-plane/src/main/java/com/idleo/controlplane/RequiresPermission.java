@@ -21,4 +21,7 @@ public @interface RequiresPermission {
      * factor, and the one reveal.
      */
     boolean unmasked() default false;
+
+    /** Whether it needs a recent factor though its permission isn't sensitive: changing one's own passkeys. */
+    boolean stepUp() default false;
 }

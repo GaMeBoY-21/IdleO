@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.web.context.request.RequestAttributes;
@@ -14,6 +15,7 @@ final class AdminRequestContext {
 
     private static final String REQUEST_ID = AdminRequestContext.class.getName() + ".requestId";
     private static final String SESSION_ID = AdminRequestContext.class.getName() + ".sessionId";
+    private static final String FACTOR_AT = AdminRequestContext.class.getName() + ".factorAt";
     private static final int USER_AGENT_LIMIT = 500;
 
     private AdminRequestContext() {}
@@ -51,6 +53,22 @@ final class AdminRequestContext {
         return attributes != null
                         && attributes.getAttribute(SESSION_ID, RequestAttributes.SCOPE_REQUEST) instanceof UUID id
                 ? id
+                : null;
+    }
+
+    /** When this request's admin session last gave a factor. */
+    static void factorAt(@Nullable Instant at) {
+        var attributes = current();
+        if (attributes != null && at != null) {
+            attributes.setAttribute(FACTOR_AT, at, RequestAttributes.SCOPE_REQUEST);
+        }
+    }
+
+    static @Nullable Instant factorAt() {
+        var attributes = current();
+        return attributes != null
+                        && attributes.getAttribute(FACTOR_AT, RequestAttributes.SCOPE_REQUEST) instanceof Instant at
+                ? at
                 : null;
     }
 

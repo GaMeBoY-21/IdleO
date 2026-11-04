@@ -531,6 +531,18 @@ public enum Problem {
             "You don't have the permission for this",
             "The admin's roles don't include what this needs. `permission` names it; an Owner can grant a role that "
                     + "has it."),
+    STEP_UP_REQUIRED(
+            "step-up-required",
+            HttpStatus.FORBIDDEN,
+            "Confirm it's you",
+            "This action needs a passkey or a code given in the last five minutes. Give one, then send the same "
+                    + "request again with the same Idempotency-Key."),
+    PASSKEY_NOT_ACCEPTED(
+            "passkey-not-accepted",
+            HttpStatus.BAD_REQUEST,
+            "Passkey not accepted",
+            "The passkey didn't check out, or its challenge is used or too old. Try again; a wrong one counts as a wrong "
+                    + "code."),
     ACTION_REFUSED(
             "action-refused",
             HttpStatus.CONFLICT,

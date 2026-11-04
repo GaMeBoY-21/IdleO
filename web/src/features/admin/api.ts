@@ -30,7 +30,42 @@ export const adminSession = {
   },
 };
 
-export const adminApi = createClient<paths>({ baseUrl: config.apiUrl, fetch: apiFetch });
+/**
+ * Asked when the server wants a recent factor (ADR 0051), by the step-up dialog the gate shows: resolves once one is
+ * given, rejects if the admin declines.
+ */
+let askForStepUp: (() => Promise<void>) | null = null;
+
+export function whenStepUpNeeded(ask: (() => Promise<void>) | null): void {
+  askForStepUp = ask;
+}
+
+/**
+ * Every admin call: one refused with `step-up-required` asks for a factor in place and goes again, the very same
+ * request with the same idempotency key, so the admin's action simply finishes.
+ */
+async function adminFetch(request: Request): Promise<Response> {
+  const again = request.clone();
+  const response = await apiFetch(request);
+  if (response.status !== 403 || askForStepUp === null) {
+    return response;
+  }
+  const problem = (await response
+    .clone()
+    .json()
+    .catch(() => null)) as { type?: string } | null;
+  if (problem?.type !== "/problems/step-up-required") {
+    return response;
+  }
+  try {
+    await askForStepUp();
+  } catch {
+    return response;
+  }
+  return apiFetch(again);
+}
+
+export const adminApi = createClient<paths>({ baseUrl: config.apiUrl, fetch: adminFetch });
 adminApi.use({
   onRequest({ request }) {
     if (token !== null) {
@@ -45,6 +80,8 @@ export const ADMIN = "admin";
 
 type Schemas = components["schemas"];
 export type AdminSessionStatus = Schemas["AdminSessionStatus"];
+export type AdminPasskey = Schemas["AdminPasskey"];
+export type AdminSessionRecord = Schemas["AdminSessionRecord"];
 export type AdminDashboard = Schemas["AdminDashboard"];
 export type AdminInstalls = Schemas["InstallsSummary"];
 export type AdminUser = Schemas["AdminUser"];
