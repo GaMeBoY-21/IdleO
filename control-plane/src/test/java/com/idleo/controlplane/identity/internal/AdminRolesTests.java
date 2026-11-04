@@ -94,6 +94,23 @@ class AdminRolesTests {
     }
 
     @Test
+    void grantingARoleByCommandGivesItOnceAndNamesARoleThatExists() throws Exception {
+        var user = TestUsers.signUp(mvc);
+        var grant = new AdminCommands().grantAdmin(roles);
+        run(grant, "grant-admin", email(user.id()), "--reason", "first owner", "--role", "owner");
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from identity.admin_role_grants where user_id = ? and role_id = 'owner'",
+                        Integer.class,
+                        user.id()))
+                .isOne();
+        assertThat(run(grant, "grant-admin", email(user.id()), "--reason", "again", "--role", "owner"))
+                .contains("already an admin");
+        assertThatThrownBy(() -> run(grant, "grant-admin", email(user.id()), "--reason", "x", "--role", "boss"))
+                .isInstanceOf(OperatorCommand.Refused.class)
+                .hasMessageContaining("no role boss");
+    }
+
+    @Test
     void aGrantAndItsAuditRowRollBackTogether() throws Exception {
         var user = TestUsers.signUp(mvc);
         transactions.executeWithoutResult(status -> {
