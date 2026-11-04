@@ -116,10 +116,7 @@ class ApprovalsController {
     @ApiResponse(
             responseCode = "200",
             description = "The file",
-            content =
-                    @Content(
-                            mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE,
-                            schema = @Schema(type = "string")))
+            content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string")))
     ResponseEntity<byte[]> download(@AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id) {
         var file = approvals.download(admin, id);
         return ResponseEntity.ok()

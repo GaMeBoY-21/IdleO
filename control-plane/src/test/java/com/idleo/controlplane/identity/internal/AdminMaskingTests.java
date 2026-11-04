@@ -125,6 +125,10 @@ class AdminMaskingTests {
         ids.put("/admin/v1/invoices/{id}", any("select id::text from billing.invoices where user_id = ?", user));
         ids.put("/admin/v1/chargebacks/{id}", any("select id::text from billing.chargebacks where user_id = ?", user));
 
+        ids.put(
+                "/admin/v1/approvals/{id}",
+                any("select id::text from identity.approval_requests where params::text like ?", "%" + user + "%"));
+
         var parameters = Map.of(
                 "/admin/v1/users", "query=" + marker,
                 "/admin/v1/payments", "query=" + user,

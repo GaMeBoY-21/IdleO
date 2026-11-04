@@ -497,15 +497,23 @@ class InvoiceAndGstTests {
                 .andExpect(status().isNotFound());
 
         var admin = TestAdmins.signIn(mvc, jdbcTemplate, clock);
-        mvc.perform(admin.as(post("/admin/v1/invoices/" + id + "/credit-notes")
+        var tooMuch = mvc.perform(admin.as(post("/admin/v1/invoices/" + id + "/credit-notes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amountPaise\":40000,\"reason\":\"more than the invoice\"}")))
-                .andExpect(jsonPath("$.type").value("/problems/action-refused"));
-        mvc.perform(admin.as(post("/admin/v1/invoices/" + id + "/credit-notes")
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(TestAdmins.approval(mvc, jdbcTemplate, clock, tooMuch).getStatus())
+                .isEqualTo(409);
+        var note = mvc.perform(admin.as(post("/admin/v1/invoices/" + id + "/credit-notes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amountPaise\":10000,\"reason\":\"wrong business name on it\"}")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.invoice.kind").value("credit_note"));
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        TestAdmins.approve(mvc, jdbcTemplate, clock, note);
         assertThat(jdbcTemplate.queryForObject(
                         "select count(*) from identity.audit_log where action = 'invoice.credit_note' and target_id = ?",
                         Integer.class,
