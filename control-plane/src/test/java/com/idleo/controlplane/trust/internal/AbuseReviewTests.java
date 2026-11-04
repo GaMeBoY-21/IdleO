@@ -175,6 +175,17 @@ class AbuseReviewTests {
         return mvc.perform(admin.as(body(post("/admin/v1/abuse/" + item + "/" + action), json)));
     }
 
+    /** Clearing, once a second admin has approved it, and the item as it stands then. */
+    private ResultActions cleared(UUID item, String json) throws Exception {
+        var asked = admin("clear", item, json)
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        TestAdmins.approve(mvc, jdbc, clock, asked);
+        return mvc.perform(admin.as(get("/admin/v1/abuse/" + item)));
+    }
+
     private int audited(String action, UUID item) {
         return jdbc.queryForObject(
                 "select count(*) from identity.audit_log where action = ? and target_id = ?",
@@ -387,7 +398,7 @@ class AbuseReviewTests {
                 .andExpect(status().isOk());
         var before = balance();
 
-        admin("clear", item, "{\"reason\":\"It was a test of their own tool.\"}")
+        cleared(item, "{\"reason\":\"It was a test of their own tool.\"}")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.item.state").value("cleared"))
                 .andExpect(jsonPath("$.item.banned").value(false))
@@ -419,8 +430,7 @@ class AbuseReviewTests {
                 .isEqualTo("It was a test of their own tool.");
 
         // Clearing again changes nothing: no second refund, no second audit row.
-        admin("clear", item, "{\"reason\":\"It was a test of their own tool.\"}")
-                .andExpect(status().isOk());
+        cleared(item, "{\"reason\":\"It was a test of their own tool.\"}").andExpect(status().isOk());
         assertThat(balance()).isEqualTo(before + CHARGED);
         assertThat(audited("abuse.clear", item)).isOne();
         // And a cleared item can't be confirmed afterwards.
@@ -555,7 +565,7 @@ class AbuseReviewTests {
                 .getContentAsString());
         assertThat(blockers.toString()).contains("open-review");
 
-        admin("clear", item, "{\"reason\":\"It was fine.\"}").andExpect(status().isOk());
+        cleared(item, "{\"reason\":\"It was fine.\"}").andExpect(status().isOk());
         var after = JSON.readTree(mvc.perform(get("/v1/me/deletion").header("Authorization", asRenter))
                 .andExpect(status().isOk())
                 .andReturn()
@@ -569,7 +579,7 @@ class AbuseReviewTests {
         var settled = runCode();
         reviews.onAbuse(hostId, signal(settled, AbuseSignal.Kind.KIND_PROCESS_NAME, "xmrig", false));
         var settledItem = itemOf(settled);
-        admin("clear", settledItem, "{\"reason\":\"It was fine.\"}").andExpect(status().isOk());
+        cleared(settledItem, "{\"reason\":\"It was fine.\"}").andExpect(status().isOk());
         var open = runCode();
         reviews.onAbuse(hostId, signal(open, AbuseSignal.Kind.KIND_PROCESS_NAME, "xmrig", false));
         behave(open, 0, 50, 50, 500, 500);

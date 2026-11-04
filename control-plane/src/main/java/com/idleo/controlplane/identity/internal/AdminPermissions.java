@@ -65,12 +65,15 @@ class AdminPermissions {
                 .list();
     }
 
-    /** Every admin who holds this role, whatever state they're in. */
+    /** Every admin who holds this role and can use the console now. */
     List<UUID> holdersOfRole(String role) {
-        return jdbc.sql("select user_id from identity.admin_role_grants where role_id = :role")
-                .param("role", role)
-                .query(UUID.class)
-                .list();
+        return jdbc.sql("""
+                        select g.user_id from identity.admin_role_grants g
+                        join identity.admins a on a.user_id = g.user_id
+                        join identity.users u on u.id = g.user_id
+                        where g.role_id = :role and a.locked_at is null and a.totp_confirmed_at is not null
+                          and u.status = 'active'
+                        """).param("role", role).query(UUID.class).list();
     }
 
     /** The roles this admin holds, by name. */

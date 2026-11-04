@@ -17,6 +17,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -158,12 +159,23 @@ public final class TestAdmins {
      * what a gated action does once it runs. Returns the approval's answer.
      */
     public static void approve(MockMvc mvc, JdbcTemplate jdbc, Clock clock, String asked) throws Exception {
+        var answer = approval(mvc, jdbc, clock, asked);
+        if (answer.getStatus() != 200) {
+            throw new AssertionError("the approval was refused: " + answer.getContentAsString());
+        }
+    }
+
+    /** The same, for a test that expects it may be refused: the answer, as it is. */
+    public static MockHttpServletResponse approval(MockMvc mvc, JdbcTemplate jdbc, Clock clock, String asked)
+            throws Exception {
         var id = JSON.readTree(asked).get("id").asString();
-        var second = signIn(mvc, jdbc, clock);
-        mvc.perform(second.as(post("/admin/v1/approvals/" + id + "/approve"))
+        // Its token outlasts whatever a test has done to the clock.
+        var second = signIn(mvc, jdbc, clock, Duration.ofDays(3_000));
+        return mvc.perform(second.as(post("/admin/v1/approvals/" + id + "/approve"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"checked by a second admin\"}"))
-                .andExpect(status().isOk());
+                .andReturn()
+                .getResponse();
     }
 
     /** Makes the user an admin and an Owner, as {@code grant-admin --role owner} does. */
@@ -185,7 +197,7 @@ public final class TestAdmins {
 
     /** A new admin holding exactly these roles, enrolled, with an admin session. */
     public static TestAdmin signInAs(MockMvc mvc, JdbcTemplate jdbc, Clock clock, String... roles) throws Exception {
-        var user = TestUsers.signUpLasting(mvc, Duration.ofHours(12));
+        var user = TestUsers.signUpLasting(mvc, Duration.ofDays(30));
         grant(jdbc, user.id(), roles);
         return enrol(mvc, user, clock);
     }

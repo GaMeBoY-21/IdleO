@@ -28,9 +28,12 @@ import tools.jackson.databind.json.JsonMapper;
 @ControlPlaneTest
 class AdminSafeWritesTests {
 
-    /** Writes to a path with an id that change no record of their own: starting a person's export, ending a session. */
+    /** Writes to a path with an id that change no record of their own: an export, ending a session, fetching a file. */
     private static final Set<String> NO_RECORD = Set.of(
-            "/admin/v1/users/{id}/exports", "/admin/v1/me/sessions/{id}/end", "/admin/v1/admins/sessions/{id}/end");
+            "/admin/v1/users/{id}/exports",
+            "/admin/v1/me/sessions/{id}/end",
+            "/admin/v1/admins/sessions/{id}/end",
+            "/admin/v1/approvals/{id}/download");
 
     @Autowired
     MockMvc mvc;

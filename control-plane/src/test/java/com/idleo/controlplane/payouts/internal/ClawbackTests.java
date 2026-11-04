@@ -161,10 +161,14 @@ class ClawbackTests {
         long lossesBefore = Payees.losses(jdbc);
 
         var admin = TestAdmins.signIn(mvc, jdbc, clock, Payees.LIFETIME);
-        mvc.perform(admin.as(post("/admin/v1/clawbacks/" + id + "/waive"))
+        var asked = mvc.perform(admin.as(post("/admin/v1/clawbacks/" + id + "/waive"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"host had no way to know; we absorb it\"}"))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        TestAdmins.approve(mvc, jdbc, clock, asked);
 
         assertThat(balance("host_receivable", owner.id())).isZero();
         assertThat(Payees.losses(jdbc) - lossesBefore).isEqualTo(800);
@@ -175,10 +179,14 @@ class ClawbackTests {
                         Integer.class,
                         id.toString()))
                 .isEqualTo(1);
-        mvc.perform(admin.as(post("/admin/v1/clawbacks/" + id + "/waive"))
+        var twice = mvc.perform(admin.as(post("/admin/v1/clawbacks/" + id + "/waive"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"twice should be refused\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(TestAdmins.approval(mvc, jdbc, clock, twice).getStatus()).isEqualTo(409);
     }
 
     @Test

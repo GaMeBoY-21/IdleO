@@ -145,7 +145,9 @@ class AdminIdentityTests {
                 .containsEntry("before", "active")
                 .containsEntry("after", "suspended");
 
-        read(reason(post("/admin/v1/users/" + target + "/unsuspend"), "they explained the payments"), admin);
+        var asked =
+                read(reason(post("/admin/v1/users/" + target + "/unsuspend"), "they explained the payments"), admin);
+        TestAdmins.approve(mvc, jdbc, clock, asked.toString());
         mvc.perform(get("/v1/me").header("Authorization", renter.bearer())).andExpect(status().isOk());
         assertThat(auditRows("user.unsuspend", target)).isOne();
 

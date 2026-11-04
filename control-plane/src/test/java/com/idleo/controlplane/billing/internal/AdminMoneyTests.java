@@ -77,17 +77,20 @@ class AdminMoneyTests {
         var renter = TestUsers.signUp(mvc);
         var key = UUID.randomUUID().toString();
 
-        mvc.perform(admin.as(grantRequest(renter.id(), 50_000, null)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.type").value("/problems/idempotency-key-invalid"));
-        var granted = body(
-                mvc.perform(admin.as(grantRequest(renter.id(), 50_000, key))).andExpect(status().isCreated()));
-        assertThat(granted.get("amountPaise").asLong()).isEqualTo(50_000);
-        assertThat(granted.get("walletBalancePaise").asLong()).isEqualTo(50_000);
-        assertThat(granted.get("grantedBy").asString()).isEqualTo("admin " + admin.id());
+        var asked = body(
+                mvc.perform(admin.as(grantRequest(renter.id(), 50_000, key))).andExpect(status().isAccepted()));
+        // The same key again is the same request, and nothing has moved yet.
         mvc.perform(admin.as(grantRequest(renter.id(), 50_000, key)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(granted.get("id").asString()));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").value(asked.get("id").asString()));
+        assertThat(audited("credit.grant", renter.id().toString())).isZero();
+        TestAdmins.approve(mvc, jdbc, clock, asked.toString());
+        var granted = body(mvc.perform(admin.as(
+                        get("/admin/v1/credit-grants").param("user", renter.id().toString()))))
+                .get("grants")
+                .get(0);
+        assertThat(granted.get("amountPaise").asLong()).isEqualTo(50_000);
+        assertThat(granted.get("grantedBy").asString()).isEqualTo("admin " + admin.id());
         assertThat(audited("credit.grant", renter.id().toString())).isOne();
         mvc.perform(get("/v1/wallet").header("Authorization", renter.bearer()))
                 .andExpect(jsonPath("$.balancePaise").value(50_000));
@@ -118,14 +121,17 @@ class AdminMoneyTests {
 
         var path = "/admin/v1/credit-grants/" + granted.get("id").asString() + "/reverse";
         var reason = "{\"reason\":\"granted to the wrong account\"}";
-        var reversed = body(mvc.perform(admin.as(post(path))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(reason))
-                .andExpect(status().isOk()));
-        assertThat(reversed.get("reversalId").isNull()).isFalse();
-        assertThat(reversed.get("walletBalancePaise").asLong()).isZero();
-        mvc.perform(admin.as(post(path)).contentType(MediaType.APPLICATION_JSON).content(reason))
-                .andExpect(status().isOk());
+        TestAdmins.approve(
+                mvc,
+                jdbc,
+                clock,
+                body(mvc.perform(admin.as(post(path))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(reason))
+                                .andExpect(status().isAccepted()))
+                        .toString());
+        mvc.perform(get("/v1/wallet").header("Authorization", renter.bearer()))
+                .andExpect(jsonPath("$.balancePaise").value(0));
         assertThat(audited("credit.reverse", granted.get("id").asString())).isOne();
         assertThat(body(mvc.perform(admin.as(get("/admin/v1/credit-grants")
                                 .param("user", renter.id().toString()))))
@@ -140,15 +146,24 @@ class AdminMoneyTests {
     void aRefusedGrantChangesNothingAndIsntAudited() throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
         var renter = TestUsers.signUp(mvc);
-        mvc.perform(admin.as(
+        var tooMuch = body(mvc.perform(admin.as(
                         grantRequest(renter.id(), 500_001, UUID.randomUUID().toString())))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("/problems/action-refused"));
-        mvc.perform(admin.as(grantRequest(renter.id(), 1, UUID.randomUUID().toString())))
-                .andExpect(status().isCreated());
-        mvc.perform(admin.as(
+                .andExpect(status().isAccepted()));
+        assertThat(TestAdmins.approval(mvc, jdbc, clock, tooMuch.toString()).getStatus())
+                .isEqualTo(409);
+        TestAdmins.approve(
+                mvc,
+                jdbc,
+                clock,
+                body(mvc.perform(admin.as(grantRequest(
+                                        renter.id(), 1, UUID.randomUUID().toString())))
+                                .andExpect(status().isAccepted()))
+                        .toString());
+        var nobody = body(mvc.perform(admin.as(
                         grantRequest(UUID.randomUUID(), 1_000, UUID.randomUUID().toString())))
-                .andExpect(status().isConflict());
+                .andExpect(status().isAccepted()));
+        assertThat(TestAdmins.approval(mvc, jdbc, clock, nobody.toString()).getStatus())
+                .isEqualTo(409);
         assertThat(audited("credit.grant", renter.id().toString())).isOne();
     }
 

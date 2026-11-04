@@ -582,7 +582,6 @@ paths:
             application/octet-stream:
               schema:
                 type: string
-                format: binary
           description: The file
         default:
           content:

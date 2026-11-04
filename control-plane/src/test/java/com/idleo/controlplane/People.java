@@ -344,11 +344,15 @@ public final class People {
                 session,
                 ts(now));
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
-        mvc.perform(admin.as(post("/admin/v1/credit-grants")
+        var grant = mvc.perform(admin.as(post("/admin/v1/credit-grants")
                         .header("Idempotency-Key", "grant-" + marker + "-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"" + me + "\",\"paise\":2500,\"reason\":\"pilot welcome credit\"}")))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        TestAdmins.approve(mvc, jdbc, clock, grant);
 
         // Money in (ADR 0039): billing details for a business, and a top-up whose payment failed, through the fake
         // Razorpay.

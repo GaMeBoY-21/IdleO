@@ -216,10 +216,14 @@ class PayoutsTests {
 
     private void reinstate(UUID user) throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock, Duration.ofDays(3_000));
-        mvc.perform(admin.as(post("/admin/v1/users/" + user + "/unsuspend")
+        var asked = mvc.perform(admin.as(post("/admin/v1/users/" + user + "/unsuspend")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"Looked into it, all fine.\"}")))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        TestAdmins.approve(mvc, jdbc, clock, asked);
     }
 
     @Test
