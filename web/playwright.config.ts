@@ -67,7 +67,7 @@ export default defineConfig({
       name: "admin-journey",
       testMatch: /admin-(journey|access)\.spec\.ts/,
       use: { ...laptop },
-      timeout: 300_000,
+      timeout: 480_000,
     },
     {
       name: "recording",

@@ -4,7 +4,15 @@ import * as admin from "./fixtures-admin";
 import * as images from "./fixtures-images";
 import * as support from "./fixtures-support";
 import * as trust from "./fixtures-trust";
-import { capture, expectAccessible, fakeApi, signIn, watchConsole, type Answer } from "./support";
+import {
+  capture,
+  expectAccessible,
+  fakeApi,
+  signIn,
+  type Answer,
+  typeToConfirm,
+  watchConsole,
+} from "./support";
 
 /**
  * The admin console (ADR 0027), every screen and its states, light and dark, phone and laptop: zero axe violations,
@@ -166,7 +174,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(21);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(23);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -247,6 +255,9 @@ test.describe("the console", () => {
     await capture(page, info, "admin-user-suspend");
     await sheet.getByLabel("Reason").fill("card testing from this account");
     await sheet.getByRole("button", { name: "Suspend" }).click();
+    await expect(sheet.getByText("Type it exactly as shown.")).toBeVisible();
+    await typeToConfirm(sheet);
+    await sheet.getByRole("button", { name: "Suspend" }).click();
     await expect(sheet).toBeHidden();
     expect(sent).toEqual({ reason: "card testing from this account", cause: "other" });
   });
@@ -267,6 +278,7 @@ test.describe("the console", () => {
     await sheet.getByLabel("Reason").fill("ran renters' jobs on someone else's machine");
     await expectAccessible(page);
     await capture(page, info, "admin-user-suspend-host");
+    await typeToConfirm(sheet);
     await sheet.getByRole("button", { name: "Suspend" }).click();
     await expect(sheet).toBeHidden();
     expect(sent).toEqual({ reason: "ran renters' jobs on someone else's machine", cause: "host_misconduct" });
@@ -456,6 +468,7 @@ test.describe("the console", () => {
     // More than it cost is refused before anything is sent.
     await sheet.getByLabel("Amount in ₹").fill("99");
     await sheet.getByLabel("Reason").fill("The job failed on our host.");
+    await typeToConfirm(sheet);
     await sheet.getByRole("button", { name: "Refund", exact: true }).click();
     await expect(sheet).toContainText("can't be more than the session cost");
     expect(body).toBeNull();
@@ -547,7 +560,7 @@ test.describe("the console", () => {
     await open(page, "/admin/payouts/", {
       "/admin/v1/payouts/retry": (_call, request) => {
         retried = request.postDataJSON();
-        return { json: { payout: null, notPaid: "ON_HOLD" } };
+        return { status: 202, json: admin.approvals.requests[0] };
       },
     });
     await expect(page.getByRole("table", { name: "Payouts" })).toContainText("bank_account_closed");
@@ -561,10 +574,13 @@ test.describe("the console", () => {
       .getByRole("dialog", { name: "Pay one person now?" })
       .getByLabel("Reason")
       .fill("the bank is back up");
+    await typeToConfirm(page.getByRole("dialog"));
     await page.getByRole("dialog").getByRole("button", { name: "Pay now" }).click();
+    // It goes to another admin: nothing has moved yet.
+    await expect(page.getByRole("dialog")).toContainText("waiting for another admin");
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
     await expect(page.getByRole("dialog")).toBeHidden();
     expect(retried).toEqual({ userId: admin.OWNER_ID, reason: "the bank is back up" });
-    await expect(page.getByText(/Not paid: their UPI ID changed/)).toBeVisible();
   });
 
   test("verifies a PAN and a UPI ID with reasons, and reads a PAN whole only with one", async ({
@@ -640,6 +656,7 @@ test.describe("the console", () => {
     await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200.00");
     await sheet.getByLabel("Amount in ₹").fill("1000");
     await sheet.getByLabel("Reason").fill("renter asked, credit unused");
+    await typeToConfirm(sheet);
     await sheet.getByRole("button", { name: "Refund", exact: true }).click();
     await expect(sheet).toContainText("can't be more than");
     await sheet.getByLabel("Amount in ₹").fill("200");
@@ -804,6 +821,7 @@ test.describe("abuse reviews", () => {
     });
     await page.getByRole("button", { name: "Confirm and ban" }).click();
     await page.getByLabel("Reason").fill("a miner, seen by two people");
+    await typeToConfirm(page.getByRole("dialog"));
     await page.getByRole("button", { name: "Confirm and ban" }).last().click();
     await expect.poll(() => confirmed).toMatchObject({ ban: true, reason: "a miner, seen by two people" });
   });

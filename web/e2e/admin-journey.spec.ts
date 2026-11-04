@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createHmac } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { signIn } from "./support";
+import { signIn, typeToConfirm } from "./support";
 
 /**
  * The admin console against the real stack (ADR 0027), run by scripts/e2e/agent-online.sh, which makes
@@ -178,7 +178,9 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
     await expect(sheet).toContainText("waiting for another admin");
     await sheet.getByRole("button", { name: "Done" }).click();
     // Nothing has moved yet, and whoever asked can't approve it.
-    await expect(page.getByRole("table", { name: "Credit grants" })).toHaveCount(0);
+    await expect(page.getByRole("table", { name: "Credit grants" })).not.toContainText(
+      "end-to-end admin grant",
+    );
 
     await go(approverPage, "Approvals");
     const request = approverPage
@@ -291,11 +293,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
       .fill(`${Math.floor((paid + 1) / 100)}.${String((paid + 1) % 100).padStart(2, "0")}`);
     await sheet.getByLabel("Reason").fill("end-to-end refund");
     // It can't be undone, so its short name is typed too.
-    const toType = await sheet
-      .getByText(/This can't be undone/)
-      .locator("span")
-      .textContent();
-    await sheet.getByLabel(/to confirm$/).fill(toType!);
+    await typeToConfirm(sheet);
     await sheet.getByRole("button", { name: "Refund", exact: true }).click();
     await expect(sheet).toContainText("can't be more than the session cost");
     await sheet
@@ -360,6 +358,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
       const sheet = page.getByRole("dialog", { name: "Refund this bought credit?" });
       await expect(sheet.getByLabel("Amount in ₹")).toHaveValue("200.00");
       await sheet.getByLabel("Reason").fill("end-to-end refund approval");
+      await typeToConfirm(sheet);
       await sheet.getByRole("button", { name: "Refund", exact: true }).click();
       await expect(sheet).toBeHidden();
     });
