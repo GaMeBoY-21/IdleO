@@ -8,15 +8,21 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.hosts.HostPresence;
 import com.idleo.controlplane.hosts.HostTelemetry;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +44,8 @@ import tools.jackson.databind.json.JsonMapper;
 @ConditionalOnWebApplication
 class AdminHostsController {
 
+    static final String REACTIVATE = "host.reactivate";
+
     private final JdbcClient jdbc;
     private final HostRepository hosts;
     private final HostActivation activation;
@@ -47,6 +55,7 @@ class AdminHostsController {
     private final AuditTrail audit;
     private final HostScoreService scores;
     private final SelfTestRuns selfTests;
+    private final Approvals approvals;
     private final JsonMapper json = JsonMapper.builder().build();
     private static final TypeReference<List<AdminSelfTestCheck>> SELF_TEST_CHECKS = new TypeReference<>() {};
 
@@ -59,7 +68,9 @@ class AdminHostsController {
             HostTelemetry telemetry,
             AuditTrail audit,
             HostScoreService scores,
-            SelfTestRuns selfTests) {
+            SelfTestRuns selfTests,
+            Approvals approvals) {
+        this.approvals = approvals;
         this.scores = scores;
         this.selfTests = selfTests;
         this.jdbc = jdbc;
@@ -257,13 +268,31 @@ class AdminHostsController {
     /** Activates a host whose agent has enrolled, listed and reported a GPU. */
     @RequiresPermission(value = AdminPermission.HOSTS_ACTIVATE, record = "host")
     @PostMapping("/{id}/activate")
-    AdminHost activate(
+    @ApiResponse(
+            responseCode = "200",
+            description = "The host, now active",
+            content = @Content(schema = @Schema(implementation = AdminHost.class)))
+    @ApiResponse(
+            responseCode = "202",
+            description = "It was suspended, so lifting that goes to another admin",
+            content = @Content(schema = @Schema(implementation = Approvals.AdminApproval.class)))
+    ResponseEntity<?> activate(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminReason request) {
-        find(id);
+        var host = find(id);
+        if ("suspended".equals(host.status())) {
+            return approvals.submit(
+                    admin,
+                    REACTIVATE,
+                    "host",
+                    id.toString(),
+                    Map.of("id", id),
+                    List.of(new Approvals.ApprovalChange("status", host.status(), "active")),
+                    request.reason());
+        }
         refusing(() -> activation.activate(id, request.reason(), audit.admin(admin)));
-        return find(id);
+        return ResponseEntity.ok(find(id));
     }
 
     /** Suspends a host: it gets no new work, and its agent is refused at its next connection. */

@@ -7,6 +7,7 @@ import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,8 +55,11 @@ class AdminUsersController {
     private final UserSuspensions suspensions;
     private final AuditTrail audit;
     private final AccessLog accessLog;
+    private final Approvals approvals;
 
-    AdminUsersController(JdbcClient jdbc, UserSuspensions suspensions, AuditTrail audit, AccessLog accessLog) {
+    AdminUsersController(
+            JdbcClient jdbc, UserSuspensions suspensions, AuditTrail audit, AccessLog accessLog, Approvals approvals) {
+        this.approvals = approvals;
         this.accessLog = accessLog;
         this.jdbc = jdbc;
         this.suspensions = suspensions;
@@ -156,16 +161,25 @@ class AdminUsersController {
         return find(id);
     }
 
-    /** Reinstates a suspended account. */
+    /** Asks to reinstate a suspended account: it's lifting a suspension, so another admin approves it (ADR 0051). */
     @RequiresPermission(value = AdminPermission.USERS_UNSUSPEND, record = "user")
     @PostMapping("/{id}/unsuspend")
-    AdminUser unsuspend(
+    ResponseEntity<Approvals.AdminApproval> unsuspend(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminReason request) {
-        find(id);
-        refusing(() -> suspensions.unsuspend(id, request.reason(), audit.admin(admin)));
-        return find(id);
+        var user = find(id);
+        if (!"suspended".equals(user.status())) {
+            throw ApiProblem.of(Problem.ACTION_REFUSED, "This account isn't suspended.");
+        }
+        return approvals.submit(
+                admin,
+                "user.unsuspend",
+                "user",
+                id.toString(),
+                Map.of("id", id),
+                List.of(new Approvals.ApprovalChange("status", user.status(), "active")),
+                request.reason());
     }
 
     /** One entry of a person's security log (ADR 0037): the only place an admin sees an address, masked. */

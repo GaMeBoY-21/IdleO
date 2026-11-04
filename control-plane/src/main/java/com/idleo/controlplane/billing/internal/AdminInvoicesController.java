@@ -3,15 +3,16 @@ package com.idleo.controlplane.billing.internal;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
-import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
-import com.idleo.controlplane.identity.AuditTrail;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -39,12 +40,12 @@ class AdminInvoicesController {
 
     private final Invoices invoices;
     private final InvoicePdf pdf;
-    private final AuditTrail audit;
+    private final Approvals approvals;
 
-    AdminInvoicesController(Invoices invoices, InvoicePdf pdf, AuditTrail audit) {
+    AdminInvoicesController(Invoices invoices, InvoicePdf pdf, Approvals approvals) {
         this.invoices = invoices;
         this.pdf = pdf;
-        this.audit = audit;
+        this.approvals = approvals;
     }
 
     record AdminInvoiceList(java.util.List<AdminInvoice> invoices) {}
@@ -64,7 +65,8 @@ class AdminInvoicesController {
             @RequestParam(required = false) @Nullable String number,
             @RequestParam(required = false) @Nullable UUID userId) {
         return new AdminInvoiceList(invoices.search(number, userId, 50).stream()
-                .map(invoice -> new AdminInvoice(InvoiceController.summary(invoice), invoice.userId(), version(invoice)))
+                .map(invoice ->
+                        new AdminInvoice(InvoiceController.summary(invoice), invoice.userId(), version(invoice)))
                 .toList());
     }
 
@@ -93,18 +95,20 @@ class AdminInvoicesController {
 
     @RequiresPermission(value = AdminPermission.INVOICES_CREDIT_NOTE, record = "invoice")
     @PostMapping("/{id}/credit-notes")
-    AdminInvoice creditNote(
+    ResponseEntity<Approvals.AdminApproval> creditNote(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody CreditNoteRequest request) {
-        found(id);
-        try {
-            var note = invoices.creditNoteByAdmin(
-                    id, Paise.of(request.amountPaise()), request.reason(), audit.admin(admin));
-            return new AdminInvoice(InvoiceController.summary(note), note.userId(), version(note));
-        } catch (IllegalArgumentException refused) {
-            throw ApiProblem.of(Problem.ACTION_REFUSED, refused.getMessage());
-        }
+        var invoice = found(id);
+        return approvals.submit(
+                admin,
+                BillingGatedActions.CREDIT_NOTE,
+                "invoice",
+                id.toString(),
+                Map.of("id", id, "amountPaise", request.amountPaise()),
+                List.of(new Approvals.ApprovalChange(
+                        "credit note against " + invoice.number(), 0, request.amountPaise())),
+                request.reason());
     }
 
     /** An invoice never changes: what a credit note can still take from it does, so its version counts them. */

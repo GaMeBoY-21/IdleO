@@ -4,10 +4,14 @@ import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.UserDirectory;
 import com.idleo.controlplane.notifications.AccountEmails;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -17,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,18 +37,26 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminNoticesController {
 
+    /** More people than this at once is a bulk action, which another admin approves (ADR 0051). */
+    static final int BULK = 20;
+
+    static final String NOTICE = "notice.send";
+
     private final UserDirectory users;
     private final AccountEmails emails;
     private final AuditTrail audit;
     private final IdGenerator ids;
     private final TransactionTemplate transactions;
+    private final Approvals approvals;
 
     AdminNoticesController(
             UserDirectory users,
             AccountEmails emails,
             AuditTrail audit,
             IdGenerator ids,
-            TransactionTemplate transactions) {
+            TransactionTemplate transactions,
+            Approvals approvals) {
+        this.approvals = approvals;
         this.users = users;
         this.emails = emails;
         this.audit = audit;
@@ -65,9 +78,32 @@ class AdminNoticesController {
 
     @RequiresPermission(AdminPermission.NOTICES_PUBLISH)
     @PostMapping("/admin/v1/notices")
-    AdminNoticeSent send(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminNotice request) {
+    @ApiResponse(
+            responseCode = "200",
+            description = "Sent",
+            content = @Content(schema = @Schema(implementation = AdminNoticeSent.class)))
+    @ApiResponse(
+            responseCode = "202",
+            description = "To more than 20 people, so it goes to another admin",
+            content = @Content(schema = @Schema(implementation = Approvals.AdminApproval.class)))
+    ResponseEntity<?> send(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminNotice request) {
+        var people = request.userIds().stream().distinct().toList();
+        if (people.size() > BULK) {
+            return approvals.submit(
+                    admin,
+                    NOTICE,
+                    null,
+                    null,
+                    request,
+                    List.of(new Approvals.ApprovalChange("people emailed: " + request.subject(), 0, people.size())),
+                    request.reason());
+        }
+        return ResponseEntity.ok(sendNow(request, audit.admin(admin)));
+    }
+
+    /** Emails them: at once, or once another admin has approved. */
+    AdminNoticeSent sendNow(AdminNotice request, AuditTrail.Actor actor) {
         var id = ids.newId();
-        var actor = audit.admin(admin);
         var people = request.userIds().stream().distinct().toList();
         var withoutAddress = people.stream()
                 .filter(user -> users.verifiedEmail(user).isEmpty())

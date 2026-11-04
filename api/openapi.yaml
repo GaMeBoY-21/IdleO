@@ -185,7 +185,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AbuseDetail"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -266,6 +266,27 @@ paths:
         idToken: []
       tags:
       - adminAbuse
+  /admin/v1/admins:
+    get:
+      operationId: adminRolesAdmins
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccounts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRoles
   /admin/v1/admins/sessions:
     get:
       operationId: adminSessionRecordsEveryones
@@ -311,6 +332,303 @@ paths:
         idToken: []
       tags:
       - adminSessionRecords
+  /admin/v1/admins/{id}/roles/{role}/grant:
+    post:
+      operationId: adminRolesGrant
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: role
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRoles
+  /admin/v1/admins/{id}/roles/{role}/remove:
+    post:
+      operationId: adminRolesRemove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: role
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRoles
+  /admin/v1/approvals:
+    get:
+      operationId: approvalsList
+      parameters:
+      - in: query
+        name: which
+        required: false
+        schema:
+          type: string
+          default: pending
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - approvals
+  /admin/v1/approvals/count:
+    get:
+      operationId: approvalsCount
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalCount"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - approvals
+  /admin/v1/approvals/{id}:
+    get:
+      operationId: approvalsGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - approvals
+  /admin/v1/approvals/{id}/approve:
+    post:
+      operationId: approvalsApprove
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - approvals
+  /admin/v1/approvals/{id}/cancel:
+    post:
+      operationId: approvalsCancel
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - approvals
+  /admin/v1/approvals/{id}/download:
+    post:
+      operationId: approvalsDownload
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: The file
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - approvals
+  /admin/v1/approvals/{id}/reject:
+    post:
+      operationId: approvalsReject
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - approvals
   /admin/v1/audit:
     get:
       operationId: auditLogList
@@ -572,7 +890,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminClawback"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -615,15 +933,6 @@ paths:
       - adminMoney
     post:
       operationId: adminMoneyGrant
-      parameters:
-      - description: "A unique key for this create request, 1 to 255 visible ASCII\
-          \ characters. A repeat returns the first response; the same key with a different\
-          \ body is refused."
-        in: header
-        name: Idempotency-Key
-        required: true
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -635,7 +944,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminCreditGrant"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -669,7 +978,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminCreditGrant"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -859,7 +1168,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminDispute"
-          description: OK
+          description: The report
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: "Above the limit, so it goes to another admin"
         default:
           content:
             application/problem+json:
@@ -964,7 +1279,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminHost"
-          description: OK
+          description: "The host, now active"
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: "It was suspended, so lifting that goes to another admin"
         default:
           content:
             application/problem+json:
@@ -1227,7 +1548,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminImageDetail"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -1313,7 +1634,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminInvitesCreated"
-          description: "The codes, shown once; a repeat of the request is 409 secret-shown-once"
+          description: "The codes, shown once; a repeat of the request is 409 secret-shown-once.\
+            \ More than 20 is 202 with the approval request."
         default:
           content:
             application/problem+json:
@@ -1407,7 +1729,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminInvoice"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -1558,7 +1880,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminNoticeSent"
-          description: OK
+          description: Sent
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: "To more than 20 people, so it goes to another admin"
         default:
           content:
             application/problem+json:
@@ -1924,7 +2252,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminRetryOutcome"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -1976,10 +2304,10 @@ paths:
       responses:
         "200":
           content:
-            text/csv:
+            application/json:
               schema:
-                type: string
-          description: The quarter's deductions as CSV
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
         default:
           content:
             application/problem+json:
@@ -2397,7 +2725,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminCreditRefund"
-          description: OK
+          description: The refund
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: "Above the limit, so it goes to another admin"
         default:
           content:
             application/problem+json:
@@ -3342,7 +3676,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminUser"
+                $ref: "#/components/schemas/AdminApproval"
           description: OK
         default:
           content:
@@ -6325,6 +6659,47 @@ components:
           minLength: 0
       required:
       - code
+    AdminAccount:
+      type: object
+      properties:
+        email:
+          type:
+          - string
+          - "null"
+        enrolled:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        locked:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+        version:
+          type: integer
+          format: int64
+      required:
+      - enrolled
+      - id
+      - locked
+      - roles
+      - version
+    AdminAccounts:
+      type: object
+      properties:
+        admins:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAccount"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRole"
+      required:
+      - admins
+      - roles
     AdminAnswer:
       type: object
       properties:
@@ -6342,6 +6717,84 @@ components:
       required:
       - message
       - status
+    AdminApproval:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApprovalChange"
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        decidedBy:
+          type:
+          - string
+          - "null"
+          format: uuid
+        decisionReason:
+          type:
+          - string
+          - "null"
+        downloadable:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+        failure:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        permission:
+          type: string
+        reason:
+          type: string
+        requestedBy:
+          type: string
+          format: uuid
+        runAfter:
+          type:
+          - string
+          - "null"
+          format: date-time
+        solo:
+          type: boolean
+        state:
+          type: string
+        targetId:
+          type:
+          - string
+          - "null"
+        targetType:
+          type:
+          - string
+          - "null"
+        version:
+          type: integer
+          format: int64
+      required:
+      - changes
+      - createdAt
+      - downloadable
+      - expiresAt
+      - id
+      - kind
+      - permission
+      - reason
+      - requestedBy
+      - solo
+      - state
+      - version
     AdminBalanceCheck:
       type: object
       properties:
@@ -8360,17 +8813,6 @@ components:
       required:
       - amountPaise
       - reason
-    AdminRetryOutcome:
-      type: object
-      properties:
-        notPaid:
-          type:
-          - string
-          - "null"
-        payout:
-          oneOf:
-          - $ref: "#/components/schemas/AdminPayout"
-          - type: "null"
     AdminRevealed:
       type: object
       properties:
@@ -8474,6 +8916,21 @@ components:
           - "null"
       required:
       - minutes
+    AdminRole:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+      required:
+      - id
+      - name
+      - permissions
     AdminScore:
       type: object
       properties:
@@ -9318,6 +9775,36 @@ components:
       - name
       - prefix
       - scope
+    ApprovalChange:
+      type: object
+      properties:
+        from: {}
+        to: {}
+        what:
+          type: string
+      required:
+      - what
+    ApprovalCount:
+      type: object
+      properties:
+        pending:
+          type: integer
+          format: int64
+      required:
+      - pending
+    ApprovalPage:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminApproval"
+      required:
+      - requests
     ApproveCreditRefund:
       type: object
       properties:

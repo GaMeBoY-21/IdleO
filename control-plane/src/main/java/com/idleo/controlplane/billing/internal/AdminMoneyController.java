@@ -4,10 +4,10 @@ import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
-import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -15,10 +15,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
-import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -30,7 +30,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,8 +48,15 @@ class AdminMoneyController {
     private final WalletReconciliation reconciliation;
     private final JdbcClient jdbc;
     private final AuditTrail audit;
+    private final Approvals approvals;
 
-    AdminMoneyController(CreditGrants grants, WalletReconciliation reconciliation, JdbcClient jdbc, AuditTrail audit) {
+    AdminMoneyController(
+            CreditGrants grants,
+            WalletReconciliation reconciliation,
+            JdbcClient jdbc,
+            AuditTrail audit,
+            Approvals approvals) {
+        this.approvals = approvals;
         this.grants = grants;
         this.reconciliation = reconciliation;
         this.jdbc = jdbc;
@@ -112,34 +118,45 @@ class AdminMoneyController {
     record AdminReconciliationRuns(List<AdminReconciliationRun> runs) {}
 
     /**
-     * Grants free credit. The Idempotency-Key is the grant's own: the same key again for the same user and amount
-     * returns the first grant (200), and for anything else it's refused.
+     * Asks to grant free credit: every manual money adjustment goes to another admin (ADR 0051).
      */
     @RequiresPermission(AdminPermission.MONEY_ADJUST)
     @PostMapping("/credit-grants")
-    ResponseEntity<AdminCreditGrant> grant(
-            @AuthenticationPrincipal CurrentUser admin,
-            @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
-            @Valid @RequestBody AdminCreditGrantRequest request) {
-        var key = IdempotentRequests.parseKey(idempotencyKey);
-        var outcome = refusing(() ->
-                grants.grant(request.userId(), Paise.of(request.paise()), request.reason(), key, audit.admin(admin)));
-        var grant = find(outcome.grant().id(), outcome.walletBalance().value());
-        return outcome.created()
-                ? ResponseEntity.created(URI.create("/admin/v1/credit-grants?user=" + grant.userId()))
-                        .body(grant)
-                : ResponseEntity.ok(grant);
+    ResponseEntity<Approvals.AdminApproval> grant(
+            @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminCreditGrantRequest request) {
+        return approvals.submit(
+                admin,
+                BillingGatedActions.CREDIT_GRANT,
+                null,
+                null,
+                request,
+                List.of(new Approvals.ApprovalChange(
+                        "free credit for user " + request.userId(),
+                        0,
+                        Paise.of(request.paise()).value())),
+                request.reason());
     }
 
-    /** Reverses a grant with an opposite transaction; refused when the wallet's available credit can't cover it. */
+    /** Asks to reverse a grant with an opposite transaction; refused when the wallet's available credit can't cover it. */
     @RequiresPermission(value = AdminPermission.MONEY_ADJUST, record = "credit_grant")
     @PostMapping("/credit-grants/{id}/reverse")
-    AdminCreditGrant reverse(
+    ResponseEntity<Approvals.AdminApproval> reverse(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminReason request) {
-        var outcome = refusing(() -> grants.reverse(id, request.reason(), audit.admin(admin)));
-        return find(id, outcome.walletBalance().value());
+        var grant = jdbc.sql(GRANTS + " where g.id = :id")
+                .param("id", id)
+                .query((rs, n) -> grant(rs, null))
+                .optional()
+                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no grant " + id + "."));
+        return approvals.submit(
+                admin,
+                BillingGatedActions.CREDIT_REVERSE,
+                "credit_grant",
+                id.toString(),
+                Map.of("id", id),
+                List.of(new Approvals.ApprovalChange("free credit for user " + grant.userId(), grant.amountPaise(), 0)),
+                request.reason());
     }
 
     /** A user's grants, newest first. */

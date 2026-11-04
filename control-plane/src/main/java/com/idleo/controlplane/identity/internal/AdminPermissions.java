@@ -49,6 +49,30 @@ class AdminPermissions {
         return permission == AdminPermission.SELF || of(userId).contains(permission);
     }
 
+    /** Every admin who can use this permission now: enrolled, not locked out, on an active account. */
+    List<UUID> holders(AdminPermission permission) {
+        return jdbc.sql("""
+                        select distinct g.user_id
+                        from identity.admin_role_grants g
+                        join identity.admin_role_permissions p on p.role_id = g.role_id
+                        join identity.admins a on a.user_id = g.user_id
+                        join identity.users u on u.id = g.user_id
+                        where p.permission = :permission and a.locked_at is null and a.totp_confirmed_at is not null
+                          and u.status = 'active'
+                        """)
+                .param("permission", permission.key())
+                .query(UUID.class)
+                .list();
+    }
+
+    /** Every admin who holds this role, whatever state they're in. */
+    List<UUID> holdersOfRole(String role) {
+        return jdbc.sql("select user_id from identity.admin_role_grants where role_id = :role")
+                .param("role", role)
+                .query(UUID.class)
+                .list();
+    }
+
     /** The roles this admin holds, by name. */
     List<Role> rolesOf(UUID userId) {
         return jdbc.sql("""

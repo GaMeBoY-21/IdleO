@@ -7,18 +7,24 @@ import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,8 +46,10 @@ class AdminRefundsController {
 
     private final CreditRefunds refunds;
     private final AuditTrail audit;
+    private final Approvals approvals;
 
-    AdminRefundsController(CreditRefunds refunds, AuditTrail audit) {
+    AdminRefundsController(CreditRefunds refunds, AuditTrail audit, Approvals approvals) {
+        this.approvals = approvals;
         this.refunds = refunds;
         this.audit = audit;
     }
@@ -125,13 +133,33 @@ class AdminRefundsController {
 
     @RequiresPermission(value = AdminPermission.REFUNDS_APPROVE, record = "credit_refund")
     @PostMapping("/{id}/approve")
-    AdminCreditRefund approve(
+    @ApiResponse(
+            responseCode = "200",
+            description = "The refund",
+            content = @Content(schema = @Schema(implementation = AdminCreditRefund.class)))
+    @ApiResponse(
+            responseCode = "202",
+            description = "Above the limit, so it goes to another admin",
+            content = @Content(schema = @Schema(implementation = Approvals.AdminApproval.class)))
+    ResponseEntity<?> approve(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody ApproveCreditRefund request) {
-        found(id);
-        return view(refusing(
-                () -> refunds.approve(id, Paise.of(request.amountPaise()), request.reason(), audit.admin(admin))));
+        var refund = found(id);
+        var amount = Paise.of(request.amountPaise());
+        if (approvals.refundNeedsApproval(amount)) {
+            return approvals.submit(
+                    admin,
+                    BillingGatedActions.REFUND_APPROVE,
+                    "credit_refund",
+                    id.toString(),
+                    Map.of("id", id, "amountPaise", amount.value()),
+                    List.of(new Approvals.ApprovalChange(
+                            "refund to user " + refund.userId(), refund.status(), amount.value())),
+                    request.reason());
+        }
+        return ResponseEntity.ok(
+                view(refusing(() -> refunds.approve(id, amount, request.reason(), audit.admin(admin)))));
     }
 
     @RequiresPermission(value = AdminPermission.REFUNDS_DECLINE, record = "credit_refund")

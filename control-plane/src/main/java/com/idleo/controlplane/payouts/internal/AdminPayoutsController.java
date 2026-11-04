@@ -9,6 +9,7 @@ import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -28,7 +29,6 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -58,6 +58,9 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminPayoutsController {
 
+    static final String RELEASE = "payout.release";
+    static final String TDS_EXPORT = "tds.export";
+
     private static final Set<String> STATUSES = Set.of(
             "all",
             "created",
@@ -79,6 +82,7 @@ class AdminPayoutsController {
     private final AuditTrail audit;
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
+    private final Approvals approvals;
 
     AdminPayoutsController(
             PayoutService payouts,
@@ -89,7 +93,9 @@ class AdminPayoutsController {
             PayoutReconciliation reconciliation,
             AuditTrail audit,
             JdbcClient jdbc,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            Approvals approvals) {
+        this.approvals = approvals;
         this.payouts = payouts;
         this.runs = runs;
         this.balance = balance;
@@ -241,11 +247,17 @@ class AdminPayoutsController {
     /** Pays one person now (a retry after a failed payout), whatever the weekly minimum. */
     @RequiresPermission(AdminPermission.PAYOUTS_RELEASE)
     @PostMapping("/retry")
-    AdminRetryOutcome retry(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RetryPayout request) {
-        var outcome = runs.payNow(request.userId(), "retry", request.reason(), audit.admin(admin));
-        return new AdminRetryOutcome(
-                outcome.payout() == null ? null : AdminPayout.of(outcome.payout()),
-                outcome.notPaid() == null ? null : outcome.notPaid().name());
+    ResponseEntity<Approvals.AdminApproval> retry(
+            @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RetryPayout request) {
+        return approvals.submit(
+                admin,
+                RELEASE,
+                null,
+                null,
+                request,
+                List.of(new Approvals.ApprovalChange(
+                        "payout to user " + request.userId(), "held or failed", "paid now")),
+                request.reason());
     }
 
     // Verification.
@@ -484,32 +496,43 @@ class AdminPayoutsController {
             String reason) {}
 
     /**
-     * The quarter's tax deducted at source as CSV, for the CA to file: each payout that didn't come back, deducted in
-     * the quarter, with the host's whole PAN and name as on it, the section and rate, the gross, the tax, the net and
-     * the dates. Audited: it holds every PAN.
+     * Asks for the quarter's tax deducted at source as CSV, for the CA to file: each payout that didn't come back, deducted
+     * in the quarter, with the host's whole PAN and name as on it, the section and rate, the gross, the tax, the net and
+     * the dates. It holds every PAN, so another admin approves it, and whoever asked fetches it once (ADR 0051).
      */
-    @RequiresPermission(value = AdminPermission.EXPORT_CREATE, shownOnce = true)
-    @PostMapping(value = "/tds-export", produces = "text/csv")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "The quarter's deductions as CSV",
-            content =
-                    @io.swagger.v3.oas.annotations.media.Content(
-                            mediaType = "text/csv",
-                            schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string")))
-    ResponseEntity<byte[]> tdsExport(
+    @RequiresPermission(AdminPermission.EXPORT_CREATE)
+    @PostMapping("/tds-export")
+    ResponseEntity<Approvals.AdminApproval> tdsExport(
             @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody TdsExport request) {
-        if (!request.quarter().matches("[0-9]{4}-[0-9]{2}-Q[1-4]")) {
+        quarterStart(request.quarter());
+        return approvals.submit(
+                admin,
+                TDS_EXPORT,
+                null,
+                null,
+                request,
+                List.of(new Approvals.ApprovalChange(
+                        "a file with every PAN of " + request.quarter(), null, "made once")),
+                request.reason());
+    }
+
+    private static LocalDate quarterStart(String quarterName) {
+        if (!quarterName.matches("[0-9]{4}-[0-9]{2}-Q[1-4]")) {
             throw ApiProblem.invalid("quarter", "is a financial year and a quarter, like 2026-27-Q3.");
         }
         FinancialYear year;
         try {
-            year = FinancialYear.parse(request.quarter().substring(0, 7));
+            year = FinancialYear.parse(quarterName.substring(0, 7));
         } catch (IllegalArgumentException e) {
             throw ApiProblem.invalid("quarter", e.getMessage() + ".");
         }
-        int quarter = request.quarter().charAt(9) - '0';
-        var start = LocalDate.of(year.startYear(), 4, 1).plusMonths(3L * (quarter - 1));
+        int quarter = quarterName.charAt(9) - '0';
+        return LocalDate.of(year.startYear(), 4, 1).plusMonths(3L * (quarter - 1));
+    }
+
+    /** The approved file, made now and for this one fetch: it holds every PAN, so it's never kept. */
+    Approvals.File tdsFile(String quarterName, String reason, AuditTrail.Actor actor) {
+        var start = quarterStart(quarterName);
         var from = start.atStartOfDay(FinancialYear.INDIA).toInstant();
         var to = start.plusMonths(3).atStartOfDay(FinancialYear.INDIA).toInstant();
         record Row(
@@ -585,17 +608,15 @@ class AdminPayoutsController {
         }
         long deducted = total;
         transactions.executeWithoutResult(status -> audit.record(new AuditTrail.Entry(
-                audit.admin(admin),
+                actor,
                 "tds.export",
                 "tds_quarter",
-                request.quarter(),
-                request.reason(),
+                quarterName,
+                reason,
                 null,
                 Map.of("payouts", rows.size(), "tdsPaise", deducted))));
-        return OwnerPayoutsController.file(
-                csv.toString().getBytes(StandardCharsets.UTF_8),
-                new MediaType("text", "csv"),
-                "idleo-tds-" + request.quarter() + ".csv");
+        return new Approvals.File(
+                csv.toString().getBytes(StandardCharsets.UTF_8), "text/csv", "idleo-tds-" + quarterName + ".csv");
     }
 
     private static <T> T refusing(Supplier<T> action) {

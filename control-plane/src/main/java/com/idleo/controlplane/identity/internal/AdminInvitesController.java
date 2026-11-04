@@ -4,6 +4,7 @@ import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -41,11 +42,16 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminInvitesController {
 
+    /** More codes than this at once is a bulk action, which another admin approves (ADR 0051). */
+    static final int BULK = 20;
+
     private final InviteService invites;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
+    private final Approvals approvals;
 
-    AdminInvitesController(InviteService invites, AuditTrail audit, JdbcClient jdbc) {
+    AdminInvitesController(InviteService invites, AuditTrail audit, JdbcClient jdbc, Approvals approvals) {
+        this.approvals = approvals;
         this.invites = invites;
         this.audit = audit;
         this.jdbc = jdbc;
@@ -84,10 +90,22 @@ class AdminInvitesController {
     @PostMapping
     @ApiResponse(
             responseCode = "201",
-            description = "The codes, shown once; a repeat of the request is 409 secret-shown-once",
+            description =
+                    "The codes, shown once; a repeat of the request is 409 secret-shown-once. More than 20 is 202 with"
+                            + " the approval request.",
             content = @Content(schema = @Schema(implementation = AdminInvitesCreated.class)))
-    ResponseEntity<AdminInvitesCreated> create(
+    ResponseEntity<?> create(
             @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminInviteRequest request) {
+        if (request.count() > BULK) {
+            return approvals.submit(
+                    admin,
+                    IdentityGatedActions.INVITES_BULK,
+                    null,
+                    null,
+                    request,
+                    List.of(new Approvals.ApprovalChange("invite codes", 0, request.count())),
+                    request.note().strip());
+        }
         var expiry = Optional.ofNullable(request.expiresInDays()).map(Duration::ofDays);
         var created = invites.create(request.count(), request.note().strip(), expiry, audit.admin(admin));
         return ResponseEntity.created(URI.create("/admin/v1/invites"))

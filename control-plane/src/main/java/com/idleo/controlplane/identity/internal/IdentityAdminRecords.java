@@ -19,6 +19,12 @@ class IdentityAdminRecords implements AdminRecords {
 
     @Override
     public Map<String, Function<Map<String, String>, OptionalLong>> versions() {
-        return Map.of("user", AdminRecords.byId(jdbc, "id", "select version from identity.users where id = :id"));
+        return Map.of(
+                "user",
+                AdminRecords.byId(jdbc, "id", "select version from identity.users where id = :id"),
+                "admin",
+                AdminRecords.byId(jdbc, "id", "select version from identity.admins where user_id = :id"),
+                "approval",
+                AdminRecords.byId(jdbc, "id", "select version from identity.approval_requests where id = :id"));
     }
 }

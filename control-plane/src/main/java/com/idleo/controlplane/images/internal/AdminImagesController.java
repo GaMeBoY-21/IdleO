@@ -6,6 +6,7 @@ import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,6 +19,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -40,6 +42,8 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminImagesController {
 
+    static final String UNBLOCK = "image.unblock";
+
     private final JdbcClient jdbc;
     private final ImageStore images;
     private final ScanStore scans;
@@ -47,6 +51,7 @@ class AdminImagesController {
     private final AuditTrail audit;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final Approvals approvals;
 
     AdminImagesController(
             JdbcClient jdbc,
@@ -55,7 +60,9 @@ class AdminImagesController {
             ImageJudge judge,
             AuditTrail audit,
             PlatformTransactionManager transactionManager,
-            Clock clock) {
+            Clock clock,
+            Approvals approvals) {
+        this.approvals = approvals;
         this.jdbc = jdbc;
         this.images = images;
         this.scans = scans;
@@ -207,10 +214,27 @@ class AdminImagesController {
     /** Lifts an admin's block of the submission's digest, with the admin's reason. 409 unless an admin blocked it. */
     @RequiresPermission(value = AdminPermission.IMAGES_UNBLOCK, record = "image")
     @PostMapping("/{id}/unblock")
-    AdminImageDetail unblock(
+    ResponseEntity<Approvals.AdminApproval> unblock(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminReason request) {
+        var row = images.find(id).orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "No such image."));
+        var scan = row.digest() == null ? null : scans.find(row.digest()).orElse(null);
+        if (scan == null || !"admin".equals(scan.blockedReason())) {
+            throw ApiProblem.of(Problem.ACTION_REFUSED, "Only an admin's block can be lifted here.");
+        }
+        return approvals.submit(
+                admin,
+                UNBLOCK,
+                "image",
+                id.toString(),
+                Map.of("id", id),
+                List.of(new Approvals.ApprovalChange("digest " + scan.digest(), "blocked", "allowed")),
+                request.reason());
+    }
+
+    /** Lifts it, once another admin has approved. */
+    void unblockNow(UUID id, String reason, AuditTrail.Actor actor) {
         transactions.executeWithoutResult(status -> {
             var row = images.lock(id).orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "No such image."));
             var scan = row.digest() == null ? null : scans.find(row.digest()).orElse(null);
@@ -219,15 +243,8 @@ class AdminImagesController {
             }
             judge.unblock(Objects.requireNonNull(row.digest()), Instant.now(clock));
             audit.record(new AuditTrail.Entry(
-                    audit.admin(admin),
-                    "image.unblock",
-                    "image",
-                    id.toString(),
-                    request.reason(),
-                    Map.of("digest", scan.digest()),
-                    null));
+                    actor, "image.unblock", "image", id.toString(), reason, Map.of("digest", scan.digest()), null));
         });
-        return get(id);
     }
 
     private AdminImage summary(ImageStore.Row row) {

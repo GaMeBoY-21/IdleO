@@ -78,6 +78,8 @@ public enum AdminPermission {
     NOTICES_PUBLISH("notices.publish", false),
 
     ADMINS_MANAGE("admins.manage", true),
+    APPROVALS_READ("approvals.read", false),
+    APPROVALS_DECIDE("approvals.decide", true),
     AUDIT_READ("audit.read", false),
     EXPORT_CREATE("export.create", true);
 
