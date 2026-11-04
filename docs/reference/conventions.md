@@ -133,7 +133,15 @@ The admin console's backend (ADR 0027): `/admin/v1/**` has its own security chai
 
 ## Admin access and control (ADR 0051)
 
-Every `/admin/` endpoint declares one `AdminPermission` with `@RequiresPermission`, or the control plane refuses to start (`AdminEndpointCheck`); `AdminAccessInterceptor` is the one check, answering 403 `admin-permission-required`. Roles are bundles in `identity.admin_roles` and `admin_role_permissions`. A new permission gets a migration adding it to the Owner and its roles; a new endpoint or a change of who can do what changes `admin-permission-matrix.csv` (`./mvnw test -Dtest=AdminPermissionMatrixTests -Dmatrix.write=true`, then review the diff). In the console, an action's button is `ActionButton` with its permission, and a section that needs another one reads it through `useCan`.
+Every `/admin/` endpoint declares one `AdminPermission` with `@RequiresPermission`, or the control plane refuses to start (`AdminEndpointCheck`); `AdminAccessInterceptor` is the one check, answering 403 `admin-permission-required`, then 403 `step-up-required` for a sensitive permission without a factor in the last 5 minutes. Roles are bundles in `identity.admin_roles` and `admin_role_permissions`. A new permission gets a migration adding it to the Owner and its roles; a new endpoint or a change of who can do what changes `admin-permission-matrix.csv` (`./mvnw test -Dtest=AdminPermissionMatrixTests -Dmatrix.write=true`, then review the diff).
+
+Every admin response goes through `PersonalDataMask` (`AdminResponseMasking`); `unmasked = true` is only for the admin's own second factor and the one reveal, `POST /admin/v1/personal-data/reveal`, where a module names what it can show with `RevealableFields`. `AdminMaskingTests` reads every GET endpoint. New personal data in a free-text field is masked by itself; a new kind of value a pattern can't recognise goes in `PersonalDataMask.FIELDS`.
+
+Every admin POST takes an `Idempotency-Key`, and a write to a record takes its version in `If-Match`, in `AdminSafeWrites`, for every endpoint alike: name the record with `record = "…"`, have its module read the version in its `AdminRecords`, give the table a `version` column with a trigger (`identity.bump_version`), and return `version` in the record's response. What's shown once is `shownOnce = true`.
+
+Gated actions go through `Approvals.submit`, and each kind is a `GatedAction` bean in the module that does it: `run` must do it as asked, with the requester as the actor. Stopping something is never gated. The audit log (`AuditLog`) stays the only writer of its table; a trigger chains each row.
+
+In the console, an action's button is `ActionButton` with its permission, a section that needs another one reads it through `useCan`, and an action goes through `ActionSheet` with its `record`, and `typed` when it can't be undone. `adminFetch` in `api.ts` adds the key and the version, and answers a step-up in place. A file an admin receives is an approved export or `shownOnce`.
 
 ## Ratings and reports (ADR 0028)
 

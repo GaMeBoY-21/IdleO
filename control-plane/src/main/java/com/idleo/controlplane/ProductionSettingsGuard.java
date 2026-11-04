@@ -55,6 +55,7 @@ import org.springframework.util.unit.DataSize;
  *       {@code backups.create-bucket}, development's (ADR 0036);
  *   <li>a passkey relying party ({@code identity.admin.passkeys.rp-id}) on this machine, where no passkey made for the
  *       real web app would work (ADR 0051);
+ *   <li>a cooling-off delay shorter, or a refund limit higher, than the approval engine's own (ADR 0051);
  *   <li>no off-site store for the audit log ({@code identity.audit.offsite.*}), or one that is plain HTTP or on this
  *       machine (ADR 0051);
  *   <li>Razorpay's test keys, an API other than Razorpay's (the fake), live keys without a webhook secret or without
@@ -109,6 +110,12 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "backups.storage.prefix",
             "backups.storage.access-key-id",
             "backups.storage.secret-access-key");
+
+    /** What the approval engine may not be made weaker than (ADR 0051). */
+    private static final Duration MIN_COOLING_MONEY = Duration.ofHours(1);
+
+    private static final Duration MIN_COOLING_ACCESS = Duration.ofHours(24);
+    private static final long MAX_REFUND_LIMIT = 200_000;
 
     /** The audit log's off-site store (ADR 0051), besides the endpoint: all needed to write to it. */
     static final List<String> AUDIT_OFFSITE_SETTINGS = List.of(
@@ -283,6 +290,22 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         var rpId = binder.bind("identity.admin.passkeys.rp-id", String.class).orElse("localhost");
         if (rpId.isBlank() || "localhost".equals(rpId.strip())) {
             problems.add("identity.admin.passkeys.rp-id is " + rpId + ", the development value");
+        }
+        if (binder.bind("identity.approvals.cooling-money", Duration.class)
+                        .orElse(MIN_COOLING_MONEY)
+                        .compareTo(MIN_COOLING_MONEY)
+                < 0) {
+            problems.add("identity.approvals.cooling-money is shorter than an hour");
+        }
+        if (binder.bind("identity.approvals.cooling-access", Duration.class)
+                        .orElse(MIN_COOLING_ACCESS)
+                        .compareTo(MIN_COOLING_ACCESS)
+                < 0) {
+            problems.add("identity.approvals.cooling-access is shorter than a day");
+        }
+        if (binder.bind("identity.approvals.refund-limit-paise", Long.class).orElse(MAX_REFUND_LIMIT)
+                > MAX_REFUND_LIMIT) {
+            problems.add("identity.approvals.refund-limit-paise is above ₹2,000");
         }
         var auditEndpoint =
                 binder.bind("identity.audit.offsite.endpoint", String.class).orElse("");
