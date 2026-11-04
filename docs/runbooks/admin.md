@@ -101,3 +101,30 @@ in **`private/operators.md`**, which is git-ignored and never committed. Keep it
 
 Add a line when a handle is first used and when someone stops being an operator, and use the same handle every time: the
 audit log can then say who did a thing, and only this file can say who that is.
+
+## Adding an admin
+
+1. They sign in to the web app once, with a verified email.
+2. An operator runs `grant-admin <email> --reason "<why>"`, with `--role <role>` only for the first Owner. Without it they can sign in and see nothing else.
+3. They open `/admin/`, set up their authenticator, and save their recovery codes. Then Your access, Add a passkey, on each device they use.
+4. An Owner gives them a role: Your access, Admins and their roles. Another admin approves it on Approvals, or, with no one else, it runs after 24 hours. It ends their sessions, so they sign in again with what they may now do.
+
+ADR 0051 lists what each role may do.
+
+## A lost passkey
+
+- **They still have a device or their authenticator:** they sign in with a code, or a recovery code, and remove the lost passkey under Your access. Add a new one there.
+- **They've lost everything:** an operator runs `revoke-admin <email> --reason "<why>"` and `grant-admin` again. It deletes their authenticator, recovery codes, passkeys, roles and sessions, so an Owner gives their roles back, with a second admin's approval.
+- **It may have been stolen:** end their sessions first (Your access, Everyone's sessions), and read the audit log and the access log since it was lost. A passkey is useless without their sign-in too, and each one needs the device's PIN or fingerprint.
+
+## Approving and cancelling
+
+Approvals lists what's waiting, with what each will change. Read what will change and why, then Approve (it runs now, as it was asked) or Reject, with a reason. You can't approve your own.
+
+- **It was refused when approved:** its target changed after it was asked, or the action itself refused, and the request says why. Nothing happened. Whoever asked reads the record and asks again.
+- **It says it runs by itself at a time:** solo mode. Nobody else holds the permission, so the Owner was told and it waits its delay, 1 hour for money and 24 hours for access. To stop it, Cancel, from a signed-in admin session. A second admin with the permission switches solo mode off, and it waits for them.
+- **It failed as interrupted:** the control plane stopped while running it. It's never run again by itself: check the record and the audit log (search by its approval id), and ask again only if it didn't happen.
+- **An export:** whoever asked fetches it on this screen, once, within a day. It's made then and never kept.
+
+Stopping things needs no approval: suspending, blocking an image, stopping a session.
+

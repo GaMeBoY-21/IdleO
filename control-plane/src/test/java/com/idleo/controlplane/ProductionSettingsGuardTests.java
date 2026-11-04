@@ -375,6 +375,9 @@ class ProductionSettingsGuardTests {
     void prodRefusesToStartWithoutBackupsToWatch() {
         for (var setting : new String[][] {
             {"identity.admin.passkeys.rp-id=localhost", "identity.admin.passkeys.rp-id is localhost"},
+            {"identity.approvals.cooling-money=5m", "identity.approvals.cooling-money is shorter"},
+            {"identity.approvals.cooling-access=1h", "identity.approvals.cooling-access is shorter"},
+            {"identity.approvals.refund-limit-paise=999999", "identity.approvals.refund-limit-paise is above"},
             {"identity.audit.offsite.endpoint=", "identity.audit.offsite.endpoint is missing"},
             {
                 "identity.audit.offsite.endpoint=http://localhost:9100",

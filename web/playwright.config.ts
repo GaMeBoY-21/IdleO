@@ -63,7 +63,12 @@ export default defineConfig({
     { name: "payments-journey", testMatch: "payments-journey.spec.ts", use: { ...phone }, timeout: 120_000 },
     { name: "payouts-journey", testMatch: "payouts-journey.spec.ts", use: { ...phone }, timeout: 120_000 },
     { name: "hosting-journey", testMatch: "hosting-journey.spec.ts", use: { ...laptop }, timeout: 480_000 },
-    { name: "admin-journey", testMatch: /admin-(journey|access)\.spec\.ts/, use: { ...laptop }, timeout: 300_000 },
+    {
+      name: "admin-journey",
+      testMatch: /admin-(journey|access)\.spec\.ts/,
+      use: { ...laptop },
+      timeout: 300_000,
+    },
     {
       name: "recording",
       testMatch: /recording(-laptop)?\.spec\.ts/,
