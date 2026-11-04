@@ -98,7 +98,8 @@ class PayoutMethods {
             @Nullable Instant holdUntil,
             @Nullable Instant endedAt,
             @Nullable String decidedBy,
-            @Nullable String reason) {
+            @Nullable String reason,
+            long version) {
 
         /** Payouts may go to it now. */
         boolean payable(Instant now) {
@@ -510,7 +511,8 @@ class PayoutMethods {
                 instant(rs.getTimestamp("hold_until")),
                 instant(rs.getTimestamp("ended_at")),
                 rs.getString("decided_by"),
-                rs.getString("reason"));
+                rs.getString("reason"),
+                rs.getLong("version"));
     }
 
     private static @Nullable Instant instant(@Nullable Timestamp timestamp) {

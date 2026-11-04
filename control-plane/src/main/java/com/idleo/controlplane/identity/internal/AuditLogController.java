@@ -228,7 +228,7 @@ class AuditLogController {
      * The search's rows as CSV, up to {@value #EXPORT_LIMIT}, with addresses masked as on screen. Logged. 409 {@code
      * action-refused} for more than that: narrow the dates.
      */
-    @RequiresPermission(AdminPermission.EXPORT_CREATE)
+    @RequiresPermission(value = AdminPermission.EXPORT_CREATE, shownOnce = true)
     @PostMapping(value = "/export", produces = "text/csv")
     @ApiResponse(
             responseCode = "200",

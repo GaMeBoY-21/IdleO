@@ -88,7 +88,8 @@ class AdminDisputesController {
             @Nullable Long refundPaise,
             @Nullable Long commissionRefundPaise,
             @Nullable Long hostRefundPaise,
-            @Nullable UUID refundTxn) {}
+            @Nullable UUID refundTxn,
+            long version) {}
 
     record AdminDisputePage(
             List<AdminDisputeSummary> disputes, @Nullable String nextCursor) {}
@@ -248,7 +249,7 @@ class AdminDisputesController {
      * hosts' shares. 409 {@code action-refused} for more than the session cost net, or a report already resolved
      * another way; the same refund again changes nothing.
      */
-    @RequiresPermission(AdminPermission.DISPUTES_REFUND)
+    @RequiresPermission(value = AdminPermission.DISPUTES_REFUND, record = "dispute")
     @PostMapping("/{id}/refund")
     AdminDispute refund(
             @AuthenticationPrincipal CurrentUser admin,
@@ -264,7 +265,7 @@ class AdminDisputesController {
     }
 
     /** Resolves the report without a refund. The same again changes nothing. */
-    @RequiresPermission(AdminPermission.DISPUTES_DECIDE)
+    @RequiresPermission(value = AdminPermission.DISPUTES_DECIDE, record = "dispute")
     @PostMapping("/{id}/no-refund")
     AdminDispute noRefund(
             @AuthenticationPrincipal CurrentUser admin,
@@ -304,7 +305,8 @@ class AdminDisputesController {
                 rs.getObject("refund_paise", Long.class),
                 rs.getObject("commission_refund_paise", Long.class),
                 rs.getObject("host_refund_paise", Long.class),
-                rs.getObject("refund_txn", UUID.class));
+                rs.getObject("refund_txn", UUID.class),
+                rs.getLong("version"));
     }
 
     /** Where a page ends in the queue's order: open (0) or resolved (1), then the report's id. */

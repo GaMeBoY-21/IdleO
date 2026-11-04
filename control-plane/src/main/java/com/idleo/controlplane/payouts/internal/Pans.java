@@ -68,7 +68,8 @@ class Pans implements VerifiedPans {
             Instant submittedAt,
             @Nullable Instant decidedAt,
             @Nullable String decidedBy,
-            @Nullable String reason) {
+            @Nullable String reason,
+            long version) {
 
         boolean verified() {
             return state.equals("verified");
@@ -247,7 +248,8 @@ class Pans implements VerifiedPans {
                 rs.getTimestamp("submitted_at").toInstant(),
                 decided == null ? null : decided.toInstant(),
                 rs.getString("decided_by"),
-                rs.getString("reason"));
+                rs.getString("reason"),
+                rs.getLong("version"));
     }
 
     private Instant now() {

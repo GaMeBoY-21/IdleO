@@ -24,4 +24,16 @@ public @interface RequiresPermission {
 
     /** Whether it needs a recent factor though its permission isn't sensitive: changing one's own passkeys. */
     boolean stepUp() default false;
+
+    /**
+     * The record this write changes, by its name in {@code AdminRecords}: its {@code If-Match} must carry the record's
+     * version. Empty for what changes no existing record: a create, a run, a read with a reason.
+     */
+    String record() default "";
+
+    /**
+     * Whether its response can't be stored for a repeat (ADR 0051): codes shown once, a file. A repeat with the same key
+     * is told it was done, rather than shown it again.
+     */
+    boolean shownOnce() default false;
 }

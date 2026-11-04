@@ -147,6 +147,8 @@ export function Refunds() {
       <ActionSheet
         open={acting?.approve === true}
         onOpenChange={(next) => !next && close()}
+        record={acting?.refund}
+        typed={acting?.refund.id.slice(0, 8)}
         title="Refund this bought credit?"
         change={
           acting ? (
@@ -181,6 +183,7 @@ export function Refunds() {
       <ActionSheet
         open={acting?.approve === false}
         onOpenChange={(next) => !next && close()}
+        record={acting?.refund}
         title="Decline this refund?"
         change="No money moves; the credit stays with the renter. They read your reason."
         confirm="Decline"

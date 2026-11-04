@@ -240,6 +240,7 @@ function SessionRecord({ id }: { id: string }) {
               <ActionSheet
                 open={stopping}
                 onOpenChange={setStopping}
+                record={found.session}
                 title="Force-stop this session?"
                 change={`Its agent stops it at once, without a checkpoint. It settles like any stopped session: the minutes it ran are charged (${formatPaise(found.chargedPaise + found.accruedPaise)} so far), and the renter is told we stopped it.`}
                 confirm="Force stop"

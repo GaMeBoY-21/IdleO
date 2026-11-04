@@ -3,18 +3,26 @@ package com.idleo.controlplane;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.idleo.controlplane.identity.AdminRecords;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.web.context.support.WebApplicationContextUtils;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -28,11 +36,57 @@ public final class TestAdmins {
 
     private TestAdmins() {}
 
+    private static MockHttpServletRequest asTheConsoleWrites(MockHttpServletRequest request) {
+        if (!"POST".equals(request.getMethod())) {
+            return request;
+        }
+        if (request.getHeader("Idempotency-Key") == null) {
+            request.addHeader("Idempotency-Key", UUID.randomUUID().toString());
+        }
+        if (request.getHeader("If-Match") != null) {
+            return request;
+        }
+        var context = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getServletContext());
+        try {
+            var chain = context.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)
+                    .getHandler(request);
+            if (chain != null && chain.getHandler() instanceof HandlerMethod handler) {
+                var declared = handler.getMethodAnnotation(RequiresPermission.class);
+                if (declared != null && !declared.record().isBlank()) {
+                    @SuppressWarnings("unchecked")
+                    var variables =
+                            (Map<String, String>) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+                    var version = context.getBeansOfType(AdminRecords.class).values().stream()
+                            .map(records -> records.versions().get(declared.record()))
+                            .filter(Objects::nonNull)
+                            .findFirst()
+                            .orElseThrow()
+                            .apply(variables == null ? Map.of() : variables);
+                    // No such record: anything will do, and the handler says it isn't there.
+                    request.addHeader("If-Match", String.valueOf(version.orElse(1)));
+                }
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return request;
+    }
+
     /** A signed-in admin: their ID token's header, user id, authenticator secret and admin session. */
     public record TestAdmin(String bearer, UUID id, byte[] secret, String session) {
 
-        /** The request, as the console sends it: the ID token and the admin session. */
+        /**
+         * The request, as the console sends it: the ID token and the admin session, and for a write a new Idempotency-Key
+         * and the If-Match of the record as it is now, unless the test sets its own.
+         */
         public MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request) {
+            return request.header("Authorization", bearer)
+                    .header("Admin-Session", session)
+                    .with(TestAdmins::asTheConsoleWrites);
+        }
+
+        /** The request with only the ID token and the admin session: for a test of what the rest is for. */
+        public MockHttpServletRequestBuilder bare(MockHttpServletRequestBuilder request) {
             return request.header("Authorization", bearer).header("Admin-Session", session);
         }
     }

@@ -129,6 +129,14 @@ class Invoices {
         }
     }
 
+    /** How many credit notes this invoice has. */
+    long creditNotes(UUID invoiceId) {
+        return jdbc.sql("select count(*) from billing.invoices where credit_note_for = :id")
+                .param("id", invoiceId)
+                .query(Long.class)
+                .single();
+    }
+
     /** The document for a top-up just credited, in the caller's transaction: once a top-up. */
     @Transactional(propagation = Propagation.MANDATORY)
     Invoice forTopUp(TopUps.TopUp topUp) {

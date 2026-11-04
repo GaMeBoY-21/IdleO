@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 class AdminSessionsController {
 
     private static final String SELECT = """
-            select id, renter_id, host_id, template_id, state, attempt, price_paise_per_min, max_price_paise_per_min,
+            select id, version, renter_id, host_id, template_id, state, attempt, price_paise_per_min, max_price_paise_per_min,
                    max_spend_paise, created_at, started_at, state_changed_at, error_code
             from sessions.sessions
             """;
@@ -77,7 +77,8 @@ class AdminSessionsController {
             Instant createdAt,
             @Nullable Instant startedAt,
             Instant stateChangedAt,
-            @Nullable String errorCode) {}
+            @Nullable String errorCode,
+            long version) {}
 
     record AdminSessionPage(
             List<AdminSessionSummary> sessions, @Nullable String nextCursor) {}
@@ -227,7 +228,7 @@ class AdminSessionsController {
      * Stops a running session at once, without a checkpoint. It then settles like any stopped session: the minutes it
      * ran are charged. 409 {@code session-not-running} for a session that isn't running.
      */
-    @RequiresPermission(AdminPermission.SESSIONS_STOP)
+    @RequiresPermission(value = AdminPermission.SESSIONS_STOP, record = "session")
     @PostMapping("/{id}/stop")
     AdminSession stop(
             @AuthenticationPrincipal CurrentUser admin,
@@ -258,7 +259,8 @@ class AdminSessionsController {
                 rs.getTimestamp("created_at").toInstant(),
                 instant(rs.getTimestamp("started_at")),
                 rs.getTimestamp("state_changed_at").toInstant(),
-                rs.getString("error_code"));
+                rs.getString("error_code"),
+                rs.getLong("version"));
     }
 
     private static @Nullable Instant instant(@Nullable Timestamp timestamp) {

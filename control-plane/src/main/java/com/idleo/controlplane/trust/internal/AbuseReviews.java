@@ -83,7 +83,8 @@ class AbuseReviews implements SessionSignals {
             @Nullable UUID resolvedBy,
             @Nullable String resolution,
             @Nullable UUID refundTxn,
-            @Nullable Long refundPaise) {}
+            @Nullable Long refundPaise,
+            long version) {}
 
     /** One signal on an item. */
     record Signal(UUID id, String kind, String detail, String sha256, long count, boolean stopped, Instant at) {}
@@ -537,7 +538,8 @@ class AbuseReviews implements SessionSignals {
                 rs.getObject("resolved_by", UUID.class),
                 rs.getString("resolution"),
                 rs.getObject("refund_txn", UUID.class),
-                rs.getObject("refund_paise") == null ? null : rs.getLong("refund_paise"));
+                rs.getObject("refund_paise") == null ? null : rs.getLong("refund_paise"),
+                rs.getLong("version"));
     }
 
     /** What the renter paid for the session, net of what was given back, for the admin's page. */

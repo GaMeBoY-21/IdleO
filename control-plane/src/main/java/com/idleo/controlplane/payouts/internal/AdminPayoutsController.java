@@ -259,7 +259,8 @@ class AdminPayoutsController {
             String checked,
             String verifier,
             Instant submittedAt,
-            @Nullable String reason) {
+            @Nullable String reason,
+            long version) {
 
         static AdminPanReview of(Pans.Pan pan) {
             return new AdminPanReview(
@@ -271,7 +272,8 @@ class AdminPayoutsController {
                     pan.checked(),
                     pan.verifier(),
                     pan.submittedAt(),
-                    pan.reason());
+                    pan.reason(),
+                    pan.version());
         }
     }
 
@@ -288,7 +290,8 @@ class AdminPayoutsController {
             @Nullable Integer nameMatchScore,
             String state,
             Instant checkedAt,
-            @Nullable Instant confirmedAt) {}
+            @Nullable Instant confirmedAt,
+            long version) {}
 
     record AdminVerifications(List<AdminPanReview> pans, List<AdminUpiReview> upiIds) {}
 
@@ -307,11 +310,12 @@ class AdminPayoutsController {
                                 method.nameMatchScore(),
                                 method.state(),
                                 method.checkedAt(),
-                                method.confirmedAt()))
+                                method.confirmedAt(),
+                                method.version()))
                         .toList());
     }
 
-    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
+    @RequiresPermission(value = AdminPermission.VERIFICATIONS_DECIDE, record = "pan")
     @PostMapping("/verifications/pans/{userId}/verify")
     AdminPanReview verifyPan(
             @AuthenticationPrincipal CurrentUser admin,
@@ -320,7 +324,7 @@ class AdminPayoutsController {
         return AdminPanReview.of(refusing(() -> pans.decide(userId, true, request.reason(), audit.admin(admin))));
     }
 
-    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
+    @RequiresPermission(value = AdminPermission.VERIFICATIONS_DECIDE, record = "pan")
     @PostMapping("/verifications/pans/{userId}/reject")
     AdminPanReview rejectPan(
             @AuthenticationPrincipal CurrentUser admin,
@@ -329,7 +333,7 @@ class AdminPayoutsController {
         return AdminPanReview.of(refusing(() -> pans.decide(userId, false, request.reason(), audit.admin(admin))));
     }
 
-    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
+    @RequiresPermission(value = AdminPermission.VERIFICATIONS_DECIDE, record = "payout_method")
     @PostMapping("/verifications/upi-ids/{id}/approve")
     AdminUpiReview approveUpi(
             @AuthenticationPrincipal CurrentUser admin,
@@ -338,7 +342,7 @@ class AdminPayoutsController {
         return upi(refusing(() -> methods.decide(id, true, request.reason(), audit.admin(admin))));
     }
 
-    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
+    @RequiresPermission(value = AdminPermission.VERIFICATIONS_DECIDE, record = "payout_method")
     @PostMapping("/verifications/upi-ids/{id}/reject")
     AdminUpiReview rejectUpi(
             @AuthenticationPrincipal CurrentUser admin,
@@ -357,7 +361,8 @@ class AdminPayoutsController {
                 method.nameMatchScore(),
                 method.state(),
                 method.checkedAt(),
-                method.confirmedAt());
+                method.confirmedAt(),
+                method.version());
     }
 
     // Reconciliation.
@@ -378,7 +383,8 @@ class AdminPayoutsController {
             Instant lastFoundAt,
             @Nullable Instant closedAt,
             @Nullable String closedBy,
-            @Nullable String closeReason) {
+            @Nullable String closeReason,
+            long version) {
 
         static AdminPayoutMismatch of(PayoutReconciliation.Mismatch item) {
             return new AdminPayoutMismatch(
@@ -397,7 +403,8 @@ class AdminPayoutsController {
                     item.lastFoundAt(),
                     item.closedAt(),
                     item.closedBy(),
-                    item.closeReason());
+                    item.closeReason(),
+                    item.version());
         }
     }
 
@@ -458,7 +465,7 @@ class AdminPayoutsController {
         return AdminPayoutReconciliationRun.of(reconciliation.run(request.day(), audit.admin(admin), request.reason()));
     }
 
-    @RequiresPermission(AdminPermission.RECONCILIATION_ACCEPT)
+    @RequiresPermission(value = AdminPermission.RECONCILIATION_ACCEPT, record = "payout_mismatch")
     @PostMapping("/mismatches/{id}/accept")
     AdminPayoutMismatch accept(
             @AuthenticationPrincipal CurrentUser admin,
@@ -481,7 +488,7 @@ class AdminPayoutsController {
      * the quarter, with the host's whole PAN and name as on it, the section and rate, the gross, the tax, the net and
      * the dates. Audited: it holds every PAN.
      */
-    @RequiresPermission(AdminPermission.EXPORT_CREATE)
+    @RequiresPermission(value = AdminPermission.EXPORT_CREATE, shownOnce = true)
     @PostMapping(value = "/tds-export", produces = "text/csv")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",

@@ -168,6 +168,8 @@ function DisputeRecord({ id }: { id: string }) {
             <ActionSheet
               open={action === "refund"}
               onOpenChange={(next) => !next && setAction(null)}
+              record={found.dispute}
+              typed={found.dispute.id.slice(0, 8)}
               title="Refund this report?"
               change={
                 <>
@@ -201,6 +203,7 @@ function DisputeRecord({ id }: { id: string }) {
             <ActionSheet
               open={action === "none"}
               onOpenChange={(next) => !next && setAction(null)}
+              record={found.dispute}
               title="Close this report without a refund?"
               change="No money moves. The renter reads your reason, so say what you found. The hold on the host's payout for this session ends."
               confirm="Close without a refund"

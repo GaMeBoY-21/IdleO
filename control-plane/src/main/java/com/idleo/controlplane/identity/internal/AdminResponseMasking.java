@@ -11,6 +11,7 @@ import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -43,11 +44,17 @@ class AdminResponseMasking implements ResponseBodyAdvice<Object> {
             Class<? extends HttpMessageConverter<?>> converter,
             ServerHttpRequest request,
             ServerHttpResponse response) {
-        return switch (body) {
+        var masked = switch (body) {
             case null -> null;
             case byte[] file -> file;
             case String text -> json.writeValueAsString(PersonalDataMask.json(json.readTree(text)));
             default -> PersonalDataMask.json(json.valueToTree(body));
         };
+        if (masked instanceof JsonNode tree) {
+            AdminSafeWrites.answered(json.writeValueAsString(tree));
+        } else if (masked instanceof String text) {
+            AdminSafeWrites.answered(text);
+        }
+        return masked;
     }
 }

@@ -384,6 +384,8 @@ function HostRecord({ id }: { id: string }) {
               <ActionSheet
                 open
                 onOpenChange={(next) => !next && setAction(null)}
+                record={found}
+                typed={ACTIONS[action].destructive ? found.name : undefined}
                 title={`${ACTIONS[action].title} ${found.name}?`}
                 change={ACTIONS[action].change(found)}
                 confirm={ACTIONS[action].confirm}

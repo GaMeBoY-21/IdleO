@@ -94,6 +94,80 @@ public class IdempotentRequests {
         return run(table, userId, idempotencyKeyHeader, request, action, true);
     }
 
+    /** What a new request with a key should do: go ahead, or answer with what the first one answered. */
+    public sealed interface Claim {
+        /** It's the first with this key, or the first was abandoned: go ahead, then {@link #finish} or {@link #release}. */
+        record Proceed(String key) implements Claim {}
+
+        /** It's a repeat of one that finished: send this. */
+        record Replay(ResponseEntity<String> response) implements Claim {}
+    }
+
+    /**
+     * Claims the key for a request that runs in transactions of its own rather than this one's (ADR 0051): an admin
+     * action does side effects after its own commits, so wrapping it in one would send them before anything is decided.
+     * The same rules as {@link #execute}. It leaves one window: a crash after the action commits and before {@link
+     * #finish} lets a retry run it again a minute later, where the action's own state check refuses it.
+     *
+     * @param fingerprint what makes this request this one, for a key used with another request
+     * @param shownOnce the response isn't kept, and a repeat gets 409 {@code secret-shown-once}
+     */
+    public Claim claim(String table, UUID userId, @Nullable String header, byte[] fingerprint, boolean shownOnce) {
+        var key = parseKey(header);
+        var hash = sha256(fingerprint);
+        if (!claim(table, userId, key, hash)) {
+            var earlier = find(table, userId, key)
+                    .orElseThrow(() -> ApiProblem.of(
+                            Problem.REQUEST_IN_PROGRESS,
+                            "A request with this Idempotency-Key is still being processed."));
+            if (!Arrays.equals(earlier.requestHash(), hash)) {
+                throw ApiProblem.of(
+                        Problem.IDEMPOTENCY_KEY_REUSED,
+                        "This Idempotency-Key was already used with a different request.");
+            }
+            if (earlier.completed()) {
+                if (shownOnce) {
+                    throw ApiProblem.of(
+                            Problem.SECRET_SHOWN_ONCE,
+                            "This request was already done, and what it made was shown once. Ask for another.");
+                }
+                return new Claim.Replay(replay(earlier));
+            }
+            if (!takeOverAbandoned(table, userId, key)) {
+                throw ApiProblem.of(
+                        Problem.REQUEST_IN_PROGRESS,
+                        "A request with this Idempotency-Key is still being processed. Retry shortly.");
+            }
+        }
+        return new Claim.Proceed(key);
+    }
+
+    /** Records what a claimed request answered, so a repeat gets it; {@code body} null when it's not to be kept. */
+    public void finish(
+            String table, UUID userId, String key, int status, @Nullable String location, @Nullable String body) {
+        jdbc.sql("""
+                        update %s
+                        set state = 'completed', response_status = :status,
+                            response_location = :location, response_body = :body
+                        where user_id = :userId and idempotency_key = :key
+                        """.formatted(table))
+                .param("status", status)
+                .param("location", location)
+                .param("body", body)
+                .param("userId", userId)
+                .param("key", key)
+                .update();
+    }
+
+    /** Gives a claimed key back: the request failed, and the client can retry with it. */
+    public void release(String table, UUID userId, String key) {
+        jdbc.sql("delete from %s where user_id = :userId and idempotency_key = :key and state = 'in_progress'"
+                        .formatted(table))
+                .param("userId", userId)
+                .param("key", key)
+                .update();
+    }
+
     private ResponseEntity<String> run(
             String table,
             UUID userId,
@@ -200,14 +274,6 @@ public class IdempotentRequests {
                         .param("abandonedBefore", Timestamp.from(now.minus(ABANDONED_AFTER)))
                         .update()
                 == 1;
-    }
-
-    private void release(String table, UUID userId, String key) {
-        jdbc.sql("delete from %s where user_id = :userId and idempotency_key = :key and state = 'in_progress'"
-                        .formatted(table))
-                .param("userId", userId)
-                .param("key", key)
-                .update();
     }
 
     private Optional<StoredRequest> find(String table, UUID userId, String key) {

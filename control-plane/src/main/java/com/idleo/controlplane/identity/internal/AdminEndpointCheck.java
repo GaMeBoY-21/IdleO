@@ -21,9 +21,13 @@ class AdminEndpointCheck implements SmartInitializingSingleton {
     static final String PREFIX = "/admin/";
 
     private final RequestMappingHandlerMapping mappings;
+    private final AdminSafeWrites safeWrites;
 
-    AdminEndpointCheck(@Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping mappings) {
+    AdminEndpointCheck(
+            @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping mappings,
+            AdminSafeWrites safeWrites) {
         this.mappings = mappings;
+        this.safeWrites = safeWrites;
     }
 
     @Override
@@ -31,6 +35,16 @@ class AdminEndpointCheck implements SmartInitializingSingleton {
         var undeclared = undeclared(mappings.getHandlerMethods());
         if (!undeclared.isEmpty()) {
             throw new IllegalStateException("admin endpoints that declare no permission: " + undeclared);
+        }
+        var unknown = mappings.getHandlerMethods().values().stream()
+                .map(handler -> handler.getMethodAnnotation(RequiresPermission.class))
+                .filter(java.util.Objects::nonNull)
+                .map(RequiresPermission::record)
+                .filter(record -> !record.isBlank() && !safeWrites.knows(record))
+                .distinct()
+                .toList();
+        if (!unknown.isEmpty()) {
+            throw new IllegalStateException("admin endpoints name records no module versions: " + unknown);
         }
     }
 

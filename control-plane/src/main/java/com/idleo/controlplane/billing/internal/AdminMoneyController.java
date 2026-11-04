@@ -75,7 +75,8 @@ class AdminMoneyController {
             @Nullable UUID reversalId,
             @Nullable String reversedBy,
             @Nullable Instant reversedAt,
-            @Nullable Long walletBalancePaise) {}
+            @Nullable Long walletBalancePaise,
+            long version) {}
 
     record AdminCreditGrantList(List<AdminCreditGrant> grants) {}
 
@@ -131,7 +132,7 @@ class AdminMoneyController {
     }
 
     /** Reverses a grant with an opposite transaction; refused when the wallet's available credit can't cover it. */
-    @RequiresPermission(AdminPermission.MONEY_ADJUST)
+    @RequiresPermission(value = AdminPermission.MONEY_ADJUST, record = "credit_grant")
     @PostMapping("/credit-grants/{id}/reverse")
     AdminCreditGrant reverse(
             @AuthenticationPrincipal CurrentUser admin,
@@ -299,7 +300,8 @@ class AdminMoneyController {
                 rs.getObject("reversal_id", UUID.class),
                 rs.getString("reversed_by"),
                 reversedAt == null ? null : reversedAt.toInstant(),
-                walletBalancePaise);
+                walletBalancePaise,
+                rs.getObject("reversal_id") == null ? 1 : 2);
     }
 
     private static <T> T refusing(Supplier<T> action) {

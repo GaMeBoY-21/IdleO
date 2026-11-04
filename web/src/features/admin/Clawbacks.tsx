@@ -112,6 +112,7 @@ export function Clawbacks() {
       <ActionSheet
         open={waiving !== null}
         onOpenChange={(next) => !next && setWaiving(null)}
+        record={waiving ?? undefined}
         title="Waive what's still owed?"
         change={
           waiving ? (

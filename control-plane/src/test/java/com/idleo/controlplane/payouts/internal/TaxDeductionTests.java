@@ -41,7 +41,8 @@ class TaxDeductionTests {
                 Instant.now(),
                 Instant.now(),
                 "fake",
-                null);
+                null,
+                1L);
     }
 
     /** A payout already made to the person, as the year's basis sees it. */

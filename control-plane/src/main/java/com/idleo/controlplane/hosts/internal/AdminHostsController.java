@@ -84,7 +84,8 @@ class AdminHostsController {
             HostPresence.State presence,
             List<String> gpuModels,
             Instant createdAt,
-            @Nullable Instant lastSeenAt) {}
+            @Nullable Instant lastSeenAt,
+            long version) {}
 
     record AdminHostPage(
             List<AdminHostSummary> hosts, @Nullable String nextCursor) {}
@@ -174,7 +175,8 @@ class AdminHostsController {
             HostTelemetry.Telemetry telemetry,
             @Nullable AdminSelfTest selfTest,
             @Nullable AdminUpdateResult lastUpdate,
-            @Nullable AdminScore score) {}
+            @Nullable AdminScore score,
+            long version) {}
 
     /**
      * {@code query} is part of a host's name, or a whole host or owner id; {@code status} is pending, verified, active,
@@ -195,9 +197,10 @@ class AdminHostsController {
                 String status,
                 List<String> models,
                 Instant createdAt,
-                @Nullable Instant lastSeenAt) {}
+                @Nullable Instant lastSeenAt,
+                long version) {}
         var rows = jdbc.sql("""
-                        select h.id, h.owner_user_id, h.name, h.status, h.created_at, h.last_seen_at,
+                        select h.id, h.version, h.owner_user_id, h.name, h.status, h.created_at, h.last_seen_at,
                                coalesce((select array_agg(g.model order by g.model) from hosts.host_gpus g
                                          where g.host_id = h.id and g.gone_at is null), '{}') as models
                         from hosts.hosts h
@@ -223,7 +226,8 @@ class AdminHostsController {
                         rs.getTimestamp("created_at").toInstant(),
                         rs.getTimestamp("last_seen_at") == null
                                 ? null
-                                : rs.getTimestamp("last_seen_at").toInstant()))
+                                : rs.getTimestamp("last_seen_at").toInstant(),
+                        rs.getLong("version")))
                 .list();
         var page = rows.size() > size ? rows.subList(0, size) : rows;
         var seen = presence.seen(page.stream().map(Row::id).toList());
@@ -238,7 +242,8 @@ class AdminHostsController {
                                 seen.state(row.id()),
                                 row.models(),
                                 row.createdAt(),
-                                row.lastSeenAt()))
+                                row.lastSeenAt(),
+                                row.version()))
                         .toList(),
                 rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
     }
@@ -250,7 +255,7 @@ class AdminHostsController {
     }
 
     /** Activates a host whose agent has enrolled, listed and reported a GPU. */
-    @RequiresPermission(AdminPermission.HOSTS_ACTIVATE)
+    @RequiresPermission(value = AdminPermission.HOSTS_ACTIVATE, record = "host")
     @PostMapping("/{id}/activate")
     AdminHost activate(
             @AuthenticationPrincipal CurrentUser admin,
@@ -262,7 +267,7 @@ class AdminHostsController {
     }
 
     /** Suspends a host: it gets no new work, and its agent is refused at its next connection. */
-    @RequiresPermission(AdminPermission.HOSTS_SUSPEND)
+    @RequiresPermission(value = AdminPermission.HOSTS_SUSPEND, record = "host")
     @PostMapping("/{id}/suspend")
     AdminHost suspend(
             @AuthenticationPrincipal CurrentUser admin,
@@ -282,7 +287,7 @@ class AdminHostsController {
     }
 
     /** Asks the host's agent to run its full self-test now. Audited, with the admin's reason. */
-    @RequiresPermission(AdminPermission.HOSTS_SELF_TEST)
+    @RequiresPermission(value = AdminPermission.HOSTS_SELF_TEST, record = "host")
     @PostMapping("/{id}/self-tests")
     SelfTestRuns.SelfTestStatus runSelfTest(
             @AuthenticationPrincipal CurrentUser admin,
@@ -294,7 +299,7 @@ class AdminHostsController {
     }
 
     /** Revokes every certificate the host has: its agent is cut off until its owner enrols it again. */
-    @RequiresPermission(AdminPermission.HOSTS_CERTIFICATES_REVOKE)
+    @RequiresPermission(value = AdminPermission.HOSTS_CERTIFICATES_REVOKE, record = "host")
     @PostMapping("/{id}/revoke-certificates")
     AdminHost revokeCertificates(
             @AuthenticationPrincipal CurrentUser admin,
@@ -386,7 +391,8 @@ class AdminHostsController {
                 telemetry.of(id),
                 selfTest,
                 lastUpdate,
-                score(id));
+                score(id),
+                host.version());
     }
 
     private @Nullable AdminScore score(UUID id) {

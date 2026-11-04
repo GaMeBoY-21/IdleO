@@ -60,6 +60,8 @@ export function Images() {
       <ActionSheet
         open={acting !== null}
         onOpenChange={(next) => !next && setActing(null)}
+        record={acting?.image}
+        typed={acting?.action === "unblock" ? acting.image.id.slice(0, 8) : undefined}
         title={acting?.action === "unblock" ? "Lift this block?" : "Block this image?"}
         change={
           acting?.action === "unblock" ? (

@@ -214,6 +214,8 @@ function UserRecord({ id }: { id: string }) {
             <ActionSheet
               open={action === "suspend" || action === "unsuspend"}
               onOpenChange={(next) => !next && setAction(null)}
+              record={found}
+              typed={found.id.slice(0, 8)}
               title={
                 action === "unsuspend"
                   ? `Reinstate ${found.email ?? "this user"}?`
@@ -340,6 +342,8 @@ function UserRecord({ id }: { id: string }) {
         <ActionSheet
           open
           onOpenChange={(next) => !next && setAction(null)}
+          record={action.reverse}
+          typed={action.reverse.id.slice(0, 8)}
           title={`Reverse the grant of ${formatPaise(action.reverse.amountPaise)}?`}
           change={`${formatPaise(action.reverse.amountPaise)} is taken back from their wallet with an opposite transaction. Refused if credit already spent or held would be needed.`}
           confirm="Reverse the grant"

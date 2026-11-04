@@ -107,7 +107,8 @@ class PayoutReconciliation {
             Instant lastFoundAt,
             @Nullable Instant closedAt,
             @Nullable String closedBy,
-            @Nullable String closeReason) {}
+            @Nullable String closeReason,
+            long version) {}
 
     /** Something found wrong, before it's kept. */
     private record Found(
@@ -477,7 +478,8 @@ class PayoutReconciliation {
                 rs.getTimestamp("last_found_at").toInstant(),
                 closed == null ? null : closed.toInstant(),
                 rs.getString("closed_by"),
-                rs.getString("close_reason"));
+                rs.getString("close_reason"),
+                rs.getLong("version"));
     }
 
     private Instant now() {

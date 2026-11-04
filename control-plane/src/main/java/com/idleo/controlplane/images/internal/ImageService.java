@@ -151,7 +151,8 @@ class ImageService implements CheckedImages {
                     now,
                     now,
                     null,
-                    null);
+                    null,
+                    1L);
             images.insert(row);
             metrics.submitted();
             return images.find(row.id()).orElseThrow();

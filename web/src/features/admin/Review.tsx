@@ -137,6 +137,7 @@ export function Review() {
         <ActionSheet
           open
           onOpenChange={(next) => !next && setDeciding(null)}
+          record={deciding.minute}
           title={
             deciding.charge
               ? `Charge minute ${deciding.minute.minuteIndex}?`

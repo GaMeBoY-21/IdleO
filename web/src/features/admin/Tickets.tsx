@@ -269,6 +269,7 @@ function TicketRecord({ id }: { id: string }) {
                   setAnswerError(null);
                   void adminData(
                     adminApi.POST("/admin/v1/tickets/{id}/answer", {
+                      headers: { "If-Match": String(ticket.version) },
                       params: { path: { id } },
                       body: { message: answer.trim(), status: after },
                     }),
@@ -314,6 +315,7 @@ function TicketRecord({ id }: { id: string }) {
             <ActionSheet
               open={changing !== null}
               onOpenChange={(open) => !open && setChanging(null)}
+              record={ticket}
               title="Change the status"
               change={`${ticketNumber(ticket.number)} becomes "${STATUS[changing ?? ""] ?? ""}". The person isn't emailed.`}
               confirm="Change it"

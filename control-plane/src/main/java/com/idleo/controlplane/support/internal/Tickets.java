@@ -99,7 +99,8 @@ class Tickets {
             Instant createdAt,
             Instant updatedAt,
             @Nullable Instant dueAt,
-            @Nullable Instant resolvedAt) {
+            @Nullable Instant resolvedAt,
+            long version) {
 
         boolean overdue(Instant now) {
             return dueAt != null && !status.equals("resolved") && dueAt.isBefore(now);
@@ -357,7 +358,8 @@ class Tickets {
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
                 instant(rs.getTimestamp("due_at")),
-                instant(rs.getTimestamp("resolved_at")));
+                instant(rs.getTimestamp("resolved_at")),
+                rs.getLong("version"));
     }
 
     private static @Nullable Instant instant(@Nullable Timestamp timestamp) {

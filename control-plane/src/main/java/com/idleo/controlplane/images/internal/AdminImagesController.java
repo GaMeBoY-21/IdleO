@@ -82,7 +82,8 @@ class AdminImagesController {
             int secrets,
             @Nullable Long compressedBytes,
             Instant createdAt,
-            @Nullable Instant checkedAt) {}
+            @Nullable Instant checkedAt,
+            long version) {}
 
     record AdminImagePage(List<AdminImage> items, @Nullable String nextCursor) {}
 
@@ -172,7 +173,7 @@ class AdminImagesController {
      * those not started are cancelled, and each owner is told. 409 {@code action-refused} before its check has found a
      * digest, or when the digest is blocked already.
      */
-    @RequiresPermission(AdminPermission.IMAGES_BLOCK)
+    @RequiresPermission(value = AdminPermission.IMAGES_BLOCK, record = "image")
     @PostMapping("/{id}/block")
     AdminImageDetail block(
             @AuthenticationPrincipal CurrentUser admin,
@@ -204,7 +205,7 @@ class AdminImagesController {
     }
 
     /** Lifts an admin's block of the submission's digest, with the admin's reason. 409 unless an admin blocked it. */
-    @RequiresPermission(AdminPermission.IMAGES_UNBLOCK)
+    @RequiresPermission(value = AdminPermission.IMAGES_UNBLOCK, record = "image")
     @PostMapping("/{id}/unblock")
     AdminImageDetail unblock(
             @AuthenticationPrincipal CurrentUser admin,
@@ -244,6 +245,7 @@ class AdminImagesController {
                 scan == null ? 0 : scan.secrets().size(),
                 scan == null ? null : scan.compressedBytes(),
                 row.createdAt(),
-                row.checkedAt());
+                row.checkedAt(),
+                row.version());
     }
 }
