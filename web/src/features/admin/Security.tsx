@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { ApiError } from "@/api/errors";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
@@ -60,7 +61,7 @@ function Passkeys() {
         params: { path: { id: passkey.id } },
       });
       if (!response.ok) {
-        throw refused as Error;
+        throw ApiError.of(response.status, refused);
       }
       await refresh();
     } catch (failed) {
@@ -137,7 +138,7 @@ function Sessions({
       params: { path: { id: session.id } },
     });
     if (!response.ok) {
-      setError(refused);
+      setError(ApiError.of(response.status, refused));
       return;
     }
     await client.invalidateQueries({ queryKey: [ADMIN, session.current ? "session" : "admin-sessions"] });

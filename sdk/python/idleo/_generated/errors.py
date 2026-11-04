@@ -742,6 +742,22 @@ class AdminPermissionRequired(IdleoError):
     title = "You don't have the permission for this"
 
 
+class StepUpRequired(IdleoError):
+    """Confirm it's you (HTTP 403)."""
+
+    slug = "step-up-required"
+    status = 403
+    title = "Confirm it's you"
+
+
+class PasskeyNotAccepted(IdleoError):
+    """Passkey not accepted (HTTP 400)."""
+
+    slug = "passkey-not-accepted"
+    status = 400
+    title = "Passkey not accepted"
+
+
 class ActionRefused(IdleoError):
     """Action refused (HTTP 409)."""
 
@@ -859,6 +875,8 @@ __all__ = [
     "SecondFactorExists",
     "SecondFactorMissing",
     "AdminPermissionRequired",
+    "StepUpRequired",
+    "PasskeyNotAccepted",
     "ActionRefused",
     "StorageUnavailable",
     "InternalError",
@@ -957,6 +975,8 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "second-factor-exists": SecondFactorExists,
     "second-factor-missing": SecondFactorMissing,
     "admin-permission-required": AdminPermissionRequired,
+    "step-up-required": StepUpRequired,
+    "passkey-not-accepted": PasskeyNotAccepted,
     "action-refused": ActionRefused,
     "storage-unavailable": StorageUnavailable,
     "internal-error": InternalError,

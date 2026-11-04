@@ -41,7 +41,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication
-@EnableConfigurationProperties({AdminProperties.class, AuditProperties.class})
+@EnableConfigurationProperties(AdminProperties.class)
 class AdminSecurityConfiguration {
 
     static final String PATHS = "/admin/v1/**";

@@ -260,6 +260,7 @@ Each rule is one scheduled job (`RetentionRule`), idempotent, run daily under an
 | Rule | Deletes | Period | Setting |
 | --- | --- | --- | --- |
 | `security-events` | `identity.security_events` rows older than the period | 365 days, LEGAL(confirm) | `legal.retention.security-events` |
+| `personal-data-access` | `identity.personal_data_access` rows older than the period | 365 days, LEGAL(confirm) | `legal.retention.security-events` |
 | `exports` | A made export's zip under `exports/`, and the row marked expired | 7 days after it's ready | `privacy.export-keep` |
 | `uploads` | An unfinished upload, and a finished one no session has used for the period, with its files; never one a live session uses | A day unfinished; 30 days after last used | `sessions.uploads.pending-ttl`, `ready-ttl` |
 | `checkpoints` | A session's checkpoints in storage, and their rows | 7 days after the session ends | `retention.periods.checkpoints` |
