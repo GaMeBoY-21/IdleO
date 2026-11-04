@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ApiError } from "@/api/errors";
-import { Button } from "@/components/ui/Button";
 import { ActionSheet } from "./ActionSheet";
 import { adminApi } from "./api";
 import { AdminPage, Section, SmallField } from "./ui";

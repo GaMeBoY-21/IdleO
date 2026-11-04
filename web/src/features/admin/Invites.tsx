@@ -39,7 +39,8 @@ export function Invites() {
   const expiry = days.trim() === "" ? null : Number.parseInt(days, 10);
   return (
     <AdminPage title="Invites">
-      <ActionButton permission="invites.create"
+      <ActionButton
+        permission="invites.create"
         variant="ghost"
         className="self-start"
         onClick={() => {

@@ -1,7 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Link, useSearch } from "wouter";
-import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise, parseRupees } from "@/lib/money";
@@ -154,7 +153,11 @@ function DisputeRecord({ id }: { id: string }) {
             <Summary found={found} />
             {found.dispute.state === "open" && (
               <div className="flex flex-wrap gap-2">
-                <ActionButton permission="disputes.refund" variant="primary" onClick={() => setAction("refund")}>
+                <ActionButton
+                  permission="disputes.refund"
+                  variant="primary"
+                  onClick={() => setAction("refund")}
+                >
                   Refund
                 </ActionButton>
                 <ActionButton permission="disputes.decide" variant="ghost" onClick={() => setAction("none")}>

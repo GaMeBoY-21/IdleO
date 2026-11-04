@@ -224,7 +224,11 @@ function Reconciliation() {
                     </Cell>
                     <Cell>
                       {item.state === "open" && (
-                        <ActionButton permission="reconciliation.accept" variant="quiet" onClick={() => setAccepting(item)}>
+                        <ActionButton
+                          permission="reconciliation.accept"
+                          variant="quiet"
+                          onClick={() => setAccepting(item)}
+                        >
                           Accept<span className="sr-only"> {item.subject}</span>
                         </ActionButton>
                       )}

@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearch } from "wouter";
-import { Button, buttonClasses } from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise, parseRupees } from "@/lib/money";
@@ -188,7 +188,12 @@ function UserRecord({ id }: { id: string }) {
                   Reinstate
                 </ActionButton>
               ) : (
-                <ActionButton permission="users.suspend" variant="ghost" onClick={() => open("suspend")} disabled={found.status !== "active"}>
+                <ActionButton
+                  permission="users.suspend"
+                  variant="ghost"
+                  onClick={() => open("suspend")}
+                  disabled={found.status !== "active"}
+                >
                   Suspend
                 </ActionButton>
               )}
@@ -275,52 +280,57 @@ function UserRecord({ id }: { id: string }) {
         )}
       </QueryView>
       {can("money.read") && (
-      <Section title="Credit grants">
-        <QueryView
-          query={grants}
-          what="their credit grants"
-          isEmpty={(list) => list.grants.length === 0}
-          empty={
-            <Empty title="No grants yet">
-              Free credit granted to them shows here, with who granted it and why.
-            </Empty>
-          }
-        >
-          {(list) => (
-            <Table
-              caption="Credit grants"
-              columns={["Amount", "Reason", "Granted by", "When", "Reversed", ""]}
-            >
-              {list.grants.map((grant) => (
-                <Row key={grant.id}>
-                  <Cell>
-                    <Money paise={grant.amountPaise} />
-                  </Cell>
-                  <Cell>{grant.reason}</Cell>
-                  <Cell>{grant.grantedBy}</Cell>
-                  <Cell>
-                    <RelativeTime value={grant.createdAt} />
-                  </Cell>
-                  <Cell>
-                    {grant.reversedAt ? (
-                      <RelativeTime value={grant.reversedAt} prefix={grant.reversedBy ?? ""} />
-                    ) : (
-                      "—"
-                    )}
-                  </Cell>
-                  <Cell>
-                    {grant.reversalId === null && (
-                      <ActionButton permission="money.adjust" variant="quiet" onClick={() => open({ reverse: grant })}>
-                        Reverse<span className="sr-only"> the grant of {formatPaise(grant.amountPaise)}</span>
-                      </ActionButton>
-                    )}
-                  </Cell>
-                </Row>
-              ))}
-            </Table>
-          )}
-        </QueryView>
-      </Section>
+        <Section title="Credit grants">
+          <QueryView
+            query={grants}
+            what="their credit grants"
+            isEmpty={(list) => list.grants.length === 0}
+            empty={
+              <Empty title="No grants yet">
+                Free credit granted to them shows here, with who granted it and why.
+              </Empty>
+            }
+          >
+            {(list) => (
+              <Table
+                caption="Credit grants"
+                columns={["Amount", "Reason", "Granted by", "When", "Reversed", ""]}
+              >
+                {list.grants.map((grant) => (
+                  <Row key={grant.id}>
+                    <Cell>
+                      <Money paise={grant.amountPaise} />
+                    </Cell>
+                    <Cell>{grant.reason}</Cell>
+                    <Cell>{grant.grantedBy}</Cell>
+                    <Cell>
+                      <RelativeTime value={grant.createdAt} />
+                    </Cell>
+                    <Cell>
+                      {grant.reversedAt ? (
+                        <RelativeTime value={grant.reversedAt} prefix={grant.reversedBy ?? ""} />
+                      ) : (
+                        "—"
+                      )}
+                    </Cell>
+                    <Cell>
+                      {grant.reversalId === null && (
+                        <ActionButton
+                          permission="money.adjust"
+                          variant="quiet"
+                          onClick={() => open({ reverse: grant })}
+                        >
+                          Reverse
+                          <span className="sr-only"> the grant of {formatPaise(grant.amountPaise)}</span>
+                        </ActionButton>
+                      )}
+                    </Cell>
+                  </Row>
+                ))}
+              </Table>
+            )}
+          </QueryView>
+        </Section>
       )}
       {action !== null && typeof action === "object" && (
         <ActionSheet

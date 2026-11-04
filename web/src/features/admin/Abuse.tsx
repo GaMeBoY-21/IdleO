@@ -1,7 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearch } from "wouter";
-import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/Inputs";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -198,7 +197,8 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
             {waiting.has(signal.sha256) ? (
               <Pill tone="plain">On the list to publish</Pill>
             ) : (
-              <ActionButton permission="abuse.blocklist"
+              <ActionButton
+                permission="abuse.blocklist"
                 variant="ghost"
                 onClick={() => setAdding({ sha256: signal.sha256, name: signal.detail })}
               >
@@ -271,7 +271,11 @@ function WaitingBuilds() {
                 </Cell>
                 <Cell>{entry.published ? "In the published list" : "Waiting to be published"}</Cell>
                 <Cell>
-                  <ActionButton permission="abuse.blocklist" variant="ghost" onClick={() => setRemoving(entry)}>
+                  <ActionButton
+                    permission="abuse.blocklist"
+                    variant="ghost"
+                    onClick={() => setRemoving(entry)}
+                  >
                     Take back
                     <span className="sr-only"> {entry.name}</span>
                   </ActionButton>
@@ -329,7 +333,11 @@ function AbuseRecord({ id }: { id: string }) {
             {found.item.state !== "cleared" && (
               <div className="flex flex-wrap gap-2">
                 {found.item.state === "open" && (
-                  <ActionButton permission="abuse.decide" variant="ghost" onClick={() => setDeciding("confirm")}>
+                  <ActionButton
+                    permission="abuse.decide"
+                    variant="ghost"
+                    onClick={() => setDeciding("confirm")}
+                  >
                     Confirm
                   </ActionButton>
                 )}
@@ -420,7 +428,13 @@ function AbuseRecord({ id }: { id: string }) {
                   error={noteError ?? undefined}
                   hint="The note is its own reason in the audit log. No email or address."
                 />
-                <ActionButton permission="abuse.decide" type="submit" variant="ghost" busy={saving} className="self-start">
+                <ActionButton
+                  permission="abuse.decide"
+                  type="submit"
+                  variant="ghost"
+                  busy={saving}
+                  className="self-start"
+                >
                   Add the note
                 </ActionButton>
               </form>

@@ -113,7 +113,11 @@ export function Invoices() {
                           Download<span className="sr-only"> {item.invoice.number}</span>
                         </Button>
                         {item.invoice.kind !== "credit_note" && (
-                          <ActionButton permission="invoices.credit-note" variant="quiet" onClick={() => setNoting(item)}>
+                          <ActionButton
+                            permission="invoices.credit-note"
+                            variant="quiet"
+                            onClick={() => setNoting(item)}
+                          >
                             Credit note<span className="sr-only"> against {item.invoice.number}</span>
                           </ActionButton>
                         )}

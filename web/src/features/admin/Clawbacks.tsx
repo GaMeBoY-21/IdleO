@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
@@ -95,7 +94,11 @@ export function Clawbacks() {
                   </Cell>
                   <Cell>
                     {clawback.outstandingPaise > 0 && (
-                      <ActionButton permission="clawbacks.waive" variant="quiet" onClick={() => setWaiving(clawback)}>
+                      <ActionButton
+                        permission="clawbacks.waive"
+                        variant="quiet"
+                        onClick={() => setWaiving(clawback)}
+                      >
                         Waive<span className="sr-only"> {clawback.id}</span>
                       </ActionButton>
                     )}

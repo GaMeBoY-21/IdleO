@@ -734,6 +734,14 @@ class SecondFactorMissing(IdleoError):
     title = "Second factor not set up"
 
 
+class AdminPermissionRequired(IdleoError):
+    """You don't have the permission for this (HTTP 403)."""
+
+    slug = "admin-permission-required"
+    status = 403
+    title = "You don't have the permission for this"
+
+
 class ActionRefused(IdleoError):
     """Action refused (HTTP 409)."""
 
@@ -850,6 +858,7 @@ __all__ = [
     "AdminCodeInvalid",
     "SecondFactorExists",
     "SecondFactorMissing",
+    "AdminPermissionRequired",
     "ActionRefused",
     "StorageUnavailable",
     "InternalError",
@@ -947,6 +956,7 @@ PROBLEMS: dict[str, type[IdleoError]] = {
     "admin-code-invalid": AdminCodeInvalid,
     "second-factor-exists": SecondFactorExists,
     "second-factor-missing": SecondFactorMissing,
+    "admin-permission-required": AdminPermissionRequired,
     "action-refused": ActionRefused,
     "storage-unavailable": StorageUnavailable,
     "internal-error": InternalError,
