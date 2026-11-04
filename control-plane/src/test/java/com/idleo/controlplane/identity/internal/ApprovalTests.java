@@ -323,6 +323,25 @@ class ApprovalTests {
     }
 
     @Test
+    void aRetryThatPaidNothingSaysWhyInWords() throws Exception {
+        var finance = TestAdmins.signInAs(mvc, jdbc, clock, "finance");
+        var other = TestAdmins.signInAs(mvc, jdbc, clock, "finance");
+        var asked = mvc.perform(finance.as(post("/admin/v1/payouts/retry"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"" + finance.id() + "\",\"reason\":\"their payout came back\"}"))
+                .andReturn()
+                .getResponse();
+        assertThat(asked.getStatus()).isEqualTo(202);
+
+        var refused = send(
+                other.as(post("/admin/v1/approvals/" + body(asked).get("id").asString() + "/approve")));
+
+        assertThat(refused.getStatus()).isEqualTo(409);
+        assertThat(body(refused).get("detail").asString())
+                .isEqualTo("It wasn't paid: there's no UPI ID payouts may go to.");
+    }
+
+    @Test
     void anApprovedExportIsFetchedOnceByWhoeverAskedAndIsNeverKept() throws Exception {
         var finance = TestAdmins.signInAs(mvc, jdbc, clock, "finance");
         var other = TestAdmins.signInAs(mvc, jdbc, clock, "finance");

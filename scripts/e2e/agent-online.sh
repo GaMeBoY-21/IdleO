@@ -2036,7 +2036,7 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
   # 2. Failed, then paid again: a UPI ID whose payouts fail.
   use_upi payoutfails@okicici
   retried="$(admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" || true)"
-  [[ "$retried" == *ON_HOLD* ]] || fail "a payout could go out within 20 s of the UPI ID changing ($retried)"
+  [[ "$retried" == *"changed too recently"* ]] || fail "a payout could go out within 20 s of the UPI ID changing ($retried)"
   session="$(earn payouts-second 100)"
   sleep 41
   admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
@@ -2073,7 +2073,10 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
   ((owed > 0)) || fail "nothing is owed after the clawback: $rows"
   session="$(earn payouts-third 100)"
   sleep 41
-  admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end recovery\"}" >/dev/null || fail "retry failed"
+  # The recovery can leave under ₹1, which a retry refuses to send; the clawback is recovered either way.
+  if ! retried="$(admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end recovery\"}")"; then
+    [[ "$retried" == *"less than"* ]] || fail "retry failed ($retried)"
+  fi
   [[ "$(sql "select state from billing.clawbacks where owner_id = '$owner_id'")" == recovered ]] || fail "the clawback wasn't recovered from the next earnings"
   [[ "$(sql "select coalesce(sum(case direction when 'debit' then amount_paise else -amount_paise end), 0) from billing.ledger_entries
       where account = 'host_receivable' and owner_id = '$owner_id'")" == 0 ]] || fail "the owner still owes after the recovery"

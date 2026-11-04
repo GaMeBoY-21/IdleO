@@ -134,13 +134,20 @@ class PayoutService {
 
     /** Why a person can't be paid now, for the run's log and the admin's retry. */
     enum NotPaid {
-        NO_METHOD,
+        NO_METHOD("there's no UPI ID payouts may go to"),
         /** Suspended for misconduct as a host (ADR 0041): nothing is paid until the suspension is lifted. */
-        ACCOUNT_HELD,
-        ON_HOLD,
-        NO_PAN,
-        IN_PROGRESS,
-        TOO_LITTLE
+        ACCOUNT_HELD("their payouts are held while they're suspended"),
+        ON_HOLD("their UPI ID changed too recently"),
+        NO_PAN("there's no verified PAN"),
+        IN_PROGRESS("a payout is already on its way"),
+        TOO_LITTLE("less than ₹1 is available");
+
+        /** Why, as the admin reads it. */
+        final String words;
+
+        NotPaid(String words) {
+            this.words = words;
+        }
     }
 
     /** A payout made, or why none was. */

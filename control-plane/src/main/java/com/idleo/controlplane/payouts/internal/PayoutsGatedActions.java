@@ -1,6 +1,8 @@
 package com.idleo.controlplane.payouts.internal;
 
 import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.Approvals;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -18,8 +20,7 @@ class PayoutsGatedActions {
                     var outcome = runs.payNow(
                             UUID.fromString(run.params().get("userId").asString()), "retry", run.reason(), run.actor());
                     if (outcome.notPaid() != null) {
-                        throw new IllegalStateException(
-                                "It wasn't paid: " + outcome.notPaid().name());
+                        throw ApiProblem.of(Problem.ACTION_REFUSED, "It wasn't paid: " + outcome.notPaid().words + ".");
                     }
                 });
     }
