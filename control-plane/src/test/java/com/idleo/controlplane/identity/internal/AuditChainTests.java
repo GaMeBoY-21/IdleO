@@ -94,13 +94,11 @@ class AuditChainTests {
                 "select seq from identity.audit_log where target_id = ?", Long.class, target.toString());
     }
 
-    /** Runs {@code change} with the table's own triggers off, as someone with the database's keys could. */
-    private void bypassingTheTriggers(String... statements) {
+    /** Runs one statement with the table's own triggers off, as someone with the database's keys could. */
+    private void bypassingTheTriggers(String statement, Object... args) {
         transactions.executeWithoutResult(status -> {
             jdbc.execute("set local session_replication_role = replica");
-            for (var statement : statements) {
-                jdbc.update(statement);
-            }
+            jdbc.update(statement, args);
         });
     }
 
@@ -142,7 +140,7 @@ class AuditChainTests {
         var seq = seqOf(target);
         record("a later row");
         bypassingTheTriggers(
-                "update identity.audit_log set reason = 'a better story' where target_id = '" + target + "'");
+                "update identity.audit_log set reason = 'a better story' where target_id = ?", target.toString());
         try {
             var check = chain.verify("test");
             assertThat(check.intact()).isFalse();
@@ -157,7 +155,8 @@ class AuditChainTests {
             assertThat(registry.get("audit.chain.broken").gauge().value()).isEqualTo(1);
         } finally {
             bypassingTheTriggers(
-                    "update identity.audit_log set reason = 'the reason as it was' where target_id = '" + target + "'");
+                    "update identity.audit_log set reason = 'the reason as it was' where target_id = ?",
+                    target.toString());
         }
         assertThat(chain.verify("test").intact()).isTrue();
     }
@@ -167,22 +166,20 @@ class AuditChainTests {
         var target = record("about to go missing");
         var seq = seqOf(target);
         record("a later row");
-        transactions.executeWithoutResult(status -> {
-            jdbc.execute("set local session_replication_role = replica");
-            jdbc.execute("create temporary table kept_row on commit preserve rows as"
-                    + " select * from identity.audit_log where target_id = '" + target + "'");
-            jdbc.update("delete from identity.audit_log where target_id = ?", target.toString());
-        });
+        var kept = jdbc.queryForObject(
+                "select to_jsonb(a)::text from identity.audit_log a where target_id = ?",
+                String.class,
+                target.toString());
+        bypassingTheTriggers("delete from identity.audit_log where target_id = ?", target.toString());
         try {
             var check = chain.verify("test");
             assertThat(check.intact()).isFalse();
             assertThat(check.brokenSeq()).isEqualTo(seq + 1);
         } finally {
-            transactions.executeWithoutResult(status -> {
-                jdbc.execute("set local session_replication_role = replica");
-                jdbc.update("insert into identity.audit_log select * from kept_row");
-                jdbc.execute("drop table kept_row");
-            });
+            bypassingTheTriggers(
+                    "insert into identity.audit_log select * from"
+                            + " jsonb_populate_record(null::identity.audit_log, cast(? as jsonb))",
+                    kept);
         }
         assertThat(chain.verify("test").intact()).isTrue();
     }
