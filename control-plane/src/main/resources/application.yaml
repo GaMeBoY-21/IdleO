@@ -108,6 +108,11 @@ management:
         base-time-unit: seconds
         step: 1m
   metrics:
+    # Every route's own series: the routes are a fixed list (over 200), so past the default 100 a route's meter would
+    # just be dropped. An address no route matches is UNKNOWN, so this can't grow with what strangers ask for.
+    web:
+      server:
+        max-uri-tags: 500
     distribution:
       # A few fixed buckets for the timers an alert or a dashboard takes a percentile of, never Micrometer's 69: each
       # bucket is a series per route and status, and Grafana Cloud's free tier holds 10,000 (docs/runbooks/
