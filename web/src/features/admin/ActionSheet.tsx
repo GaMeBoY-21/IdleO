@@ -20,6 +20,7 @@ export function ActionSheet({
   confirm,
   destructive = false,
   extra,
+  reasonRule = reasonProblem,
   onConfirm,
 }: {
   open: boolean;
@@ -31,6 +32,8 @@ export function ActionSheet({
   destructive?: boolean;
   /** Fields of the action's own, above the reason (an amount, say); null when there are none. */
   extra?: ReactNode;
+  /** What's wrong with the reason, when this action asks more of it than the usual 5 characters. */
+  reasonRule?: (reason: string) => string | null;
   /** Does the action; its error is shown in the sheet. */
   onConfirm: (reason: string) => Promise<unknown>;
 }) {
@@ -39,7 +42,7 @@ export function ActionSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const id = useId();
-  const problem = reasonProblem(reason);
+  const problem = reasonRule(reason);
 
   const close = (next: boolean) => {
     if (!next) {

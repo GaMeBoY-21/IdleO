@@ -113,9 +113,10 @@ class PanTests {
                         .content("{\"reason\":\"name on the card matches with a middle name\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("verified"));
-        var revealed = mvc.perform(admin.as(post("/admin/v1/payouts/verifications/pans/" + owner.id() + "/reveal"))
+        var revealed = mvc.perform(admin.as(post("/admin/v1/personal-data/reveal"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"reason\":\"checking the tax filing for the CA\"}"))
+                        .content("{\"field\":\"pan\",\"id\":\"" + owner.id()
+                                + "\",\"reason\":\"checking the tax filing for the CA\"}"))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
@@ -125,7 +126,7 @@ class PanTests {
                         "select action from identity.audit_log where target_id = ? order by created_at",
                         String.class,
                         owner.id().toString()))
-                .containsSubsequence("pan.verify", "pan.reveal");
+                .containsSubsequence("pan.verify", "personal_data.reveal");
         assertThat(check).isNotNull();
     }
 

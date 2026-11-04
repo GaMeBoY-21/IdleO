@@ -292,8 +292,6 @@ class AdminPayoutsController {
 
     record AdminVerifications(List<AdminPanReview> pans, List<AdminUpiReview> upiIds) {}
 
-    record AdminPanReveal(UUID userId, String pan) {}
-
     @RequiresPermission(AdminPermission.VERIFICATIONS_READ)
     @GetMapping("/verifications")
     AdminVerifications verifications() {
@@ -329,18 +327,6 @@ class AdminPayoutsController {
             @PathVariable UUID userId,
             @Valid @RequestBody AdminReason request) {
         return AdminPanReview.of(refusing(() -> pans.decide(userId, false, request.reason(), audit.admin(admin))));
-    }
-
-    /** The whole PAN, read with a reason, audited. */
-    @RequiresPermission(AdminPermission.USERS_PII_REVEAL)
-    @PostMapping("/verifications/pans/{userId}/reveal")
-    AdminPanReveal revealPan(
-            @AuthenticationPrincipal CurrentUser admin,
-            @PathVariable UUID userId,
-            @Valid @RequestBody AdminReason request) {
-        return pans.reveal(userId, request.reason(), audit.admin(admin))
-                .map(pan -> new AdminPanReveal(userId, pan))
-                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "This person has given no PAN."));
     }
 
     @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)

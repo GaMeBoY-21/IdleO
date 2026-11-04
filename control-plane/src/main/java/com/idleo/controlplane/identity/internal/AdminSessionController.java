@@ -109,7 +109,7 @@ class AdminSessionController {
                         .toList());
     }
 
-    @RequiresPermission(AdminPermission.SELF)
+    @RequiresPermission(value = AdminPermission.SELF, unmasked = true)
     @PostMapping("/second-factor")
     @ResponseStatus(HttpStatus.CREATED)
     AdminEnrolment enrol(@AuthenticationPrincipal CurrentUser user) {
@@ -120,7 +120,7 @@ class AdminSessionController {
         return new AdminEnrolment(enrolment.secret(), enrolment.otpauthUri());
     }
 
-    @RequiresPermission(AdminPermission.SELF)
+    @RequiresPermission(value = AdminPermission.SELF, unmasked = true)
     @PostMapping("/second-factor/confirm")
     AdminEnrolmentConfirmed confirm(
             @AuthenticationPrincipal CurrentUser user,
@@ -131,7 +131,7 @@ class AdminSessionController {
                 accepted.session().token(), accepted.session().expiresAt(), accepted.recoveryCodes());
     }
 
-    @RequiresPermission(AdminPermission.SELF)
+    @RequiresPermission(value = AdminPermission.SELF, unmasked = true)
     @PostMapping("/session")
     AdminSessionResponse start(
             @AuthenticationPrincipal CurrentUser user,

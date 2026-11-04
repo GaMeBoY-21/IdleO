@@ -4,6 +4,7 @@ GET /admin/v1/abuse,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/blocklist-additions,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/{id},abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/audit,audit.read,allow,403,403,403,403,allow
+GET /admin/v1/audit/standing,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/chargebacks,payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/chargebacks/{id},payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/clawbacks,clawbacks.read,allow,403,403,403,allow,allow
@@ -28,6 +29,7 @@ GET /admin/v1/payments/reconciliation,payments.read,allow,403,allow,403,allow,al
 GET /admin/v1/payouts,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/reconciliation,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/verifications,verifications.read,allow,403,403,403,allow,allow
+GET /admin/v1/personal-data/access-log,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/ratings,ratings.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/reconciliation,money.read,allow,403,403,403,allow,allow
 GET /admin/v1/refunds,refunds.read,allow,403,allow,403,allow,allow
@@ -49,6 +51,8 @@ POST /admin/v1/abuse/{id}/blocklist,abuse.blocklist,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/clear,abuse.clear,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/confirm,abuse.decide,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/notes,abuse.decide,allow,403,403,allow,403,403
+POST /admin/v1/audit/export,export.create,allow,403,403,403,allow,403
+POST /admin/v1/audit/verify,audit.read,allow,403,403,403,403,allow
 POST /admin/v1/clawbacks/{id}/waive,clawbacks.waive,allow,403,403,403,allow,403
 POST /admin/v1/credit-grants,money.adjust,allow,403,403,403,allow,403
 POST /admin/v1/credit-grants/{id}/reverse,money.adjust,allow,403,403,403,allow,403
@@ -71,10 +75,10 @@ POST /admin/v1/payouts/retry,payouts.release,allow,403,403,403,allow,403
 POST /admin/v1/payouts/runs,payouts.run,allow,403,403,403,allow,403
 POST /admin/v1/payouts/tds-export,export.create,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/pans/{userId}/reject,verifications.decide,allow,403,403,403,allow,403
-POST /admin/v1/payouts/verifications/pans/{userId}/reveal,users.pii.reveal,allow,403,allow,allow,allow,403
 POST /admin/v1/payouts/verifications/pans/{userId}/verify,verifications.decide,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/upi-ids/{id}/approve,verifications.decide,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/upi-ids/{id}/reject,verifications.decide,allow,403,403,403,allow,403
+POST /admin/v1/personal-data/reveal,users.pii.reveal,allow,403,allow,allow,allow,403
 POST /admin/v1/reconciliation,reconciliation.run,allow,403,403,403,allow,403
 POST /admin/v1/refunds/{id}/approve,refunds.approve,allow,403,403,403,allow,403
 POST /admin/v1/refunds/{id}/decline,refunds.decline,allow,403,403,403,allow,403

@@ -41,6 +41,18 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 - **`GET /tax` has no endpoint of its own:** the Tax screen is the export, so its section needs `export.create`.
 - **There are no kill switches yet,** so no permission for them. When one is built, its permission is sensitive.
 
+### Personal data: masked by default, revealed with a reason
+
+**One masking function, applied to every admin response.** \`PersonalDataMask\`: an email \`ni•••@gmail.com\`, a phone its last 2 digits, a PAN and bank details their last 4, a UPI ID \`ni•••@okhdfc\`, an IP its /24 or /48, and a postal address nothing. \`AdminResponseMasking\` (one \`ResponseBodyAdvice\`) runs it over the JSON of every response of an endpoint with \`@RequiresPermission\`. So masking is the rule, not something each endpoint remembers. It also reads free text: a ticket's message or a rating's comment with an email in it is masked too. Names aren't masked: an admin has to compare the name on a PAN with the bank's.
+
+**The exceptions are few and marked** (\`unmasked = true\`): the admin's own second factor (the secret and the link for the QR code) and the one reveal. Files aren't JSON and go as they are: the TDS export and an invoice's PDF, each under its own permission.
+
+**The test.** \`AdminMaskingTests\` makes a person with known data in every table (\`People\`), adds a phone, a PAN, a UPI ID, an address and an IP in the places admins read them, and reads every admin GET endpoint (45, found from the mappings, so a new one joins by itself). It fails if any value appears whole, or if an endpoint can't be reached.
+
+**Reveal.** \`POST /admin/v1/personal-data/reveal\` needs \`users.pii.reveal\`, a recent factor and a reason (at least 10 characters, or a ticket's number), and returns one field. Each module names what it can show (\`RevealableFields\`): \`email\`, \`pan\`, \`upi\`, \`reply_to\`, \`security_event_ip\` and \`audit_ip\`. It replaces the PAN's own reveal endpoint: one implementation. The console keeps the value only in the component that shows it.
+
+**The access log** (\`identity.personal_data_access\`): who, whose data, which field, why, when and from which session. Opening a person's page writes an entry too, with the field \`view\`. It's kept a year, like the security log, and read by whoever holds \`audit.read\` (the Owner and the Auditor). A person's "Your data" export shows them who at IdleO viewed or revealed their data, by the admin's id. **LEGAL(confirm):** whether the export must name the person, and that the period is right. A reveal is also an audit row.
+
 ### The audit log: tamper-evident, off-site, searchable
 
 **A hash chain, made by the database.** A \`BEFORE INSERT\` trigger on \`identity.audit_log\` gives each row its \`seq\`, its \`prev_hash\` (the row before's \`hash\`) and its \`hash\`, the SHA-256 of \`prev_hash\` and the row's canonical content (\`identity.audit_row_content\`: every field in one fixed order, as a JSON array). So every writer is chained, of this release or the one before it during a canary, and none can skip it or choose its place. Writers wait for the lock on the one-row \`identity.audit_chain_head\`, held until they commit, so the chain's order is the order they commit in. Its trigger runs as the table's owner: the application may read the head but not change it. The rows from before this were chained by the migration, oldest first, from 32 zero bytes.
@@ -57,6 +69,7 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 
 ## Alternatives considered
 
+- **Masking in each response type, with an annotation on each field.** A forgotten annotation shows the data, and free text can't be annotated at all. Working on the response's JSON means nothing can be forgotten. The price is a pattern that could mask something that only looks like an email or a phone, so \`PersonalDataMaskTests\` holds what must stay alone (ids, times, Razorpay's ids, image digests), and a few machine-value fields are skipped by name.
 - **Chaining rows afterwards, with a job.** No lock on the write path, but a window in which a row can change unnoticed, and the \`hash\` couldn't live on the row of an append-only table.
 - **Working out the hash in Java.** An old release writing during a canary wouldn't chain, and any other writer could skip it.
 

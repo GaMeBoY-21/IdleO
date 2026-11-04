@@ -52,8 +52,10 @@ class AdminUsersController {
     private final JdbcClient jdbc;
     private final UserSuspensions suspensions;
     private final AuditTrail audit;
+    private final AccessLog accessLog;
 
-    AdminUsersController(JdbcClient jdbc, UserSuspensions suspensions, AuditTrail audit) {
+    AdminUsersController(JdbcClient jdbc, UserSuspensions suspensions, AuditTrail audit, AccessLog accessLog) {
+        this.accessLog = accessLog;
         this.jdbc = jdbc;
         this.suspensions = suspensions;
         this.audit = audit;
@@ -129,8 +131,10 @@ class AdminUsersController {
 
     @RequiresPermission(AdminPermission.USERS_READ)
     @GetMapping("/{id}")
-    AdminUser get(@PathVariable UUID id) {
-        return find(id);
+    AdminUser get(@AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id) {
+        var user = find(id);
+        accessLog.viewed(admin, id);
+        return user;
     }
 
     /** Suspends an active account: its tokens and keys are refused from the next request. */
@@ -162,9 +166,13 @@ class AdminUsersController {
         return find(id);
     }
 
-    /** One entry of a person's security log (ADR 0037): the only place an admin sees an address. */
+    /** One entry of a person's security log (ADR 0037): the only place an admin sees an address, masked. */
     record SecurityEvent(
-            String kind, @Nullable String detail, @Nullable String address, Instant at) {}
+            UUID id,
+            String kind,
+            @Nullable String detail,
+            @Nullable String address,
+            Instant at) {}
 
     record SecurityEventPage(
             List<SecurityEvent> events, @Nullable String nextCursor) {}
@@ -190,6 +198,7 @@ class AdminUsersController {
                 .query((rs, n) -> Map.entry(
                         rs.getObject("id", UUID.class),
                         new SecurityEvent(
+                                rs.getObject("id", UUID.class),
                                 rs.getString("kind"),
                                 rs.getString("detail"),
                                 rs.getString("address"),

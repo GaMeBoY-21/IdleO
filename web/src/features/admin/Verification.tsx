@@ -5,6 +5,7 @@ import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminPanReview, type AdminUpiReview } from "./api";
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, Table } from "./ui";
 import { ActionButton } from "./permissions";
+import { Reveal } from "./Reveal";
 
 type PanAction = { kind: "verify-pan" | "reject-pan" | "reveal-pan"; pan: AdminPanReview };
 type UpiAction = { kind: "approve-upi" | "reject-upi"; upi: AdminUpiReview };
@@ -105,7 +106,9 @@ export function Verification() {
                       <Cell>
                         <Id value={upi.userId} />
                       </Cell>
-                      <Cell className="break-all">{upi.vpa ?? "—"}</Cell>
+                      <Cell className="break-all">
+                        {upi.vpa ? <Reveal field="upi" id={upi.id} masked={upi.vpa} /> : "—"}
+                      </Cell>
                       <Cell>{upi.registeredName ?? "—"}</Cell>
                       <Cell>{upi.panName ?? "—"}</Cell>
                       <Cell className="tabular">{upi.nameMatchScore ?? "—"}</Cell>
@@ -147,12 +150,11 @@ export function Verification() {
           }
           if (action.kind === "reveal-pan") {
             const shown = await adminData(
-              adminApi.POST("/admin/v1/payouts/verifications/pans/{userId}/reveal", {
-                params: { path: { userId: action.pan.userId } },
-                body: { reason },
+              adminApi.POST("/admin/v1/personal-data/reveal", {
+                body: { field: "pan", id: action.pan.userId, reason },
               }),
             );
-            setRevealed(shown);
+            setRevealed({ userId: action.pan.userId, pan: shown.value });
             return;
           }
           if (isPan(action)) {

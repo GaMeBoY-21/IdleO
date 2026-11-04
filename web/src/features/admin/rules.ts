@@ -19,6 +19,15 @@ export function reasonProblem(reason: string): string | null {
   return null;
 }
 
+/** A reason to read a person's data whole: at least 10 characters, or a ticket's number, as the server checks. */
+export function revealReasonProblem(reason: string): string | null {
+  const text = reason.trim();
+  if (text.length < 10 && !/^#?\d+$/.test(text)) {
+    return "Say why in at least 10 characters, or give a ticket's number.";
+  }
+  return text.length > REASON_MAX ? `Keep it to ${REASON_MAX} characters.` : null;
+}
+
 /** An authenticator's code: 6 digits, as typed, with spaces or a dash between groups dropped. */
 export function totpDigits(typed: string): string {
   return typed.replace(/[\s-]/g, "").replace(/\D/g, "").slice(0, 6);

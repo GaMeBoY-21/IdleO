@@ -82,6 +82,15 @@ public final class People {
                         .content("{\"name\":\"" + marker + " laptop\",\"scope\":\"full\"}"))
                 .andExpect(status().isCreated());
         jdbc.update(
+                "insert into identity.personal_data_access (id, admin_id, subject_user_id, field, record_id, reason, at)"
+                        + " values (?, ?, ?, 'email', ?, ?, ?)",
+                IDS.generate(),
+                UUID.randomUUID(),
+                me,
+                me.toString(),
+                marker + " asked for this in a ticket",
+                ts(now));
+        jdbc.update(
                 "insert into identity.cli_logins (id, user_code_hash, poll_token_hash, device_name, created_at,"
                         + " expires_at, approved_by, approved_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
                 IDS.generate(),
