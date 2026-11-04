@@ -82,12 +82,13 @@ class AdminSessions {
     }
 
     /**
-     * Uses the session: when the token is this admin's and identity's and hasn't lapsed, renews it and returns when
-     * it now lapses.
+     * Uses the session: when the token is this admin's and identity's and hasn't lapsed, renews it, notes it as this
+     * request's admin session, and returns when it now lapses.
      */
     Optional<Instant> use(UUID userId, UUID identityId, String token) {
         var now = now();
         return live(userId, identityId, token, now).map(session -> {
+            AdminRequestContext.adminSession(session.id());
             var renewed = earlier(now.plus(ttl), session.endsBy());
             if (!renewed.isAfter(session.expiresAt().plus(RENEW_AFTER))) {
                 return session.expiresAt();

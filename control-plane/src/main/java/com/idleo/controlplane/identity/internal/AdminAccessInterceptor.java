@@ -44,6 +44,7 @@ class AdminAccessInterceptor implements HandlerInterceptor, WebMvcConfigurer {
         if (declared == null) {
             return true;
         }
+        response.setHeader("X-Request-Id", AdminRequestContext.requestId());
         var permission = declared.value();
         if (permission != AdminPermission.SELF
                 && !permissions.has(currentAdmin().id(), permission)) {

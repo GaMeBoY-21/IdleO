@@ -18,8 +18,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The only writer of {@code identity.audit_log} (ADR 0027). Rows are only ever added: triggers refuse any change,
- * and the application's database user has no right to update, delete or truncate the table. An entry names people by
- * id only (ADR 0037): one holding an email or an IP address anywhere is refused, and the action with it.
+ * and the application's database user has no right to update, delete or truncate the table. A trigger chains each row
+ * to the one before it (ADR 0051, {@link AuditChain}). An entry names people by id only (ADR 0037): one holding an email
+ * or an IP address anywhere is refused, and the action with it. The address and browser the request came from are
+ * columns of their own, read only by the audit log's readers.
  */
 @Component
 class AuditLog implements AuditTrail {
@@ -60,9 +62,10 @@ class AuditLog implements AuditTrail {
         jdbc.sql("""
                         insert into identity.audit_log
                             (id, actor_kind, actor_user_id, actor_name, action, target_type, target_id, reason,
-                             before, after, created_at)
+                             before, after, created_at, request_id, admin_session_id, ip, user_agent)
                         values (:id, :kind, :userId, :name, :action, :targetType, :targetId, :reason,
-                                cast(:before as jsonb), cast(:after as jsonb), :now)
+                                cast(:before as jsonb), cast(:after as jsonb), :now, :requestId, :session,
+                                cast(:ip as inet), :userAgent)
                         """)
                 .param("id", ids.newId())
                 .param("kind", actor.kind().name().toLowerCase(Locale.ROOT))
@@ -75,6 +78,10 @@ class AuditLog implements AuditTrail {
                 .param("before", before)
                 .param("after", after)
                 .param("now", Timestamp.from(Instant.now(clock).truncatedTo(ChronoUnit.MICROS)))
+                .param("requestId", AdminRequestContext.requestId())
+                .param("session", AdminRequestContext.adminSession())
+                .param("ip", AdminRequestContext.address())
+                .param("userAgent", AdminRequestContext.userAgent())
                 .update();
     }
 

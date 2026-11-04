@@ -22,6 +22,7 @@ What's measured, by the module that owns the fact:
 | billing | `billing.ledger.paise` by what caused it, account and direction (charged, given back, granted); `billing.ledger.transactions`; `billing.reserved.paise` |
 | notifications | `notifications.emails` sent, failed, bounced, complained |
 | Backups | `backups.full.age`, `backups.wal.lag`, `backups.readable` (docs/runbooks/backups.md) |
+| The audit log | `audit.chain.broken`, `audit.chain.check.age`, `audit.offsite.age` (docs/runbooks/audit-chain.md) |
 | Browsers | `browser.vitals.lcp`, `.inp`, `.cls`, `.ttfb` by app, route and phone or laptop; `browser.errors` by app, route and release |
 
 ## In development

@@ -47,7 +47,11 @@ class ProductionSettingsGuardTests {
                         "backups.storage.bucket=idleo-backups",
                         "backups.storage.prefix=production",
                         "backups.storage.access-key-id=reader",
-                        "backups.storage.secret-access-key=" + PRODUCTION_KEY)
+                        "backups.storage.secret-access-key=" + PRODUCTION_KEY,
+                        "identity.audit.offsite.endpoint=https://account.r2.example.invalid",
+                        "identity.audit.offsite.bucket=idleo-audit",
+                        "identity.audit.offsite.access-key-id=writer",
+                        "identity.audit.offsite.secret-access-key=" + PRODUCTION_KEY)
                 .withPropertyValues(properties);
     }
 
@@ -369,6 +373,12 @@ class ProductionSettingsGuardTests {
     @Test
     void prodRefusesToStartWithoutBackupsToWatch() {
         for (var setting : new String[][] {
+            {"identity.audit.offsite.endpoint=", "identity.audit.offsite.endpoint is missing"},
+            {
+                "identity.audit.offsite.endpoint=http://localhost:9100",
+                "identity.audit.offsite.endpoint http://localhost:9100"
+            },
+            {"identity.audit.offsite.bucket=", "identity.audit.offsite.bucket is missing"},
             {"backups.storage.endpoint=", "backups.storage.endpoint is missing"},
             {"backups.storage.endpoint=http://localhost:9100", "backups.storage.endpoint http://localhost:9100"},
             {"backups.create-bucket=true", "backups.create-bucket is true"}

@@ -53,6 +53,8 @@ import org.springframework.util.unit.DataSize;
  *       exports turned off ({@link #OTLP_ENDPOINTS}, ADR 0036);
  *   <li>no backup storage to watch ({@code backups.storage.*}), one that is plain HTTP or on this machine, or
  *       {@code backups.create-bucket}, development's (ADR 0036);
+ *   <li>no off-site store for the audit log ({@code identity.audit.offsite.*}), or one that is plain HTTP or on this
+ *       machine (ADR 0051);
  *   <li>Razorpay's test keys, an API other than Razorpay's (the fake), live keys without a webhook secret or without
  *       the GSTIN, legal name and address invoices carry, or TCS on (ADR 0039); and live keys anywhere but prod;
  *   <li>RazorpayX's test keys, an API other than Razorpay's, keys without a webhook secret or account number, live keys
@@ -105,6 +107,12 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "backups.storage.prefix",
             "backups.storage.access-key-id",
             "backups.storage.secret-access-key");
+
+    /** The audit log's off-site store (ADR 0051), besides the endpoint: all needed to write to it. */
+    static final List<String> AUDIT_OFFSITE_SETTINGS = List.of(
+            "identity.audit.offsite.bucket",
+            "identity.audit.offsite.access-key-id",
+            "identity.audit.offsite.secret-access-key");
 
     /** The keys whose committed test values production must never use. */
     static final List<String> SECRET_KEYS = List.of(
@@ -269,6 +277,18 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
         }
         if (binder.bind("backups.create-bucket", Boolean.class).orElse(false)) {
             problems.add("backups.create-bucket is true");
+        }
+        var auditEndpoint =
+                binder.bind("identity.audit.offsite.endpoint", String.class).orElse("");
+        if (auditEndpoint.isBlank()) {
+            problems.add("identity.audit.offsite.endpoint is missing");
+        } else if (isDevelopmentIssuer(auditEndpoint)) {
+            problems.add("identity.audit.offsite.endpoint " + auditEndpoint + " is plain HTTP or on this machine");
+        }
+        for (var setting : AUDIT_OFFSITE_SETTINGS) {
+            if (binder.bind(setting, String.class).orElse("").isBlank()) {
+                problems.add(setting + " is missing");
+            }
         }
         var forwardedHeaders =
                 binder.bind("server.forward-headers-strategy", String.class).orElse("none");
