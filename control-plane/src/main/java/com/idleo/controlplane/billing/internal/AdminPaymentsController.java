@@ -92,7 +92,8 @@ class AdminPaymentsController {
             Instant lastFoundAt,
             @Nullable Instant closedAt,
             @Nullable String closedBy,
-            @Nullable String closeReason) {}
+            @Nullable String closeReason,
+            long version) {}
 
     record AdminPaymentReconciliationRun(
             UUID id,
@@ -169,7 +170,7 @@ class AdminPaymentsController {
         return run(refusing(() -> reconciliation.run(request.day(), audit.admin(admin), request.reason())));
     }
 
-    @RequiresPermission(AdminPermission.RECONCILIATION_ACCEPT)
+    @RequiresPermission(value = AdminPermission.RECONCILIATION_ACCEPT, record = "payment_mismatch")
     @PostMapping("/payments/mismatches/{id}/accept")
     AdminPaymentMismatch accept(
             @AuthenticationPrincipal CurrentUser admin,
@@ -279,7 +280,8 @@ class AdminPaymentsController {
                 item.lastFoundAt(),
                 item.closedAt(),
                 item.closedBy(),
-                item.closeReason());
+                item.closeReason(),
+                item.version());
     }
 
     private static <T> T refusing(Supplier<T> action) {

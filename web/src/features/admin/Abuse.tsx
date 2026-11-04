@@ -212,6 +212,7 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
         <ActionSheet
           open
           onOpenChange={(next) => !next && setAdding(null)}
+          record={found.item}
           title={`Add ${adding.name}'s build to the blocklist?`}
           change={`From the next signed blocklist, a session whose program has this exact build (${adding.sha256.slice(0, 12)}…) is stopped, whatever it is called. The file is signed offline with the release key and published by an operator; until then it is waiting.`}
           confirm="Add to the blocklist"
@@ -289,6 +290,7 @@ function WaitingBuilds() {
         <ActionSheet
           open
           onOpenChange={(next) => !next && setRemoving(null)}
+          record={removing}
           title={`Take ${removing.name}'s build off the blocklist?`}
           change={
             removing.published
@@ -354,6 +356,8 @@ function AbuseRecord({ id }: { id: string }) {
             <ActionSheet
               open={deciding === "confirm" || deciding === "ban"}
               onOpenChange={(next) => !next && setDeciding(null)}
+              record={found.item}
+              typed={deciding === "ban" ? found.item.id.slice(0, 8) : undefined}
               title={deciding === "ban" ? "Confirm and ban this account?" : "Confirm this review?"}
               change={
                 deciding === "ban"
@@ -375,6 +379,7 @@ function AbuseRecord({ id }: { id: string }) {
             <ActionSheet
               open={deciding === "clear"}
               onOpenChange={(next) => !next && setDeciding(null)}
+              record={found.item}
               title="Clear this review and refund the session?"
               change={
                 <>
@@ -407,6 +412,7 @@ function AbuseRecord({ id }: { id: string }) {
                   setNoteError(null);
                   void adminData(
                     adminApi.POST("/admin/v1/abuse/{id}/notes", {
+                      headers: { "If-Match": String(found.item.version) },
                       params: { path: { id } },
                       body: { note: note.trim() },
                     }),

@@ -141,6 +141,9 @@ export function Verification() {
       <ActionSheet
         open={action !== null}
         onOpenChange={(next) => !next && setAction(null)}
+        record={
+          action?.kind === "reveal-pan" ? undefined : action && "pan" in action ? action.pan : action?.upi
+        }
         title={action ? TITLES[action.kind] : ""}
         change={action ? change(action) : null}
         confirm={action ? CONFIRM[action.kind] : ""}

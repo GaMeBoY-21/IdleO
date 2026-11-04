@@ -162,6 +162,7 @@ export const adminImages = (): { items: AdminImage[]; nextCursor: null } => ({
   items: [
     {
       id: readyImage.id,
+      version: 1,
       userId: "01a11300-0000-7000-8000-00000000000a",
       reference: readyImage.reference,
       privateRegistry: true,
@@ -177,6 +178,7 @@ export const adminImages = (): { items: AdminImage[]; nextCursor: null } => ({
     },
     {
       id: blockedImage.id,
+      version: 1,
       userId: "01a11300-0000-7000-8000-00000000000b",
       reference: blockedImage.reference,
       privateRegistry: false,

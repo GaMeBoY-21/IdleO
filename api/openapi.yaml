@@ -1301,15 +1301,6 @@ paths:
       - adminInvites
     post:
       operationId: adminInvitesCreate
-      parameters:
-      - description: "A unique key for this create request, 1 to 255 visible ASCII\
-          \ characters. A repeat returns the first response; the same key with a different\
-          \ body is refused."
-        in: header
-        name: Idempotency-Key
-        required: true
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -6249,6 +6240,9 @@ components:
           - open
           - confirmed
           - cleared
+        version:
+          type: integer
+          format: int64
       required:
       - action
       - attempt
@@ -6259,6 +6253,7 @@ components:
       - renterId
       - sessionId
       - state
+      - version
     AcceptNoticesRequest:
       type: object
       properties:
@@ -6520,6 +6515,9 @@ components:
           format: date-time
         state:
           type: string
+        version:
+          type: integer
+          format: int64
         waiveReason:
           type:
           - string
@@ -6544,6 +6542,7 @@ components:
       - recoveredPaise
       - sessionId
       - state
+      - version
       - waivedPaise
     AdminClawbackPage:
       type: object
@@ -6603,6 +6602,9 @@ components:
         userId:
           type: string
           format: uuid
+        version:
+          type: integer
+          format: int64
         walletBalancePaise:
           type:
           - integer
@@ -6616,6 +6618,7 @@ components:
       - reason
       - txnId
       - userId
+      - version
     AdminCreditGrantList:
       type: object
       properties:
@@ -6703,6 +6706,9 @@ components:
         userId:
           type: string
           format: uuid
+        version:
+          type: integer
+          format: int64
       required:
       - cause
       - id
@@ -6711,6 +6717,7 @@ components:
       - requestedAt
       - status
       - userId
+      - version
     AdminCreditRefundList:
       type: object
       properties:
@@ -6930,6 +6937,9 @@ components:
           format: uuid
         state:
           type: string
+        version:
+          type: integer
+          format: int64
       required:
       - createdAt
       - id
@@ -6937,6 +6947,7 @@ components:
       - renterId
       - sessionId
       - state
+      - version
     AdminEnrolment:
       type: object
       properties:
@@ -7050,6 +7061,9 @@ components:
             $ref: "#/components/schemas/AdminHostStatusChange"
         telemetry:
           $ref: "#/components/schemas/Telemetry"
+        version:
+          type: integer
+          format: int64
       required:
       - certificates
       - createdAt
@@ -7063,6 +7077,7 @@ components:
       - status
       - statusHistory
       - telemetry
+      - version
     AdminHostCertificate:
       type: object
       properties:
@@ -7231,6 +7246,9 @@ components:
           - UNKNOWN
         status:
           type: string
+        version:
+          type: integer
+          format: int64
       required:
       - createdAt
       - gpuModels
@@ -7240,6 +7258,7 @@ components:
       - ownerId
       - presence
       - status
+      - version
     AdminImage:
       type: object
       properties:
@@ -7295,6 +7314,9 @@ components:
         userId:
           type: string
           format: uuid
+        version:
+          type: integer
+          format: int64
       required:
       - createdAt
       - id
@@ -7303,6 +7325,7 @@ components:
       - secrets
       - state
       - userId
+      - version
     AdminImageDetail:
       type: object
       properties:
@@ -7498,9 +7521,13 @@ components:
         userId:
           type: string
           format: uuid
+        version:
+          type: integer
+          format: int64
       required:
       - invoice
       - userId
+      - version
     AdminInvoiceList:
       type: object
       properties:
@@ -7644,6 +7671,9 @@ components:
           format: uuid
         verifier:
           type: string
+        version:
+          type: integer
+          format: int64
       required:
       - checked
       - holder
@@ -7653,6 +7683,7 @@ components:
       - submittedAt
       - userId
       - verifier
+      - version
     AdminPasskey:
       type: object
       properties:
@@ -7820,6 +7851,9 @@ components:
           - string
           - "null"
           format: uuid
+        version:
+          type: integer
+          format: int64
       required:
       - detail
       - foundAt
@@ -7828,6 +7862,7 @@ components:
       - lastFoundAt
       - state
       - subject
+      - version
     AdminPaymentReconciliation:
       type: object
       properties:
@@ -8031,6 +8066,9 @@ components:
           - string
           - "null"
           format: uuid
+        version:
+          type: integer
+          format: int64
       required:
       - detail
       - foundAt
@@ -8039,6 +8077,7 @@ components:
       - lastFoundAt
       - state
       - subject
+      - version
     AdminPayoutReconciliation:
       type: object
       properties:
@@ -8411,6 +8450,9 @@ components:
           - string
           - "null"
           format: uuid
+        version:
+          type: integer
+          format: int64
       required:
       - minuteAt
       - minuteIndex
@@ -8418,6 +8460,7 @@ components:
       - reason
       - renterId
       - sessionId
+      - version
     AdminReviewPage:
       type: object
       properties:
@@ -8821,6 +8864,9 @@ components:
           format: date-time
         templateId:
           type: string
+        version:
+          type: integer
+          format: int64
       required:
       - attempt
       - createdAt
@@ -8831,6 +8877,7 @@ components:
       - state
       - stateChangedAt
       - templateId
+      - version
     AdminSettlement:
       type: object
       properties:
@@ -8926,6 +8973,9 @@ components:
           - string
           - "null"
           format: uuid
+        version:
+          type: integer
+          format: int64
       required:
       - createdAt
       - id
@@ -8934,6 +8984,7 @@ components:
       - status
       - topic
       - updatedAt
+      - version
     AdminTicketMessage:
       type: object
       properties:
@@ -9022,6 +9073,9 @@ components:
         userId:
           type: string
           format: uuid
+        version:
+          type: integer
+          format: int64
         vpa:
           type:
           - string
@@ -9031,6 +9085,7 @@ components:
       - id
       - state
       - userId
+      - version
     AdminUsage:
       type: object
       properties:
@@ -9151,12 +9206,16 @@ components:
           enum:
           - host_misconduct
           - other
+        version:
+          type: integer
+          format: int64
       required:
       - admin
       - apiKeys
       - createdAt
       - id
       - status
+      - version
     AdminUserPage:
       type: object
       properties:
@@ -9654,6 +9713,9 @@ components:
           type: string
         sha256:
           type: string
+        version:
+          type: integer
+          format: int64
       required:
       - addedBy
       - createdAt
@@ -9664,6 +9726,7 @@ components:
       - published
       - reason
       - sha256
+      - version
     BlocklistAdditionList:
       type: object
       properties:

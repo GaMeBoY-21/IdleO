@@ -49,7 +49,7 @@ class AdminInvoicesController {
 
     record AdminInvoiceList(java.util.List<AdminInvoice> invoices) {}
 
-    record AdminInvoice(InvoiceController.InvoiceSummary invoice, UUID userId) {}
+    record AdminInvoice(InvoiceController.InvoiceSummary invoice, UUID userId, long version) {}
 
     /** A credit note for {@code amountPaise} of the invoice, at most what's left of it, and why (5 to 500 characters). */
     record CreditNoteRequest(
@@ -64,7 +64,7 @@ class AdminInvoicesController {
             @RequestParam(required = false) @Nullable String number,
             @RequestParam(required = false) @Nullable UUID userId) {
         return new AdminInvoiceList(invoices.search(number, userId, 50).stream()
-                .map(invoice -> new AdminInvoice(InvoiceController.summary(invoice), invoice.userId()))
+                .map(invoice -> new AdminInvoice(InvoiceController.summary(invoice), invoice.userId(), version(invoice)))
                 .toList());
     }
 
@@ -91,7 +91,7 @@ class AdminInvoicesController {
                 .body(pdf.render(invoice.document()));
     }
 
-    @RequiresPermission(AdminPermission.INVOICES_CREDIT_NOTE)
+    @RequiresPermission(value = AdminPermission.INVOICES_CREDIT_NOTE, record = "invoice")
     @PostMapping("/{id}/credit-notes")
     AdminInvoice creditNote(
             @AuthenticationPrincipal CurrentUser admin,
@@ -101,10 +101,15 @@ class AdminInvoicesController {
         try {
             var note = invoices.creditNoteByAdmin(
                     id, Paise.of(request.amountPaise()), request.reason(), audit.admin(admin));
-            return new AdminInvoice(InvoiceController.summary(note), note.userId());
+            return new AdminInvoice(InvoiceController.summary(note), note.userId(), version(note));
         } catch (IllegalArgumentException refused) {
             throw ApiProblem.of(Problem.ACTION_REFUSED, refused.getMessage());
         }
+    }
+
+    /** An invoice never changes: what a credit note can still take from it does, so its version counts them. */
+    private long version(Invoices.Invoice invoice) {
+        return 1 + invoices.creditNotes(invoice.id());
     }
 
     private Invoices.Invoice found(UUID id) {

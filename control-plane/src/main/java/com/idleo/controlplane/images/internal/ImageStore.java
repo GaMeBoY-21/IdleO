@@ -54,7 +54,8 @@ class ImageStore {
             Instant createdAt,
             Instant updatedAt,
             @Nullable Instant checkedAt,
-            @Nullable Instant lastUsedAt) {}
+            @Nullable Instant lastUsedAt,
+            long version) {}
 
     private final JdbcClient jdbc;
 
@@ -84,7 +85,8 @@ class ImageStore {
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
                 instant(rs, "checked_at"),
-                instant(rs, "last_used_at"));
+                instant(rs, "last_used_at"),
+                rs.getLong("version"));
     }
 
     static @Nullable Instant instant(ResultSet rs, String column) throws SQLException {

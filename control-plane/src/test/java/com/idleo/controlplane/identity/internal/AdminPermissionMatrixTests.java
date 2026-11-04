@@ -61,6 +61,9 @@ class AdminPermissionMatrixTests {
     MutableClock clock;
 
     @Autowired
+    AdminSafeWrites safeWrites;
+
+    @Autowired
     @Qualifier("requestMappingHandlerMapping")
     RequestMappingHandlerMapping mappings;
 
@@ -222,7 +225,7 @@ class AdminPermissionMatrixTests {
                 return handlers;
             }
         };
-        assertThatThrownBy(() -> new AdminEndpointCheck(mapping).afterSingletonsInstantiated())
+        assertThatThrownBy(() -> new AdminEndpointCheck(mapping, safeWrites).afterSingletonsInstantiated())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("/admin/v1/forgotten");
     }

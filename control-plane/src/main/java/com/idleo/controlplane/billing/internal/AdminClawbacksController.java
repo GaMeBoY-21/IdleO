@@ -64,7 +64,8 @@ class AdminClawbacksController {
             Instant createdAt,
             @Nullable Instant settledAt,
             @Nullable String waivedBy,
-            @Nullable String waiveReason) {}
+            @Nullable String waiveReason,
+            long version) {}
 
     record AdminClawbackPage(
             List<AdminClawback> clawbacks, @Nullable String nextCursor) {}
@@ -86,7 +87,8 @@ class AdminClawbacksController {
                 clawback.createdAt(),
                 clawback.settledAt(),
                 clawback.waivedBy(),
-                clawback.waiveReason());
+                clawback.waiveReason(),
+                clawback.version());
     }
 
     /** {@code state}: owed (the default), recovered, waived or all; newest first. */
@@ -107,7 +109,7 @@ class AdminClawbacksController {
                 rows.size() > size ? AdminPages.cursorAfter(shown.getLast().id()) : null);
     }
 
-    @RequiresPermission(AdminPermission.CLAWBACKS_WAIVE)
+    @RequiresPermission(value = AdminPermission.CLAWBACKS_WAIVE, record = "clawback")
     @PostMapping("/{id}/waive")
     AdminClawback waive(
             @AuthenticationPrincipal CurrentUser admin,

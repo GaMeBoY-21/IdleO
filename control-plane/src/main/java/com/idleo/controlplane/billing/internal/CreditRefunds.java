@@ -113,7 +113,8 @@ class CreditRefunds {
             @Nullable String decision,
             Instant requestedAt,
             @Nullable Instant decidedAt,
-            @Nullable Instant finishedAt) {}
+            @Nullable Instant finishedAt,
+            long version) {}
 
     record Part(
             UUID id,
@@ -653,7 +654,8 @@ class CreditRefunds {
                 rs.getString("decision"),
                 rs.getTimestamp("requested_at").toInstant(),
                 decided == null ? null : decided.toInstant(),
-                finished == null ? null : finished.toInstant());
+                finished == null ? null : finished.toInstant(),
+                rs.getLong("version"));
     }
 
     private static Part part(ResultSet rs, int row) throws SQLException {

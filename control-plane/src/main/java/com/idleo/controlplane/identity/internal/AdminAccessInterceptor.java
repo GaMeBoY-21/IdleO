@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.Instant;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,7 +22,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * The one check of an admin's permission (ADR 0051), on the handler itself rather than its path, so however a path is
  * spelt it meets the same rule. By now the security chain has seen an admin with a live admin session; this answers
  * whether that admin may do this: 403 {@code admin-permission-required}, naming what's missing, and for a sensitive
- * permission whether a factor was given recently: 403 {@code step-up-required}.
+ * permission whether a factor was given recently: 403 {@code step-up-required}. Then {@link AdminSafeWrites}.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication
@@ -30,8 +31,11 @@ class AdminAccessInterceptor implements HandlerInterceptor, WebMvcConfigurer {
     private final AdminPermissions permissions;
     private final AdminProperties properties;
     private final Clock clock;
+    private final AdminSafeWrites safeWrites;
 
-    AdminAccessInterceptor(AdminPermissions permissions, AdminProperties properties, Clock clock) {
+    AdminAccessInterceptor(
+            AdminPermissions permissions, AdminProperties properties, Clock clock, AdminSafeWrites safeWrites) {
+        this.safeWrites = safeWrites;
         this.permissions = permissions;
         this.properties = properties;
         this.clock = clock;
@@ -70,7 +74,13 @@ class AdminAccessInterceptor implements HandlerInterceptor, WebMvcConfigurer {
                                 + properties.stepUpWindow().toMinutes() + " minutes.");
             }
         }
-        return true;
+        return safeWrites.before(request, response, declared);
+    }
+
+    @Override
+    public void afterCompletion(
+            HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable Exception failure) {
+        safeWrites.after(request, response);
     }
 
     private static CurrentUser currentAdmin() {

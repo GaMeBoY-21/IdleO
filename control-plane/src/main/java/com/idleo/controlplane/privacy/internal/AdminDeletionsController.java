@@ -54,7 +54,7 @@ class AdminDeletionsController {
     }
 
     /** Erases the account at the next run of the erasure job, under a legal order the reason names. Audited. */
-    @RequiresPermission(AdminPermission.PRIVACY_LEGAL_ORDER)
+    @RequiresPermission(value = AdminPermission.PRIVACY_LEGAL_ORDER, record = "user")
     @PostMapping("/deletion/legal-order")
     AdminDeletion legalOrder(
             @AuthenticationPrincipal CurrentUser admin,

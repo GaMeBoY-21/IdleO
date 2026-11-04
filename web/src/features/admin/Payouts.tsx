@@ -184,6 +184,7 @@ function RunsAndPayouts() {
       <ActionSheet
         open={retrying !== null}
         onOpenChange={(next) => !next && setRetrying(null)}
+        typed={retrying ? retrying.slice(0, 8) : undefined}
         title="Pay one person now?"
         change="What they have available is paid to their UPI ID now, outside the weekly run, if they can be paid: a checked UPI ID, a verified PAN, nothing on its way."
         confirm="Pay now"
@@ -398,6 +399,7 @@ function Reconciliation() {
       <ActionSheet
         open={accepting !== null}
         onOpenChange={(next) => !next && setAccepting(null)}
+        record={accepting ?? undefined}
         title="Accept this disagreement?"
         change={
           accepting ? (

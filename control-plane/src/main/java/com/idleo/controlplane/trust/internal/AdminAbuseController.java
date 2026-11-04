@@ -64,7 +64,8 @@ class AdminAbuseController {
             List<String> kinds,
             Instant createdAt,
             @Nullable Instant resolvedAt,
-            @Nullable String resolution) {}
+            @Nullable String resolution,
+            long version) {}
 
     record AbusePage(List<AbuseSummary> items, @Nullable String nextCursor) {}
 
@@ -165,7 +166,8 @@ class AdminAbuseController {
             String reason,
             UUID addedBy,
             Instant createdAt,
-            boolean published) {}
+            boolean published,
+            long version) {}
 
     record BlocklistAdditionList(List<BlocklistAddition> additions) {}
 
@@ -266,7 +268,7 @@ class AdminAbuseController {
      * Confirms an open item: the suspension stays, and the account is banned if asked (a ban is lifted only by clearing the
      * item). 409 {@code action-refused} for an item already cleared, or an account that can't be banned.
      */
-    @RequiresPermission(AdminPermission.ABUSE_DECIDE)
+    @RequiresPermission(value = AdminPermission.ABUSE_DECIDE, record = "abuse_item")
     @PostMapping("/{id}/confirm")
     AbuseDetail confirm(
             @AuthenticationPrincipal CurrentUser admin,
@@ -280,7 +282,7 @@ class AdminAbuseController {
      * Clears an item: the account is reinstated and everything the session cost its renter is refunded, one ledger
      * transaction. The same again changes nothing.
      */
-    @RequiresPermission(AdminPermission.ABUSE_CLEAR)
+    @RequiresPermission(value = AdminPermission.ABUSE_CLEAR, record = "abuse_item")
     @PostMapping("/{id}/clear")
     AbuseDetail clear(
             @AuthenticationPrincipal CurrentUser admin,
@@ -295,7 +297,7 @@ class AdminAbuseController {
      * signed file is made offline with the release key ({@code scripts/release/blocklist.sh}); until it is published the
      * build shows as waiting. 409 {@code action-refused} unless the item is confirmed and this build is one it saw.
      */
-    @RequiresPermission(AdminPermission.ABUSE_BLOCKLIST)
+    @RequiresPermission(value = AdminPermission.ABUSE_BLOCKLIST, record = "abuse_item")
     @PostMapping("/{id}/blocklist")
     BlocklistAdditionList addToBlocklist(
             @AuthenticationPrincipal CurrentUser admin,
@@ -331,12 +333,13 @@ class AdminAbuseController {
                         addition.reason(),
                         addition.addedBy(),
                         addition.createdAt(),
-                        addition.published()))
+                        addition.published(),
+                        addition.version()))
                 .toList());
     }
 
     /** Takes a build back off: the next signed file leaves it out. Audited with the admin's reason. */
-    @RequiresPermission(AdminPermission.ABUSE_BLOCKLIST)
+    @RequiresPermission(value = AdminPermission.ABUSE_BLOCKLIST, record = "blocklist_addition")
     @PostMapping("/blocklist-additions/{additionId}/remove")
     BlocklistAdditionList removeFromBlocklist(
             @AuthenticationPrincipal CurrentUser admin,
@@ -353,7 +356,7 @@ class AdminAbuseController {
     }
 
     /** Adds a note to the item. */
-    @RequiresPermission(AdminPermission.ABUSE_DECIDE)
+    @RequiresPermission(value = AdminPermission.ABUSE_DECIDE, record = "abuse_item")
     @PostMapping("/{id}/notes")
     AbuseDetail note(
             @AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id, @Valid @RequestBody AbuseNote request) {
@@ -390,6 +393,7 @@ class AdminAbuseController {
                 kinds,
                 item.createdAt(),
                 item.resolvedAt(),
-                item.resolution());
+                item.resolution(),
+                item.version());
     }
 }

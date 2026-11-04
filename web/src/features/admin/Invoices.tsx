@@ -132,6 +132,7 @@ export function Invoices() {
       )}
       <ActionSheet
         open={noting !== null}
+        record={noting ?? undefined}
         onOpenChange={(next) => {
           if (!next) {
             setNoting(null);

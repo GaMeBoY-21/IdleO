@@ -120,6 +120,7 @@ type AdminSummary = Schemas["AdminDisputeSummary"];
 
 const adminSummary = (dispute: Dispute, renterId: string): AdminSummary => ({
   id: dispute.id,
+  version: 1,
   sessionId: dispute.sessionId,
   renterId,
   reason: dispute.reason,
@@ -238,6 +239,7 @@ type AdminSession = Schemas["AdminSession"];
 export const adminSessionOf = (session: data.Session, renterId: string): AdminSession => ({
   session: {
     id: session.id,
+    version: 1,
     renterId,
     hostId: session.startedAt ? HOST : null,
     templateId: session.templateId,

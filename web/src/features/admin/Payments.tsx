@@ -285,6 +285,7 @@ function Reconciliation() {
       <ActionSheet
         open={accepting !== null}
         onOpenChange={(next) => !next && setAccepting(null)}
+        record={accepting ?? undefined}
         title="Accept this disagreement?"
         change={
           accepting ? (

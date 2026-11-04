@@ -105,7 +105,6 @@ export function Invites() {
           }
           const created = await adminData(
             adminApi.POST("/admin/v1/invites", {
-              params: { header: { "Idempotency-Key": key } },
               body: { count: howMany, note: reason, ...(expiry === null ? {} : { expiresInDays: expiry }) },
             }),
           );

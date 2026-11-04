@@ -69,7 +69,8 @@ class AdminReviewController {
             @Nullable String resolutionReason,
             @Nullable String resolvedBy,
             @Nullable Instant resolvedAt,
-            @Nullable UUID settlementTxn) {}
+            @Nullable UUID settlementTxn,
+            long version) {}
 
     record AdminReviewPage(
             List<AdminReviewMinute> minutes, @Nullable String nextCursor) {}
@@ -100,7 +101,8 @@ class AdminReviewController {
                 @Nullable String resolutionReason,
                 @Nullable String resolvedBy,
                 @Nullable Instant resolvedAt,
-                @Nullable UUID settlementTxn) {}
+                @Nullable UUID settlementTxn,
+                long version) {}
         var rows = jdbc.sql("""
                         select r.*, m.renter_id from metering.review_minutes r
                         join metering.metered_sessions m on m.session_id = r.session_id
@@ -132,7 +134,8 @@ class AdminReviewController {
                         rs.getTimestamp("resolved_at") == null
                                 ? null
                                 : rs.getTimestamp("resolved_at").toInstant(),
-                        rs.getObject("settlement_txn", UUID.class)))
+                        rs.getObject("settlement_txn", UUID.class),
+                        rs.getLong("version")))
                 .list();
         var page = rows.size() > size ? rows.subList(0, size) : rows;
         var attempts = new HashMap<UUID, List<MeteredSessions.Attempt>>();
@@ -158,7 +161,8 @@ class AdminReviewController {
                             row.resolutionReason(),
                             row.resolvedBy(),
                             row.resolvedAt(),
-                            row.settlementTxn());
+                            row.settlementTxn(),
+                            row.version());
                 })
                 .toList();
         var last = page.isEmpty() ? null : page.getLast();
@@ -170,7 +174,7 @@ class AdminReviewController {
     }
 
     /** Charges the minute at its attempt's price, as a settlement of its own, within the cap and the credit. */
-    @RequiresPermission(AdminPermission.REVIEW_CHARGE)
+    @RequiresPermission(value = AdminPermission.REVIEW_CHARGE, record = "review_minute")
     @PostMapping("/{sessionId}/{minuteIndex}/charge")
     AdminReviewDecision charge(
             @AuthenticationPrincipal CurrentUser admin,
@@ -181,7 +185,7 @@ class AdminReviewController {
     }
 
     /** Waives the minute: it's never charged, and no money moves. */
-    @RequiresPermission(AdminPermission.REVIEW_WAIVE)
+    @RequiresPermission(value = AdminPermission.REVIEW_WAIVE, record = "review_minute")
     @PostMapping("/{sessionId}/{minuteIndex}/waive")
     AdminReviewDecision waive(
             @AuthenticationPrincipal CurrentUser admin,

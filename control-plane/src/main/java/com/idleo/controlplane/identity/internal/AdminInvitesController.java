@@ -2,7 +2,6 @@ package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.AdminPermission;
-import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
@@ -29,7 +28,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,13 +42,11 @@ import org.springframework.web.bind.annotation.RestController;
 class AdminInvitesController {
 
     private final InviteService invites;
-    private final IdempotentRequests idempotency;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
 
-    AdminInvitesController(InviteService invites, IdempotentRequests idempotency, AuditTrail audit, JdbcClient jdbc) {
+    AdminInvitesController(InviteService invites, AuditTrail audit, JdbcClient jdbc) {
         this.invites = invites;
-        this.idempotency = idempotency;
         this.audit = audit;
         this.jdbc = jdbc;
     }
@@ -84,23 +80,18 @@ class AdminInvitesController {
     record AdminInvitePage(
             List<AdminInvite> invites, @Nullable String nextCursor) {}
 
-    @RequiresPermission(AdminPermission.INVITES_CREATE)
+    @RequiresPermission(value = AdminPermission.INVITES_CREATE, shownOnce = true)
     @PostMapping
     @ApiResponse(
             responseCode = "201",
             description = "The codes, shown once; a repeat of the request is 409 secret-shown-once",
             content = @Content(schema = @Schema(implementation = AdminInvitesCreated.class)))
-    ResponseEntity<String> create(
-            @AuthenticationPrincipal CurrentUser admin,
-            @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
-            @Valid @RequestBody AdminInviteRequest request) {
-        return idempotency.executeShownOnce(
-                ApiKeyController.IDEMPOTENCY_TABLE, admin.id(), idempotencyKey, request, () -> {
-                    var expiry = Optional.ofNullable(request.expiresInDays()).map(Duration::ofDays);
-                    var created = invites.create(request.count(), request.note().strip(), expiry, audit.admin(admin));
-                    return ResponseEntity.created(URI.create("/admin/v1/invites"))
-                            .body(new AdminInvitesCreated(created.codes(), created.expiresAt()));
-                });
+    ResponseEntity<AdminInvitesCreated> create(
+            @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminInviteRequest request) {
+        var expiry = Optional.ofNullable(request.expiresInDays()).map(Duration::ofDays);
+        var created = invites.create(request.count(), request.note().strip(), expiry, audit.admin(admin));
+        return ResponseEntity.created(URI.create("/admin/v1/invites"))
+                .body(new AdminInvitesCreated(created.codes(), created.expiresAt()));
     }
 
     /** Every code, newest first; {@code used} true or false keeps only the used or the unused ones. */

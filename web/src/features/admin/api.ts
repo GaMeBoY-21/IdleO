@@ -41,10 +41,39 @@ export function whenStepUpNeeded(ask: (() => Promise<void>) | null): void {
 }
 
 /**
- * Every admin call: one refused with `step-up-required` asks for a factor in place and goes again, the very same
- * request with the same idempotency key, so the admin's action simply finishes.
+ * The action on screen (ADR 0051): its idempotency key, the same for every try of it, and the version of the record it
+ * was decided on. A POST made while one runs carries both.
+ */
+let action: { key: string; version: number | undefined } | null = null;
+
+/** Runs an admin's one action: `key` stays the same until it succeeds or the admin moves on. */
+export async function asAction<T>(
+  key: string,
+  record: { version: number } | undefined,
+  run: () => Promise<T>,
+): Promise<T> {
+  action = { key, version: record?.version };
+  try {
+    return await run();
+  } finally {
+    action = null;
+  }
+}
+
+/**
+ * Every admin call. A POST carries an `Idempotency-Key`, and the record's version in `If-Match` when an action names one.
+ * One refused with `step-up-required` asks for a factor in place and goes again, the very same request with the same key,
+ * so the admin's action simply finishes.
  */
 async function adminFetch(request: Request): Promise<Response> {
+  if (request.method === "POST") {
+    if (!request.headers.has("Idempotency-Key")) {
+      request.headers.set("Idempotency-Key", action?.key ?? crypto.randomUUID());
+    }
+    if (action?.version !== undefined && !request.headers.has("If-Match")) {
+      request.headers.set("If-Match", String(action.version));
+    }
+  }
   const again = request.clone();
   const response = await apiFetch(request);
   if (response.status !== 403 || askForStepUp === null) {

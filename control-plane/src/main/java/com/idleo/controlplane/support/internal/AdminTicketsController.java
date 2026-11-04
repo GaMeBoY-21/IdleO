@@ -59,7 +59,8 @@ class AdminTicketsController {
             Instant updatedAt,
             @Nullable Instant dueAt,
             @Nullable Instant resolvedAt,
-            boolean overdue) {
+            boolean overdue,
+            long version) {
 
         static AdminTicket of(Tickets.StoredTicket ticket, Instant now) {
             return new AdminTicket(
@@ -75,7 +76,8 @@ class AdminTicketsController {
                     ticket.updatedAt(),
                     ticket.dueAt(),
                     ticket.resolvedAt(),
-                    ticket.overdue(now));
+                    ticket.overdue(now),
+                    ticket.version());
         }
     }
 
@@ -125,7 +127,7 @@ class AdminTicketsController {
     }
 
     /** Answers the ticket: emailed to its address with its number in the subject. Audited. */
-    @RequiresPermission(AdminPermission.TICKETS_REPLY)
+    @RequiresPermission(value = AdminPermission.TICKETS_REPLY, record = "ticket")
     @PostMapping("/{id}/answer")
     AdminTicketThread answer(
             @AuthenticationPrincipal CurrentUser admin,
@@ -135,7 +137,7 @@ class AdminTicketsController {
     }
 
     /** Changes the ticket's status, with a reason. Audited. */
-    @RequiresPermission(AdminPermission.TICKETS_REPLY)
+    @RequiresPermission(value = AdminPermission.TICKETS_REPLY, record = "ticket")
     @PostMapping("/{id}/status")
     AdminTicketThread status(
             @AuthenticationPrincipal CurrentUser admin,

@@ -87,7 +87,7 @@ class AdminPersonalDataController {
             List<AccessLogEntry> entries, @Nullable String nextCursor) {}
 
     /** Reads one field whole. Writes the access log and the audit log. 404 when there's no such value. */
-    @RequiresPermission(value = AdminPermission.USERS_PII_REVEAL, unmasked = true)
+    @RequiresPermission(value = AdminPermission.USERS_PII_REVEAL, unmasked = true, shownOnce = true)
     @PostMapping("/reveal")
     AdminRevealed reveal(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RevealRequest request) {
         var reason = request.reason().strip();

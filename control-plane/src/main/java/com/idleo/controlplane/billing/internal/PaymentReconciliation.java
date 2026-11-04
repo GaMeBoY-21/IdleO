@@ -152,7 +152,8 @@ class PaymentReconciliation {
             Instant lastFoundAt,
             @Nullable Instant closedAt,
             @Nullable String closedBy,
-            @Nullable String closeReason) {}
+            @Nullable String closeReason,
+            long version) {}
 
     /** Yesterday in India, once a day; one instance runs it, whichever claims the day first. */
     @Scheduled(cron = "${billing.payment-reconciliation.cron}", zone = "Asia/Kolkata")
@@ -756,7 +757,8 @@ class PaymentReconciliation {
                 rs.getTimestamp("last_found_at").toInstant(),
                 closed == null ? null : closed.toInstant(),
                 rs.getString("closed_by"),
-                rs.getString("close_reason"));
+                rs.getString("close_reason"),
+                rs.getLong("version"));
     }
 
     private Instant now() {

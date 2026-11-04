@@ -69,7 +69,8 @@ class AdminRefundsController {
             @Nullable String decision,
             Instant requestedAt,
             @Nullable Instant finishedAt,
-            List<AdminCreditRefundPart> parts) {}
+            List<AdminCreditRefundPart> parts,
+            long version) {}
 
     record AdminCreditRefundList(List<AdminCreditRefund> refunds) {}
 
@@ -104,7 +105,8 @@ class AdminRefundsController {
                                 part.status(),
                                 part.razorpayRefundId(),
                                 part.failureReason()))
-                        .toList());
+                        .toList(),
+                refund.version());
     }
 
     /** {@code status}: requested (the default), refunding, refunded, failed, declined or all. */
@@ -121,7 +123,7 @@ class AdminRefundsController {
         return view(found(id));
     }
 
-    @RequiresPermission(AdminPermission.REFUNDS_APPROVE)
+    @RequiresPermission(value = AdminPermission.REFUNDS_APPROVE, record = "credit_refund")
     @PostMapping("/{id}/approve")
     AdminCreditRefund approve(
             @AuthenticationPrincipal CurrentUser admin,
@@ -132,7 +134,7 @@ class AdminRefundsController {
                 () -> refunds.approve(id, Paise.of(request.amountPaise()), request.reason(), audit.admin(admin))));
     }
 
-    @RequiresPermission(AdminPermission.REFUNDS_DECLINE)
+    @RequiresPermission(value = AdminPermission.REFUNDS_DECLINE, record = "credit_refund")
     @PostMapping("/{id}/decline")
     AdminCreditRefund decline(
             @AuthenticationPrincipal CurrentUser admin,

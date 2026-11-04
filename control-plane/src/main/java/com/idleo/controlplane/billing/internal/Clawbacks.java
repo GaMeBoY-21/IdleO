@@ -86,7 +86,8 @@ class Clawbacks {
             Instant createdAt,
             @Nullable Instant settledAt,
             @Nullable String waivedBy,
-            @Nullable String waiveReason) {
+            @Nullable String waiveReason,
+            long version) {
 
         long outstandingPaise() {
             return owedPaise - recoveredPaise - waivedPaise;
@@ -362,7 +363,8 @@ class Clawbacks {
                 rs.getTimestamp("created_at").toInstant(),
                 settled == null ? null : settled.toInstant(),
                 rs.getString("waived_by"),
-                rs.getString("waive_reason"));
+                rs.getString("waive_reason"),
+                rs.getLong("version"));
     }
 
     private Instant now() {

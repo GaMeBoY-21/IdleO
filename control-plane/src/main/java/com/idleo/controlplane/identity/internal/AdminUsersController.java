@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 class AdminUsersController {
 
     private static final String SELECT = """
-            select u.id, u.email, u.display_name, u.status, u.created_at,
+            select u.id, u.version, u.email, u.display_name, u.status, u.created_at,
                    (select max(e.last_sign_in_at) from identity.external_identities e where e.user_id = u.id)
                        as last_sign_in_at,
                    exists (select 1 from identity.admins a where a.user_id = u.id) as admin,
@@ -77,7 +77,9 @@ class AdminUsersController {
             @Nullable String inviteNote,
 
             @Schema(allowableValues = {"host_misconduct", "other"}) @Nullable
-            String suspensionCause) {}
+            String suspensionCause,
+
+            long version) {}
 
     /**
      * Suspending: why, in words for the audit log, and the cause, which decides whether the account's payouts are held:
@@ -138,7 +140,7 @@ class AdminUsersController {
     }
 
     /** Suspends an active account: its tokens and keys are refused from the next request. */
-    @RequiresPermission(AdminPermission.USERS_SUSPEND)
+    @RequiresPermission(value = AdminPermission.USERS_SUSPEND, record = "user")
     @PostMapping("/{id}/suspend")
     AdminUser suspend(
             @AuthenticationPrincipal CurrentUser admin,
@@ -155,7 +157,7 @@ class AdminUsersController {
     }
 
     /** Reinstates a suspended account. */
-    @RequiresPermission(AdminPermission.USERS_UNSUSPEND)
+    @RequiresPermission(value = AdminPermission.USERS_UNSUSPEND, record = "user")
     @PostMapping("/{id}/unsuspend")
     AdminUser unsuspend(
             @AuthenticationPrincipal CurrentUser admin,
@@ -238,6 +240,7 @@ class AdminUsersController {
                 rs.getBoolean("admin"),
                 rs.getLong("api_keys"),
                 rs.getString("invite_note"),
-                rs.getString("suspension_cause"));
+                rs.getString("suspension_cause"),
+                rs.getLong("version"));
     }
 }

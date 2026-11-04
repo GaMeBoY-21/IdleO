@@ -34,7 +34,8 @@ class LearnedBuilds {
             String reason,
             UUID addedBy,
             Instant createdAt,
-            boolean published) {}
+            boolean published,
+            long version) {}
 
     /** What an add or a removal came to. */
     sealed interface Result {
@@ -165,7 +166,8 @@ class LearnedBuilds {
                         rs.getString("reason"),
                         rs.getObject("added_by", UUID.class),
                         rs.getTimestamp("created_at").toInstant(),
-                        listed.contains(rs.getString("sha256"))))
+                        listed.contains(rs.getString("sha256")),
+                        rs.getLong("version")))
                 .list();
     }
 
