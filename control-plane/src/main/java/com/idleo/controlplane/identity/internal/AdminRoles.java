@@ -71,6 +71,17 @@ class AdminRoles {
             after.put("admin", true);
             if (given) {
                 after.put("role", role);
+                // Changing an admin's roles ends their sessions, however it's done (ADR 0051).
+                jdbc.sql("""
+                                update identity.admin_sessions set ended_at = :now
+                                where user_id = :userId and ended_at is null
+                                """)
+                        .param("now", Timestamp.from(Instant.now(clock).truncatedTo(ChronoUnit.MICROS)))
+                        .param("userId", userId)
+                        .update();
+                jdbc.sql("update identity.admins set version = version + 1 where user_id = :userId")
+                        .param("userId", userId)
+                        .update();
             }
             audit.record(new AuditTrail.Entry(
                     actor, "admin.grant", "user", userId.toString(), reason, Map.of("admin", inserted == 0), after));
