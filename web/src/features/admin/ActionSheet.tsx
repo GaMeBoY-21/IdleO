@@ -147,7 +147,7 @@ export function ActionSheet({
         <Dialog.Overlay className="appear fixed inset-0 z-30 bg-primary opacity-40" />
         <Dialog.Content
           data-tile=""
-          className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-narrow flex-col gap-4 rounded-panel bg-panel p-6 border border-line md:top-1/4 md:bottom-auto"
+          className="appear fixed inset-x-4 bottom-4 z-40 mx-auto flex max-h-[calc(100dvh-2rem)] max-w-narrow flex-col gap-4 overflow-y-auto rounded-panel bg-panel p-6 border border-line md:top-1/4 md:bottom-auto md:max-h-[72dvh]"
         >
           <Dialog.Title className="text-section">{title}</Dialog.Title>
           <Dialog.Description asChild>
