@@ -1,9 +1,11 @@
 package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.sessions.SessionCosts;
@@ -109,6 +111,7 @@ class AdminSessionsController {
      * Filters: {@code id} a session, {@code user} its renter, {@code host} a host it ran on, {@code state} its state
      * ({@code RUNNING}), and {@code from} and {@code to} when it was booked.
      */
+    @RequiresPermission(AdminPermission.SESSIONS_READ)
     @GetMapping
     AdminSessionPage search(
             @RequestParam(required = false) @Nullable UUID id,
@@ -151,6 +154,7 @@ class AdminSessionsController {
                 sessions.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
     }
 
+    @RequiresPermission(AdminPermission.SESSIONS_READ)
     @GetMapping("/{id}")
     AdminSession get(@PathVariable UUID id) {
         var summary = jdbc.sql(SELECT + " where id = :id")
@@ -198,6 +202,7 @@ class AdminSessionsController {
      * characters) is why, and the first page is an audit row with it; {@code nextCursor} is null once there's nothing
      * more now.
      */
+    @RequiresPermission(AdminPermission.SESSIONS_LOG_READ)
     @GetMapping("/{id}/log")
     AdminSessionLog log(
             @AuthenticationPrincipal CurrentUser admin,
@@ -222,6 +227,7 @@ class AdminSessionsController {
      * Stops a running session at once, without a checkpoint. It then settles like any stopped session: the minutes it
      * ran are charged. 409 {@code session-not-running} for a session that isn't running.
      */
+    @RequiresPermission(AdminPermission.SESSIONS_STOP)
     @PostMapping("/{id}/stop")
     AdminSession stop(
             @AuthenticationPrincipal CurrentUser admin,

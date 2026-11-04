@@ -1,5 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.DashboardFigures;
 import com.idleo.controlplane.identity.DashboardFigures.Figure;
 import java.time.Clock;
@@ -35,6 +37,7 @@ class AdminDashboardController {
             long reviewQueue,
             Instant at) {}
 
+    @RequiresPermission(AdminPermission.DASHBOARD_READ)
     @GetMapping("/admin/v1/dashboard")
     AdminDashboard dashboard() {
         var figures = collect(modules);

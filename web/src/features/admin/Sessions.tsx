@@ -26,6 +26,7 @@ import {
   Table,
   Timeline,
 } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** Sessions (ADR 0027): find them; one opens with its timeline and attempts, and can be stopped while it runs. */
 export function Sessions() {
@@ -227,14 +228,14 @@ function SessionRecord({ id }: { id: string }) {
                 ]}
               />
               {(summary.state === "RUNNING" || summary.state === "FINISHING") && (
-                <Button
+                <ActionButton permission="sessions.stop"
                   variant="ghost"
                   className="self-start"
                   onClick={() => setStopping(true)}
                   disabled={summary.state === "FINISHING"}
                 >
                   {summary.state === "FINISHING" ? "Stopping…" : "Force stop"}
-                </Button>
+                </ActionButton>
               )}
               <ActionSheet
                 open={stopping}

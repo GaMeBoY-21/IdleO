@@ -24,6 +24,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** Hosts (ADR 0027): find them; one opens with its history, GPUs, certificates and telemetry, and what can be done. */
 export function Hosts() {
@@ -317,34 +318,34 @@ function HostRecord({ id }: { id: string }) {
               ]}
             />
             <div className="flex flex-wrap gap-2">
-              <Button
+              <ActionButton permission="hosts.activate"
                 variant="ghost"
                 onClick={() => setAction("activate")}
                 disabled={found.status === "active" || found.status === "removed"}
               >
                 Activate
-              </Button>
-              <Button
+              </ActionButton>
+              <ActionButton permission="hosts.suspend"
                 variant="ghost"
                 onClick={() => setAction("suspend")}
                 disabled={found.status === "suspended" || found.status === "removed"}
               >
                 Suspend
-              </Button>
-              <Button
+              </ActionButton>
+              <ActionButton permission="hosts.certificates.revoke"
                 variant="ghost"
                 onClick={() => setAction("revoke-certificates")}
                 disabled={found.certificates.every((certificate) => certificate.revokedAt !== null)}
               >
                 Revoke certificates
-              </Button>
-              <Button
+              </ActionButton>
+              <ActionButton permission="hosts.self-test"
                 variant="ghost"
                 onClick={() => setAction("run-self-test")}
                 disabled={!selfTest.data?.canRun}
               >
                 Run self-test
-              </Button>
+              </ActionButton>
               <Link href={`/admin/sessions/?host=${found.id}`} className={buttonClasses("ghost")}>
                 Sessions it ran
               </Link>

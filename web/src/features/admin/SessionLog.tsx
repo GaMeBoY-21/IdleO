@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { Empty, PagedView, Section } from "./ui";
+import { ActionButton } from "./permissions";
 
 /**
  * A session's log, for judging a report or gathering a chargeback's evidence (ADR 0039). It's the renter's own job's
@@ -32,9 +33,9 @@ export function SessionLog({ sessionId, purpose }: { sessionId: string; purpose:
       title="The session's log"
       action={
         reason === null ? (
-          <Button variant="ghost" onClick={() => setAsking(true)}>
+          <ActionButton permission="sessions.log.read" variant="ghost" onClick={() => setAsking(true)}>
             Read the log
-          </Button>
+          </ActionButton>
         ) : undefined
       }
     >

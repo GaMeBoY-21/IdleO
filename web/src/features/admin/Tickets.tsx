@@ -25,6 +25,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ActionButton, useCan } from "./permissions";
 
 /** The topics, as the server lists them (Tickets.TOPICS), for the filter. */
 const TOPICS: [string, string][] = [
@@ -145,6 +146,7 @@ function TicketQueue() {
 
 function TicketRecord({ id }: { id: string }) {
   const client = useQueryClient();
+  const can = useCan();
   const thread = useQuery({
     queryKey: [ADMIN, "ticket", id],
     queryFn: () => adminData(adminApi.GET("/admin/v1/tickets/{id}", { params: { path: { id } } })),
@@ -216,14 +218,16 @@ function TicketRecord({ id }: { id: string }) {
               />
               <div className="flex flex-wrap gap-3">
                 {STATUSES.filter((status) => status !== ticket.status).map((status) => (
-                  <Button key={status} variant="ghost" onClick={() => setChanging(status)}>
+                  <ActionButton permission="tickets.reply" key={status} variant="ghost" onClick={() => setChanging(status)}>
                     Mark {STATUS[status]?.toLowerCase()}
-                  </Button>
+                  </ActionButton>
                 ))}
               </div>
             </Section>
             {(ticket.topic === "privacy" || ticket.topic === "grievance") && ticket.userId && (
-              <PrivacyRequest userId={ticket.userId} onExport={() => setExporting(true)} />
+              {can("privacy.read") && (
+                <PrivacyRequest userId={ticket.userId} onExport={() => setExporting(true)} />
+              )}
             )}
             <Section title="Messages">
               <ol className="flex flex-col gap-3">
@@ -286,9 +290,9 @@ function TicketRecord({ id }: { id: string }) {
                     ["open", "Still open"],
                   ]}
                 />
-                <Button type="submit" busy={sending} className="self-start" disabled={!ticket.replyTo}>
+                <ActionButton permission="tickets.reply" type="submit" busy={sending} className="self-start" disabled={!ticket.replyTo}>
                   Send the answer
-                </Button>
+                </ActionButton>
               </form>
             </Section>
             <ActionSheet
@@ -343,9 +347,9 @@ function PrivacyRequest({ userId, onExport }: { userId: string; onExport: () => 
     <Section
       title="Privacy request"
       action={
-        <Button variant="ghost" onClick={onExport}>
+        <ActionButton permission="privacy.export" variant="ghost" onClick={onExport}>
           Start an export
-        </Button>
+        </ActionButton>
       }
     >
       <Fields

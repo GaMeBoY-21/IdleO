@@ -8,6 +8,7 @@ import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminCreditRefund } from "./api";
 import { refundProblem } from "./rules";
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, SmallField, SmallSelect, Table } from "./ui";
+import { ActionButton } from "./permissions";
 
 /**
  * Refunds of bought credit (ADR 0039): requests waiting for an answer, oldest first, each with what the renter can have
@@ -112,7 +113,7 @@ export function Refunds() {
                 <Cell>
                   {refund.status === "requested" && (
                     <div className="flex gap-1">
-                      <Button
+                      <ActionButton permission="refunds.approve"
                         variant="quiet"
                         onClick={() => {
                           setRupees(
@@ -127,10 +128,10 @@ export function Refunds() {
                         }}
                       >
                         Approve<span className="sr-only"> refund for {refund.userId}</span>
-                      </Button>
-                      <Button variant="quiet" onClick={() => setActing({ refund, approve: false })}>
+                      </ActionButton>
+                      <ActionButton permission="refunds.decline" variant="quiet" onClick={() => setActing({ refund, approve: false })}>
                         Decline<span className="sr-only"> refund for {refund.userId}</span>
-                      </Button>
+                      </ActionButton>
                     </div>
                   )}
                 </Cell>

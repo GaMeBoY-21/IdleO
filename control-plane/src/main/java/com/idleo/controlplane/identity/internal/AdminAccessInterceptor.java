@@ -1,0 +1,66 @@
+package com.idleo.controlplane.identity.internal;
+
+import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.CurrentUser;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+/**
+ * The one check of an admin's permission (ADR 0051), on the handler itself rather than its path, so however a path is
+ * spelt it meets the same rule. By now the security chain has seen an admin with a live admin session; this answers
+ * whether that admin may do this: 403 {@code admin-permission-required}, naming what's missing.
+ */
+@Configuration(proxyBeanMethods = false)
+@ConditionalOnWebApplication
+class AdminAccessInterceptor implements HandlerInterceptor, WebMvcConfigurer {
+
+    private final AdminPermissions permissions;
+
+    AdminAccessInterceptor(AdminPermissions permissions) {
+        this.permissions = permissions;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(this);
+    }
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        if (!(handler instanceof HandlerMethod method)) {
+            return true;
+        }
+        var declared = method.getMethodAnnotation(RequiresPermission.class);
+        if (declared == null) {
+            return true;
+        }
+        var permission = declared.value();
+        if (permission != AdminPermission.SELF
+                && !permissions.has(currentAdmin().id(), permission)) {
+            throw ApiProblem.of(
+                    Problem.ADMIN_PERMISSION_REQUIRED,
+                    "You need the " + permission.key() + " permission for this. An Owner can grant a role that has it.",
+                    "permission",
+                    permission.key());
+        }
+        return true;
+    }
+
+    private static CurrentUser currentAdmin() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof CurrentUser user) {
+            return user;
+        }
+        throw new IllegalStateException("an admin endpoint was reached without its security chain");
+    }
+}

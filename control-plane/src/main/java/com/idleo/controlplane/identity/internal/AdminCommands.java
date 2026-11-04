@@ -11,11 +11,13 @@ import org.springframework.context.annotation.Profile;
  * The admin role's operator commands (ADR 0027, docs/runbooks/admin.md), the only way to grant or take it:
  *
  * <pre>
- * grant-admin &lt;email&gt; --reason "&lt;text&gt;"
+ * grant-admin &lt;email&gt; --reason "&lt;text&gt;" [--role &lt;role&gt;]
  * revoke-admin &lt;email&gt; --reason "&lt;text&gt;"
  * </pre>
  *
  * Revoking and granting again is also how an admin locked out by wrong codes gets back in, with a fresh enrolment.
+ * {@code --role} (owner, operations, support, trust_safety, finance or auditor) is how the first Owner exists; after
+ * that an Owner grants roles in the console, where a second person checks it (ADR 0051).
  */
 @Configuration(proxyBeanMethods = false)
 @Profile("ops")
@@ -23,18 +25,24 @@ class AdminCommands {
 
     @Bean
     OperatorCommand grantAdmin(AdminRoles roles) {
-        return command("grant-admin", (email, reason, operator) -> {
-            var change = roles.grant(email, reason, AuditTrail.Actor.operator(operator));
-            return change.changed()
-                    ? "user " + change.userId() + " (" + email + ") is now an admin; they enrol a second factor at"
-                            + " their first visit to /admin, by " + operator
-                    : "user " + change.userId() + " (" + email + ") is already an admin; nothing changed";
-        });
+        return command(
+                "grant-admin", "<email> --reason \"<text>\" [--role <role>]", (args, email, reason, operator) -> {
+                    var change = roles.grant(
+                            email,
+                            reason,
+                            AuditTrail.Actor.operator(operator),
+                            args.optional("role").orElse(null));
+                    return change.changed()
+                            ? "user " + change.userId() + " (" + email
+                                    + ") is now an admin; they enrol a second factor at"
+                                    + " their first visit to /admin, by " + operator
+                            : "user " + change.userId() + " (" + email + ") is already an admin; nothing changed";
+                });
     }
 
     @Bean
     OperatorCommand revokeAdmin(AdminRoles roles) {
-        return command("revoke-admin", (email, reason, operator) -> {
+        return command("revoke-admin", "<email> --reason \"<text>\"", (args, email, reason, operator) -> {
             var change = roles.revoke(email, reason, AuditTrail.Actor.operator(operator));
             return change.changed()
                     ? "user " + change.userId() + " (" + email + ") is no longer an admin; their second factor,"
@@ -44,10 +52,10 @@ class AdminCommands {
     }
 
     private interface Action {
-        String apply(String email, String reason, String operator);
+        String apply(OperatorCommand.Arguments args, String email, String reason, String operator);
     }
 
-    private static OperatorCommand command(String name, Action action) {
+    private static OperatorCommand command(String name, String usage, Action action) {
         return new OperatorCommand() {
             @Override
             public String name() {
@@ -56,7 +64,7 @@ class AdminCommands {
 
             @Override
             public String usage() {
-                return "<email> --reason \"<text>\"";
+                return usage;
             }
 
             @Override
@@ -69,7 +77,7 @@ class AdminCommands {
                 var email = args.operand(0);
                 var reason = args.text("reason");
                 try {
-                    out.println(action.apply(email, reason, operator));
+                    out.println(action.apply(args, email, reason, operator));
                 } catch (AdminRoles.Refused e) {
                     throw new Refused(e.getMessage());
                 }

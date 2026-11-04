@@ -8284,9 +8284,19 @@ components:
           - string
           - "null"
           format: date-time
+        permissions:
+          type: array
+          items:
+            type: string
+        roles:
+          type: array
+          items:
+            type: string
       required:
       - active
       - enrolled
+      - permissions
+      - roles
     AdminSessionSummary:
       type: object
       properties:
@@ -11309,6 +11319,7 @@ components:
           - /problems/admin-code-invalid
           - /problems/second-factor-exists
           - /problems/second-factor-missing
+          - /problems/admin-permission-required
           - /problems/action-refused
           - /problems/storage-unavailable
           - /problems/internal-error

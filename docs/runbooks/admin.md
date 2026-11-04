@@ -7,17 +7,18 @@ The console at `/admin/` runs the pilot from a browser (ADR 0027): hosts, users,
 Only an operator command can, after the person has signed in to the web app at least once with a verified email:
 
 ```
-OPERATOR=<handle> java -jar control-plane.jar --spring.profiles.active=prod,ops grant-admin nikki@example.com --reason "runs the pilot"
+OPERATOR=<handle> java -jar control-plane.jar --spring.profiles.active=prod,ops grant-admin nikki@example.com --reason "runs the pilot" --role owner
 ```
 
 Locally, against the `scripts/e2e/agent-online.sh --keep-running` stack:
 
 ```
-COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<handle> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="grant-admin nikki@example.com --reason 'local admin'"
+COMPOSE_PROJECT_NAME=idleo-e2e OPERATOR=<handle> ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=local,ops -Dspring-boot.run.arguments="grant-admin nikki@example.com --reason 'local admin' --role owner"
 ```
 
 - It's refused (exit 3) for an email nobody has signed in with, an account that isn't active, or an email two accounts share; it names their ids.
-- Granting someone who's already an admin changes nothing.
+- Granting someone who's already an admin, with no new role, changes nothing.
+- `--role` is owner, operations, support, trust_safety, finance or auditor (ADR 0051 lists what each may do). Without it they can sign in and see nothing else.
 - `revoke-admin <email> --reason "<why>"` takes the role away, with their authenticator, recovery codes and every admin session.
 
 Both are in the audit log (`admin.grant`, `admin.revoke`), with your `OPERATOR` name.

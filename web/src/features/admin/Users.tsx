@@ -24,6 +24,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ActionButton, useCan } from "./permissions";
 
 /** Users (ADR 0027): find them by email, name or id; one opens with what can be done to it. */
 export function Users() {
@@ -116,6 +117,7 @@ type Action = "suspend" | "unsuspend" | "grant" | { reverse: AdminCreditGrant };
 
 function UserRecord({ id }: { id: string }) {
   const client = useQueryClient();
+  const can = useCan();
   const user = useQuery({
     queryKey: [ADMIN, "user", id],
     queryFn: () => adminData(adminApi.GET("/admin/v1/users/{id}", { params: { path: { id } } })),
@@ -123,6 +125,7 @@ function UserRecord({ id }: { id: string }) {
   const grants = useQuery({
     queryKey: [ADMIN, "grants", id],
     queryFn: () => adminData(adminApi.GET("/admin/v1/credit-grants", { params: { query: { user: id } } })),
+    enabled: can("money.read"),
   });
   const [action, setAction] = useState<Action | null>(null);
   // Why an account is suspended decides whether its payouts are held (ADR 0041).
@@ -181,17 +184,17 @@ function UserRecord({ id }: { id: string }) {
             />
             <div className="flex flex-wrap gap-2">
               {found.status === "suspended" ? (
-                <Button variant="ghost" onClick={() => open("unsuspend")}>
+                <ActionButton permission="users.unsuspend" variant="ghost" onClick={() => open("unsuspend")}>
                   Reinstate
-                </Button>
+                </ActionButton>
               ) : (
-                <Button variant="ghost" onClick={() => open("suspend")} disabled={found.status !== "active"}>
+                <ActionButton permission="users.suspend" variant="ghost" onClick={() => open("suspend")} disabled={found.status !== "active"}>
                   Suspend
-                </Button>
+                </ActionButton>
               )}
-              <Button variant="ghost" onClick={() => open("grant")}>
+              <ActionButton permission="money.adjust" variant="ghost" onClick={() => open("grant")}>
                 Grant credit
-              </Button>
+              </ActionButton>
               <Link href={`/admin/sessions/?user=${found.id}`} className={buttonClasses("ghost")}>
                 Their sessions
               </Link>
@@ -271,6 +274,7 @@ function UserRecord({ id }: { id: string }) {
           </>
         )}
       </QueryView>
+      {can("money.read") && (
       <Section title="Credit grants">
         <QueryView
           query={grants}
@@ -306,9 +310,9 @@ function UserRecord({ id }: { id: string }) {
                   </Cell>
                   <Cell>
                     {grant.reversalId === null && (
-                      <Button variant="quiet" onClick={() => open({ reverse: grant })}>
+                      <ActionButton permission="money.adjust" variant="quiet" onClick={() => open({ reverse: grant })}>
                         Reverse<span className="sr-only"> the grant of {formatPaise(grant.amountPaise)}</span>
-                      </Button>
+                      </ActionButton>
                     )}
                   </Cell>
                 </Row>
@@ -317,6 +321,7 @@ function UserRecord({ id }: { id: string }) {
           )}
         </QueryView>
       </Section>
+      )}
       {action !== null && typeof action === "object" && (
         <ActionSheet
           open

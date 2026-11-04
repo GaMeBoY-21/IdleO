@@ -1,5 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.RequiresPermission;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,6 +20,7 @@ class AdminInstallsController {
         this.installs = installs;
     }
 
+    @RequiresPermission(AdminPermission.HOSTS_READ)
     @GetMapping("/admin/v1/installs")
     HostInstalls.InstallsSummary installs() {
         return installs.summary();

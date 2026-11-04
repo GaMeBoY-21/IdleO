@@ -32,6 +32,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** What a signal is, in the admin's words. */
 const SIGNALS: Record<string, string> = {
@@ -197,12 +198,12 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
             {waiting.has(signal.sha256) ? (
               <Pill tone="plain">On the list to publish</Pill>
             ) : (
-              <Button
+              <ActionButton permission="abuse.blocklist"
                 variant="ghost"
                 onClick={() => setAdding({ sha256: signal.sha256, name: signal.detail })}
               >
                 Add this program&apos;s hash to the blocklist
-              </Button>
+              </ActionButton>
             )}
           </li>
         ))}
@@ -270,10 +271,10 @@ function WaitingBuilds() {
                 </Cell>
                 <Cell>{entry.published ? "In the published list" : "Waiting to be published"}</Cell>
                 <Cell>
-                  <Button variant="ghost" onClick={() => setRemoving(entry)}>
+                  <ActionButton permission="abuse.blocklist" variant="ghost" onClick={() => setRemoving(entry)}>
                     Take back
                     <span className="sr-only"> {entry.name}</span>
-                  </Button>
+                  </ActionButton>
                 </Cell>
               </Row>
             ))}
@@ -328,18 +329,18 @@ function AbuseRecord({ id }: { id: string }) {
             {found.item.state !== "cleared" && (
               <div className="flex flex-wrap gap-2">
                 {found.item.state === "open" && (
-                  <Button variant="ghost" onClick={() => setDeciding("confirm")}>
+                  <ActionButton permission="abuse.decide" variant="ghost" onClick={() => setDeciding("confirm")}>
                     Confirm
-                  </Button>
+                  </ActionButton>
                 )}
                 {!found.item.banned && (
-                  <Button variant="ghost" onClick={() => setDeciding("ban")}>
+                  <ActionButton permission="abuse.decide" variant="ghost" onClick={() => setDeciding("ban")}>
                     Confirm and ban
-                  </Button>
+                  </ActionButton>
                 )}
-                <Button variant="primary" onClick={() => setDeciding("clear")}>
+                <ActionButton permission="abuse.clear" variant="primary" onClick={() => setDeciding("clear")}>
                   Clear and refund
-                </Button>
+                </ActionButton>
               </div>
             )}
             <ActionSheet
@@ -419,9 +420,9 @@ function AbuseRecord({ id }: { id: string }) {
                   error={noteError ?? undefined}
                   hint="The note is its own reason in the audit log. No email or address."
                 />
-                <Button type="submit" variant="ghost" busy={saving} className="self-start">
+                <ActionButton permission="abuse.decide" type="submit" variant="ghost" busy={saving} className="self-start">
                   Add the note
-                </Button>
+                </ActionButton>
               </form>
             </Section>
           </>

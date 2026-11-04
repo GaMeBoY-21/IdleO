@@ -1,9 +1,11 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -88,6 +90,7 @@ class AdminClawbacksController {
     }
 
     /** {@code state}: owed (the default), recovered, waived or all; newest first. */
+    @RequiresPermission(AdminPermission.CLAWBACKS_READ)
     @GetMapping
     AdminClawbackPage list(
             @RequestParam(defaultValue = "owed") String state,
@@ -104,6 +107,7 @@ class AdminClawbacksController {
                 rows.size() > size ? AdminPages.cursorAfter(shown.getLast().id()) : null);
     }
 
+    @RequiresPermission(AdminPermission.CLAWBACKS_WAIVE)
     @PostMapping("/{id}/waive")
     AdminClawback waive(
             @AuthenticationPrincipal CurrentUser admin,

@@ -46,6 +46,10 @@ public final class TestAdmins {
     public static TestAdmin signIn(MockMvc mvc, JdbcTemplate jdbc, Clock clock, Duration lifetime) throws Exception {
         var user = TestUsers.signUpLasting(mvc, lifetime);
         grant(jdbc, user.id());
+        return enrol(mvc, user, clock);
+    }
+
+    private static TestAdmin enrol(MockMvc mvc, TestUsers.TestUser user, Clock clock) throws Exception {
         var enrolment =
                 JSON.readTree(mvc.perform(post("/admin/v1/second-factor").header("Authorization", user.bearer()))
                         .andExpect(status().isCreated())
@@ -83,9 +87,28 @@ public final class TestAdmins {
                 .asString();
     }
 
-    /** Makes the user an admin, as {@code grant-admin} does. */
+    /** Makes the user an admin and an Owner, as {@code grant-admin --role owner} does. */
     public static void grant(JdbcTemplate jdbc, UUID userId) {
+        grant(jdbc, userId, "owner");
+    }
+
+    /** Makes the user an admin holding these roles, none for an admin who may only sign in. */
+    public static void grant(JdbcTemplate jdbc, UUID userId, String... roles) {
         jdbc.update("insert into identity.admins (user_id, granted_by, granted_at) values (?, 'tests', now())", userId);
+        for (var role : roles) {
+            jdbc.update(
+                    "insert into identity.admin_role_grants (user_id, role_id, granted_by, granted_at)"
+                            + " values (?, ?, 'tests', now())",
+                    userId,
+                    role);
+        }
+    }
+
+    /** A new admin holding exactly these roles, enrolled, with an admin session. */
+    public static TestAdmin signInAs(MockMvc mvc, JdbcTemplate jdbc, Clock clock, String... roles) throws Exception {
+        var user = TestUsers.signUpLasting(mvc, Duration.ofHours(12));
+        grant(jdbc, user.id(), roles);
+        return enrol(mvc, user, clock);
     }
 
     /** The code an authenticator shows now. */

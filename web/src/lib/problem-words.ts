@@ -98,6 +98,7 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
     "That code isn't right, or was already used. Five wrong codes in 15 minutes lock admin access.",
   "second-factor-exists": "Your authenticator is already set up. Sign in with a code from it.",
   "second-factor-missing": "Set up your authenticator first, then sign in with a code from it.",
+  "admin-permission-required": "Your roles don't include what this needs. The reason names the permission.",
   "action-refused": "That was refused, and nothing changed. The reason is shown below.",
   "payments-unavailable": "Payments can't be taken just now. No money moved; try again in a little while.",
   "top-up-out-of-limits": "That amount is outside what you can add. The amount field says what you can.",

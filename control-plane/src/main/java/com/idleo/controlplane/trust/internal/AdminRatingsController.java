@@ -1,6 +1,8 @@
 package com.idleo.controlplane.trust.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.RequiresPermission;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +43,7 @@ class AdminRatingsController {
             List<AdminRating> ratings, @Nullable String nextCursor) {}
 
     /** Filters: {@code host} the host rated, {@code session} one session's. */
+    @RequiresPermission(AdminPermission.RATINGS_READ)
     @GetMapping
     AdminRatingPage list(
             @RequestParam(required = false) @Nullable UUID host,

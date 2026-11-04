@@ -1,7 +1,9 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -37,18 +39,25 @@ class AdminSessionController {
 
     private final AdminSecondFactor secondFactor;
     private final AdminSessions sessions;
+    private final AdminPermissions permissions;
 
-    AdminSessionController(AdminSecondFactor secondFactor, AdminSessions sessions) {
+    AdminSessionController(AdminSecondFactor secondFactor, AdminSessions sessions, AdminPermissions permissions) {
         this.secondFactor = secondFactor;
         this.sessions = sessions;
+        this.permissions = permissions;
     }
 
     /**
      * Where the admin stands: whether their authenticator is set up, and whether the admin session in the header is
-     * live, with when it lapses unless used.
+     * live, with when it lapses unless used. With a live session it also says what the admin may do, so the console
+     * shows only that; the server still judges every call.
      */
     record AdminSessionStatus(
-            boolean enrolled, boolean active, @Nullable Instant expiresAt) {}
+            boolean enrolled,
+            boolean active,
+            @Nullable Instant expiresAt,
+            List<String> roles,
+            List<String> permissions) {}
 
     /** A new authenticator secret, shown once: as text to type in, and as a link for a QR code. */
     record AdminEnrolment(String secret, String otpauthUri) {}
@@ -70,6 +79,7 @@ class AdminSessionController {
     /** The admin session, and the ten recovery codes, each usable once instead of a code, shown only now. */
     record AdminEnrolmentConfirmed(String token, Instant expiresAt, List<String> recoveryCodes) {}
 
+    @RequiresPermission(AdminPermission.SELF)
     @GetMapping("/session")
     AdminSessionStatus status(
             @AuthenticationPrincipal CurrentUser user,
@@ -82,9 +92,24 @@ class AdminSessionController {
         var expiry = token == null
                 ? null
                 : sessions.expiry(user.id(), identity(authentication), token).orElse(null);
-        return new AdminSessionStatus(admin.enrolled(), expiry != null, expiry);
+        if (expiry == null) {
+            return new AdminSessionStatus(admin.enrolled(), false, null, List.of(), List.of());
+        }
+        return new AdminSessionStatus(
+                admin.enrolled(),
+                true,
+                expiry,
+                permissions.rolesOf(user.id()).stream()
+                        .map(AdminPermissions.Role::name)
+                        .toList(),
+                permissions.of(user.id()).stream()
+                        .filter(permission -> permission != AdminPermission.SELF)
+                        .map(AdminPermission::key)
+                        .sorted()
+                        .toList());
     }
 
+    @RequiresPermission(AdminPermission.SELF)
     @PostMapping("/second-factor")
     @ResponseStatus(HttpStatus.CREATED)
     AdminEnrolment enrol(@AuthenticationPrincipal CurrentUser user) {
@@ -95,6 +120,7 @@ class AdminSessionController {
         return new AdminEnrolment(enrolment.secret(), enrolment.otpauthUri());
     }
 
+    @RequiresPermission(AdminPermission.SELF)
     @PostMapping("/second-factor/confirm")
     AdminEnrolmentConfirmed confirm(
             @AuthenticationPrincipal CurrentUser user,
@@ -105,6 +131,7 @@ class AdminSessionController {
                 accepted.session().token(), accepted.session().expiresAt(), accepted.recoveryCodes());
     }
 
+    @RequiresPermission(AdminPermission.SELF)
     @PostMapping("/session")
     AdminSessionResponse start(
             @AuthenticationPrincipal CurrentUser user,
@@ -119,6 +146,7 @@ class AdminSessionController {
                 accepted.session().token(), accepted.session().expiresAt());
     }
 
+    @RequiresPermission(AdminPermission.SELF)
     @DeleteMapping("/session")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void end(

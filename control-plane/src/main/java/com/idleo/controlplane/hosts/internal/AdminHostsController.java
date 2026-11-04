@@ -1,9 +1,11 @@
 package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.hosts.HostPresence;
 import com.idleo.controlplane.hosts.HostTelemetry;
 import com.idleo.controlplane.identity.AuditTrail;
@@ -178,6 +180,7 @@ class AdminHostsController {
      * {@code query} is part of a host's name, or a whole host or owner id; {@code status} is pending, verified, active,
      * suspended or removed.
      */
+    @RequiresPermission(AdminPermission.HOSTS_READ)
     @GetMapping
     AdminHostPage search(
             @RequestParam(required = false) @Nullable String query,
@@ -240,12 +243,14 @@ class AdminHostsController {
                 rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
     }
 
+    @RequiresPermission(AdminPermission.HOSTS_READ)
     @GetMapping("/{id}")
     AdminHost get(@PathVariable UUID id) {
         return find(id);
     }
 
     /** Activates a host whose agent has enrolled, listed and reported a GPU. */
+    @RequiresPermission(AdminPermission.HOSTS_ACTIVATE)
     @PostMapping("/{id}/activate")
     AdminHost activate(
             @AuthenticationPrincipal CurrentUser admin,
@@ -257,6 +262,7 @@ class AdminHostsController {
     }
 
     /** Suspends a host: it gets no new work, and its agent is refused at its next connection. */
+    @RequiresPermission(AdminPermission.HOSTS_SUSPEND)
     @PostMapping("/{id}/suspend")
     AdminHost suspend(
             @AuthenticationPrincipal CurrentUser admin,
@@ -268,6 +274,7 @@ class AdminHostsController {
     }
 
     /** The host's newest self-test run and whether another can start (the same as the owner's page). */
+    @RequiresPermission(AdminPermission.HOSTS_READ)
     @GetMapping("/{id}/self-test")
     SelfTestRuns.SelfTestStatus selfTest(@PathVariable UUID id) {
         find(id);
@@ -275,6 +282,7 @@ class AdminHostsController {
     }
 
     /** Asks the host's agent to run its full self-test now. Audited, with the admin's reason. */
+    @RequiresPermission(AdminPermission.HOSTS_SELF_TEST)
     @PostMapping("/{id}/self-tests")
     SelfTestRuns.SelfTestStatus runSelfTest(
             @AuthenticationPrincipal CurrentUser admin,
@@ -286,6 +294,7 @@ class AdminHostsController {
     }
 
     /** Revokes every certificate the host has: its agent is cut off until its owner enrols it again. */
+    @RequiresPermission(AdminPermission.HOSTS_CERTIFICATES_REVOKE)
     @PostMapping("/{id}/revoke-certificates")
     AdminHost revokeCertificates(
             @AuthenticationPrincipal CurrentUser admin,

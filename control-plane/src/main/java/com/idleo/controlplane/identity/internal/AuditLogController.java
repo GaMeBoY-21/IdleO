@@ -1,6 +1,8 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.RequiresPermission;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -57,6 +59,7 @@ class AuditLogController {
      * start of one ({@code host.} for every host action), {@code targetType} and {@code targetId} exact, and {@code
      * from} and {@code to} a time range.
      */
+    @RequiresPermission(AdminPermission.AUDIT_READ)
     @GetMapping
     AuditPage list(
             @RequestParam(required = false) @Nullable String actor,

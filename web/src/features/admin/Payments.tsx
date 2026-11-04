@@ -20,6 +20,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** What each kind of disagreement means, for the admin who has to put it right (docs/runbooks/payments.md). */
 export const MISMATCH_WORDS: Record<string, string> = {
@@ -163,9 +164,9 @@ function Reconciliation() {
     <Section
       title="Razorpay against the ledger"
       action={
-        <Button variant="ghost" onClick={() => setRunning(true)}>
+        <ActionButton permission="reconciliation.run" variant="ghost" onClick={() => setRunning(true)}>
           Run a day now
-        </Button>
+        </ActionButton>
       }
     >
       <div className="flex">
@@ -223,9 +224,9 @@ function Reconciliation() {
                     </Cell>
                     <Cell>
                       {item.state === "open" && (
-                        <Button variant="quiet" onClick={() => setAccepting(item)}>
+                        <ActionButton permission="reconciliation.accept" variant="quiet" onClick={() => setAccepting(item)}>
                           Accept<span className="sr-only"> {item.subject}</span>
-                        </Button>
+                        </ActionButton>
                       )}
                     </Cell>
                   </Row>

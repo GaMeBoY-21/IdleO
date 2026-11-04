@@ -1,9 +1,11 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -140,6 +142,7 @@ class AdminPaymentsController {
     record AdminChargebackList(List<AdminChargeback> chargebacks) {}
 
     /** {@code query}: a renter's id, a top-up's id, or Razorpay's order or payment id. */
+    @RequiresPermission(AdminPermission.PAYMENTS_READ)
     @GetMapping("/payments")
     AdminPaymentList payments(@RequestParam String query) {
         return new AdminPaymentList(
@@ -147,6 +150,7 @@ class AdminPaymentsController {
     }
 
     /** {@code state}: open (the default), fixed, accepted or all. */
+    @RequiresPermission(AdminPermission.PAYMENTS_READ)
     @GetMapping("/payments/reconciliation")
     AdminPaymentReconciliation reconciliation(@RequestParam(defaultValue = "open") String state) {
         return new AdminPaymentReconciliation(
@@ -158,12 +162,14 @@ class AdminPaymentsController {
                         .toList());
     }
 
+    @RequiresPermission(AdminPermission.RECONCILIATION_RUN)
     @PostMapping("/payments/reconciliation")
     AdminPaymentReconciliationRun runReconciliation(
             @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RunPaymentReconciliation request) {
         return run(refusing(() -> reconciliation.run(request.day(), audit.admin(admin), request.reason())));
     }
 
+    @RequiresPermission(AdminPermission.RECONCILIATION_ACCEPT)
     @PostMapping("/payments/mismatches/{id}/accept")
     AdminPaymentMismatch accept(
             @AuthenticationPrincipal CurrentUser admin,
@@ -176,6 +182,7 @@ class AdminPaymentsController {
     }
 
     /** The open ones by the date evidence is due (the default), or {@code all}, the newest first. */
+    @RequiresPermission(AdminPermission.PAYMENTS_READ)
     @GetMapping("/chargebacks")
     AdminChargebackList chargebacks(@RequestParam(defaultValue = "open") String state) {
         return new AdminChargebackList(chargebacks.list(!state.equals("all"), 100).stream()
@@ -183,6 +190,7 @@ class AdminPaymentsController {
                 .toList());
     }
 
+    @RequiresPermission(AdminPermission.PAYMENTS_READ)
     @GetMapping("/chargebacks/{id}")
     AdminChargeback chargeback(@PathVariable UUID id) {
         return chargeback(chargebacks

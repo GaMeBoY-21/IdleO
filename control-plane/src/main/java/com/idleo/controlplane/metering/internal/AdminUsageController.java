@@ -1,7 +1,9 @@
 package com.idleo.controlplane.metering.internal;
 
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -72,6 +74,7 @@ class AdminUsageController {
             List<AdminSettlement> settlements,
             List<AdminWaiver> waivers) {}
 
+    @RequiresPermission(AdminPermission.SESSIONS_READ)
     @GetMapping("/admin/v1/sessions/{id}/usage")
     AdminUsage get(@PathVariable UUID id) {
         boolean metered = jdbc.sql("select exists (select 1 from metering.metered_sessions where session_id = :id)")

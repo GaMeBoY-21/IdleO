@@ -1,8 +1,10 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.NoContactDetails;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -82,6 +84,7 @@ class AdminInvitesController {
     record AdminInvitePage(
             List<AdminInvite> invites, @Nullable String nextCursor) {}
 
+    @RequiresPermission(AdminPermission.INVITES_CREATE)
     @PostMapping
     @ApiResponse(
             responseCode = "201",
@@ -101,6 +104,7 @@ class AdminInvitesController {
     }
 
     /** Every code, newest first; {@code used} true or false keeps only the used or the unused ones. */
+    @RequiresPermission(AdminPermission.INVITES_READ)
     @GetMapping
     AdminInvitePage list(
             @RequestParam(required = false) @Nullable Boolean used,

@@ -1,6 +1,8 @@
 package com.idleo.controlplane.privacy.internal;
 
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -42,6 +44,7 @@ class AdminDeletionsController {
     /** The person's latest request, if any, and what stops deletion now. */
     record AdminDeletion(Deletions.@Nullable DeletionRequest request, List<String> blockers) {}
 
+    @RequiresPermission(AdminPermission.PRIVACY_READ)
     @GetMapping("/deletion")
     AdminDeletion get(@PathVariable UUID id) {
         var standing = deletions.standing(id);
@@ -51,6 +54,7 @@ class AdminDeletionsController {
     }
 
     /** Erases the account at the next run of the erasure job, under a legal order the reason names. Audited. */
+    @RequiresPermission(AdminPermission.PRIVACY_LEGAL_ORDER)
     @PostMapping("/deletion/legal-order")
     AdminDeletion legalOrder(
             @AuthenticationPrincipal CurrentUser admin,
@@ -64,6 +68,7 @@ class AdminDeletionsController {
      * Starts an export of everything for the person, as their privacy request asks (ADR 0037): emailed to them when
      * it's ready, like one they asked for themselves, and under the same limits. Audited.
      */
+    @RequiresPermission(AdminPermission.PRIVACY_EXPORT)
     @PostMapping("/exports")
     Exports.Export export(
             @AuthenticationPrincipal CurrentUser admin,

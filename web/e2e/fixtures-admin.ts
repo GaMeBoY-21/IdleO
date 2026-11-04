@@ -17,9 +17,72 @@ export const SESSION_ID = "01a1340a-0000-7000-8000-00000000c001";
 export const GRANT_ID = "01a1340a-0000-7000-8000-00000000d001";
 
 /** Where the admin stands: an admin who hasn't set up, one who has but has no session, and one inside. */
-export const notEnrolled = { enrolled: false, active: false, expiresAt: null };
-export const enrolled = { enrolled: true, active: false, expiresAt: null };
-export const inside = { enrolled: true, active: true, expiresAt: later(1 / 48) };
+/** Every permission there is: the Owner's (control-plane/src/test/resources/admin-permission-matrix.csv). */
+export const EVERY_PERMISSION = [
+  "abuse.blocklist",
+  "abuse.clear",
+  "abuse.decide",
+  "abuse.read",
+  "audit.read",
+  "clawbacks.read",
+  "clawbacks.waive",
+  "dashboard.read",
+  "disputes.decide",
+  "disputes.read",
+  "disputes.refund",
+  "export.create",
+  "hosts.activate",
+  "hosts.certificates.revoke",
+  "hosts.read",
+  "hosts.self-test",
+  "hosts.suspend",
+  "images.block",
+  "images.read",
+  "images.unblock",
+  "invites.create",
+  "invites.read",
+  "invoices.credit-note",
+  "invoices.read",
+  "money.adjust",
+  "money.read",
+  "notices.publish",
+  "payments.read",
+  "payouts.read",
+  "payouts.release",
+  "payouts.run",
+  "privacy.export",
+  "privacy.legal-order",
+  "privacy.read",
+  "ratings.read",
+  "reconciliation.accept",
+  "reconciliation.run",
+  "refunds.approve",
+  "refunds.decline",
+  "refunds.read",
+  "review.charge",
+  "review.read",
+  "review.waive",
+  "sessions.log.read",
+  "sessions.read",
+  "sessions.stop",
+  "tickets.read",
+  "tickets.reply",
+  "users.pii.reveal",
+  "users.read",
+  "users.suspend",
+  "users.unsuspend",
+  "verifications.decide",
+  "verifications.read",
+];
+export const notEnrolled = { enrolled: false, active: false, expiresAt: null, roles: [], permissions: [] };
+export const enrolled = { enrolled: true, active: false, expiresAt: null, roles: [], permissions: [] };
+export const inside = {
+  enrolled: true,
+  active: true,
+  expiresAt: later(1 / 48),
+  roles: ["Owner"],
+  permissions: EVERY_PERMISSION,
+};
 
 /** RFC 6238's test secret ("12345678901234567890"), as an enrolment shows it. */
 export const enrolment = {

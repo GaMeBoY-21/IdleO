@@ -88,7 +88,7 @@ class AdminRolesTests {
                 .hasMessageContaining("has signed in");
         var suspended = TestUsers.signUp(mvc);
         jdbc.update("update identity.users set status = 'suspended' where id = ?", suspended.id());
-        assertThatThrownBy(() -> roles.grant(email(suspended.id()), "x", AuditTrail.Actor.operator("nikki")))
+        assertThatThrownBy(() -> roles.grant(email(suspended.id()), "x", AuditTrail.Actor.operator("nikki"), null))
                 .isInstanceOf(AdminRoles.Refused.class)
                 .hasMessageContaining("suspended");
     }
@@ -97,7 +97,7 @@ class AdminRolesTests {
     void aGrantAndItsAuditRowRollBackTogether() throws Exception {
         var user = TestUsers.signUp(mvc);
         transactions.executeWithoutResult(status -> {
-            roles.grant(email(user.id()), "rolled back", AuditTrail.Actor.operator("nikki"));
+            roles.grant(email(user.id()), "rolled back", AuditTrail.Actor.operator("nikki"), null);
             status.setRollbackOnly();
         });
         assertThat(audited("admin.grant", user.id())).isZero();
