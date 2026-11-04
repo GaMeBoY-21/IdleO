@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
-import { formatPaise } from "@/lib/money";
 import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminPayout, type AdminPayoutMismatch } from "./api";
@@ -198,28 +197,14 @@ function RunsAndPayouts() {
         }
         onConfirm={async (reason) => {
           const userId = retrying === "" ? retryUser.trim() : retrying!;
-          const result = await adminData(
-            adminApi.POST("/admin/v1/payouts/retry", { body: { userId, reason } }),
-          );
-          setOutcome(
-            result.payout
-              ? `${formatPaise(result.payout.netPaise)} sent: ${result.payout.status}.`
-              : `Not paid: ${NOT_PAID[result.notPaid ?? ""] ?? result.notPaid}.`,
-          );
+          // It goes to another admin; what became of it is on the Approvals screen.
+          await adminData(adminApi.POST("/admin/v1/payouts/retry", { body: { userId, reason } }));
           await refresh();
         }}
       />
     </Section>
   );
 }
-
-const NOT_PAID: Record<string, string> = {
-  NO_METHOD: "no UPI ID payouts may go to",
-  ON_HOLD: "their UPI ID changed less than 48 hours ago",
-  NO_PAN: "no verified PAN",
-  IN_PROGRESS: "a payout is already on its way",
-  TOO_LITTLE: "less than ₹1 available",
-};
 
 function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => void }) {
   const cameBack = ["failed", "rejected", "cancelled", "reversed"].includes(payout.status);

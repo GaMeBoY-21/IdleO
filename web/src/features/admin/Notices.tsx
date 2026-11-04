@@ -79,7 +79,10 @@ export function Notices() {
           const sent = await adminData(
             adminApi.POST("/admin/v1/notices", { body: { userIds: ids, subject, body, reason } }),
           );
-          setResult({ sent: sent.sent, withoutAddress: sent.withoutAddress });
+          // To more than 20 people it goes to another admin first, and nothing is sent yet.
+          if ("sent" in sent) {
+            setResult({ sent: sent.sent, withoutAddress: sent.withoutAddress });
+          }
         }}
       />
     </AdminPage>

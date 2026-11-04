@@ -4,8 +4,15 @@ import { ApiError } from "@/api/errors";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
-import { refusal } from "./ActionSheet";
-import { ADMIN, adminApi, adminData, type AdminPasskey, type AdminSessionRecord } from "./api";
+import { ActionSheet, refusal } from "./ActionSheet";
+import {
+  ADMIN,
+  adminApi,
+  adminData,
+  type AdminAccount,
+  type AdminPasskey,
+  type AdminSessionRecord,
+} from "./api";
 import { useCan } from "./permissions";
 import { AdminPage, Cell, Empty, QueryView, Row, Section, SmallField, Table, TableSkeleton } from "./ui";
 import { makePasskey, passkeysAvailable } from "./webauthn";
@@ -21,6 +28,7 @@ export function Security() {
       <Passkeys />
       <Sessions title="Your sessions" path="/admin/v1/me/sessions" />
       {can("admins.manage") && <Sessions title="Everyone's sessions" path="/admin/v1/admins/sessions" />}
+      {can("admins.manage") && <Admins />}
     </AdminPage>
   );
 }
@@ -175,6 +183,96 @@ function Sessions({
         )}
       </QueryView>
       {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+    </Section>
+  );
+}
+
+type RoleChange = { admin: AdminAccount; role: string; give: boolean };
+
+/** Who holds which role, for an Owner. Changing one goes to another admin, and ends that admin's sessions when it runs. */
+function Admins() {
+  const admins = useQuery({
+    queryKey: [ADMIN, "admins"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/admins")),
+  });
+  const [changing, setChanging] = useState<RoleChange | null>(null);
+  return (
+    <Section title="Admins and their roles">
+      <QueryView query={admins} what="the admins" skeleton={<TableSkeleton what="the admins" rows={2} />}>
+        {(found) => (
+          <>
+            <Table caption="Admins" columns={["Admin", "Can sign in", "Roles", ""]}>
+              {found.admins.map((admin) => (
+                <Row key={admin.id}>
+                  <Cell>
+                    {admin.email ?? "—"}
+                    <span className="tabular block text-caption text-text-2 break-all">{admin.id}</span>
+                  </Cell>
+                  <Cell>{admin.locked ? "Locked" : admin.enrolled ? "Yes" : "Not set up yet"}</Cell>
+                  <Cell>
+                    <div className="flex flex-wrap gap-2">
+                      {admin.roles.map((role) => (
+                        <Button
+                          key={role}
+                          variant="quiet"
+                          onClick={() => setChanging({ admin, role, give: false })}
+                        >
+                          Remove {role}
+                        </Button>
+                      ))}
+                    </div>
+                  </Cell>
+                  <Cell>
+                    <div className="flex flex-wrap gap-2">
+                      {found.roles
+                        .filter((role) => !admin.roles.includes(role.id))
+                        .map((role) => (
+                          <Button
+                            key={role.id}
+                            variant="quiet"
+                            onClick={() => setChanging({ admin, role: role.id, give: true })}
+                          >
+                            Give {role.name}
+                          </Button>
+                        ))}
+                    </div>
+                  </Cell>
+                </Row>
+              ))}
+            </Table>
+            <ActionSheet
+              open={changing !== null}
+              onOpenChange={(next) => !next && setChanging(null)}
+              title={
+                changing?.give
+                  ? `Give the ${changing.role} role?`
+                  : `Remove the ${changing?.role ?? ""} role?`
+              }
+              change="Another admin approves this. When it runs, this admin's sessions end, so their next one starts with what they may do then."
+              confirm={changing?.give ? "Ask to give it" : "Ask to remove it"}
+              destructive={changing?.give === false}
+              record={changing?.admin}
+              typed={changing?.admin.id.slice(0, 8)}
+              onConfirm={async (reason) => {
+                if (!changing) {
+                  return;
+                }
+                await adminData(
+                  adminApi.POST(
+                    changing.give
+                      ? "/admin/v1/admins/{id}/roles/{role}/grant"
+                      : "/admin/v1/admins/{id}/roles/{role}/remove",
+                    {
+                      params: { path: { id: changing.admin.id, role: changing.role } },
+                      body: { reason },
+                    },
+                  ),
+                );
+              }}
+            />
+          </>
+        )}
+      </QueryView>
     </Section>
   );
 }

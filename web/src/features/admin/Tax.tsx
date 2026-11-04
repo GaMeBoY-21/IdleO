@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { ApiError } from "@/api/errors";
 import { ActionSheet } from "./ActionSheet";
-import { adminApi } from "./api";
+import { adminApi, adminData } from "./api";
 import { AdminPage, Section, SmallField } from "./ui";
 import { ActionButton } from "./permissions";
 
@@ -43,25 +42,12 @@ export function Tax() {
         open={open}
         onOpenChange={setOpen}
         title={`Export ${quarter}?`}
-        change="The file holds every host's whole PAN, so the audit log records that you exported it and why."
-        confirm="Export"
+        change="The file holds every host's whole PAN, so another admin approves it first. Once they have, fetch it from Approvals, once. The audit log records that you exported it and why."
+        confirm="Ask to export"
         onConfirm={async (reason) => {
-          const { data, error, response } = await adminApi.POST("/admin/v1/payouts/tds-export", {
-            body: { quarter: quarter.trim(), reason },
-            parseAs: "blob",
-          });
-          if (!response.ok || !(data instanceof Blob)) {
-            throw ApiError.of(response.status, error);
-          }
-          const url = URL.createObjectURL(data);
-          try {
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `idleo-tds-${quarter.trim()}.csv`;
-            link.click();
-          } finally {
-            URL.revokeObjectURL(url);
-          }
+          await adminData(
+            adminApi.POST("/admin/v1/payouts/tds-export", { body: { quarter: quarter.trim(), reason } }),
+          );
         }}
       />
     </AdminPage>

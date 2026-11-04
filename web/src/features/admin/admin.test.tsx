@@ -1,24 +1,37 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
-import { ActionSheet } from "./ActionSheet";
+import { ActionSheet, whatChanged } from "./ActionSheet";
 import { CodeField } from "./CodeField";
 import { isTotp } from "./rules";
 
-function Sheet({ onConfirm }: { onConfirm: (reason: string) => Promise<unknown> }) {
+function Sheet({
+  onConfirm,
+  typed,
+  record,
+}: {
+  onConfirm: (reason: string) => Promise<unknown>;
+  typed?: string;
+  record?: { version: number; status: string };
+}) {
   const [open, setOpen] = useState(true);
   return (
-    <ActionSheet
-      open={open}
-      onOpenChange={setOpen}
-      title="Suspend ravi@example.com?"
-      change="Their sign-ins and API keys are refused."
-      confirm="Suspend"
-      destructive
-      onConfirm={onConfirm}
-    />
+    <QueryClientProvider client={new QueryClient()}>
+      <ActionSheet
+        open={open}
+        onOpenChange={setOpen}
+        title="Suspend ravi@example.com?"
+        change="Their sign-ins and API keys are refused."
+        confirm="Suspend"
+        destructive
+        {...(typed === undefined ? {} : { typed })}
+        {...(record === undefined ? {} : { record })}
+        onConfirm={onConfirm}
+      />
+    </QueryClientProvider>
   );
 }
 
@@ -54,6 +67,42 @@ describe("the action sheet", () => {
       "That was refused, and nothing changed. The reason is shown below. host 01a1 has no listing",
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("the action sheet's safe writes", () => {
+  it("asks for the target's short name before something that can't be undone", async () => {
+    const onConfirm = vi.fn(() => Promise.resolve());
+    render(<Sheet onConfirm={onConfirm} typed="01a1a7bf" />);
+    await userEvent.type(screen.getByLabelText("Reason"), "card testing");
+    const confirm = screen.getByRole("button", { name: "Suspend" });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(screen.getByLabelText(/to confirm$/), "01a1a7b");
+    expect(confirm).toBeDisabled();
+    await userEvent.type(screen.getByLabelText(/to confirm$/), "f");
+    await userEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledWith("card testing");
+  });
+
+  it("says so when the record changed, and stays open to decide again", async () => {
+    const onConfirm = vi.fn(() =>
+      Promise.reject(new ApiError(412, "/problems/version-stale", "Stale", "Changed")),
+    );
+    render(<Sheet onConfirm={onConfirm} record={{ version: 2, status: "active" }} />);
+    await userEvent.type(screen.getByLabelText("Reason"), "card testing");
+    await userEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    expect(await screen.findByText(/This changed since you opened it/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Suspend" })).toBeEnabled();
+  });
+
+  it("names each field that changed, leaving out the version and whole objects", () => {
+    expect(
+      whatChanged(
+        { version: 1, status: "active", name: "Ravi", detail: { a: 1 } },
+        { version: 2, status: "suspended", name: "Ravi", detail: { a: 2 } },
+      ),
+    ).toEqual(["status: active → suspended"]);
   });
 });
 

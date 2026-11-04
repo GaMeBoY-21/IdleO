@@ -132,14 +132,12 @@ function UserRecord({ id }: { id: string }) {
   // Why an account is suspended decides whether its payouts are held (ADR 0041).
   const [cause, setCause] = useState("other");
   const [rupees, setRupees] = useState("");
-  const [key, setKey] = useState("");
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
 
   const paise = parseRupees(rupees);
   const open = (next: Action) => {
     if (next === "grant") {
       setRupees("");
-      setKey(crypto.randomUUID());
     }
     if (next === "suspend") {
       setCause("other");
@@ -242,17 +240,21 @@ function UserRecord({ id }: { id: string }) {
                 ) : null
               }
               onConfirm={async (reason) => {
-                await adminData(
-                  action === "unsuspend"
-                    ? adminApi.POST("/admin/v1/users/{id}/unsuspend", {
-                        params: { path: { id } },
-                        body: { reason },
-                      })
-                    : adminApi.POST("/admin/v1/users/{id}/suspend", {
-                        params: { path: { id } },
-                        body: { reason, cause: cause === "host_misconduct" ? "host_misconduct" : "other" },
-                      }),
-                );
+                if (action === "unsuspend") {
+                  await adminData(
+                    adminApi.POST("/admin/v1/users/{id}/unsuspend", {
+                      params: { path: { id } },
+                      body: { reason },
+                    }),
+                  );
+                } else {
+                  await adminData(
+                    adminApi.POST("/admin/v1/users/{id}/suspend", {
+                      params: { path: { id } },
+                      body: { reason, cause: cause === "host_misconduct" ? "host_misconduct" : "other" },
+                    }),
+                  );
+                }
                 await refresh();
               }}
             />
@@ -275,7 +277,6 @@ function UserRecord({ id }: { id: string }) {
                 }
                 await adminData(
                   adminApi.POST("/admin/v1/credit-grants", {
-                    params: { header: { "Idempotency-Key": key } },
                     body: { userId: id, paise, reason },
                   }),
                 );

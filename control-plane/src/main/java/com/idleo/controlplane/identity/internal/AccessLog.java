@@ -28,8 +28,10 @@ class AccessLog {
     private final IdGenerator ids;
     private final Clock clock;
     private final AuditTrail audit;
+    private final AdminInsiderSignals insider;
 
-    AccessLog(JdbcClient jdbc, IdGenerator ids, Clock clock, AuditTrail audit) {
+    AccessLog(JdbcClient jdbc, IdGenerator ids, Clock clock, AuditTrail audit, AdminInsiderSignals insider) {
+        this.insider = insider;
         this.jdbc = jdbc;
         this.ids = ids;
         this.clock = clock;
@@ -53,6 +55,7 @@ class AccessLog {
                 reason,
                 null,
                 Map.of("field", field)));
+        insider.revealed(admin.id());
     }
 
     private void write(UUID admin, @Nullable UUID subject, String field, String recordId, String reason) {

@@ -16,7 +16,6 @@ export function Invites() {
   const [making, setMaking] = useState(false);
   const [count, setCount] = useState("1");
   const [days, setDays] = useState("30");
-  const [key, setKey] = useState("");
   const [made, setMade] = useState<{ codes: string[]; note: string } | null>(null);
   const [used, setUsed] = useState("");
   const invites = useInfiniteQuery({
@@ -44,7 +43,6 @@ export function Invites() {
         variant="ghost"
         className="self-start"
         onClick={() => {
-          setKey(crypto.randomUUID());
           setMaking(true);
         }}
       >
@@ -108,7 +106,10 @@ export function Invites() {
               body: { count: howMany, note: reason, ...(expiry === null ? {} : { expiresInDays: expiry }) },
             }),
           );
-          setMade({ codes: created.codes, note: reason });
+          // More than 20 goes to another admin, and the codes are fetched from Approvals once it's approved.
+          if ("codes" in created) {
+            setMade({ codes: created.codes, note: reason });
+          }
           await client.invalidateQueries({ queryKey: [ADMIN, "invites"] });
         }}
       />

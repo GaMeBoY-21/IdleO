@@ -48,3 +48,43 @@ groups:
         annotations:
           summary: A day of the audit log has no off-site copy.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-copy-missing
+      - alert: AdminRevealBurst
+        # Insider risk (ADR 0051), at ticket level: more than 20 reveals by one admin in an hour.
+        expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="reveal_burst"}[1h])) > 0
+        labels:
+          severity: digest
+        annotations:
+          summary: One admin read more than 20 people's values whole in an hour.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-reveal-burst
+      - alert: AdminPersonalDataExport
+        # Any export of people's data.
+        expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="personal_data_export"}[1h])) > 0
+        labels:
+          severity: digest
+        annotations:
+          summary: An admin exported personal data.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-personal-data-export
+      - alert: AdminActionAtNight
+        # Any audited admin action between 00:00 and 06:00 IST.
+        expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="off_hours"}[1h])) > 0
+        labels:
+          severity: digest
+        annotations:
+          summary: An admin acted between midnight and 06:00 India time.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-action-at-night
+      - alert: AdminNewPlace
+        # A sign-in from somewhere that admin has not used.
+        expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="new_place"}[1h])) > 0
+        labels:
+          severity: digest
+        annotations:
+          summary: An admin signed in from a new browser or address.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-new-place
+      - alert: ApprovalInSoloMode
+        # A gated action will run after a delay, with no one else to approve it.
+        expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="solo_approval"}[1h])) > 0
+        labels:
+          severity: digest
+        annotations:
+          summary: A gated action has no second admin to approve it.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#approval-in-solo-mode
