@@ -26,6 +26,7 @@ import java.util.zip.GZIPOutputStream;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -47,6 +48,7 @@ import tools.jackson.databind.json.JsonMapper;
  * still has its head. A day without a copy alerts (AuditCopyMissing, docs/runbooks/alerts.md).
  */
 @Component
+@EnableConfigurationProperties(AuditProperties.class)
 class AuditOffsiteCopies {
 
     private static final Logger log = LoggerFactory.getLogger(AuditOffsiteCopies.class);

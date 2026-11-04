@@ -295,7 +295,9 @@ class AuditChainTests {
         var copies = new AuditOffsiteCopies(client, clock, oneAtATime, json, properties, registry);
 
         var target = record("copied off site");
-        clock.advance(Duration.ofDays(3));
+        // Past the newest row any test has dated ahead, so every row is in a finished day.
+        var newestRow = jdbc.queryForObject("select max(created_at) from identity.audit_log", java.sql.Timestamp.class);
+        clock.advance(Duration.between(clock.instant(), newestRow.toInstant()).plusDays(3));
         copies.copyFinishedDays();
 
         var newest = copies.newest().orElseThrow();

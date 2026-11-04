@@ -309,6 +309,8 @@ Everything the SDK raises on purpose is an `idleo.errors.IdleoError`, and each c
 | `SecondFactorExists` | `second-factor-exists` | 409 | 1 |
 | `SecondFactorMissing` | `second-factor-missing` | 409 | 1 |
 | `AdminPermissionRequired` | `admin-permission-required` | 403 | 1 |
+| `StepUpRequired` | `step-up-required` | 403 | 1 |
+| `PasskeyNotAccepted` | `passkey-not-accepted` | 400 | 1 |
 | `ActionRefused` | `action-refused` | 409 | 1 |
 | `StorageUnavailable` | `storage-unavailable` | 503 | 1 |
 | `InternalError` | `internal-error` | 500 | 1 |

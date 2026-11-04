@@ -203,7 +203,7 @@ class SecurityLogTests {
         mvc.perform(admin.as(get("/admin/v1/users/" + person.id() + "/security-events")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.events[0].kind").value("sign_in"))
-                .andExpect(jsonPath("$.events[0].address").value("127.0.0.1"));
+                .andExpect(jsonPath("$.events[0].address").value("127.0.0.0/24"));
         mvc.perform(get("/admin/v1/users/" + person.id() + "/security-events").header("Authorization", person.bearer()))
                 .andExpect(status().isNotFound());
     }

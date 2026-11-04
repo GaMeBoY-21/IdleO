@@ -212,7 +212,8 @@ class AdminIdentityTests {
         assertThat(invites.activate(renter.id(), codes.get(1))).isEqualTo(InviteService.Result.ACTIVATED);
         var used = read(get("/admin/v1/invites").param("used", "true"), admin).get("invites");
         assertThat(used.get(0).get("usedBy").asString()).isEqualTo(renter.id().toString());
-        assertThat(used.get(0).get("usedByEmail").asString()).isEqualTo(email(renter.id()));
+        assertThat(used.get(0).get("usedByEmail").asString())
+                .isEqualTo(com.idleo.controlplane.PersonalDataMask.email(email(renter.id())));
         assertThat(used.get(0).get("note").asString()).isEqualTo("Pune pilot students");
         assertThat(used.get(0).get("createdBy").asString()).startsWith("admin ");
         assertThat(read(get("/admin/v1/invites").param("used", "false").param("limit", "2"), admin)
