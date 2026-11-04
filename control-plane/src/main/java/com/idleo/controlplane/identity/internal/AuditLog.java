@@ -62,10 +62,10 @@ class AuditLog implements AuditTrail {
         jdbc.sql("""
                         insert into identity.audit_log
                             (id, actor_kind, actor_user_id, actor_name, action, target_type, target_id, reason,
-                             before, after, created_at, request_id, admin_session_id, ip, user_agent)
+                             before, after, created_at, request_id, admin_session_id, ip, user_agent, approval_id)
                         values (:id, :kind, :userId, :name, :action, :targetType, :targetId, :reason,
                                 cast(:before as jsonb), cast(:after as jsonb), :now, :requestId, :session,
-                                cast(:ip as inet), :userAgent)
+                                cast(:ip as inet), :userAgent, :approval)
                         """)
                 .param("id", ids.newId())
                 .param("kind", actor.kind().name().toLowerCase(Locale.ROOT))
@@ -82,6 +82,7 @@ class AuditLog implements AuditTrail {
                 .param("session", AdminRequestContext.adminSession())
                 .param("ip", AdminRequestContext.address())
                 .param("userAgent", AdminRequestContext.userAgent())
+                .param("approval", ApprovalContext.current())
                 .update();
     }
 

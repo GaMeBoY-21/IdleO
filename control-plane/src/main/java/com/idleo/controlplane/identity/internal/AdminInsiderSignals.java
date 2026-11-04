@@ -12,10 +12,15 @@ import org.springframework.stereotype.Component;
 class AdminInsiderSignals {
 
     private final Counter newPlace;
+    private final Counter soloApproval;
 
     AdminInsiderSignals(MeterRegistry registry) {
         this.newPlace = Counter.builder("admin.insider.signal")
                 .tag("kind", "new_place")
+                .description("Signals the insider-risk alerts read")
+                .register(registry);
+        this.soloApproval = Counter.builder("admin.insider.signal")
+                .tag("kind", "solo_approval")
                 .description("Signals the insider-risk alerts read")
                 .register(registry);
     }
@@ -23,5 +28,10 @@ class AdminInsiderSignals {
     /** An admin signed in from a browser or an address they haven't used. */
     void newPlace() {
         newPlace.increment();
+    }
+
+    /** A gated action has no one else to approve it. */
+    void soloApproval() {
+        soloApproval.increment();
     }
 }

@@ -4,7 +4,11 @@ DELETE /admin/v1/session,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/abuse,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/blocklist-additions,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/{id},abuse.read,allow,403,403,allow,403,allow
+GET /admin/v1/admins,admins.manage,allow,403,403,403,403,403
 GET /admin/v1/admins/sessions,admins.manage,allow,403,403,403,403,403
+GET /admin/v1/approvals,approvals.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/approvals/count,approvals.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/approvals/{id},approvals.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/audit,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/audit/standing,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/chargebacks,payments.read,allow,403,allow,403,allow,allow
@@ -56,6 +60,12 @@ POST /admin/v1/abuse/{id}/clear,abuse.clear,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/confirm,abuse.decide,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/notes,abuse.decide,allow,403,403,allow,403,403
 POST /admin/v1/admins/sessions/{id}/end,admins.manage,allow,403,403,403,403,403
+POST /admin/v1/admins/{id}/roles/{role}/grant,admins.manage,allow,403,403,403,403,403
+POST /admin/v1/admins/{id}/roles/{role}/remove,admins.manage,allow,403,403,403,403,403
+POST /admin/v1/approvals/{id}/approve,approvals.decide,allow,allow,allow,allow,allow,403
+POST /admin/v1/approvals/{id}/cancel,approvals.decide,allow,allow,allow,allow,allow,403
+POST /admin/v1/approvals/{id}/download,approvals.decide,allow,allow,allow,allow,allow,403
+POST /admin/v1/approvals/{id}/reject,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/audit/export,export.create,allow,403,403,403,allow,403
 POST /admin/v1/audit/verify,audit.read,allow,403,403,403,403,allow
 POST /admin/v1/clawbacks/{id}/waive,clawbacks.waive,allow,403,403,403,allow,403

@@ -153,6 +153,19 @@ public final class TestAdmins {
                 .andExpect(status().isOk());
     }
 
+    /**
+     * A second Owner approves what {@code asked} was answered with, as the console's Approvals screen does: for a test of
+     * what a gated action does once it runs. Returns the approval's answer.
+     */
+    public static void approve(MockMvc mvc, JdbcTemplate jdbc, Clock clock, String asked) throws Exception {
+        var id = JSON.readTree(asked).get("id").asString();
+        var second = signIn(mvc, jdbc, clock);
+        mvc.perform(second.as(post("/admin/v1/approvals/" + id + "/approve"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"checked by a second admin\"}"))
+                .andExpect(status().isOk());
+    }
+
     /** Makes the user an admin and an Owner, as {@code grant-admin --role owner} does. */
     public static void grant(JdbcTemplate jdbc, UUID userId) {
         grant(jdbc, userId, "owner");

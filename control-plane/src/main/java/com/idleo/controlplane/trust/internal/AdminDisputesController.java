@@ -8,8 +8,12 @@ import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.billing.SessionRefunds;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -22,9 +26,11 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,6 +58,7 @@ class AdminDisputesController {
     private final SessionRefunds refunds;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
+    private final Approvals approvals;
 
     AdminDisputesController(
             Disputes disputes,
@@ -59,7 +66,9 @@ class AdminDisputesController {
             Ratings ratings,
             SessionRefunds refunds,
             AuditTrail audit,
-            JdbcClient jdbc) {
+            JdbcClient jdbc,
+            Approvals approvals) {
+        this.approvals = approvals;
         this.disputes = disputes;
         this.sessions = sessions;
         this.ratings = ratings;
@@ -251,17 +260,39 @@ class AdminDisputesController {
      */
     @RequiresPermission(value = AdminPermission.DISPUTES_REFUND, record = "dispute")
     @PostMapping("/{id}/refund")
-    AdminDispute refund(
+    @ApiResponse(
+            responseCode = "200",
+            description = "The report",
+            content = @Content(schema = @Schema(implementation = AdminDispute.class)))
+    @ApiResponse(
+            responseCode = "202",
+            description = "Above the limit, so it goes to another admin",
+            content = @Content(schema = @Schema(implementation = Approvals.AdminApproval.class)))
+    ResponseEntity<?> refund(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminRefund request) {
+        var amount = Paise.of(request.amountPaise());
+        if (approvals.refundNeedsApproval(amount)) {
+            var dispute = get(id).dispute();
+            return approvals.submit(
+                    admin,
+                    TrustGatedActions.DISPUTE_REFUND,
+                    "dispute",
+                    id.toString(),
+                    Map.of(
+                            "id",
+                            id,
+                            "amountPaise",
+                            amount.value(),
+                            "flagHost",
+                            Boolean.TRUE.equals(request.flagHost())),
+                    List.of(new Approvals.ApprovalChange("refund to user " + dispute.renterId(), 0, amount.value())),
+                    request.reason());
+        }
         resolved(disputes.refund(
-                id,
-                Paise.of(request.amountPaise()),
-                request.reason(),
-                Boolean.TRUE.equals(request.flagHost()),
-                audit.admin(admin)));
-        return get(id);
+                id, amount, request.reason(), Boolean.TRUE.equals(request.flagHost()), audit.admin(admin)));
+        return ResponseEntity.ok(get(id));
     }
 
     /** Resolves the report without a refund. The same again changes nothing. */

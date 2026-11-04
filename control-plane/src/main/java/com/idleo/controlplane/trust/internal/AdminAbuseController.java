@@ -7,6 +7,7 @@ import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -15,9 +16,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/admin/v1/abuse")
 @ConditionalOnWebApplication
 class AdminAbuseController {
+
+    private final Approvals approvals;
 
     /**
      * An item, as the queue lists it.
@@ -176,7 +181,9 @@ class AdminAbuseController {
     private final JdbcClient jdbc;
     private final LearnedBuilds blocklist;
 
-    AdminAbuseController(AbuseReviews reviews, AuditTrail audit, JdbcClient jdbc, LearnedBuilds blocklist) {
+    AdminAbuseController(
+            AbuseReviews reviews, AuditTrail audit, JdbcClient jdbc, LearnedBuilds blocklist, Approvals approvals) {
+        this.approvals = approvals;
         this.reviews = reviews;
         this.audit = audit;
         this.jdbc = jdbc;
@@ -279,17 +286,29 @@ class AdminAbuseController {
     }
 
     /**
-     * Clears an item: the account is reinstated and everything the session cost its renter is refunded, one ledger
-     * transaction. The same again changes nothing.
+     * Asks to clear an item: the account is reinstated and everything the session cost its renter is refunded, one ledger
+     * transaction. It lifts a suspension or a ban, so another admin approves it (ADR 0051).
      */
     @RequiresPermission(value = AdminPermission.ABUSE_CLEAR, record = "abuse_item")
     @PostMapping("/{id}/clear")
-    AbuseDetail clear(
+    ResponseEntity<Approvals.AdminApproval> clear(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminReason request) {
-        settled(reviews.clear(id, request.reason(), audit.admin(admin)));
-        return get(id);
+        var item = get(id).item();
+        return approvals.submit(
+                admin,
+                TrustGatedActions.ABUSE_CLEAR,
+                "abuse_item",
+                id.toString(),
+                Map.of("id", id),
+                List.of(new Approvals.ApprovalChange("review of user " + item.renterId(), item.state(), "cleared")),
+                request.reason());
+    }
+
+    /** Clears it, once another admin has approved. */
+    void clearNow(UUID id, String reason, AuditTrail.Actor actor) {
+        settled(reviews.clear(id, reason, actor));
     }
 
     /**

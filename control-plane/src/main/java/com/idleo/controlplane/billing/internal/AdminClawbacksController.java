@@ -6,15 +6,17 @@ import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
-import com.idleo.controlplane.identity.AuditTrail;
+import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,11 +39,11 @@ class AdminClawbacksController {
     private static final Set<String> STATES = Set.of("owed", "recovered", "waived", "all");
 
     private final Clawbacks clawbacks;
-    private final AuditTrail audit;
+    private final Approvals approvals;
 
-    AdminClawbacksController(Clawbacks clawbacks, AuditTrail audit) {
+    AdminClawbacksController(Clawbacks clawbacks, Approvals approvals) {
         this.clawbacks = clawbacks;
-        this.audit = audit;
+        this.approvals = approvals;
     }
 
     /**
@@ -111,17 +113,21 @@ class AdminClawbacksController {
 
     @RequiresPermission(value = AdminPermission.CLAWBACKS_WAIVE, record = "clawback")
     @PostMapping("/{id}/waive")
-    AdminClawback waive(
+    ResponseEntity<Approvals.AdminApproval> waive(
             @AuthenticationPrincipal CurrentUser admin,
             @PathVariable UUID id,
             @Valid @RequestBody AdminReason request) {
-        if (clawbacks.find(id).isEmpty()) {
-            throw ApiProblem.of(Problem.NOT_FOUND, "There's no clawback " + id + ".");
-        }
-        try {
-            return view(clawbacks.waive(id, request.reason(), audit.admin(admin)));
-        } catch (IllegalArgumentException refused) {
-            throw ApiProblem.of(Problem.ACTION_REFUSED, refused.getMessage());
-        }
+        var clawback = clawbacks
+                .find(id)
+                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no clawback " + id + "."));
+        return approvals.submit(
+                admin,
+                BillingGatedActions.CLAWBACK_WAIVE,
+                "clawback",
+                id.toString(),
+                Map.of("id", id),
+                List.of(new Approvals.ApprovalChange(
+                        "still owed by user " + clawback.ownerId(), clawback.outstandingPaise(), 0)),
+                request.reason());
     }
 }
