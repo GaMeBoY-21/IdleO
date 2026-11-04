@@ -17,6 +17,9 @@ import org.springframework.validation.annotation.Validated;
  *   <li>{@code session-ttl}: an admin session lasts this long after its last use (30 minutes), and never longer
  *       than {@code session-max} (8 hours) from when it began.
  *   <li>{@code totp-issuer}: the name an authenticator app shows beside the code.
+ *   <li>{@code step-up-window}: how recently a factor must have been given for a sensitive action (5 minutes, ADR 0051).
+ *   <li>{@code passkeys.rp-id}: the WebAuthn relying party's id, the web app's registrable domain: a passkey works only
+ *       there. {@code passkeys.rp-name} is what the device's prompt calls it. The prod profile refuses {@code localhost}.
  * </ul>
  */
 @ConfigurationProperties("identity.admin")
@@ -25,4 +28,11 @@ record AdminProperties(
         @NotBlank String totpKey,
         @DefaultValue("30m") Duration sessionTtl,
         @DefaultValue("8h") Duration sessionMax,
-        @DefaultValue("IdleO") String totpIssuer) {}
+        @DefaultValue("IdleO") String totpIssuer,
+        @DefaultValue("5m") Duration stepUpWindow,
+        @DefaultValue Passkeys passkeys) {
+
+    record Passkeys(
+            @DefaultValue("localhost") String rpId,
+            @DefaultValue("IdleO") String rpName) {}
+}

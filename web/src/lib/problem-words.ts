@@ -99,6 +99,8 @@ export const PROBLEM_MESSAGES: Record<ProblemSlug, string> = {
   "second-factor-exists": "Your authenticator is already set up. Sign in with a code from it.",
   "second-factor-missing": "Set up your authenticator first, then sign in with a code from it.",
   "admin-permission-required": "Your roles don't include what this needs. The reason names the permission.",
+  "step-up-required": "Confirm it's you: this needs a passkey or a code from the last five minutes.",
+  "passkey-not-accepted": "That passkey wasn't accepted. Try again, or use a code.",
   "action-refused": "That was refused, and nothing changed. The reason is shown below.",
   "payments-unavailable": "Payments can't be taken just now. No money moved; try again in a little while.",
   "top-up-out-of-limits": "That amount is outside what you can add. The amount field says what you can.",

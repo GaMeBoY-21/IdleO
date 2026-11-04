@@ -14,6 +14,8 @@ import { CodeField } from "./CodeField";
 import { PermissionsProvider } from "./permissions";
 import { QrCode } from "./QrCode";
 import { isRecoveryCode, isTotp, recoveryDigits, totpDigits } from "./rules";
+import { StepUp } from "./StepUp";
+import { passkeysAvailable, signWithPasskey } from "./webauthn";
 
 /** Where the admin stands, asked with whatever admin session this page holds. */
 export const sessionKey = [ADMIN, "session"] as const;
@@ -58,9 +60,14 @@ export function Gate({ children }: { children: ReactNode }) {
     return <Enrol />;
   }
   if (!status.data.active) {
-    return <Check />;
+    return <Check passkeys={status.data.passkeys} />;
   }
-  return <PermissionsProvider permissions={status.data.permissions}>{children}</PermissionsProvider>;
+  return (
+    <PermissionsProvider permissions={status.data.permissions}>
+      <StepUp passkeys={status.data.passkeys} />
+      {children}
+    </PermissionsProvider>
+  );
 }
 
 function GateFrame({ title, children }: { title: string; children: ReactNode }) {
@@ -199,9 +206,13 @@ function Enrol() {
   );
 }
 
-/** The code check that starts an admin session: a code from the authenticator, or a recovery code. */
-function Check() {
+/**
+ * What starts an admin session (ADR 0051): a passkey first, for an admin with one on a browser that can use it; a code
+ * from the authenticator, or a recovery code, as the fallback.
+ */
+function Check({ passkeys }: { passkeys: number }) {
   const start = useStart();
+  const [usePasskey, setUsePasskey] = useState(passkeys > 0 && passkeysAvailable());
   const [kind, setKind] = useState<"totp" | "recovery">("totp");
   const [code, setCode] = useState("");
   const [touched, setTouched] = useState(false);
@@ -227,6 +238,35 @@ function Check() {
       setBusy(false);
     }
   };
+
+  const signInWithPasskey = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const options = await data(adminApi.POST("/admin/v1/session/passkey-options"));
+      const passkey = await signWithPasskey(options);
+      const session = await data(adminApi.POST("/admin/v1/session", { body: { passkey } }));
+      start(session.token);
+    } catch (failed) {
+      setError(failed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (usePasskey) {
+    return (
+      <GateFrame title="Admin sign-in">
+        {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+        <Button large block busy={busy} onClick={() => void signInWithPasskey()}>
+          Use my passkey
+        </Button>
+        <Button variant="quiet" onClick={() => setUsePasskey(false)}>
+          Use a code instead
+        </Button>
+      </GateFrame>
+    );
+  }
 
   return (
     <GateFrame title="Admin sign-in">

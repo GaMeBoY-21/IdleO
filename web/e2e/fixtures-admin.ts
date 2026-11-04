@@ -74,14 +74,29 @@ export const EVERY_PERMISSION = [
   "verifications.decide",
   "verifications.read",
 ];
-export const notEnrolled = { enrolled: false, active: false, expiresAt: null, roles: [], permissions: [] };
-export const enrolled = { enrolled: true, active: false, expiresAt: null, roles: [], permissions: [] };
+export const notEnrolled = {
+  enrolled: false,
+  active: false,
+  expiresAt: null,
+  roles: [],
+  permissions: [],
+  passkeys: 0,
+};
+export const enrolled = {
+  enrolled: true,
+  active: false,
+  expiresAt: null,
+  roles: [],
+  permissions: [],
+  passkeys: 0,
+};
 export const inside = {
   enrolled: true,
   active: true,
   expiresAt: later(1 / 48),
   roles: ["Owner"],
   permissions: EVERY_PERMISSION,
+  passkeys: 0,
 };
 
 /** RFC 6238's test secret ("12345678901234567890"), as an enrolment shows it. */

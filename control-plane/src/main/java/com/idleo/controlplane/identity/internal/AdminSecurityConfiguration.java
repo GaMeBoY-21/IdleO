@@ -47,8 +47,11 @@ class AdminSecurityConfiguration {
     static final String PATHS = "/admin/v1/**";
 
     /** What an admin may call before an admin session exists: its status, starting one, and enrolment. */
-    static final Set<String> SECOND_FACTOR_CALLS =
-            Set.of("/admin/v1/session", "/admin/v1/second-factor", "/admin/v1/second-factor/confirm");
+    static final Set<String> SECOND_FACTOR_CALLS = Set.of(
+            "/admin/v1/session",
+            "/admin/v1/session/passkey-options",
+            "/admin/v1/second-factor",
+            "/admin/v1/second-factor/confirm");
 
     @Bean
     TotpSecrets totpSecrets(AdminProperties properties) {

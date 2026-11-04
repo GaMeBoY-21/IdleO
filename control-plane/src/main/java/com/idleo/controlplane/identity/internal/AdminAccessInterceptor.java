@@ -7,6 +7,8 @@ import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Clock;
+import java.time.Instant;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,16 +20,21 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * The one check of an admin's permission (ADR 0051), on the handler itself rather than its path, so however a path is
  * spelt it meets the same rule. By now the security chain has seen an admin with a live admin session; this answers
- * whether that admin may do this: 403 {@code admin-permission-required}, naming what's missing.
+ * whether that admin may do this: 403 {@code admin-permission-required}, naming what's missing, and for a sensitive
+ * permission whether a factor was given recently: 403 {@code step-up-required}.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication
 class AdminAccessInterceptor implements HandlerInterceptor, WebMvcConfigurer {
 
     private final AdminPermissions permissions;
+    private final AdminProperties properties;
+    private final Clock clock;
 
-    AdminAccessInterceptor(AdminPermissions permissions) {
+    AdminAccessInterceptor(AdminPermissions permissions, AdminProperties properties, Clock clock) {
         this.permissions = permissions;
+        this.properties = properties;
+        this.clock = clock;
     }
 
     @Override
@@ -53,6 +60,15 @@ class AdminAccessInterceptor implements HandlerInterceptor, WebMvcConfigurer {
                     "You need the " + permission.key() + " permission for this. An Owner can grant a role that has it.",
                     "permission",
                     permission.key());
+        }
+        if (permission.sensitive() || declared.stepUp()) {
+            var factorAt = AdminRequestContext.factorAt();
+            if (factorAt == null || factorAt.plus(properties.stepUpWindow()).isBefore(Instant.now(clock))) {
+                throw ApiProblem.of(
+                        Problem.STEP_UP_REQUIRED,
+                        "Confirm it's you: this needs a passkey or a code given in the last "
+                                + properties.stepUpWindow().toMinutes() + " minutes.");
+            }
         }
         return true;
     }

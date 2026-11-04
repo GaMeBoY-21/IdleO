@@ -41,6 +41,14 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 - **`GET /tax` has no endpoint of its own:** the Tax screen is the export, so its section needs `export.create`.
 - **There are no kill switches yet,** so no permission for them. When one is built, its permission is sensitive.
 
+### Signing in: passkeys, step-up, session limits
+
+**Passkeys are the primary factor,** through Spring Security's own WebAuthn support (7.1, \`spring-security-webauthn\`): \`Webauthn4JRelyingPartyOperations\` checks every registration and assertion. User verification is required, the relying party's id comes from \`identity.admin.passkeys.rp-id\` (the prod profile refuses \`localhost\`), the allowed origins are the web app's, and an admin can have several, each named. Its login filters and HTTP session aren't used, because the admin chain is stateless: \`AdminPasskeys\` keeps challenges in the database, used once, for five minutes, so any instance can finish what another began. A wrong assertion counts towards the same lockout as a wrong code. **TOTP and recovery codes stay as the fallback,** and first enrolment is still TOTP, so nobody can be locked out by losing a device.
+
+**Step-up.** A permission marked sensitive in \`AdminPermission\` needs a factor given in the last 5 minutes (\`identity.admin.step-up-window\`). They are: revealing personal data, every money action, role changes, exports, lifting a ban or suspension, and unblocking an image; kill switches when they exist. Signing in counts. Otherwise the server answers 403 \`step-up-required\`; the console asks for a passkey or a code in place (\`POST /admin/v1/session/step-up\`) and sends the very same request again with the same idempotency key. Changing one's own passkeys asks too (\`stepUp = true\`).
+
+**Sessions** keep the 30-minute idle renewal and the 8-hour limit from ADR 0027. Each now records its start, last use, address and browser. An admin sees their own and can end any; the Owner (\`admins.manage\`) sees everyone's and can end any. **A sign-in from a browser or address that admin hasn't used emails them,** with the address masked, through the \`AdminNoticed\` event, in the transaction that started the session.
+
 ### Personal data: masked by default, revealed with a reason
 
 **One masking function, applied to every admin response.** \`PersonalDataMask\`: an email \`ni•••@gmail.com\`, a phone its last 2 digits, a PAN and bank details their last 4, a UPI ID \`ni•••@okhdfc\`, an IP its /24 or /48, and a postal address nothing. \`AdminResponseMasking\` (one \`ResponseBodyAdvice\`) runs it over the JSON of every response of an endpoint with \`@RequiresPermission\`. So masking is the rule, not something each endpoint remembers. It also reads free text: a ticket's message or a rating's comment with an email in it is masked too. Names aren't masked: an admin has to compare the name on a PAN with the bank's.
@@ -69,6 +77,8 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 
 ## Alternatives considered
 
+- **Spring Security's WebAuthn login filter and its session-based repositories.** They assume an HTTP session and a form of login that ends in one. Our admin chain is stateless, beside an ID token and an \`Admin-Session\` header. Its relying party operations are the hard part, and those are what we use.
+- **WebAuthn4J directly.** The pinned Spring Security has its own support, built on it, so one more direct dependency would add nothing.
 - **Masking in each response type, with an annotation on each field.** A forgotten annotation shows the data, and free text can't be annotated at all. Working on the response's JSON means nothing can be forgotten. The price is a pattern that could mask something that only looks like an email or a phone, so \`PersonalDataMaskTests\` holds what must stay alone (ids, times, Razorpay's ids, image digests), and a few machine-value fields are skipped by name.
 - **Chaining rows afterwards, with a job.** No lock on the write path, but a window in which a row can change unnoticed, and the \`hash\` couldn't live on the row of an append-only table.
 - **Working out the hash in Java.** An old release writing during a canary wouldn't chain, and any other writer could skip it.

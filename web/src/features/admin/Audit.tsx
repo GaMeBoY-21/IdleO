@@ -51,7 +51,9 @@ export function Audit() {
       <Filters
         onSubmit={() =>
           setAsked(
-            Object.fromEntries(Object.entries(form).map(([field, value]) => [field, value.trim()])) as typeof form,
+            Object.fromEntries(
+              Object.entries(form).map(([field, value]) => [field, value.trim()]),
+            ) as typeof form,
           )
         }
       >
@@ -71,53 +73,55 @@ export function Audit() {
           </ActionButton>
         }
       >
-      <PagedView
-        query={entries}
-        what="the audit log"
-        items={(page) => page.entries}
-        empty={
-          <Empty title="Nothing matches">
-            Every admin action, operator command and certificate change is here.
-          </Empty>
-        }
-      >
-        {(rows) => (
-          <Table
-            caption="Audit log"
-            columns={["When", "Who", "Action", "Target", "Reason", "Before", "After", "From"]}
-          >
-            {rows.map((entry) => (
-              <Row key={entry.id}>
-                <Cell>
-                  <RelativeTime value={entry.createdAt} />
-                </Cell>
-                <Cell>
-                  {entry.actorName}
-                  <span className="block text-caption text-text-2">{entry.actorKind}</span>
-                </Cell>
-                <Cell className="font-medium">{entry.action}</Cell>
-                <Cell>
-                  {entry.targetType}
-                  <span
-                    className="tabular block max-w-48 truncate text-caption text-text-2"
-                    title={entry.targetId}
-                  >
-                    {entry.targetId}
-                  </span>
-                </Cell>
-                <Cell className="max-w-64">{entry.reason}</Cell>
-                <Cell className="tabular max-w-64 text-caption break-all">{change(entry.before)}</Cell>
-                <Cell className="tabular max-w-64 text-caption break-all">{change(entry.after)}</Cell>
-                <Cell className="tabular max-w-48 text-caption break-all">
-                  {entry.ip ? <Reveal field="audit_ip" id={entry.id} masked={entry.ip} /> : "—"}
-                  {entry.requestId && <span className="block text-text-2">Request {entry.requestId}</span>}
-                  {entry.approvalId && <span className="block text-text-2">Approval {entry.approvalId}</span>}
-                </Cell>
-              </Row>
-            ))}
-          </Table>
-        )}
-      </PagedView>
+        <PagedView
+          query={entries}
+          what="the audit log"
+          items={(page) => page.entries}
+          empty={
+            <Empty title="Nothing matches">
+              Every admin action, operator command and certificate change is here.
+            </Empty>
+          }
+        >
+          {(rows) => (
+            <Table
+              caption="Audit log"
+              columns={["When", "Who", "Action", "Target", "Reason", "Before", "After", "From"]}
+            >
+              {rows.map((entry) => (
+                <Row key={entry.id}>
+                  <Cell>
+                    <RelativeTime value={entry.createdAt} />
+                  </Cell>
+                  <Cell>
+                    {entry.actorName}
+                    <span className="block text-caption text-text-2">{entry.actorKind}</span>
+                  </Cell>
+                  <Cell className="font-medium">{entry.action}</Cell>
+                  <Cell>
+                    {entry.targetType}
+                    <span
+                      className="tabular block max-w-48 truncate text-caption text-text-2"
+                      title={entry.targetId}
+                    >
+                      {entry.targetId}
+                    </span>
+                  </Cell>
+                  <Cell className="max-w-64">{entry.reason}</Cell>
+                  <Cell className="tabular max-w-64 text-caption break-all">{change(entry.before)}</Cell>
+                  <Cell className="tabular max-w-64 text-caption break-all">{change(entry.after)}</Cell>
+                  <Cell className="tabular max-w-48 text-caption break-all">
+                    {entry.ip ? <Reveal field="audit_ip" id={entry.id} masked={entry.ip} /> : "—"}
+                    {entry.requestId && <span className="block text-text-2">Request {entry.requestId}</span>}
+                    {entry.approvalId && (
+                      <span className="block text-text-2">Approval {entry.approvalId}</span>
+                    )}
+                  </Cell>
+                </Row>
+              ))}
+            </Table>
+          )}
+        </PagedView>
       </Section>
       <AccessLog />
       <ActionSheet
@@ -186,8 +190,8 @@ function Standing() {
                 </Banner>
               ) : (
                 <Banner tone="danger">
-                  Broken at row {found.latestCheck.brokenSeq}: {found.latestCheck.detail}. Follow the audit chain runbook, and
-                  change nothing.
+                  Broken at row {found.latestCheck.brokenSeq}: {found.latestCheck.detail}. Follow the audit
+                  chain runbook, and change nothing.
                 </Banner>
               )
             ) : (
@@ -234,7 +238,11 @@ function AccessLog() {
         query={entries}
         what="the access log"
         items={(page) => page.entries}
-        empty={<Empty title="Nothing matches">Each time an admin opens a person or reveals a value, it&apos;s here.</Empty>}
+        empty={
+          <Empty title="Nothing matches">
+            Each time an admin opens a person or reveals a value, it&apos;s here.
+          </Empty>
+        }
       >
         {(rows) => (
           <Table caption="Access log" columns={["When", "Admin", "Whose", "Field", "Why"]}>

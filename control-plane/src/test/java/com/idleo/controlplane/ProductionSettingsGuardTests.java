@@ -48,6 +48,7 @@ class ProductionSettingsGuardTests {
                         "backups.storage.prefix=production",
                         "backups.storage.access-key-id=reader",
                         "backups.storage.secret-access-key=" + PRODUCTION_KEY,
+                        "identity.admin.passkeys.rp-id=idleo.example.invalid",
                         "identity.audit.offsite.endpoint=https://account.r2.example.invalid",
                         "identity.audit.offsite.bucket=idleo-audit",
                         "identity.audit.offsite.access-key-id=writer",
@@ -373,6 +374,7 @@ class ProductionSettingsGuardTests {
     @Test
     void prodRefusesToStartWithoutBackupsToWatch() {
         for (var setting : new String[][] {
+            {"identity.admin.passkeys.rp-id=localhost", "identity.admin.passkeys.rp-id is localhost"},
             {"identity.audit.offsite.endpoint=", "identity.audit.offsite.endpoint is missing"},
             {
                 "identity.audit.offsite.endpoint=http://localhost:9100",

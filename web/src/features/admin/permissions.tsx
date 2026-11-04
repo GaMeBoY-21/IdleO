@@ -20,7 +20,8 @@ export function PermissionsProvider({
 /** Whether this admin holds the permission. */
 export function useCan(): (permission: string) => boolean {
   const held = useContext(Permissions);
-  return (permission) => held.has(permission);
+  // A screen with no permission of its own, an admin's own access, is everyone's.
+  return (permission) => permission === "" || held.has(permission);
 }
 
 /** An action's button: disabled, saying why, for an admin without its permission. */
