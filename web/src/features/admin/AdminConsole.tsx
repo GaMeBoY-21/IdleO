@@ -1,9 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { Wordmark } from "@/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { ADMIN, adminApi, adminSession } from "./api";
+import { ADMIN, adminApi, adminData, adminSession } from "./api";
+import { Approvals } from "./Approvals";
 import { Audit } from "./Audit";
 import { Dashboard } from "./Dashboard";
 import { Abuse } from "./Abuse";
@@ -54,6 +55,7 @@ export const ADMIN_SCREENS = [
   { href: "/admin/tax/", label: "Tax", needs: "export.create" },
   { href: "/admin/invites/", label: "Invites", needs: "invites.read" },
   { href: "/admin/notices/", label: "Notices", needs: "notices.publish" },
+  { href: "/admin/approvals/", label: "Approvals", needs: "approvals.read" },
   { href: "/admin/audit/", label: "Audit log", needs: "audit.read" },
   { href: "/admin/security/", label: "Your access", needs: "" },
 ] as const;
@@ -89,6 +91,7 @@ export function AdminConsole() {
           <Route path="/admin/clawbacks/">{guarded("/admin/clawbacks/", <Clawbacks />)}</Route>
           <Route path="/admin/tax/">{guarded("/admin/tax/", <Tax />)}</Route>
           <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
+          <Route path="/admin/approvals/">{guarded("/admin/approvals/", <Approvals />)}</Route>
           <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
           <Route path="/admin/security/" component={Security} />
         </Switch>
@@ -126,7 +129,7 @@ const GROUPS: { label: string; hrefs: readonly string[] }[] = [
   },
   {
     label: "The service",
-    hrefs: ["/admin/invites/", "/admin/notices/", "/admin/audit/", "/admin/security/"],
+    hrefs: ["/admin/invites/", "/admin/notices/", "/admin/approvals/", "/admin/audit/", "/admin/security/"],
   },
 ];
 
@@ -140,6 +143,12 @@ function Layout({ children }: { children: React.ReactNode }) {
   const client = useQueryClient();
   const can = useCan();
   const screens = ADMIN_SCREENS.filter((screen) => can(screen.needs));
+  const waiting = useQuery({
+    queryKey: [ADMIN, "approvals-count"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/approvals/count")),
+    enabled: can("approvals.read"),
+    refetchInterval: 60_000,
+  });
   const leave = async () => {
     await adminApi.DELETE("/admin/v1/session").catch(() => undefined);
     adminSession.clear();
@@ -161,6 +170,14 @@ function Layout({ children }: { children: React.ReactNode }) {
         >
           {current && <span aria-hidden="true" className="h-4 w-1 rounded-full bg-progress" />}
           {screen.label}
+          {screen.href === "/admin/approvals/" && (waiting.data?.pending ?? 0) > 0 && (
+            <span
+              className="tabular ml-auto text-caption font-bold"
+              aria-label={`${waiting.data?.pending ?? 0} waiting`}
+            >
+              {waiting.data?.pending}
+            </span>
+          )}
         </Link>
       </li>
     );

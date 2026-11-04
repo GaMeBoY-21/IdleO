@@ -5,9 +5,17 @@ import { ApiError } from "@/api/errors";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { problemMessage } from "@/lib/problems";
+import { formatDateTime } from "@/lib/time";
 import { cn } from "@/lib/cn";
-import { ADMIN, asAction } from "./api";
+import { ADMIN, asAction, type AdminApproval } from "./api";
 import { REASON_MAX, reasonProblem } from "./rules";
+
+/** A value as a line of plain words shows it. */
+export function shownValue(value: unknown): string {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+    ? String(value)
+    : "none";
+}
 
 /** A record's fields that differ between when the sheet opened and now, for the "it changed" notice. */
 export function whatChanged(
@@ -24,7 +32,7 @@ export function whatChanged(
       const is = now[field];
       return JSON.stringify(was) !== JSON.stringify(is) && typeof is !== "object" && typeof was !== "object";
     })
-    .map((field) => `${field}: ${String(before[field] ?? "none")} → ${String(now[field] ?? "none")}`);
+    .map((field) => `${field}: ${shownValue(before[field])} → ${shownValue(now[field])}`);
 }
 
 /**
@@ -72,24 +80,25 @@ export function ActionSheet({
   const [error, setError] = useState<unknown>(null);
   const [typing, setTyping] = useState("");
   const [stale, setStale] = useState(false);
+  const [asked, setAsked] = useState<AdminApproval | null>(null);
   const id = useId();
   const client = useQueryClient();
   const problem = reasonRule(reason);
   const key = useRef("");
-  const opened = useRef<Record<string, unknown> | undefined>(undefined);
+  const [opened, setOpened] = useState<object | undefined>(undefined);
   const wasOpen = useRef(false);
 
   // A new key and a new snapshot of the record each time the sheet opens.
   useEffect(() => {
     if (open && !wasOpen.current) {
       key.current = crypto.randomUUID();
-      opened.current = record as Record<string, unknown> | undefined;
+      setOpened(record);
     }
     wasOpen.current = open;
   }, [open, record]);
 
   const typedRight = typed === undefined || typing.trim() === typed;
-  const changes = stale ? whatChanged(opened.current, record as Record<string, unknown> | undefined) : [];
+  const changes = stale ? whatChanged(opened as Record<string, unknown> | undefined, record) : [];
 
   const close = (next: boolean) => {
     if (!next) {
@@ -98,6 +107,7 @@ export function ActionSheet({
       setError(null);
       setTyping("");
       setStale(false);
+      setAsked(null);
     }
     onOpenChange(next);
   };
@@ -111,8 +121,13 @@ export function ActionSheet({
     setError(null);
     setStale(false);
     try {
-      await asAction(key.current, record, () => onConfirm(reason.trim()));
-      close(false);
+      const approval = await asAction(key.current, record, () => onConfirm(reason.trim()));
+      await client.invalidateQueries({ queryKey: [ADMIN] });
+      if (approval === null) {
+        close(false);
+      } else {
+        setAsked(approval);
+      }
     } catch (failed) {
       if (failed instanceof ApiError && failed.status === 412) {
         // The record is read again, so what shows is the fresh one, and the next try carries its version.
@@ -138,83 +153,96 @@ export function ActionSheet({
           <Dialog.Description asChild>
             <div className="text-small text-text-2">{change}</div>
           </Dialog.Description>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            {extra}
-            <div className="flex flex-col gap-2">
-              <label htmlFor={id} className="text-small font-medium">
-                Reason
-              </label>
-              <textarea
-                id={id}
-                value={reason}
-                maxLength={REASON_MAX + 20}
-                rows={3}
-                onChange={(event) => setReason(event.target.value)}
-                onBlur={() => setTouched(true)}
-                aria-invalid={touched && problem !== null ? true : undefined}
-                aria-describedby={`${id}-message`}
-                className={cn(
-                  "rounded-control bg-panel px-4 py-3 text-body text-text",
-                  touched && problem !== null && "ring-2 ring-danger",
-                )}
-              />
-              <p
-                id={`${id}-message`}
-                className={cn(
-                  "min-h-4.5 text-caption",
-                  touched && problem !== null ? "text-danger" : "text-text-2",
-                )}
-              >
-                {touched && problem !== null ? problem : "Recorded in the audit log with your name."}
-              </p>
+          {asked !== null ? (
+            <div className="flex flex-col gap-4">
+              <Banner tone="info">
+                {asked.solo
+                  ? `Nobody else can approve this, so it waits and runs at ${formatDateTime(asked.runAfter ?? asked.expiresAt)} unless it's cancelled. The Owner has been told.`
+                  : "It's waiting for another admin with this permission to approve it. Nothing has changed yet."}
+              </Banner>
+              <div className="flex justify-end">
+                <Button onClick={() => close(false)}>Done</Button>
+              </div>
             </div>
-            {typed !== undefined && (
+          ) : (
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
+            >
+              {extra}
               <div className="flex flex-col gap-2">
-                <label htmlFor={`${id}-typed`} className="text-small font-medium">
-                  This can&apos;t be undone. Type <span className="tabular font-bold">{typed}</span> to
-                  confirm
+                <label htmlFor={id} className="text-small font-medium">
+                  Reason
                 </label>
-                <input
-                  id={`${id}-typed`}
-                  value={typing}
-                  autoComplete="off"
-                  onChange={(event) => setTyping(event.target.value)}
-                  aria-invalid={touched && !typedRight ? true : undefined}
+                <textarea
+                  id={id}
+                  value={reason}
+                  maxLength={REASON_MAX + 20}
+                  rows={3}
+                  onChange={(event) => setReason(event.target.value)}
+                  onBlur={() => setTouched(true)}
+                  aria-invalid={touched && problem !== null ? true : undefined}
+                  aria-describedby={`${id}-message`}
                   className={cn(
                     "rounded-control bg-panel px-4 py-3 text-body text-text",
-                    touched && !typedRight && "ring-2 ring-danger",
+                    touched && problem !== null && "ring-2 ring-danger",
                   )}
                 />
+                <p
+                  id={`${id}-message`}
+                  className={cn(
+                    "min-h-4.5 text-caption",
+                    touched && problem !== null ? "text-danger" : "text-text-2",
+                  )}
+                >
+                  {touched && problem !== null ? problem : "Recorded in the audit log with your name."}
+                </p>
               </div>
-            )}
-            {stale && (
-              <Banner tone="warning">
-                This changed since you opened it, and nothing was done.{" "}
-                {changes.length > 0 ? `Now: ${changes.join("; ")}.` : "It has been read again."} Check it,
-                then confirm again if you still want to.
-              </Banner>
-            )}
-            {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
-            <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-              <Dialog.Close asChild>
-                <Button variant="ghost">Cancel</Button>
-              </Dialog.Close>
-              <Button
-                type="submit"
-                variant={destructive ? "danger" : "primary"}
-                busy={busy}
-                disabled={!typedRight}
-              >
-                {confirm}
-              </Button>
-            </div>
-          </form>
+              {typed !== undefined && (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor={`${id}-typed`} className="text-small font-medium">
+                    This can&apos;t be undone. Type <span className="tabular font-bold">{typed}</span> to
+                    confirm
+                  </label>
+                  <input
+                    id={`${id}-typed`}
+                    value={typing}
+                    autoComplete="off"
+                    onChange={(event) => setTyping(event.target.value)}
+                    aria-invalid={touched && !typedRight ? true : undefined}
+                    className={cn(
+                      "rounded-control bg-panel px-4 py-3 text-body text-text",
+                      touched && !typedRight && "ring-2 ring-danger",
+                    )}
+                  />
+                </div>
+              )}
+              {stale && (
+                <Banner tone="warning">
+                  This changed since you opened it, and nothing was done.{" "}
+                  {changes.length > 0 ? `Now: ${changes.join("; ")}.` : "It has been read again."} Check it,
+                  then confirm again if you still want to.
+                </Banner>
+              )}
+              {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+              <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+                <Dialog.Close asChild>
+                  <Button variant="ghost">Cancel</Button>
+                </Dialog.Close>
+                <Button
+                  type="submit"
+                  variant={destructive ? "danger" : "primary"}
+                  busy={busy}
+                  disabled={!typedRight}
+                >
+                  {confirm}
+                </Button>
+              </div>
+            </form>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

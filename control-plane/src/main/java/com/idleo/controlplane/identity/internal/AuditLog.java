@@ -30,8 +30,10 @@ class AuditLog implements AuditTrail {
     private final JsonMapper json;
     private final IdGenerator ids;
     private final Clock clock;
+    private final AdminInsiderSignals insider;
 
-    AuditLog(JdbcClient jdbc, JsonMapper json, IdGenerator ids, Clock clock) {
+    AuditLog(JdbcClient jdbc, JsonMapper json, IdGenerator ids, Clock clock, AdminInsiderSignals insider) {
+        this.insider = insider;
         this.jdbc = jdbc;
         this.json = json;
         this.ids = ids;
@@ -84,6 +86,7 @@ class AuditLog implements AuditTrail {
                 .param("userAgent", AdminRequestContext.userAgent())
                 .param("approval", ApprovalContext.current())
                 .update();
+        insider.observed(entry);
     }
 
     private @Nullable String toJson(@Nullable Object value) {

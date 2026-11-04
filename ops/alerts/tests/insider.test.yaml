@@ -1,0 +1,95 @@
+# promtool test rules: the insider-risk alerts (scripts/checks/ops.sh): each fires when its signal rises, and stops an hour later.
+rule_files:
+  - ../security.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'admin_insider_signal_total{job="control-plane",kind="reveal_burst",instance="a"}'
+        values: '0x10 1x130'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AdminRevealBurst
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AdminRevealBurst
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: "One admin read more than 20 people's values whole in an hour."
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-reveal-burst
+      - eval_time: 100m
+        alertname: AdminRevealBurst
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'admin_insider_signal_total{job="control-plane",kind="personal_data_export",instance="a"}'
+        values: '0x10 1x130'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AdminPersonalDataExport
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AdminPersonalDataExport
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: An admin exported personal data.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-personal-data-export
+      - eval_time: 100m
+        alertname: AdminPersonalDataExport
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'admin_insider_signal_total{job="control-plane",kind="off_hours",instance="a"}'
+        values: '0x10 1x130'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AdminActionAtNight
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AdminActionAtNight
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: An admin acted between midnight and 06:00 India time.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-action-at-night
+      - eval_time: 100m
+        alertname: AdminActionAtNight
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'admin_insider_signal_total{job="control-plane",kind="new_place",instance="a"}'
+        values: '0x10 1x130'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AdminNewPlace
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AdminNewPlace
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: An admin signed in from a new browser or address.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-new-place
+      - eval_time: 100m
+        alertname: AdminNewPlace
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'admin_insider_signal_total{job="control-plane",kind="solo_approval",instance="a"}'
+        values: '0x10 1x130'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ApprovalInSoloMode
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ApprovalInSoloMode
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: A gated action has no second admin to approve it.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#approval-in-solo-mode
+      - eval_time: 100m
+        alertname: ApprovalInSoloMode
+        exp_alerts: []

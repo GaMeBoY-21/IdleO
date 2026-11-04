@@ -18,6 +18,8 @@ const runningSession = process.env.E2E_RUNNING_SESSION;
 const webUser = process.env.E2E_WEB_USER;
 const hostOwner = process.env.E2E_HOST_OWNER;
 const runningSince = Number(process.env.E2E_RUNNING_SINCE);
+/** A second admin, who approves what must not rest on one person (ADR 0051). */
+const secondAdmin = process.env.E2E_SECOND_ADMIN;
 
 /** RFC 6238: the authenticator's code for the base32 secret now, from a fresh 30-second step. */
 async function freshCode(secret: string, page: Page): Promise<string> {
@@ -43,6 +45,42 @@ async function freshCode(secret: string, page: Page): Promise<string> {
 async function go(page: Page, screen: string) {
   await page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: screen }).click();
   await expect(page.getByRole("heading", { level: 1, name: screen })).toBeVisible();
+}
+
+/** The address as an admin reads it (ADR 0051). */
+const masked = (user: string) => `${user.slice(0, 2)}•••@example.com`;
+
+/** Whenever the console asks for a recent factor, gives one, and the action goes on by itself. */
+async function answerStepUp(page: Page, secret: string) {
+  const dialog = page.getByRole("dialog", { name: "Confirm it's you" });
+  await page.addLocatorHandler(dialog, async () => {
+    // A code works once for its step, and the sign-in may have spent this one.
+    await page.waitForTimeout(31_000);
+    await dialog.getByLabel("Code from your authenticator app").fill(await freshCode(secret, page));
+    await dialog.getByRole("button", { name: "Confirm" }).click();
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
+  });
+}
+
+/** Enrols an admin at their first visit, and returns their authenticator's secret. */
+async function enrol(page: Page): Promise<string> {
+  await expect(page.getByRole("heading", { level: 1, name: "Set up your authenticator" })).toBeVisible();
+  const secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
+  await page.getByLabel("Code from your authenticator app").fill(await freshCode(secret, page));
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
+  await page.getByRole("button", { name: "I've saved them" }).click();
+  await answerStepUp(page, secret);
+  return secret;
+}
+
+/** Signs back in with a code after a reload, as the session lives only in the page's memory. */
+async function enterAgain(page: Page, secret: string) {
+  await expect(page.getByRole("heading", { level: 1, name: "Admin sign-in" })).toBeVisible();
+  await page.waitForTimeout(31_000);
+  await page.getByLabel("Code from your authenticator app").fill(await freshCode(secret, page));
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
 }
 
 async function confirmIn(page: Page, dialog: string, button: string, reason: string) {
@@ -73,20 +111,17 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
   baseURL,
 }) => {
   test.skip(
-    !adminUser || !pendingHost || !runningSession || !webUser || !hostOwner || !runningSince,
+    !adminUser || !secondAdmin || !pendingHost || !runningSession || !webUser || !hostOwner || !runningSince,
     "needs scripts/e2e/agent-online.sh",
   );
   const report: Record<string, unknown> = {};
 
+  let adminSecret = "";
+
   await test.step("enrol TOTP and reach the dashboard", async () => {
     await signIn(page, adminUser!, "/admin/");
-    await expect(page.getByRole("heading", { level: 1, name: "Set up your authenticator" })).toBeVisible();
     await expect(page.getByRole("img", { name: "QR code of your authenticator secret" })).toBeVisible();
-    const secret = (await page.getByText(/^[A-Z2-7]{32}$/).textContent())!;
-    await page.getByLabel("Code from your authenticator app").fill(await freshCode(secret, page));
-    await page.getByRole("button", { name: "Confirm" }).click();
-    await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveCount(10);
-    await page.getByRole("button", { name: "I've saved them" }).click();
+    adminSecret = await enrol(page);
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
     const hostsOnline = page
       .getByRole("list", { name: "Figures" })
@@ -119,7 +154,17 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
     report.activated = pendingHost;
   });
 
-  await test.step("grant credit and see it in the audit log", async () => {
+  const approverPage = await (
+    await browser.newContext({ baseURL, viewport: { width: 1280, height: 800 } })
+  ).newPage();
+
+  await test.step("the second admin signs in", async () => {
+    await signIn(approverPage, secondAdmin!, "/admin/");
+    await enrol(approverPage);
+    await expect(approverPage.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
+  });
+
+  await test.step("grant credit, a second admin approves it, and see it in the audit log", async () => {
     await go(page, "Users");
     await page.getByLabel("Email, name or id").fill(`${webUser}@example.com`);
     await page.getByRole("button", { name: "Search" }).click();
@@ -128,12 +173,28 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
     const sheet = page.getByRole("dialog", { name: /^Grant credit to / });
     await sheet.getByLabel("Amount in ₹").fill("1.25");
     await expect(sheet).toContainText("₹1.25 of free credit is added to their wallet.");
-    await confirmIn(
-      page,
-      (await sheet.getByRole("heading").textContent())!,
-      "Grant credit",
-      "end-to-end admin grant",
-    );
+    await sheet.getByLabel("Reason").fill("end-to-end admin grant");
+    await sheet.getByRole("button", { name: "Grant credit" }).click();
+    await expect(sheet).toContainText("waiting for another admin");
+    await sheet.getByRole("button", { name: "Done" }).click();
+    // Nothing has moved yet, and whoever asked can't approve it.
+    await expect(page.getByRole("table", { name: "Credit grants" })).toHaveCount(0);
+
+    await go(approverPage, "Approvals");
+    const request = approverPage
+      .getByRole("table", { name: "Approval requests" })
+      .getByRole("row")
+      .filter({ hasText: "end-to-end admin grant" });
+    await expect(request).toContainText("credit.grant");
+    await request.getByRole("button", { name: "Approve" }).click();
+    await confirmIn(approverPage, "Approve this?", "Approve and run it", "the second admin checked it");
+
+    await page.reload();
+    await enterAgain(page, adminSecret);
+    await go(page, "Users");
+    await page.getByLabel("Email, name or id").fill(`${webUser}@example.com`);
+    await page.getByRole("button", { name: "Search" }).click();
+    await page.getByRole("link", { name: /^Open/ }).click();
     await expect(page.getByRole("table", { name: "Credit grants" })).toContainText("end-to-end admin grant");
     await go(page, "Audit log");
     await page.getByLabel("Action").fill("credit.");
@@ -144,7 +205,7 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
       .filter({ hasText: "end-to-end admin grant" });
     await expect(row).toHaveCount(1);
     await expect(row).toContainText("credit.grant");
-    await expect(row).toContainText(`${adminUser}@example.com`);
+    await expect(row).toContainText(masked(adminUser!));
     await expect(row).toContainText('"amountPaise":125');
     report.granted = { user: `${webUser}@example.com`, paise: 125 };
   });
@@ -229,6 +290,12 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
       .getByLabel("Amount in ₹")
       .fill(`${Math.floor((paid + 1) / 100)}.${String((paid + 1) % 100).padStart(2, "0")}`);
     await sheet.getByLabel("Reason").fill("end-to-end refund");
+    // It can't be undone, so its short name is typed too.
+    const toType = await sheet
+      .getByText(/This can't be undone/)
+      .locator("span")
+      .textContent();
+    await sheet.getByLabel(/to confirm$/).fill(toType!);
     await sheet.getByRole("button", { name: "Refund", exact: true }).click();
     await expect(sheet).toContainText("can't be more than the session cost");
     await sheet

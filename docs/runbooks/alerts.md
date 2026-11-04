@@ -353,3 +353,33 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 **Means:** the newest day with an off-site copy of the audit log ended more than 26 hours ago.
 
 **Do:** docs/runbooks/audit-chain.md, "When a day has no copy".
+
+## Admin reveal burst
+
+**Means:** one admin read more than 20 people's values whole in an hour. Ticket level.
+
+**Do:** read the access log on the Audit log screen, newest first, and ask them why. If there's no good reason, end their sessions (Your access, Everyone's sessions) and follow breach.md.
+
+## Admin personal data export
+
+**Means:** an admin exported personal data: a TDS file, an audit CSV, or a person's export. Ticket level.
+
+**Do:** find it in the audit log (`tds.export`, `audit.export`, `export.start`) and check its reason and, where it had one, its approval.
+
+## Admin action at night
+
+**Means:** an audited admin action between 00:00 and 06:00 India time. Ticket level.
+
+**Do:** read the audit log for that hour. Someone on call fixing an incident is normal; say so in the ticket. Otherwise ask them.
+
+## Admin new place
+
+**Means:** an admin signed in from a browser or an address they hadn't used. They were emailed too. Ticket level.
+
+**Do:** ask them if it was them. If not, end the session and follow docs/runbooks/admin.md, "A lost passkey".
+
+## Approval in solo mode
+
+**Means:** a gated action has no one else to approve it, so it will run after its delay unless cancelled. Ticket level.
+
+**Do:** read it on the Approvals screen, and cancel it if it's wrong. A second admin holding that permission switches solo mode off by themselves.

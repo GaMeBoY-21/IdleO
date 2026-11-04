@@ -245,7 +245,7 @@ class ApprovalTests {
         clock.advance(Duration.ofHours(25));
         engine.sweep();
         assertThat(state(id)).isEqualTo("pending");
-        TestAdmins.stepUp(mvc, second, clock);
+        clock.reset();
         assertThat(send(second.as(post("/admin/v1/approvals/" + id + "/approve")))
                         .getStatus())
                 .isEqualTo(200);

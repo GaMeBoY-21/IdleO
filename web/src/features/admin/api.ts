@@ -44,17 +44,22 @@ export function whenStepUpNeeded(ask: (() => Promise<void>) | null): void {
  * The action on screen (ADR 0051): its idempotency key, the same for every try of it, and the version of the record it
  * was decided on. A POST made while one runs carries both.
  */
-let action: { key: string; version: number | undefined } | null = null;
+let action: { key: string; version: number | undefined; approval: AdminApproval | null } | null = null;
 
-/** Runs an admin's one action: `key` stays the same until it succeeds or the admin moves on. */
-export async function asAction<T>(
+/**
+ * Runs an admin's one action: `key` stays the same until it succeeds or the admin moves on. Answers with the approval
+ * request it became, when it's of a kind another admin must approve; null when it's done.
+ */
+export async function asAction(
   key: string,
   record: { version: number } | undefined,
-  run: () => Promise<T>,
-): Promise<T> {
-  action = { key, version: record?.version };
+  run: () => Promise<unknown>,
+): Promise<AdminApproval | null> {
+  const current = { key, version: record?.version, approval: null };
+  action = current;
   try {
-    return await run();
+    await run();
+    return current.approval;
   } finally {
     action = null;
   }
@@ -74,8 +79,12 @@ async function adminFetch(request: Request): Promise<Response> {
       request.headers.set("If-Match", String(action.version));
     }
   }
+  const asked = action;
   const again = request.clone();
   const response = await apiFetch(request);
+  if (response.status === 202 && asked !== null) {
+    asked.approval = (await response.clone().json()) as AdminApproval;
+  }
   if (response.status !== 403 || askForStepUp === null) {
     return response;
   }
@@ -91,7 +100,11 @@ async function adminFetch(request: Request): Promise<Response> {
   } catch {
     return response;
   }
-  return apiFetch(again);
+  const retried = await apiFetch(again);
+  if (retried.status === 202 && asked !== null) {
+    asked.approval = (await retried.clone().json()) as AdminApproval;
+  }
+  return retried;
 }
 
 export const adminApi = createClient<paths>({ baseUrl: config.apiUrl, fetch: adminFetch });
@@ -109,6 +122,9 @@ export const ADMIN = "admin";
 
 type Schemas = components["schemas"];
 export type AdminSessionStatus = Schemas["AdminSessionStatus"];
+export type AdminApproval = Schemas["AdminApproval"];
+export type AdminAccount = Schemas["AdminAccount"];
+export type AdminRole = Schemas["AdminRole"];
 export type AdminPasskey = Schemas["AdminPasskey"];
 export type AdminSessionRecord = Schemas["AdminSessionRecord"];
 export type AdminDashboard = Schemas["AdminDashboard"];

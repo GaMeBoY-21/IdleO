@@ -1,4 +1,7 @@
+import type { components } from "../src/api/schema.gen";
 import { NOW } from "./fixtures";
+
+type Schemas = components["schemas"];
 
 /**
  * Invented data for the admin console's screens (ADR 0027). Every figure is derived from the records here, so the
@@ -973,4 +976,110 @@ export const payoutReconciliation = {
       closeReason: null,
     },
   ],
+};
+
+/** GET /admin/v1/approvals: one waiting for a second admin. */
+export const approvals: { requests: Schemas["AdminApproval"][]; nextCursor: null } = {
+  requests: [
+    {
+      id: "01a1a7bf-93ce-725f-b2a8-656176c3d7c3",
+      kind: "credit.grant",
+      permission: "money.adjust",
+      targetType: null,
+      targetId: null,
+      changes: [{ what: `free credit for user ${RENTER_ID}`, from: 0, to: 50000 }],
+      requestedBy: "01a1a7bf-93ce-725f-b2a8-656176c3d7c4",
+      reason: "goodwill credit after the outage",
+      state: "pending",
+      solo: false,
+      runAfter: null,
+      decidedBy: null,
+      decisionReason: null,
+      decidedAt: null,
+      failure: null,
+      downloadable: false,
+      expiresAt: later(3),
+      createdAt: later(0),
+      version: 1,
+    },
+  ],
+  nextCursor: null,
+};
+
+/** GET /admin/v1/passkeys. */
+export const passkeys: { passkeys: Schemas["AdminPasskey"][] } = {
+  passkeys: [
+    {
+      id: "01a1a7bf-93ce-725f-b2a8-656176c3d7c5",
+      name: "My phone",
+      createdAt: later(0),
+      lastUsedAt: later(0),
+    },
+  ],
+};
+
+/** GET /admin/v1/me/sessions and /admin/v1/admins/sessions. */
+export const mySessions: { sessions: Schemas["AdminSessionRecord"][] } = {
+  sessions: [
+    {
+      id: "01a1a7bf-93ce-725f-b2a8-656176c3d7c6",
+      userId: "01a1a7bf-93ce-725f-b2a8-656176c3d7c4",
+      startedAt: later(0),
+      lastUsedAt: later(0),
+      expiresAt: later(1 / 48),
+      endsBy: later(1 / 3),
+      ip: "203.0.113.0/24",
+      userAgent: "Mozilla/5.0 Chrome/140.0",
+      current: true,
+    },
+  ],
+};
+
+/** GET /admin/v1/admins. */
+export const adminAccounts: Schemas["AdminAccounts"] = {
+  admins: [
+    {
+      id: "01a1a7bf-93ce-725f-b2a8-656176c3d7c4",
+      email: "ni•••@example.com",
+      enrolled: true,
+      locked: false,
+      roles: ["owner"],
+      version: 1,
+    },
+  ],
+  roles: [
+    { id: "owner", name: "Owner", permissions: EVERY_PERMISSION },
+    { id: "auditor", name: "Auditor", permissions: ["audit.read"] },
+  ],
+};
+
+/** GET /admin/v1/audit/standing. */
+export const auditStanding: Schemas["AuditStanding"] = {
+  latestCheck: {
+    rows: 1204,
+    headSeq: 1204,
+    intact: true,
+    brokenSeq: null,
+    detail: null,
+    tookMs: 18,
+    trigger: "daily",
+    checkedAt: later(0),
+  },
+  copies: [],
+};
+
+/** GET /admin/v1/personal-data/access-log. */
+export const accessLog: { entries: Schemas["AccessLogEntry"][]; nextCursor: null } = {
+  entries: [
+    {
+      id: "01a1a7bf-93ce-725f-b2a8-656176c3d7c7",
+      adminId: "01a1a7bf-93ce-725f-b2a8-656176c3d7c4",
+      subjectUserId: RENTER_ID,
+      field: "email",
+      reason: "answering ticket 142",
+      adminSessionId: "01a1a7bf-93ce-725f-b2a8-656176c3d7c6",
+      at: later(0),
+    },
+  ],
+  nextCursor: null,
 };

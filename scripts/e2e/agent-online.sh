@@ -470,9 +470,9 @@ token="$(stack_token "$user")"
 #     journey that signs in as a new person and enters one; the admin's (8) and the privacy journey's (10) are
 #     taken by index.
 log "making invite codes for the run's accounts"
-ops create-invites --count 14 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+ops create-invites --count 19 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
 invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 14))
-((${#invite_codes[@]} == 14)) || fail "create-invites didn't print 14 codes; see private/e2e/ops.log"
+((${#invite_codes[@]} == 19)) || fail "create-invites didn't print 19 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -1763,6 +1763,19 @@ scenario_admin_web() {
   admin_id="$(token="$admin_token" api_get /v1/me | json_get .id)"
   ops grant-admin "$admin_user@example.com" --reason "'End-to-end admin journey'" --role owner ||
     fail "grant-admin failed; see private/e2e/ops.log"
+  # Who else the admin journeys need (ADR 0051): a second Owner, who approves, and a Support admin and an Auditor, who
+  # see only what they may.
+  local other other_token
+  invite_next=14
+  for other in second passkey support auditor; do
+    other_token="$(stack_token "$admin_user-$other")"
+    [[ -n "$other_token" ]] || fail "no token for $admin_user-$other"
+    activate_user "$other_token"
+  done
+  ops grant-admin "$admin_user-second@example.com" --reason "'End-to-end admin journey'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
+  ops grant-admin "$admin_user-passkey@example.com" --reason "'End-to-end admin journey'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
+  ops grant-admin "$admin_user-support@example.com" --reason "'End-to-end admin journey'" --role support || fail "grant-admin failed; see private/e2e/ops.log"
+  ops grant-admin "$admin_user-auditor@example.com" --reason "'End-to-end admin journey'" --role auditor || fail "grant-admin failed; see private/e2e/ops.log"
 
   # One more host, enrolled and connected but never activated: the journey activates it.
   n=$((agents + 1))
@@ -1790,7 +1803,8 @@ scenario_admin_web() {
   token="$web_token" await_state "$session" RUNNING 90
   running_since="$(now_ms)"
 
-  E2E_ADMIN_USER="$admin_user" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
+  E2E_ADMIN_USER="$admin_user" E2E_SECOND_ADMIN="$admin_user-second" E2E_PASSKEY_ADMIN="$admin_user-passkey" E2E_SUPPORT_ADMIN="$admin_user-support" \
+    E2E_AUDITOR_ADMIN="$admin_user-auditor" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
     E2E_HOST_OWNER="$user" E2E_RUNNING_SINCE="$running_since" E2E_ADMIN_REPORT="$report" SKIP_VISUAL=1 \
     E2E_TICKET_NUMBER="${ticket_number:-}" E2E_REFUND_NOTE="end-to-end refund request" \
     E2E_CHARGEBACK="${chargeback_dispute:-}" \
@@ -1937,10 +1951,20 @@ scenario_payouts() {
   invite_next=12
   activate_user "$admin_token"
   ops grant-admin "$admin_user@example.com" --reason "'End-to-end payouts'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
-  admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token")" || fail "no admin session for the payouts admin"
+  admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token" "$out/payouts-admin.secret")" || fail "no admin session for the payouts admin"
+  # A second admin, who approves what must not rest on one person (ADR 0051).
+  local approver_user="$user-payouts-approver" approver_token approver_session
+  approver_token="$(stack_token "$approver_user")"
+  [[ -n "$approver_token" ]] || fail "no token for the payouts approver"
+  invite_next=18
+  activate_user "$approver_token"
+  ops grant-admin "$approver_user@example.com" --reason "'End-to-end payouts'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
+  approver_session="$(python3 scripts/e2e/admin-session.py "$api" "$approver_token" "$out/payouts-approver.secret")" || fail "no admin session for the payouts approver"
+  # An admin action as the console does it: admin_post [--if-match <version>] <path> [<json body>].
   admin_post() {
-    curl -sf -X POST "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session" \
-      -H 'Content-Type: application/json' "${@:2}"
+    E2E_API="$api" E2E_ADMIN_TOKEN="$admin_token" E2E_ADMIN_SESSION="$admin_session" E2E_ADMIN_SECRET="$out/payouts-admin.secret" \
+      E2E_APPROVER_TOKEN="$approver_token" E2E_APPROVER_SESSION="$approver_session" E2E_APPROVER_SECRET="$out/payouts-approver.secret" \
+      python3 scripts/e2e/admin-call.py "$@"
   }
   owner_id="$(api_get /v1/me | json_get .id)"
   # Waits for the person's newest payout to reach $2 (or any of $2, separated by |), within $3 s; prints its id.
@@ -1994,7 +2018,7 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
   # 1. Processed: once the window has passed, Run now pays what's available.
   session="$(earn payouts-first 100)"
   sleep 41
-  admin_post /admin/v1/payouts/runs -d '{"reason":"End-to-end payout run"}' >/dev/null || fail "Run now failed"
+  admin_post /admin/v1/payouts/runs '{"reason":"End-to-end payout run"}' >/dev/null || fail "Run now failed"
   payout="$(newest_payout "$owner_id" processed 60)"
   read -r net earned_to_paid <<<"$(sql "select net_paise || ' ' || extract(epoch from processed_at - earned_since)::int
       from payouts.payouts where id = '$payout'")"
@@ -2007,11 +2031,11 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
 
   # 2. Failed, then paid again: a UPI ID whose payouts fail.
   use_upi payoutfails@okicici
-  retried="$(admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" | json_get .notPaid)"
-  [[ "$retried" == ON_HOLD ]] || fail "a payout could go out within 20 s of the UPI ID changing ($retried)"
+  retried="$(admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" || true)"
+  [[ "$retried" == *ON_HOLD* ]] || fail "a payout could go out within 20 s of the UPI ID changing ($retried)"
   session="$(earn payouts-second 100)"
   sleep 41
-  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
+  admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
   payout="$(newest_payout "$owner_id" failed 60)"
   before="$(sql "select gross_paise from payouts.payouts where id = '$payout'")"
   [[ "$(sql "select count(*) from billing.ledger_entries where ref_id = '$payout' and ref_type = 'payout_returned' and account = 'host_payable'")" -ge 1 ]] ||
@@ -2019,14 +2043,14 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
   # 3. Reversed: processed, then sent back by the bank; the UPI ID is suspect until checked again.
   use_upi reversed@okicici
   sleep 21
-  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
+  admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
   payout="$(newest_payout "$owner_id" reversed 60)"
   [[ "$(sql "select gross_paise from payouts.payouts where id = '$payout'")" == "$before" ]] || fail "the retry didn't carry the failed payout's money"
   [[ "$(sql "select state from payouts.methods where user_id = '$owner_id' and vpa = 'reversed@okicici'")" == suspect ]] ||
     fail "the reversed payout's UPI ID isn't suspect"
   use_upi e2e.host@okicici
   sleep 21
-  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
+  admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end retry\"}" >/dev/null || fail "retry failed"
   payout="$(newest_payout "$owner_id" processed 60)"
   [[ "$(sql "select gross_paise from payouts.payouts where id = '$payout'")" == "$before" ]] || fail "the last retry didn't pay the same money"
   note "payouts: to a UPI ID whose payouts fail, held 20 s after the change, then failed and back in the earnings; paid again to one the bank reverses (processed, then reversed: back again, the UPI ID suspect); paid again to a good one, processed: $before paise each time, once: PASS"
@@ -2036,7 +2060,8 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
     -d "{\"sessionId\":\"$session\",\"reason\":\"wrong_output\",\"details\":\"End-to-end clawback\"}" | json_get .id)"
   [[ -n "$dispute" ]] || fail "reporting the paid-out session failed"
   charged="$(api_get "/v1/sessions/$session" | json_get .chargedPaise)"
-  admin_post "/admin/v1/disputes/$dispute/refund" -d "{\"amountPaise\":$charged,\"reason\":\"End-to-end refund after the payout\"}" >/dev/null ||
+  admin_post --if-match "$(sql "select version from trust.disputes where id = '$dispute'")" "/admin/v1/disputes/$dispute/refund" \
+    "{\"amountPaise\":$charged,\"reason\":\"End-to-end refund after the payout\"}" >/dev/null ||
     fail "refunding the report failed"
   rows="$(sql "select amount_paise || ':' || owed_paise || ':' || state from billing.clawbacks where owner_id = '$owner_id'")"
   [[ "$rows" =~ ^[0-9]+:[0-9]+:owed$ ]] || fail "the refund after the payout isn't an owed clawback: $rows"
@@ -2044,7 +2069,7 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
   ((owed > 0)) || fail "nothing is owed after the clawback: $rows"
   session="$(earn payouts-third 100)"
   sleep 41
-  admin_post /admin/v1/payouts/retry -d "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end recovery\"}" >/dev/null || fail "retry failed"
+  admin_post /admin/v1/payouts/retry "{\"userId\":\"$owner_id\",\"reason\":\"End-to-end recovery\"}" >/dev/null || fail "retry failed"
   [[ "$(sql "select state from billing.clawbacks where owner_id = '$owner_id'")" == recovered ]] || fail "the clawback wasn't recovered from the next earnings"
   [[ "$(sql "select coalesce(sum(case direction when 'debit' then amount_paise else -amount_paise end), 0) from billing.ledger_entries
       where account = 'host_receivable' and owner_id = '$owner_id'")" == 0 ]] || fail "the owner still owes after the recovery"
@@ -2099,7 +2124,8 @@ assert not standing["blockers"], standing["blockers"]
 assert any(wait["code"] in ("earnings-pending", "final-payout") for wait in standing["waits"]), standing["waits"]
 PY
   sleep 41
-  admin_post "/admin/v1/users/$owner2_id/deletion/legal-order" -d '{"reason":"End-to-end deletion with a final payout"}' >/dev/null ||
+  admin_post --if-match "$(sql "select version from identity.users where id = '$owner2_id'")" "/admin/v1/users/$owner2_id/deletion/legal-order" \
+    '{"reason":"End-to-end deletion with a final payout"}' >/dev/null ||
     fail "the legal order failed"
   deadline=$((SECONDS + 180))
   until [[ "$(sql "select state from privacy.deletion_requests where user_id = '$owner2_id' order by requested_at desc limit 1")" == erased ]]; do
@@ -2119,7 +2145,7 @@ PY
   note "payouts: a host asked to delete their account with earnings pending (not stopped; told they're paid first); under a legal order the erasure paid them one final payout at once, outside the weekly run, processed before the account was erased; the PAN kept for tax, the UPI ID cleared: PASS"
 
   # 6. RazorpayX against our payouts for today: nothing disagrees.
-  rows="$(admin_post /admin/v1/payouts/reconciliation -d "{\"day\":\"$(TZ=Asia/Kolkata date +%F)\",\"reason\":\"End-to-end reconciliation\"}" |
+  rows="$(admin_post /admin/v1/payouts/reconciliation "{\"day\":\"$(TZ=Asia/Kolkata date +%F)\",\"reason\":\"End-to-end reconciliation\"}" |
     python3 -c 'import json, sys; r = json.load(sys.stdin); print(":".join(str(r[k]) for k in ("payouts", "found", "open", "failure")))')"
   [[ "$rows" =~ ^[0-9]+:0:0:None$ ]] || fail "the payout reconciliation found disagreements (payouts:found:open:failure): $rows"
   echo "${rows%%:*}" >"$out/payouts-reconciled.txt"
