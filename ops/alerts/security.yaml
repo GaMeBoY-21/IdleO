@@ -23,3 +23,28 @@ groups:
         annotations:
           summary: The nightly scan of what is deployed hasn't reported for 30 hours.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-missing
+      - alert: AuditChainBroken
+        # A check of the audit log's hash chain found a row that doesn't add up: someone may have changed the log
+        # (ADR 0051). The one insider alert that pages.
+        expr: max(audit_chain_broken{job="control-plane"}) == 1
+        labels:
+          severity: page
+        annotations:
+          summary: The audit log's hash chain is broken.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-chain-broken
+      - alert: AuditChainUnchecked
+        # The daily check hasn't run for 26 hours.
+        expr: min(audit_chain_check_age_seconds{job="control-plane"}) > 26 * 3600
+        labels:
+          severity: digest
+        annotations:
+          summary: The audit log's hash chain hasn't been checked for a day.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-chain-unchecked
+      - alert: AuditCopyMissing
+        # The newest day with an off-site copy ended more than 26 hours ago: yesterday's file wasn't written.
+        expr: min(audit_offsite_age_seconds{job="control-plane"}) > 26 * 3600
+        labels:
+          severity: digest
+        annotations:
+          summary: A day of the audit log has no off-site copy.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-copy-missing

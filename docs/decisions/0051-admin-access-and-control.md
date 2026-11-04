@@ -41,7 +41,24 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 - **`GET /tax` has no endpoint of its own:** the Tax screen is the export, so its section needs `export.create`.
 - **There are no kill switches yet,** so no permission for them. When one is built, its permission is sensitive.
 
+### The audit log: tamper-evident, off-site, searchable
+
+**A hash chain, made by the database.** A \`BEFORE INSERT\` trigger on \`identity.audit_log\` gives each row its \`seq\`, its \`prev_hash\` (the row before's \`hash\`) and its \`hash\`, the SHA-256 of \`prev_hash\` and the row's canonical content (\`identity.audit_row_content\`: every field in one fixed order, as a JSON array). So every writer is chained, of this release or the one before it during a canary, and none can skip it or choose its place. Writers wait for the lock on the one-row \`identity.audit_chain_head\`, held until they commit, so the chain's order is the order they commit in. Its trigger runs as the table's owner: the application may read the head but not change it. The rows from before this were chained by the migration, oldest first, from 32 zero bytes.
+
+**Checking it.** \`AuditChain.verify\` walks the whole table in one SQL statement: each hash is what its content makes, each row follows the one before with no number missing, and the head is the last row. It runs daily under \`OneAtATime\` and from a button on the Audit log screen, and each result is kept in \`identity.audit_chain_checks\`. A break pages (\`AuditChainBroken\`, the one alert here that does), and a check that hasn't run for 26 hours tells the digest.
+
+**Each row also says where it came from:** the request id (also the \`X-Request-Id\` of the admin's response), the admin session, the address, the browser, and the approval it ran under. They're columns of their own, set from the request, so they don't break ADR 0037's rule that an entry's words hold no address.
+
+**The off-site copy.** \`AuditOffsiteCopies\` writes each finished India day's rows and the chain head after them as two files, in chain order, so the files join with no gaps. A file is written once with \`If-None-Match: *\` and never replaced; finding other bytes under the key is an error, not an overwrite. Missed days catch up in order, and a day with no rows still gets its head. In S5 the store is an R2 bucket with a lock on the prefix for 8 years (\`ops/backup/r2-audit-lock.json\`, docs/runbooks/audit-chain.md). R2 has no object versions, so write-once plus the lock is what keeps each version. The prod profile refuses to start without the store. A day with no copy tells the digest (\`AuditCopyMissing\`).
+
+**Search and export.** \`GET /admin/v1/audit\` also filters by approval and request id. \`POST /admin/v1/audit/export\` gives the same search as CSV, up to 50,000 rows, with addresses masked, under \`export.create\`, and is itself logged. Cells can't be read as spreadsheet formulas.
+
+**Still append-only for the application:** a test reads the database's privileges for \`idleo_application\`: no \`UPDATE\`, \`DELETE\` or \`TRUNCATE\` on the log, and no \`UPDATE\` on the head.
+
 ## Alternatives considered
+
+- **Chaining rows afterwards, with a job.** No lock on the write path, but a window in which a row can change unnoticed, and the \`hash\` couldn't live on the row of an append-only table.
+- **Working out the hash in Java.** An old release writing during a canary wouldn't chain, and any other writer could skip it.
 
 - **Roles as code (an enum of bundles).** Every change of a bundle would be a release, but the table says roles are data people may want to change, and a migration is just as reviewable.
 - **Spring Security's `@PreAuthorize`.** It reads as an expression, can't be checked at startup without parsing it, and would need method security on package-private controllers. One annotation with an enum can't be misspelt.

@@ -64,6 +64,7 @@ export type AdminLedgerEntry = Schemas["AdminLedgerEntry"];
 export type AdminReconciliationRun = Schemas["AdminReconciliationRun"];
 export type AdminInvite = Schemas["AdminInvite"];
 export type AuditEntry = Schemas["AuditEntry"];
+export type AuditStanding = Schemas["AuditStanding"];
 export type TicketStatus = Schemas["AdminAnswer"]["status"];
 export type AbuseSummary = Schemas["AbuseSummary"];
 export type AbuseDetail = Schemas["AbuseDetail"];
@@ -102,5 +103,25 @@ export async function adminData<T>(
       onNotFound();
     }
     throw error;
+  }
+}
+
+/** Saves a file an admin call answered with, as its problem detail if it was refused. */
+export async function adminFile(
+  result: Promise<{ data?: unknown; error?: unknown; response: Response }>,
+  name: string,
+): Promise<void> {
+  const { data: body, error, response } = await result;
+  if (!response.ok || !(body instanceof Blob)) {
+    throw ApiError.of(response.status, error);
+  }
+  const url = URL.createObjectURL(body);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+  } finally {
+    URL.revokeObjectURL(url);
   }
 }

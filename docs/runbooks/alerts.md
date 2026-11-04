@@ -335,3 +335,21 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 **Check first:** the console's Payouts filtered to reversed: the host, RazorpayX's reason. Several at once on one bank points at the bank, not the hosts.
 
 **Do:** nothing for one: the host checks their UPI ID and the next run pays them. Several: docs/runbooks/payouts.md, "Reversals".
+
+## Audit chain broken
+
+**Means:** a check of the admin audit log's hash chain found a row that doesn't add up: someone may have changed the record of what admins did.
+
+**Do:** docs/runbooks/audit-chain.md. Change nothing in the database.
+
+## Audit chain unchecked
+
+**Means:** the daily check of the audit log's chain hasn't run for 26 hours.
+
+**Do:** docs/runbooks/audit-chain.md, "When the check hasn't run".
+
+## Audit copy missing
+
+**Means:** the newest day with an off-site copy of the audit log ended more than 26 hours ago.
+
+**Do:** docs/runbooks/audit-chain.md, "When a day has no copy".
