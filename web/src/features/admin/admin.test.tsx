@@ -76,9 +76,10 @@ describe("the action sheet's safe writes", () => {
     render(<Sheet onConfirm={onConfirm} typed="01a1a7bf" />);
     await userEvent.type(screen.getByLabelText("Reason"), "card testing");
     const confirm = screen.getByRole("button", { name: "Suspend" });
-    expect(confirm).toBeDisabled();
     await userEvent.type(screen.getByLabelText(/to confirm$/), "01a1a7b");
-    expect(confirm).toBeDisabled();
+    await userEvent.click(confirm);
+    expect(screen.getByText("Type it exactly as shown.")).toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
     await userEvent.type(screen.getByLabelText(/to confirm$/), "f");
     await userEvent.click(confirm);
     expect(onConfirm).toHaveBeenCalledWith("card testing");

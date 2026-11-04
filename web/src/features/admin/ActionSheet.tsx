@@ -213,11 +213,17 @@ export function ActionSheet({
                     autoComplete="off"
                     onChange={(event) => setTyping(event.target.value)}
                     aria-invalid={touched && !typedRight ? true : undefined}
+                    aria-describedby={`${id}-typed-message`}
                     className={cn(
                       "rounded-control bg-panel px-4 py-3 text-body text-text",
                       touched && !typedRight && "ring-2 ring-danger",
                     )}
                   />
+                  {touched && !typedRight && (
+                    <p id={`${id}-typed-message`} className="text-caption text-danger">
+                      Type it exactly as shown.
+                    </p>
+                  )}
                 </div>
               )}
               {stale && (
@@ -232,12 +238,7 @@ export function ActionSheet({
                 <Dialog.Close asChild>
                   <Button variant="ghost">Cancel</Button>
                 </Dialog.Close>
-                <Button
-                  type="submit"
-                  variant={destructive ? "danger" : "primary"}
-                  busy={busy}
-                  disabled={!typedRight}
-                >
+                <Button type="submit" variant={destructive ? "danger" : "primary"} busy={busy}>
                   {confirm}
                 </Button>
               </div>

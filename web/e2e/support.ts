@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import {
   expect,
+  type Locator,
   type Page,
   type Request as PlaywrightRequest,
   type Route,
@@ -17,6 +18,15 @@ export const API = process.env.API_URL ?? "http://localhost:8080";
 export const STORAGE = `http://localhost:${process.env.LOCAL_STORAGE_PORT ?? "9100"}`;
 
 /** Signs in through the web app's own sign-in screen, as an invented @example.com user (the local adapter). */
+/** Types what an action that can't be undone asks for, as the sheet shows it. */
+export async function typeToConfirm(sheet: Locator): Promise<void> {
+  const toType = await sheet
+    .getByText(/This can't be undone/)
+    .locator("span")
+    .textContent();
+  await sheet.getByLabel(/to confirm$/).fill(toType!);
+}
+
 export async function signIn(page: Page, user: string, path = "/"): Promise<void> {
   await page.goto("/sign-in/");
   await page.getByLabel("Email", { exact: true }).fill(`${user}@example.com`);

@@ -34,7 +34,9 @@ async function enrol(page: Page): Promise<string> {
   return secret;
 }
 
+/** The console's items, once they're drawn. */
 async function sections(page: Page): Promise<string[]> {
+  await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link").first()).toBeVisible();
   return page.getByRole("navigation", { name: "Admin" }).getByRole("link").allInnerTexts();
 }
 
@@ -65,6 +67,7 @@ test.describe("each admin sees only what they may", () => {
   test("the Auditor reads the audit log and can change nothing", async ({ page }) => {
     await signIn(page, auditor!, "/admin/");
     await enrol(page);
+    await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
     const shown = await sections(page);
     expect(shown).toContain("Audit log");
     expect(shown).toContain("Money");
