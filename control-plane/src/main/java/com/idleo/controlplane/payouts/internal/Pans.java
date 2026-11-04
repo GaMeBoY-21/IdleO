@@ -192,16 +192,6 @@ class Pans implements VerifiedPans {
                 .map(stored -> seal.open(userId, stored));
     }
 
-    /** An admin reads the whole PAN, with a reason, audited in the same transaction. */
-    @Transactional
-    Optional<String> reveal(UUID userId, String reason, AuditTrail.Actor actor) {
-        var pan = full(userId);
-        if (pan.isPresent()) {
-            audit.record(new AuditTrail.Entry(actor, "pan.reveal", "user", userId.toString(), reason, null, null));
-        }
-        return pan;
-    }
-
     /**
      * An admin confirms a PAN in review (no provider yet, or a name that didn't match) or rejects it, with a reason,
      * audited in the same transaction.

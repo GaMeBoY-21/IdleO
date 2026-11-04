@@ -15,4 +15,10 @@ import java.lang.annotation.Target;
 public @interface RequiresPermission {
 
     AdminPermission value();
+
+    /**
+     * Whether its response goes out whole instead of through {@code PersonalDataMask}: only the admin's own second
+     * factor, and the one reveal.
+     */
+    boolean unmasked() default false;
 }

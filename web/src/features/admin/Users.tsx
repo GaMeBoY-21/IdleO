@@ -25,6 +25,7 @@ import {
   Table,
 } from "./ui";
 import { ActionButton, useCan } from "./permissions";
+import { Reveal } from "./Reveal";
 
 /** Users (ADR 0027): find them by email, name or id; one opens with what can be done to it. */
 export function Users() {
@@ -154,7 +155,10 @@ function UserRecord({ id }: { id: string }) {
           <>
             <Fields
               items={[
-                ["Email", found.email ?? "—"],
+                [
+                  "Email",
+                  found.email ? <Reveal key="email" field="email" id={found.id} masked={found.email} /> : "—",
+                ],
                 ["Name", found.displayName ?? "—"],
                 ["Status", <UserStatus key="status" user={found} />],
                 [

@@ -25,6 +25,7 @@ import {
   Table,
 } from "./ui";
 import { ActionButton, useCan } from "./permissions";
+import { Reveal } from "./Reveal";
 
 /** The topics, as the server lists them (Tickets.TOPICS), for the filter. */
 const TOPICS: [string, string][] = [
@@ -170,7 +171,14 @@ function TicketRecord({ id }: { id: string }) {
               <Fields
                 items={[
                   ["Status", STATUS[ticket.status] ?? ticket.status],
-                  ["Answer to", ticket.replyTo ?? "Erased"],
+                  [
+                    "Answer to",
+                    ticket.replyTo ? (
+                      <Reveal key="reply" field="reply_to" id={ticket.id} masked={ticket.replyTo} />
+                    ) : (
+                      "Erased"
+                    ),
+                  ],
                   [
                     "Person",
                     ticket.userId ? (

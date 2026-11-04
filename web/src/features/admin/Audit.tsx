@@ -6,6 +6,7 @@ import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, adminFile, type AuditStanding } from "./api";
 import { ActionButton } from "./permissions";
 import { AdminPage, Cell, Empty, Filters, PagedView, Row, Section, SmallField, Table, QueryView } from "./ui";
+import { Reveal } from "./Reveal";
 
 /** A change, as its JSON, short enough for a row. */
 function change(value: Record<string, unknown> | null | undefined): string {
@@ -108,7 +109,7 @@ export function Audit() {
                 <Cell className="tabular max-w-64 text-caption break-all">{change(entry.before)}</Cell>
                 <Cell className="tabular max-w-64 text-caption break-all">{change(entry.after)}</Cell>
                 <Cell className="tabular max-w-48 text-caption break-all">
-                  {entry.ip ?? "—"}
+                  {entry.ip ? <Reveal field="audit_ip" id={entry.id} masked={entry.ip} /> : "—"}
                   {entry.requestId && <span className="block text-text-2">Request {entry.requestId}</span>}
                   {entry.approvalId && <span className="block text-text-2">Approval {entry.approvalId}</span>}
                 </Cell>
@@ -118,6 +119,7 @@ export function Audit() {
         )}
       </PagedView>
       </Section>
+      <AccessLog />
       <ActionSheet
         open={exporting}
         onOpenChange={setExporting}
@@ -199,6 +201,57 @@ function Standing() {
           </div>
         )}
       </QueryView>
+    </Section>
+  );
+}
+
+/** Who viewed or revealed whose data (ADR 0051): for whoever reads this log. */
+function AccessLog() {
+  const [subject, setSubject] = useState("");
+  const [asked, setAsked] = useState("");
+  const entries = useInfiniteQuery({
+    queryKey: [ADMIN, "access-log", asked],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/personal-data/access-log", {
+          params: {
+            query: {
+              ...(asked ? { subject: asked } : {}),
+              ...(pageParam ? { cursor: pageParam } : {}),
+            },
+          },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+  return (
+    <Section title="Access to personal data">
+      <Filters onSubmit={() => setAsked(subject.trim())}>
+        <SmallField label="Person's id" value={subject} onChange={setSubject} width="w-72" />
+      </Filters>
+      <PagedView
+        query={entries}
+        what="the access log"
+        items={(page) => page.entries}
+        empty={<Empty title="Nothing matches">Each time an admin opens a person or reveals a value, it&apos;s here.</Empty>}
+      >
+        {(rows) => (
+          <Table caption="Access log" columns={["When", "Admin", "Whose", "Field", "Why"]}>
+            {rows.map((entry) => (
+              <Row key={entry.id}>
+                <Cell>
+                  <RelativeTime value={entry.at} />
+                </Cell>
+                <Cell className="tabular text-caption break-all">{entry.adminId}</Cell>
+                <Cell className="tabular text-caption break-all">{entry.subjectUserId ?? "—"}</Cell>
+                <Cell className="font-medium">{entry.field}</Cell>
+                <Cell className="max-w-64">{entry.reason}</Cell>
+              </Row>
+            ))}
+          </Table>
+        )}
+      </PagedView>
     </Section>
   );
 }

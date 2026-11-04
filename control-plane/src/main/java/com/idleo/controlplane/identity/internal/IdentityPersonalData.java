@@ -53,6 +53,12 @@ class IdentityPersonalData implements PersonalData {
                 .ifPresent(groups::add);
         groups.add(count("API keys", "identity.api_keys", "created_at", "user_id = :user", params));
         groups.add(count("security log entries", "identity.security_events", "at", "user_id = :user", params));
+        groups.add(count(
+                "times IdleO's staff viewed your data",
+                "identity.personal_data_access",
+                "at",
+                "subject_user_id = :user",
+                params));
         return groups;
     }
 
@@ -123,6 +129,15 @@ class IdentityPersonalData implements PersonalData {
                                 jdbc,
                                 "select kind, detail, host(address) as address, at from identity.security_events"
                                         + " where user_id = :user order by at",
+                                params)),
+                // Who at IdleO viewed or revealed this person's data (ADR 0051), by the admin's id. LEGAL(confirm)
+                new Part(
+                        "account",
+                        "staffAccess",
+                        rows.list(
+                                jdbc,
+                                "select admin_id, field, reason, at from identity.personal_data_access"
+                                        + " where subject_user_id = :user order by at",
                                 params)));
     }
 
@@ -151,6 +166,9 @@ class IdentityPersonalData implements PersonalData {
                         .update();
             }
             case DELETE_RECORDS -> {
+                jdbc.sql("delete from identity.personal_data_access where subject_user_id = :user")
+                        .param("user", userId)
+                        .update();
                 jdbc.sql("""
                                 delete from identity.cli_logins
                                 where approved_by = :user
