@@ -201,12 +201,6 @@ class AdminPayoutsController {
             @NotBlank @Size(min = 5, max = 500) @NoContactDetails
             String reason) {}
 
-    /**
-     * @param notPaid why no payout was made: NO_METHOD, ON_HOLD, NO_PAN, IN_PROGRESS or TOO_LITTLE
-     */
-    record AdminRetryOutcome(
-            @Nullable AdminPayout payout, @Nullable String notPaid) {}
-
     @RequiresPermission(AdminPermission.PAYOUTS_READ)
     @GetMapping
     AdminPayouts list(
