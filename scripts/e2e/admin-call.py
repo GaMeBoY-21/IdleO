@@ -5,9 +5,10 @@ action goes to another admin, that admin's approval. It prints the last answer's
 
     admin-call.py [--if-match <version>] <path> [<json body>]
 
-From the environment: E2E_API, and E2E_ADMIN_TOKEN, E2E_ADMIN_SESSION and E2E_ADMIN_SECRET for the admin; E2E_APPROVER_TOKEN,
-E2E_APPROVER_SESSION and E2E_APPROVER_SECRET for the second one. A secret names a file holding the authenticator's secret, as
-admin-session.py writes it, and beside it the newest time step used, since a code works once for its step.
+From the environment: E2E_API, and E2E_ADMIN_TOKEN, E2E_ADMIN_SESSION, E2E_ADMIN_SECRET and E2E_ADMIN_STEPS for the admin;
+E2E_APPROVER_TOKEN, E2E_APPROVER_SESSION, E2E_APPROVER_SECRET and E2E_APPROVER_STEPS for the second one. A secret is the
+authenticator's, as the server showed it. Steps names a file keeping the newest time step used, since a code works once for its
+step.
 """
 import base64
 import hashlib
@@ -29,11 +30,8 @@ def code(secret: str, step: int) -> str:
     return f"{(struct.unpack('>I', digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1_000_000:06d}"
 
 
-def fresh_code(secret_file: str) -> str:
+def fresh_code(secret: str, used_file: str) -> str:
     """A code for a step not used yet: one ahead of now is accepted once, or else it waits for the next step."""
-    with open(secret_file, encoding="utf-8") as kept:
-        secret = kept.read().strip()
-    used_file = secret_file + ".step"
     used = int(open(used_file, encoding="utf-8").read()) if os.path.exists(used_file) else 0
     step = int(time.time() // 30) + 1
     while step <= used:
@@ -67,7 +65,7 @@ def act(api: str, who: dict, path: str, body: bytes, if_match: str | None = None
     key = str(uuid.uuid4())
     status, text = send(api, who, path, body, key, if_match)
     if status == 403 and json.loads(text).get("type") == "/problems/step-up-required":
-        given = json.dumps({"totp": fresh_code(who["secret"])}).encode()
+        given = json.dumps({"totp": fresh_code(who["secret"], who["steps"])}).encode()
         stepped, answer = send(api, who, "/admin/v1/session/step-up", given)
         if stepped != 200:
             print(answer)
@@ -88,6 +86,7 @@ def main() -> None:
         "token": os.environ["E2E_ADMIN_TOKEN"],
         "session": os.environ["E2E_ADMIN_SESSION"],
         "secret": os.environ["E2E_ADMIN_SECRET"],
+        "steps": os.environ["E2E_ADMIN_STEPS"],
     }
     status, text = act(api, admin, path, body, if_match)
     if status == 202:
@@ -96,6 +95,7 @@ def main() -> None:
             "token": os.environ["E2E_APPROVER_TOKEN"],
             "session": os.environ["E2E_APPROVER_SESSION"],
             "secret": os.environ["E2E_APPROVER_SECRET"],
+            "steps": os.environ["E2E_APPROVER_STEPS"],
         }
         reason = json.dumps({"reason": "checked by a second admin"}).encode()
         status, text = act(api, approver, f"/admin/v1/approvals/{approval['id']}/approve", reason, str(approval["version"]))

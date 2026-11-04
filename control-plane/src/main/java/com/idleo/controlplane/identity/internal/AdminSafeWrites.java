@@ -9,6 +9,7 @@ import com.idleo.controlplane.identity.AdminRecords;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -169,12 +170,11 @@ class AdminSafeWrites {
             throw new IllegalStateException("an admin POST arrived without its readable body");
         }
         try {
-            var where = (request.getMethod() + " " + request.getRequestURI() + "\n").getBytes(StandardCharsets.UTF_8);
-            var body = readable.body();
-            var all = new byte[where.length + body.length];
-            System.arraycopy(where, 0, all, 0, where.length);
-            System.arraycopy(body, 0, all, where.length, body.length);
-            return all;
+            var all = new ByteArrayOutputStream();
+            all.writeBytes(
+                    (request.getMethod() + " " + request.getRequestURI() + "\n").getBytes(StandardCharsets.UTF_8));
+            all.writeBytes(readable.body());
+            return all.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

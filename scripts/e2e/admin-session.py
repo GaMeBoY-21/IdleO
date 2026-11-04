@@ -39,11 +39,8 @@ def post(api: str, bearer: str, path: str, body=None):
 
 def main() -> None:
     api, bearer = sys.argv[1].rstrip("/"), sys.argv[2]
-    secret = post(api, bearer, "/admin/v1/second-factor")["secret"]
-    if len(sys.argv) > 3:
-        # For admin-call.py, which gives a factor when the server asks for a recent one.
-        with open(sys.argv[3], "w", encoding="utf-8") as kept:
-            kept.write(secret)
+    # A caller that also needs the secret, for admin-call.py's step-ups, asks for it and passes it here.
+    secret = sys.argv[3] if len(sys.argv) > 3 else post(api, bearer, "/admin/v1/second-factor")["secret"]
     confirmed = post(api, bearer, "/admin/v1/second-factor/confirm", {"totp": code(secret)})
     print(confirmed["token"])
 

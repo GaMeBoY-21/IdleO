@@ -311,12 +311,15 @@ key2="$(curl -sf -X POST "$api/v1/api-keys" -H "Authorization: Bearer $token2" -
 admin="real-admin-$(perl -e 'printf "%08x", int(rand(2**32))')"
 admin_token="$(stack_token "$admin")"
 ops grant-admin "$admin@example.com" --reason "'Real runner abuse test'" --role owner || fail "grant-admin failed"
-admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token" "$work/admin.secret")" || fail "the admin's second factor didn't enrol"
+# The authenticator's secret stays in this shell: admin-call.py answers a step-up from it.
+admin_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $admin_token" | json_get .secret)"
+admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token" "$admin_secret")" || fail "the admin's second factor didn't enrol"
 # A second admin: clearing a review lifts a suspension, so another admin approves it (ADR 0051).
 approver="real-approver-$(perl -e 'printf "%08x", int(rand(2**32))')"
 approver_token="$(stack_token "$approver")"
 ops grant-admin "$approver@example.com" --reason "'Real runner abuse test'" --role owner || fail "grant-admin failed"
-approver_session="$(python3 scripts/e2e/admin-session.py "$api" "$approver_token" "$work/approver.secret")" || fail "the approver's second factor didn't enrol"
+approver_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $approver_token" | json_get .secret)"
+approver_session="$(python3 scripts/e2e/admin-session.py "$api" "$approver_token" "$approver_secret")" || fail "the approver's second factor didn't enrol"
 admin_get() { curl -sf "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session"; }
 s6="$(IDLEO_API_KEY="$key2" "$idleo" --json run hostile-test --param attack=run_named --max-spend 5 --detach 2>>"$out/cli.log" | detached)"
 [[ -n "$s6" && "$s6" != None ]] || fail "booking the listed build failed"
@@ -340,8 +343,8 @@ for item in json.load(sys.stdin)["items"]:
 read -r item_id item_action item_kinds <<<"$item"
 [[ "$item_action" == suspended && "$item_kinds" == process_hash ]] || fail "the review item says $item_action for $item_kinds, not suspended for process_hash"
 paid="$(admin_get "/admin/v1/abuse/$item_id" | json_get .paidPaise)"
-E2E_API="$api" E2E_ADMIN_TOKEN="$admin_token" E2E_ADMIN_SESSION="$admin_session" E2E_ADMIN_SECRET="$work/admin.secret" \
-  E2E_APPROVER_TOKEN="$approver_token" E2E_APPROVER_SESSION="$approver_session" E2E_APPROVER_SECRET="$work/approver.secret" \
+E2E_API="$api" E2E_ADMIN_TOKEN="$admin_token" E2E_ADMIN_SESSION="$admin_session" E2E_ADMIN_SECRET="$admin_secret" E2E_ADMIN_STEPS="$work/admin.steps" \
+  E2E_APPROVER_TOKEN="$approver_token" E2E_APPROVER_SESSION="$approver_session" E2E_APPROVER_SECRET="$approver_secret" E2E_APPROVER_STEPS="$work/approver.steps" \
   python3 scripts/e2e/admin-call.py --if-match "$(admin_get "/admin/v1/abuse/$item_id" | json_get .item.version)" \
   "/admin/v1/abuse/$item_id/clear" '{"reason": "Real runner test: a copy of sleep, not a miner"}' >"$work/clear.json" ||
   fail "clearing the review item was refused: $(cat "$work/clear.json")"
