@@ -200,7 +200,8 @@ test("an admin enrols a second factor, then activates a host, grants credit and 
     await expect(page.getByRole("table", { name: "Credit grants" })).toContainText("end-to-end admin grant");
     await go(page, "Audit log");
     await page.getByLabel("Action").fill("credit.");
-    await page.getByRole("button", { name: "Search" }).click();
+    // The log's own search; the access log below has one of its own.
+    await page.getByRole("button", { name: "Search" }).first().click();
     const row = page
       .getByRole("table", { name: "Audit log" })
       .getByRole("row")
