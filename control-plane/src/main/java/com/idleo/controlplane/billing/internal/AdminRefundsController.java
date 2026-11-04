@@ -1,10 +1,12 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -106,17 +108,20 @@ class AdminRefundsController {
     }
 
     /** {@code status}: requested (the default), refunding, refunded, failed, declined or all. */
+    @RequiresPermission(AdminPermission.REFUNDS_READ)
     @GetMapping
     AdminCreditRefundList list(@RequestParam(defaultValue = "requested") String status) {
         return new AdminCreditRefundList(
                 refunds.list(status, 100).stream().map(this::view).toList());
     }
 
+    @RequiresPermission(AdminPermission.REFUNDS_READ)
     @GetMapping("/{id}")
     AdminCreditRefund get(@PathVariable UUID id) {
         return view(found(id));
     }
 
+    @RequiresPermission(AdminPermission.REFUNDS_APPROVE)
     @PostMapping("/{id}/approve")
     AdminCreditRefund approve(
             @AuthenticationPrincipal CurrentUser admin,
@@ -127,6 +132,7 @@ class AdminRefundsController {
                 () -> refunds.approve(id, Paise.of(request.amountPaise()), request.reason(), audit.admin(admin))));
     }
 
+    @RequiresPermission(AdminPermission.REFUNDS_DECLINE)
     @PostMapping("/{id}/decline")
     AdminCreditRefund decline(
             @AuthenticationPrincipal CurrentUser admin,

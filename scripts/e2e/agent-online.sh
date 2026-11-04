@@ -1761,7 +1761,7 @@ scenario_admin_web() {
   invite_next=8
   activate_user "$admin_token"
   admin_id="$(token="$admin_token" api_get /v1/me | json_get .id)"
-  ops grant-admin "$admin_user@example.com" --reason "'End-to-end admin journey'" ||
+  ops grant-admin "$admin_user@example.com" --reason "'End-to-end admin journey'" --role owner ||
     fail "grant-admin failed; see private/e2e/ops.log"
 
   # One more host, enrolled and connected but never activated: the journey activates it.
@@ -1936,7 +1936,7 @@ scenario_payouts() {
   [[ -n "$admin_token" ]] || fail "no token for the payouts admin"
   invite_next=12
   activate_user "$admin_token"
-  ops grant-admin "$admin_user@example.com" --reason "'End-to-end payouts'" || fail "grant-admin failed; see private/e2e/ops.log"
+  ops grant-admin "$admin_user@example.com" --reason "'End-to-end payouts'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
   admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token")" || fail "no admin session for the payouts admin"
   admin_post() {
     curl -sf -X POST "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session" \

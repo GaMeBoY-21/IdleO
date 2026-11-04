@@ -12,6 +12,7 @@ import { Disputes } from "./Disputes";
 import { Notices } from "./Notices";
 import { Tickets } from "./Tickets";
 import { Gate } from "./Gate";
+import { NeedsPermission, useCan } from "./permissions";
 import { Hosts } from "./Hosts";
 import { Invites } from "./Invites";
 import { Invoices } from "./Invoices";
@@ -32,55 +33,61 @@ import { Users } from "./Users";
  * left navigation and dense tables, in the app's Night Shift tokens (and Day Shift, with the device).
  */
 export const ADMIN_SCREENS = [
-  { href: "/admin/", label: "Dashboard" },
-  { href: "/admin/users/", label: "Users" },
-  { href: "/admin/hosts/", label: "Hosts" },
-  { href: "/admin/sessions/", label: "Sessions" },
-  { href: "/admin/review/", label: "Review queue" },
-  { href: "/admin/disputes/", label: "Reports" },
-  { href: "/admin/chargebacks/", label: "Chargebacks" },
-  { href: "/admin/abuse/", label: "Abuse" },
-  { href: "/admin/images/", label: "Images" },
-  { href: "/admin/tickets/", label: "Tickets" },
-  { href: "/admin/money/", label: "Money" },
-  { href: "/admin/payments/", label: "Payments" },
-  { href: "/admin/refunds/", label: "Refunds" },
-  { href: "/admin/invoices/", label: "Invoices" },
-  { href: "/admin/payouts/", label: "Payouts" },
-  { href: "/admin/verification/", label: "Verification" },
-  { href: "/admin/clawbacks/", label: "Clawbacks" },
-  { href: "/admin/tax/", label: "Tax" },
-  { href: "/admin/invites/", label: "Invites" },
-  { href: "/admin/notices/", label: "Notices" },
-  { href: "/admin/audit/", label: "Audit log" },
+  { href: "/admin/", label: "Dashboard", needs: "dashboard.read" },
+  { href: "/admin/users/", label: "Users", needs: "users.read" },
+  { href: "/admin/hosts/", label: "Hosts", needs: "hosts.read" },
+  { href: "/admin/sessions/", label: "Sessions", needs: "sessions.read" },
+  { href: "/admin/review/", label: "Review queue", needs: "review.read" },
+  { href: "/admin/disputes/", label: "Reports", needs: "disputes.read" },
+  { href: "/admin/chargebacks/", label: "Chargebacks", needs: "payments.read" },
+  { href: "/admin/abuse/", label: "Abuse", needs: "abuse.read" },
+  { href: "/admin/images/", label: "Images", needs: "images.read" },
+  { href: "/admin/tickets/", label: "Tickets", needs: "tickets.read" },
+  { href: "/admin/money/", label: "Money", needs: "money.read" },
+  { href: "/admin/payments/", label: "Payments", needs: "payments.read" },
+  { href: "/admin/refunds/", label: "Refunds", needs: "refunds.read" },
+  { href: "/admin/invoices/", label: "Invoices", needs: "invoices.read" },
+  { href: "/admin/payouts/", label: "Payouts", needs: "payouts.read" },
+  { href: "/admin/verification/", label: "Verification", needs: "verifications.read" },
+  { href: "/admin/clawbacks/", label: "Clawbacks", needs: "clawbacks.read" },
+  { href: "/admin/tax/", label: "Tax", needs: "export.create" },
+  { href: "/admin/invites/", label: "Invites", needs: "invites.read" },
+  { href: "/admin/notices/", label: "Notices", needs: "notices.publish" },
+  { href: "/admin/audit/", label: "Audit log", needs: "audit.read" },
 ] as const;
+
+/** A screen, once its section's permission is held; it never asks the server for what would be refused. */
+function guarded(href: string, screen: React.ReactNode) {
+  const needs = ADMIN_SCREENS.find((candidate) => candidate.href === href)?.needs ?? "";
+  return <NeedsPermission permission={needs}>{screen}</NeedsPermission>;
+}
 
 export function AdminConsole() {
   return (
     <Gate>
       <Layout>
         <Switch>
-          <Route path="/admin/" component={Dashboard} />
-          <Route path="/admin/users/" component={Users} />
-          <Route path="/admin/hosts/" component={Hosts} />
-          <Route path="/admin/sessions/" component={Sessions} />
-          <Route path="/admin/review/" component={Review} />
-          <Route path="/admin/disputes/" component={Disputes} />
-          <Route path="/admin/abuse/" component={Abuse} />
-          <Route path="/admin/images/" component={Images} />
-          <Route path="/admin/tickets/" component={Tickets} />
-          <Route path="/admin/notices/" component={Notices} />
-          <Route path="/admin/money/" component={Money} />
-          <Route path="/admin/payments/" component={Payments} />
-          <Route path="/admin/refunds/" component={Refunds} />
-          <Route path="/admin/invoices/" component={Invoices} />
-          <Route path="/admin/chargebacks/" component={Chargebacks} />
-          <Route path="/admin/payouts/" component={Payouts} />
-          <Route path="/admin/verification/" component={Verification} />
-          <Route path="/admin/clawbacks/" component={Clawbacks} />
-          <Route path="/admin/tax/" component={Tax} />
-          <Route path="/admin/invites/" component={Invites} />
-          <Route path="/admin/audit/" component={Audit} />
+          <Route path="/admin/">{guarded("/admin/", <Dashboard />)}</Route>
+          <Route path="/admin/users/">{guarded("/admin/users/", <Users />)}</Route>
+          <Route path="/admin/hosts/">{guarded("/admin/hosts/", <Hosts />)}</Route>
+          <Route path="/admin/sessions/">{guarded("/admin/sessions/", <Sessions />)}</Route>
+          <Route path="/admin/review/">{guarded("/admin/review/", <Review />)}</Route>
+          <Route path="/admin/disputes/">{guarded("/admin/disputes/", <Disputes />)}</Route>
+          <Route path="/admin/abuse/">{guarded("/admin/abuse/", <Abuse />)}</Route>
+          <Route path="/admin/images/">{guarded("/admin/images/", <Images />)}</Route>
+          <Route path="/admin/tickets/">{guarded("/admin/tickets/", <Tickets />)}</Route>
+          <Route path="/admin/notices/">{guarded("/admin/notices/", <Notices />)}</Route>
+          <Route path="/admin/money/">{guarded("/admin/money/", <Money />)}</Route>
+          <Route path="/admin/payments/">{guarded("/admin/payments/", <Payments />)}</Route>
+          <Route path="/admin/refunds/">{guarded("/admin/refunds/", <Refunds />)}</Route>
+          <Route path="/admin/invoices/">{guarded("/admin/invoices/", <Invoices />)}</Route>
+          <Route path="/admin/chargebacks/">{guarded("/admin/chargebacks/", <Chargebacks />)}</Route>
+          <Route path="/admin/payouts/">{guarded("/admin/payouts/", <Payouts />)}</Route>
+          <Route path="/admin/verification/">{guarded("/admin/verification/", <Verification />)}</Route>
+          <Route path="/admin/clawbacks/">{guarded("/admin/clawbacks/", <Clawbacks />)}</Route>
+          <Route path="/admin/tax/">{guarded("/admin/tax/", <Tax />)}</Route>
+          <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
+          <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
         </Switch>
       </Layout>
     </Gate>
@@ -125,6 +132,8 @@ const GROUPS: { label: string; hrefs: readonly string[] }[] = [
 function Layout({ children }: { children: React.ReactNode }) {
   const [path] = useLocation();
   const client = useQueryClient();
+  const can = useCan();
+  const screens = ADMIN_SCREENS.filter((screen) => can(screen.needs));
   const leave = async () => {
     await adminApi.DELETE("/admin/v1/session").catch(() => undefined);
     adminSession.clear();
@@ -160,15 +169,15 @@ function Layout({ children }: { children: React.ReactNode }) {
           <span className="text-caption font-bold tracking-wider text-text-3 uppercase md:px-3">Admin</span>
         </div>
         <nav aria-label="Admin" className="-mx-1 overflow-x-auto md:mx-0 md:mt-3">
-          <ul className="flex gap-1 md:hidden">{ADMIN_SCREENS.map(item)}</ul>
+          <ul className="flex gap-1 md:hidden">{screens.map(item)}</ul>
           <div className="hidden flex-col gap-4 md:flex">
-            {GROUPS.map((group) => (
+            {GROUPS.filter((group) => screens.some((screen) => group.hrefs.includes(screen.href))).map((group) => (
               <section key={group.label} aria-label={group.label} className="flex flex-col gap-0.5">
                 <h2 className="px-3 pb-1 text-caption font-semibold tracking-wider text-text-3 uppercase">
                   {group.label}
                 </h2>
                 <ul className="flex flex-col gap-0.5">
-                  {ADMIN_SCREENS.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
+                  {screens.filter((screen) => group.hrefs.includes(screen.href)).map(item)}
                 </ul>
               </section>
             ))}

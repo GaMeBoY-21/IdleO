@@ -1,8 +1,10 @@
 package com.idleo.controlplane.support.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -95,6 +97,7 @@ class AdminTicketsController {
      * The tickets: open ones first, by due date (overdue first) and then the oldest; {@code topic}, {@code status} and
      * {@code olderThanDays} narrow it; {@code cursor} is the next page's.
      */
+    @RequiresPermission(AdminPermission.TICKETS_READ)
     @GetMapping
     AdminTicketPage list(
             @RequestParam(required = false) @Nullable String topic,
@@ -114,6 +117,7 @@ class AdminTicketsController {
                 page.size() > size ? String.valueOf(offset + size) : null);
     }
 
+    @RequiresPermission(AdminPermission.TICKETS_READ)
     @GetMapping("/{id}")
     AdminTicketThread get(@PathVariable UUID id) {
         var ticket = tickets.find(id).orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no such ticket."));
@@ -121,6 +125,7 @@ class AdminTicketsController {
     }
 
     /** Answers the ticket: emailed to its address with its number in the subject. Audited. */
+    @RequiresPermission(AdminPermission.TICKETS_REPLY)
     @PostMapping("/{id}/answer")
     AdminTicketThread answer(
             @AuthenticationPrincipal CurrentUser admin,
@@ -130,6 +135,7 @@ class AdminTicketsController {
     }
 
     /** Changes the ticket's status, with a reason. Audited. */
+    @RequiresPermission(AdminPermission.TICKETS_REPLY)
     @PostMapping("/{id}/status")
     AdminTicketThread status(
             @AuthenticationPrincipal CurrentUser admin,

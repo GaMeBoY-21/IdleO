@@ -310,7 +310,7 @@ key2="$(curl -sf -X POST "$api/v1/api-keys" -H "Authorization: Bearer $token2" -
 # The admin: a user given the role by the operator command, a second factor enrolled from the secret the server shows.
 admin="real-admin-$(perl -e 'printf "%08x", int(rand(2**32))')"
 admin_token="$(stack_token "$admin")"
-ops grant-admin "$admin@example.com" --reason "'Real runner abuse test'" || fail "grant-admin failed"
+ops grant-admin "$admin@example.com" --reason "'Real runner abuse test'" --role owner || fail "grant-admin failed"
 admin_session="$(python3 scripts/e2e/admin-session.py "$api" "$admin_token")" || fail "the admin's second factor didn't enrol"
 admin_get() { curl -sf "$api$1" -H "Authorization: Bearer $admin_token" -H "Admin-Session: $admin_session"; }
 s6="$(IDLEO_API_KEY="$key2" "$idleo" --json run hostile-test --param attack=run_named --max-spend 5 --detach 2>>"$out/cli.log" | detached)"

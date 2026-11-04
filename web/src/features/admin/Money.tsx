@@ -21,6 +21,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ActionButton } from "./permissions";
 
 const ACCOUNTS: [string, string][] = [
   ["renter_wallet", "A renter's wallet"],
@@ -52,9 +53,9 @@ function Reconciliation() {
     <Section
       title="Wallet reconciliation"
       action={
-        <Button variant="ghost" onClick={() => setRunning(true)}>
+        <ActionButton permission="reconciliation.run" variant="ghost" onClick={() => setRunning(true)}>
           Run the check now
-        </Button>
+        </ActionButton>
       }
     >
       <QueryView

@@ -1,10 +1,12 @@
 package com.idleo.controlplane.trust.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.billing.SessionRefunds;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
@@ -155,6 +157,7 @@ class AdminDisputesController {
     }
 
     /** {@code state} is {@code open}, {@code resolved} or {@code all} (the default). */
+    @RequiresPermission(AdminPermission.DISPUTES_READ)
     @GetMapping
     AdminDisputePage list(
             @RequestParam(required = false) @Nullable String state,
@@ -192,6 +195,7 @@ class AdminDisputesController {
                         : null);
     }
 
+    @RequiresPermission(AdminPermission.DISPUTES_READ)
     @GetMapping("/{id}")
     AdminDispute get(@PathVariable UUID id) {
         var dispute = jdbc.sql("select * from trust.disputes where id = :id")
@@ -220,6 +224,7 @@ class AdminDisputesController {
     }
 
     /** Every flag on a host's record, the newest first. */
+    @RequiresPermission(AdminPermission.DISPUTES_READ)
     @GetMapping("/host-flags")
     AdminHostFlags hostFlags(@RequestParam UUID host) {
         return new AdminHostFlags(flags(host));
@@ -243,6 +248,7 @@ class AdminDisputesController {
      * hosts' shares. 409 {@code action-refused} for more than the session cost net, or a report already resolved
      * another way; the same refund again changes nothing.
      */
+    @RequiresPermission(AdminPermission.DISPUTES_REFUND)
     @PostMapping("/{id}/refund")
     AdminDispute refund(
             @AuthenticationPrincipal CurrentUser admin,
@@ -258,6 +264,7 @@ class AdminDisputesController {
     }
 
     /** Resolves the report without a refund. The same again changes nothing. */
+    @RequiresPermission(AdminPermission.DISPUTES_DECIDE)
     @PostMapping("/{id}/no-refund")
     AdminDispute noRefund(
             @AuthenticationPrincipal CurrentUser admin,

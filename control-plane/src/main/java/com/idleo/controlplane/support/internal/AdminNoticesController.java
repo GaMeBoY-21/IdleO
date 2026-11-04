@@ -1,7 +1,9 @@
 package com.idleo.controlplane.support.internal;
 
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.NoContactDetails;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.UserDirectory;
@@ -61,6 +63,7 @@ class AdminNoticesController {
     /** How many were emailed, and who has no address we can write to. */
     record AdminNoticeSent(UUID noticeId, int sent, List<UUID> withoutAddress) {}
 
+    @RequiresPermission(AdminPermission.NOTICES_PUBLISH)
     @PostMapping("/admin/v1/notices")
     AdminNoticeSent send(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminNotice request) {
         var id = ids.newId();

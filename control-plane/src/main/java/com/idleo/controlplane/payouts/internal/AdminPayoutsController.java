@@ -1,12 +1,14 @@
 package com.idleo.controlplane.payouts.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.FinancialYear;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -199,6 +201,7 @@ class AdminPayoutsController {
     record AdminRetryOutcome(
             @Nullable AdminPayout payout, @Nullable String notPaid) {}
 
+    @RequiresPermission(AdminPermission.PAYOUTS_READ)
     @GetMapping
     AdminPayouts list(
             @RequestParam(defaultValue = "all") String status,
@@ -228,6 +231,7 @@ class AdminPayoutsController {
     }
 
     /** Starts a run now, outside the schedule: everyone who can be paid at least the weekly minimum. */
+    @RequiresPermission(AdminPermission.PAYOUTS_RUN)
     @PostMapping("/runs")
     AdminPayoutRun run(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminReason request) {
         var run = runs.startNow(request.reason(), audit.admin(admin));
@@ -235,6 +239,7 @@ class AdminPayoutsController {
     }
 
     /** Pays one person now (a retry after a failed payout), whatever the weekly minimum. */
+    @RequiresPermission(AdminPermission.PAYOUTS_RELEASE)
     @PostMapping("/retry")
     AdminRetryOutcome retry(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RetryPayout request) {
         var outcome = runs.payNow(request.userId(), "retry", request.reason(), audit.admin(admin));
@@ -289,6 +294,7 @@ class AdminPayoutsController {
 
     record AdminPanReveal(UUID userId, String pan) {}
 
+    @RequiresPermission(AdminPermission.VERIFICATIONS_READ)
     @GetMapping("/verifications")
     AdminVerifications verifications() {
         return new AdminVerifications(
@@ -307,6 +313,7 @@ class AdminPayoutsController {
                         .toList());
     }
 
+    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
     @PostMapping("/verifications/pans/{userId}/verify")
     AdminPanReview verifyPan(
             @AuthenticationPrincipal CurrentUser admin,
@@ -315,6 +322,7 @@ class AdminPayoutsController {
         return AdminPanReview.of(refusing(() -> pans.decide(userId, true, request.reason(), audit.admin(admin))));
     }
 
+    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
     @PostMapping("/verifications/pans/{userId}/reject")
     AdminPanReview rejectPan(
             @AuthenticationPrincipal CurrentUser admin,
@@ -324,6 +332,7 @@ class AdminPayoutsController {
     }
 
     /** The whole PAN, read with a reason, audited. */
+    @RequiresPermission(AdminPermission.USERS_PII_REVEAL)
     @PostMapping("/verifications/pans/{userId}/reveal")
     AdminPanReveal revealPan(
             @AuthenticationPrincipal CurrentUser admin,
@@ -334,6 +343,7 @@ class AdminPayoutsController {
                 .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "This person has given no PAN."));
     }
 
+    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
     @PostMapping("/verifications/upi-ids/{id}/approve")
     AdminUpiReview approveUpi(
             @AuthenticationPrincipal CurrentUser admin,
@@ -342,6 +352,7 @@ class AdminPayoutsController {
         return upi(refusing(() -> methods.decide(id, true, request.reason(), audit.admin(admin))));
     }
 
+    @RequiresPermission(AdminPermission.VERIFICATIONS_DECIDE)
     @PostMapping("/verifications/upi-ids/{id}/reject")
     AdminUpiReview rejectUpi(
             @AuthenticationPrincipal CurrentUser admin,
@@ -439,6 +450,7 @@ class AdminPayoutsController {
             String reason) {}
 
     /** {@code state}: open (the default), fixed, accepted or all. */
+    @RequiresPermission(AdminPermission.PAYOUTS_READ)
     @GetMapping("/reconciliation")
     AdminPayoutReconciliation reconciliation(@RequestParam(defaultValue = "open") String state) {
         if (!Set.of("open", "fixed", "accepted", "all").contains(state)) {
@@ -453,12 +465,14 @@ class AdminPayoutsController {
                         .toList());
     }
 
+    @RequiresPermission(AdminPermission.RECONCILIATION_RUN)
     @PostMapping("/reconciliation")
     AdminPayoutReconciliationRun reconcile(
             @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody RunPayoutReconciliation request) {
         return AdminPayoutReconciliationRun.of(reconciliation.run(request.day(), audit.admin(admin), request.reason()));
     }
 
+    @RequiresPermission(AdminPermission.RECONCILIATION_ACCEPT)
     @PostMapping("/mismatches/{id}/accept")
     AdminPayoutMismatch accept(
             @AuthenticationPrincipal CurrentUser admin,
@@ -481,6 +495,7 @@ class AdminPayoutsController {
      * the quarter, with the host's whole PAN and name as on it, the section and rate, the gross, the tax, the net and
      * the dates. Audited: it holds every PAN.
      */
+    @RequiresPermission(AdminPermission.EXPORT_CREATE)
     @PostMapping(value = "/tds-export", produces = "text/csv")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",

@@ -1,9 +1,11 @@
 package com.idleo.controlplane.images.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -103,6 +105,7 @@ class AdminImagesController {
             int submissions,
             List<ImageController.ImageWarning> warnings) {}
 
+    @RequiresPermission(AdminPermission.IMAGES_READ)
     @GetMapping
     AdminImagePage list(
             @RequestParam(required = false) @Nullable String state,
@@ -131,6 +134,7 @@ class AdminImagesController {
                 page, rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
     }
 
+    @RequiresPermission(AdminPermission.IMAGES_READ)
     @GetMapping("/{id}")
     AdminImageDetail get(@PathVariable UUID id) {
         var row = images.find(id).orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "No such image."));
@@ -168,6 +172,7 @@ class AdminImagesController {
      * those not started are cancelled, and each owner is told. 409 {@code action-refused} before its check has found a
      * digest, or when the digest is blocked already.
      */
+    @RequiresPermission(AdminPermission.IMAGES_BLOCK)
     @PostMapping("/{id}/block")
     AdminImageDetail block(
             @AuthenticationPrincipal CurrentUser admin,
@@ -199,6 +204,7 @@ class AdminImagesController {
     }
 
     /** Lifts an admin's block of the submission's digest, with the admin's reason. 409 unless an admin blocked it. */
+    @RequiresPermission(AdminPermission.IMAGES_UNBLOCK)
     @PostMapping("/{id}/unblock")
     AdminImageDetail unblock(
             @AuthenticationPrincipal CurrentUser admin,

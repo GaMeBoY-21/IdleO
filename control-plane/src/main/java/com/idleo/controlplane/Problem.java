@@ -525,6 +525,12 @@ public enum Problem {
             HttpStatus.CONFLICT,
             "Second factor not set up",
             "Set up the authenticator first: ask for a secret, then confirm it with a code from the app."),
+    ADMIN_PERMISSION_REQUIRED(
+            "admin-permission-required",
+            HttpStatus.FORBIDDEN,
+            "You don't have the permission for this",
+            "The admin's roles don't include what this needs. `permission` names it; an Owner can grant a role that "
+                    + "has it."),
     ACTION_REFUSED(
             "action-refused",
             HttpStatus.CONFLICT,

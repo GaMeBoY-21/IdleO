@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { ActionSheet } from "./ActionSheet";
 import { adminApi } from "./api";
 import { AdminPage, Section, SmallField } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** The quarter now, as the export names it: `2026-27-Q3` for October to December 2026. */
 export function quarterOf(date: Date): string {
@@ -34,9 +35,9 @@ export function Tax() {
             value={quarter}
             onChange={setQuarter}
           />
-          <Button variant="ghost" onClick={() => setOpen(true)}>
+          <ActionButton permission="export.create" variant="ghost" onClick={() => setOpen(true)}>
             Export CSV
-          </Button>
+          </ActionButton>
         </div>
       </Section>
       <ActionSheet

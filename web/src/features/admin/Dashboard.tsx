@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { RelativeTime } from "@/components/ui/Time";
+import { useCan } from "./permissions";
 import { ADMIN, adminApi, adminData, type AdminDashboard, type AdminInstalls } from "./api";
 import { AdminPage, Cell, Empty, QueryView, Row, Section, Table } from "./ui";
 
@@ -16,6 +17,7 @@ const FIGURES: [keyof AdminDashboard, string, string][] = [
 
 /** The pilot at a glance (ADR 0027): each figure counted, when asked, by the module that owns it. */
 export function Dashboard() {
+  const can = useCan();
   const dashboard = useQuery({
     queryKey: [ADMIN, "dashboard"],
     queryFn: () => adminData(adminApi.GET("/admin/v1/dashboard")),
@@ -80,7 +82,7 @@ export function Dashboard() {
           </>
         )}
       </QueryView>
-      <Installs />
+      {can("hosts.read") && <Installs />}
     </AdminPage>
   );
 }

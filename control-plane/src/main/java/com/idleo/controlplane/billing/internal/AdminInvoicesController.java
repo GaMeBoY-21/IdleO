@@ -1,9 +1,11 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -56,6 +58,7 @@ class AdminInvoicesController {
             @NotBlank @Size(min = 5, max = 500) @NoContactDetails
             String reason) {}
 
+    @RequiresPermission(AdminPermission.INVOICES_READ)
     @GetMapping
     AdminInvoiceList search(
             @RequestParam(required = false) @Nullable String number,
@@ -65,11 +68,13 @@ class AdminInvoicesController {
                 .toList());
     }
 
+    @RequiresPermission(AdminPermission.INVOICES_READ)
     @GetMapping("/{id}")
     JsonNode get(@PathVariable UUID id) {
         return found(id).document();
     }
 
+    @RequiresPermission(AdminPermission.INVOICES_READ)
     @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
@@ -86,6 +91,7 @@ class AdminInvoicesController {
                 .body(pdf.render(invoice.document()));
     }
 
+    @RequiresPermission(AdminPermission.INVOICES_CREDIT_NOTE)
     @PostMapping("/{id}/credit-notes")
     AdminInvoice creditNote(
             @AuthenticationPrincipal CurrentUser admin,

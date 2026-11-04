@@ -298,7 +298,7 @@ class AdminAccessTests {
         var operator = AuditTrail.Actor.operator("tester");
         assertThat(roles.revoke(email, "locked out by wrong codes", operator).changed())
                 .isTrue();
-        assertThat(roles.grant(email, "back after a lockout", operator).changed())
+        assertThat(roles.grant(email, "back after a lockout", operator, "owner").changed())
                 .isTrue();
         mvc.perform(get("/admin/v1/session").header("Authorization", admin.bearer()))
                 .andExpect(jsonPath("$.enrolled").value(false));

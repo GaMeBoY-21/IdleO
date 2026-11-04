@@ -113,6 +113,11 @@ public interface OperatorCommand {
             return values.getFirst();
         }
 
+        /** The option's value, when it's given once; empty when it isn't given. */
+        public java.util.Optional<String> optional(String name) {
+            return options.containsKey(name) ? java.util.Optional.of(text(name)) : java.util.Optional.empty();
+        }
+
         public UUID id(String name) {
             try {
                 return UUID.fromString(text(name));

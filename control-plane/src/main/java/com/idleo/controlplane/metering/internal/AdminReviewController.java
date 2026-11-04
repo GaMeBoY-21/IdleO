@@ -1,9 +1,11 @@
 package com.idleo.controlplane.metering.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.sessions.MeteredSessions;
@@ -73,6 +75,7 @@ class AdminReviewController {
             List<AdminReviewMinute> minutes, @Nullable String nextCursor) {}
 
     /** {@code state} is {@code open} (the default), {@code decided} or {@code all}; {@code session} keeps one session's. */
+    @RequiresPermission(AdminPermission.REVIEW_READ)
     @GetMapping
     AdminReviewPage list(
             @RequestParam(required = false) @Nullable String state,
@@ -167,6 +170,7 @@ class AdminReviewController {
     }
 
     /** Charges the minute at its attempt's price, as a settlement of its own, within the cap and the credit. */
+    @RequiresPermission(AdminPermission.REVIEW_CHARGE)
     @PostMapping("/{sessionId}/{minuteIndex}/charge")
     AdminReviewDecision charge(
             @AuthenticationPrincipal CurrentUser admin,
@@ -177,6 +181,7 @@ class AdminReviewController {
     }
 
     /** Waives the minute: it's never charged, and no money moves. */
+    @RequiresPermission(AdminPermission.REVIEW_WAIVE)
     @PostMapping("/{sessionId}/{minuteIndex}/waive")
     AdminReviewDecision waive(
             @AuthenticationPrincipal CurrentUser admin,

@@ -1,10 +1,12 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -94,6 +96,7 @@ class AdminUsersController {
     record AdminUserPage(List<AdminUser> users, @Nullable String nextCursor) {}
 
     /** {@code query} is part of an email, a name, or a whole user id; {@code status} is waiting, active or suspended. */
+    @RequiresPermission(AdminPermission.USERS_READ)
     @GetMapping
     AdminUserPage search(
             @RequestParam(required = false) @Nullable String query,
@@ -124,12 +127,14 @@ class AdminUsersController {
                 users.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
     }
 
+    @RequiresPermission(AdminPermission.USERS_READ)
     @GetMapping("/{id}")
     AdminUser get(@PathVariable UUID id) {
         return find(id);
     }
 
     /** Suspends an active account: its tokens and keys are refused from the next request. */
+    @RequiresPermission(AdminPermission.USERS_SUSPEND)
     @PostMapping("/{id}/suspend")
     AdminUser suspend(
             @AuthenticationPrincipal CurrentUser admin,
@@ -146,6 +151,7 @@ class AdminUsersController {
     }
 
     /** Reinstates a suspended account. */
+    @RequiresPermission(AdminPermission.USERS_UNSUSPEND)
     @PostMapping("/{id}/unsuspend")
     AdminUser unsuspend(
             @AuthenticationPrincipal CurrentUser admin,
@@ -164,6 +170,7 @@ class AdminUsersController {
             List<SecurityEvent> events, @Nullable String nextCursor) {}
 
     /** The person's security log, newest first: sign-ins, failures they can be tied to, key and account events. */
+    @RequiresPermission(AdminPermission.USERS_READ)
     @GetMapping("/{id}/security-events")
     SecurityEventPage securityEvents(
             @PathVariable UUID id,

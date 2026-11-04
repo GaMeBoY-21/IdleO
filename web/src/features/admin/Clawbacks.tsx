@@ -6,6 +6,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminClawback } from "./api";
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
+import { ActionButton } from "./permissions";
 
 /**
  * Clawbacks (ADR 0040): a report refunded after the session's earnings were paid out. What the host's balance covered,
@@ -94,9 +95,9 @@ export function Clawbacks() {
                   </Cell>
                   <Cell>
                     {clawback.outstandingPaise > 0 && (
-                      <Button variant="quiet" onClick={() => setWaiving(clawback)}>
+                      <ActionButton permission="clawbacks.waive" variant="quiet" onClick={() => setWaiving(clawback)}>
                         Waive<span className="sr-only"> {clawback.id}</span>
-                      </Button>
+                      </ActionButton>
                     )}
                   </Cell>
                 </Row>

@@ -1,10 +1,12 @@
 package com.idleo.controlplane.trust.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -180,6 +182,7 @@ class AdminAbuseController {
     }
 
     /** {@code state} is {@code open} (the default), {@code confirmed}, {@code cleared} or {@code all}; oldest first. */
+    @RequiresPermission(AdminPermission.ABUSE_READ)
     @GetMapping
     AbusePage list(
             @RequestParam(required = false) @Nullable String state,
@@ -211,6 +214,7 @@ class AdminAbuseController {
                 rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
     }
 
+    @RequiresPermission(AdminPermission.ABUSE_READ)
     @GetMapping("/{id}")
     AbuseDetail get(@PathVariable UUID id) {
         var item = reviews.find(id).orElseThrow(AdminAbuseController::notFound);
@@ -262,6 +266,7 @@ class AdminAbuseController {
      * Confirms an open item: the suspension stays, and the account is banned if asked (a ban is lifted only by clearing the
      * item). 409 {@code action-refused} for an item already cleared, or an account that can't be banned.
      */
+    @RequiresPermission(AdminPermission.ABUSE_DECIDE)
     @PostMapping("/{id}/confirm")
     AbuseDetail confirm(
             @AuthenticationPrincipal CurrentUser admin,
@@ -275,6 +280,7 @@ class AdminAbuseController {
      * Clears an item: the account is reinstated and everything the session cost its renter is refunded, one ledger
      * transaction. The same again changes nothing.
      */
+    @RequiresPermission(AdminPermission.ABUSE_CLEAR)
     @PostMapping("/{id}/clear")
     AbuseDetail clear(
             @AuthenticationPrincipal CurrentUser admin,
@@ -289,6 +295,7 @@ class AdminAbuseController {
      * signed file is made offline with the release key ({@code scripts/release/blocklist.sh}); until it is published the
      * build shows as waiting. 409 {@code action-refused} unless the item is confirmed and this build is one it saw.
      */
+    @RequiresPermission(AdminPermission.ABUSE_BLOCKLIST)
     @PostMapping("/{id}/blocklist")
     BlocklistAdditionList addToBlocklist(
             @AuthenticationPrincipal CurrentUser admin,
@@ -311,6 +318,7 @@ class AdminAbuseController {
     }
 
     /** Every build waiting to go on the blocklist, newest first, and whether the published list names it. */
+    @RequiresPermission(AdminPermission.ABUSE_READ)
     @GetMapping("/blocklist-additions")
     BlocklistAdditionList additions() {
         return new BlocklistAdditionList(blocklist.list().stream()
@@ -328,6 +336,7 @@ class AdminAbuseController {
     }
 
     /** Takes a build back off: the next signed file leaves it out. Audited with the admin's reason. */
+    @RequiresPermission(AdminPermission.ABUSE_BLOCKLIST)
     @PostMapping("/blocklist-additions/{additionId}/remove")
     BlocklistAdditionList removeFromBlocklist(
             @AuthenticationPrincipal CurrentUser admin,
@@ -344,6 +353,7 @@ class AdminAbuseController {
     }
 
     /** Adds a note to the item. */
+    @RequiresPermission(AdminPermission.ABUSE_DECIDE)
     @PostMapping("/{id}/notes")
     AbuseDetail note(
             @AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id, @Valid @RequestBody AbuseNote request) {

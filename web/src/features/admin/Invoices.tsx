@@ -8,6 +8,7 @@ import { formatDay } from "@/lib/time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminInvoice } from "./api";
 import { AdminPage, Cell, Empty, Filters, Id, QueryView, Row, Section, SmallField, Table } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** Saves one document's PDF, fetched with the admin session when asked. */
 export async function downloadAdminInvoice(id: string, number: string): Promise<void> {
@@ -112,9 +113,9 @@ export function Invoices() {
                           Download<span className="sr-only"> {item.invoice.number}</span>
                         </Button>
                         {item.invoice.kind !== "credit_note" && (
-                          <Button variant="quiet" onClick={() => setNoting(item)}>
+                          <ActionButton permission="invoices.credit-note" variant="quiet" onClick={() => setNoting(item)}>
                             Credit note<span className="sr-only"> against {item.invoice.number}</span>
-                          </Button>
+                          </ActionButton>
                         )}
                       </div>
                     </Cell>

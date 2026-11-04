@@ -11,6 +11,7 @@ import { useTitle } from "@/lib/title";
 import { refusal } from "./ActionSheet";
 import { ADMIN, adminApi, adminSession, whenNotFound } from "./api";
 import { CodeField } from "./CodeField";
+import { PermissionsProvider } from "./permissions";
 import { QrCode } from "./QrCode";
 import { isRecoveryCode, isTotp, recoveryDigits, totpDigits } from "./rules";
 
@@ -59,7 +60,7 @@ export function Gate({ children }: { children: ReactNode }) {
   if (!status.data.active) {
     return <Check />;
   }
-  return <>{children}</>;
+  return <PermissionsProvider permissions={status.data.permissions}>{children}</PermissionsProvider>;
 }
 
 function GateFrame({ title, children }: { title: string; children: ReactNode }) {

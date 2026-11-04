@@ -9,14 +9,16 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Who is an admin (ADR 0027). Only the {@code grant-admin} and {@code revoke-admin} operator commands change it;
- * there's no API for it. Revoking deletes the admin's second factor, recovery codes and sessions with the role, so
- * granting again starts with a fresh enrolment, and is the only way out of a lockout.
+ * there's no API for it. Revoking deletes the admin's second factor, recovery codes, roles and sessions with it, so
+ * granting again starts with a fresh enrolment, and is the only way out of a lockout. {@code grant-admin} can also
+ * give the admin a role, which is how the first Owner exists (ADR 0051).
  */
 @Service
 class AdminRoles {
@@ -45,11 +47,14 @@ class AdminRoles {
         }
     }
 
-    /** Makes the active user with this verified email an admin. */
-    Change grant(String email, String reason, AuditTrail.Actor actor) {
+    /** Makes the active user with this verified email an admin, holding {@code role} when one is named. */
+    Change grant(String email, String reason, AuditTrail.Actor actor, @Nullable String role) {
         requireReason(reason);
         return Objects.requireNonNull(transactions.execute(status -> {
             var userId = userWithEmail(email);
+            if (role != null && !roleExists(role)) {
+                throw new Refused("there's no role " + role);
+            }
             int inserted = jdbc.sql("""
                             insert into identity.admins (user_id, granted_by, granted_at) values (:userId, :by, :now)
                             on conflict (user_id) do nothing
@@ -58,19 +63,41 @@ class AdminRoles {
                     .param("by", actor.label())
                     .param("now", Timestamp.from(Instant.now(clock).truncatedTo(ChronoUnit.MICROS)))
                     .update();
-            if (inserted == 0) {
+            boolean given = role != null && give(userId, role, actor);
+            if (inserted == 0 && !given) {
                 return new Change(userId, email, false);
             }
+            var after = new LinkedHashMap<String, Object>();
+            after.put("admin", true);
+            if (given) {
+                after.put("role", role);
+            }
             audit.record(new AuditTrail.Entry(
-                    actor,
-                    "admin.grant",
-                    "user",
-                    userId.toString(),
-                    reason,
-                    Map.of("admin", false),
-                    Map.of("admin", true)));
+                    actor, "admin.grant", "user", userId.toString(), reason, Map.of("admin", inserted == 0), after));
             return new Change(userId, email, true);
         }));
+    }
+
+    private boolean roleExists(String role) {
+        return jdbc.sql("select count(*) from identity.admin_roles where id = :role")
+                        .param("role", role)
+                        .query(Integer.class)
+                        .single()
+                == 1;
+    }
+
+    private boolean give(UUID userId, String role, AuditTrail.Actor actor) {
+        return jdbc.sql("""
+                                insert into identity.admin_role_grants (user_id, role_id, granted_by, granted_at)
+                                values (:userId, :role, :by, :now)
+                                on conflict (user_id, role_id) do nothing
+                                """)
+                        .param("userId", userId)
+                        .param("role", role)
+                        .param("by", actor.label())
+                        .param("now", Timestamp.from(Instant.now(clock).truncatedTo(ChronoUnit.MICROS)))
+                        .update()
+                == 1;
     }
 
     /** Takes the role away, with the second factor, the recovery codes and every admin session. */

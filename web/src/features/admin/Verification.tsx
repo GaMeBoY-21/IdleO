@@ -5,6 +5,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminPanReview, type AdminUpiReview } from "./api";
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, Table } from "./ui";
+import { ActionButton } from "./permissions";
 
 type PanAction = { kind: "verify-pan" | "reject-pan" | "reveal-pan"; pan: AdminPanReview };
 type UpiAction = { kind: "approve-upi" | "reject-upi"; upi: AdminUpiReview };
@@ -61,15 +62,15 @@ export function Verification() {
                       </Cell>
                       <Cell>
                         <div className="flex gap-1">
-                          <Button variant="quiet" onClick={() => setAction({ kind: "verify-pan", pan })}>
+                          <ActionButton permission="verifications.decide" variant="quiet" onClick={() => setAction({ kind: "verify-pan", pan })}>
                             Verify<span className="sr-only"> {pan.userId}</span>
-                          </Button>
-                          <Button variant="quiet" onClick={() => setAction({ kind: "reject-pan", pan })}>
+                          </ActionButton>
+                          <ActionButton permission="verifications.decide" variant="quiet" onClick={() => setAction({ kind: "reject-pan", pan })}>
                             Reject<span className="sr-only"> {pan.userId}</span>
-                          </Button>
-                          <Button variant="quiet" onClick={() => setAction({ kind: "reveal-pan", pan })}>
+                          </ActionButton>
+                          <ActionButton permission="users.pii.reveal" variant="quiet" onClick={() => setAction({ kind: "reveal-pan", pan })}>
                             Reveal<span className="sr-only"> {pan.userId}</span>
-                          </Button>
+                          </ActionButton>
                         </div>
                       </Cell>
                     </Row>
@@ -99,12 +100,12 @@ export function Verification() {
                       <Cell className="tabular">{upi.nameMatchScore ?? "—"}</Cell>
                       <Cell>
                         <div className="flex gap-1">
-                          <Button variant="quiet" onClick={() => setAction({ kind: "approve-upi", upi })}>
+                          <ActionButton permission="verifications.decide" variant="quiet" onClick={() => setAction({ kind: "approve-upi", upi })}>
                             Approve<span className="sr-only"> {upi.vpa}</span>
-                          </Button>
-                          <Button variant="quiet" onClick={() => setAction({ kind: "reject-upi", upi })}>
+                          </ActionButton>
+                          <ActionButton permission="verifications.decide" variant="quiet" onClick={() => setAction({ kind: "reject-upi", upi })}>
                             Reject<span className="sr-only"> {upi.vpa}</span>
-                          </Button>
+                          </ActionButton>
                         </div>
                       </Cell>
                     </Row>

@@ -5,6 +5,7 @@ import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallField, SmallSelect, Table } from "./ui";
+import { ActionButton } from "./permissions";
 
 /**
  * Invite codes (ADR 0024, ADR 0027): made by the same service as `create-invites` and shown once, here, in this page's
@@ -38,7 +39,7 @@ export function Invites() {
   const expiry = days.trim() === "" ? null : Number.parseInt(days, 10);
   return (
     <AdminPage title="Invites">
-      <Button
+      <ActionButton permission="invites.create"
         variant="ghost"
         className="self-start"
         onClick={() => {
@@ -47,7 +48,7 @@ export function Invites() {
         }}
       >
         Make invite codes
-      </Button>
+      </ActionButton>
       {made !== null && (
         <Section
           title="New codes"

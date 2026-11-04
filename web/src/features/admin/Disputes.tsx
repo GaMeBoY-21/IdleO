@@ -36,6 +36,7 @@ import {
   Table,
   Timeline,
 } from "./ui";
+import { ActionButton, useCan } from "./permissions";
 
 /**
  * Reports (ADR 0028, ADR 0039): the renters' reports on their sessions, open ones first and the oldest first. One opens
@@ -134,6 +135,7 @@ function DisputeQueue() {
 
 function DisputeRecord({ id }: { id: string }) {
   const client = useQueryClient();
+  const can = useCan();
   const dispute = useQuery({
     queryKey: [ADMIN, "dispute", id],
     queryFn: () => adminData(adminApi.GET("/admin/v1/disputes/{id}", { params: { path: { id } } })),
@@ -152,12 +154,12 @@ function DisputeRecord({ id }: { id: string }) {
             <Summary found={found} />
             {found.dispute.state === "open" && (
               <div className="flex flex-wrap gap-2">
-                <Button variant="primary" onClick={() => setAction("refund")}>
+                <ActionButton permission="disputes.refund" variant="primary" onClick={() => setAction("refund")}>
                   Refund
-                </Button>
-                <Button variant="ghost" onClick={() => setAction("none")}>
+                </ActionButton>
+                <ActionButton permission="disputes.decide" variant="ghost" onClick={() => setAction("none")}>
                   No refund
-                </Button>
+                </ActionButton>
               </div>
             )}
             <ActionSheet
@@ -210,7 +212,7 @@ function DisputeRecord({ id }: { id: string }) {
                 await refresh();
               }}
             />
-            <Evidence found={found} />
+            {can("sessions.read") && <Evidence found={found} />}
             <SessionLog sessionId={found.dispute.sessionId} purpose="judging this report" />
             <HostRecord found={found} />
           </>

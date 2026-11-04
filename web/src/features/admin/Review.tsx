@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminReviewMinute } from "./api";
 import { AdminPage, Cell, Empty, Id, PagedView, Pill, Row, RowLink, SmallSelect, Table } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** Why a minute is in the queue, in words. */
 const WHY: Record<string, string> = {
@@ -103,20 +104,20 @@ export function Review() {
                 <Cell>
                   {minute.resolution === null && (
                     <span className="flex gap-1">
-                      <Button variant="ghost" onClick={() => setDeciding({ minute, charge: true })}>
+                      <ActionButton permission="review.charge" variant="ghost" onClick={() => setDeciding({ minute, charge: true })}>
                         Charge
                         <span className="sr-only">
                           {" "}
                           minute {minute.minuteIndex} of session {minute.sessionId}
                         </span>
-                      </Button>
-                      <Button variant="ghost" onClick={() => setDeciding({ minute, charge: false })}>
+                      </ActionButton>
+                      <ActionButton permission="review.waive" variant="ghost" onClick={() => setDeciding({ minute, charge: false })}>
                         Waive
                         <span className="sr-only">
                           {" "}
                           minute {minute.minuteIndex} of session {minute.sessionId}
                         </span>
-                      </Button>
+                      </ActionButton>
                     </span>
                   )}
                 </Cell>

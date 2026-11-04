@@ -21,6 +21,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ActionButton } from "./permissions";
 
 /** What each kind of payout disagreement means (docs/runbooks/payouts.md, "Reconciliation"). */
 export const PAYOUT_MISMATCH_WORDS: Record<string, string> = {
@@ -69,12 +70,12 @@ function RunsAndPayouts() {
       title="Runs and payouts"
       action={
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => setRetrying("")}>
+          <ActionButton permission="payouts.release" variant="ghost" onClick={() => setRetrying("")}>
             Pay one person now
-          </Button>
-          <Button variant="ghost" onClick={() => setRunning(true)}>
+          </ActionButton>
+          <ActionButton permission="payouts.run" variant="ghost" onClick={() => setRunning(true)}>
             Run now
-          </Button>
+          </ActionButton>
         </div>
       }
     >
@@ -256,9 +257,9 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
       </Cell>
       <Cell>
         {cameBack && (
-          <Button variant="quiet" onClick={onRetry}>
+          <ActionButton permission="payouts.release" variant="quiet" onClick={onRetry}>
             Retry<span className="sr-only"> paying {payout.userId}</span>
-          </Button>
+          </ActionButton>
         )}
       </Cell>
     </Row>
@@ -281,9 +282,9 @@ function Reconciliation() {
     <Section
       title="RazorpayX against our payouts"
       action={
-        <Button variant="ghost" onClick={() => setRunning(true)}>
+        <ActionButton permission="reconciliation.run" variant="ghost" onClick={() => setRunning(true)}>
           Run a day now
-        </Button>
+        </ActionButton>
       }
     >
       <div className="flex">
@@ -341,9 +342,9 @@ function Reconciliation() {
                     </Cell>
                     <Cell>
                       {item.state === "open" && (
-                        <Button variant="quiet" onClick={() => setAccepting(item)}>
+                        <ActionButton permission="reconciliation.accept" variant="quiet" onClick={() => setAccepting(item)}>
                           Accept<span className="sr-only"> {item.subject}</span>
-                        </Button>
+                        </ActionButton>
                       )}
                     </Cell>
                   </Row>

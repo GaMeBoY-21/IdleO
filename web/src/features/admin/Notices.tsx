@@ -5,6 +5,7 @@ import { TextArea } from "@/components/ui/Inputs";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { adminApi, adminData } from "./api";
 import { AdminPage, Section } from "./ui";
+import { ActionButton } from "./permissions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,9 +51,9 @@ export function Notices() {
           value={body}
           onChange={(event) => setBody(event.target.value)}
         />
-        <Button className="self-start" onClick={() => setConfirming(true)}>
+        <ActionButton permission="notices.publish" className="self-start" onClick={() => setConfirming(true)}>
           Email the notice
-        </Button>
+        </ActionButton>
         {result && (
           <p role="status" className="text-small">
             Emailed to {result.sent}.{" "}

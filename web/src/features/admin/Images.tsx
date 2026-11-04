@@ -6,6 +6,7 @@ import { imageSize } from "@/lib/images";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminImage } from "./api";
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
+import { ActionButton } from "./permissions";
 
 type Acting = { image: AdminImage; action: "block" | "unblock" };
 
@@ -112,13 +113,13 @@ function ImageRow({ image, onAct }: { image: AdminImage; onAct: (acting: Acting)
       <Cell>{image.secrets > 0 ? image.secrets : ""}</Cell>
       <Cell>
         {image.state === "blocked" && image.reason === "admin" ? (
-          <Button variant="quiet" onClick={() => onAct({ image, action: "unblock" })}>
+          <ActionButton permission="images.unblock" variant="quiet" onClick={() => onAct({ image, action: "unblock" })}>
             Unblock<span className="sr-only"> {image.id}</span>
-          </Button>
+          </ActionButton>
         ) : image.digest && image.state !== "blocked" ? (
-          <Button variant="quiet" onClick={() => onAct({ image, action: "block" })}>
+          <ActionButton permission="images.block" variant="quiet" onClick={() => onAct({ image, action: "block" })}>
             Block<span className="sr-only"> {image.id}</span>
-          </Button>
+          </ActionButton>
         ) : null}
       </Cell>
     </Row>

@@ -1,11 +1,13 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
+import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import jakarta.validation.Valid;
@@ -112,6 +114,7 @@ class AdminMoneyController {
      * Grants free credit. The Idempotency-Key is the grant's own: the same key again for the same user and amount
      * returns the first grant (200), and for anything else it's refused.
      */
+    @RequiresPermission(AdminPermission.MONEY_ADJUST)
     @PostMapping("/credit-grants")
     ResponseEntity<AdminCreditGrant> grant(
             @AuthenticationPrincipal CurrentUser admin,
@@ -128,6 +131,7 @@ class AdminMoneyController {
     }
 
     /** Reverses a grant with an opposite transaction; refused when the wallet's available credit can't cover it. */
+    @RequiresPermission(AdminPermission.MONEY_ADJUST)
     @PostMapping("/credit-grants/{id}/reverse")
     AdminCreditGrant reverse(
             @AuthenticationPrincipal CurrentUser admin,
@@ -138,6 +142,7 @@ class AdminMoneyController {
     }
 
     /** A user's grants, newest first. */
+    @RequiresPermission(AdminPermission.MONEY_READ)
     @GetMapping("/credit-grants")
     AdminCreditGrantList list(@RequestParam UUID user) {
         return new AdminCreditGrantList(jdbc.sql(GRANTS + " where g.user_id = :user order by g.created_at desc")
@@ -150,6 +155,7 @@ class AdminMoneyController {
      * Ledger entries, newest first: one transaction's ({@code txn}), or one account's, such as a renter's wallet
      * ({@code account=renter_wallet&owner=<user>}) or the platform's revenue ({@code account=platform_revenue}).
      */
+    @RequiresPermission(AdminPermission.MONEY_READ)
     @GetMapping("/ledger")
     AdminLedgerPage ledger(
             @RequestParam(required = false) @Nullable UUID txn,
@@ -204,6 +210,7 @@ class AdminMoneyController {
      * Runs the wallet check now, as {@code reconcile-wallets} does, and returns the run. 409 {@code action-refused}
      * while another instance is running it.
      */
+    @RequiresPermission(AdminPermission.RECONCILIATION_RUN)
     @PostMapping("/reconciliation")
     AdminReconciliationRun reconcile(
             @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminReason request) {
@@ -216,6 +223,7 @@ class AdminMoneyController {
     }
 
     /** The latest complete reconciliation runs, newest first, each with what it found; {@code limit} 1 to 200. */
+    @RequiresPermission(AdminPermission.MONEY_READ)
     @GetMapping("/reconciliation")
     AdminReconciliationRuns reconciliation(@RequestParam(required = false) @Nullable Integer limit) {
         return new AdminReconciliationRuns(runs(AdminPages.limit(limit == null ? 10 : limit), null));
