@@ -521,7 +521,7 @@ fi
 # 5. Build and enrol the agents.
 log "building the agent"
 stack_build_agent
-if ! $keep_running && ! $web_only; then
+if ! $keep_running && ! $web_only && part cli; then
   # The renter CLI the CLI scenario drives (cli/rust-toolchain.toml pins the same toolchain).
   log "building the CLI"
   (cd cli && cargo build --release --locked --quiet) >"$out/cli-build.log" 2>&1 ||
@@ -703,31 +703,37 @@ if ! $web_only; then
   cli_user_id="$(token="$cli_token" api_get /v1/me | json_get .id)"
   renters+=("$user_id" "$user_b_id" "$booking_user_id" "$cli_user_id")
 fi
-# Each operator command starts a JVM, about 13 s, so these run side by side: straight from the built classes, since Maven's
-# own run regenerates target/ and two at once break each other.
+# Each operator command starts a JVM, about 13 s, so these run four at a time: straight from the built classes, since
+# Maven's own run regenerates target/ and two at once break each other, and each with a small connection pool, or together
+# they use up the database's connections.
 (cd control-plane && ./mvnw -B -q dependency:build-classpath -Dmdep.outputFile=target/ops.classpath -Dmdep.includeScope=runtime) >>"$out/ops.log" 2>&1 ||
   fail "the operator commands' classpath couldn't be made; see private/e2e/ops.log"
-ops_side_by_side() {
+setup_pids=()
+setup_wait() {
+  local pid
+  for pid in ${setup_pids[@]+"${setup_pids[@]}"}; do
+    wait "$pid" || fail "granting credit or activating a host failed; see private/e2e/ops.log"
+  done
+  setup_pids=()
+}
+setup_ops() {
   (
     cd control-plane
     LOCAL_SIGN_IN_PORT="$sign_in_port" COMPOSE_PROJECT_NAME="$compose_project" OPERATOR="${operator_name:-local-stack}" \
       java -cp "target/classes:$(cat target/ops.classpath)" -Dspring.profiles.active=local,ops \
-      com.idleo.controlplane.ControlPlaneApplication "$@"
-  ) >>"$out/ops.log" 2>&1
-}
-setup_pids=()
-for renter in "${renters[@]}"; do
-  ops_side_by_side grant-credits --user "$renter" --paise 50000 --reason "End-to-end test credit" --key "e2e-$renter" &
+      -Dspring.datasource.hikari.maximum-pool-size=2 com.idleo.controlplane.ControlPlaneApplication "$@"
+  ) >>"$out/ops.log" 2>&1 &
   setup_pids+=($!)
+  if ((${#setup_pids[@]} == 4)); then setup_wait; fi
+}
+for renter in "${renters[@]}"; do
+  setup_ops grant-credits --user "$renter" --paise 50000 --reason "End-to-end test credit" --key "e2e-$renter"
 done
 for id in "${host_ids[@]}"; do
   list_host "$id" 2
-  ops_side_by_side activate-host --host "$id" --reason "End-to-end test host" &
-  setup_pids+=($!)
+  setup_ops activate-host --host "$id" --reason "End-to-end test host"
 done
-for pid in "${setup_pids[@]}"; do
-  wait "$pid" || fail "granting credit or activating a host failed; see private/e2e/ops.log"
-done
+setup_wait
 summary+=("credit for ${#renters[@]} renters, $agents hosts listed and activated: $(seconds_since "$setup_started") s")
 if ! $web_only; then
   wallet_before="$(api_get /v1/wallet)"
