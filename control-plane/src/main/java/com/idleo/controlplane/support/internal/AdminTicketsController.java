@@ -1,5 +1,6 @@
 package com.idleo.controlplane.support.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminTagged;
@@ -133,6 +134,7 @@ class AdminTicketsController {
      * {@code olderThanDays} narrow it; {@code cursor} is the next page's.
      */
     @RequiresPermission(AdminPermission.TICKETS_READ)
+    @AdminList("tickets")
     @GetMapping
     AdminTicketPage list(
             @RequestParam(required = false) @Nullable String topic,

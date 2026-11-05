@@ -1,5 +1,7 @@
 package com.idleo.controlplane.payouts.internal;
 
+import com.idleo.controlplane.AdminListing;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.OneAtATime;
 import com.idleo.controlplane.identity.AuditTrail;
@@ -9,7 +11,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -451,11 +452,25 @@ class PayoutMethods {
                 .optional();
     }
 
-    /** UPI IDs waiting for an admin, oldest first. */
-    List<Method> reviews(int limit) {
-        return jdbc.sql("select * from payouts.methods where state = 'review' order by confirmed_at limit " + limit)
-                .query(PayoutMethods::method)
-                .list();
+    /** UPI IDs and how they stand, their filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("verification-upi-ids", AdminPermission.VERIFICATIONS_READ, true)
+            .from("payouts.methods")
+            .sort("checkedAt", AdminListing.Type.TIME, "checked_at")
+            .sort("score", AdminListing.Type.NUMBER, "coalesce(name_match_score, -1)")
+            .sortedBy("checkedAt", false)
+            .filter("state", "state = cast(:state as text)")
+            .csv("id", "id")
+            .csv("userId", "user_id")
+            .csv("vpa", "vpa")
+            .csv("name", "registered_name")
+            .csv("nameMatchScore", "name_match_score")
+            .csv("state", "state")
+            .csv("checkedAt", "checked_at")
+            .csv("confirmedAt", "confirmed_at")
+            .build();
+
+    AdminListing.Page<Method> reviews(@Nullable String sort, @Nullable String cursor, @Nullable Integer limit) {
+        return LIST.page(jdbc, AdminListing.Asked.of(sort, "state", "review"), cursor, limit, PayoutMethods::method);
     }
 
     private void lockUser(UUID userId) {

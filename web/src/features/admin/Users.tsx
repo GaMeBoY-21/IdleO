@@ -29,7 +29,7 @@ import { ActionButton, useCan } from "./permissions";
 import { UserTabs } from "./Records";
 import { Reveal } from "./Reveal";
 import { ListBar } from "./Lists";
-import { useListParams, useListView } from "./listView";
+import { useListQuery, useListParams, useListView } from "./listView";
 
 /** Users (ADR 0027): find them by email, name or id; one opens with what can be done to it. */
 export function Users() {
@@ -138,11 +138,17 @@ function UserRecord({ id }: { id: string }) {
     queryKey: [ADMIN, "user", id],
     queryFn: () => adminData(adminApi.GET("/admin/v1/users/{id}", { params: { path: { id } } })),
   });
-  const grants = useQuery({
-    queryKey: [ADMIN, "grants", id],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/credit-grants", { params: { query: { user: id } } })),
-    enabled: can("money.read"),
-  });
+  const grants = useListQuery(
+    [ADMIN, "grants", id],
+    "grants",
+    (cursor?: string) =>
+      adminData(
+        adminApi.GET("/admin/v1/credit-grants", {
+          params: { query: { user: id, ...(cursor ? { cursor } : {}) } },
+        }),
+      ),
+    { enabled: can("money.read") },
+  );
   const [action, setAction] = useState<Action | null>(null);
   // Why an account is suspended decides whether its payouts are held (ADR 0041).
   const [cause, setCause] = useState("other");

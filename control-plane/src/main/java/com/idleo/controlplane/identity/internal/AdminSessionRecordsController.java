@@ -1,11 +1,15 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.AdminList;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -13,11 +17,13 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,11 +38,16 @@ class AdminSessionRecordsController {
     private final AdminSessions sessions;
     private final AuditTrail audit;
     private final TransactionTemplate transactions;
+    private final JdbcClient jdbc;
+    private final Clock clock;
 
-    AdminSessionRecordsController(AdminSessions sessions, AuditTrail audit, TransactionTemplate transactions) {
+    AdminSessionRecordsController(
+            AdminSessions sessions, AuditTrail audit, TransactionTemplate transactions, JdbcClient jdbc, Clock clock) {
         this.sessions = sessions;
         this.audit = audit;
         this.transactions = transactions;
+        this.jdbc = jdbc;
+        this.clock = clock;
     }
 
     /** {@code current} is the session that's asking. */
@@ -51,7 +62,26 @@ class AdminSessionRecordsController {
             @Nullable String userAgent,
             boolean current) {}
 
-    record AdminSessionRecords(List<AdminSessionRecord> sessions) {}
+    record AdminSessionRecords(
+            List<AdminSessionRecord> sessions, @Nullable String nextCursor) {}
+
+    /** Everyone's live sessions, their orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("admin-sessions", AdminPermission.ADMINS_MANAGE, true)
+            .select("id, user_id, created_at, last_used_at, expires_at, ends_by, host(ip) as address, user_agent")
+            .from("identity.admin_sessions")
+            .always("ended_at is null")
+            .sort("startedAt", AdminListing.Type.TIME, "created_at")
+            .sort("expiresAt", AdminListing.Type.TIME, "expires_at")
+            .sortedBy("startedAt", true)
+            .filter("liveAt", "expires_at > cast(:liveAt as timestamptz)")
+            .csv("id", "id")
+            .csv("userId", "user_id")
+            .csv("startedAt", "created_at")
+            .csv("lastUsedAt", "last_used_at")
+            .csv("expiresAt", "expires_at")
+            .csv("address", "host(ip)")
+            .csv("userAgent", "user_agent")
+            .build();
 
     @RequiresPermission(AdminPermission.SELF)
     @GetMapping("/admin/v1/me/sessions")
@@ -67,9 +97,30 @@ class AdminSessionRecordsController {
     }
 
     @RequiresPermission(AdminPermission.ADMINS_MANAGE)
+    @AdminList("admin-sessions")
     @GetMapping("/admin/v1/admins/sessions")
-    AdminSessionRecords everyones() {
-        return records(null);
+    AdminSessionRecords everyones(
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "liveAt", Timestamp.from(Instant.now(clock))),
+                cursor,
+                limit,
+                (rs, n) -> record(new AdminSessions.Record(
+                        rs.getObject("id", UUID.class),
+                        rs.getObject("user_id", UUID.class),
+                        rs.getTimestamp("created_at").toInstant(),
+                        rs.getTimestamp("last_used_at") == null
+                                ? null
+                                : rs.getTimestamp("last_used_at").toInstant(),
+                        rs.getTimestamp("expires_at").toInstant(),
+                        rs.getTimestamp("ends_by").toInstant(),
+                        null,
+                        rs.getString("address"),
+                        rs.getString("user_agent"))));
+        return new AdminSessionRecords(page.rows(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.ADMINS_MANAGE)
@@ -79,20 +130,22 @@ class AdminSessionRecordsController {
         end(admin, id, null);
     }
 
-    private AdminSessionRecords records(@Nullable UUID userId) {
-        var current = AdminRequestContext.adminSession();
-        return new AdminSessionRecords(sessions.live(userId).stream()
-                .map(session -> new AdminSessionRecord(
-                        session.id(),
-                        session.userId(),
-                        session.startedAt(),
-                        session.lastUsedAt(),
-                        session.expiresAt(),
-                        session.endsBy(),
-                        session.ip(),
-                        session.userAgent(),
-                        session.id().equals(current)))
-                .toList());
+    private AdminSessionRecords records(UUID userId) {
+        return new AdminSessionRecords(
+                sessions.live(userId).stream().map(this::record).toList(), null);
+    }
+
+    private AdminSessionRecord record(AdminSessions.Record session) {
+        return new AdminSessionRecord(
+                session.id(),
+                session.userId(),
+                session.startedAt(),
+                session.lastUsedAt(),
+                session.expiresAt(),
+                session.endsBy(),
+                session.ip(),
+                session.userAgent(),
+                session.id().equals(AdminRequestContext.adminSession()));
     }
 
     private void end(CurrentUser admin, UUID sessionId, @Nullable UUID owner) {

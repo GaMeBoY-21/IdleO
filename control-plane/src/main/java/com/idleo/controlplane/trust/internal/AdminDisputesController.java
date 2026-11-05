@@ -1,5 +1,6 @@
 package com.idleo.controlplane.trust.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminTagged;
@@ -150,7 +151,8 @@ class AdminDisputesController {
     /** A mark an admin put on a host's record when resolving a report on one of its sessions (ADR 0039). */
     record AdminHostFlag(UUID id, UUID hostId, UUID disputeId, String reason, String flaggedBy, Instant createdAt) {}
 
-    record AdminHostFlags(List<AdminHostFlag> flags) {}
+    record AdminHostFlags(
+            List<AdminHostFlag> flags, @Nullable String nextCursor) {}
 
     /** @param hostFlags every flag on the session's host's record, the newest first, this report's included */
     record AdminDispute(
@@ -190,6 +192,7 @@ class AdminDisputesController {
 
     /** {@code state} is {@code open}, {@code resolved} or {@code all} (the default). */
     @RequiresPermission(AdminPermission.DISPUTES_READ)
+    @AdminList("reports")
     @GetMapping
     AdminDisputePage list(
             @RequestParam(required = false) @Nullable String state,
@@ -251,22 +254,47 @@ class AdminDisputesController {
 
     /** Every flag on a host's record, the newest first. */
     @RequiresPermission(AdminPermission.DISPUTES_READ)
+    @AdminList("host-flags")
     @GetMapping("/host-flags")
-    AdminHostFlags hostFlags(@RequestParam UUID host) {
-        return new AdminHostFlags(flags(host));
+    AdminHostFlags hostFlags(
+            @RequestParam UUID host,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = HOST_FLAGS.page(
+                jdbc, AdminListing.Asked.of(sort, "host", host), cursor, limit, AdminDisputesController::flag);
+        return new AdminHostFlags(page.rows(), page.nextCursor());
     }
+
+    /** Hosts flagged by a decision, the orders and CSV (ADR 0052). */
+    static final AdminListing HOST_FLAGS = AdminListing.of("host-flags", AdminPermission.DISPUTES_READ, true)
+            .from("trust.host_flags")
+            .sort("createdAt", AdminListing.Type.TIME, "created_at")
+            .sortedBy("createdAt", true)
+            .filter("host", "host_id = cast(:host as uuid)")
+            .csv("id", "id")
+            .csv("hostId", "host_id")
+            .csv("disputeId", "dispute_id")
+            .csv("reason", "reason")
+            .csv("flaggedBy", "flagged_by")
+            .csv("createdAt", "created_at")
+            .build();
 
     private List<AdminHostFlag> flags(UUID hostId) {
         return jdbc.sql("select * from trust.host_flags where host_id = :hostId order by created_at desc, id desc")
                 .param("hostId", hostId)
-                .query((rs, n) -> new AdminHostFlag(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("host_id", UUID.class),
-                        rs.getObject("dispute_id", UUID.class),
-                        rs.getString("reason"),
-                        rs.getString("flagged_by"),
-                        rs.getTimestamp("created_at").toInstant()))
+                .query(AdminDisputesController::flag)
                 .list();
+    }
+
+    private static AdminHostFlag flag(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+        return new AdminHostFlag(
+                rs.getObject("id", UUID.class),
+                rs.getObject("host_id", UUID.class),
+                rs.getObject("dispute_id", UUID.class),
+                rs.getString("reason"),
+                rs.getString("flagged_by"),
+                rs.getTimestamp("created_at").toInstant());
     }
 
     /**

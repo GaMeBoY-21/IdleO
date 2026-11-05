@@ -107,7 +107,7 @@ class PanTests {
                 .andExpect(jsonPath("$.type").value("/problems/pan-not-verified"));
 
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
-        mvc.perform(admin.as(get("/admin/v1/payouts/verifications"))).andExpect(status().isOk());
+        mvc.perform(admin.as(get("/admin/v1/payouts/verifications/pans"))).andExpect(status().isOk());
         mvc.perform(admin.as(post("/admin/v1/payouts/verifications/pans/" + owner.id() + "/verify"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"name on the card matches with a middle name\"}"))

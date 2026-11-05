@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminList;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
@@ -40,6 +41,23 @@ class AdminPersonalDataController {
 
     /** A reason is at least this long, or a ticket's number. */
     static final int REASON_MIN = 10;
+
+    /** Who read whose personal data (ADR 0051), its filters, orders and CSV (ADR 0052). */
+    static final AdminListing ACCESS_LOG = AdminListing.of("access-log", AdminPermission.AUDIT_READ, true)
+            .select("id, admin_id, subject_user_id, field, reason, admin_session_id, at")
+            .from("identity.personal_data_access")
+            .sort("at", AdminListing.Type.UUID, "id")
+            .sort("field", AdminListing.Type.TEXT, "field")
+            .sortedBy("at", true)
+            .filter("subject", "subject_user_id = cast(:subject as uuid)")
+            .filter("admin", "admin_id = cast(:admin as uuid)")
+            .csv("id", "id")
+            .csv("adminId", "admin_id")
+            .csv("subjectUserId", "subject_user_id")
+            .csv("field", "field")
+            .csv("reason", "reason")
+            .csv("at", "at")
+            .build();
 
     private final Map<String, Function<String, Optional<RevealableFields.Revealed>>> fields;
     private final AccessLog accessLog;
@@ -106,38 +124,27 @@ class AdminPersonalDataController {
 
     /** The access log, newest first; {@code subject} and {@code admin} narrow it to one person or one admin. */
     @RequiresPermission(AdminPermission.AUDIT_READ)
+    @AdminList("access-log")
     @GetMapping("/access-log")
     AccessLogPage accessLog(
             @RequestParam(required = false) @Nullable UUID subject,
             @RequestParam(required = false) @Nullable UUID admin,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
-        var rows = jdbc.sql("""
-                        select id, admin_id, subject_user_id, field, reason, admin_session_id, at
-                        from identity.personal_data_access
-                        where (cast(:subject as uuid) is null or subject_user_id = cast(:subject as uuid))
-                          and (cast(:admin as uuid) is null or admin_id = cast(:admin as uuid))
-                          and (cast(:after as uuid) is null or id < cast(:after as uuid))
-                        order by id desc
-                        limit :limit
-                        """)
-                .param("subject", subject)
-                .param("admin", admin)
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query((rs, n) -> new AccessLogEntry(
+        var page = ACCESS_LOG.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "subject", subject, "admin", admin),
+                cursor,
+                limit,
+                (rs, n) -> new AccessLogEntry(
                         rs.getObject("id", UUID.class),
                         rs.getObject("admin_id", UUID.class),
                         rs.getObject("subject_user_id", UUID.class),
                         rs.getString("field"),
                         rs.getString("reason"),
                         rs.getObject("admin_session_id", UUID.class),
-                        rs.getTimestamp("at").toInstant()))
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
-        return new AccessLogPage(
-                List.copyOf(page),
-                rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+                        rs.getTimestamp("at").toInstant()));
+        return new AccessLogPage(page.rows(), page.nextCursor());
     }
 }

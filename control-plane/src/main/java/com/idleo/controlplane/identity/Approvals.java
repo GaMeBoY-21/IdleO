@@ -2,6 +2,8 @@ package com.idleo.controlplane.identity;
 
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.Paise;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -32,8 +34,18 @@ public interface Approvals {
     /** The request as it's being run: its parameters, and the requester's reason and name. */
     record Run(UUID approvalId, JsonNode params, String reason, AuditTrail.Actor actor) {}
 
-    /** A file an approved export gives its requester, made when they fetch it, so it's never kept. */
-    record File(byte[] bytes, String contentType, String name) {}
+    /**
+     * A file an approved export gives its requester. The approval covers what's asked; the file is written row by row as
+     * it's fetched, so it's never kept or held whole in memory.
+     */
+    record File(String contentType, String name, Writer writer) {
+
+        /** Writes the file to whoever is fetching it. */
+        public interface Writer {
+
+            void writeTo(OutputStream out) throws IOException;
+        }
+    }
 
     /** One kind of gated action, in the module that does it. */
     interface GatedAction {

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
@@ -6,6 +6,8 @@ import { ADMIN, adminApi, adminData, type AdminPanReview, type AdminUpiReview } 
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { Reveal } from "./Reveal";
+import { ListBar } from "./Lists";
+import { ListScope, useListQuery, useListView } from "./listView";
 
 type PanAction = { kind: "verify-pan" | "reject-pan" | "reveal-pan"; pan: AdminPanReview };
 type UpiAction = { kind: "approve-upi" | "reject-upi"; upi: AdminUpiReview };
@@ -22,122 +24,15 @@ export function Verification() {
   const client = useQueryClient();
   const [action, setAction] = useState<Action | null>(null);
   const [revealed, setRevealed] = useState<{ userId: string; pan: string } | null>(null);
-  const reviews = useQuery({
-    queryKey: [ADMIN, "verifications"],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/payouts/verifications")),
-  });
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   return (
     <AdminPage title="Verification">
-      <QueryView query={reviews} what="the reviews">
-        {(found) => (
-          <>
-            <Section title="PANs">
-              {found.pans.length === 0 ? (
-                <Empty title="No PAN to check">
-                  PANs hosts and renters give wait here for you to confirm.
-                </Empty>
-              ) : (
-                <Table
-                  caption="PANs waiting"
-                  columns={["Given", "Person", "PAN", "Name on it", "Holder", "Check", ""]}
-                >
-                  {found.pans.map((pan) => (
-                    <Row key={pan.userId}>
-                      <Cell>
-                        <RelativeTime value={pan.submittedAt} />
-                      </Cell>
-                      <Cell>
-                        <Id value={pan.userId} page="user" />
-                      </Cell>
-                      <Cell className="tabular">
-                        {revealed?.userId === pan.userId ? revealed.pan : `••••••${pan.last4}`}
-                      </Cell>
-                      <Cell>{pan.name}</Cell>
-                      <Cell>{pan.holder}</Cell>
-                      <Cell>
-                        <Pill tone={pan.checked === "name_mismatch" ? "danger" : "plain"}>
-                          {pan.checked === "not_checked" ? "no provider yet" : pan.checked.replace("_", " ")}
-                        </Pill>
-                      </Cell>
-                      <Cell>
-                        <div className="flex gap-1">
-                          <ActionButton
-                            permission="verifications.decide"
-                            variant="quiet"
-                            onClick={() => setAction({ kind: "verify-pan", pan })}
-                          >
-                            Verify<span className="sr-only"> {pan.userId}</span>
-                          </ActionButton>
-                          <ActionButton
-                            permission="verifications.decide"
-                            variant="quiet"
-                            onClick={() => setAction({ kind: "reject-pan", pan })}
-                          >
-                            Reject<span className="sr-only"> {pan.userId}</span>
-                          </ActionButton>
-                          <ActionButton
-                            permission="users.pii.reveal"
-                            variant="quiet"
-                            onClick={() => setAction({ kind: "reveal-pan", pan })}
-                          >
-                            Reveal<span className="sr-only"> {pan.userId}</span>
-                          </ActionButton>
-                        </div>
-                      </Cell>
-                    </Row>
-                  ))}
-                </Table>
-              )}
-            </Section>
-            <Section title="UPI IDs">
-              {found.upiIds.length === 0 ? (
-                <Empty title="No UPI ID to check">
-                  A UPI ID whose bank name matches the PAN&apos;s below 80 waits here.
-                </Empty>
-              ) : (
-                <Table
-                  caption="UPI IDs waiting"
-                  columns={["Confirmed", "Person", "UPI ID", "Bank's name", "PAN's name", "Match", ""]}
-                >
-                  {found.upiIds.map((upi) => (
-                    <Row key={upi.id}>
-                      <Cell>{upi.confirmedAt ? <RelativeTime value={upi.confirmedAt} /> : "—"}</Cell>
-                      <Cell>
-                        <Id value={upi.userId} page="user" />
-                      </Cell>
-                      <Cell className="break-all">
-                        {upi.vpa ? <Reveal field="upi" id={upi.id} masked={upi.vpa} /> : "—"}
-                      </Cell>
-                      <Cell>{upi.registeredName ?? "—"}</Cell>
-                      <Cell>{upi.panName ?? "—"}</Cell>
-                      <Cell className="tabular">{upi.nameMatchScore ?? "—"}</Cell>
-                      <Cell>
-                        <div className="flex gap-1">
-                          <ActionButton
-                            permission="verifications.decide"
-                            variant="quiet"
-                            onClick={() => setAction({ kind: "approve-upi", upi })}
-                          >
-                            Approve<span className="sr-only"> {upi.vpa}</span>
-                          </ActionButton>
-                          <ActionButton
-                            permission="verifications.decide"
-                            variant="quiet"
-                            onClick={() => setAction({ kind: "reject-upi", upi })}
-                          >
-                            Reject<span className="sr-only"> {upi.vpa}</span>
-                          </ActionButton>
-                        </div>
-                      </Cell>
-                    </Row>
-                  ))}
-                </Table>
-              )}
-            </Section>
-          </>
-        )}
-      </QueryView>
+      <ListScope.Provider value="pans">
+        <PanReviews revealed={revealed} setAction={setAction} />
+      </ListScope.Provider>
+      <ListScope.Provider value="upi">
+        <UpiReviews setAction={setAction} />
+      </ListScope.Provider>
       <ActionSheet
         open={action !== null}
         onOpenChange={(next) => !next && setAction(null)}
@@ -215,4 +110,158 @@ function change(action: Action) {
     case "reject-upi":
       return "Payouts don't go to it; they're asked to check another UPI ID.";
   }
+}
+
+const PAN_COLUMNS = ["Given", "Person", "PAN", "Name on it", "Holder", "Check", ""];
+const UPI_COLUMNS = ["Confirmed", "Person", "UPI ID", "Bank's name", "PAN's name", "Match", ""];
+
+function PanReviews({
+  revealed,
+  setAction,
+}: {
+  revealed: { userId: string; pan: string } | null;
+  setAction: (action: Action) => void;
+}) {
+  const view = useListView();
+  const reviews = useListQuery([ADMIN, "verifications", "pans", view], "pans", (cursor?: string) =>
+    adminData(
+      adminApi.GET("/admin/v1/payouts/verifications/pans", {
+        params: { query: { ...view, ...(cursor ? { cursor } : {}) } },
+      }),
+    ),
+  );
+  return (
+    <Section title="PANs">
+      <ListBar list="verification-pans" columns={PAN_COLUMNS} tags={false} extra={{ state: "review" }} />
+      <QueryView
+        query={reviews}
+        what="the PANs"
+        isEmpty={(found) => found.pans.length === 0}
+        empty={
+          <Empty title="No PAN to check">PANs hosts and renters give wait here for you to confirm.</Empty>
+        }
+      >
+        {(found) => (
+          <Table
+            caption="PANs waiting"
+            sorts={{ Given: "submittedAt", Check: "checked" }}
+            columns={PAN_COLUMNS}
+          >
+            {found.pans.map((pan) => (
+              <Row key={pan.userId}>
+                <Cell>
+                  <RelativeTime value={pan.submittedAt} />
+                </Cell>
+                <Cell>
+                  <Id value={pan.userId} page="user" />
+                </Cell>
+                <Cell className="tabular">
+                  {revealed?.userId === pan.userId ? revealed.pan : `••••••${pan.last4}`}
+                </Cell>
+                <Cell>{pan.name}</Cell>
+                <Cell>{pan.holder}</Cell>
+                <Cell>
+                  <Pill tone={pan.checked === "name_mismatch" ? "danger" : "plain"}>
+                    {pan.checked === "not_checked" ? "no provider yet" : pan.checked.replace("_", " ")}
+                  </Pill>
+                </Cell>
+                <Cell>
+                  <div className="flex gap-1">
+                    <ActionButton
+                      permission="verifications.decide"
+                      variant="quiet"
+                      onClick={() => setAction({ kind: "verify-pan", pan })}
+                    >
+                      Verify<span className="sr-only"> {pan.userId}</span>
+                    </ActionButton>
+                    <ActionButton
+                      permission="verifications.decide"
+                      variant="quiet"
+                      onClick={() => setAction({ kind: "reject-pan", pan })}
+                    >
+                      Reject<span className="sr-only"> {pan.userId}</span>
+                    </ActionButton>
+                    <ActionButton
+                      permission="users.pii.reveal"
+                      variant="quiet"
+                      onClick={() => setAction({ kind: "reveal-pan", pan })}
+                    >
+                      Reveal<span className="sr-only"> {pan.userId}</span>
+                    </ActionButton>
+                  </div>
+                </Cell>
+              </Row>
+            ))}
+          </Table>
+        )}
+      </QueryView>
+    </Section>
+  );
+}
+
+function UpiReviews({ setAction }: { setAction: (action: Action) => void }) {
+  const view = useListView();
+  const reviews = useListQuery([ADMIN, "verifications", "upi", view], "upiIds", (cursor?: string) =>
+    adminData(
+      adminApi.GET("/admin/v1/payouts/verifications/upi-ids", {
+        params: { query: { ...view, ...(cursor ? { cursor } : {}) } },
+      }),
+    ),
+  );
+  return (
+    <Section title="UPI IDs">
+      <ListBar list="verification-upi-ids" columns={UPI_COLUMNS} tags={false} extra={{ state: "review" }} />
+      <QueryView
+        query={reviews}
+        what="the UPI IDs"
+        isEmpty={(found) => found.upiIds.length === 0}
+        empty={
+          <Empty title="No UPI ID to check">
+            A UPI ID whose bank name matches the PAN&apos;s below 80 waits here.
+          </Empty>
+        }
+      >
+        {(found) => (
+          <Table
+            caption="UPI IDs waiting"
+            sorts={{ Confirmed: "checkedAt", Match: "score" }}
+            columns={UPI_COLUMNS}
+          >
+            {found.upiIds.map((upi) => (
+              <Row key={upi.id}>
+                <Cell>{upi.confirmedAt ? <RelativeTime value={upi.confirmedAt} /> : "—"}</Cell>
+                <Cell>
+                  <Id value={upi.userId} page="user" />
+                </Cell>
+                <Cell className="break-all">
+                  {upi.vpa ? <Reveal field="upi" id={upi.id} masked={upi.vpa} /> : "—"}
+                </Cell>
+                <Cell>{upi.registeredName ?? "—"}</Cell>
+                <Cell>{upi.panName ?? "—"}</Cell>
+                <Cell className="tabular">{upi.nameMatchScore ?? "—"}</Cell>
+                <Cell>
+                  <div className="flex gap-1">
+                    <ActionButton
+                      permission="verifications.decide"
+                      variant="quiet"
+                      onClick={() => setAction({ kind: "approve-upi", upi })}
+                    >
+                      Approve<span className="sr-only"> {upi.vpa}</span>
+                    </ActionButton>
+                    <ActionButton
+                      permission="verifications.decide"
+                      variant="quiet"
+                      onClick={() => setAction({ kind: "reject-upi", upi })}
+                    >
+                      Reject<span className="sr-only"> {upi.vpa}</span>
+                    </ActionButton>
+                  </div>
+                </Cell>
+              </Row>
+            ))}
+          </Table>
+        )}
+      </QueryView>
+    </Section>
+  );
 }

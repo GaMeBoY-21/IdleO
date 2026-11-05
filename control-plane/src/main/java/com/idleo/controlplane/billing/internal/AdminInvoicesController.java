@@ -1,5 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminTagged;
@@ -96,6 +97,7 @@ class AdminInvoicesController {
             String reason) {}
 
     @RequiresPermission(AdminPermission.INVOICES_READ)
+    @AdminList("invoices")
     @GetMapping
     AdminInvoiceList search(
             @RequestParam(required = false) @Nullable String number,

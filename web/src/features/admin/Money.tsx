@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { Money as Paise } from "@/components/ui/Money";
@@ -21,6 +21,8 @@ import {
   Table,
 } from "./ui";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { ListScope, useListQuery, useListView } from "./listView";
 
 const ACCOUNTS: [string, string][] = [
   ["renter_wallet", "A renter's wallet"],
@@ -35,19 +37,28 @@ export function Money() {
   const owner = new URLSearchParams(useSearch()).get("owner") ?? "";
   return (
     <AdminPage title="Money">
-      <Reconciliation />
+      <ListScope.Provider value="runs">
+        <Reconciliation />
+      </ListScope.Provider>
       <Ledger owner={owner} />
     </AdminPage>
   );
 }
 
+const RUN_COLUMNS = ["Finished", "Asked by", "Ledger", "Mismatches"];
+const LEDGER_COLUMNS = ["When", "Transaction", "Account", "Owner", "Amount", "For"];
+
 function Reconciliation() {
   const client = useQueryClient();
   const [running, setRunning] = useState(false);
-  const runs = useQuery({
-    queryKey: [ADMIN, "reconciliation"],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/reconciliation", { params: { query: { limit: 10 } } })),
-  });
+  const view = useListView();
+  const runs = useListQuery([ADMIN, "reconciliation", view], "runs", (cursor?: string) =>
+    adminData(
+      adminApi.GET("/admin/v1/reconciliation", {
+        params: { query: { limit: 10, ...view, ...(cursor ? { cursor } : {}) } },
+      }),
+    ),
+  );
   return (
     <Section
       title="Wallet reconciliation"
@@ -57,6 +68,7 @@ function Reconciliation() {
         </ActionButton>
       }
     >
+      <ListBar list="wallet-reconciliation" columns={RUN_COLUMNS} tags={false} />
       <QueryView
         query={runs}
         what="the reconciliation runs"
@@ -68,7 +80,11 @@ function Reconciliation() {
         }
       >
         {(list) => (
-          <Table caption="Reconciliation runs" columns={["Finished", "Asked by", "Ledger", "Mismatches"]}>
+          <Table
+            caption="Reconciliation runs"
+            sorts={{ Finished: "finishedAt", Mismatches: "mismatches" }}
+            columns={RUN_COLUMNS}
+          >
             {list.runs.map((run) => (
               <Row key={run.id}>
                 <Cell>
@@ -125,8 +141,9 @@ function Ledger({ owner }: { owner: string }) {
   const [asked, setAsked] = useState(form);
   const set = (field: keyof typeof form) => (value: string) => setForm({ ...form, [field]: value });
   const ready = asked.txn !== "" || asked.account !== "";
+  const view = useListView();
   const entries = useInfiniteQuery({
-    queryKey: [ADMIN, "ledger", asked],
+    queryKey: [ADMIN, "ledger", asked, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/ledger", {
@@ -135,6 +152,7 @@ function Ledger({ owner }: { owner: string }) {
               ...(asked.txn ? { txn: asked.txn } : {}),
               ...(asked.account ? { account: asked.account } : {}),
               ...(asked.owner ? { owner: asked.owner } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -163,6 +181,14 @@ function Ledger({ owner }: { owner: string }) {
           width="w-72"
         />
       </Filters>
+      {ready && (
+        <ListBar
+          list="ledger"
+          columns={LEDGER_COLUMNS}
+          tags={false}
+          extra={Object.fromEntries(Object.entries(asked).filter(([, value]) => value !== ""))}
+        />
+      )}
       {ready ? (
         <PagedView
           query={entries}
@@ -173,7 +199,8 @@ function Ledger({ owner }: { owner: string }) {
           {(rows) => (
             <Table
               caption="Ledger entries"
-              columns={["When", "Transaction", "Account", "Owner", "Amount", "For"]}
+              sorts={{ When: "createdAt", Amount: "amount" }}
+              columns={LEDGER_COLUMNS}
             >
               {rows.map((entry) => (
                 <Row key={entry.id}>

@@ -14,6 +14,36 @@ class IdentityListings {
     }
 
     @Bean
+    AdminListing auditListing() {
+        return AuditLogController.LIST;
+    }
+
+    @Bean
+    AdminListing accessLogListing() {
+        return AdminPersonalDataController.ACCESS_LOG;
+    }
+
+    @Bean
+    AdminListing securityEventsListing() {
+        return AdminUsersController.SECURITY_EVENTS;
+    }
+
+    @Bean
+    AdminListing approvalsListing() {
+        return ApprovalEngine.LIST;
+    }
+
+    @Bean
+    AdminListing adminsListing() {
+        return AdminRolesController.LIST;
+    }
+
+    @Bean
+    AdminListing adminSessionsListing() {
+        return AdminSessionRecordsController.LIST;
+    }
+
+    @Bean
     AdminListing invitesListing() {
         return AdminInvitesController.LIST;
     }

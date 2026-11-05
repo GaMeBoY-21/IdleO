@@ -1,4 +1,5 @@
-import { useCallback } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { createContext, useCallback, useContext } from "react";
 import { useLocation, useSearch } from "wouter";
 
 /**
@@ -19,6 +20,43 @@ export function useAddress(): [URLSearchParams, (change: (params: URLSearchParam
     [navigate, path],
   );
   return [new URLSearchParams(search), write];
+}
+
+/**
+ * Which list of the screen these are, when it has more than one: each keeps its order, columns and tag in the address
+ * under its own name (`pans.sort`), so they don't fight over one `sort`.
+ */
+export const ListScope = createContext("");
+
+/** A name in the address, for the list that's asking. */
+function useScoped(): (name: string) => string {
+  const scope = useContext(ListScope);
+  return useCallback((name: string) => (scope ? `${scope}.${name}` : name), [scope]);
+}
+
+export { useScoped as useListName };
+
+/**
+ * A list whose rows come with what's around them (its runs, the roles): each page's answer, merged into one, for a
+ * `QueryView`, which then offers "Show more".
+ */
+export function useListQuery<P extends { nextCursor?: string | null }>(
+  key: readonly unknown[],
+  field: keyof NoInfer<P>,
+  read: (cursor: string | undefined) => Promise<P>,
+  options: { enabled?: boolean; refetchInterval?: number } = {},
+) {
+  return useInfiniteQuery({
+    queryKey: key,
+    queryFn: ({ pageParam }) => read(pageParam === "" ? undefined : pageParam),
+    initialPageParam: "",
+    getNextPageParam: (page: P) => page.nextCursor ?? undefined,
+    select: (data): P => ({
+      ...data.pages[0]!,
+      [field]: data.pages.flatMap((page) => page[field] as unknown[]),
+    }),
+    ...options,
+  });
 }
 
 /** One filter in the address, used like `useState`. */
@@ -63,9 +101,12 @@ export function useListParams<T extends Record<string, string>>(initial: T): [T,
 /** What every list adds to its request: its order and its tag. */
 export function useListView(): { sort?: string; tag?: string } {
   const [params] = useAddress();
+  const name = useScoped();
+  const sort = params.get(name("sort"));
+  const tag = params.get(name("tag"));
   return {
-    ...(params.get("sort") ? { sort: params.get("sort")! } : {}),
-    ...(params.get("tag") ? { tag: params.get("tag")! } : {}),
+    ...(sort ? { sort } : {}),
+    ...(tag ? { tag } : {}),
   };
 }
 
@@ -76,14 +117,15 @@ export function useTableView(): {
   sortBy: (key: string) => void;
 } {
   const [params, write] = useAddress();
-  const sort = params.get("sort");
+  const name = useScoped();
+  const sort = params.get(name("sort"));
   const sortBy = useCallback(
     (key: string) =>
       write((next) => {
-        const now = next.get("sort");
-        next.set("sort", now === `${key}:desc` ? `${key}:asc` : `${key}:desc`);
+        const now = next.get(name("sort"));
+        next.set(name("sort"), now === `${key}:desc` ? `${key}:asc` : `${key}:desc`);
       }),
-    [write],
+    [name, write],
   );
-  return { hidden: new Set(params.get("hide")?.split(",") ?? []), sort, sortBy };
+  return { hidden: new Set(params.get(name("hide"))?.split(",") ?? []), sort, sortBy };
 }

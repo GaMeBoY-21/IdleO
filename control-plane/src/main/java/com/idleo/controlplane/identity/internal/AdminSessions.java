@@ -204,14 +204,14 @@ class AdminSessions {
             @Nullable String ip,
             @Nullable String userAgent) {}
 
-    /** The admin's sessions still live, or everyone's when {@code userId} is null, newest first. */
-    List<Record> live(@Nullable UUID userId) {
+    /** The admin's sessions still live, newest first. */
+    List<Record> live(UUID userId) {
         return jdbc.sql("""
                         select id, user_id, created_at, last_used_at, expires_at, ends_by, ended_at, host(ip) as address,
                                user_agent
                         from identity.admin_sessions
                         where ended_at is null and expires_at > :now
-                          and (cast(:userId as uuid) is null or user_id = cast(:userId as uuid))
+                          and user_id = :userId
                         order by created_at desc
                         limit 200
                         """)

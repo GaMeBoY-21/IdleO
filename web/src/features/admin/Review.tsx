@@ -7,6 +7,10 @@ import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminReviewMinute } from "./api";
 import { AdminPage, Cell, Empty, Id, PagedView, Pill, Row, RowLink, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
+
+const COLUMNS = ["Session", "Minute", "Why", "Price", "Queued", "Decision", ""];
 
 /** Why a minute is in the queue, in words. */
 const WHY: Record<string, string> = {
@@ -22,14 +26,15 @@ const WHY: Record<string, string> = {
  */
 export function Review() {
   const client = useQueryClient();
-  const [state, setState] = useState("open");
+  const [state, setState] = useListParam("state", "open");
+  const view = useListView();
   const [deciding, setDeciding] = useState<{ minute: AdminReviewMinute; charge: boolean } | null>(null);
   const minutes = useInfiniteQuery({
-    queryKey: [ADMIN, "review", state],
+    queryKey: [ADMIN, "review", state, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/review-minutes", {
-          params: { query: { state, ...(pageParam ? { cursor: pageParam } : {}) } },
+          params: { query: { state, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
         }),
       ),
     initialPageParam: "",
@@ -49,6 +54,13 @@ export function Review() {
           ]}
         />
       </div>
+      <ListBar
+        list="review-minutes"
+        columns={COLUMNS}
+        filters={{ state: "state" }}
+        extra={state === "all" ? {} : { state }}
+        tags={false}
+      />
       <PagedView
         query={minutes}
         what="the review queue"
@@ -64,7 +76,8 @@ export function Review() {
         {(rows) => (
           <Table
             caption="Minutes in review"
-            columns={["Session", "Minute", "Why", "Price", "Queued", "Decision", ""]}
+            sorts={{ Minute: "minuteAt", Why: "reason", Queued: "queuedAt" }}
+            columns={COLUMNS}
           >
             {rows.map((minute) => (
               <Row key={`${minute.sessionId}:${minute.minuteIndex}`}>

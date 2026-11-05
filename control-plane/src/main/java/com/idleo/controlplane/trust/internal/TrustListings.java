@@ -14,6 +14,16 @@ class TrustListings {
     }
 
     @Bean
+    AdminListing blocklistAdditionsListing() {
+        return LearnedBuilds.LIST;
+    }
+
+    @Bean
+    AdminListing hostFlagsListing() {
+        return AdminDisputesController.HOST_FLAGS;
+    }
+
+    @Bean
     AdminListing abuseListing() {
         return AdminAbuseController.LIST;
     }

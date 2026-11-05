@@ -64,9 +64,9 @@ class IdentityGatedActions {
                     days.isNumber() ? Optional.of(Duration.ofDays(days.asLong())) : Optional.empty(),
                     run.actor());
             return new Approvals.File(
-                    String.join("\n", created.codes()).getBytes(StandardCharsets.UTF_8),
                     "text/plain",
-                    "idleo-invites.txt");
+                    "idleo-invites.txt",
+                    out -> out.write(String.join("\n", created.codes()).getBytes(StandardCharsets.UTF_8)));
         });
     }
 }

@@ -29,6 +29,26 @@ class BillingListings {
     }
 
     @Bean
+    AdminListing creditGrantsListing() {
+        return AdminMoneyController.GRANT_LIST;
+    }
+
+    @Bean
+    AdminListing ledgerListing() {
+        return AdminMoneyController.LEDGER;
+    }
+
+    @Bean
+    AdminListing walletReconciliationListing() {
+        return AdminMoneyController.WALLET_RUNS;
+    }
+
+    @Bean
+    AdminListing paymentMismatchesListing() {
+        return PaymentReconciliation.MISMATCHES;
+    }
+
+    @Bean
     AdminListing clawbacksListing() {
         return AdminClawbacksController.LIST;
     }

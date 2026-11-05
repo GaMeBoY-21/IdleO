@@ -1,5 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdGenerator;
@@ -508,27 +509,38 @@ class ApprovalEngine implements Approvals {
                 .map(this::view);
     }
 
-    /** The queue: {@code pending} (the default), {@code mine}, or {@code decided}; newest first. */
-    List<AdminApproval> list(String which, UUID admin, @Nullable UUID after, int limit) {
-        var where = switch (which) {
-            case "mine" -> "requested_by = :admin";
-            case "decided" -> "state <> 'pending'";
-            default -> "state = 'pending'";
-        };
-        return jdbc
-                .sql("""
-                        select * from identity.approval_requests
-                        where %s and (cast(:after as uuid) is null or id < cast(:after as uuid))
-                        order by id desc limit :limit
-                        """.formatted(where))
-                .param("admin", admin)
-                .param("after", after)
-                .param("limit", limit)
-                .query(this::row)
-                .list()
-                .stream()
-                .map(this::view)
-                .toList();
+    /** The requests: what's waiting, what's decided, or what one admin asked for. */
+    static final AdminListing LIST = AdminListing.of("approvals", AdminPermission.APPROVALS_READ, true)
+            .from("identity.approval_requests")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("kind", AdminListing.Type.TEXT, "kind")
+            .sort("state", AdminListing.Type.TEXT, "state")
+            .sortedBy("createdAt", true)
+            .filter("which", """
+                    (cast(:which as text) = 'pending' and state = 'pending')
+                    or (cast(:which as text) = 'decided' and state <> 'pending')""")
+            .filter("requestedBy", "requested_by = cast(:requestedBy as uuid)")
+            .csv("id", "id")
+            .csv("kind", "kind")
+            .csv("targetType", "target_type")
+            .csv("targetId", "target_id")
+            .csv("requestedBy", "requested_by")
+            .csv("reason", "reason")
+            .csv("state", "state")
+            .csv("decidedBy", "decided_by")
+            .csv("decisionReason", "decision_reason")
+            .csv("decidedAt", "decided_at")
+            .csv("createdAt", "created_at")
+            .build();
+
+    /** {@code which}: pending, decided, or mine, which is everything {@code admin} asked for. */
+    AdminListing.Page<AdminApproval> list(
+            String which, UUID admin, @Nullable String sort, @Nullable String cursor, @Nullable Integer limit) {
+        var asked = which.equals("mine")
+                ? AdminListing.Asked.of(sort, "requestedBy", admin)
+                : AdminListing.Asked.of(sort, "which", which);
+        var page = LIST.page(jdbc, asked, cursor, limit, this::row);
+        return new AdminListing.Page<>(page.rows().stream().map(this::view).toList(), page.nextCursor());
     }
 
     long pending() {

@@ -12,4 +12,19 @@ class PayoutsListings {
     AdminListing payoutsListing() {
         return AdminPayoutsController.LIST;
     }
+
+    @Bean
+    AdminListing verificationPansListing() {
+        return Pans.LIST;
+    }
+
+    @Bean
+    AdminListing verificationUpiIdsListing() {
+        return PayoutMethods.LIST;
+    }
+
+    @Bean
+    AdminListing payoutMismatchesListing() {
+        return PayoutReconciliation.MISMATCHES;
+    }
 }

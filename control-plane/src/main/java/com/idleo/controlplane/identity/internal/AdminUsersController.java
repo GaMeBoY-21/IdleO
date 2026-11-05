@@ -1,7 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
-import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.AdminTagged;
@@ -53,6 +53,22 @@ class AdminUsersController {
             """;
 
     private static final String SELECT = "select " + SELECT_COLUMNS + " from identity.users u ";
+
+    /** A person's security log, its orders and CSV (ADR 0052). */
+    static final AdminListing SECURITY_EVENTS = AdminListing.of("security-events", AdminPermission.USERS_READ, true)
+            .select("id, kind, detail, host(address) as address, at")
+            .from("identity.security_events")
+            .sort("at", AdminListing.Type.UUID, "id")
+            .sort("kind", AdminListing.Type.TEXT, "kind")
+            .sortedBy("at", true)
+            .filter("user", "user_id = cast(:user as uuid)")
+            .csv("id", "id")
+            .csv("userId", "user_id")
+            .csv("kind", "kind")
+            .csv("detail", "detail")
+            .csv("address", "host(address)")
+            .csv("at", "at")
+            .build();
 
     private final JdbcClient jdbc;
     private final UserSuspensions suspensions;
@@ -142,6 +158,7 @@ class AdminUsersController {
      * {@code sort} is createdAt, email, name or status, with {@code :asc} or {@code :desc}.
      */
     @RequiresPermission(AdminPermission.USERS_READ)
+    @AdminList("users")
     @GetMapping
     AdminUserPage search(
             @RequestParam(required = false) @Nullable String query,
@@ -225,35 +242,26 @@ class AdminUsersController {
 
     /** The person's security log, newest first: sign-ins, failures they can be tied to, key and account events. */
     @RequiresPermission(AdminPermission.USERS_READ)
+    @AdminList("security-events")
     @GetMapping("/{id}/security-events")
     SecurityEventPage securityEvents(
             @PathVariable UUID id,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         find(id);
-        int size = AdminPages.limit(limit);
-        var rows = jdbc.sql("""
-                        select id, kind, detail, host(address) as address, at from identity.security_events
-                        where user_id = :user and (cast(:after as uuid) is null or id < cast(:after as uuid))
-                        order by id desc
-                        limit :limit
-                        """)
-                .param("user", id)
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query((rs, n) -> Map.entry(
+        var page = SECURITY_EVENTS.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "user", id),
+                cursor,
+                limit,
+                (rs, n) -> new SecurityEvent(
                         rs.getObject("id", UUID.class),
-                        new SecurityEvent(
-                                rs.getObject("id", UUID.class),
-                                rs.getString("kind"),
-                                rs.getString("detail"),
-                                rs.getString("address"),
-                                rs.getTimestamp("at").toInstant())))
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
-        return new SecurityEventPage(
-                page.stream().map(Map.Entry::getValue).toList(),
-                rows.size() > size ? AdminPages.cursorAfter(page.getLast().getKey()) : null);
+                        rs.getString("kind"),
+                        rs.getString("detail"),
+                        rs.getString("address"),
+                        rs.getTimestamp("at").toInstant()));
+        return new SecurityEventPage(page.rows(), page.nextCursor());
     }
 
     private AdminUser find(UUID id) {

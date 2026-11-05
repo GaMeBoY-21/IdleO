@@ -1,5 +1,7 @@
 package com.idleo.controlplane.payouts.internal;
 
+import com.idleo.controlplane.AdminListing;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
@@ -361,7 +363,10 @@ class PayoutReconciliation {
                     .update();
         }
         if (!examined.isEmpty()) {
-            for (var open : list("open", 500)) {
+            var stillOpen = jdbc.sql("select * from payouts.mismatches where state = 'open' limit 500")
+                    .query(PayoutReconciliation::mismatch)
+                    .list();
+            for (var open : stillOpen) {
                 if (examined.contains(open.subject()) && !keys.contains(List.of(open.kind(), open.subject()))) {
                     jdbc.sql("""
                                     update payouts.mismatches
@@ -417,13 +422,33 @@ class PayoutReconciliation {
                 .single();
     }
 
-    /** {@code state}: open, fixed, accepted or all; the newest found first. */
-    List<Mismatch> list(String state, int limit) {
-        return jdbc.sql("select * from payouts.mismatches where (:state = 'all' or state = :state)"
-                        + " order by found_at desc, id desc limit " + limit)
-                .param("state", state)
-                .query(PayoutReconciliation::mismatch)
-                .list();
+    /** What's been found, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing MISMATCHES = AdminListing.of("payout-mismatches", AdminPermission.PAYOUTS_READ, true)
+            .from("payouts.mismatches")
+            .sort("foundAt", AdminListing.Type.TIME, "found_at")
+            .sort("kind", AdminListing.Type.TEXT, "kind")
+            .sortedBy("foundAt", true)
+            .filter("state", "state = cast(:state as text)")
+            .csv("id", "id")
+            .csv("kind", "kind")
+            .csv("subject", "subject")
+            .csv("payoutId", "payout_id")
+            .csv("userId", "user_id")
+            .csv("ourPaise", "our_paise")
+            .csv("theirPaise", "their_paise")
+            .csv("detail", "detail")
+            .csv("state", "state")
+            .csv("foundAt", "found_at")
+            .build();
+
+    AdminListing.Page<Mismatch> list(
+            String state, @Nullable String sort, @Nullable String cursor, @Nullable Integer limit) {
+        return MISMATCHES.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "state", state.equals("all") ? null : state),
+                cursor,
+                limit,
+                PayoutReconciliation::mismatch);
     }
 
     List<Run> runs(int limit) {
