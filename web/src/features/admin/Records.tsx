@@ -8,6 +8,7 @@ import { RecordTabs, type RecordTab } from "./RecordTabs";
 import { Timeline } from "./Timeline";
 import { AdminPage, BackLink, Cell, Empty, Fields, Id, Pill, QueryView, Row, Section, Table } from "./ui";
 import { useListQuery } from "./listView";
+import { UserEnforcement } from "./Enforcement";
 
 /** One list in a tab, with its states. */
 function Listed<T, R>({
@@ -470,6 +471,12 @@ export function UserTabs({ id, can }: { id: string; can: (permission: string) =>
     { id: "refunds", label: "Refunds", needs: "refunds.read", render: () => <Refunds id={id} /> },
     { id: "invoices", label: "Invoices", needs: "invoices.read", render: () => <Invoices id={id} /> },
     { id: "hosts", label: "Hosts owned", needs: "hosts.read", render: () => <OwnedHosts id={id} /> },
+    {
+      id: "enforcement",
+      label: "Enforcement",
+      needs: "enforcement.read",
+      render: () => <UserEnforcement id={id} />,
+    },
     ...(can("payouts.read") || can("verifications.read")
       ? [
           {

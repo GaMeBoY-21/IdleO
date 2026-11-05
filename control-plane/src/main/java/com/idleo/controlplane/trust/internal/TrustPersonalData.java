@@ -58,42 +58,55 @@ class TrustPersonalData implements PersonalData {
     @Override
     public List<Part> export(UUID userId) {
         var params = Map.of("user", userId);
-        return List.of(
-                new Part("reports", "reports", rows.list(jdbc, """
+        return java.util.stream.Stream.concat(
+                        java.util.stream.Stream.of(
+                                new Part("reports", "enforcements", rows.list(jdbc, """
+                                select id, role, step, template_id, limit_kind, limit_hours, ends_at, strike_expires_at, state,
+                                       reason, created_at, ended_at
+                                from trust.enforcements where user_id = :user order by created_at
+                                """, Map.of("user", userId))),
+                                new Part("reports", "appeals", rows.list(jdbc, """
+                                select id, enforcement_id, body, state, decision_reason, created_at, decided_at
+                                from trust.appeals where user_id = :user order by created_at
+                                """, Map.of("user", userId)))),
+                        List.of(
+                                new Part("reports", "reports", rows.list(jdbc, """
                                 select id, session_id, reason, details, state, created_at, resolution_reason,
                                        resolved_at, refund_paise
                                 from trust.disputes where renter_id = :user order by created_at
                                 """, params)),
-                new Part(
-                        "reports",
-                        "ratings",
-                        rows.list(
-                                jdbc,
-                                "select session_id, stars, comment, rated_at, changed_at from trust.ratings"
-                                        + " where renter_id = :user order by rated_at",
-                                params)),
-                new Part("reports", "abuseReviews", rows.list(jdbc, """
+                                new Part(
+                                        "reports",
+                                        "ratings",
+                                        rows.list(
+                                                jdbc,
+                                                "select session_id, stars, comment, rated_at, changed_at from trust.ratings"
+                                                        + " where renter_id = :user order by rated_at",
+                                                params)),
+                                new Part("reports", "abuseReviews", rows.list(jdbc, """
                                 select id, session_id, attempt, state, action, banned, created_at, resolved_at, resolution,
                                        refund_paise
                                 from trust.abuse_items where renter_id = :user order by created_at
                                 """, params)),
-                new Part("reports", "abuseSignals", rows.list(jdbc, """
+                                new Part("reports", "abuseSignals", rows.list(jdbc, """
                                 select s.item_id, s.kind, s.detail, s.sha256, s.count, s.stopped, s.at
                                 from trust.abuse_signals s join trust.abuse_items i on i.id = s.item_id
                                 where i.renter_id = :user order by s.at
                                 """, params)),
-                new Part("reports", "abuseNotes", rows.list(jdbc, """
+                                new Part("reports", "abuseNotes", rows.list(jdbc, """
                                 select n.item_id, n.note, n.at
                                 from trust.abuse_notes n join trust.abuse_items i on i.id = n.item_id
                                 where i.renter_id = :user order by n.at
                                 """, params)),
-                new Part("reports", "behaviour", rows.list(jdbc, """
+                                new Part("reports", "behaviour", rows.list(jdbc, """
                                 select session_id, attempt, minute_index, util_pct, memory_pct, pcie_kb_s, net_out, net_in,
                                        printed, conn_drops, at
                                 from trust.behavior_samples
                                 where session_id in (select session_id from trust.ended_sessions where renter_id = :user)
                                 order by session_id, attempt, minute_index
-                                """, params)));
+                                """, params)))
+                                .stream())
+                .toList();
     }
 
     @Override
@@ -137,6 +150,14 @@ class TrustPersonalData implements PersonalData {
                         where renter_id = :user and (details is not null or resolution_reason <> '')
                         """).param("user", userId).update();
         jdbc.sql("update trust.ratings set comment = null, renter_id = null where renter_id = :user")
+                .param("user", userId)
+                .update();
+        // What the ladder said about them, and what they wrote back; the steps stay, by id, so a ban still stands.
+        jdbc.sql("update trust.enforcements set reason = null where user_id = :user")
+                .param("user", userId)
+                .update();
+        jdbc.sql(
+                        "update trust.appeals set body = null, decision_reason = null, attachments = '{}' where user_id = :user")
                 .param("user", userId)
                 .update();
         // What an admin wrote about the person: the reasons they settled a review with, and their notes.

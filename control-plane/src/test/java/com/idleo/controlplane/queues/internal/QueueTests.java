@@ -577,7 +577,44 @@ class QueueTests {
                     .as(kind)
                     .isEqualTo(400);
         }
-        assertThat(BulkActions.KINDS).isEqualTo(Set.of("assign", "tag", "priority", "close", "macro"));
+        assertThat(BulkActions.KINDS).isEqualTo(Set.of("assign", "tag", "priority", "close", "macro", "warn"));
+    }
+
+    @Test
+    void aBulkWarnWarnsEachPersonAndOnlyAWarningCanBeBulkAndItCantBeUndone() throws Exception {
+        var owner = TestAdmins.signInAs(mvc, jdbc, clock, "owner");
+        var items = tickets(2);
+        assertThat(send(
+                                owner,
+                                "/admin/v1/queue/bulk/preview",
+                                Map.of("items", items, "action", Map.of("kind", "warn", "template", "renter-ban")))
+                        .getStatus())
+                .isEqualTo(400);
+        var ran = send(
+                owner,
+                "/admin/v1/queue/bulk",
+                Map.of(
+                        "items",
+                        items,
+                        "action",
+                        Map.of("kind", "warn", "template", "renter-warn"),
+                        "confirm",
+                        "2",
+                        "reason",
+                        "the same abuse twice"));
+        assertThat(ran.getStatus()).as(ran.getContentAsString()).isEqualTo(200);
+        bulk.run();
+        var person = row(items.getFirst()).get("person_id");
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from trust.enforcements where user_id = ? and step = 'warn'",
+                        Integer.class,
+                        person))
+                .isEqualTo(2);
+        var undo = send(
+                owner,
+                "/admin/v1/queue/bulk/" + body(ran).get("id").asString() + "/undo",
+                Map.of("reason", "changed my mind"));
+        assertThat(undo.getStatus()).isEqualTo(409);
     }
 
     @Test

@@ -24,6 +24,16 @@ class TrustListings {
     }
 
     @Bean
+    AdminListing enforcementsListing() {
+        return Enforcements.LIST;
+    }
+
+    @Bean
+    AdminListing appealsListing() {
+        return Appeals.LIST;
+    }
+
+    @Bean
     AdminListing abuseListing() {
         return AdminAbuseController.LIST;
     }

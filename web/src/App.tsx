@@ -58,6 +58,7 @@ const screens = {
   "/account/": screen(() => import("@/features/account/Account").then((m) => m.Account)),
   "/account/keys/": screen(() => import("@/features/account/ApiKeys").then((m) => m.ApiKeys)),
   "/account/reports/": screen(() => import("@/features/account/Reports").then((m) => m.Reports)),
+  "/account/appeal/": screen(() => import("@/features/account/Appeal").then((m) => m.Appeal)),
   "/account/images/": screen(() => import("@/features/account/MyImages").then((m) => m.MyImages)),
   "/account/data/": screen(() => import("@/features/account/YourData").then((m) => m.YourData)),
   "/account/help/": screen(() => import("@/features/help/Help").then((m) => m.Help)),
@@ -114,6 +115,7 @@ const Agree = screens["/agree/"].Screen;
 const Account = screens["/account/"].Screen;
 const ApiKeys = screens["/account/keys/"].Screen;
 const Reports = screens["/account/reports/"].Screen;
+const Appeal = screens["/account/appeal/"].Screen;
 const MyImages = screens["/account/images/"].Screen;
 const YourData = screens["/account/data/"].Screen;
 const DeleteAccount = screens["/account/delete/"].Screen;
@@ -180,6 +182,7 @@ function HeldArea() {
           <Route path="/account/delete/" component={DeleteAccount} />
           <Route path="/account/help/" component={Help} />
           <Route path="/account/help/ticket/" component={HelpTicket} />
+          <Route path="/account/appeal/" component={Appeal} />
           <Route component={HeldAccount} />
         </Switch>
       </Suspense>
@@ -214,6 +217,7 @@ function SignedInArea() {
             <Route path="/account/" component={Account} />
             <Route path="/account/keys/" component={ApiKeys} />
             <Route path="/account/reports/" component={Reports} />
+            <Route path="/account/appeal/" component={Appeal} />
             <Route path="/account/images/" component={MyImages} />
             <Route path="/account/data/" component={YourData} />
             <Route path="/account/delete/" component={DeleteAccount} />

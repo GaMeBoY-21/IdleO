@@ -88,6 +88,10 @@ export const EVERY_PERMISSION = [
   "queues.sla",
   "queues.bulk",
   "macros.manage",
+  "enforcement.read",
+  "enforcement.apply",
+  "enforcement.lift",
+  "appeals.decide",
   "verifications.decide",
   "verifications.read",
 ];
@@ -1184,4 +1188,34 @@ export const bulkPreview: Schemas["BulkPreview"] = {
   ],
   willChange: 1,
   unchanged: 1,
+};
+
+export const enforcement: Schemas["AdminEnforcement"] = {
+  id: "01a1ac00-0000-7000-8000-000000000010",
+  userId: "01a1ac00-0000-7000-8000-000000000011",
+  role: "renter",
+  step: "suspend",
+  template: "renter-suspend",
+  title: "Your account is suspended",
+  clause: "The Terms, on suspending accounts",
+  endsAt: "2026-12-01T00:00:00Z",
+  strikeExpiresAt: "2027-05-01T00:00:00Z",
+  state: "active",
+  reason: "It mined on someone else's machine",
+  enforcedBy: "01a1ac00-0000-7000-8000-000000000012",
+  createdAt: "2026-11-01T00:00:00Z",
+  appealed: true,
+  version: 1,
+};
+
+export const appeal: Schemas["AdminAppeal"] = {
+  id: "01a1ac00-0000-7000-8000-000000000020",
+  enforcementId: enforcement.id,
+  userId: enforcement.userId,
+  body: "It wasn't me: my brother used the laptop.",
+  attachments: [],
+  state: "open",
+  sameReviewer: false,
+  createdAt: "2026-11-02T00:00:00Z",
+  version: 1,
 };

@@ -73,6 +73,36 @@ class TrustWorkQueues {
                         .list());
     }
 
+    @Bean
+    WorkQueue appealQueue(JdbcClient jdbc) {
+        return queue(
+                "appeal",
+                AdminPermission.APPEALS_DECIDE,
+                () -> jdbc.sql("""
+                        select id, user_id, created_at from trust.appeals where state = 'open'
+                        """)
+                        .query((rs, n) -> {
+                            var id = rs.getObject("id", UUID.class);
+                            var user = rs.getObject("user_id", UUID.class);
+                            return new WorkQueue.Item(
+                                    id.toString(),
+                                    "user",
+                                    user,
+                                    user,
+                                    "An appeal",
+                                    "/admin/appeals/?id=" + id,
+                                    "appeal",
+                                    rs.getTimestamp("created_at").toInstant(),
+                                    null,
+                                    false,
+                                    null,
+                                    null,
+                                    0,
+                                    false);
+                        })
+                        .list());
+    }
+
     private static WorkQueue queue(
             String type, AdminPermission permission, java.util.function.Supplier<List<WorkQueue.Item>> open) {
         return new WorkQueue() {

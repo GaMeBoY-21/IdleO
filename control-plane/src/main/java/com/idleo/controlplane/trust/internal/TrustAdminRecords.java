@@ -20,6 +20,10 @@ class TrustAdminRecords implements AdminRecords {
     @Override
     public Map<String, Function<Map<String, String>, OptionalLong>> versions() {
         return Map.of(
+                "enforcement",
+                AdminRecords.byId(jdbc, "id", "select version from trust.enforcements where id = :id"),
+                "appeal",
+                AdminRecords.byId(jdbc, "id", "select version from trust.appeals where id = :id"),
                 "abuse_item",
                 AdminRecords.byId(jdbc, "id", "select version from trust.abuse_items where id = :id"),
                 "blocklist_addition",

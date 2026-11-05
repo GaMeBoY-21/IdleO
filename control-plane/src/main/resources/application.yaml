@@ -372,6 +372,10 @@ backups:
 
 # A host's shown rating is worked out once a day, never on each rating (ADR 0028).
 trust:
+  # The ladder (ADR 0053): how long a strike counts, and how often what's reached its end date is ended.
+  enforcement:
+    strike-lasts: 180d
+    sweep-every: 1m
   ratings:
     refresh-cron: "0 15 3 * * *"
     zone: Asia/Kolkata

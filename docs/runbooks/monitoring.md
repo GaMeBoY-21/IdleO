@@ -29,7 +29,7 @@ What's measured, by the module that owns the fact:
 
 `./start.sh` runs it all: compose.yaml's `observability` service (one `grafana/otel-lgtm` container: Grafana, Prometheus, Loki, Tempo and an OpenTelemetry collector, pinned by digest) and `alertmanager`, which sends alerts to Mailpit.
 
-- Grafana: http://localhost:3300, no sign-in. The four dashboards are in the IdleO folder. Explore has the logs (Loki) and traces (Tempo).
+- Grafana: http://localhost:3300, no sign-in. The five dashboards are in the IdleO folder. Explore has the logs (Loki) and traces (Tempo).
 - Prometheus: http://localhost:9190 (its alerts page shows each rule's state).
 - Alerts: Mailpit, http://localhost:8025, from `alerts@idleo.test`.
 

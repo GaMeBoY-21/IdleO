@@ -1,5 +1,6 @@
 package com.idleo.controlplane.images.internal;
 
+import com.idleo.controlplane.AccountLimits;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.ApiProblem.FieldError;
 import com.idleo.controlplane.IdGenerator;
@@ -38,8 +39,12 @@ class ImageService implements CheckedImages {
     private final IdGenerator ids;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final AccountLimits limits;
+
+    private static final String LIMITED = "Your own images are limited on your account for now. See Account for why.";
 
     ImageService(
+            AccountLimits limits,
             ImageStore images,
             ScanStore scans,
             RegistryLogins logins,
@@ -49,6 +54,7 @@ class ImageService implements CheckedImages {
             IdGenerator ids,
             PlatformTransactionManager transactionManager,
             Clock clock) {
+        this.limits = limits;
         this.images = images;
         this.scans = scans;
         this.logins = logins;
@@ -70,7 +76,7 @@ class ImageService implements CheckedImages {
 
     /** Whether the renter may use their own images now. */
     boolean allowed(UUID renterId) {
-        return enabled() && pans.verified(renterId);
+        return enabled() && !limits.noCustomImages(renterId) && pans.verified(renterId);
     }
 
     /** What the renter would have to do to use their own images, said to them; null when they can. */
@@ -79,12 +85,18 @@ class ImageService implements CheckedImages {
         if (!enabled()) {
             return NOT_YET;
         }
+        if (limits.noCustomImages(renterId)) {
+            return LIMITED;
+        }
         return pans.verified(renterId) ? null : WHY_NOT;
     }
 
     private void requireAllowed(UUID renterId) {
         if (!enabled()) {
             throw ApiProblem.of(Problem.NOT_FOUND, NOT_YET);
+        }
+        if (limits.noCustomImages(renterId)) {
+            throw ApiProblem.of(Problem.ACTION_REFUSED, LIMITED);
         }
         if (!pans.verified(renterId)) {
             throw ApiProblem.of(Problem.VERIFIED_PAN_REQUIRED, WHY_NOT);

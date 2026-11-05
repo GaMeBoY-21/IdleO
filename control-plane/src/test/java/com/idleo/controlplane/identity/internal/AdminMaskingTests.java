@@ -152,6 +152,24 @@ class AdminMaskingTests {
                 insert into queues.bulk_batches (id, requested_by, action, reason, state, total, undoable, created_at)
                 values (?, ?, '{"kind":"close"}', 'checking the masking', 'done', 0, true, now())
                 """, batch, admin.id());
+        // A step on the ladder and its appeal, in the person's words.
+        var step = UUID.randomUUID();
+        jdbc.update("""
+                insert into trust.enforcements (id, user_id, role, step, template_id, strike_expires_at, state, reason,
+                    enforced_by, created_at)
+                values (?, ?, 'renter', 'warn', 'renter-warn', now() + interval '1 day', 'active', ?, ?, now())
+                """, step, user, "the masking test", admin.id());
+        var appealed = UUID.randomUUID();
+        jdbc.update(
+                """
+                insert into trust.appeals (id, enforcement_id, user_id, body, state, created_at)
+                values (?, ?, ?, ?, 'open', now())
+                """,
+                appealed,
+                step,
+                user,
+                "Call me on " + phone + ", my PAN is " + pan + ", write to " + person.email());
+        ids.put("/admin/v1/appeals/{id}", appealed.toString());
         ids.put("/admin/v1/queue/{id}", queueItem.toString());
         ids.put("/admin/v1/queue/{id}/macros/{macro}", queueItem.toString());
         ids.put("/admin/v1/queue/bulk/{id}", batch.toString());
@@ -161,6 +179,7 @@ class AdminMaskingTests {
                 Map.entry("/admin/v1/timeline", "subject=user&id=" + user),
                 Map.entry("/admin/v1/notes", "subject=user&id=" + user),
                 Map.entry("/admin/v1/views", "list=users"),
+                Map.entry("/admin/v1/enforcements", "user=" + user),
                 Map.entry("/admin/v1/users", "query=" + marker),
                 Map.entry("/admin/v1/payments", "query=" + user),
                 Map.entry("/admin/v1/credit-grants", "user=" + user),

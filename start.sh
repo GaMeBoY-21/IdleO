@@ -505,7 +505,7 @@ Everything is up, in $((SECONDS - started)) s.
   Website        http://localhost:$site_port/   (the public pages; its "Get started" and "Log in" lead to the app)
   Web app        http://localhost:$web_port
   Email          http://localhost:$mail_web_port   (Mailpit: every email the stack sends, none delivered)
-  Monitoring     http://localhost:$grafana_port   (Grafana: Platform health, Marketplace and Fleet; alerts arrive in Mailpit)
+  Monitoring     http://localhost:$grafana_port   (Grafana: Platform health, Marketplace, Fleet, Money and Inbox; alerts arrive in Mailpit)
   Backups        archived to MinIO, encrypted; ops/backup/backup-now.sh, restore.sh (docs/runbooks/backups.md)
   Admin console  http://localhost:$web_port/admin/   (needs the admin role: docs/runbooks/admin.md)
   API            $api

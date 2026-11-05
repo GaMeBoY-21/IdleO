@@ -7,6 +7,7 @@ import { FRAME } from "@/components/shell/Layout";
 import { buttonClasses } from "@/components/ui/Button";
 import { PageHeading } from "@/components/ui/Heading";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
+import { Decisions } from "@/features/account/Decisions";
 import { useTitle } from "@/lib/title";
 
 /**
@@ -63,6 +64,7 @@ export function HeldAccount() {
             </Link>
           </div>
         </Tile>
+        <Decisions />
       </div>
     </div>
   );

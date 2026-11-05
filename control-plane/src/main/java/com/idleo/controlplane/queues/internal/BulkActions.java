@@ -1,5 +1,6 @@
 package com.idleo.controlplane.queues.internal;
 
+import com.idleo.controlplane.AccountWarnings;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminTagged;
@@ -36,8 +37,8 @@ class BulkActions {
 
     private static final Logger log = LoggerFactory.getLogger(BulkActions.class);
 
-    /** What can be asked. Assign, tag, priority and close can be undone; a reply can't be unsent. */
-    static final Set<String> KINDS = Set.of("assign", "tag", "priority", "close", "macro");
+    /** What can be asked. Assign, tag, priority and close can be undone; a reply or a warning can't be unsent. */
+    static final Set<String> KINDS = Set.of("assign", "tag", "priority", "close", "macro", "warn");
 
     private static final Set<String> UNDOABLE = Set.of("assign", "tag", "priority", "close");
 
@@ -50,7 +51,8 @@ class BulkActions {
             @Nullable UUID assignee,
             @Nullable String tag,
             @Nullable String priority,
-            @Nullable UUID macro) {}
+            @Nullable UUID macro,
+            @Nullable String template) {}
 
     /** What an item is, in the terms an action changes. */
     record BulkShape(
@@ -114,6 +116,7 @@ class BulkActions {
     private final Macros macros;
     private final QueueSync sync;
     private final AdminTagged tagged;
+    private final AccountWarnings warnings;
     private final List<WorkQueue> queues;
     private final IdGenerator ids;
     private final Clock clock;
@@ -128,6 +131,7 @@ class BulkActions {
             Macros macros,
             QueueSync sync,
             AdminTagged tagged,
+            AccountWarnings warnings,
             List<WorkQueue> queues,
             IdGenerator ids,
             Clock clock,
@@ -140,6 +144,7 @@ class BulkActions {
         this.macros = macros;
         this.sync = sync;
         this.tagged = tagged;
+        this.warnings = warnings;
         this.queues = queues;
         this.ids = ids;
         this.clock = clock;
@@ -151,7 +156,7 @@ class BulkActions {
 
     private void check(BulkAsked action) {
         if (!KINDS.contains(action.kind())) {
-            throw ApiProblem.invalid("kind", "must be assign, tag, priority, close or macro.");
+            throw ApiProblem.invalid("kind", "must be assign, tag, priority, close, macro or warn.");
         }
         switch (action.kind()) {
             case "assign" -> {
@@ -170,6 +175,11 @@ class BulkActions {
             case "macro" -> {
                 if (action.macro() == null) {
                     throw ApiProblem.invalid("macro", "says which macro.");
+                }
+            }
+            case "warn" -> {
+                if (action.template() == null || !warnings.warning(action.template())) {
+                    throw ApiProblem.invalid("template", "A bulk action can only warn: name a warning's template.");
                 }
             }
             default -> {
@@ -249,6 +259,11 @@ class BulkActions {
                     } else {
                         after = new BulkShape(
                                 before.assignee(), before.priority(), before.override(), "resolved", before.tagged());
+                    }
+                }
+                case "warn" -> {
+                    if (row.person() == null) {
+                        why = "It's nobody's, so there's no one to warn.";
                     }
                 }
                 case "macro" -> {
@@ -340,10 +355,10 @@ class BulkActions {
 
     /** Runs whatever batch is waiting, or one left behind by an instance that stopped: its finished items stay finished. */
     void run() {
-        record Next(UUID id, UUID admin, String action) {}
+        record Next(UUID id, UUID admin, String action, String reason) {}
         var now = clock.instant();
         var next = transactions.execute(status -> jdbc.sql("""
-                        select id, requested_by, action::text as action from queues.bulk_batches
+                        select id, requested_by, action::text as action, reason from queues.bulk_batches
                         where state = 'queued' or (state = 'running' and heartbeat_at < :stale)
                         order by created_at limit 1 for update skip locked
                         """)
@@ -351,7 +366,8 @@ class BulkActions {
                 .query((rs, n) -> new Next(
                         rs.getObject("id", UUID.class),
                         rs.getObject("requested_by", UUID.class),
-                        rs.getString("action")))
+                        rs.getString("action"),
+                        rs.getString("reason")))
                 .optional()
                 .map(found -> {
                     jdbc.sql("update queues.bulk_batches set state = 'running', heartbeat_at = :now where id = :id")
@@ -369,7 +385,7 @@ class BulkActions {
                         select item_id from queues.bulk_items where batch_id = :batch and state = 'pending' order by position
                         """).param("batch", next.id()).query(UUID.class).list();
         for (var item : pending) {
-            one(next.id(), next.admin(), item, action);
+            one(next.id(), next.admin(), item, action, next.reason());
             jdbc.sql("update queues.bulk_batches set heartbeat_at = :now where id = :id")
                     .param("now", Timestamp.from(clock.instant()))
                     .param("id", next.id())
@@ -389,7 +405,7 @@ class BulkActions {
     }
 
     /** One item, in its own transaction: a failure is that item's, and is reported as its own. */
-    private void one(UUID batch, UUID admin, UUID id, BulkAsked action) {
+    private void one(UUID batch, UUID admin, UUID id, BulkAsked action, String reason) {
         try {
             var row = items.find(id).orElseThrow();
             var change = plan(row, action);
@@ -397,7 +413,7 @@ class BulkActions {
                 outcome(batch, id, "skipped", change.before(), change.before(), change.why());
                 return;
             }
-            apply(admin, row, action);
+            apply(admin, row, action, reason);
             var after = items.find(id).orElseThrow();
             outcome(batch, id, "done", change.before(), shape(after, action), null);
         } catch (RuntimeException failed) {
@@ -406,7 +422,7 @@ class BulkActions {
         }
     }
 
-    private void apply(UUID admin, QueueItems.Row row, BulkAsked action) {
+    private void apply(UUID admin, QueueItems.Row row, BulkAsked action, String reason) {
         switch (action.kind()) {
             case "assign" -> transactions.executeWithoutResult(status -> items.write(row.id(), action.assignee()));
             case "tag" ->
@@ -419,6 +435,9 @@ class BulkActions {
                 sync.refresh(row.type(), row.sourceId());
             }
             case "macro" -> macros.apply(admin, row, macros.find(Objects.requireNonNull(action.macro())));
+            case "warn" ->
+                warnings.warn(
+                        Objects.requireNonNull(row.person()), Objects.requireNonNull(action.template()), reason, admin);
             default -> throw new IllegalStateException(action.kind());
         }
     }

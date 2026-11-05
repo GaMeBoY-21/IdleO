@@ -35,6 +35,7 @@ class SessionController {
     static final int DEFAULT_PAGE = 20;
     static final int MAX_PAGE = 100;
 
+    private final SessionHourCap hourCap;
     private final SessionService sessions;
     private final SessionOutputs outputs;
     private final SessionStore store;
@@ -43,12 +44,14 @@ class SessionController {
     private final SessionStreams streams;
 
     SessionController(
+            SessionHourCap hourCap,
             SessionService sessions,
             SessionOutputs outputs,
             SessionStore store,
             SessionViews views,
             SessionLogs logs,
             SessionStreams streams) {
+        this.hourCap = hourCap;
         this.sessions = sessions;
         this.outputs = outputs;
         this.store = store;
@@ -78,6 +81,7 @@ class SessionController {
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
             @Valid @RequestBody CreateSessionRequest request) {
         var key = IdempotentRequests.parseKey(idempotencyKey);
+        hourCap.check(user.id());
         var created = sessions.create(user.id(), key, request);
         var body = view(created.session());
         return created.created()

@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useDisputePages, type Dispute } from "@/api/trust";
 import { AccountFrame } from "@/components/shell/AccountFrame";
+import { Decisions } from "./Decisions";
 import { Button } from "@/components/ui/Button";
 import { SectionTitle, Tile } from "@/components/ui/Tile";
 import { SkeletonLine } from "@/components/ui/Skeleton";
@@ -40,6 +41,7 @@ export function Reports() {
       <p className="max-w-prose text-small text-text-2">
         A person reads every report. {REPLY_PROMISE} A refund goes straight to your credit.
       </p>
+      <Decisions />
       <Tile as="section" aria-labelledby="reports-title" className="flex flex-col gap-1">
         <SectionTitle id="reports-title">Your reports</SectionTitle>
         {rows ? (

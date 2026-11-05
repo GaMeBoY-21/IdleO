@@ -81,6 +81,13 @@ public enum AdminPermission {
     QUEUES_BULK("queues.bulk", false),
     MACROS_MANAGE("macros.manage", false),
 
+    ENFORCEMENT_READ("enforcement.read", false),
+    /** Warning, limiting, suspending or banning: stopping things is immediate, and never waits for approval. */
+    ENFORCEMENT_APPLY("enforcement.apply", false),
+    /** Lifting any of them, which another admin approves. */
+    ENFORCEMENT_LIFT("enforcement.lift", true),
+    APPEALS_DECIDE("appeals.decide", false),
+
     TICKETS_READ("tickets.read", false),
     TICKETS_REPLY("tickets.reply", false),
 

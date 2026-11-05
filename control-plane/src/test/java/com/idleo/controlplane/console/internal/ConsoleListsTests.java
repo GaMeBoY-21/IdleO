@@ -83,6 +83,7 @@ class ConsoleListsTests {
             Map.entry("/admin/v1/notes", "the notes on one record"),
             Map.entry("/admin/v1/notes/mentionable", "a picker's choices"),
             Map.entry("/admin/v1/passkeys", "this admin's own, at most a handful"),
+            Map.entry("/admin/v1/appeals/{id}", "one appeal, with its history"),
             Map.entry("/admin/v1/queue/sla", "the Owner's few targets"),
             Map.entry("/admin/v1/queue/bulk/{id}", "one bulk action, item by item"),
             Map.entry("/admin/v1/payments/{id}", "one record"),

@@ -3,7 +3,7 @@ package com.idleo.controlplane.identity;
 import java.util.UUID;
 
 /**
- * Something an admin must be told about their access or an approval (ADR 0051): a sign-in from somewhere new, or a
+ * Something a person must be told by an admin's doing (ADR 0051, ADR 0053), or an admin about their access or an approval: a step on the ladder, an appeal's outcome, a sign-in from somewhere new, or a
  * request waiting out its cooling-off delay. Published in the transaction that caused it; notifications delivers it
  * once for {@code dedupeKey}, in the app and by email.
  *

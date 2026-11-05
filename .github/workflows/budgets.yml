@@ -32,7 +32,7 @@ jobs:
         working-directory: control-plane
         run: |
           set -o pipefail
-          ./mvnw -B -ntp test -Dtest=ConsoleBudgetTests -Dgroups=budget -Dsurefire.excludedGroups= | grep -E '^budget:|Tests run:|BUILD'
+          ./mvnw -B -ntp test -Dtest=ConsoleBudgetTests,QueueBudgetTests -Dgroups=budget -Dsurefire.excludedGroups= | grep -E '^budget:|Tests run:|BUILD'
       - if: always()
         uses: ./.github/actions/report-suite
         with:

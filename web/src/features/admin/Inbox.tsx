@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
@@ -28,6 +28,7 @@ const KINDS: [string, string][] = [
   ["review-minute", "Review minutes"],
   ["verification", "Verification"],
   ["approval", "Approvals"],
+  ["appeal", "Appeals"],
 ];
 
 const KIND_WORDS = Object.fromEntries(KINDS);
@@ -80,6 +81,10 @@ export function Inbox() {
       }),
     ),
   );
+  const [cursor, setCursor] = useState(0);
+  const [anchor, setAnchor] = useState<number | null>(null);
+  const [showKeys, setShowKeys] = useState(false);
+  const [, navigate] = useLocation();
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   const act = useMutation({
     mutationFn: async ({ item, action }: { item: Item; action: "claim" | "release" }) => {
@@ -110,8 +115,64 @@ export function Inbox() {
       }
       return next;
     });
+  const rows = items.data?.items ?? [];
+  useEffect(() => {
+    const keys = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) {
+        return;
+      }
+      const item = rows[cursor];
+      switch (event.key) {
+        case "j":
+          setCursor((now) => Math.min(now + 1, Math.max(rows.length - 1, 0)));
+          break;
+        case "k":
+          setCursor((now) => Math.max(now - 1, 0));
+          break;
+        case "e":
+          if (item && !item.assigneeId) {
+            act.mutate({ item, action: "claim" });
+          }
+          break;
+        case "r":
+          if (item) {
+            navigate(item.link);
+          }
+          break;
+        case "m":
+          if (item) {
+            setReplying(item);
+          }
+          break;
+        case "x":
+          if (item) {
+            toggle(item.id);
+            setAnchor(cursor);
+          }
+          break;
+        case "X":
+          if (anchor !== null) {
+            const [from, to] = anchor < cursor ? [anchor, cursor] : [cursor, anchor];
+            setSelected((now) => new Set([...now, ...rows.slice(from, to + 1).map((row) => row.id)]));
+          }
+          break;
+        case "?":
+          setShowKeys((now) => !now);
+          break;
+        case "Escape":
+          setShowKeys(false);
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", keys);
+    return () => window.removeEventListener("keydown", keys);
+  });
   return (
     <AdminPage title="Inbox">
+      {showKeys && <KeyList />}
       <div className="flex flex-wrap items-end gap-3">
         <SmallSelect label="Show" value={listView} onChange={setListView} options={VIEWS} />
         <SmallSelect label="Kind of work" value={type} onChange={setType} options={KINDS} />
@@ -133,8 +194,8 @@ export function Inbox() {
       >
         {(found) => (
           <Table caption="Inbox" sorts={{ What: "type", Priority: "priority", Due: "due" }} columns={COLUMNS}>
-            {found.items.map((item) => (
-              <Row key={item.id}>
+            {found.items.map((item, index) => (
+              <Row key={item.id} className={index === cursor ? "bg-raised" : undefined}>
                 <Cell>
                   <label className="inline-flex min-h-touch min-w-touch items-center justify-center">
                     <span className="sr-only">Select {item.title}</span>
@@ -246,6 +307,39 @@ export function Inbox() {
   );
 }
 
+/** Whether a key press is someone typing, not a shortcut. */
+function isTyping(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  );
+}
+
+const KEYS: [string, string][] = [
+  ["j, k", "Next, previous"],
+  ["e", "Claim it"],
+  ["r", "Open it to reply"],
+  ["m", "Apply a macro"],
+  ["x", "Select it"],
+  ["Shift-x", "Select from the last one selected to here"],
+  ["?", "Show or hide these"],
+];
+
+function KeyList() {
+  return (
+    <Section title="Keys">
+      <dl className="flex flex-col gap-1 text-small">
+        {KEYS.map(([key, what]) => (
+          <div key={key} className="flex gap-3">
+            <dt className="tabular w-16 font-semibold">{key}</dt>
+            <dd>{what}</dd>
+          </div>
+        ))}
+      </dl>
+    </Section>
+  );
+}
+
 /** Choosing a macro for one item, with its words as the person would read them. */
 function MacroSheet({ item, onClose }: { item: Item; onClose: () => void }) {
   const client = useQueryClient();
@@ -308,6 +402,7 @@ const WORDS: Record<string, string> = {
   priority: "Set the priority",
   close: "Close",
   macro: "Apply a macro",
+  warn: "Warn",
 };
 
 /** What a shape says, for the preview. */
@@ -332,6 +427,7 @@ function BulkBar({ ids, onDone }: { ids: string[]; onDone: () => void }) {
     ...(kind === "tag" ? { tag: value } : {}),
     ...(kind === "priority" ? { priority: value } : {}),
     ...(kind === "macro" ? { macro: value } : {}),
+    ...(kind === "warn" ? { template: value } : {}),
   });
   const running = useQuery({
     queryKey: [ADMIN, "bulk", batch],
