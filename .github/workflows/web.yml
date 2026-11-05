@@ -5,7 +5,7 @@ name: web
 on:
   push:
     branches: [main]
-    paths: ["web/**", "api/**", "docs/site/**", "templates/**", ".github/workflows/web.yml", "scripts/checks/web.sh"]
+    paths: ["web/**", ".github/workflows/web.yml", "scripts/checks/web.sh", "scripts/e2e/agent-online.sh"]
   # No path filter on pull requests: the ruleset on main requires this workflow's checks, and a check that never starts
   # would block the merge. Pushes to main still run only for the paths that matter.
   pull_request:
@@ -74,15 +74,17 @@ jobs:
             exit 0
           fi
           files="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename')"
-          if grep -Eq '^(web/|api/|docs/site/|templates/|\.github/workflows/web\.yml$|scripts/checks/web\.sh$)' <<<"$files"; then
+          if grep -Eq '^(web/|\.github/workflows/web\.yml$|scripts/checks/web\.sh$|scripts/e2e/agent-online\.sh$)' <<<"$files"; then
             echo "browser=true" >>"$GITHUB_OUTPUT"
           else
             echo "browser=false" >>"$GITHUB_OUTPUT"
             echo "no file the browser run covers changed"
           fi
 
+  # Parallel jobs, each with its own stack, and one check over them all below: the screens and the journey in four parts,
+  # and Lighthouse on a job of its own, so nothing else runs beside its measurements.
   browser:
-    name: web browser
+    name: web browser ${{ matrix.shard }}
     needs: changes
     if: ${{ needs.changes.outputs.browser == 'true' }}
     runs-on: ubuntu-latest
@@ -90,9 +92,17 @@ jobs:
       contents: read
       # Downloading the visual baselines and the Lighthouse baseline of the last run on main.
       actions: read
-    # Every screen in four projects, the journeys, then Lighthouse three times a screen: about 57 minutes by Oct 14,
-    # against 60. The budgets are lighthouserc.json's; this is only how long the runner may take.
-    timeout-minutes: 80
+    # The budgets are lighthouserc.json's; this is only how long the runner may take.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: "1", screens: "1/4", lighthouse: false }
+          - { shard: "2", screens: "2/4", lighthouse: false }
+          - { shard: "3", screens: "3/4", lighthouse: false }
+          - { shard: "4", screens: "4/4", lighthouse: false }
+          - { shard: lighthouse, screens: "", lighthouse: true }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -143,6 +153,7 @@ jobs:
       # within 10% of it, since the hosted runner is slower than the machine the 2,500 ms ceiling was set on. Without one
       # (the first run, or after 90 days) the run only reports, and its own medians become the next baseline.
       - name: Fetch the Lighthouse baseline
+        if: matrix.lighthouse
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -162,6 +173,9 @@ jobs:
         env:
           E2E_UPDATE_SNAPSHOTS: ${{ inputs.update_screenshots && 'all' || '' }}
           LIGHTHOUSE_BASELINE: lighthouse-baseline/baseline.json
+          E2E_WEB_SHARD: ${{ matrix.screens }}
+          E2E_SCREENS_ONLY: ${{ matrix.lighthouse && '0' || '1' }}
+          E2E_LIGHTHOUSE_ONLY: ${{ matrix.lighthouse && '1' || '0' }}
         run: scripts/e2e/agent-online.sh --web
       - name: Keep the visual baselines
         if: ${{ false && success() && github.ref == 'refs/heads/main' }}
@@ -172,7 +186,7 @@ jobs:
           retention-days: 90
       # Only a green run on main is a baseline: a slower run that failed the check must not become the next one's reference.
       - name: Keep the Lighthouse baseline
-        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        if: ${{ matrix.lighthouse && success() && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lighthouse-baseline
@@ -184,7 +198,7 @@ jobs:
       # desktop ones, an HTML report of each, and the summary. The folders start with a dot, which upload-artifact
       # leaves out unless told.
       - name: Keep the Lighthouse reports
-        if: always()
+        if: ${{ always() && matrix.lighthouse }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lighthouse
@@ -201,13 +215,28 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: web-report
+          name: web-report-${{ matrix.shard }}
           path: |
             web/playwright-report
             web/test-results
             private/e2e/*.log
           if-no-files-found: ignore
           retention-days: 7
+
+  browser-result:
+    name: web browser
+    needs: [changes, browser]
+    if: ${{ always() && needs.changes.outputs.browser == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Every job passed
+        env:
+          RESULT: ${{ needs.browser.result }}
+        run: |
+          echo "the jobs ended: $RESULT"
+          [[ "$RESULT" == success ]]
       # To Grafana Cloud: on main or on its schedule, a red run or a silent one is a ticket (ADR 0050).
       - name: Report
         if: always()

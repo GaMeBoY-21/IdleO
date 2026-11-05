@@ -105,6 +105,10 @@ json_str() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1";
 api_post() { curl -sf -X POST "$api$1" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "${@:2}"; }
 # Access is by invitation (ADR 0024): the run's accounts are activated with codes an operator made, as a person
 # would enter one. An account that's already active is left alone, so this also works with E2E_INVITE_ONLY=false.
+# E2E_PARTS names which groups of scenarios to run, so CI can run them on parallel jobs (.github/workflows/e2e.yml);
+# unset, all of them. A group that needs another's results is on its job: privacy needs hosting's machine, and admin
+# answers privacy's ticket and opens payments' chargeback.
+part() { [[ -z "${E2E_PARTS:-}" || " $E2E_PARTS " == *" $1 "* ]]; }
 invite_codes=()
 invite_next=0
 invite_taken=" "
@@ -699,13 +703,19 @@ if ! $web_only; then
   cli_user_id="$(token="$cli_token" api_get /v1/me | json_get .id)"
   renters+=("$user_id" "$user_b_id" "$booking_user_id" "$cli_user_id")
 fi
+# Each operator command starts a JVM, about 13 s, so they run side by side.
+setup_pids=()
 for renter in "${renters[@]}"; do
-  ops grant-credits --user "$renter" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$renter" ||
-    fail "grant-credits failed; see private/e2e/ops.log"
+  ops grant-credits --user "$renter" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$renter" &
+  setup_pids+=($!)
 done
 for id in "${host_ids[@]}"; do
   list_host "$id" 2
-  ops activate-host --host "$id" --reason "'End-to-end test host'" || fail "activate-host failed; see private/e2e/ops.log"
+  ops activate-host --host "$id" --reason "'End-to-end test host'" &
+  setup_pids+=($!)
+done
+for pid in "${setup_pids[@]}"; do
+  wait "$pid" || fail "granting credit or activating a host failed; see private/e2e/ops.log"
 done
 summary+=("credit for ${#renters[@]} renters, $agents hosts listed and activated: $(seconds_since "$setup_started") s")
 if ! $web_only; then
@@ -1123,8 +1133,9 @@ if $web_only; then
   measuring="${E2E_LIGHTHOUSE_MEASURE:-}"
   # E2E_LIGHTHOUSE_ONLY=1 checks the budgets without the screens and journeys first (a change to the Lighthouse run itself).
   if [[ -z "$measuring" && "${E2E_LIGHTHOUSE_ONLY:-}" != 1 ]]; then
+    # E2E_WEB_SHARD (1/4) runs a part of them, on one of CI's parallel jobs (.github/workflows/web.yml).
     E2E_WEB_USER="$web_user" VISUAL_BASELINE_DIR="$baseline" web_test --project='screens-*' --project=journey \
-      --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 || {
+      ${E2E_WEB_SHARD:+--shard="$E2E_WEB_SHARD"} --update-snapshots="$snapshots" >"$out/web-playwright.log" 2>&1 || {
       # private/e2e/ is wiped by the next run: keep this one's log and the failing tests' output.
       kept="$root/private/logs/web-playwright-$(date '+%Y%m%d-%H%M%S')"
       mkdir -p "$kept"
@@ -1134,6 +1145,8 @@ if $web_only; then
     }
     summary+=("web: $(grep -Eo '[0-9]+ passed' "$out/web-playwright.log" | tail -1) (every screen and state, light and dark, 390 and 1280 px; axe; layout shift; Firebase screens; journey) in $(seconds_since "$checks_started") s: PASS")
   fi
+  # E2E_SCREENS_ONLY=1 leaves Lighthouse and the size budgets to another of CI's jobs (E2E_LIGHTHOUSE_ONLY=1).
+  if [[ "${E2E_SCREENS_ONLY:-}" != 1 ]]; then
   # Every Lighthouse run's log and reports are kept, whether the budgets held or not: private/e2e/ is wiped by the next run.
   lighthouse_kept="$root/private/logs/lighthouse-$(date '+%Y%m%d-%H%M%S')"
   lighthouse_failed=false
@@ -1185,9 +1198,11 @@ PY
     site_load="$(cd web && node scripts/site-size.ts | tail -1)" || fail "the public pages' first-load budget failed"
     summary+=("${site_load# }: PASS")
   fi
+  fi
 fi
 
 if ! $web_only; then
+if part sessions; then
 scenarios_started="$(now_ms)"
 scenarios=(normal stop loss cap web booking finetune)
 scenario_pids=()
@@ -1222,6 +1237,7 @@ for field in secret_access_key session_token X-Amz-Security-Token X-Amz-Credenti
   fi
 done
 summary+=("no storage credentials in the agent or control-plane logs: PASS")
+fi
 
 # Hosting (ADR 0023), on the hosts the scenarios used, once they're idle: two of them become "laptops", the cheaper
 # preferred by the scheduler (cheaper scores higher), and every other host is paused, so the choice is between the two.
@@ -1309,7 +1325,7 @@ print(earnings["totalPaise"], sum(expected.values()))' "$ledger" "${host_ids[*]}
 }
 scenario="hosting"
 : >"$out/summary-hosting.txt"
-scenario_hosting
+part hosting && scenario_hosting
 
 # The owner's journeys in a browser (web/e2e/hosting-journey.spec.ts), on a machine the journey adds itself: its name
 # to connected with a real agent enrolled from the code on the page, paused and resumed, its price changed and the
@@ -1364,7 +1380,7 @@ scenario_hosting_web() {
     fail "the journey's earnings ($(json_get .earnings.totalPaise <"$report") paise) aren't the ledger's $sum for host $host"
   note "hosting journey: session $(json_get .earnings.sessionId <"$report") charged $(json_get .earnings.chargedPaise <"$report") paise; the Hosting tab, Earnings and Sessions it ran showed $sum paise, the host_payable ledger sum of host $host; still $sum after removing it: PASS"
 }
-scenario_hosting_web
+part hosting && scenario_hosting_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-hosting.txt"
 
 # Host quality (ADR 0041), with the real agents: the owner asks a host for its full self-test from the API (the web app's
@@ -1398,7 +1414,7 @@ print(len(names))')" || fail "the run's checks aren't each of the agent's, once"
 }
 scenario="host-quality"
 : >"$out/summary-host-quality.txt"
-scenario_host_quality
+part hosting && scenario_host_quality
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-host-quality.txt"
 
 # Access by invitation and the account in a browser (web/e2e/account-journey.spec.ts, ADR 0024): a new person signs in
@@ -1412,7 +1428,7 @@ scenario_account_web() {
 }
 scenario="account"
 : >"$out/summary-account.txt"
-scenario_account_web
+part account && scenario_account_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-account.txt"
 
 # A person's own data in a browser (web/e2e/privacy-journey.spec.ts, ADR 0037): Your data's file made by the job,
@@ -1449,7 +1465,7 @@ scenario_privacy_web() {
 }
 scenario="privacy"
 : >"$out/summary-privacy.txt"
-scenario_privacy_web
+part privacy && scenario_privacy_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-privacy.txt"
 
 # Razorpay's signed webhook for a dispute ($1 the event, payment.dispute.created or .won, $2 the dispute's id, $3
@@ -1533,7 +1549,7 @@ scenario_payments_web() {
 }
 scenario="payments"
 : >"$out/summary-payments.txt"
-scenario_payments_web
+part payments && scenario_payments_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-payments.txt"
 
 # The renter CLI (cli/, ADR 0025) against this stack, as a person would use it: sign in (approved in the "browser" with
@@ -1746,7 +1762,7 @@ PY
 }
 scenario="cli"
 : >"$out/summary-cli.txt"
-scenario_cli
+part cli && scenario_cli
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-cli.txt"
 
 # The admin console in a browser (web/e2e/admin-journey.spec.ts, ADR 0027), last, so what it changes touches no other
@@ -1938,7 +1954,7 @@ assert sys.argv[2] not in json.dumps(earnings) and sys.argv[3] not in json.dumps
 }
 scenario="admin"
 : >"$out/summary-admin.txt"
-scenario_admin_web
+part admin && scenario_admin_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-admin.txt"
 
 # Money out (ADR 0040, docs/runbooks/payouts.md), last, so the payouts it makes touch no earlier check of earnings
@@ -2179,7 +2195,7 @@ PY
 }
 scenario="payouts"
 : >"$out/summary-payouts.txt"
-scenario_payouts
+part payouts && scenario_payouts
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-payouts.txt"
 fi
 

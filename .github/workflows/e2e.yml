@@ -8,9 +8,9 @@ on:
     - cron: "23 6 * * 5"
   push:
     branches: [main]
-    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "api/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/**", "start.sh"]
+    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/stack.sh", "start.sh"]
   pull_request:
-    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "api/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/**", "start.sh"]
+    paths: ["control-plane/**", "agent/**", "cli/**", "sdk/**", "proto/**", "templates/**", "web/**", "scripts/e2e/**", ".github/workflows/e2e.yml", "scripts/lib/stack.sh", "start.sh"]
   workflow_dispatch:
     inputs:
       upload_logs:
@@ -27,9 +27,19 @@ permissions:
   contents: read
 
 jobs:
-  agent-online:
+  # Parallel jobs, each with its own stack, and one check over them all below. Groups that build on each other share a job.
+  shards:
+    name: e2e ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: sessions, parts: "sessions cli" }
+          - { shard: people, parts: "hosting account privacy payments admin" }
+          - { shard: payouts, parts: "payouts" }
+          - { shard: start, parts: "" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -68,20 +78,38 @@ jobs:
         working-directory: web
         run: pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
       - name: The agent comes online, runs, loses and resumes sessions, and goes offline
+        if: matrix.parts != ''
+        env:
+          E2E_PARTS: ${{ matrix.parts }}
         run: scripts/e2e/agent-online.sh
       - name: ./start.sh starts everything headless, runs a session, and --stop leaves nothing running
+        if: matrix.shard == 'start'
         run: scripts/e2e/start-check.sh
       # Logs only: the agent's keys, its config and every token stay out of the artifact.
       - name: Upload the logs
         if: failure() || cancelled() || inputs.upload_logs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: e2e-logs
+          name: e2e-logs-${{ matrix.shard }}
           path: |
             private/e2e/*.log
             logs/*.log
           if-no-files-found: warn
           retention-days: 7
+
+  agent-online:
+    needs: shards
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Every job passed
+        env:
+          RESULT: ${{ needs.shards.result }}
+        run: |
+          echo "the jobs ended: $RESULT"
+          [[ "$RESULT" == success ]]
       # To Grafana Cloud: on main or on its schedule, a red run or a silent one is a ticket (ADR 0050).
       - name: Report
         if: always()
