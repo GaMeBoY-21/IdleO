@@ -38,6 +38,13 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/me/sessions": { json: admin.mySessions },
   "/admin/v1/admins/sessions": { json: admin.mySessions },
   "/admin/v1/queue": { json: admin.inbox },
+  "/admin/v1/enforcements": {
+    json: { enforcements: [admin.enforcement], renterStrikes: 1, hostStrikes: 0, nextCursor: null },
+  },
+  "/admin/v1/appeals": { json: { appeals: [admin.appeal], nextCursor: null } },
+  [`/admin/v1/appeals/${admin.appeal.id}`]: {
+    json: { appeal: admin.appeal, enforcement: admin.enforcement, history: [admin.enforcement] },
+  },
   "/admin/v1/queue/counts": { json: { mine: 1, unassigned: 2, breaching: 1 } },
   "/admin/v1/queue/macros": { json: { macros: [], nextCursor: null } },
   "/admin/v1/queue/sla": { json: { targets: admin.slaTargets } },
@@ -190,7 +197,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(24);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(25);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -255,6 +262,33 @@ test.describe("the console", () => {
     await expect(sheet).toContainText("It's at that priority already.");
     await expectAccessible(page);
     await capture(page, info, "admin-bulk-preview");
+  });
+
+  test("the inbox moves by key: next, select, a range, and the list of keys", async ({ page }) => {
+    await open(page, "/admin/inbox/");
+    const table = page.getByRole("table", { name: "Inbox" });
+    await expect(table.getByRole("row")).toHaveCount(admin.inbox.items.length + 1);
+    await page.keyboard.press("?");
+    await expect(page.getByRole("heading", { name: "Keys" })).toBeVisible();
+    await page.keyboard.press("?");
+    await page.keyboard.press("x");
+    await page.keyboard.press("j");
+    await page.keyboard.press("j");
+    await page.keyboard.press("Shift+X");
+    await expect(page.getByRole("heading", { name: "3 selected" })).toBeVisible();
+    await page.keyboard.press("m");
+    await expect(page.getByRole("dialog")).toContainText("Apply a macro?");
+  });
+
+  test("an appeal shows what they said, the decision, the history, and whether the same admin decided", async ({
+    page,
+  }, info) => {
+    await open(page, `/admin/appeals/?id=${admin.appeal.id}`);
+    await expect(page.getByText("It wasn't me")).toBeVisible();
+    await expect(page.getByRole("table", { name: "History" }).getByRole("row")).toHaveCount(2);
+    await expect(page.getByRole("button", { name: "Keep the decision" })).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-appeal");
   });
 
   test("while the dashboard loads", async ({ page }, info) => {

@@ -483,6 +483,111 @@ paths:
         idToken: []
       tags:
       - adminRoles
+  /admin/v1/appeals:
+    get:
+      operationId: enforcementAppeals
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAppealPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - enforcement
+  /admin/v1/appeals/{id}:
+    get:
+      operationId: enforcementAppeal_1
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAppealRecord"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - enforcement
+  /admin/v1/appeals/{id}/decide:
+    post:
+      operationId: enforcementDecide
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppealDecision"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - enforcement
   /admin/v1/approvals:
     get:
       operationId: approvalsList
@@ -1320,6 +1425,120 @@ paths:
         idToken: []
       tags:
       - adminDisputes
+  /admin/v1/enforcements:
+    get:
+      operationId: enforcementList
+      parameters:
+      - in: query
+        name: user
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: step
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEnforcementPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - enforcement
+    post:
+      operationId: enforcementApply
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEnforcement"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - enforcement
+  /admin/v1/enforcements/{id}/lift:
+    post:
+      operationId: enforcementLift
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - enforcement
   /admin/v1/exports:
     post:
       operationId: adminListExportExport
@@ -6815,6 +7034,55 @@ paths:
           description: "An error, as an RFC 9457 problem detail"
       tags:
       - deletion
+  /v1/me/enforcements:
+    get:
+      operationId: enforcementMine
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyEnforcements"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - enforcement
+  /v1/me/enforcements/{id}/appeal:
+    post:
+      operationId: enforcementAppeal
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAppeal"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyEnforcement"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      tags:
+      - enforcement
   /v1/me/exports:
     get:
       operationId: yourDataList
@@ -8621,6 +8889,88 @@ components:
       required:
       - message
       - status
+    AdminAppeal:
+      type: object
+      properties:
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uuid
+        body:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        decidedBy:
+          type:
+          - string
+          - "null"
+          format: uuid
+        decisionReason:
+          type:
+          - string
+          - "null"
+        enforcementId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        sameReviewer:
+          type: boolean
+        state:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+      required:
+      - attachments
+      - createdAt
+      - enforcementId
+      - id
+      - sameReviewer
+      - state
+      - userId
+      - version
+    AdminAppealPage:
+      type: object
+      properties:
+        appeals:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAppeal"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - appeals
+    AdminAppealRecord:
+      type: object
+      properties:
+        appeal:
+          $ref: "#/components/schemas/AdminAppeal"
+        enforcement:
+          $ref: "#/components/schemas/AdminEnforcement"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminEnforcement"
+      required:
+      - appeal
+      - enforcement
+      - history
     AdminApproval:
       type: object
       properties:
@@ -9435,6 +9785,96 @@ components:
       - sessionId
       - state
       - version
+    AdminEnforcement:
+      type: object
+      properties:
+        appealed:
+          type: boolean
+        clause:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        endsAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        enforcedBy:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        limitHours:
+          type:
+          - integer
+          - "null"
+          format: int32
+        limitKind:
+          type:
+          - string
+          - "null"
+        reason:
+          type:
+          - string
+          - "null"
+        role:
+          type: string
+        state:
+          type: string
+        step:
+          type: string
+        strikeExpiresAt:
+          type: string
+          format: date-time
+        template:
+          type: string
+        title:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+      required:
+      - appealed
+      - clause
+      - createdAt
+      - enforcedBy
+      - id
+      - role
+      - state
+      - step
+      - strikeExpiresAt
+      - template
+      - title
+      - userId
+      - version
+    AdminEnforcementPage:
+      type: object
+      properties:
+        enforcements:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminEnforcement"
+        hostStrikes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        nextCursor:
+          type:
+          - string
+          - "null"
+        renterStrikes:
+          type:
+          - integer
+          - "null"
+          format: int64
+      required:
+      - enforcements
     AdminEnrolment:
       type: object
       properties:
@@ -12503,6 +12943,19 @@ components:
       - name
       - prefix
       - scope
+    AppealDecision:
+      type: object
+      properties:
+        outcome:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - outcome
+      - reason
     ApplyMacro:
       type: object
       properties:
@@ -12511,6 +12964,38 @@ components:
           format: uuid
       required:
       - macro
+    ApplyRequest:
+      type: object
+      properties:
+        endsAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        limitHours:
+          type:
+          - integer
+          - "null"
+          format: int32
+        limitKind:
+          type:
+          - string
+          - "null"
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        template:
+          type: string
+          maxLength: 40
+          minLength: 0
+        userId:
+          type: string
+          format: uuid
+      required:
+      - reason
+      - template
+      - userId
     ApprovalChange:
       type: object
       properties:
@@ -12952,6 +13437,10 @@ components:
           - string
           - "null"
         tag:
+          type:
+          - string
+          - "null"
+        template:
           type:
           - string
           - "null"
@@ -14816,6 +15305,74 @@ components:
       - signInMethods
       - status
       - unreadNotifications
+    MyEnforcement:
+      type: object
+      properties:
+        appeal:
+          type:
+          - string
+          - "null"
+        appealOutcome:
+          type:
+          - string
+          - "null"
+        clause:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        endsAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        reason:
+          type:
+          - string
+          - "null"
+        state:
+          type: string
+        step:
+          type: string
+        title:
+          type: string
+      required:
+      - clause
+      - createdAt
+      - id
+      - state
+      - step
+      - title
+    MyEnforcements:
+      type: object
+      properties:
+        enforcements:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyEnforcement"
+      required:
+      - enforcements
+    NewAppeal:
+      type: object
+      properties:
+        attachments:
+          type:
+          - array
+          - "null"
+          items:
+            type: string
+            format: uuid
+          maxItems: 3
+          minItems: 0
+        body:
+          type: string
+          maxLength: 5000
+          minLength: 0
+      required:
+      - body
     NewImage:
       type: object
       properties:

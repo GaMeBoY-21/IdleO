@@ -1,5 +1,6 @@
 package com.idleo.controlplane.payouts.internal;
 
+import com.idleo.controlplane.AccountLimits;
 import com.idleo.controlplane.FinancialYear;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
@@ -67,6 +68,7 @@ class PayoutService {
     private final ApplicationEventPublisher events;
     private final PayoutsMetrics metrics;
     private final AccountStandings standings;
+    private final AccountLimits limits;
 
     PayoutService(
             JdbcClient jdbc,
@@ -82,7 +84,9 @@ class PayoutService {
             Clock clock,
             ApplicationEventPublisher events,
             PayoutsMetrics metrics,
-            AccountStandings standings) {
+            AccountStandings standings,
+            AccountLimits limits) {
+        this.limits = limits;
         this.standings = standings;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
@@ -165,7 +169,7 @@ class PayoutService {
                             .query((rs, n) -> null)
                             .list();
                     var now = now();
-                    if (standings.payoutsHeld(userId)) {
+                    if (standings.payoutsHeld(userId) || limits.payoutsHeld(userId)) {
                         return new Outcome(null, NotPaid.ACCOUNT_HELD);
                     }
                     var method = methods.inUse(userId).orElse(null);

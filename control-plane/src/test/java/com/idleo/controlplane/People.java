@@ -497,6 +497,21 @@ public final class People {
         // Trust, ADR 0038: a review of software no renter may run, settled, with a signal, an admin's note and a minute
         // of
         // what the job did.
+        // A warning from the ladder (ADR 0053), and the person's appeal of it.
+        var step = IDS.generate();
+        jdbc.update(
+                "insert into trust.enforcements (id, user_id, role, step, template_id, strike_expires_at, state, reason,"
+                        + " enforced_by, created_at) values (?, ?, 'renter', 'warn', 'renter-warn',"
+                        + " now() + interval '180 days', 'active', 'what the job did', ?, now())",
+                step,
+                me,
+                IDS.generate());
+        jdbc.update(
+                "insert into trust.appeals (id, enforcement_id, user_id, body, state, created_at)"
+                        + " values (?, ?, ?, 'It was not what it looked like', 'open', now())",
+                IDS.generate(),
+                step,
+                me);
         var review = IDS.generate();
         jdbc.update(
                 "insert into trust.abuse_items (id, session_id, attempt, renter_id, host_id, state, action, banned,"

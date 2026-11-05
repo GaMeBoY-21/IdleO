@@ -7,6 +7,8 @@ GET /admin/v1/abuse/blocklist-additions,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/{id},abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/admins,admins.manage,allow,403,403,403,403,403
 GET /admin/v1/admins/sessions,admins.manage,allow,403,403,403,403,403
+GET /admin/v1/appeals,enforcement.read,allow,allow,allow,allow,403,allow
+GET /admin/v1/appeals/{id},enforcement.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/approvals,approvals.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/approvals/count,approvals.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/approvals/{id},approvals.read,allow,allow,allow,allow,allow,allow
@@ -20,6 +22,7 @@ GET /admin/v1/dashboard,dashboard.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/disputes,disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/disputes/host-flags,disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/disputes/{id},disputes.read,allow,403,allow,allow,allow,allow
+GET /admin/v1/enforcements,enforcement.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id},hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id}/earnings,money.read,allow,403,403,403,allow,allow
@@ -88,6 +91,7 @@ POST /admin/v1/abuse/{id}/notes,abuse.decide,allow,403,403,allow,403,403
 POST /admin/v1/admins/sessions/{id}/end,admins.manage,allow,403,403,403,403,403
 POST /admin/v1/admins/{id}/roles/{role}/grant,admins.manage,allow,403,403,403,403,403
 POST /admin/v1/admins/{id}/roles/{role}/remove,admins.manage,allow,403,403,403,403,403
+POST /admin/v1/appeals/{id}/decide,appeals.decide,allow,403,403,allow,403,403
 POST /admin/v1/approvals/{id}/approve,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/approvals/{id}/cancel,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/approvals/{id}/download,approvals.decide,allow,allow,allow,allow,allow,403
@@ -98,6 +102,8 @@ POST /admin/v1/credit-grants,money.adjust,allow,403,403,403,allow,403
 POST /admin/v1/credit-grants/{id}/reverse,money.adjust,allow,403,403,403,allow,403
 POST /admin/v1/disputes/{id}/no-refund,disputes.decide,allow,403,allow,allow,403,403
 POST /admin/v1/disputes/{id}/refund,disputes.refund,allow,403,403,403,allow,403
+POST /admin/v1/enforcements,enforcement.apply,allow,403,403,allow,403,403
+POST /admin/v1/enforcements/{id}/lift,enforcement.lift,allow,403,403,allow,403,403
 POST /admin/v1/exports,export.create,allow,403,403,403,allow,403
 POST /admin/v1/hosts/{id}/activate,hosts.activate,allow,allow,403,403,403,403
 POST /admin/v1/hosts/{id}/revoke-certificates,hosts.certificates.revoke,allow,allow,403,allow,403,403

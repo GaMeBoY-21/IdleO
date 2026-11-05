@@ -667,6 +667,37 @@ class Lowers(BaseModel):
     kind: str
 
 
+class MyEnforcement(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    appeal: str | None = None
+    appeal_outcome: Annotated[str | None, Field(alias="appealOutcome")] = None
+    clause: str
+    created_at: Annotated[AwareDatetime, Field(alias="createdAt")]
+    ends_at: Annotated[AwareDatetime | None, Field(alias="endsAt")] = None
+    id: UUID
+    reason: str | None = None
+    state: str
+    step: str
+    title: str
+
+
+class MyEnforcements(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    enforcements: list[MyEnforcement]
+
+
+class NewAppeal(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    attachments: Annotated[list[UUID] | None, Field(max_length=3, min_length=0)] = None
+    body: Annotated[str, Field(max_length=5000, min_length=0)]
+
+
 class NewImage(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,

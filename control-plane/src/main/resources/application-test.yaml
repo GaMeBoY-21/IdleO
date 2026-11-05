@@ -159,3 +159,7 @@ privacy:
 queues:
   sync-every: 1h
   bulk-every: 1h
+
+trust:
+  enforcement:
+    sweep-every: 1h

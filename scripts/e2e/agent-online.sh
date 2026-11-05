@@ -107,7 +107,8 @@ api_post() { curl -sf -X POST "$api$1" -H "Authorization: Bearer $token" -H 'Con
 # would enter one. An account that's already active is left alone, so this also works with E2E_INVITE_ONLY=false.
 # E2E_PARTS names which groups of scenarios to run, so CI can run them on parallel jobs (.github/workflows/e2e.yml);
 # unset, all of them. A group that needs another's results is on its job: privacy needs hosting's machine, and admin
-# answers privacy's ticket and opens payments' chargeback.
+# answers privacy's ticket and opens payments' chargeback. The groups: sessions, hosting, account, privacy, payments, cli,
+# admin, queues, payouts.
 part() { [[ -z "${E2E_PARTS:-}" || " $E2E_PARTS " == *" $1 "* ]]; }
 invite_codes=()
 invite_next=0
@@ -439,6 +440,8 @@ stack_control_plane_settings() {
   # poll every half second, several scenarios to an account at once (far past 60 requests a minute), and book far
   # more than 2 sessions in their first hour. The control plane's own tests hold every limit (RenterLimitsTests).
   export LIMITS_REQUESTS_PER_MINUTE=100000 LIMITS_LOG_READS_PER_MINUTE=100000 LIMITS_CLI_LOGINS_PER_HOUR=100000
+  # The inbox's passes, often enough for a journey to watch (ADR 0053).
+  export QUEUES_SYNC_EVERY=2s QUEUES_BULK_EVERY=1s
   export SESSIONS_LIMITS_NEW_PER_HOUR=1000 SESSIONS_LIMITS_NEW_PER_HOUR_FIRST_DAY=1000 SESSIONS_LIMITS_AT_ONCE=1000
   # Access is by invitation, as in production (ADR 0024): the run's accounts are activated with codes below.
   # E2E_INVITE_ONLY=false lets anyone in, to look at the stack by hand without a code.
@@ -477,11 +480,11 @@ token="$(stack_token "$user")"
 # 3a. Invite codes (docs/runbooks/invites.md): one for each account the run makes, and two spare for the web
 #     journey that signs in as a new person and enters one; the later scenarios take theirs by index: the admin's (8),
 #     the privacy journey's (10), payments' (11), the payouts admin's and payee's (12, 13), the other admins' (14 to 18)
-#     and the payouts approver's (19).
+#     the payouts approver's (19), and the inbox's three admins and its person (20 to 23).
 log "making invite codes for the run's accounts"
-ops create-invites --count 20 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 20))
-((${#invite_codes[@]} == 20)) || fail "create-invites didn't print 20 codes; see private/e2e/ops.log"
+ops create-invites --count 24 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 24))
+((${#invite_codes[@]} == 24)) || fail "create-invites didn't print 24 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -1973,6 +1976,118 @@ scenario="admin"
 : >"$out/summary-admin.txt"
 part admin && scenario_admin_web
 while IFS= read -r line; do summary+=("$line"); done <"$out/summary-admin.txt"
+
+# The inbox and the ladder (ADR 0053): tickets a person sent reach it from support; an admin in a browser claims one and
+# answers it with a macro, and it's resolved. Bulk-tagging 30 goes to another admin first. A warning and then a suspension
+# each tell the person; they appeal from their held account, someone else reverses it, and the approved lift lets them back.
+scenario_queues() {
+  local first="$user-queues-first" second="$user-queues-second" browser="$user-queues-browser" person="$user-queues-person"
+  local first_token second_token first_secret second_secret first_session second_session person_token person_id who
+  local ticket number macro macro_name items deadline step enforcement
+  invite_next=20
+  for who in "$first" "$second" "$browser" "$person"; do
+    activate_user "$(stack_token "$who")"
+  done
+  for who in "$first" "$second" "$browser"; do
+    ops grant-admin "$who@example.com" --reason "'End-to-end inbox'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
+  done
+  person_token="$(stack_token "$person")"
+  person_id="$(token="$person_token" api_get /v1/me | json_get .id)"
+  first_token="$(stack_token "$first")"
+  second_token="$(stack_token "$second")"
+  first_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $first_token" | json_get .secret)"
+  second_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $second_token" | json_get .secret)"
+  first_session="$(python3 scripts/e2e/admin-session.py "$api" "$first_token" "$first_secret")" || fail "no admin session for the inbox's first admin"
+  second_session="$(python3 scripts/e2e/admin-session.py "$api" "$second_token" "$second_secret")" || fail "no admin session for the inbox's second admin"
+  # As the first admin, with the second approving what goes to another admin; queue_second is the other way round.
+  queue_first() {
+    E2E_API="$api" E2E_ADMIN_TOKEN="$first_token" E2E_ADMIN_SESSION="$first_session" E2E_ADMIN_SECRET="$first_secret" E2E_ADMIN_STEPS="$out/queues-first.steps" \
+      E2E_APPROVER_TOKEN="$second_token" E2E_APPROVER_SESSION="$second_session" E2E_APPROVER_SECRET="$second_secret" E2E_APPROVER_STEPS="$out/queues-second.steps" \
+      python3 scripts/e2e/admin-call.py "$@"
+  }
+  queue_second() {
+    E2E_API="$api" E2E_ADMIN_TOKEN="$second_token" E2E_ADMIN_SESSION="$second_session" E2E_ADMIN_SECRET="$second_secret" E2E_ADMIN_STEPS="$out/queues-second.steps" \
+      E2E_APPROVER_TOKEN="$first_token" E2E_APPROVER_SESSION="$first_session" E2E_APPROVER_SECRET="$first_secret" E2E_APPROVER_STEPS="$out/queues-first.steps" \
+      python3 scripts/e2e/admin-call.py "$@"
+  }
+  new_ticket() {
+    sql "insert into support.tickets (id, user_id, topic, status, reply_to, created_at, updated_at)
+         values (gen_random_uuid(), '$person_id', 'account', 'open', '$person@example.com', now(), now()) returning id" | head -1
+  }
+
+  # 1. In a browser: inbox, claim, a macro's reply, resolved.
+  ticket="$(new_ticket)"
+  number="$(sql "select number from support.tickets where id = '$ticket'")"
+  macro_name="Fixed $user"
+  macro="$(queue_first /admin/v1/queue/macros "{\"type\": \"ticket\", \"name\": \"$macro_name\", \"body\": \"Hello {{firstName}}, it's fixed.\", \"setStatus\": \"resolved\"}" | json_get .id)"
+  [[ -n "$macro" ]] || fail "writing a macro failed"
+  deadline=$((SECONDS + 30))
+  until [[ "$(sql "select count(*) from queues.items where source_id = '$ticket' and state = 'open'")" == 1 ]]; do
+    ((SECONDS < deadline)) || fail "ticket $ticket didn't reach the inbox within 30 s"
+    sleep 0.5
+  done
+  E2E_QUEUES_ADMIN="$browser" E2E_QUEUES_TICKET="#$number" E2E_QUEUES_MACRO="$macro_name" SKIP_VISUAL=1 \
+    web_test admin-queues --project=admin-journey --reporter=line >>"$out/queues-journey.log" 2>&1 ||
+    fail "the inbox journey failed; see private/e2e/queues-journey.log"
+  [[ "$(sql "select status from support.tickets where id = '$ticket'")" == resolved ]] || fail "the macro didn't resolve ticket $ticket"
+  [[ "$(sql "select body from support.messages where ticket_id = '$ticket' and author = 'admin'")" == *"it's fixed."* ]] ||
+    fail "the macro's reply isn't on ticket $ticket"
+  [[ "$(sql "select count(*) from identity.audit_log where action = 'macro.apply' and after->>'macro' = '$macro' and after->>'version' = '1'")" == 1 ]] ||
+    fail "applying the macro wasn't audited with its version"
+  note "inbox journey: ticket #$number reached the inbox, was claimed and answered in a browser with a macro (audited with its version), and is resolved: PASS"
+
+  # 2. Thirty tickets tagged: more than 20 asks another admin first.
+  for step in $(seq 1 30); do new_ticket >"$out/queues-ticket-$step"; done
+  deadline=$((SECONDS + 30))
+  until [[ "$(sql "select count(*) from queues.items where person_id = '$person_id' and state = 'open'")" == 30 ]]; do
+    ((SECONDS < deadline)) || fail "the 30 tickets didn't reach the inbox within 30 s"
+    sleep 0.5
+  done
+  items="$(sql "select json_agg(id) from queues.items where person_id = '$person_id' and state = 'open'")"
+  [[ "$(queue_first /admin/v1/queue/bulk/preview "{\"items\": $items, \"action\": {\"kind\": \"tag\", \"tag\": \"vip\"}}" | json_get .willChange)" == 30 ]] ||
+    fail "the preview of tagging 30 tickets didn't say 30 would change"
+  queue_first /admin/v1/queue/bulk "{\"items\": $items, \"action\": {\"kind\": \"tag\", \"tag\": \"vip\"}, \"confirm\": \"30\", \"reason\": \"tagging this person's tickets\"}" >/dev/null ||
+    fail "the bulk action wasn't asked for and approved"
+  [[ "$(sql "select count(*) from identity.approval_requests where kind = 'queue.bulk' and state <> 'pending' and failure is null")" -ge 1 ]] ||
+    fail "tagging 30 tickets didn't go to another admin"
+  deadline=$((SECONDS + 30))
+  until [[ "$(sql "select count(*) from queues.bulk_batches where total = 30 and state = 'done'")" -ge 1 ]]; do
+    ((SECONDS < deadline)) || fail "the bulk action didn't finish within 30 s"
+    sleep 0.5
+  done
+  [[ "$(sql "select count(*) from console.tag_assignments where subject_user_id = '$person_id' and tag_id = 'vip'")" -ge 1 ]] ||
+    fail "the bulk action didn't tag the person"
+  note "bulk action: 30 tickets previewed, another admin approved, the batch ran and the tag is on: PASS"
+
+  # 3. Warn, suspend, appeal, lift.
+  queue_first /admin/v1/enforcements "{\"userId\": \"$person_id\", \"template\": \"renter-warn\", \"reason\": \"the first time it broke the rules\"}" >/dev/null ||
+    fail "the warning failed"
+  enforcement="$(queue_first /admin/v1/enforcements "{\"userId\": \"$person_id\", \"template\": \"renter-suspend\", \"endsAt\": \"$(python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) + d.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"))')\", \"reason\": \"the second time it broke the rules\"}" | json_get .id)"
+  [[ -n "$enforcement" ]] || fail "the suspension failed"
+  [[ "$(sql "select status from identity.users where id = '$person_id'")" == suspended ]] || fail "the person isn't suspended"
+  deadline=$((SECONDS + 30))
+  until [[ "$(sql "select count(*) from notifications.notifications where user_id = '$person_id' and title in ('A warning about how you use IdleO', 'Your account is suspended')")" == 2 ]]; do
+    ((SECONDS < deadline)) || fail "the person wasn't told of the warning and the suspension within 30 s"
+    sleep 0.5
+  done
+  curl -sf -X POST "$api/v1/me/enforcements/$enforcement/appeal" -H "Authorization: Bearer $person_token" -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: \"$user-appeal\"" -d '{"body": "It was not me: my brother used the laptop."}' >/dev/null || fail "appealing from a held account failed"
+  step="$(sql "select id from trust.appeals where enforcement_id = '$enforcement'")"
+  # The admin who suspended can't decide it, and someone else can.
+  queue_first --if-match "$(sql "select version from trust.appeals where id = '$step'")" "/admin/v1/appeals/$step/decide" \
+    '{"outcome": "uphold", "reason": "I think it was right"}' >"$out/queues-refused.json" 2>&1 &&
+    fail "whoever enforced decided their own appeal"
+  grep -q "another admin must decide" "$out/queues-refused.json" || fail "the enforcer was refused for another reason: $(cat "$out/queues-refused.json")"
+  queue_second --if-match "$(sql "select version from trust.appeals where id = '$step'")" "/admin/v1/appeals/$step/decide" '{"outcome": "reverse", "reason": "we had the wrong person"}' >/dev/null ||
+    fail "reversing the appeal failed"
+  [[ "$(sql "select state from trust.appeals where id = '$step'")" == reversed ]] || fail "the appeal isn't reversed"
+  [[ "$(sql "select status from identity.users where id = '$person_id'")" == active ]] || fail "the lift didn't let the person back"
+  note "ladder: warned, then suspended, each told; appealed from the held account; the enforcer was refused, another admin reversed it, the approved lift let them back: PASS"
+}
+scenario="queues"
+: >"$out/summary-queues.txt"
+part queues && scenario_queues
+while IFS= read -r line; do summary+=("$line"); done <"$out/summary-queues.txt"
 
 # Money out (ADR 0040, docs/runbooks/payouts.md), last, so the payouts it makes touch no earlier check of earnings
 # against the ledger. Every machine's dispute window is 40 s here (LEGAL_PAYOUTS_DISPUTEWINDOW), a change of UPI ID

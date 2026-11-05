@@ -65,7 +65,7 @@ export default defineConfig({
     { name: "hosting-journey", testMatch: "hosting-journey.spec.ts", use: { ...laptop }, timeout: 480_000 },
     {
       name: "admin-journey",
-      testMatch: /admin-(journey|access)\.spec\.ts/,
+      testMatch: /admin-(journey|access|queues)\.spec\.ts/,
       use: { ...laptop },
       timeout: 480_000,
     },
