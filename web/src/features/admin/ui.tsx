@@ -245,7 +245,7 @@ export function Id({ value, page, label }: { value: string; page?: string; label
     </span>
   );
   return page ? (
-    <Link href={recordHref(page, value)} className="underline">
+    <Link href={recordHref(page, value)} className="inline-flex min-h-6 min-w-6 items-center underline">
       {shown}
     </Link>
   ) : (

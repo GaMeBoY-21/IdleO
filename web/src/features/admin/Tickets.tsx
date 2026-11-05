@@ -183,7 +183,7 @@ function TicketRecord({ id }: { id: string }) {
                     "Person",
                     ticket.userId ? (
                       <RowLink href={`/admin/users/?id=${ticket.userId}`}>
-                        <Id value={ticket.userId} page="user" />
+                        <Id value={ticket.userId} />
                       </RowLink>
                     ) : (
                       "Not signed in"
@@ -193,7 +193,7 @@ function TicketRecord({ id }: { id: string }) {
                     "Session",
                     ticket.sessionId ? (
                       <RowLink href={`/admin/sessions/?id=${ticket.sessionId}`}>
-                        <Id value={ticket.sessionId} page="session" />
+                        <Id value={ticket.sessionId} />
                       </RowLink>
                     ) : (
                       "—"
@@ -203,7 +203,7 @@ function TicketRecord({ id }: { id: string }) {
                     "Machine",
                     ticket.hostId ? (
                       <RowLink href={`/admin/hosts/?id=${ticket.hostId}`}>
-                        <Id value={ticket.hostId} page="host" />
+                        <Id value={ticket.hostId} />
                       </RowLink>
                     ) : (
                       "—"
