@@ -115,6 +115,18 @@ if [[ "$gitops" == false ]]; then
   done
 fi
 
+# Whether the node takes new pods: a kubelet short of disk taints it, and every new pod then stays Pending. A CI runner's
+# small disk is what the image builds fill (their layers are in the registry by then), so there they're cleared first.
+node_can_take_pods() {
+  if [[ -n "${CI:-}" ]]; then
+    docker builder prune -af >>"$logs/up.log" 2>&1 || true
+  fi
+  kubectl wait --for=condition=Ready node --all --timeout=2m >/dev/null ||
+    fail "the node isn't ready; kubectl describe nodes"
+  kubectl wait --for=condition=DiskPressure=False node --all --timeout=3m >/dev/null ||
+    fail "the node is short of disk, so it takes no new pods ($(df -h / | tail -n 1)); kubectl describe nodes"
+}
+
 # 3. The images, built from this tree for this machine and pushed to the cluster's registry, tagged with the commit
 #    (and the time, when the tree has changes, so a rebuild always rolls out), each one's digest kept.
 tag="$(git rev-parse --short=12 HEAD)"
@@ -153,10 +165,13 @@ else
 
   # 5. Flux, then what it reads: the local age key (sops-age), the commit to follow and the build to release.
   log "bootstrapping Flux ${flux_version} from $flux_repository at $branch ($commit)"
+  node_can_take_pods
   kubectl apply --server-side --force-conflicts -k deploy/flux >>"$logs/up.log" 2>&1 ||
     fail "Flux's components didn't apply; see private/k8s/logs/up.log"
-  kubectl -n flux-system wait --for=condition=Available deployment --all --timeout=5m >/dev/null ||
-    fail "Flux's controllers aren't ready; kubectl -n flux-system get pods"
+  kubectl -n flux-system wait --for=condition=Available deployment --all --timeout=5m >/dev/null || {
+    kubectl -n flux-system get events --sort-by=.lastTimestamp >>"$logs/up.log" 2>&1 || true
+    fail "Flux's controllers aren't ready; events in private/k8s/logs/up.log, and kubectl -n flux-system get pods"
+  }
   apply() { kubectl create "$@" --dry-run=client -o yaml | kubectl apply -f - >/dev/null; }
   apply secret generic sops-age --namespace flux-system --from-file=age.agekey="$SOPS_AGE_KEY_FILE"
   apply configmap local-source --namespace flux-system --from-literal=GIT_BRANCH="$branch" --from-literal=GIT_COMMIT="$commit"

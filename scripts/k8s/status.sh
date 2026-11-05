@@ -15,3 +15,7 @@ kubectl top nodes 2>/dev/null || true
 echo
 echo "The cluster's containers, as Docker counts them:"
 docker stats --no-stream --format '  {{.Name}}  {{.MemUsage}}  CPU {{.CPUPerc}}' $(docker ps -q --filter "name=k3d-")
+echo
+echo "Whether the node takes new pods (conditions and taints), and this machine's disk:"
+kubectl get nodes -o jsonpath='{range .items[*]}  {.metadata.name}: {range .status.conditions[?(@.status=="True")]}{.type} {end}taints: {.spec.taints[*].key}{"\n"}{end}' || true
+df -h / | sed 's/^/  /'
