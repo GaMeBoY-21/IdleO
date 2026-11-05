@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { buttonClasses } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
@@ -24,6 +24,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { usePaletteActions } from "./Palette";
 import { ActionButton, useCan } from "./permissions";
 import { Reveal } from "./Reveal";
 
@@ -144,6 +145,33 @@ function UserRecord({ id }: { id: string }) {
     }
     setAction(next);
   };
+  const status = user.data?.status;
+  usePaletteActions(
+    useMemo(
+      () =>
+        status === "suspended"
+          ? [
+              {
+                label: "Reinstate this user…",
+                permission: "users.unsuspend",
+                run: () => setAction("unsuspend"),
+              },
+            ]
+          : status === "active"
+            ? [
+                {
+                  label: "Suspend this user…",
+                  permission: "users.suspend",
+                  run: () => {
+                    setCause("other");
+                    setAction("suspend");
+                  },
+                },
+              ]
+            : [],
+      [status],
+    ),
+  );
 
   return (
     <AdminPage title="User">

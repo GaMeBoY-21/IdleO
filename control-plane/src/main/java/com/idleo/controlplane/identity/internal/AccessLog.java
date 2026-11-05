@@ -25,6 +25,9 @@ class AccessLog implements PersonalDataAccess {
     /** The field of an entry for opening a person's page, which reveals nothing whole. */
     static final String VIEW = "view";
 
+    /** The field of an entry for a search of the console, whose record is the text searched for, masked. */
+    static final String SEARCH = "search";
+
     private final JdbcClient jdbc;
     private final IdGenerator ids;
     private final Clock clock;
@@ -48,6 +51,11 @@ class AccessLog implements PersonalDataAccess {
     public void read(CurrentUser admin, UUID subject, String field, String recordId, String reason) {
         write(admin.id(), subject, field, recordId, reason);
         insider.revealed(admin.id());
+    }
+
+    @Override
+    public void searched(CurrentUser admin, String maskedQuery) {
+        write(admin.id(), null, SEARCH, maskedQuery, "searched the console");
     }
 
     /** An admin read this field whole, with this reason. */

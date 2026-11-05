@@ -6,6 +6,7 @@ import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -48,6 +49,25 @@ public final class Sealer {
                 .put(nonce)
                 .put(sealed)
                 .array();
+    }
+
+    /**
+     * A value to find {@code secret} by without opening anything: the same secret gives the same value, and the value
+     * gives nothing back without the key. It's keyed apart from sealing, by a key derived for this one use.
+     */
+    public byte[] lookup(String secret) {
+        if (key == null) {
+            throw new IllegalStateException(setting + " isn't set");
+        }
+        try {
+            var derive = Mac.getInstance("HmacSHA256");
+            derive.init(key);
+            var mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(derive.doFinal("idleo lookup".getBytes(StandardCharsets.UTF_8)), "HmacSHA256"));
+            return mac.doFinal(secret.getBytes(StandardCharsets.UTF_8));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /** What {@link #seal} sealed with the same {@code associated}; anything else throws. */

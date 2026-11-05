@@ -1,6 +1,7 @@
 package com.idleo.controlplane.identity.internal;
 
 import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.identity.AdminAccess;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
  * doesn't know is ignored: an old release beside a newer one's migration (ADR 0046).
  */
 @Component
-class AdminPermissions {
+class AdminPermissions implements AdminAccess {
 
     private final JdbcClient jdbc;
 
@@ -43,6 +44,11 @@ class AdminPermissions {
                         .findFirst()
                         .ifPresent(held::add));
         return held;
+    }
+
+    @Override
+    public Set<AdminPermission> permissions(UUID admin) {
+        return of(admin);
     }
 
     boolean has(UUID userId, AdminPermission permission) {

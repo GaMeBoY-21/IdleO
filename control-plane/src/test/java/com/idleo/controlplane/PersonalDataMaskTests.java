@@ -70,4 +70,22 @@ class PersonalDataMaskTests {
         assertThat(masked.get("rows").get(0).get("message").asString()).isEqualTo("write to ra•••@example.com");
         assertThat(masked.get("rows").get(1).asString()).isEqualTo("203.0.113.0/24");
     }
+
+    @Test
+    void aSearchKeepsMachineValuesAndNotWhatMightBeAName() {
+        assertThat(PersonalDataMask.query("Parameswaran")).isEqualTo("Pa•••");
+        assertThat(PersonalDataMask.query("known.person@example.com")).doesNotContain("known.person");
+        assertThat(PersonalDataMask.query("ABCPE9999F")).doesNotContain("ABCPE");
+        assertThat(PersonalDataMask.query("9876543210")).doesNotContain("98765");
+        for (var machine : new String[] {
+            "01a1a853-4ff4-71ad-9f81-770af2252d8d",
+            "#1001",
+            "pay_Nabc123",
+            "order_Nabc123",
+            "rfnd_Nabc123",
+            "IDL2627-000042"
+        }) {
+            assertThat(PersonalDataMask.query(machine)).isEqualTo(machine);
+        }
+    }
 }

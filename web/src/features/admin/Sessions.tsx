@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -25,6 +25,7 @@ import {
   Table,
   Timeline,
 } from "./ui";
+import { usePaletteActions } from "./Palette";
 import { ActionButton } from "./permissions";
 
 /** Sessions (ADR 0027): find them; one opens with its timeline and attempts, and can be stopped while it runs. */
@@ -163,6 +164,16 @@ function SessionRecord({ id }: { id: string }) {
     refetchInterval: (query) => (query.state.data?.settled ? false : 5_000),
   });
   const [stopping, setStopping] = useState(false);
+  const running = session.data?.session.state === "RUNNING";
+  usePaletteActions(
+    useMemo(
+      () =>
+        running
+          ? [{ label: "Force stop this session…", permission: "sessions.stop", run: () => setStopping(true) }]
+          : [],
+      [running],
+    ),
+  );
   return (
     <AdminPage title="Session">
       <BackLink href="/admin/sessions/">← All sessions</BackLink>

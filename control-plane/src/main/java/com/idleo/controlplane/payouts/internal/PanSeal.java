@@ -24,6 +24,11 @@ final class PanSeal {
         return sealer.seal(userId.toString(), pan);
     }
 
+    /** What finds a PAN by an exact match (ADR 0052): the same for anyone's row. */
+    byte[] lookup(String pan) {
+        return sealer.lookup(pan);
+    }
+
     String open(UUID userId, byte[] stored) {
         return sealer.open(userId.toString(), stored);
     }

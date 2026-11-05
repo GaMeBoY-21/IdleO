@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { buttonClasses } from "@/components/ui/Button";
 import { RelativeTime } from "@/components/ui/Time";
@@ -24,6 +24,7 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { usePaletteActions } from "./Palette";
 import { ActionButton } from "./permissions";
 
 /** Hosts (ADR 0027): find them; one opens with its history, GPUs, certificates and telemetry, and what can be done. */
@@ -246,6 +247,35 @@ function HostRecord({ id }: { id: string }) {
     refetchInterval: (query) => (query.state.data?.run?.state === "running" ? 2_000 : false),
   });
   const [action, setAction] = useState<Action | null>(null);
+  const status = host.data?.status;
+  usePaletteActions(
+    useMemo(
+      () =>
+        status === undefined || status === "removed"
+          ? []
+          : [
+              ...(status === "active"
+                ? []
+                : [
+                    {
+                      label: "Activate this host…",
+                      permission: "hosts.activate",
+                      run: () => setAction("activate"),
+                    },
+                  ]),
+              ...(status === "suspended"
+                ? []
+                : [
+                    {
+                      label: "Suspend this host…",
+                      permission: "hosts.suspend",
+                      run: () => setAction("suspend"),
+                    },
+                  ]),
+            ],
+      [status],
+    ),
+  );
   return (
     <AdminPage title="Host">
       <BackLink href="/admin/hosts/">← All hosts</BackLink>
