@@ -703,15 +703,26 @@ if ! $web_only; then
   cli_user_id="$(token="$cli_token" api_get /v1/me | json_get .id)"
   renters+=("$user_id" "$user_b_id" "$booking_user_id" "$cli_user_id")
 fi
-# Each operator command starts a JVM, about 13 s, so they run side by side.
+# Each operator command starts a JVM, about 13 s, so these run side by side: straight from the built classes, since Maven's
+# own run regenerates target/ and two at once break each other.
+(cd control-plane && ./mvnw -B -q dependency:build-classpath -Dmdep.outputFile=target/ops.classpath -Dmdep.includeScope=runtime) >>"$out/ops.log" 2>&1 ||
+  fail "the operator commands' classpath couldn't be made; see private/e2e/ops.log"
+ops_side_by_side() {
+  (
+    cd control-plane
+    LOCAL_SIGN_IN_PORT="$sign_in_port" COMPOSE_PROJECT_NAME="$compose_project" OPERATOR="${operator_name:-local-stack}" \
+      java -cp "target/classes:$(cat target/ops.classpath)" -Dspring.profiles.active=local,ops \
+      com.idleo.controlplane.ControlPlaneApplication "$@"
+  ) >>"$out/ops.log" 2>&1
+}
 setup_pids=()
 for renter in "${renters[@]}"; do
-  ops grant-credits --user "$renter" --paise 50000 --reason "'End-to-end test credit'" --key "e2e-$renter" &
+  ops_side_by_side grant-credits --user "$renter" --paise 50000 --reason "End-to-end test credit" --key "e2e-$renter" &
   setup_pids+=($!)
 done
 for id in "${host_ids[@]}"; do
   list_host "$id" 2
-  ops activate-host --host "$id" --reason "'End-to-end test host'" &
+  ops_side_by_side activate-host --host "$id" --reason "End-to-end test host" &
   setup_pids+=($!)
 done
 for pid in "${setup_pids[@]}"; do
