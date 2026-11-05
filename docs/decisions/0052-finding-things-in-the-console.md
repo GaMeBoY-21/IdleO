@@ -42,6 +42,8 @@ An admin answering one question opened five screens and searched each by hand. T
 
 **CSV of any list** (`POST /admin/v1/exports`). It needs `export.create`, which is sensitive so a recent factor comes with it, and the list's own read permission. A list holding personal data goes through approval (ADR 0051), and its requester fetches the file once. Every value is masked, and a cell can't become a spreadsheet formula. It's written row by row up to 50,000, and a last line says how many were left out. Each is in the access log (`export`) and the audit log.
 
+**Budgets, on seeded data** (`seed-console`: 100k users, 2k hosts, 1M sessions, 300k payments, by each module into its own tables, refused without `console.seed.allowed`, which `ProductionSettingsGuard` refuses in production). The search box under 150 ms, the first 50 of a busy person's timeline under 300 ms, a list's page under 200 ms, each at p95 on the server (`ConsoleBudgetTests`, weekly in `.github/workflows/budgets.yml`); a record's first paint under 1 s on desktop.
+
 **Linked accounts** (`trust.read`: the Owner and Trust & Safety), worked out on the read by the module that holds each signal, which hands over who matched, how strong it is and masked evidence, never the raw value. Nothing acts on them.
 
 | Signal | Strength | From |

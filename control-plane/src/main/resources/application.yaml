@@ -144,6 +144,11 @@ management:
 # address without a sign-in), counted in Valkey; reads of a session's logs a minute, counted apart so a live log view
 # doesn't use up the rest; CLI sign-ins and host links started an hour from one address; batches of real visits'
 # vitals a minute from one address (ADR 0036).
+console:
+  search:
+    provider-timeout: 500ms
+    hits-per-type: 5
+
 limits:
   requests-per-minute: 60
   log-reads-per-minute: 120

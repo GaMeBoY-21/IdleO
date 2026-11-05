@@ -269,3 +269,18 @@ tests:
             exp_annotations:
               summary: The web app's browser run hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+  - interval: 7d
+    input_series:
+      - series: 'idleo_suite_passed{suite="budgets"}'
+        values: '1 0 1'
+    alert_rule_test:
+      - eval_time: 1d
+        alertname: BudgetsSuiteFailing
+        exp_alerts: []
+      - eval_time: 8d
+        alertname: BudgetsSuiteFailing
+        exp_alerts:
+          - exp_labels: {severity: digest, suite: budgets}
+            exp_annotations:
+              summary: The console's budgets failed on their schedule.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing

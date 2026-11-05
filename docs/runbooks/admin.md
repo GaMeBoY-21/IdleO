@@ -128,3 +128,20 @@ Approvals lists what's waiting, with what each will change. Read what will chang
 
 Stopping things needs no approval: suspending, blocking an image, stopping a session.
 
+## Finding someone
+
+Cmd-K or Ctrl-K anywhere in the console. It takes an id, a whole email, UPI ID or PAN, part of a name, a Razorpay id, a document or ticket number, or an image's digest. A part of an email, UPI ID or PAN finds nothing, on purpose. Every search is in the access log with its text masked. If it says a kind didn't answer in time, that kind's results may be missing: search again, and see "Admin endpoints failing" in alerts.md if it stays.
+
+Over 120 searches a minute is refused with `rate-limited` (`limits.admin-searches-per-minute`).
+
+## Linked accounts
+
+A person's page has them for Trust & Safety and the Owner. They're leads and nothing acts on them. Two people sharing a flat share a network; a strong signal is a reason to look, not a finding. Before acting on one, read both people's timelines, and put what you found in a note.
+
+## Exporting a list
+
+Export CSV takes a reason and a recent factor. A list with personal data goes to another admin first, and you fetch the file once from Approvals. Values are masked, and a file holds at most 50,000 rows and says how many it left out: narrow the filters to get the rest.
+
+## Measuring the console
+
+`seed-console` makes up 100k users, 2k hosts, 1M sessions and 300k payments on a local stack, with no ledger behind them, so the data is only good for measuring. Production refuses to start with `console.seed.allowed` on. `.github/workflows/budgets.yml` runs the budgets weekly, and its log has every figure.

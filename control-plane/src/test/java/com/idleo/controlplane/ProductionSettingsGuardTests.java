@@ -57,6 +57,15 @@ class ProductionSettingsGuardTests {
     }
 
     @Test
+    void prodRefusesToStartAllowedToMakeUpData() {
+        prod("console.seed.allowed=true", "identity.issuers[0].issuer-uri=" + GOOGLE)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasMessageContaining("console.seed.allowed is true"));
+    }
+
+    @Test
     void prodRefusesToStartWithDevelopmentHostsAllowed() {
         prod("agentgateway.allow-development-hosts=true", "identity.issuers[0].issuer-uri=" + GOOGLE)
                 .run(context -> assertThat(context)

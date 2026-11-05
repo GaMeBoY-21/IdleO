@@ -17,6 +17,7 @@
     <description>The GPU rental platform's control plane</description>
 
     <properties>
+        <surefire.excludedGroups>budget</surefire.excludedGroups>
         <java.version>25</java.version>
         <!-- Must match .mvn/wrapper/maven-wrapper.properties; the enforcer checks it. -->
         <maven.version>3.9.16</maven.version>
@@ -356,6 +357,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <!-- The console's budgets seed a million rows: weekly, by -Dgroups=budget (ADR 0052). -->
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                     <systemPropertyVariables>
                         <spring.profiles.active>test</spring.profiles.active>
                     </systemPropertyVariables>
