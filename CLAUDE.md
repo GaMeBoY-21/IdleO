@@ -71,6 +71,7 @@ Never push to main directly, never force-push it, never weaken a check or the ru
 - Measure before fixing; report numbers, not impressions.
 - One implementation per rule. Do not build features that nothing calls.
 - If the prompt file already contains the plan and its decisions, start without asking. Stop only for decisions it doesn't settle.
+- Never hide a failure: run every check with `set -o pipefail` or without a pipe, and quote each suite's exit status in a report. `check-changed.sh` and `check-all.sh` end with one line per suite, `PASS` or `FAIL (exit N)`, and exit non-zero if any failed.
 - During work, run scripts/check-changed.sh; the full suites run in CI on the pull request. scripts/check-all.sh stays for a machine without CI (or a doubt only a full local run settles). Read a suite's log only when it fails.
 - Record significant decisions as ADRs in docs/decisions/ using 0000-template.md.
 - Update this file, and the detail in docs/reference/, when commands, layout or conventions change.
