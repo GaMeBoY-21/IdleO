@@ -89,7 +89,7 @@ function AbuseQueue() {
   });
   return (
     <AdminPage title="Abuse">
-      <div className="flex">
+      <div className="flex flex-wrap gap-3">
         <ListBar
           list="abuse"
           columns={["Review", "State", "What was seen", "Renter", "Host", "Since", ""]}
