@@ -118,3 +118,49 @@ test.describe("each admin sees only what they may", () => {
     await expect(page.getByLabel("Code from your authenticator app")).toBeVisible();
   });
 });
+
+test.describe("finding anything", () => {
+  const finder = process.env.E2E_FIND_ADMIN;
+  const person = process.env.E2E_WEB_USER;
+  test.skip(!finder || !person, "run by scripts/e2e/agent-online.sh");
+
+  test("Ctrl-K finds a person by their whole email, whose page has a timeline, a note, a tag and linked accounts", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await signIn(page, finder!, "/admin/");
+    await enrol(page);
+    await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
+
+    await page.keyboard.press("Control+k");
+    await page.getByRole("combobox", { name: "Search the console" }).fill(`${person}@example.com`);
+    const found = page.getByRole("group", { name: "Users" }).getByRole("option").first();
+    await expect(found).toBeVisible();
+    // Masked in the results as everywhere else.
+    await expect(found).not.toContainText(`${person}@example.com`);
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 1, name: "User" })).toBeVisible();
+
+    // The one timeline, by kind.
+    await expect(page.getByRole("list", { name: "Timeline" })).toBeVisible();
+    await page.getByRole("button", { name: "security", exact: true }).click();
+    await expect(page.getByRole("list", { name: "Timeline" }).getByText("sign in").first()).toBeVisible();
+
+    // A note, pinned, shows at the top; a tag goes on and stays.
+    await page.getByRole("tab", { name: "Notes" }).click();
+    await page.getByLabel("The note").first().fill("Called about a **refund**");
+    await page.getByLabel("Pin it to the top").check();
+    await page.getByRole("button", { name: "Add the note" }).click();
+    await expect(page.getByRole("list", { name: "Notes" }).getByText("refund")).toBeVisible();
+    await expect(page.getByRole("alert").or(page.getByRole("status")).getByText("refund").first()).toBeVisible();
+    await page.getByLabel("Add a tag").selectOption("vip");
+    await expect(page.getByRole("group", { name: "Tags" }).getByText("VIP")).toBeVisible();
+
+    // Trust & Safety's lead: this browser and address signed in as both of them.
+    await page.getByRole("tab", { name: "Linked accounts" }).click();
+    await expect(page.getByRole("list", { name: "Linked accounts" }).getByText("same browser").first()).toBeVisible();
+
+    // The address says which tab: it can be linked.
+    await expect(page).toHaveURL(/tab=linked/);
+  });
+});
