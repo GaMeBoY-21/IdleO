@@ -44,7 +44,6 @@ export function Account() {
           {me.data || (kept && !me.isError) ? (
             <div className="flex flex-col divide-y divide-line">
               <NameRow
-                key={me.data?.displayName ?? ""}
                 name={
                   me.data
                     ? (me.data.displayName ?? me.data.email ?? "You")

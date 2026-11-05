@@ -19,7 +19,7 @@ The repository is public (all rights reserved, published for transparency), and 
 
 **Main.** A repository ruleset on `main`: pull requests only, merged by rebase only, linear history, no force pushes, no deletion, and these required checks (GitHub Actions' own): `control-plane verify`, `agent (ubuntu-latest)`, `agent deny`, `cli (ubuntu-latest)`, `cli deny`, `scanner`, `scanner deny`, `proto`, `sdk (python 3.10)`, `sdk (python 3.13)`, `web checks`, the four `codeql (language)` checks and `gitleaks`; since ADR 0045, also `deploy chart` and the `image (name)` checks, which build and scan the server's images: `image control-plane`, `image web` and `image scanner` (since ADR 0047 there is no `image postgres`: the database's image is CloudNativePG's). There are no required reviewers (one person works here); the repository admin can bypass the rules on a pull request in an emergency, but cannot push to main directly. The long suites (the web browser run, the end-to-end run, the hostile tests) run but do not gate. `CODEOWNERS`, a pull request template and `CONTRIBUTING.md` (no outside contributions) complete it.
 
-**Way of working.** CLAUDE.md, "Pull requests": a branch per round, `scripts/check-changed.sh` locally, a pull request, the required checks, a rebase merge, then a look at the long suites on main.
+**Way of working.** CLAUDE.md, "Pull requests": a branch per round, `scripts/check-changed.sh` locally, a pull request, every suite that ran on it green (required or not: a long suite doesn't gate by the ruleset, but a pull request isn't merged while any suite that ran on it is red), a rebase merge, then a look at the long suites on main.
 
 ## Alternatives considered
 

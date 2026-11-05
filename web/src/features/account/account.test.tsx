@@ -1,17 +1,29 @@
 import { render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as data from "../../../e2e/fixtures";
-import { Fact, UNDELIVERABLE } from "./Account";
+import { Account, Fact, UNDELIVERABLE } from "./Account";
 import { NameRow, nameProblem } from "./NameRow";
 import { NotificationChoices } from "./NotificationChoices";
 
 const save = vi.hoisted(() => ({ mutate: vi.fn() }));
 const rename = vi.hoisted(() => ({ mutate: vi.fn(), reset: vi.fn() }));
+const account = vi.hoisted((): { me: { data: unknown } } => ({ me: { data: undefined } }));
 
 vi.mock("@/api/account", () => ({
   useSaveNotifications: () => ({ ...save, isPending: false, isSuccess: false, isError: false, error: null }),
   useRenameMe: () => ({ ...rename, isPending: false, isError: false, error: null }),
+  useNotifications: () => ({ data: undefined, isPending: true, isError: false }),
+}));
+
+vi.mock("@/api/queries", () => ({
+  useMeAfterPaint: () => account.me,
+  useCachedMe: () => ({ displayName: "Asha" }),
+}));
+
+vi.mock("@/components/shell/AccountFrame", () => ({
+  AccountFrame: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 beforeEach(() => {
@@ -101,6 +113,17 @@ describe("a name", () => {
 });
 
 describe("editing the name", () => {
+  it("stays open when the account arrives behind what was kept of it", async () => {
+    account.me = { data: undefined };
+    const { rerender } = render(<Account />);
+    await userEvent.click(screen.getByRole("button", { name: "Edit your name" }));
+    await userEvent.type(screen.getByLabelText("Name"), " Rao");
+    account.me = { data: { ...data.me(), displayName: "Asha" } };
+    rerender(<Account />);
+    expect(screen.getByLabelText("Name")).toHaveValue("Asha Rao");
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  });
+
   it("shows the name, and opens an edit in place", async () => {
     render(<NameRow name="Asha" />);
     expect(screen.getByText("Asha")).toBeInTheDocument();
