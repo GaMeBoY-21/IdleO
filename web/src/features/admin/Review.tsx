@@ -70,7 +70,7 @@ export function Review() {
               <Row key={`${minute.sessionId}:${minute.minuteIndex}`}>
                 <Cell>
                   <RowLink href={`/admin/sessions/?id=${minute.sessionId}`}>
-                    <Id value={minute.sessionId} page="session" />
+                    <Id value={minute.sessionId} />
                   </RowLink>
                 </Cell>
                 <Cell className="tabular">

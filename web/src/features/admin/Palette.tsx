@@ -146,7 +146,7 @@ export function PaletteButton() {
   const openPalette = useContext(PaletteOpener);
   return (
     <Button variant="ghost" onClick={openPalette} className="justify-between">
-      Search
+      Find anything
       <kbd className="hidden text-caption text-text-3 md:inline">Ctrl K</kbd>
     </Button>
   );

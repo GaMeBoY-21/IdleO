@@ -326,7 +326,7 @@ function HostRecord({ id }: { id: string }) {
                     : `${formatPaise(found.pricePaisePerMin)} a minute (${formatPaise(found.pricePaisePerMin * 60)} an hour)`,
                 ],
                 ["Disk kept free", `${found.keepFreeGb} GB`],
-                ["Agent", found.agentVersion ?? "hasn't connected yet"],
+                ["Agent version", found.agentVersion ?? "hasn't connected yet"],
                 [
                   "Last update",
                   found.lastUpdate
