@@ -1767,7 +1767,7 @@ scenario_admin_web() {
   # see only what they may.
   local other other_token
   invite_next=14
-  for other in second passkey support auditor; do
+  for other in second passkey support auditor finder; do
     other_token="$(stack_token "$admin_user-$other")"
     [[ -n "$other_token" ]] || fail "no token for $admin_user-$other"
     activate_user "$other_token"
@@ -1776,6 +1776,7 @@ scenario_admin_web() {
   ops grant-admin "$admin_user-passkey@example.com" --reason "'End-to-end admin journey'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
   ops grant-admin "$admin_user-support@example.com" --reason "'End-to-end admin journey'" --role support || fail "grant-admin failed; see private/e2e/ops.log"
   ops grant-admin "$admin_user-auditor@example.com" --reason "'End-to-end admin journey'" --role auditor || fail "grant-admin failed; see private/e2e/ops.log"
+  ops grant-admin "$admin_user-finder@example.com" --reason "'End-to-end admin journey'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
 
   # One more host, enrolled and connected but never activated: the journey activates it.
   n=$((agents + 1))
@@ -1804,7 +1805,7 @@ scenario_admin_web() {
   running_since="$(now_ms)"
 
   E2E_ADMIN_USER="$admin_user" E2E_SECOND_ADMIN="$admin_user-second" E2E_PASSKEY_ADMIN="$admin_user-passkey" E2E_SUPPORT_ADMIN="$admin_user-support" \
-    E2E_AUDITOR_ADMIN="$admin_user-auditor" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
+    E2E_AUDITOR_ADMIN="$admin_user-auditor" E2E_FIND_ADMIN="$admin_user-finder" E2E_PENDING_HOST="$pending" E2E_RUNNING_SESSION="$session" E2E_WEB_USER="$web_user" \
     E2E_HOST_OWNER="$user" E2E_RUNNING_SINCE="$running_since" E2E_ADMIN_REPORT="$report" SKIP_VISUAL=1 \
     E2E_TICKET_NUMBER="${ticket_number:-}" E2E_REFUND_NOTE="end-to-end refund request" \
     E2E_CHARGEBACK="${chargeback_dispute:-}" \
