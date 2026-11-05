@@ -325,12 +325,18 @@ class Tickets {
 
     /** For the admin list: by due date, overdue first, then the oldest; filtered by topic, status and age. */
     List<StoredTicket> list(
-            @Nullable String topic, @Nullable String status, @Nullable Integer olderThanDays, int limit, int offset) {
+            @Nullable String topic,
+            @Nullable String status,
+            @Nullable Integer olderThanDays,
+            @Nullable UUID user,
+            int limit,
+            int offset) {
         return jdbc.sql("""
                         select * from support.tickets
                         where (cast(:topic as text) is null or topic = cast(:topic as text))
                           and (cast(:status as text) is null or status = cast(:status as text))
                           and (cast(:before as timestamptz) is null or created_at < cast(:before as timestamptz))
+                          and (cast(:user as uuid) is null or user_id = cast(:user as uuid))
                         order by (status = 'resolved'), due_at asc nulls last, created_at asc
                         limit :limit offset :offset
                         """)
@@ -341,6 +347,7 @@ class Tickets {
                         olderThanDays == null ? null : Timestamp.from(now().minus(Duration.ofDays(olderThanDays))))
                 .param("limit", limit)
                 .param("offset", offset)
+                .param("user", user)
                 .query(Tickets::ticket)
                 .list();
     }

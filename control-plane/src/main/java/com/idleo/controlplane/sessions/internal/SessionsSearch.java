@@ -19,7 +19,7 @@ class SessionsSearch {
                 (query, limit) -> query.id()
                         .map(id -> jdbc.sql("select id, template_id, state from sessions.sessions where id = :id")
                                 .param("id", id)
-                                .query((rs, n) -> new AdminSearch.Hit(
+                                .query((rs, n) -> new AdminSearch.SearchHit(
                                         "session",
                                         rs.getObject("id").toString(),
                                         rs.getString("template_id"),

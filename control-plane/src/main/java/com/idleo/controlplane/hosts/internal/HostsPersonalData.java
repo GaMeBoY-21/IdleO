@@ -138,6 +138,7 @@ class HostsPersonalData implements PersonalData {
                         "hosts.self_test_results",
                         "hosts.self_test_runs",
                         "hosts.host_scores",
+                        "hosts.host_score_history",
                         "hosts.update_results",
                         "hosts.enrolment_codes")) {
                     jdbc.sql("delete from " + table + " where " + ofTheirHosts)

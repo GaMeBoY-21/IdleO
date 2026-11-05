@@ -117,6 +117,7 @@ class AdminImagesController {
     @GetMapping
     AdminImagePage list(
             @RequestParam(required = false) @Nullable String state,
+            @RequestParam(required = false) @Nullable UUID user,
             @RequestParam(required = false) @Nullable Integer limit,
             @RequestParam(required = false) @Nullable String cursor) {
         if (state != null
@@ -128,11 +129,13 @@ class AdminImagesController {
         var rows = jdbc.sql("""
                         select * from images.images
                         where (cast(:state as text) is null or state = :state)
+                          and (cast(:user as uuid) is null or user_id = cast(:user as uuid))
                           and (cast(:after as uuid) is null or id < :after)
                         order by id desc
                         limit :limit
                         """)
                 .param("state", state)
+                .param("user", user)
                 .param("after", after)
                 .param("limit", size + 1)
                 .query(ImageStore::row)

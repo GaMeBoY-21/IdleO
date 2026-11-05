@@ -6,7 +6,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 
-/** How long the search box waits for each module (ADR 0052), and how many hits it takes from each. */
+/**
+ * How long the console's search box and timeline wait for each module (ADR 0052), and how many hits the search takes
+ * from each.
+ */
 @ConfigurationProperties("console.search")
 @Validated
 record ConsoleSearchProperties(

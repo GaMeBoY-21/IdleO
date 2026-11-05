@@ -43,7 +43,7 @@ public interface AdminSearch {
      * @param page the console's page it opens: user, host, session, payment, refund, invoice, payout, ticket or image
      * @param id the id that page takes
      */
-    record Hit(
+    record SearchHit(
             String page, String id, String title, @Nullable String detail) {}
 
     /** What this bean finds, the group its hits are shown under. */
@@ -52,9 +52,9 @@ public interface AdminSearch {
     /** What an admin must hold to see that any of these exists. */
     AdminPermission permission();
 
-    List<Hit> find(Query query, int limit);
+    List<SearchHit> find(Query query, int limit);
 
-    static AdminSearch of(String type, AdminPermission permission, BiFunction<Query, Integer, List<Hit>> finder) {
+    static AdminSearch of(String type, AdminPermission permission, BiFunction<Query, Integer, List<SearchHit>> finder) {
         return new AdminSearch() {
             @Override
             public String type() {
@@ -67,7 +67,7 @@ public interface AdminSearch {
             }
 
             @Override
-            public List<Hit> find(Query query, int limit) {
+            public List<SearchHit> find(Query query, int limit) {
                 return finder.apply(query, limit);
             }
         };

@@ -122,7 +122,7 @@ export const ADMIN = "admin";
 
 type Schemas = components["schemas"];
 export type AdminSessionStatus = Schemas["AdminSessionStatus"];
-export type AdminSearchHit = Schemas["Hit"];
+export type AdminSearchHit = Schemas["SearchHit"];
 export type AdminApproval = Schemas["AdminApproval"];
 export type AdminAccount = Schemas["AdminAccount"];
 export type AdminRole = Schemas["AdminRole"];

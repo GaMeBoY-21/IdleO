@@ -9,18 +9,10 @@ import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.PersonalDataAccess;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.Callable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -42,20 +34,21 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 class AdminSearchController {
 
-    private static final Logger log = LoggerFactory.getLogger(AdminSearchController.class);
     private static final int SHORTEST = 2;
 
     private final List<AdminSearch> providers;
     private final AdminAccess access;
     private final PersonalDataAccess accessLog;
     private final ConsoleSearchProperties properties;
-    private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
+    private final ConsoleFanOut fanOut;
 
     AdminSearchController(
             List<AdminSearch> providers,
             AdminAccess access,
             PersonalDataAccess accessLog,
-            ConsoleSearchProperties properties) {
+            ConsoleSearchProperties properties,
+            ConsoleFanOut fanOut) {
+        this.fanOut = fanOut;
         this.providers = providers.stream()
                 .sorted(Comparator.comparing(AdminSearch::type))
                 .toList();
@@ -65,7 +58,7 @@ class AdminSearchController {
     }
 
     /** One kind of thing found. */
-    record SearchGroup(String type, List<AdminSearch.Hit> hits) {}
+    record SearchGroup(String type, List<AdminSearch.SearchHit> hits) {}
 
     /**
      * @param groups what was found, by kind; a kind with nothing found isn't here
@@ -86,34 +79,17 @@ class AdminSearchController {
             return new SearchResults(List.of(), List.of());
         }
         var held = access.permissions(admin.id());
-        var asked = new LinkedHashMap<String, Future<List<AdminSearch.Hit>>>();
-        for (var provider : providers) {
-            if (held.contains(provider.permission())) {
-                asked.put(provider.type(), threads.submit(() -> provider.find(query, properties.hitsPerType())));
-            }
-        }
-        long deadline = System.nanoTime() + properties.providerTimeout().toNanos();
-        var groups = new ArrayList<SearchGroup>();
-        var unanswered = new ArrayList<String>();
-        asked.forEach((type, answer) -> {
-            try {
-                var hits = answer.get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
-                if (!hits.isEmpty()) {
-                    groups.add(new SearchGroup(type, hits));
-                }
-            } catch (TimeoutException | ExecutionException failed) {
-                answer.cancel(true);
-                unanswered.add(type);
-                log.warn(
-                        "The search for {} didn't answer: {}",
-                        type,
-                        failed.getClass().getSimpleName());
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                unanswered.add(type);
-            }
-        });
+        var questions = new LinkedHashMap<String, Callable<List<AdminSearch.SearchHit>>>();
+        providers.stream()
+                .filter(provider -> held.contains(provider.permission()))
+                .forEach(provider ->
+                        questions.put(provider.type(), () -> provider.find(query, properties.hitsPerType())));
+        var answers = fanOut.ask(questions, properties.providerTimeout());
+        var groups = answers.answered().entrySet().stream()
+                .filter(answer -> !answer.getValue().isEmpty())
+                .map(answer -> new SearchGroup(answer.getKey(), answer.getValue()))
+                .toList();
         accessLog.searched(admin, PersonalDataMask.query(query.text()));
-        return new SearchResults(List.copyOf(groups), List.copyOf(unanswered));
+        return new SearchResults(groups, answers.unanswered());
     }
 }

@@ -19,6 +19,18 @@ paths:
         schema:
           type: string
       - in: query
+        name: renter
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: host
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
         name: cursor
         required: false
         schema:
@@ -1027,6 +1039,12 @@ paths:
           type: string
           format: uuid
       - in: query
+        name: renter
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
         name: cursor
         required: false
         schema:
@@ -1296,6 +1314,62 @@ paths:
         idToken: []
       tags:
       - adminHosts
+  /admin/v1/hosts/{id}/earnings:
+    get:
+      operationId: adminHostEarningsEarnings
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminHostEarnings"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminHostEarnings
+  /admin/v1/hosts/{id}/history:
+    get:
+      operationId: adminHostHistoryHistory
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminHostHistory"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminHostHistory
   /admin/v1/hosts/{id}/revoke-certificates:
     post:
       operationId: adminHostsRevokeCertificates
@@ -1435,6 +1509,12 @@ paths:
         required: false
         schema:
           type: string
+      - in: query
+        name: user
+        required: false
+        schema:
+          type: string
+          format: uuid
       - in: query
         name: limit
         required: false
@@ -2104,6 +2184,34 @@ paths:
         idToken: []
       tags:
       - adminPayments
+  /admin/v1/payments/{id}:
+    get:
+      operationId: adminRecordsPayment
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPaymentRecord"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRecords
   /admin/v1/payouts:
     get:
       operationId: adminPayoutsList
@@ -2116,6 +2224,12 @@ paths:
           default: all
       - in: query
         name: run
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: user
         required: false
         schema:
           type: string
@@ -2656,6 +2770,12 @@ paths:
         schema:
           type: string
           default: requested
+      - in: query
+        name: user
+        required: false
+        schema:
+          type: string
+          format: uuid
       responses:
         "200":
           content:
@@ -3191,6 +3311,62 @@ paths:
         idToken: []
       tags:
       - adminSessions
+  /admin/v1/sessions/{id}/commands:
+    get:
+      operationId: adminAgentCommandsCommands
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAgentCommands"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAgentCommands
+  /admin/v1/sessions/{id}/life:
+    get:
+      operationId: adminSessionLifeLife
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionLife"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSessionLife
   /admin/v1/sessions/{id}/log:
     get:
       operationId: adminSessionsLog
@@ -3319,6 +3495,12 @@ paths:
           type: integer
           format: int32
       - in: query
+        name: user
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
         name: cursor
         required: false
         schema:
@@ -3443,6 +3625,62 @@ paths:
         idToken: []
       tags:
       - adminTickets
+  /admin/v1/timeline:
+    get:
+      operationId: adminTimelineTimeline
+      parameters:
+      - in: query
+        name: subject
+        required: true
+        schema:
+          type: string
+          enum:
+          - user
+          - host
+          - session
+          - payment
+      - in: query
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: kinds
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelinePage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminTimeline
   /admin/v1/users:
     get:
       operationId: adminUsersSearch
@@ -3514,6 +3752,34 @@ paths:
         idToken: []
       tags:
       - adminUsers
+  /admin/v1/users/{id}/credit:
+    get:
+      operationId: adminRecordsCredit
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCredit"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminRecords
   /admin/v1/users/{id}/deletion:
     get:
       operationId: adminDeletionsGet
@@ -3610,6 +3876,34 @@ paths:
         idToken: []
       tags:
       - adminDeletions
+  /admin/v1/users/{id}/payout-details:
+    get:
+      operationId: adminPayoutDetailsDetails
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayoutDetails"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayoutDetails
   /admin/v1/users/{id}/security-events:
     get:
       operationId: adminUsersSecurityEvents
@@ -6728,6 +7022,51 @@ components:
       required:
       - admins
       - roles
+    AdminAgentCommand:
+      type: object
+      properties:
+        ackedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        attempts:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        hostId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        sentAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        status:
+          type: string
+        type:
+          type: string
+      required:
+      - attempts
+      - createdAt
+      - hostId
+      - id
+      - status
+      - type
+    AdminAgentCommands:
+      type: object
+      properties:
+        commands:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAgentCommand"
+      required:
+      - commands
     AdminAnswer:
       type: object
       properties:
@@ -7047,6 +7386,23 @@ components:
           minLength: 0
       required:
       - totp
+    AdminCredit:
+      type: object
+      properties:
+        balancePaise:
+          type: integer
+          format: int64
+        lots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCreditLot"
+        reservedPaise:
+          type: integer
+          format: int64
+      required:
+      - balancePaise
+      - lots
+      - reservedPaise
     AdminCreditGrant:
       type: object
       properties:
@@ -7127,6 +7483,37 @@ components:
       - paise
       - reason
       - userId
+    AdminCreditLot:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        remainingPaise:
+          type: integer
+          format: int64
+        sourceType:
+          type: string
+      required:
+      - amountPaise
+      - createdAt
+      - id
+      - kind
+      - remainingPaise
+      - sourceType
     AdminCreditRefund:
       type: object
       properties:
@@ -7583,6 +7970,22 @@ components:
       - notAfter
       - notBefore
       - serial
+    AdminHostEarnings:
+      type: object
+      properties:
+        chargedPaise:
+          type: integer
+          format: int64
+        hostSharePaise:
+          type: integer
+          format: int64
+        minutes:
+          type: integer
+          format: int64
+      required:
+      - chargedPaise
+      - hostSharePaise
+      - minutes
     AdminHostFlag:
       type: object
       properties:
@@ -7649,6 +8052,20 @@ components:
       - model
       - uuid
       - vramMb
+    AdminHostHistory:
+      type: object
+      properties:
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminHostScoreDay"
+        selfTests:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminHostSelfTestRun"
+      required:
+      - scores
+      - selfTests
     AdminHostKept:
       type: object
       properties:
@@ -7674,6 +8091,46 @@ components:
           - "null"
       required:
       - hosts
+    AdminHostScoreDay:
+      type: object
+      properties:
+        bandwidth:
+          type: number
+          format: double
+        day:
+          type: string
+          format: date-time
+        penalty:
+          type: number
+          format: double
+        reliability:
+          type: number
+          format: double
+      required:
+      - bandwidth
+      - day
+      - penalty
+      - reliability
+    AdminHostSelfTestRun:
+      type: object
+      properties:
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        requestedAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+      required:
+      - id
+      - requestedAt
+      - state
     AdminHostStatusChange:
       type: object
       properties:
@@ -8165,6 +8622,20 @@ components:
       - userId
       - verifier
       - version
+    AdminPanStanding:
+      type: object
+      properties:
+        last4:
+          type: string
+        state:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+      required:
+      - last4
+      - state
+      - submittedAt
     AdminPasskey:
       type: object
       properties:
@@ -8258,6 +8729,52 @@ components:
       - orderId
       - status
       - userId
+    AdminPaymentChargeback:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        disputeId:
+          type: string
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+      required:
+      - amountPaise
+      - disputeId
+      - id
+      - status
+    AdminPaymentDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        number:
+          type: string
+      required:
+      - id
+      - kind
+      - number
+    AdminPaymentFinding:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        state:
+          type: string
+      required:
+      - id
+      - kind
+      - state
     AdminPaymentList:
       type: object
       properties:
@@ -8406,6 +8923,86 @@ components:
       - id
       - startedAt
       - trigger
+    AdminPaymentRecord:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        cardLast4:
+          type:
+          - string
+          - "null"
+        cardNetwork:
+          type:
+          - string
+          - "null"
+        chargebacks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPaymentChargeback"
+        createdAt:
+          type: string
+          format: date-time
+        creditedBy:
+          type:
+          - string
+          - "null"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPaymentDocument"
+        failureReason:
+          type:
+          - string
+          - "null"
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPaymentFinding"
+        id:
+          type: string
+          format: uuid
+        lots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCreditLot"
+        method:
+          type:
+          - string
+          - "null"
+        orderId:
+          type: string
+        paidAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        paymentId:
+          type:
+          - string
+          - "null"
+        refunds:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRefundPart"
+        status:
+          type: string
+        userId:
+          type: string
+          format: uuid
+      required:
+      - amountPaise
+      - chargebacks
+      - createdAt
+      - documents
+      - findings
+      - id
+      - lots
+      - orderId
+      - refunds
+      - status
+      - userId
     AdminPayout:
       type: object
       properties:
@@ -8486,6 +9083,42 @@ components:
       - tdsPaise
       - tdsSection
       - userId
+    AdminPayoutDetails:
+      type: object
+      properties:
+        methods:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPayoutMethod"
+        pan:
+          oneOf:
+          - $ref: "#/components/schemas/AdminPanStanding"
+          - type: "null"
+      required:
+      - methods
+    AdminPayoutMethod:
+      type: object
+      properties:
+        checkedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        state:
+          type: string
+        vpa:
+          type: string
+      required:
+      - checkedAt
+      - id
+      - state
+      - vpa
     AdminPayoutMismatch:
       type: object
       properties:
@@ -8841,6 +9474,25 @@ components:
       required:
       - amountPaise
       - reason
+    AdminRefundPart:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        razorpayRefundId:
+          type:
+          - string
+          - "null"
+        refundId:
+          type: string
+          format: uuid
+        status:
+          type: string
+      required:
+      - amountPaise
+      - refundId
+      - status
     AdminRevealed:
       type: object
       properties:
@@ -9135,6 +9787,64 @@ components:
       - hostId
       - latestLogSeq
       - pricePaisePerMin
+    AdminSessionAttemptLife:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        hostId:
+          type: string
+          format: uuid
+        leaseCoveredFrom:
+          type:
+          - string
+          - "null"
+          format: date-time
+        leaseCoveredUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
+        leaseStretches:
+          type: integer
+          format: int32
+        lostReason:
+          type:
+          - string
+          - "null"
+        matchedAt:
+          type: string
+          format: date-time
+        runningAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        startDeliveredAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        stopReason:
+          type:
+          - string
+          - "null"
+        stopRequestedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - attempt
+      - hostId
+      - leaseStretches
+      - matchedAt
     AdminSessionEvent:
       type: object
       properties:
@@ -9153,6 +9863,15 @@ components:
       - at
       - reason
       - to
+    AdminSessionLife:
+      type: object
+      properties:
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSessionAttemptLife"
+      required:
+      - attempts
     AdminSessionLog:
       type: object
       properties:
@@ -11060,23 +11779,6 @@ components:
       required:
       - id
       - type
-    Hit:
-      type: object
-      properties:
-        detail:
-          type:
-          - string
-          - "null"
-        id:
-          type: string
-        page:
-          type: string
-        title:
-          type: string
-      required:
-      - id
-      - page
-      - title
     HostList:
       type: object
       properties:
@@ -13031,12 +13733,29 @@ components:
         hits:
           type: array
           items:
-            $ref: "#/components/schemas/Hit"
+            $ref: "#/components/schemas/SearchHit"
         type:
           type: string
       required:
       - hits
       - type
+    SearchHit:
+      type: object
+      properties:
+        detail:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+        page:
+          type: string
+        title:
+          type: string
+      required:
+      - id
+      - page
+      - title
     SearchResults:
       type: object
       properties:
@@ -13956,6 +14675,58 @@ components:
           minLength: 0
       required:
       - pollToken
+    TimelineEvent:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        detail:
+          type:
+          - string
+          - "null"
+        entityId:
+          type:
+          - string
+          - "null"
+        key:
+          type: string
+        kind:
+          type: string
+        page:
+          type:
+          - string
+          - "null"
+        title:
+          type: string
+      required:
+      - at
+      - key
+      - kind
+      - title
+    TimelinePage:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+        kinds:
+          type: array
+          items:
+            type: string
+        nextCursor:
+          type:
+          - string
+          - "null"
+        unanswered:
+          type: array
+          items:
+            type: string
+      required:
+      - events
+      - kinds
+      - unanswered
     TopUpList:
       type: object
       properties:

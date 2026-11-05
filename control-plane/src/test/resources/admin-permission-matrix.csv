@@ -21,6 +21,8 @@ GET /admin/v1/disputes/host-flags,disputes.read,allow,403,allow,allow,allow,allo
 GET /admin/v1/disputes/{id},disputes.read,allow,403,allow,allow,allow,allow
 GET /admin/v1/hosts,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id},hosts.read,allow,allow,allow,allow,403,allow
+GET /admin/v1/hosts/{id}/earnings,money.read,allow,403,403,403,allow,allow
+GET /admin/v1/hosts/{id}/history,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/hosts/{id}/self-test,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/images,images.read,allow,allow,403,allow,403,allow
 GET /admin/v1/images/{id},images.read,allow,allow,403,allow,403,allow
@@ -34,6 +36,7 @@ GET /admin/v1/me/sessions,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/passkeys,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/payments,payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/payments/reconciliation,payments.read,allow,403,allow,403,allow,allow
+GET /admin/v1/payments/{id},payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/payouts,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/reconciliation,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/verifications,verifications.read,allow,403,403,403,allow,allow
@@ -47,13 +50,18 @@ GET /admin/v1/search,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/session,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/sessions,sessions.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/sessions/{id},sessions.read,allow,allow,allow,allow,403,allow
+GET /admin/v1/sessions/{id}/commands,sessions.read,allow,allow,allow,allow,403,allow
+GET /admin/v1/sessions/{id}/life,sessions.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/sessions/{id}/log,sessions.log.read,allow,403,403,allow,403,403
 GET /admin/v1/sessions/{id}/usage,sessions.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/tickets,tickets.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/tickets/{id},tickets.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/timeline,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/users,users.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/users/{id},users.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/users/{id}/credit,money.read,allow,403,403,403,allow,allow
 GET /admin/v1/users/{id}/deletion,privacy.read,allow,403,allow,allow,403,allow
+GET /admin/v1/users/{id}/payout-details,verifications.read,allow,403,403,403,allow,allow
 GET /admin/v1/users/{id}/security-events,users.read,allow,allow,allow,allow,allow,allow
 POST /admin/v1/abuse/blocklist-additions/{additionId}/remove,abuse.blocklist,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/blocklist,abuse.blocklist,allow,403,403,allow,403,403

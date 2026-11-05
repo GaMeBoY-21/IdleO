@@ -39,12 +39,12 @@ class IdentitySearch {
         });
     }
 
-    private static List<AdminSearch.Hit> found(JdbcClient.StatementSpec statement, int limit) {
+    private static List<AdminSearch.SearchHit> found(JdbcClient.StatementSpec statement, int limit) {
         return statement
                 .query((rs, n) -> {
                     var email = rs.getString("email");
                     var name = rs.getString("display_name");
-                    return new AdminSearch.Hit(
+                    return new AdminSearch.SearchHit(
                             "user",
                             rs.getObject("id").toString(),
                             name != null ? name : email != null ? email : "No name or email",

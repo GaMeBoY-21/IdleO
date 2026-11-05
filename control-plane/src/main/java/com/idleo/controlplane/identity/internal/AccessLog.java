@@ -44,7 +44,12 @@ class AccessLog implements PersonalDataAccess {
 
     /** An admin opened this person's page. */
     void viewed(CurrentUser admin, UUID subject) {
-        write(admin.id(), subject, VIEW, subject.toString(), "opened their page");
+        viewed(admin, subject, subject.toString());
+    }
+
+    @Override
+    public void viewed(CurrentUser admin, UUID subject, String recordId) {
+        write(admin.id(), subject, VIEW, recordId, "opened their page");
     }
 
     @Override

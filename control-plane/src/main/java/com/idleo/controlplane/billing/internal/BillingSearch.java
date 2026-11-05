@@ -24,7 +24,7 @@ class BillingSearch {
             return statement
                     .query((rs, n) -> {
                         var payment = rs.getString("payment_id");
-                        return new AdminSearch.Hit(
+                        return new AdminSearch.SearchHit(
                                 "payment",
                                 rs.getObject("id").toString(),
                                 payment != null ? payment : rs.getString("order_id"),
@@ -41,7 +41,7 @@ class BillingSearch {
             if (id.isPresent()) {
                 return jdbc.sql("select id, status from billing.credit_refunds where id = :id")
                         .param("id", id.get())
-                        .query((rs, n) -> new AdminSearch.Hit(
+                        .query((rs, n) -> new AdminSearch.SearchHit(
                                 "refund", rs.getObject("id").toString(), "Refund", rs.getString("status")))
                         .list();
             }
@@ -50,7 +50,7 @@ class BillingSearch {
                             where razorpay_refund_id = :text
                             """)
                     .param("text", query.text())
-                    .query((rs, n) -> new AdminSearch.Hit(
+                    .query((rs, n) -> new AdminSearch.SearchHit(
                             "refund",
                             rs.getObject("refund_id").toString(),
                             rs.getString("razorpay_refund_id"),
@@ -66,7 +66,7 @@ class BillingSearch {
                 AdminPermission.INVOICES_READ,
                 (query, limit) -> jdbc.sql("select id, number, kind from billing.invoices where number = :number")
                         .param("number", query.upper())
-                        .query((rs, n) -> new AdminSearch.Hit(
+                        .query((rs, n) -> new AdminSearch.SearchHit(
                                 "invoice", rs.getObject("id").toString(), rs.getString("number"), rs.getString("kind")))
                         .list());
     }
