@@ -62,7 +62,7 @@ function indiaMidnight(date: string): string {
 }
 
 function SessionSearch({ user, host }: { user: string; host: string }) {
-  const [asked, setAsked] = useListParams({ id: "", user, host, state: "", from: "", to: "" });
+  const [asked, setAsked] = useListParams({ session: "", user, host, state: "", from: "", to: "" });
   const [form, setForm] = useState(asked);
   const view = useListView();
   const set = (field: keyof typeof form) => (value: string) => setForm({ ...form, [field]: value });
@@ -75,7 +75,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
         adminApi.GET("/admin/v1/sessions", {
           params: {
             query: {
-              ...(asked.id ? { id: asked.id } : {}),
+              ...(asked.session ? { id: asked.session } : {}),
               ...(asked.user ? { user: asked.user } : {}),
               ...(asked.host ? { host: asked.host } : {}),
               ...(asked.state ? { state: asked.state } : {}),
@@ -96,7 +96,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
       <ListBar
         list="sessions"
         columns={["Session", "State", "Template", "Renter", "Host", "Price", "Booked", ""]}
-        filters={{ id: "id", user: "user", host: "host" }}
+        filters={{ session: "id", user: "user", host: "host" }}
         extra={{
           ...(asked.state ? { state: asked.state.toUpperCase() } : {}),
           ...(indiaMidnight(asked.from) ? { from: indiaMidnight(asked.from) } : {}),
@@ -105,10 +105,10 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
       />
       <Filters
         onSubmit={() =>
-          setAsked({ ...form, id: form.id.trim(), user: form.user.trim(), host: form.host.trim() })
+          setAsked({ ...form, session: form.session.trim(), user: form.user.trim(), host: form.host.trim() })
         }
       >
-        <SmallField label="Session id" value={form.id} onChange={set("id")} />
+        <SmallField label="Session id" value={form.session} onChange={set("session")} />
         <SmallField label="Renter id" value={form.user} onChange={set("user")} />
         <SmallField label="Host id" value={form.host} onChange={set("host")} />
         <SmallSelect

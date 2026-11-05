@@ -396,6 +396,11 @@ test.describe("the console", () => {
     await expect(page.getByRole("table", { name: "Sessions" })).toContainText("fine-tune-lora");
     await expectAccessible(page);
     await capture(page, info, "admin-sessions");
+    // Searching by id stays on the list, with the filter in the address: only `?id=` opens a record.
+    await page.getByLabel("Session id").fill(data.reportedSession.id);
+    await page.getByRole("button", { name: "Search" }).click();
+    await expect(page).toHaveURL(/[?&]session=/);
+    await expect(page.getByRole("table", { name: "Sessions" })).toBeVisible();
   });
 
   test("works the review queue", async ({ page }, info) => {
