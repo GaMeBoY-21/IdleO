@@ -34,7 +34,7 @@ RUN tries() { for try in 1 2 3 4 5; do "$@" && return 0; [ "$try" = 5 ] || sleep
     && tries go get github.com/go-jose/go-jose/v4@v4.1.6 \
     && git add go.mod go.sum && GIT_AUTHOR_DATE=2026-10-31T00:00:00Z GIT_COMMITTER_DATE=2026-10-31T00:00:00Z \
       git -c user.name=idleo -c user.email=idleo@users.noreply.github.com commit -q -m "raise go-jose to 4.1.6" \
-    && CGO_ENABLED=0 tries go build -trimpath -ldflags "-s -w -X github.com/aquasecurity/trivy/pkg/version/app.ver=0.76.1" \
+    && export CGO_ENABLED=0 && tries go build -trimpath -ldflags "-s -w -X github.com/aquasecurity/trivy/pkg/version/app.ver=0.76.1" \
       -o /trivy ./cmd/trivy && go version -m /trivy | grep -E 'mod.*aquasecurity/trivy|go-jose/v4'
 
 # Trivy 0.76.1 (aquasec/trivy:0.76.1), its multi-platform index.
