@@ -169,7 +169,11 @@ test.describe("finding anything", () => {
 
     // Any list's view is in its address: an order, a column left out, and a file of it, asked for with a recent factor.
     await page.goto("/admin/invites/?sort=createdAt:asc&hide=Lapses");
-    await expect(page.getByRole("heading", { level: 1, name: "Admin sign-in" }).or(page.getByRole("heading", { level: 1, name: "Invites" }))).toBeVisible();
+    await expect(
+      page
+        .getByRole("heading", { level: 1, name: "Admin sign-in" })
+        .or(page.getByRole("heading", { level: 1, name: "Invites" })),
+    ).toBeVisible();
     if (await page.getByRole("heading", { level: 1, name: "Admin sign-in" }).isVisible()) {
       await page.getByLabel("Code from your authenticator app").fill(codeNow(secret, 1));
       await page.getByRole("button", { name: "Continue" }).click();
