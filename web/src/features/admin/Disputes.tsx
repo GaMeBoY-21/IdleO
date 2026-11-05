@@ -74,7 +74,7 @@ function DisputeQueue() {
   });
   return (
     <AdminPage title="Reports">
-      <div className="flex">
+      <div className="flex flex-wrap gap-3">
         <ListBar
           list="reports"
           columns={["Report", "State", "Reason", "Session", "Renter", "Sent", "Refund", ""]}

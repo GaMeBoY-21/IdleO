@@ -118,7 +118,7 @@ export function Invites() {
         }}
       />
       <Section title="Codes">
-        <div className="flex">
+        <div className="flex flex-wrap gap-3">
           <ListBar
             list="invites"
             tags={false}
