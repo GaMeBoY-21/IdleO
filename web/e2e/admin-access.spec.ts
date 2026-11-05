@@ -152,13 +152,17 @@ test.describe("finding anything", () => {
     await page.getByLabel("Pin it to the top").check();
     await page.getByRole("button", { name: "Add the note" }).click();
     await expect(page.getByRole("list", { name: "Notes" }).getByText("refund")).toBeVisible();
-    await expect(page.getByRole("alert").or(page.getByRole("status")).getByText("refund").first()).toBeVisible();
+    await expect(
+      page.getByRole("alert").or(page.getByRole("status")).getByText("refund").first(),
+    ).toBeVisible();
     await page.getByLabel("Add a tag").selectOption("vip");
     await expect(page.getByRole("group", { name: "Tags" }).getByText("VIP")).toBeVisible();
 
     // Trust & Safety's lead: this browser and address signed in as both of them.
     await page.getByRole("tab", { name: "Linked accounts" }).click();
-    await expect(page.getByRole("list", { name: "Linked accounts" }).getByText("same browser").first()).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Linked accounts" }).getByText("same browser").first(),
+    ).toBeVisible();
 
     // The address says which tab: it can be linked.
     await expect(page).toHaveURL(/tab=linked/);

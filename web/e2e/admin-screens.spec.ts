@@ -25,7 +25,9 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/v1/wallet": { json: data.asha.wallet },
   "/v1/sessions": { json: data.sessionsPage(data.asha.sessions) },
   "/admin/v1/session": { json: admin.inside },
-  "/admin/v1/timeline": { json: { events: [], kinds: ["security", "session"], unanswered: [], nextCursor: null } },
+  "/admin/v1/timeline": {
+    json: { events: [], kinds: ["security", "session"], unanswered: [], nextCursor: null },
+  },
   "/admin/v1/notes": { json: { notes: [] } },
   "/admin/v1/notes/mentionable": { json: { admins: [] } },
   "/admin/v1/tags": { json: { tags: [{ id: "vip", label: "VIP", colour: "running" }] } },

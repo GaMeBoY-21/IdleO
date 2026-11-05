@@ -36,7 +36,8 @@ class FlywayMigrationTests {
                         "notifications",
                         "privacy",
                         "support",
-                        "images");
+                        "images",
+                        "console");
     }
 
     @Test
