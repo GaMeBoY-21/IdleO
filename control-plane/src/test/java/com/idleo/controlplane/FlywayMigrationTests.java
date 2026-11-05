@@ -37,7 +37,8 @@ class FlywayMigrationTests {
                         "privacy",
                         "support",
                         "images",
-                        "console");
+                        "console",
+                        "queues");
     }
 
     @Test

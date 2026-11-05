@@ -132,6 +132,30 @@ class AdminMaskingTests {
         ids.put("/admin/v1/payouts/{id}", any("select id::text from payouts.payouts where user_id = ?", user));
         ids.put("/admin/v1/payments/{id}", any("select id::text from billing.topups where user_id = ?", user));
 
+        // The inbox's records, by hand: the passes that bring it up to date are the queues module's.
+        var queueItem = UUID.randomUUID();
+        jdbc.update("""
+                insert into queues.items (id, type, source_id, person_id, title, link, sla, opened_at, state, created_at)
+                values (?, 'ticket', ?, ?, 'A ticket', '/admin/tickets/', 'ticket', now(), 'open', now())
+                """, queueItem, ticket.toString(), user);
+        var macro = UUID.randomUUID();
+        jdbc.update("""
+                insert into queues.macros (id, type, name, current, created_at)
+                values (?, 'ticket', ?, 1, now())
+                """, macro, "Masking " + macro);
+        jdbc.update("""
+                insert into queues.macro_versions (macro_id, number, body, written_by, written_at)
+                values (?, 1, 'Hello {{firstName}}', ?, now())
+                """, macro, admin.id());
+        var batch = UUID.randomUUID();
+        jdbc.update("""
+                insert into queues.bulk_batches (id, requested_by, action, reason, state, total, undoable, created_at)
+                values (?, ?, '{"kind":"close"}', 'checking the masking', 'done', 0, true, now())
+                """, batch, admin.id());
+        ids.put("/admin/v1/queue/{id}", queueItem.toString());
+        ids.put("/admin/v1/queue/{id}/macros/{macro}", queueItem.toString());
+        ids.put("/admin/v1/queue/bulk/{id}", batch.toString());
+
         var parameters = Map.ofEntries(
                 Map.entry("/admin/v1/search", "q=" + person.email()),
                 Map.entry("/admin/v1/timeline", "subject=user&id=" + user),
@@ -176,7 +200,7 @@ class AdminMaskingTests {
                                 path.contains("/users/")
                                         ? user.toString()
                                         : path.contains("/hosts/") ? host.toString() : session.toString());
-                address = address.replace("{subject}", "user");
+                address = address.replace("{subject}", "user").replace("{macro}", macro.toString());
                 var query = parameters.get(path);
                 var response = mvc.perform(admin.as(get(query == null ? address : address + "?" + query)))
                         .andReturn()

@@ -82,6 +82,12 @@ export const EVERY_PERMISSION = [
   "users.read",
   "users.suspend",
   "users.unsuspend",
+  "queues.read",
+  "queues.claim",
+  "queues.assign",
+  "queues.sla",
+  "queues.bulk",
+  "macros.manage",
   "verifications.decide",
   "verifications.read",
 ];
@@ -1090,4 +1096,92 @@ export const accessLog: { entries: Schemas["AccessLogEntry"][]; nextCursor: null
     },
   ],
   nextCursor: null,
+};
+
+/** The inbox: one on someone, one past its target, one paused. */
+export const inbox: { items: Schemas["AdminQueueItem"][]; nextCursor: null } = {
+  items: [
+    {
+      id: "01a1ac00-0000-7000-8000-000000000001",
+      type: "ticket",
+      title: "#1001 grievance",
+      link: "/admin/tickets/?id=01a1ac00-0000-7000-8000-00000000aaaa",
+      state: "claimed",
+      assigneeId: "01a1ac00-0000-7000-8000-00000000bbbb",
+      assigneeName: "Nikki",
+      priority: "high",
+      overridden: false,
+      openedAt: "2026-11-01T10:00:00Z",
+      dueAt: "2026-11-02T10:00:00Z",
+      paused: false,
+      moneyPaise: 0,
+      runningSession: false,
+      version: 2,
+    },
+    {
+      id: "01a1ac00-0000-7000-8000-000000000002",
+      type: "chargeback",
+      title: "Chargeback disp_123",
+      link: "/admin/chargebacks/?id=01a1ac00-0000-7000-8000-00000000cccc",
+      state: "open",
+      priority: "urgent",
+      overridden: false,
+      openedAt: "2026-11-01T10:00:00Z",
+      dueAt: "2026-11-02T10:00:00Z",
+      paused: false,
+      breachedAt: "2026-11-02T10:00:01Z",
+      moneyPaise: 100000,
+      runningSession: false,
+      version: 1,
+    },
+    {
+      id: "01a1ac00-0000-7000-8000-000000000003",
+      type: "ticket",
+      title: "#1002 account",
+      link: "/admin/tickets/?id=01a1ac00-0000-7000-8000-00000000dddd",
+      state: "waiting",
+      priority: "low",
+      overridden: false,
+      openedAt: "2026-11-01T10:00:00Z",
+      paused: true,
+      moneyPaise: 0,
+      runningSession: false,
+      version: 1,
+    },
+  ],
+  nextCursor: null,
+};
+
+export const slaTargets: Schemas["AdminSlaTarget"][] = [
+  { sla: "grievance", firstMinutes: 1440, resolveMinutes: 21600, pauses: false, legal: true, version: 1 },
+  { sla: "ticket", firstMinutes: 1440, pauses: true, legal: false, version: 1 },
+  { sla: "chargeback", pauses: false, legal: false, version: 1 },
+];
+
+const shape = (priority: string): Schemas["BulkShape"] => ({
+  priority,
+  state: "open",
+  tagged: false,
+});
+
+export const bulkPreview: Schemas["BulkPreview"] = {
+  changes: [
+    {
+      item: inbox.items[2]!.id,
+      title: "#1002 account",
+      before: shape("low"),
+      after: shape("high"),
+      applies: true,
+    },
+    {
+      item: inbox.items[0]!.id,
+      title: "#1001 grievance",
+      before: shape("high"),
+      after: shape("high"),
+      applies: false,
+      why: "It's at that priority already.",
+    },
+  ],
+  willChange: 1,
+  unchanged: 1,
 };

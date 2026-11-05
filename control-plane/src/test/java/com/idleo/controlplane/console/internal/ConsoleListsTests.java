@@ -83,6 +83,8 @@ class ConsoleListsTests {
             Map.entry("/admin/v1/notes", "the notes on one record"),
             Map.entry("/admin/v1/notes/mentionable", "a picker's choices"),
             Map.entry("/admin/v1/passkeys", "this admin's own, at most a handful"),
+            Map.entry("/admin/v1/queue/sla", "the Owner's few targets"),
+            Map.entry("/admin/v1/queue/bulk/{id}", "one bulk action, item by item"),
             Map.entry("/admin/v1/payments/{id}", "one record"),
             Map.entry("/admin/v1/records/{subject}/{id}/tags", "the tags on one record"),
             Map.entry("/admin/v1/refunds/{id}", "one record"),
@@ -399,7 +401,7 @@ class ConsoleListsTests {
                         UUID.randomUUID(),
                         json.readTree("{\"list\":\"invites\",\"reason\":\"counting the invites\"}"),
                         "counting the invites",
-                        AuditTrail.Actor.operator("test")))
+                        new AuditTrail.Actor(AuditTrail.Actor.Kind.ADMIN, UUID.randomUUID(), "test")))
                 .orElseThrow();
 
         jdbc.update(invite, UUID.randomUUID(), UUID.randomUUID().toString().getBytes(), note);

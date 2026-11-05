@@ -15,4 +15,7 @@ public interface UserDirectory {
 
     /** The address to write to: the user's email, when there is one and the sign-in provider has verified it. */
     Optional<String> verifiedEmail(UUID userId);
+
+    /** What the user goes by, when they've said. */
+    Optional<String> displayName(UUID userId);
 }

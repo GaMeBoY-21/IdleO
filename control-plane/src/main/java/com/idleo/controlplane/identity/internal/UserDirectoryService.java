@@ -29,4 +29,9 @@ class UserDirectoryService implements UserDirectory {
     public Optional<String> verifiedEmail(UUID userId) {
         return users.findById(userId).filter(User::emailVerified).map(User::email);
     }
+
+    @Override
+    public Optional<String> displayName(UUID userId) {
+        return users.findById(userId).map(User::displayName);
+    }
 }
