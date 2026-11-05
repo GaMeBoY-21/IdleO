@@ -61,6 +61,11 @@ public final class PersonalDataMask {
     /** What only looks like a person's data: machine values no one types, which a mask would make useless. */
     private static final Set<String> TECHNICAL = Set.of("useragent", "reference", "digest", "sha256", "otpauthuri");
 
+    /** An id, a ticket's or a document's number, Razorpay's ids and an image's digest. */
+    private static final Pattern MACHINE_VALUE =
+            Pattern.compile("[0-9a-fA-F-]{36}|#?[0-9]{1,8}|(order|pay|rfnd|pout)_[A-Za-z0-9]+"
+                    + "|(sha256:)?[0-9a-f]{64}|[A-Z]{2,8}[0-9]{4}-[0-9]{6}");
+
     private PersonalDataMask() {}
 
     /** {@code ni•••@gmail.com}. */
@@ -164,6 +169,18 @@ public final class PersonalDataMask {
             return value.contains(":") || value.matches("[0-9.]+") ? ip(value) : DOTS;
         }
         return text(value);
+    }
+
+    /**
+     * What an admin typed into a search box, for the log. Machine values stay, since they say nothing about a person
+     * without the record. Anything else might be a name, so all but its first two characters go.
+     */
+    public static String query(String typed) {
+        var masked = text(typed);
+        if (!masked.equals(typed) || MACHINE_VALUE.matcher(typed).matches()) {
+            return masked;
+        }
+        return typed.substring(0, Math.min(2, typed.length())) + DOTS;
     }
 
     /** A copy of a JSON response, with every value masked. */

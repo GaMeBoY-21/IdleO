@@ -2900,6 +2900,35 @@ paths:
         idToken: []
       tags:
       - adminReview
+  /admin/v1/search:
+    get:
+      operationId: adminSearchSearch
+      parameters:
+      - in: query
+        name: q
+        required: true
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSearch
   /admin/v1/second-factor:
     post:
       operationId: adminSessionEnrol
@@ -11031,6 +11060,23 @@ components:
       required:
       - id
       - type
+    Hit:
+      type: object
+      properties:
+        detail:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+        page:
+          type: string
+        title:
+          type: string
+      required:
+      - id
+      - page
+      - title
     HostList:
       type: object
       properties:
@@ -12979,6 +13025,32 @@ components:
           minLength: 5
       required:
       - reason
+    SearchGroup:
+      type: object
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: "#/components/schemas/Hit"
+        type:
+          type: string
+      required:
+      - hits
+      - type
+    SearchResults:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchGroup"
+        unanswered:
+          type: array
+          items:
+            type: string
+      required:
+      - groups
+      - unanswered
     SecurityEvent:
       type: object
       properties:

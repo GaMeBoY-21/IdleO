@@ -20,4 +20,5 @@ record RequestLimitsProperties(
         @DefaultValue("10") @Positive int hostLinksPerHour,
         @DefaultValue("120") @Positive int logReadsPerMinute,
         @DefaultValue("30") @Positive int vitalsPerMinute,
-        @DefaultValue("5") @Positive int supportMessagesPerHour) {}
+        @DefaultValue("5") @Positive int supportMessagesPerHour,
+        @DefaultValue("120") @Positive int adminSearchesPerMinute) {}

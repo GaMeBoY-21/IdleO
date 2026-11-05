@@ -73,10 +73,11 @@ class AdminInsiderSignals {
     void revealed(UUID admin) {
         var count = jdbc.sql("""
                         select count(*) from identity.personal_data_access
-                        where admin_id = :admin and field <> :view and at > :since
+                        where admin_id = :admin and field <> :view and field <> :search and at > :since
                         """)
                 .param("admin", admin)
                 .param("view", AccessLog.VIEW)
+                .param("search", AccessLog.SEARCH)
                 .param("since", Timestamp.from(Instant.now(clock).minus(Duration.ofHours(1))))
                 .query(Long.class)
                 .single();

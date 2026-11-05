@@ -144,12 +144,13 @@ class Pans implements VerifiedPans {
         var now = now();
         jdbc.sql("""
                         insert into payouts.pans
-                            (user_id, pan_sealed, pan_last4, name, holder, state, checked, verifier, submitted_at,
-                             decided_at, decided_by, reason)
-                        values (:userId, :sealed, :last4, :name, :holder, :state, :checked, :verifier, :now,
+                            (user_id, pan_sealed, pan_lookup, pan_last4, name, holder, state, checked, verifier,
+                             submitted_at, decided_at, decided_by, reason)
+                        values (:userId, :sealed, :lookup, :last4, :name, :holder, :state, :checked, :verifier, :now,
                                 :decidedAt, :decidedBy, :reason)
                         on conflict (user_id) do update set
-                            pan_sealed = excluded.pan_sealed, pan_last4 = excluded.pan_last4, name = excluded.name,
+                            pan_sealed = excluded.pan_sealed, pan_lookup = excluded.pan_lookup,
+                            pan_last4 = excluded.pan_last4, name = excluded.name,
                             holder = excluded.holder, state = excluded.state, checked = excluded.checked,
                             verifier = excluded.verifier, submitted_at = excluded.submitted_at,
                             decided_at = excluded.decided_at, decided_by = excluded.decided_by,
@@ -157,6 +158,7 @@ class Pans implements VerifiedPans {
                         """)
                 .param("userId", userId)
                 .param("sealed", seal.seal(userId, pan))
+                .param("lookup", seal.lookup(pan))
                 .param("last4", pan.substring(6))
                 .param("name", name)
                 .param("holder", pan.charAt(3) == 'P' || pan.charAt(3) == 'H' ? "individual" : "business")
@@ -170,6 +172,21 @@ class Pans implements VerifiedPans {
                 .update();
         metrics.panChecked(state);
         return find(userId).orElseThrow();
+    }
+
+    /** Fills the lookup value of up to {@code batch} PANs given before it existed, or by the release before. */
+    int fillLookups(int batch) {
+        var rows = jdbc.sql("select user_id, pan_sealed from payouts.pans where pan_lookup is null limit :batch")
+                .param("batch", batch)
+                .query((rs, n) -> Map.entry(rs.getObject("user_id", UUID.class), rs.getBytes("pan_sealed")))
+                .list();
+        rows.forEach(row -> jdbc.sql("""
+                        update payouts.pans set pan_lookup = :lookup where user_id = :userId and pan_lookup is null
+                        """)
+                .param("lookup", seal.lookup(seal.open(row.getKey(), row.getValue())))
+                .param("userId", row.getKey())
+                .update());
+        return rows.size();
     }
 
     Optional<Pan> find(UUID userId) {

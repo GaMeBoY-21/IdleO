@@ -3,6 +3,7 @@ package com.idleo.controlplane.identity.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,6 +21,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.servlet.HandlerMapping;
 
 /**
  * The request limit's own rules, without a server: once per request (a stream's second dispatch isn't counted),
@@ -33,7 +35,7 @@ class RequestLimitsTests {
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-12T10:00:20Z"), ZoneOffset.UTC);
     private final RequestLimits limits =
-            new RequestLimits(redis, new RequestLimitsProperties(60, 10, 10, 120, 30, 5), clock);
+            new RequestLimits(redis, new RequestLimitsProperties(60, 10, 10, 120, 30, 5, 120), clock);
 
     RequestLimitsTests() {
         when(redis.opsForValue()).thenReturn(counters);
@@ -57,6 +59,19 @@ class RequestLimitsTests {
                             .hasValueSatisfying(
                                     wait -> assertThat(wait.toSeconds()).isEqualTo(40));
                 });
+    }
+
+    @Test
+    void theConsolesSearchBoxCountsOnItsOwnPerAdmin() {
+        when(counters.increment(startsWith("limits:admin-searches:"))).thenReturn(121L);
+        var request = request(DispatcherType.REQUEST);
+        request.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/admin/v1/search");
+
+        assertThatThrownBy(() -> limits.preHandle(request, new MockHttpServletResponse(), ""))
+                .isInstanceOfSatisfying(
+                        ApiProblem.class,
+                        problem -> assertThat(problem.problem()).isEqualTo(Problem.RATE_LIMITED));
+        verify(counters, never()).increment(startsWith("limits:requests:"));
     }
 
     @Test

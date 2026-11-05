@@ -151,6 +151,7 @@ limits:
   host-links-per-hour: 10
   vitals-per-minute: 30
   support-messages-per-hour: 5
+  admin-searches-per-minute: 120
 
 # The web app, where a CLI sign-in is approved (ADR 0025): its /cli-login/ page is the link `idleo login` shows.
 # Production sets IDENTITY_WEB_APP_URL; the prod profile refuses plain HTTP or this machine (ProductionSettingsGuard).

@@ -13,6 +13,7 @@ import { Disputes } from "./Disputes";
 import { Notices } from "./Notices";
 import { Tickets } from "./Tickets";
 import { Gate } from "./Gate";
+import { forgetRecent, PaletteButton, PaletteProvider } from "./Palette";
 import { NeedsPermission, useCan } from "./permissions";
 import { Hosts } from "./Hosts";
 import { Invites } from "./Invites";
@@ -69,33 +70,35 @@ function guarded(href: string, screen: React.ReactNode) {
 export function AdminConsole() {
   return (
     <Gate>
-      <Layout>
-        <Switch>
-          <Route path="/admin/">{guarded("/admin/", <Dashboard />)}</Route>
-          <Route path="/admin/users/">{guarded("/admin/users/", <Users />)}</Route>
-          <Route path="/admin/hosts/">{guarded("/admin/hosts/", <Hosts />)}</Route>
-          <Route path="/admin/sessions/">{guarded("/admin/sessions/", <Sessions />)}</Route>
-          <Route path="/admin/review/">{guarded("/admin/review/", <Review />)}</Route>
-          <Route path="/admin/disputes/">{guarded("/admin/disputes/", <Disputes />)}</Route>
-          <Route path="/admin/abuse/">{guarded("/admin/abuse/", <Abuse />)}</Route>
-          <Route path="/admin/images/">{guarded("/admin/images/", <Images />)}</Route>
-          <Route path="/admin/tickets/">{guarded("/admin/tickets/", <Tickets />)}</Route>
-          <Route path="/admin/notices/">{guarded("/admin/notices/", <Notices />)}</Route>
-          <Route path="/admin/money/">{guarded("/admin/money/", <Money />)}</Route>
-          <Route path="/admin/payments/">{guarded("/admin/payments/", <Payments />)}</Route>
-          <Route path="/admin/refunds/">{guarded("/admin/refunds/", <Refunds />)}</Route>
-          <Route path="/admin/invoices/">{guarded("/admin/invoices/", <Invoices />)}</Route>
-          <Route path="/admin/chargebacks/">{guarded("/admin/chargebacks/", <Chargebacks />)}</Route>
-          <Route path="/admin/payouts/">{guarded("/admin/payouts/", <Payouts />)}</Route>
-          <Route path="/admin/verification/">{guarded("/admin/verification/", <Verification />)}</Route>
-          <Route path="/admin/clawbacks/">{guarded("/admin/clawbacks/", <Clawbacks />)}</Route>
-          <Route path="/admin/tax/">{guarded("/admin/tax/", <Tax />)}</Route>
-          <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
-          <Route path="/admin/approvals/">{guarded("/admin/approvals/", <Approvals />)}</Route>
-          <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
-          <Route path="/admin/security/" component={Security} />
-        </Switch>
-      </Layout>
+      <PaletteProvider screens={ADMIN_SCREENS}>
+        <Layout>
+          <Switch>
+            <Route path="/admin/">{guarded("/admin/", <Dashboard />)}</Route>
+            <Route path="/admin/users/">{guarded("/admin/users/", <Users />)}</Route>
+            <Route path="/admin/hosts/">{guarded("/admin/hosts/", <Hosts />)}</Route>
+            <Route path="/admin/sessions/">{guarded("/admin/sessions/", <Sessions />)}</Route>
+            <Route path="/admin/review/">{guarded("/admin/review/", <Review />)}</Route>
+            <Route path="/admin/disputes/">{guarded("/admin/disputes/", <Disputes />)}</Route>
+            <Route path="/admin/abuse/">{guarded("/admin/abuse/", <Abuse />)}</Route>
+            <Route path="/admin/images/">{guarded("/admin/images/", <Images />)}</Route>
+            <Route path="/admin/tickets/">{guarded("/admin/tickets/", <Tickets />)}</Route>
+            <Route path="/admin/notices/">{guarded("/admin/notices/", <Notices />)}</Route>
+            <Route path="/admin/money/">{guarded("/admin/money/", <Money />)}</Route>
+            <Route path="/admin/payments/">{guarded("/admin/payments/", <Payments />)}</Route>
+            <Route path="/admin/refunds/">{guarded("/admin/refunds/", <Refunds />)}</Route>
+            <Route path="/admin/invoices/">{guarded("/admin/invoices/", <Invoices />)}</Route>
+            <Route path="/admin/chargebacks/">{guarded("/admin/chargebacks/", <Chargebacks />)}</Route>
+            <Route path="/admin/payouts/">{guarded("/admin/payouts/", <Payouts />)}</Route>
+            <Route path="/admin/verification/">{guarded("/admin/verification/", <Verification />)}</Route>
+            <Route path="/admin/clawbacks/">{guarded("/admin/clawbacks/", <Clawbacks />)}</Route>
+            <Route path="/admin/tax/">{guarded("/admin/tax/", <Tax />)}</Route>
+            <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
+            <Route path="/admin/approvals/">{guarded("/admin/approvals/", <Approvals />)}</Route>
+            <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
+            <Route path="/admin/security/" component={Security} />
+          </Switch>
+        </Layout>
+      </PaletteProvider>
     </Gate>
   );
 }
@@ -152,6 +155,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const leave = async () => {
     await adminApi.DELETE("/admin/v1/session").catch(() => undefined);
     adminSession.clear();
+    forgetRecent();
     client.removeQueries({ queryKey: [ADMIN] });
   };
   const item = (screen: (typeof ADMIN_SCREENS)[number]) => {
@@ -191,6 +195,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </Link>
           <span className="text-caption font-bold tracking-wider text-text-3 uppercase md:px-3">Admin</span>
         </div>
+        <PaletteButton />
         <nav aria-label="Admin" className="-mx-1 overflow-x-auto md:mx-0 md:mt-3">
           <ul className="flex gap-1 md:hidden">{screens.map(item)}</ul>
           <div className="hidden flex-col gap-4 md:flex">

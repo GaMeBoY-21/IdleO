@@ -43,6 +43,7 @@ GET /admin/v1/reconciliation,money.read,allow,403,403,403,allow,allow
 GET /admin/v1/refunds,refunds.read,allow,403,allow,403,allow,allow
 GET /admin/v1/refunds/{id},refunds.read,allow,403,allow,403,allow,allow
 GET /admin/v1/review-minutes,review.read,allow,allow,403,allow,allow,allow
+GET /admin/v1/search,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/session,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/sessions,sessions.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/sessions/{id},sessions.read,allow,allow,allow,allow,403,allow
