@@ -92,8 +92,9 @@ jobs:
       contents: read
       # Downloading the visual baselines and the Lighthouse baseline of the last run on main.
       actions: read
-    # The budgets are lighthouserc.json's; this is only how long the runner may take.
-    timeout-minutes: 45
+    # The budgets are lighthouserc.json's; this is only how long the runner may take. Lighthouse measures every screen
+    # several times, one after another, and nothing can run beside it, so it can't be hurried.
+    timeout-minutes: ${{ matrix.lighthouse && 80 || 30 }}
     strategy:
       fail-fast: false
       matrix:
