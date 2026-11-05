@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
@@ -7,6 +8,7 @@ import { ADMIN, adminApi, adminData, type AdminPaymentMismatch } from "./api";
 import { downloadAdminInvoice } from "./Invoices";
 import {
   AdminPage,
+  BackLink,
   Cell,
   Empty,
   Filters,
@@ -20,6 +22,7 @@ import {
   Table,
 } from "./ui";
 import { ActionButton } from "./permissions";
+import { PaymentRecord } from "./Records";
 
 /** What each kind of disagreement means, for the admin who has to put it right (docs/runbooks/payments.md). */
 export const MISMATCH_WORDS: Record<string, string> = {
@@ -37,6 +40,18 @@ export const MISMATCH_WORDS: Record<string, string> = {
  * accepted with a reason once it's been looked into.
  */
 export function Payments() {
+  const id = new URLSearchParams(useSearch()).get("id");
+  return id ? (
+    <AdminPage title="Payment">
+      <BackLink href="/admin/payments/">← All payments</BackLink>
+      <PaymentRecord id={id} />
+    </AdminPage>
+  ) : (
+    <PaymentSearch />
+  );
+}
+
+function PaymentSearch() {
   return (
     <AdminPage title="Payments">
       <Search />
@@ -94,7 +109,7 @@ function Search() {
                     <RelativeTime value={payment.createdAt} />
                   </Cell>
                   <Cell>
-                    <Id value={payment.userId} />
+                    <Id value={payment.userId} page="user" />
                   </Cell>
                   <Cell>
                     <Money paise={payment.amountPaise} />
@@ -206,7 +221,7 @@ function Reconciliation() {
                       </Pill>
                     </Cell>
                     <Cell className="tabular">{item.subject}</Cell>
-                    <Cell>{item.userId ? <Id value={item.userId} /> : "—"}</Cell>
+                    <Cell>{item.userId ? <Id value={item.userId} page="user" /> : "—"}</Cell>
                     <Cell>
                       {item.ourPaise != null ? <Money paise={item.ourPaise} /> : "—"} {item.ourStatus ?? ""}
                     </Cell>

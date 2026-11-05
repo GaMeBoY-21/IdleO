@@ -67,10 +67,10 @@ export function Clawbacks() {
                     <RelativeTime value={clawback.createdAt} />
                   </Cell>
                   <Cell>
-                    <Id value={clawback.ownerId} />
+                    <Id value={clawback.ownerId} page="user" />
                   </Cell>
                   <Cell>
-                    <Id value={clawback.sessionId} />
+                    <Id value={clawback.sessionId} page="session" />
                   </Cell>
                   <Cell>
                     <Money paise={clawback.amountPaise} />

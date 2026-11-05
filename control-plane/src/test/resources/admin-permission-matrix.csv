@@ -40,6 +40,7 @@ GET /admin/v1/payments/{id},payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/payouts,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/reconciliation,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/verifications,verifications.read,allow,403,403,403,allow,allow
+GET /admin/v1/payouts/{id},payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/personal-data/access-log,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/ratings,ratings.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/reconciliation,money.read,allow,403,403,403,allow,allow

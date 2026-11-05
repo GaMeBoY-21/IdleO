@@ -26,6 +26,7 @@ import {
 } from "./ui";
 import { usePaletteActions } from "./Palette";
 import { ActionButton, useCan } from "./permissions";
+import { UserTabs } from "./Records";
 import { Reveal } from "./Reveal";
 
 /** Users (ADR 0027): find them by email, name or id; one opens with what can be done to it. */
@@ -388,6 +389,7 @@ function UserRecord({ id }: { id: string }) {
           }}
         />
       )}
+      <UserTabs id={id} can={can} />
     </AdminPage>
   );
 }

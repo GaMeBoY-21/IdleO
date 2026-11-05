@@ -26,6 +26,7 @@ import {
   Timeline,
 } from "./ui";
 import { usePaletteActions } from "./Palette";
+import { SessionTabs } from "./Records";
 import { ActionButton } from "./permissions";
 
 /** Sessions (ADR 0027): find them; one opens with its timeline and attempts, and can be stopped while it runs. */
@@ -121,16 +122,16 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
             {rows.map((session) => (
               <Row key={session.id}>
                 <Cell>
-                  <Id value={session.id} />
+                  <Id value={session.id} page="session" />
                 </Cell>
                 <Cell>
                   <SessionState state={session.state} />
                 </Cell>
                 <Cell>{session.templateId}</Cell>
                 <Cell>
-                  <Id value={session.renterId} />
+                  <Id value={session.renterId} page="user" />
                 </Cell>
-                <Cell>{session.hostId ? <Id value={session.hostId} /> : "—"}</Cell>
+                <Cell>{session.hostId ? <Id value={session.hostId} page="host" /> : "—"}</Cell>
                 <Cell className="tabular">
                   {session.pricePaisePerMin == null ? "—" : `${formatPaise(session.pricePaisePerMin)}/min`}
                 </Cell>
@@ -281,7 +282,7 @@ function SessionRecord({ id }: { id: string }) {
                       <Row key={attempt.attempt}>
                         <Cell className="tabular">{attempt.attempt}</Cell>
                         <Cell>
-                          <Id value={attempt.hostId} />
+                          <Id value={attempt.hostId} page="host" />
                         </Cell>
                         <Cell className="tabular">{formatPaise(attempt.pricePaisePerMin)}/min</Cell>
                         <Cell>
@@ -298,6 +299,7 @@ function SessionRecord({ id }: { id: string }) {
           );
         }}
       </QueryView>
+      <SessionTabs id={id} />
     </AdminPage>
   );
 }

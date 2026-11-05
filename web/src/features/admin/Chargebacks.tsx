@@ -87,7 +87,9 @@ function ChargebackList() {
                 <Cell>
                   <RelativeTime value={chargeback.openedAt} />
                 </Cell>
-                <Cell>{chargeback.userId ? <Id value={chargeback.userId} /> : "not one of ours"}</Cell>
+                <Cell>
+                  {chargeback.userId ? <Id value={chargeback.userId} page="user" /> : "not one of ours"}
+                </Cell>
                 <Cell>
                   <Money paise={chargeback.amountPaise} />
                 </Cell>
@@ -203,7 +205,7 @@ function ChargebackRecord({ id }: { id: string }) {
                   {found.sessions.map((session) => (
                     <Row key={session.sessionId}>
                       <Cell>
-                        <Id value={session.sessionId} />
+                        <Id value={session.sessionId} page="session" />
                       </Cell>
                       <Cell>
                         <Money paise={session.paidFromThisPaymentPaise} />

@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, StaleNotice, staleSince } from "@/components/ui
 import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
+import { recordHref } from "./links";
 
 /**
  * The console's building blocks (ADR 0027, ADR 0043): the same tokens as the app, but dense (smaller type, tighter
@@ -236,12 +237,19 @@ export function Fields({ items }: { items: [string, ReactNode][] }) {
 }
 
 /** An id, shortened to its last 8 characters for reading, whole in its title and for screen readers. */
-export function Id({ value }: { value: string }) {
-  return (
+export function Id({ value, page, label }: { value: string; page?: string; label?: string }) {
+  const shown = (
     <span className="tabular" title={value}>
-      <span aria-hidden="true">…{value.slice(-8)}</span>
-      <span className="sr-only">{value}</span>
+      <span aria-hidden={label ? undefined : true}>{label ?? `…${value.slice(-8)}`}</span>
+      {!label && <span className="sr-only">{value}</span>}
     </span>
+  );
+  return page ? (
+    <Link href={recordHref(page, value)} className="underline">
+      {shown}
+    </Link>
+  ) : (
+    shown
   );
 }
 

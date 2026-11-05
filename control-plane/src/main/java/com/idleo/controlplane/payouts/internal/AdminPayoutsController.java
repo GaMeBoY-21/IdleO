@@ -239,6 +239,14 @@ class AdminPayoutsController {
         return AdminPayoutRun.of(runs.pay(run, Paise.of(runs.minimum())));
     }
 
+    @RequiresPermission(AdminPermission.PAYOUTS_READ)
+    @GetMapping("/{id}")
+    AdminPayout get(@PathVariable UUID id) {
+        return payouts.find(id)
+                .map(AdminPayout::of)
+                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no such payout."));
+    }
+
     /** Pays one person now (a retry after a failed payout), whatever the weekly minimum. */
     @RequiresPermission(AdminPermission.PAYOUTS_RELEASE)
     @PostMapping("/retry")
