@@ -3,7 +3,8 @@ import { useLocation, useSearch } from "wouter";
 
 /**
  * A list's address (ADR 0052): its filters, order and columns live in the URL, so any view of any list can be linked,
- * saved and shared. A value that's the list's default stays out of the address.
+ * saved and shared. A value that's the list's default stays out of the address. A filter is never called `id` or `tab`:
+ * those say which record's page, and which of its tabs, is open.
  */
 export function useAddress(): [URLSearchParams, (change: (params: URLSearchParams) => void) => void] {
   const search = useSearch();
