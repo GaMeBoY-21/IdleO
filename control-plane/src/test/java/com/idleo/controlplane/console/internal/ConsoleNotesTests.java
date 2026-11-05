@@ -217,6 +217,8 @@ class ConsoleNotesTests {
         jdbc.update("update identity.users set email = ? where id = ?", "asha" + unique + "@gmail.com", one);
         jdbc.update("update identity.users set email = ? where id = ?", "a.s.h.a" + unique + "+z@gmail.com", two);
         var vpa = "shared." + unique + "@okhdfc";
+        // A network of their own: other tests' people sign in from the documentation ranges too.
+        var address = "198.18." + Math.abs(unique.hashCode() % 250) + ".55";
         for (var who : List.of(one, two)) {
             jdbc.update(
                     "insert into payouts.methods (id, user_id, vpa, state, checked_at) values (?, ?, ?, 'active', now())",
@@ -225,17 +227,22 @@ class ConsoleNotesTests {
                     vpa);
             jdbc.update(
                     "insert into identity.security_events (id, user_id, kind, address, device, at)"
-                            + " values (?, ?, 'sign_in', '203.0.113.55', ?, now())",
+                            + " values (?, ?, 'sign_in', cast(? as inet), ?, now())",
                     UUID.randomUUID(),
                     who,
+                    address,
                     "device" + unique);
         }
         var trust = TestAdmins.signInAs(mvc, jdbc, clock, "trust_safety");
         var page = linked(trust, one);
-        assertThat(page.toString()).contains(two.toString());
-        var signals = page.get("accounts").get(0).get("signals").toString();
+        var signals = "";
+        for (var account : page.get("accounts")) {
+            if (account.get("userId").asString().equals(two.toString())) {
+                signals = account.get("signals").toString();
+            }
+        }
         assertThat(signals).contains("same_email", "same_upi", "same_device", "same_network");
-        assertThat(signals).doesNotContain(vpa, "203.0.113.55");
+        assertThat(signals).doesNotContain(vpa, address);
 
         var support = TestAdmins.signInAs(mvc, jdbc, clock, "support");
         assertThat(mvc.perform(support.as(get("/admin/v1/users/" + one + "/linked-accounts")))

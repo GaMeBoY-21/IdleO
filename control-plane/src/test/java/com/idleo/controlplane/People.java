@@ -327,6 +327,24 @@ public final class People {
                 ts(now),
                 "GPU-" + marker);
 
+        // The console: a note and a tag about them.
+        jdbc.update(
+                "insert into console.notes (id, subject_kind, subject_id, subject_user_id, author_id, body, created_at)"
+                        + " values (?, 'user', ?, ?, ?, ?, ?)",
+                UUID.randomUUID(),
+                me,
+                me,
+                UUID.randomUUID(),
+                "A note about " + marker,
+                ts(now));
+        jdbc.update(
+                "insert into console.tag_assignments (subject_kind, subject_id, tag_id, subject_user_id, added_by, added_at)"
+                        + " values ('user', ?, 'partner', ?, ?, ?)",
+                me,
+                me,
+                UUID.randomUUID(),
+                ts(now));
+
         // Metering and money: the session's record of minutes, and credit given through the console.
         jdbc.update(
                 "insert into metering.metered_sessions (session_id, renter_id, started_at, max_spend_paise,"
