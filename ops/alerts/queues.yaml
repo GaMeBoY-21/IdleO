@@ -1,0 +1,32 @@
+# The console's one inbox (ADR 0053). A target passed is something to deal with today, so it goes in the daily digest; a
+# chargeback inside its window pages, since Razorpay's date doesn't move and evidence after it is lost money.
+groups:
+  - name: queues
+    rules:
+      - alert: QueueTargetBreached
+        # Open items past their target, by kind of work.
+        expr: max by (type) (queues_items_breached{job="control-plane"}) > 0
+        for: 10m
+        labels:
+          severity: digest
+        annotations:
+          summary: 'Work of kind {{ $labels.type }} is past its target.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-target-breached
+      - alert: ChargebackEvidenceDue
+        # A chargeback not settled is within 48 hours of Razorpay's evidence deadline, or past it.
+        expr: max(queues_chargebacks_due_soon{job="control-plane"}) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A chargeback''s evidence is due within 48 hours.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#chargeback-evidence-due
+      - alert: QueueSyncStopped
+        # The inbox's pass runs every 30 s on one instance at a time; silence means timers and alerts have stopped too.
+        expr: time() - max(queues_sync_last_pass{job="control-plane"}) > 900
+        for: 5m
+        labels:
+          severity: digest
+        annotations:
+          summary: 'The inbox has not been brought up to date for 15 minutes.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-sync-stopped

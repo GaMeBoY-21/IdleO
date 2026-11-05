@@ -28,7 +28,8 @@ class ModularityTests {
                         "privacy",
                         "support",
                         "images",
-                        "console");
+                        "console",
+                        "queues");
     }
 
     @Test

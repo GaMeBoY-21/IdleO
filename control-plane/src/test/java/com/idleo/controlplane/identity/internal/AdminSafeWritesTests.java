@@ -36,7 +36,9 @@ class AdminSafeWritesTests {
             "/admin/v1/users/{id}/exports",
             "/admin/v1/me/sessions/{id}/end",
             "/admin/v1/admins/sessions/{id}/end",
-            "/admin/v1/approvals/{id}/download");
+            "/admin/v1/approvals/{id}/download",
+            // An undo works once, and puts back each item as a batch: the items' own versions don't apply.
+            "/admin/v1/queue/bulk/{id}/undo");
 
     @Autowired
     MockMvc mvc;

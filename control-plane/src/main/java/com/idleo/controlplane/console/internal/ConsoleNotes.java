@@ -271,7 +271,7 @@ class ConsoleNotes {
     }
 
     @Transactional
-    void assign(CurrentUser admin, String kind, UUID subject, String tag) {
+    void assign(UUID admin, String kind, UUID subject, String tag) {
         var person = personOf(kind, subject);
         if (vocabulary().stream().noneMatch(known -> known.id().equals(tag))) {
             throw ApiProblem.invalid("tag", "isn't one of the Owner's tags.");
@@ -286,17 +286,23 @@ class ConsoleNotes {
                 .param("subject", subject)
                 .param("tag", tag)
                 .param("person", person)
-                .param("admin", admin.id())
+                .param("admin", admin)
                 .param("now", Timestamp.from(Instant.now(clock)))
                 .update();
         if (added > 0) {
             audit.record(new AuditTrail.Entry(
-                    audit.admin(admin), "tag.add", kind, subject.toString(), "added a tag", null, Map.of("tag", tag)));
+                    new AuditTrail.Actor(AuditTrail.Actor.Kind.ADMIN, admin, admin.toString()),
+                    "tag.add",
+                    kind,
+                    subject.toString(),
+                    "added a tag",
+                    null,
+                    Map.of("tag", tag)));
         }
     }
 
     @Transactional
-    void unassign(CurrentUser admin, String kind, UUID subject, String tag) {
+    void unassign(UUID admin, String kind, UUID subject, String tag) {
         var removed = jdbc.sql("""
                         delete from console.tag_assignments
                         where subject_kind = :kind and subject_id = :subject and tag_id = :tag
@@ -307,7 +313,7 @@ class ConsoleNotes {
                 .update();
         if (removed > 0) {
             audit.record(new AuditTrail.Entry(
-                    audit.admin(admin),
+                    new AuditTrail.Actor(AuditTrail.Actor.Kind.ADMIN, admin, admin.toString()),
                     "tag.remove",
                     kind,
                     subject.toString(),

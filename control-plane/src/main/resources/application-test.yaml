@@ -154,3 +154,8 @@ retention:
 privacy:
   export-sweep-every: 3650d
   erasure-sweep-every: 3650d
+
+# Each test runs the inbox's passes itself, on its own clock.
+queues:
+  sync-every: 1h
+  bulk-every: 1h

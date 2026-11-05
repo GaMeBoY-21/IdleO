@@ -120,7 +120,7 @@ adminApi.use({
 /** Every admin query's key starts with this, so signing out of the console forgets all of them at once. */
 export const ADMIN = "admin";
 
-type Schemas = components["schemas"];
+export type Schemas = components["schemas"];
 export type AdminSessionStatus = Schemas["AdminSessionStatus"];
 export type AdminSearchHit = Schemas["SearchHit"];
 export type AdminNote = Schemas["AdminNote"];

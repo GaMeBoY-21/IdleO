@@ -3186,6 +3186,646 @@ paths:
         idToken: []
       tags:
       - adminPersonalData
+  /admin/v1/queue:
+    get:
+      operationId: adminQueueList
+      parameters:
+      - in: query
+        name: view
+        required: false
+        schema:
+          type: string
+          default: all
+      - in: query
+        name: type
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueuePage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/bulk:
+    get:
+      operationId: adminQueueBulks
+      parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBulkActions"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+    post:
+      operationId: adminQueueRun
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkRun"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBulkAction"
+          description: It's running
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: It goes to another admin
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/bulk/preview:
+    post:
+      operationId: adminQueuePreview
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkPreview"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/bulk/{id}:
+    get:
+      operationId: adminQueueBulkAction
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBulkAction"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/bulk/{id}/undo:
+    post:
+      operationId: adminQueueUndo
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBulkAction"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/counts:
+    get:
+      operationId: adminQueueCounts
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueueCounts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/macros:
+    get:
+      operationId: adminQueueMacros
+      parameters:
+      - in: query
+        name: type
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMacroPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+    post:
+      operationId: adminQueueCreateMacro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MacroRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMacro"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/macros/{id}:
+    post:
+      operationId: adminQueueEditMacro
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MacroRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMacro"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/macros/{id}/retire:
+    post:
+      operationId: adminQueueRetireMacro
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/sla:
+    get:
+      operationId: adminQueueTargets
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSlaTargets"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/sla/{sla}:
+    post:
+      operationId: adminQueueSetTarget
+      parameters:
+      - in: path
+        name: sla
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlaChange"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSlaTargets"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/{id}:
+    get:
+      operationId: adminQueueGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueueItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/{id}/assign:
+    post:
+      operationId: adminQueueAssign
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueueItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/{id}/claim:
+    post:
+      operationId: adminQueueClaim
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueueItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/{id}/macro:
+    post:
+      operationId: adminQueueApplyMacro
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyMacro"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueueItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/{id}/macros/{macro}:
+    get:
+      operationId: adminQueuePreviewMacro
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: macro
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MacroPreview"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/{id}/priority:
+    post:
+      operationId: adminQueuePriority
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriorityRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueueItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
+  /admin/v1/queue/{id}/release:
+    post:
+      operationId: adminQueueRelease
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQueueItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminQueue
   /admin/v1/ratings:
     get:
       operationId: adminRatingsList
@@ -8087,6 +8727,76 @@ components:
       - duePaise
       - isShort
       - payday
+    AdminBulkAction:
+      type: object
+      properties:
+        action:
+          $ref: "#/components/schemas/BulkAsked"
+        createdAt:
+          type: string
+          format: date-time
+        done:
+          type: integer
+          format: int32
+        failed:
+          type: integer
+          format: int32
+        id:
+          type: string
+          format: uuid
+        outcomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkOutcome"
+        skipped:
+          type: integer
+          format: int32
+        state:
+          type: string
+        total:
+          type: integer
+          format: int32
+        undoUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
+        undoable:
+          type: boolean
+        undone:
+          type: integer
+          format: int32
+        undoneAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - action
+      - createdAt
+      - done
+      - failed
+      - id
+      - outcomes
+      - skipped
+      - state
+      - total
+      - undoable
+      - undone
+    AdminBulkActions:
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            type: string
+            format: uuid
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - actions
     AdminChargeback:
       type: object
       properties:
@@ -9443,6 +10153,61 @@ components:
           - "null"
       required:
       - entries
+    AdminMacro:
+      type: object
+      properties:
+        addTag:
+          type:
+          - string
+          - "null"
+        body:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        number:
+          type: integer
+          format: int32
+        setPriority:
+          type:
+          - string
+          - "null"
+        setStatus:
+          type:
+          - string
+          - "null"
+        type:
+          type: string
+        version:
+          type: integer
+          format: int64
+        writtenAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - number
+      - type
+      - version
+      - writtenAt
+    AdminMacroPage:
+      type: object
+      properties:
+        macros:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMacro"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - macros
     AdminMentionable:
       type: object
       properties:
@@ -10329,6 +11094,116 @@ components:
       - nextPayday
       - payouts
       - runs
+    AdminQueueCounts:
+      type: object
+      properties:
+        breaching:
+          type: integer
+          format: int64
+        mine:
+          type: integer
+          format: int64
+        unassigned:
+          type: integer
+          format: int64
+      required:
+      - breaching
+      - mine
+      - unassigned
+    AdminQueueItem:
+      type: object
+      properties:
+        assigneeId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        assigneeName:
+          type:
+          - string
+          - "null"
+        breachedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        dueAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        link:
+          type: string
+        moneyPaise:
+          type: integer
+          format: int64
+        openedAt:
+          type: string
+          format: date-time
+        overridden:
+          type: boolean
+        overrideReason:
+          type:
+          - string
+          - "null"
+        paused:
+          type: boolean
+        personId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        priority:
+          type: string
+        runningSession:
+          type: boolean
+        state:
+          type: string
+        subjectId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        subjectKind:
+          type:
+          - string
+          - "null"
+        title:
+          type: string
+        type:
+          type: string
+        version:
+          type: integer
+          format: int64
+      required:
+      - id
+      - link
+      - moneyPaise
+      - openedAt
+      - overridden
+      - paused
+      - priority
+      - runningSession
+      - state
+      - title
+      - type
+      - version
+    AdminQueuePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminQueueItem"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - items
     AdminRating:
       type: object
       properties:
@@ -11164,6 +12039,42 @@ components:
       - settledAt
       - txnId
       - windowNumber
+    AdminSlaTarget:
+      type: object
+      properties:
+        firstMinutes:
+          type:
+          - integer
+          - "null"
+          format: int32
+        legal:
+          type: boolean
+        pauses:
+          type: boolean
+        resolveMinutes:
+          type:
+          - integer
+          - "null"
+          format: int32
+        sla:
+          type: string
+        version:
+          type: integer
+          format: int64
+      required:
+      - legal
+      - pauses
+      - sla
+      - version
+    AdminSlaTargets:
+      type: object
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSlaTarget"
+      required:
+      - targets
     AdminStepUp:
       type: object
       properties:
@@ -11592,6 +12503,14 @@ components:
       - name
       - prefix
       - scope
+    ApplyMacro:
+      type: object
+      properties:
+        macro:
+          type: string
+          format: uuid
+      required:
+      - macro
     ApprovalChange:
       type: object
       properties:
@@ -11664,6 +12583,19 @@ components:
       required:
       - batchPricePaisePerMin
       - name
+    AssignRequest:
+      type: object
+      properties:
+        assignee:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - assignee
+      - reason
     AuditChainCheck:
       type: object
       properties:
@@ -12000,6 +12932,156 @@ components:
           - "null"
       required:
       - additions
+    BulkAsked:
+      type: object
+      properties:
+        assignee:
+          type:
+          - string
+          - "null"
+          format: uuid
+        kind:
+          type: string
+        macro:
+          type:
+          - string
+          - "null"
+          format: uuid
+        priority:
+          type:
+          - string
+          - "null"
+        tag:
+          type:
+          - string
+          - "null"
+      required:
+      - kind
+    BulkChange:
+      type: object
+      properties:
+        after:
+          $ref: "#/components/schemas/BulkShape"
+        applies:
+          type: boolean
+        before:
+          $ref: "#/components/schemas/BulkShape"
+        item:
+          type: string
+          format: uuid
+        title:
+          type: string
+        why:
+          type:
+          - string
+          - "null"
+      required:
+      - after
+      - applies
+      - before
+      - item
+      - title
+    BulkOutcome:
+      type: object
+      properties:
+        after:
+          oneOf:
+          - $ref: "#/components/schemas/BulkShape"
+          - type: "null"
+        before:
+          oneOf:
+          - $ref: "#/components/schemas/BulkShape"
+          - type: "null"
+        failure:
+          type:
+          - string
+          - "null"
+        item:
+          type: string
+          format: uuid
+        state:
+          type: string
+      required:
+      - item
+      - state
+    BulkPreview:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkChange"
+        unchanged:
+          type: integer
+          format: int32
+        willChange:
+          type: integer
+          format: int32
+      required:
+      - changes
+      - unchanged
+      - willChange
+    BulkRequest:
+      type: object
+      properties:
+        action:
+          $ref: "#/components/schemas/BulkAsked"
+        items:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 500
+          minItems: 0
+      required:
+      - action
+      - items
+    BulkRun:
+      type: object
+      properties:
+        action:
+          $ref: "#/components/schemas/BulkAsked"
+        confirm:
+          type: string
+          minLength: 1
+        items:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 500
+          minItems: 0
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - action
+      - confirm
+      - items
+      - reason
+    BulkShape:
+      type: object
+      properties:
+        assignee:
+          type:
+          - string
+          - "null"
+          format: uuid
+        override:
+          type:
+          - string
+          - "null"
+        priority:
+          type: string
+        state:
+          type: string
+        tagged:
+          type: boolean
+      required:
+      - priority
+      - state
+      - tagged
     CancelDeletion:
       type: object
       properties:
@@ -13642,6 +14724,60 @@ components:
           type: string
       required:
       - kind
+    MacroPreview:
+      type: object
+      properties:
+        addTag:
+          type:
+          - string
+          - "null"
+        body:
+          type: string
+        setPriority:
+          type:
+          - string
+          - "null"
+        setStatus:
+          type:
+          - string
+          - "null"
+      required:
+      - body
+    MacroRequest:
+      type: object
+      properties:
+        addTag:
+          type:
+          - string
+          - "null"
+          maxLength: 40
+          minLength: 0
+        body:
+          type:
+          - string
+          - "null"
+          maxLength: 5000
+          minLength: 0
+        name:
+          type:
+          - string
+          - "null"
+          maxLength: 80
+          minLength: 0
+        setPriority:
+          type:
+          - string
+          - "null"
+        setStatus:
+          type:
+          - string
+          - "null"
+        type:
+          type:
+          - string
+          - "null"
+          maxLength: 40
+          minLength: 0
     MeResponse:
       type: object
       properties:
@@ -14435,6 +15571,19 @@ components:
       - max
       - median
       - min
+    PriorityRequest:
+      type: object
+      properties:
+        priority:
+          type:
+          - string
+          - "null"
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - reason
     ProblemDetail:
       type: object
       description: An RFC 9457 problem detail (ADR 0019)
@@ -15346,6 +16495,28 @@ components:
       - state
       - templateId
       - vramNeededMb
+    SlaChange:
+      type: object
+      properties:
+        firstMinutes:
+          type:
+          - integer
+          - "null"
+          format: int32
+        pauses:
+          type: boolean
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        resolveMinutes:
+          type:
+          - integer
+          - "null"
+          format: int32
+      required:
+      - pauses
+      - reason
     StartCliLoginRequest:
       type: object
       properties:

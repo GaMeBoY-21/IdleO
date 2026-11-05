@@ -199,7 +199,7 @@ class AdminNotesController {
             @PathVariable String subject,
             @PathVariable UUID id,
             @PathVariable String tag) {
-        notes.assign(admin, subject, id, tag);
+        notes.assign(admin.id(), subject, id, tag);
         return tags(notes.tagsOn(subject, id));
     }
 
@@ -211,7 +211,7 @@ class AdminNotesController {
             @PathVariable String subject,
             @PathVariable UUID id,
             @PathVariable String tag) {
-        notes.unassign(admin, subject, id, tag);
+        notes.unassign(admin.id(), subject, id, tag);
         return tags(notes.tagsOn(subject, id));
     }
 }

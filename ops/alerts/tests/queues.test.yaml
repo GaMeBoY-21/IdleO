@@ -1,0 +1,48 @@
+# promtool test rules: the inbox's alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../queues.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'queues_items_breached{job="control-plane", instance="a", type="ticket"}'
+        values: '0x5 1x30'
+      - series: 'queues_chargebacks_due_soon{job="control-plane", instance="a"}'
+        values: '0x5 1x30'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: QueueTargetBreached
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: QueueTargetBreached
+        exp_alerts:
+          - exp_labels: {severity: digest, type: ticket}
+            exp_annotations:
+              summary: 'Work of kind ticket is past its target.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-target-breached
+      - eval_time: 4m
+        alertname: ChargebackEvidenceDue
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ChargebackEvidenceDue
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: 'A chargeback''s evidence is due within 48 hours.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#chargeback-evidence-due
+  # The last pass was at the start: after 15 minutes, and 5 more, it's said.
+  - interval: 1m
+    input_series:
+      - series: 'queues_sync_last_pass{job="control-plane", instance="a"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: QueueSyncStopped
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: QueueSyncStopped
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: 'The inbox has not been brought up to date for 15 minutes.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-sync-stopped

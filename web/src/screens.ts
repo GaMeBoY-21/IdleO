@@ -37,6 +37,7 @@ export const SCREENS: Record<string, string | null> = {
   "/account/delete/cancel/": "src/features/deletion/CancelDeletion.tsx",
   "/notifications/": "src/features/notifications/Notifications.tsx",
   "/admin/": "src/features/admin/AdminConsole.tsx",
+  "/admin/inbox/": "src/features/admin/AdminConsole.tsx",
   "/admin/users/": "src/features/admin/AdminConsole.tsx",
   "/admin/hosts/": "src/features/admin/AdminConsole.tsx",
   "/admin/sessions/": "src/features/admin/AdminConsole.tsx",

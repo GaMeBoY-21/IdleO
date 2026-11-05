@@ -1,5 +1,6 @@
 package com.idleo.controlplane.console.internal;
 
+import com.idleo.controlplane.AdminListScope;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminTagged;
@@ -29,6 +30,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
@@ -64,6 +67,7 @@ class AdminListExportController {
     private final PersonalDataAccess accessLog;
     private final Approvals approvals;
     private final AdminTagged tagged;
+    private final Map<String, AdminListScope> scopes;
     private final TransactionTemplate readOnly;
     private final TransactionTemplate writing;
 
@@ -75,6 +79,7 @@ class AdminListExportController {
             PersonalDataAccess accessLog,
             Approvals approvals,
             AdminTagged tagged,
+            List<AdminListScope> scopes,
             PlatformTransactionManager transactionManager) {
         this.listings =
                 listings.stream().collect(Collectors.toUnmodifiableMap(AdminListing::name, Function.identity()));
@@ -84,6 +89,7 @@ class AdminListExportController {
         this.accessLog = accessLog;
         this.approvals = approvals;
         this.tagged = tagged;
+        this.scopes = scopes.stream().collect(Collectors.toUnmodifiableMap(AdminListScope::list, Function.identity()));
         this.readOnly = new TransactionTemplate(transactionManager);
         this.readOnly.setReadOnly(true);
         this.writing = new TransactionTemplate(transactionManager);
@@ -116,7 +122,7 @@ class AdminListExportController {
 
     /** What an export's filters mean: only those the list has, and a tag as the ids that carry it. */
     private AdminListing.Asked asked(
-            AdminListing listing, @Nullable Map<String, String> filters, @Nullable String sort) {
+            AdminListing listing, UUID admin, @Nullable Map<String, String> filters, @Nullable String sort) {
         var given = new LinkedHashMap<String, @Nullable Object>();
         if (filters != null) {
             filters.forEach((name, value) -> {
@@ -128,6 +134,10 @@ class AdminListExportController {
                     throw ApiProblem.invalid("filters", listing.name() + " can't be filtered by " + name + ".");
                 }
             });
+        }
+        var scope = scopes.get(listing.name());
+        if (scope != null) {
+            given.putAll(scope.forAdmin(admin));
         }
         return new AdminListing.Asked(given, sort);
     }
@@ -200,7 +210,7 @@ class AdminListExportController {
             @Parameter(hidden = true) HttpServletResponse response)
             throws IOException {
         var listing = listing(request.list(), admin);
-        var asked = asked(listing, request.filters(), request.sort());
+        var asked = asked(listing, admin.id(), request.filters(), request.sort());
         if (listing.personalData()) {
             return approvals.submit(
                     admin,
@@ -234,7 +244,11 @@ class AdminListExportController {
                                 filters.put(entry.getKey(), entry.getValue().asString()));
             }
             var sort = run.params().get("sort");
-            var asked = asked(listing, filters, sort == null || sort.isNull() ? null : sort.asString());
+            var asked = asked(
+                    listing,
+                    Objects.requireNonNull(run.actor().userId()),
+                    filters,
+                    sort == null || sort.isNull() ? null : sort.asString());
             var rows = Math.min(listing.count(jdbc, asked), MOST_ROWS);
             writing.executeWithoutResult(status -> audit.record(new AuditTrail.Entry(
                     run.actor(), EXPORT, "list", name, run.reason(), null, Map.of("rows", String.valueOf(rows)))));

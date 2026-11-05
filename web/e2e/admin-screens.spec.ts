@@ -37,6 +37,10 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/passkeys": { json: admin.passkeys },
   "/admin/v1/me/sessions": { json: admin.mySessions },
   "/admin/v1/admins/sessions": { json: admin.mySessions },
+  "/admin/v1/queue": { json: admin.inbox },
+  "/admin/v1/queue/counts": { json: { mine: 1, unassigned: 2, breaching: 1 } },
+  "/admin/v1/queue/macros": { json: { macros: [], nextCursor: null } },
+  "/admin/v1/queue/sla": { json: { targets: admin.slaTargets } },
   "/admin/v1/admins": { json: admin.adminAccounts },
   "/admin/v1/audit/standing": { json: admin.auditStanding },
   "/admin/v1/personal-data/access-log": { json: admin.accessLog },
@@ -186,7 +190,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(23);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(24);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -210,6 +214,47 @@ test.describe("the console", () => {
     await expect(page.getByText(stuck.details[0]!.detail)).toBeVisible();
     await expectAccessible(page);
     await capture(page, info, "admin-dashboard");
+  });
+
+  test("the inbox shows what's waiting, who's on it and what's past its target, and says who has what you tried to claim", async ({
+    page,
+  }, info) => {
+    await open(page, "/admin/inbox/", {
+      "/admin/v1/queue/[^/]+/claim": { status: 409, problem: "action-refused" },
+    });
+    const table = page.getByRole("table", { name: "Inbox" });
+    await expect(table.getByRole("row")).toHaveCount(admin.inbox.items.length + 1);
+    await expect(table).toContainText("Nikki is on it");
+    await expect(table).toContainText("Past its target");
+    await expect(table).toContainText("Paused, waiting on the person");
+    await expect(page.getByLabel("1 mine, 2 unassigned, 1 breaching").locator("visible=true")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-inbox");
+    await page
+      .getByRole("button", { name: /^Claim/ })
+      .first()
+      .click();
+    await expect(page.getByRole("alert")).toBeVisible();
+  });
+
+  test("a bulk action shows what each item will become, with the counts, before it runs", async ({
+    page,
+  }, info) => {
+    await open(page, "/admin/inbox/", { "/admin/v1/queue/bulk/preview": { json: admin.bulkPreview } });
+    await page
+      .getByRole("checkbox", { name: /^Select/ })
+      .first()
+      .check();
+    await expect(page.getByRole("heading", { name: "1 selected" })).toBeVisible();
+    await page.getByLabel("Do").selectOption("priority");
+    await page.getByLabel("urgent, high, normal or low").fill("high");
+    await page.getByRole("button", { name: "Preview" }).click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toContainText("1 will change, 1 won't");
+    await expect(sheet).toContainText("open, low → open, high");
+    await expect(sheet).toContainText("It's at that priority already.");
+    await expectAccessible(page);
+    await capture(page, info, "admin-bulk-preview");
   });
 
   test("while the dashboard loads", async ({ page }, info) => {
@@ -860,7 +905,7 @@ test.describe("abuse reviews", () => {
     await expectAccessible(page);
     await capture(page, info, "admin-abuse-blocklist");
     await table.getByRole("button", { name: /Take back cracker/ }).click();
-    await page.getByLabel("Reason").fill("it was a fine program");
+    await page.getByRole("textbox", { name: "Reason" }).fill("it was a fine program");
     await page.getByRole("button", { name: "Take it back" }).last().click();
     await expect.poll(() => removed).toMatchObject({ reason: "it was a fine program" });
   });

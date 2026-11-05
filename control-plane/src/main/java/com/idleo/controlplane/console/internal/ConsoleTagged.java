@@ -15,9 +15,35 @@ class ConsoleTagged implements AdminTagged {
     private static final UUID NOTHING = new UUID(0, 0);
 
     private final JdbcClient jdbc;
+    private final ConsoleNotes notes;
 
-    ConsoleTagged(JdbcClient jdbc) {
+    ConsoleTagged(JdbcClient jdbc, ConsoleNotes notes) {
         this.jdbc = jdbc;
+        this.notes = notes;
+    }
+
+    @Override
+    public boolean carries(String kind, UUID subject, String tag) {
+        return jdbc.sql("""
+                        select count(*) from console.tag_assignments
+                        where subject_kind = :kind and subject_id = :subject and tag_id = :tag
+                        """)
+                        .param("kind", kind)
+                        .param("subject", subject)
+                        .param("tag", tag)
+                        .query(Long.class)
+                        .single()
+                > 0;
+    }
+
+    @Override
+    public void add(String kind, UUID subject, String tag, UUID admin) {
+        notes.assign(admin, kind, subject, tag);
+    }
+
+    @Override
+    public void remove(String kind, UUID subject, String tag, UUID admin) {
+        notes.unassign(admin, kind, subject, tag);
     }
 
     @Override

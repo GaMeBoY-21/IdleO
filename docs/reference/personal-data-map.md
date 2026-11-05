@@ -180,6 +180,17 @@ A host's PAN, where their payouts go and the payouts themselves (ADR 0040). The 
 | `notifications.preferences` | user_id, kind, email, in_app, updated_at | `user_id = :user` | messages: choices | What the person chose to be told | The account's life | Deleted |
 | `notifications.email_suppressions` | **address_hash**, reason, event_id, created_at | `address_hash = :address_hash` | — | Addresses that bounced or complained, as SHA-256 only | Until cleared by hand (email.md) | Deleted for the person's address |
 
+### queues
+
+| Table | Columns (personal in bold) | Whose | Export | Why | Kept | On erasure |
+| --- | --- | --- | --- | --- | --- | --- |
+| `queues.items` | id, type, source_id, subject_kind, subject_id, person_id, title, link, sla, opened_at, state, assignee_id, claimed_at, last_action_at, first_reply_at, paused_since, paused_ms, due_at, soon_at, breached_at, money_paise, running_session, score, override_score, **override_reason**, sort_key, resolved_at, created_at, version | `person_id = :user` | — | The console's one inbox (ADR 0053): what's waiting for an admin, who's on it and its timers. The work itself stays in its own module, which is where a person's export finds it; the title names no one | The account's life | Cleared: the person and the admin's reason go; the row stays for the counts |
+| `queues.sla_targets` | sla, first_minutes, resolve_minutes, pauses, legal, updated_by, updated_at, version | — | — | The targets the timers run to | Kept: no person | Kept: no person |
+| `queues.macros` | id, type, name, current, retired_at, created_at, version | — | — | Reply templates by kind of work | Kept: no person | Kept: no person |
+| `queues.macro_versions` | macro_id, number, body, set_status, add_tag, set_priority, written_by, written_at | — | — | Each version of a macro: variables, never anyone's details. Who wrote it is an admin's id | Kept: no person | Kept: no person |
+| `queues.bulk_batches` | id, requested_by, action, **reason**, state, total, undoable, heartbeat_at, finished_at, undo_until, undone_at, created_at | — | — | A bulk action by an admin: its reason can't hold contact details (`@NoContactDetails`), and names no one's account | Kept with the audit log's own record of it | Kept: not about a person |
+| `queues.bulk_items` | batch_id, item_id, position, before, after, state, failure | — | — | What a bulk action did to each item, by ids | With its batch | Kept: no person |
+
 ### images
 
 Renters' own container images (ADR 0042). A private image's file paths and config are the renter's, so what a check found is theirs too while only their image names its digest.

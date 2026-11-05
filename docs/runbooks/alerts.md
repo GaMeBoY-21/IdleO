@@ -383,3 +383,26 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 **Means:** a gated action has no one else to approve it, so it will run after its delay unless cancelled. Ticket level.
 
 **Do:** read it on the Approvals screen, and cancel it if it's wrong. A second admin holding that permission switches solo mode off by themselves.
+
+## Queue target breached
+
+**Means:** open work of the kind in the alert's `type` has passed its target (the console's Inbox, Targets; ADR 0053). Some targets are legal: a grievance's and a data request's.
+
+**Check first:** Inbox, Breaching soon, by that kind. Who's on each?
+
+**Do:** claim the oldest and decide it on its own screen. If the kind is flooded, assign work across admins, or set a lower priority on what can wait, with a reason. A target that's plainly wrong is the Owner's to change, never one a law sets.
+
+## Chargeback evidence due
+
+**Means:** a chargeback not settled is within 48 hours of Razorpay's evidence deadline, or past it.
+
+**Do:** follow [a breaching chargeback](breaching-chargeback.md). The date is Razorpay's and doesn't move.
+
+## Queue sync stopped
+
+**Means:** the inbox's pass hasn't finished for 15 minutes, so new work isn't arriving, and timers and these alerts have stopped with it. The decisions on each kind's own screen still work.
+
+**Check first:** the control plane's log for `couldn't be read`, and `queues_sync_failures_total` by `type`: one module failing keeps its own items as they were, and the rest carry on. Both instances down shows on the platform alerts first.
+
+**Do:** fix what the log names. Once a pass finishes, every timer is right again: they're worked out from what each module holds, so nothing is lost.
+

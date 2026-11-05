@@ -24,6 +24,7 @@ import { Payouts } from "./Payouts";
 import { Verification } from "./Verification";
 import { Clawbacks } from "./Clawbacks";
 import { Images } from "./Images";
+import { Inbox } from "./Inbox";
 import { Tax } from "./Tax";
 import { Refunds } from "./Refunds";
 import { Review } from "./Review";
@@ -37,6 +38,7 @@ import { Users } from "./Users";
  */
 export const ADMIN_SCREENS = [
   { href: "/admin/", label: "Dashboard", needs: "dashboard.read" },
+  { href: "/admin/inbox/", label: "Inbox", needs: "queues.read" },
   { href: "/admin/users/", label: "Users", needs: "users.read" },
   { href: "/admin/hosts/", label: "Hosts", needs: "hosts.read" },
   { href: "/admin/sessions/", label: "Sessions", needs: "sessions.read" },
@@ -93,6 +95,7 @@ export function AdminConsole() {
             <Route path="/admin/clawbacks/">{guarded("/admin/clawbacks/", <Clawbacks />)}</Route>
             <Route path="/admin/tax/">{guarded("/admin/tax/", <Tax />)}</Route>
             <Route path="/admin/invites/">{guarded("/admin/invites/", <Invites />)}</Route>
+            <Route path="/admin/inbox/">{guarded("/admin/inbox/", <Inbox />)}</Route>
             <Route path="/admin/approvals/">{guarded("/admin/approvals/", <Approvals />)}</Route>
             <Route path="/admin/audit/">{guarded("/admin/audit/", <Audit />)}</Route>
             <Route path="/admin/security/" component={Security} />
@@ -105,7 +108,10 @@ export function AdminConsole() {
 
 /** The sidebar's sections in groups, in the order of {@link ADMIN_SCREENS}; every screen is in exactly one. */
 const GROUPS: { label: string; hrefs: readonly string[] }[] = [
-  { label: "Overview", hrefs: ["/admin/", "/admin/users/", "/admin/hosts/", "/admin/sessions/"] },
+  {
+    label: "Overview",
+    hrefs: ["/admin/", "/admin/inbox/", "/admin/users/", "/admin/hosts/", "/admin/sessions/"],
+  },
   {
     label: "Safety",
     hrefs: [
@@ -152,6 +158,12 @@ function Layout({ children }: { children: React.ReactNode }) {
     enabled: can("approvals.read"),
     refetchInterval: 60_000,
   });
+  const counts = useQuery({
+    queryKey: [ADMIN, "queue-counts"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/queue/counts")),
+    enabled: can("queues.read"),
+    refetchInterval: 60_000,
+  });
   const leave = async () => {
     await adminApi.DELETE("/admin/v1/session").catch(() => undefined);
     adminSession.clear();
@@ -174,6 +186,14 @@ function Layout({ children }: { children: React.ReactNode }) {
         >
           {current && <span aria-hidden="true" className="h-4 w-1 rounded-full bg-progress" />}
           {screen.label}
+          {screen.href === "/admin/inbox/" && counts.data && (
+            <span
+              className="tabular ml-auto text-caption font-bold"
+              aria-label={`${counts.data.mine} mine, ${counts.data.unassigned} unassigned, ${counts.data.breaching} breaching`}
+            >
+              {counts.data.mine} · {counts.data.unassigned} · {counts.data.breaching}
+            </span>
+          )}
           {screen.href === "/admin/approvals/" && (waiting.data?.pending ?? 0) > 0 && (
             <span
               className="tabular ml-auto text-caption font-bold"

@@ -144,6 +144,16 @@ management:
 # address without a sign-in), counted in Valkey; reads of a session's logs a minute, counted apart so a live log view
 # doesn't use up the rest; CLI sign-ins and host links started an hour from one address; batches of real visits'
 # vitals a minute from one address (ADR 0036).
+# The console's one inbox (ADR 0053). The targets themselves are the Owner's, in the database.
+queues:
+  sync-every: 30s
+  bulk-every: 2s
+  idle-claim: 30m
+  undo-window: 10m
+  most-items-without-approval: 20
+  chargeback-page-before: 48h
+  web-app-url: ${IDENTITY_WEB_APP_URL:http://localhost:3000}
+
 console:
   search:
     provider-timeout: 500ms

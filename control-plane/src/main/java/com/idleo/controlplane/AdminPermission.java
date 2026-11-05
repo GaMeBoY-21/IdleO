@@ -72,6 +72,15 @@ public enum AdminPermission {
     DISPUTES_REFUND("disputes.refund", true),
     RATINGS_READ("ratings.read", false),
 
+    QUEUES_READ("queues.read", false),
+    QUEUES_CLAIM("queues.claim", false),
+    /** Putting an item on someone else. */
+    QUEUES_ASSIGN("queues.assign", false),
+    /** The targets the timers run to, some of them legal. */
+    QUEUES_SLA("queues.sla", true),
+    QUEUES_BULK("queues.bulk", false),
+    MACROS_MANAGE("macros.manage", false),
+
     TICKETS_READ("tickets.read", false),
     TICKETS_REPLY("tickets.reply", false),
 
