@@ -193,7 +193,7 @@ export function Table({
               const now = key && view.sort?.startsWith(`${key}:`) ? view.sort.slice(key.length + 1) : null;
               return (
                 <th
-                  key={column || index}
+                  key={`${column}-${index}`}
                   scope="col"
                   aria-sort={now === "asc" ? "ascending" : now === "desc" ? "descending" : undefined}
                   className="px-2 py-2.5 font-semibold"
