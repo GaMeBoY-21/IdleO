@@ -56,6 +56,7 @@ export function ListBar({
   const name = useListName();
   const [path, navigate] = useLocation();
   const [exporting, setExporting] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const [saving, setSaving] = useState("");
   const [shared, setShared] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
@@ -117,26 +118,29 @@ export function ListBar({
   const mine = views.data?.views ?? [];
   return (
     <div className="flex flex-wrap items-end gap-3 text-small">
-      <details ref={details} className="relative">
+      <details ref={details} className="relative" onToggle={(event) => setChoosing(event.currentTarget.open)}>
         <summary className="flex min-h-touch cursor-pointer items-center rounded-control px-3 font-medium md:min-h-9">
           Columns
         </summary>
-        <fieldset className="absolute z-20 mt-1 flex flex-col gap-1 rounded-inner border border-line bg-panel p-3">
-          <legend className="sr-only">Which columns to show</legend>
-          {columns
-            .filter((column) => column !== "")
-            .map((column) => (
-              <label key={column} className="flex items-center gap-2 whitespace-nowrap">
-                <input
-                  type="checkbox"
-                  aria-label={`Show the ${column} column`}
-                  checked={!hidden.has(column)}
-                  onChange={() => toggle(column)}
-                />
-                {column}
-              </label>
-            ))}
-        </fieldset>
+        {/* Only while it's open, so a closed menu's column names aren't labels on the page beside the real fields. */}
+        {choosing && (
+          <fieldset className="absolute z-20 mt-1 flex flex-col gap-1 rounded-inner border border-line bg-panel p-3">
+            <legend className="sr-only">Which columns to show</legend>
+            {columns
+              .filter((column) => column !== "")
+              .map((column) => (
+                <label key={column} className="flex items-center gap-2 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    aria-label={`Show the ${column} column`}
+                    checked={!hidden.has(column)}
+                    onChange={() => toggle(column)}
+                  />
+                  {column}
+                </label>
+              ))}
+          </fieldset>
+        )}
       </details>
       {tags && can("notes.read") && (vocabulary.data?.tags.length ?? 0) > 0 && (
         <label className="flex flex-col gap-1 text-caption text-text-2">
