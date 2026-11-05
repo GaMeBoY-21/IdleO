@@ -107,9 +107,13 @@ api_post() { curl -sf -X POST "$api$1" -H "Authorization: Bearer $token" -H 'Con
 # would enter one. An account that's already active is left alone, so this also works with E2E_INVITE_ONLY=false.
 invite_codes=()
 invite_next=0
+invite_taken=" "
 activate_user() {
   local code="${invite_codes[$invite_next]:-}"
   [[ -n "$code" ]] || fail "no invite code left for the run's accounts"
+  # A code works once, so two people given the same index would read as a server failure at the second one.
+  [[ "$invite_taken" != *" $invite_next "* ]] || fail "invite code $invite_next was given to two of the run's accounts"
+  invite_taken+="$invite_next "
   invite_next=$((invite_next + 1))
   curl -sf -X POST "$api/v1/me/activate" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
     -d "{\"code\":\"$code\"}" >/dev/null || fail "an account couldn't be activated with its invite code"
@@ -467,12 +471,13 @@ token="$(stack_token "$user")"
 [[ -n "$token" ]] || fail "no token from the development sign-in server"
 
 # 3a. Invite codes (docs/runbooks/invites.md): one for each account the run makes, and two spare for the web
-#     journey that signs in as a new person and enters one; the admin's (8) and the privacy journey's (10) are
-#     taken by index.
+#     journey that signs in as a new person and enters one; the later scenarios take theirs by index: the admin's (8),
+#     the privacy journey's (10), payments' (11), the payouts admin's and payee's (12, 13), the other admins' (14 to 18)
+#     and the payouts approver's (19).
 log "making invite codes for the run's accounts"
-ops create-invites --count 19 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
-invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 19))
-((${#invite_codes[@]} == 19)) || fail "create-invites didn't print 19 codes; see private/e2e/ops.log"
+ops create-invites --count 20 --note "'e2e run'" --expires 1d || fail "create-invites failed; see private/e2e/ops.log"
+invite_codes=($(grep -o 'IDLE-[A-Z0-9]\{4\}-[A-Z0-9]\{4\}' "$out/ops.log" | tail -n 20))
+((${#invite_codes[@]} == 20)) || fail "create-invites didn't print 20 codes; see private/e2e/ops.log"
 export E2E_INVITE_CODE="${invite_codes[7]}"
 activate_user "$token"
 
@@ -1960,7 +1965,7 @@ scenario_payouts() {
   local approver_user="$user-payouts-approver" approver_token approver_session
   approver_token="$(stack_token "$approver_user")"
   [[ -n "$approver_token" ]] || fail "no token for the payouts approver"
-  invite_next=18
+  invite_next=19
   activate_user "$approver_token"
   ops grant-admin "$approver_user@example.com" --reason "'End-to-end payouts'" --role owner || fail "grant-admin failed; see private/e2e/ops.log"
   approver_secret="$(curl -sf -X POST "$api/admin/v1/second-factor" -H "Authorization: Bearer $approver_token" | json_get .secret)"
