@@ -1,6 +1,7 @@
 package com.idleo.controlplane.billing.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminList;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
@@ -16,9 +17,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -84,7 +85,8 @@ class AdminMoneyController {
             @Nullable Long walletBalancePaise,
             long version) {}
 
-    record AdminCreditGrantList(List<AdminCreditGrant> grants) {}
+    record AdminCreditGrantList(
+            List<AdminCreditGrant> grants, @Nullable String nextCursor) {}
 
     /** One ledger entry: its transaction, account and owner, amount, direction, and what caused it. */
     record AdminLedgerEntry(
@@ -115,7 +117,8 @@ class AdminMoneyController {
             int mismatchCount,
             List<AdminReconciliationMismatch> mismatches) {}
 
-    record AdminReconciliationRuns(List<AdminReconciliationRun> runs) {}
+    record AdminReconciliationRuns(
+            List<AdminReconciliationRun> runs, @Nullable String nextCursor) {}
 
     /**
      * Asks to grant free credit: every manual money adjustment goes to another admin (ADR 0051).
@@ -161,12 +164,16 @@ class AdminMoneyController {
 
     /** A user's grants, newest first. */
     @RequiresPermission(AdminPermission.MONEY_READ)
+    @AdminList("credit-grants")
     @GetMapping("/credit-grants")
-    AdminCreditGrantList list(@RequestParam UUID user) {
-        return new AdminCreditGrantList(jdbc.sql(GRANTS + " where g.user_id = :user order by g.created_at desc")
-                .param("user", user)
-                .query((rs, n) -> grant(rs, null))
-                .list());
+    AdminCreditGrantList list(
+            @RequestParam(required = false) @Nullable UUID user,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = GRANT_LIST.page(
+                jdbc, AdminListing.Asked.of(sort, "user", user), cursor, limit, (rs, n) -> grant(rs, null));
+        return new AdminCreditGrantList(page.rows(), page.nextCursor());
     }
 
     /**
@@ -174,11 +181,13 @@ class AdminMoneyController {
      * ({@code account=renter_wallet&owner=<user>}) or the platform's revenue ({@code account=platform_revenue}).
      */
     @RequiresPermission(AdminPermission.MONEY_READ)
+    @AdminList("ledger")
     @GetMapping("/ledger")
     AdminLedgerPage ledger(
             @RequestParam(required = false) @Nullable UUID txn,
             @RequestParam(required = false) @Nullable String account,
             @RequestParam(required = false) @Nullable UUID owner,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         if (txn == null && account == null) {
@@ -192,22 +201,12 @@ class AdminMoneyController {
                 throw ApiProblem.invalid("account", "isn't one of the ledger's accounts.");
             }
         }
-        int size = AdminPages.limit(limit);
-        var entries = jdbc.sql("""
-                        select * from billing.ledger_entries
-                        where (cast(:txn as uuid) is null or txn_id = cast(:txn as uuid))
-                          and (cast(:account as text) is null or account = cast(:account as text))
-                          and (cast(:owner as uuid) is null or owner_id = cast(:owner as uuid))
-                          and (cast(:after as uuid) is null or id < cast(:after as uuid))
-                        order by id desc
-                        limit :limit
-                        """)
-                .param("txn", txn)
-                .param("account", accountValue)
-                .param("owner", owner)
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query((rs, n) -> new AdminLedgerEntry(
+        var page = LEDGER.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "txn", txn, "account", accountValue, "owner", owner),
+                cursor,
+                limit,
+                (rs, n) -> new AdminLedgerEntry(
                         rs.getObject("id", UUID.class),
                         rs.getObject("txn_id", UUID.class),
                         rs.getString("account"),
@@ -216,12 +215,8 @@ class AdminMoneyController {
                         rs.getString("direction"),
                         rs.getString("ref_type"),
                         rs.getObject("ref_id", UUID.class),
-                        rs.getTimestamp("created_at").toInstant()))
-                .list();
-        var page = entries.size() > size ? entries.subList(0, size) : entries;
-        return new AdminLedgerPage(
-                List.copyOf(page),
-                entries.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+                        rs.getTimestamp("created_at").toInstant()));
+        return new AdminLedgerPage(page.rows(), page.nextCursor());
     }
 
     /**
@@ -237,64 +232,116 @@ class AdminMoneyController {
             throw ApiProblem.of(
                     Problem.ACTION_REFUSED, "Another instance is running the check; try again in a minute.");
         }
-        return runs(1, result.runId()).getFirst();
+        return found(Objects.requireNonNull(jdbc.sql("select * from billing.reconciliation_runs where id = :id")
+                .param("id", result.runId())
+                .query(this::run)
+                .single()));
     }
 
     /** The latest complete reconciliation runs, newest first, each with what it found; {@code limit} 1 to 200. */
     @RequiresPermission(AdminPermission.MONEY_READ)
+    @AdminList("wallet-reconciliation")
     @GetMapping("/reconciliation")
-    AdminReconciliationRuns reconciliation(@RequestParam(required = false) @Nullable Integer limit) {
-        return new AdminReconciliationRuns(runs(AdminPages.limit(limit == null ? 10 : limit), null));
+    AdminReconciliationRuns reconciliation(
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = WALLET_RUNS.page(jdbc, AdminListing.Asked.of(sort), cursor, limit == null ? 10 : limit, this::run);
+        return new AdminReconciliationRuns(page.rows().stream().map(this::found).toList(), page.nextCursor());
     }
 
-    /** The newest runs, or the one with {@code id}. */
-    private List<AdminReconciliationRun> runs(int limit, @Nullable UUID id) {
-        record Run(UUID id, String trigger, Instant finishedAt, long debits, long credits, int mismatches) {}
-        var runs = jdbc.sql("""
-                        select * from billing.reconciliation_runs
-                        where cast(:id as uuid) is null or id = cast(:id as uuid)
-                        order by finished_at desc, id desc limit :limit
+    private record Run(UUID id, String trigger, Instant finishedAt, long debits, long credits, int mismatches) {}
+
+    private Run run(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+        return new Run(
+                rs.getObject("id", UUID.class),
+                rs.getString("trigger"),
+                rs.getTimestamp("finished_at").toInstant(),
+                rs.getLong("ledger_debits_paise"),
+                rs.getLong("ledger_credits_paise"),
+                rs.getInt("mismatches"));
+    }
+
+    /** The run with what it found. */
+    private AdminReconciliationRun found(Run run) {
+        var mismatches = jdbc.sql("""
+                        select kind, user_id, wallet_paise, expected_paise from billing.reconciliation_mismatches
+                        where run_id = :runId order by position
                         """)
-                .param("id", id)
-                .param("limit", limit)
-                .query((rs, n) -> new Run(
-                        rs.getObject("id", UUID.class),
-                        rs.getString("trigger"),
-                        rs.getTimestamp("finished_at").toInstant(),
-                        rs.getLong("ledger_debits_paise"),
-                        rs.getLong("ledger_credits_paise"),
-                        rs.getInt("mismatches")))
+                .param("runId", run.id())
+                .query((rs, n) -> new AdminReconciliationMismatch(
+                        rs.getString("kind"),
+                        rs.getObject("user_id", UUID.class),
+                        rs.getLong("wallet_paise"),
+                        rs.getLong("expected_paise")))
                 .list();
-        var result = new ArrayList<AdminReconciliationRun>();
-        for (var run : runs) {
-            var mismatches = jdbc.sql("""
-                            select kind, user_id, wallet_paise, expected_paise from billing.reconciliation_mismatches
-                            where run_id = :runId order by position
-                            """)
-                    .param("runId", run.id())
-                    .query((rs, n) -> new AdminReconciliationMismatch(
-                            rs.getString("kind"),
-                            rs.getObject("user_id", UUID.class),
-                            rs.getLong("wallet_paise"),
-                            rs.getLong("expected_paise")))
-                    .list();
-            result.add(new AdminReconciliationRun(
-                    run.id(),
-                    run.trigger(),
-                    run.finishedAt(),
-                    run.debits(),
-                    run.credits(),
-                    run.debits() == run.credits(),
-                    run.mismatches(),
-                    mismatches));
-        }
-        return List.copyOf(result);
+        return new AdminReconciliationRun(
+                run.id(),
+                run.trigger(),
+                run.finishedAt(),
+                run.debits(),
+                run.credits(),
+                run.debits() == run.credits(),
+                run.mismatches(),
+                mismatches);
     }
 
     private static final String GRANTS = """
             select g.*, r.id as reversal_id, r.reversed_by, r.created_at as reversed_at
             from billing.credit_grants g left join billing.credit_grant_reversals r on r.grant_id = g.id
             """;
+
+    /** Free credit granted, its orders and CSV (ADR 0052). */
+    static final AdminListing GRANT_LIST = AdminListing.of("credit-grants", AdminPermission.MONEY_READ, true)
+            .select("g.*, r.id as reversal_id, r.reversed_by, r.created_at as reversed_at")
+            .from("billing.credit_grants g left join billing.credit_grant_reversals r on r.grant_id = g.id")
+            .id("g.id")
+            .sort("createdAt", AdminListing.Type.UUID, "g.id")
+            .sort("amount", AdminListing.Type.NUMBER, "g.amount_paise")
+            .sortedBy("createdAt", true)
+            .filter("user", "g.user_id = cast(:user as uuid)")
+            .csv("id", "g.id")
+            .csv("userId", "g.user_id")
+            .csv("amountPaise", "g.amount_paise")
+            .csv("reason", "g.reason")
+            .csv("grantedBy", "g.granted_by")
+            .csv("createdAt", "g.created_at")
+            .csv("reversedAt", "r.created_at")
+            .build();
+
+    /** The ledger's entries, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LEDGER = AdminListing.of("ledger", AdminPermission.MONEY_READ, true)
+            .from("billing.ledger_entries")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("amount", AdminListing.Type.NUMBER, "amount_paise")
+            .sortedBy("createdAt", true)
+            .filter("txn", "txn_id = cast(:txn as uuid)")
+            .filter("account", "account = cast(:account as text)")
+            .filter("owner", "owner_id = cast(:owner as uuid)")
+            .csv("id", "id")
+            .csv("txnId", "txn_id")
+            .csv("account", "account")
+            .csv("ownerId", "owner_id")
+            .csv("amountPaise", "amount_paise")
+            .csv("direction", "direction")
+            .csv("refType", "ref_type")
+            .csv("refId", "ref_id")
+            .csv("createdAt", "created_at")
+            .build();
+
+    /** The wallet check's runs, their orders and CSV (ADR 0052). */
+    static final AdminListing WALLET_RUNS = AdminListing.of("wallet-reconciliation", AdminPermission.MONEY_READ, false)
+            .from("billing.reconciliation_runs")
+            .sort("finishedAt", AdminListing.Type.TIME, "finished_at")
+            .sort("mismatches", AdminListing.Type.NUMBER, "mismatches")
+            .sortedBy("finishedAt", true)
+            .csv("id", "id")
+            .csv("trigger", "trigger")
+            .csv("finishedAt", "finished_at")
+            .csv("ledgerDebitsPaise", "ledger_debits_paise")
+            .csv("ledgerCreditsPaise", "ledger_credits_paise")
+            .csv("mismatches", "mismatches")
+            .build();
 
     private AdminCreditGrant find(UUID grantId, long walletBalancePaise) {
         return jdbc.sql(GRANTS + " where g.id = :id")

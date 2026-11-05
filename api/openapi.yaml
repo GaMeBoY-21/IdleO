@@ -72,6 +72,23 @@ paths:
   /admin/v1/abuse/blocklist-additions:
     get:
       operationId: adminAbuseAdditions
+      parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -291,6 +308,23 @@ paths:
   /admin/v1/admins:
     get:
       operationId: adminRolesAdmins
+      parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -312,6 +346,23 @@ paths:
   /admin/v1/admins/sessions:
     get:
       operationId: adminSessionRecordsEveryones
+      parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -442,6 +493,11 @@ paths:
         schema:
           type: string
           default: pending
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
       - in: query
         name: cursor
         required: false
@@ -698,6 +754,11 @@ paths:
           type: string
           format: date-time
       - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -715,33 +776,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuditPage"
           description: OK
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: "An error, as an RFC 9457 problem detail"
-      security:
-      - adminSession: []
-        idToken: []
-      tags:
-      - auditLog
-  /admin/v1/audit/export:
-    post:
-      operationId: auditLogExport
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuditExport"
-        required: true
-      responses:
-        "200":
-          content:
-            text/csv:
-              schema:
-                type: string
-          description: The rows as CSV
         default:
           content:
             application/problem+json:
@@ -961,10 +995,26 @@ paths:
       parameters:
       - in: query
         name: user
-        required: true
+        required: false
         schema:
           type: string
           format: uuid
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -1134,6 +1184,22 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -1745,6 +1811,23 @@ paths:
   /admin/v1/installs:
     get:
       operationId: adminInstallsInstalls
+      parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -2003,6 +2086,11 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
       - in: query
         name: cursor
         required: false
@@ -2447,6 +2535,22 @@ paths:
         schema:
           type: string
           default: open
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -2624,6 +2728,22 @@ paths:
         schema:
           type: string
           default: open
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -2749,15 +2869,32 @@ paths:
         idToken: []
       tags:
       - adminPayouts
-  /admin/v1/payouts/verifications:
+  /admin/v1/payouts/verifications/pans:
     get:
-      operationId: adminPayoutsVerifications
+      operationId: adminPayoutsPanReviews
+      parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminVerifications"
+                $ref: "#/components/schemas/AdminPanReviews"
           description: OK
         default:
           content:
@@ -2826,6 +2963,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminPanReview"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
+  /admin/v1/payouts/verifications/upi-ids:
+    get:
+      operationId: adminPayoutsUpiReviews
+      parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUpiReviews"
           description: OK
         default:
           content:
@@ -2951,6 +3126,11 @@ paths:
           type: string
           format: uuid
       - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -3065,6 +3245,16 @@ paths:
     get:
       operationId: adminMoneyReconciliation
       parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
       - in: query
         name: limit
         required: false
@@ -3396,6 +3586,11 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
       - in: query
         name: cursor
         required: false
@@ -4504,6 +4699,11 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
       - in: query
         name: cursor
         required: false
@@ -7708,6 +7908,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminAccount"
+        nextCursor:
+          type:
+          - string
+          - "null"
         roles:
           type: array
           items:
@@ -8160,6 +8364,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminCreditGrant"
+        nextCursor:
+          type:
+          - string
+          - "null"
       required:
       - grants
     AdminCreditGrantRequest:
@@ -8720,6 +8928,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminHostFlag"
+        nextCursor:
+          type:
+          - string
+          - "null"
       required:
       - flags
     AdminHostGpu:
@@ -9393,6 +9605,19 @@ components:
       - userId
       - verifier
       - version
+    AdminPanReviews:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        pans:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPanReview"
+      required:
+      - pans
     AdminPanStanding:
       type: object
       properties:
@@ -9643,6 +9868,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminPaymentMismatch"
+        nextCursor:
+          type:
+          - string
+          - "null"
         runs:
           type: array
           items:
@@ -9974,6 +10203,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminPayoutMismatch"
+        nextCursor:
+          type:
+          - string
+          - "null"
         runs:
           type: array
           items:
@@ -10225,6 +10458,10 @@ components:
     AdminReconciliationRuns:
       type: object
       properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
         runs:
           type: array
           items:
@@ -10760,6 +10997,10 @@ components:
     AdminSessionRecords:
       type: object
       properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
         sessions:
           type: array
           items:
@@ -11120,6 +11361,19 @@ components:
       - state
       - userId
       - version
+    AdminUpiReviews:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        upiIds:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUpiReview"
+      required:
+      - upiIds
     AdminUsage:
       type: object
       properties:
@@ -11263,20 +11517,6 @@ components:
             $ref: "#/components/schemas/AdminUser"
       required:
       - users
-    AdminVerifications:
-      type: object
-      properties:
-        pans:
-          type: array
-          items:
-            $ref: "#/components/schemas/AdminPanReview"
-        upiIds:
-          type: array
-          items:
-            $ref: "#/components/schemas/AdminUpiReview"
-      required:
-      - pans
-      - upiIds
     AdminWaiver:
       type: object
       properties:
@@ -11556,50 +11796,6 @@ components:
       - seq
       - targetId
       - targetType
-    AuditExport:
-      type: object
-      properties:
-        action:
-          type:
-          - string
-          - "null"
-        actor:
-          type:
-          - string
-          - "null"
-        approvalId:
-          type:
-          - string
-          - "null"
-          format: uuid
-        from:
-          type:
-          - string
-          - "null"
-          format: date-time
-        reason:
-          type: string
-          maxLength: 500
-          minLength: 5
-        requestId:
-          type:
-          - string
-          - "null"
-        targetId:
-          type:
-          - string
-          - "null"
-        targetType:
-          type:
-          - string
-          - "null"
-        to:
-          type:
-          - string
-          - "null"
-          format: date-time
-      required:
-      - reason
     AuditPage:
       type: object
       properties:
@@ -11798,6 +11994,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BlocklistAddition"
+        nextCursor:
+          type:
+          - string
+          - "null"
       required:
       - additions
     CancelDeletion:
@@ -13111,6 +13311,10 @@ components:
           - number
           - "null"
           format: double
+        nextCursor:
+          type:
+          - string
+          - "null"
         opened:
           type: integer
           format: int32

@@ -1,21 +1,9 @@
 package com.idleo.controlplane.identity.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminList;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
-import com.idleo.controlplane.ApiProblem;
-import com.idleo.controlplane.NoContactDetails;
-import com.idleo.controlplane.PersonalDataMask;
-import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
-import com.idleo.controlplane.identity.AuditTrail;
-import com.idleo.controlplane.identity.CurrentUser;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -26,15 +14,9 @@ import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,51 +34,55 @@ class AuditLogController {
 
     private static final TypeReference<Map<String, Object>> OBJECT = new TypeReference<>() {};
 
-    /** The most one export holds; a wider one is refused, so a date range narrows it. */
-    static final int EXPORT_LIMIT = 50_000;
-
-    private static final String SELECT = """
-            select a.*, coalesce(u.email, a.actor_name) as shown_name, host(a.ip) as address
-            from identity.audit_log a
-            left join identity.users u on u.id = a.actor_user_id
-            where (cast(:actor as text) is null
-                   or a.actor_name ilike '%' || cast(:actor as text) || '%'
-                   or u.email ilike '%' || cast(:actor as text) || '%'
-                   or a.actor_user_id::text = cast(:actor as text))
-              and (cast(:action as text) is null or a.action = cast(:action as text)
-                   or (right(cast(:action as text), 1) = '.'
-                       and starts_with(a.action, cast(:action as text))))
-              and (cast(:targetType as text) is null or a.target_type = cast(:targetType as text))
-              and (cast(:targetId as text) is null or a.target_id = cast(:targetId as text))
-              and (cast(:approvalId as uuid) is null or a.approval_id = cast(:approvalId as uuid))
-              and (cast(:requestId as text) is null or a.request_id = cast(:requestId as text))
-              and (cast(:from as timestamptz) is null or a.created_at >= cast(:from as timestamptz))
-              and (cast(:to as timestamptz) is null or a.created_at < cast(:to as timestamptz))
-              and (cast(:after as uuid) is null or a.id < cast(:after as uuid))
-            order by a.id desc
-            limit :limit
-            """;
+    /**
+     * The log, its filters, orders and CSV (ADR 0052). Its file holds addresses only masked, and goes under {@code
+     * export.create} without a second admin (ADR 0051): an auditor's reading of the log doesn't wait on the people in it.
+     */
+    static final AdminListing LIST = AdminListing.of("audit", AdminPermission.AUDIT_READ, false)
+            .select("a.*, coalesce(u.email, a.actor_name) as shown_name, host(a.ip) as address")
+            .from("identity.audit_log a left join identity.users u on u.id = a.actor_user_id")
+            .id("a.id")
+            .sort("createdAt", AdminListing.Type.UUID, "a.id")
+            .sort("action", AdminListing.Type.TEXT, "a.action")
+            .sortedBy("createdAt", true)
+            .filter("actor", """
+                    a.actor_name ilike '%' || cast(:actor as text) || '%'
+                    or u.email ilike '%' || cast(:actor as text) || '%'
+                    or a.actor_user_id::text = cast(:actor as text)""")
+            .filter("action", """
+                    a.action = cast(:action as text)
+                    or (right(cast(:action as text), 1) = '.' and starts_with(a.action, cast(:action as text)))""")
+            .filter("targetType", "a.target_type = cast(:targetType as text)")
+            .filter("targetId", "a.target_id = cast(:targetId as text)")
+            .filter("approvalId", "a.approval_id = cast(:approvalId as uuid)")
+            .filter("requestId", "a.request_id = cast(:requestId as text)")
+            .filter("from", "a.created_at >= cast(:from as timestamptz)")
+            .filter("to", "a.created_at < cast(:to as timestamptz)")
+            .csv("seq", "a.seq")
+            .csv("id", "a.id")
+            .csv("createdAt", "a.created_at")
+            .csv("actorKind", "a.actor_kind")
+            .csv("actorUserId", "a.actor_user_id")
+            .csv("action", "a.action")
+            .csv("targetType", "a.target_type")
+            .csv("targetId", "a.target_id")
+            .csv("reason", "a.reason")
+            .csv("requestId", "a.request_id")
+            .csv("adminSessionId", "a.admin_session_id")
+            .csv("address", "host(a.ip)")
+            .csv("approvalId", "a.approval_id")
+            .build();
 
     private final JdbcClient jdbc;
     private final JsonMapper json;
     private final AuditChain chain;
     private final AuditOffsiteCopies copies;
-    private final AuditTrail audit;
-    private final TransactionTemplate transactions;
 
-    AuditLogController(
-            JdbcClient jdbc,
-            JsonMapper json,
-            AuditChain chain,
-            AuditOffsiteCopies copies,
-            AuditTrail audit,
-            TransactionTemplate transactions) {
+    AuditLogController(JdbcClient jdbc, JsonMapper json, AuditChain chain, AuditOffsiteCopies copies) {
         this.jdbc = jdbc;
         this.json = json;
         this.chain = chain;
         this.copies = copies;
-        this.audit = audit;
-        this.transactions = transactions;
     }
 
     /**
@@ -158,26 +144,13 @@ class AuditLogController {
     /** How the log stands: its latest check, and its latest off-site copies, newest first. */
     record AuditStanding(@Nullable AuditChainCheck latestCheck, List<AuditCopy> copies) {}
 
-    /** What to export, as the search filters it, and why (5 to 500 characters). */
-    record AuditExport(
-            @Nullable String actor,
-            @Nullable String action,
-            @Nullable String targetType,
-            @Nullable String targetId,
-            @Nullable UUID approvalId,
-            @Nullable String requestId,
-            @Nullable Instant from,
-            @Nullable Instant to,
-
-            @NotBlank @Size(min = 5, max = 500) @NoContactDetails
-            String reason) {}
-
     /**
      * The log, filtered: {@code actor} is part of the actor's name or their user id, {@code action} an action or the
      * start of one ({@code host.} for every host action), {@code targetType}, {@code targetId}, {@code approvalId} and
      * {@code requestId} exact, and {@code from} and {@code to} a time range.
      */
     @RequiresPermission(AdminPermission.AUDIT_READ)
+    @AdminList("audit")
     @GetMapping
     AuditPage list(
             @RequestParam(required = false) @Nullable String actor,
@@ -188,17 +161,33 @@ class AuditLogController {
             @RequestParam(required = false) @Nullable String requestId,
             @RequestParam(required = false) @Nullable Instant from,
             @RequestParam(required = false) @Nullable Instant to,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
-        var entries = search(
-                new Filter(actor, action, targetType, targetId, approvalId, requestId, from, to),
-                AdminPages.after(cursor),
-                size + 1);
-        var page = entries.size() > size ? entries.subList(0, size) : entries;
-        return new AuditPage(
-                List.copyOf(page),
-                entries.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "actor",
+                        actor,
+                        "action",
+                        action,
+                        "targetType",
+                        targetType,
+                        "targetId",
+                        targetId,
+                        "approvalId",
+                        approvalId,
+                        "requestId",
+                        requestId,
+                        "from",
+                        from == null ? null : Timestamp.from(from),
+                        "to",
+                        to == null ? null : Timestamp.from(to)),
+                cursor,
+                limit,
+                this::entry);
+        return new AuditPage(page.rows(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.AUDIT_READ)
@@ -224,101 +213,6 @@ class AuditLogController {
         return AuditChainCheck.of(chain.verify("admin"));
     }
 
-    /**
-     * The search's rows as CSV, up to {@value #EXPORT_LIMIT}, with addresses masked as on screen. Logged. 409 {@code
-     * action-refused} for more than that: narrow the dates.
-     */
-    @RequiresPermission(value = AdminPermission.EXPORT_CREATE, shownOnce = true)
-    @PostMapping(value = "/export", produces = "text/csv")
-    @ApiResponse(
-            responseCode = "200",
-            description = "The rows as CSV",
-            content = @Content(mediaType = "text/csv", schema = @Schema(type = "string")))
-    ResponseEntity<byte[]> export(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AuditExport request) {
-        var rows = search(
-                new Filter(
-                        request.actor(),
-                        request.action(),
-                        request.targetType(),
-                        request.targetId(),
-                        request.approvalId(),
-                        request.requestId(),
-                        request.from(),
-                        request.to()),
-                null,
-                EXPORT_LIMIT + 1);
-        if (rows.size() > EXPORT_LIMIT) {
-            throw ApiProblem.of(
-                    Problem.ACTION_REFUSED, "That's more than " + EXPORT_LIMIT + " rows; narrow the dates.");
-        }
-        var csv = new StringBuilder(
-                "seq,id,created_at,actor_kind,actor_user_id,action,target_type,target_id,reason,request_id,"
-                        + "admin_session_id,ip,approval_id\n");
-        for (var row : rows) {
-            csv.append(row.seq()).append(',');
-            csv.append(row.id()).append(',');
-            csv.append(row.createdAt()).append(',');
-            csv.append(row.actorKind()).append(',');
-            csv.append(row.actorUserId() == null ? "" : row.actorUserId()).append(',');
-            csv.append(cell(row.action())).append(',');
-            csv.append(cell(row.targetType())).append(',');
-            csv.append(cell(row.targetId())).append(',');
-            csv.append(cell(row.reason())).append(',');
-            csv.append(cell(row.requestId())).append(',');
-            csv.append(row.adminSessionId() == null ? "" : row.adminSessionId()).append(',');
-            csv.append(cell(row.ip() == null ? null : PersonalDataMask.ip(row.ip())))
-                    .append(',');
-            csv.append(row.approvalId() == null ? "" : row.approvalId()).append('\n');
-        }
-        transactions.executeWithoutResult(status -> audit.record(new AuditTrail.Entry(
-                audit.admin(admin),
-                "audit.export",
-                "audit_log",
-                "search",
-                request.reason(),
-                null,
-                Map.of("rows", rows.size()))));
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"idleo-audit.csv\"")
-                .contentType(new MediaType("text", "csv"))
-                .body(csv.toString().getBytes(StandardCharsets.UTF_8));
-    }
-
-    /** A CSV cell: quoted, and never read as a formula by a spreadsheet. */
-    private static String cell(@Nullable String value) {
-        if (value == null) {
-            return "";
-        }
-        var safe = !value.isEmpty() && "=+-@\t\r".indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
-        return "\"" + safe.replace("\"", "\"\"") + "\"";
-    }
-
-    private record Filter(
-            @Nullable String actor,
-            @Nullable String action,
-            @Nullable String targetType,
-            @Nullable String targetId,
-            @Nullable UUID approvalId,
-            @Nullable String requestId,
-            @Nullable Instant from,
-            @Nullable Instant to) {}
-
-    private List<AuditEntry> search(Filter filter, @Nullable UUID after, int limit) {
-        return jdbc.sql(SELECT)
-                .param("actor", blankToNull(filter.actor()))
-                .param("action", blankToNull(filter.action()))
-                .param("targetType", blankToNull(filter.targetType()))
-                .param("targetId", blankToNull(filter.targetId()))
-                .param("approvalId", filter.approvalId())
-                .param("requestId", blankToNull(filter.requestId()))
-                .param("from", filter.from() == null ? null : Timestamp.from(filter.from()))
-                .param("to", filter.to() == null ? null : Timestamp.from(filter.to()))
-                .param("after", after)
-                .param("limit", limit)
-                .query(this::entry)
-                .list();
-    }
-
     private AuditEntry entry(ResultSet rs, int row) throws SQLException {
         return new AuditEntry(
                 rs.getObject("id", UUID.class),
@@ -342,9 +236,5 @@ class AuditLogController {
 
     private @Nullable Map<String, Object> object(@Nullable String text) {
         return text == null ? null : json.readValue(text, OBJECT);
-    }
-
-    private static @Nullable String blankToNull(@Nullable String value) {
-        return value == null || value.isBlank() ? null : value.strip();
     }
 }

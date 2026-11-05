@@ -1,5 +1,6 @@
 package com.idleo.controlplane.payouts.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -17,6 +18,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -25,6 +28,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -228,6 +232,7 @@ class AdminPayoutsController {
             String reason) {}
 
     @RequiresPermission(AdminPermission.PAYOUTS_READ)
+    @AdminList("payouts")
     @GetMapping
     AdminPayouts list(
             @RequestParam(defaultValue = "all") String status,
@@ -348,14 +353,33 @@ class AdminPayoutsController {
             @Nullable Instant confirmedAt,
             long version) {}
 
-    record AdminVerifications(List<AdminPanReview> pans, List<AdminUpiReview> upiIds) {}
+    record AdminPanReviews(
+            List<AdminPanReview> pans, @Nullable String nextCursor) {}
+
+    record AdminUpiReviews(
+            List<AdminUpiReview> upiIds, @Nullable String nextCursor) {}
 
     @RequiresPermission(AdminPermission.VERIFICATIONS_READ)
-    @GetMapping("/verifications")
-    AdminVerifications verifications() {
-        return new AdminVerifications(
-                pans.inReview(100).stream().map(AdminPanReview::of).toList(),
-                methods.reviews(100).stream()
+    @AdminList("verification-pans")
+    @GetMapping("/verifications/pans")
+    AdminPanReviews panReviews(
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = pans.inReview(sort, cursor, limit);
+        return new AdminPanReviews(page.rows().stream().map(AdminPanReview::of).toList(), page.nextCursor());
+    }
+
+    @RequiresPermission(AdminPermission.VERIFICATIONS_READ)
+    @AdminList("verification-upi-ids")
+    @GetMapping("/verifications/upi-ids")
+    AdminUpiReviews upiReviews(
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = methods.reviews(sort, cursor, limit);
+        return new AdminUpiReviews(
+                page.rows().stream()
                         .map(method -> new AdminUpiReview(
                                 method.id(),
                                 method.userId(),
@@ -367,7 +391,8 @@ class AdminPayoutsController {
                                 method.checkedAt(),
                                 method.confirmedAt(),
                                 method.version()))
-                        .toList());
+                        .toList(),
+                page.nextCursor());
     }
 
     @RequiresPermission(value = AdminPermission.VERIFICATIONS_DECIDE, record = "pan")
@@ -488,7 +513,10 @@ class AdminPayoutsController {
         }
     }
 
-    record AdminPayoutReconciliation(List<AdminPayoutReconciliationRun> runs, List<AdminPayoutMismatch> mismatches) {}
+    record AdminPayoutReconciliation(
+            List<AdminPayoutReconciliationRun> runs,
+            List<AdminPayoutMismatch> mismatches,
+            @Nullable String nextCursor) {}
 
     /** Reconciles {@code day} (India's; yesterday when left out) now. */
     record RunPayoutReconciliation(
@@ -499,18 +527,23 @@ class AdminPayoutsController {
 
     /** {@code state}: open (the default), fixed, accepted or all. */
     @RequiresPermission(AdminPermission.PAYOUTS_READ)
+    @AdminList("payout-mismatches")
     @GetMapping("/reconciliation")
-    AdminPayoutReconciliation reconciliation(@RequestParam(defaultValue = "open") String state) {
+    AdminPayoutReconciliation reconciliation(
+            @RequestParam(defaultValue = "open") String state,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
         if (!Set.of("open", "fixed", "accepted", "all").contains(state)) {
             throw ApiProblem.invalid("state", "must be open, fixed, accepted or all.");
         }
+        var page = reconciliation.list(state, sort, cursor, limit);
         return new AdminPayoutReconciliation(
                 reconciliation.runs(14).stream()
                         .map(AdminPayoutReconciliationRun::of)
                         .toList(),
-                reconciliation.list(state, 200).stream()
-                        .map(AdminPayoutMismatch::of)
-                        .toList());
+                page.rows().stream().map(AdminPayoutMismatch::of).toList(),
+                page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.RECONCILIATION_RUN)
@@ -573,93 +606,78 @@ class AdminPayoutsController {
         return LocalDate.of(year.startYear(), 4, 1).plusMonths(3L * (quarter - 1));
     }
 
-    /** The approved file, made now and for this one fetch: it holds every PAN, so it's never kept. */
+    /** The approved file, written as it's fetched, for this one fetch: it holds every PAN, so it's never kept. */
     Approvals.File tdsFile(String quarterName, String reason, AuditTrail.Actor actor) {
         var start = quarterStart(quarterName);
-        var from = start.atStartOfDay(FinancialYear.INDIA).toInstant();
-        var to = start.plusMonths(3).atStartOfDay(FinancialYear.INDIA).toInstant();
-        record Row(
-                UUID payoutId,
-                UUID userId,
-                String section,
-                int basisPoints,
-                long gross,
-                long tds,
-                long net,
-                String status,
-                Instant createdAt,
-                @Nullable Instant processedAt) {}
-        var rows = jdbc.sql("""
-                        select id, user_id, tds_section, tds_basis_points, gross_paise, tds_paise, net_paise, status,
-                               created_at, processed_at
-                        from payouts.payouts
-                        where created_at >= :from and created_at < :to and status not in (:returned)
-                        order by created_at, id
-                        """)
-                .param("from", Timestamp.from(from))
-                .param("to", Timestamp.from(to))
-                .param("returned", TaxDeduction.RETURNED)
-                .query((rs, n) -> new Row(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("user_id", UUID.class),
-                        rs.getString("tds_section"),
-                        rs.getInt("tds_basis_points"),
-                        rs.getLong("gross_paise"),
-                        rs.getLong("tds_paise"),
-                        rs.getLong("net_paise"),
-                        rs.getString("status"),
-                        rs.getTimestamp("created_at").toInstant(),
-                        rs.getTimestamp("processed_at") == null
-                                ? null
-                                : rs.getTimestamp("processed_at").toInstant()))
-                .list();
-        var day = DateTimeFormatter.ISO_LOCAL_DATE;
-        var csv = new StringBuilder(
-                "payout,pan,name_on_pan,holder,section,rate_percent,gross_paise,tds_paise,net_paise,deducted_on,"
-                        + "paid_on,status\n");
-        long total = 0;
-        for (var row : rows) {
-            var pan = pans.find(row.userId()).orElse(null);
-            csv.append(row.payoutId())
-                    .append(',')
-                    .append(pans.full(row.userId()).orElse(""))
-                    .append(',')
-                    .append(Statements.quote(pan == null ? "" : pan.name()))
-                    .append(',')
-                    .append(pan == null ? "" : pan.holder())
-                    .append(',')
-                    .append(Statements.quote(row.section()))
-                    .append(',')
-                    .append(java.math.BigDecimal.valueOf(row.basisPoints(), 2).toPlainString())
-                    .append(',')
-                    .append(row.gross())
-                    .append(',')
-                    .append(row.tds())
-                    .append(',')
-                    .append(row.net())
-                    .append(',')
-                    .append(day.format(ZonedDateTime.ofInstant(row.createdAt(), FinancialYear.INDIA)))
-                    .append(',')
-                    .append(
-                            row.processedAt() == null
-                                    ? ""
-                                    : day.format(ZonedDateTime.ofInstant(row.processedAt(), FinancialYear.INDIA)))
-                    .append(',')
-                    .append(row.status())
-                    .append('\n');
-            total += row.tds();
-        }
-        long deducted = total;
-        transactions.executeWithoutResult(status -> audit.record(new AuditTrail.Entry(
-                actor,
-                "tds.export",
-                "tds_quarter",
-                quarterName,
-                reason,
-                null,
-                Map.of("payouts", rows.size(), "tdsPaise", deducted))));
-        return new Approvals.File(
-                csv.toString().getBytes(StandardCharsets.UTF_8), "text/csv", "idleo-tds-" + quarterName + ".csv");
+        var from = Timestamp.from(start.atStartOfDay(FinancialYear.INDIA).toInstant());
+        var to = Timestamp.from(
+                start.plusMonths(3).atStartOfDay(FinancialYear.INDIA).toInstant());
+        var where = "from payouts.payouts where created_at >= :from and created_at < :to and status not in (:returned)";
+        transactions.executeWithoutResult(status -> {
+            var totals = jdbc.sql("select count(*) as payouts, coalesce(sum(tds_paise), 0) as tds " + where)
+                    .param("from", from)
+                    .param("to", to)
+                    .param("returned", TaxDeduction.RETURNED)
+                    .query()
+                    .singleRow();
+            audit.record(new AuditTrail.Entry(
+                    actor,
+                    "tds.export",
+                    "tds_quarter",
+                    quarterName,
+                    reason,
+                    null,
+                    Map.of(
+                            "payouts",
+                            ((Number) totals.get("payouts")).intValue(),
+                            "tdsPaise",
+                            ((Number) totals.get("tds")).longValue())));
+        });
+        return new Approvals.File("text/csv", "idleo-tds-" + quarterName + ".csv", out -> {
+            var day = DateTimeFormatter.ISO_LOCAL_DATE;
+            out.write(("payout,pan,name_on_pan,holder,section,rate_percent,gross_paise,tds_paise,net_paise,deducted_on,"
+                            + "paid_on,status\n")
+                    .getBytes(StandardCharsets.UTF_8));
+            var reading = new TransactionTemplate(Objects.requireNonNull(transactions.getTransactionManager()));
+            reading.setReadOnly(true);
+            reading.executeWithoutResult(status -> jdbc.sql("""
+                            select id, user_id, tds_section, tds_basis_points, gross_paise, tds_paise, net_paise, status,
+                                   created_at, processed_at
+                            """ + where + " order by created_at, id")
+                    .param("from", from)
+                    .param("to", to)
+                    .param("returned", TaxDeduction.RETURNED)
+                    .withFetchSize(500)
+                    .query((org.springframework.jdbc.core.RowCallbackHandler) rs -> {
+                        var user = rs.getObject("user_id", UUID.class);
+                        var pan = pans.find(user).orElse(null);
+                        var processed = rs.getTimestamp("processed_at");
+                        var line = String.join(
+                                ",",
+                                rs.getString("id"),
+                                pans.full(user).orElse(""),
+                                Statements.quote(pan == null ? "" : pan.name()),
+                                pan == null ? "" : pan.holder(),
+                                Statements.quote(rs.getString("tds_section")),
+                                java.math.BigDecimal.valueOf(rs.getInt("tds_basis_points"), 2)
+                                        .toPlainString(),
+                                String.valueOf(rs.getLong("gross_paise")),
+                                String.valueOf(rs.getLong("tds_paise")),
+                                String.valueOf(rs.getLong("net_paise")),
+                                day.format(ZonedDateTime.ofInstant(
+                                        rs.getTimestamp("created_at").toInstant(), FinancialYear.INDIA)),
+                                processed == null
+                                        ? ""
+                                        : day.format(
+                                                ZonedDateTime.ofInstant(processed.toInstant(), FinancialYear.INDIA)),
+                                rs.getString("status"));
+                        try {
+                            out.write((line + "\n").getBytes(StandardCharsets.UTF_8));
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    }));
+        });
     }
 
     private static <T> T refusing(Supplier<T> action) {

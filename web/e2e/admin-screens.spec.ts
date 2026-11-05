@@ -90,7 +90,12 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/invoices": { json: admin.invoices },
   "/admin/v1/payouts": { json: admin.adminPayouts },
   "/admin/v1/payouts/reconciliation": { json: admin.payoutReconciliation },
-  "/admin/v1/payouts/verifications": { json: admin.payoutVerifications },
+  "/admin/v1/payouts/verifications/pans": {
+    json: { pans: admin.payoutVerifications.pans, nextCursor: null },
+  },
+  "/admin/v1/payouts/verifications/upi-ids": {
+    json: { upiIds: admin.payoutVerifications.upiIds, nextCursor: null },
+  },
   "/admin/v1/clawbacks": { json: admin.clawbacks },
   ...overrides,
 });
@@ -191,7 +196,7 @@ test.describe("the console", () => {
     );
     // The Installs card: the median minutes to listed, the last installs, and the failures by reason.
     await expect(page.getByText(`${admin.installs.medianMinutes!.toFixed(1)} min`).first()).toBeVisible();
-    await expect(page.getByRole("table", { name: "The last 20 installs" }).getByRole("row")).toHaveCount(
+    await expect(page.getByRole("table", { name: "Recent installs" }).getByRole("row")).toHaveCount(
       admin.installs.recent.length + 1,
     );
     await expect(page.getByRole("table", { name: "Failures by reason" })).toContainText("driver_too_old");

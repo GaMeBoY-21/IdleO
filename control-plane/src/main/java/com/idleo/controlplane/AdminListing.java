@@ -74,6 +74,7 @@ public final class AdminListing {
     private final String select;
     private final String from;
     private final String id;
+    private final Type idType;
     private final String fixed;
     private final String defaultSort;
     private final boolean defaultDescending;
@@ -88,6 +89,7 @@ public final class AdminListing {
         this.select = builder.select;
         this.from = builder.from;
         this.id = builder.id;
+        this.idType = builder.idType;
         this.fixed = builder.fixed;
         this.defaultSort = builder.defaultSort;
         this.defaultDescending = builder.defaultDescending;
@@ -175,7 +177,8 @@ public final class AdminListing {
                 throw ApiProblem.invalid("cursor", "belongs to another order of this list.");
             }
             var keyset = "(" + order.sort().sql() + ", " + id + ") " + (order.descending() ? "<" : ">") + " (cast(:"
-                    + SORT_VALUE + " as " + order.sort().type().cast + "), cast(:" + ROW_ID + " as uuid))";
+                    + SORT_VALUE + " as " + order.sort().type().cast + "), cast(:" + ROW_ID + " as " + idType.cast
+                    + "))";
             where += (hasWhere(where) ? " and " : " where ") + keyset;
             params.put(SORT_VALUE, position.value());
             params.put(ROW_ID, position.id());
@@ -271,6 +274,7 @@ public final class AdminListing {
         private String select = "*";
         private String from = "";
         private String id = "id";
+        private Type idType = Type.UUID;
         private String fixed = "";
         private String defaultSort = "";
         private boolean defaultDescending = true;
@@ -298,6 +302,13 @@ public final class AdminListing {
         /** The row's own id, a UUID: the last word in any order. */
         public Builder id(String sql) {
             this.id = sql;
+            return this;
+        }
+
+        /** The row's own id when it isn't one UUID: {@code sql} is one value that's unique and comparable as {@code type}. */
+        public Builder id(String sql, Type type) {
+            this.id = sql;
+            this.idType = type;
             return this;
         }
 

@@ -21,7 +21,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -48,7 +47,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * A CSV of any list, exactly as it was filtered (ADR 0052). It needs {@code export.create} and a recent factor, and the
  * list's own read permission; one holding personal data waits for another admin (ADR 0051). Every value is masked, and
- * the file is streamed, up to {@value #MOST_ROWS} rows, and says how many were left out. Each one is logged and audited.
+ * the file is streamed, up to {@value #MOST_ROWS} rows, and says how many were left out, whether it's fetched now or once approved. Each one
+ * is logged and audited.
  */
 @RestController
 @ConditionalOnWebApplication
@@ -90,8 +90,7 @@ class AdminListExportController {
     }
 
     /**
-     * @param list the list's name: users, hosts, sessions, payments, refunds, invoices, payouts, tickets, reports, abuse,
-     *     images, chargebacks, clawbacks, ratings or invites
+     * @param list the list's name, as each list's endpoint declares it
      * @param filters the list's filters, as its screen gave them
      */
     record ExportRequest(
@@ -121,7 +120,7 @@ class AdminListExportController {
         var given = new LinkedHashMap<String, @Nullable Object>();
         if (filters != null) {
             filters.forEach((name, value) -> {
-                if (name.equals("tag")) {
+                if (name.equals("tag") && listing.filterNames().contains("tagged")) {
                     given.put("tagged", tagged.subjects(listing.name().equals("hosts") ? "host" : "user", value));
                 } else if (listing.filterNames().contains(name)) {
                     given.put(name, value);
@@ -235,12 +234,11 @@ class AdminListExportController {
                                 filters.put(entry.getKey(), entry.getValue().asString()));
             }
             var sort = run.params().get("sort");
-            var bytes = new ByteArrayOutputStream();
-            var rows = write(
-                    listing, asked(listing, filters, sort == null || sort.isNull() ? null : sort.asString()), bytes);
-            audit.record(new AuditTrail.Entry(
-                    run.actor(), EXPORT, "list", name, run.reason(), null, Map.of("rows", String.valueOf(rows))));
-            return new Approvals.File(bytes.toByteArray(), "text/csv", name + ".csv");
+            var asked = asked(listing, filters, sort == null || sort.isNull() ? null : sort.asString());
+            var rows = Math.min(listing.count(jdbc, asked), MOST_ROWS);
+            writing.executeWithoutResult(status -> audit.record(new AuditTrail.Entry(
+                    run.actor(), EXPORT, "list", name, run.reason(), null, Map.of("rows", String.valueOf(rows)))));
+            return new Approvals.File("text/csv", name + ".csv", out -> write(listing, asked, out));
         });
     }
 }

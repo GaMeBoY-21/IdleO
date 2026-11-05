@@ -16,6 +16,11 @@ import {
 import { useCan } from "./permissions";
 import { AdminPage, Cell, Empty, QueryView, Row, Section, SmallField, Table, TableSkeleton } from "./ui";
 import { makePasskey, passkeysAvailable } from "./webauthn";
+import { ListBar } from "./Lists";
+import { ListScope, useListQuery, useListView } from "./listView";
+
+const SESSION_COLUMNS = ["Started", "Last used", "From", "Browser", "Admin", ""];
+const ADMIN_COLUMNS = ["Admin", "Can sign in", "Roles", ""];
 
 /**
  * An admin's own access (ADR 0051): their passkeys, each named, and their sessions, any of which they can end. An Owner
@@ -27,8 +32,16 @@ export function Security() {
     <AdminPage title="Your access">
       <Passkeys />
       <Sessions title="Your sessions" path="/admin/v1/me/sessions" />
-      {can("admins.manage") && <Sessions title="Everyone's sessions" path="/admin/v1/admins/sessions" />}
-      {can("admins.manage") && <Admins />}
+      {can("admins.manage") && (
+        <ListScope.Provider value="everyone">
+          <Sessions title="Everyone's sessions" path="/admin/v1/admins/sessions" />
+        </ListScope.Provider>
+      )}
+      {can("admins.manage") && (
+        <ListScope.Provider value="admins">
+          <Admins />
+        </ListScope.Provider>
+      )}
     </AdminPage>
   );
 }
@@ -133,8 +146,12 @@ function Sessions({
   path: "/admin/v1/me/sessions" | "/admin/v1/admins/sessions";
 }) {
   const client = useQueryClient();
-  const key = [ADMIN, "admin-sessions", path];
-  const sessions = useQuery({ queryKey: key, queryFn: () => adminData(adminApi.GET(path)) });
+  const view = useListView();
+  const sessions = useListQuery([ADMIN, "admin-sessions", path, view], "sessions", (cursor?: string) =>
+    path === "/admin/v1/admins/sessions"
+      ? adminData(adminApi.GET(path, { params: { query: { ...view, ...(cursor ? { cursor } : {}) } } }))
+      : adminData(adminApi.GET(path)),
+  );
   const [error, setError] = useState<unknown>(null);
   const end = async (session: AdminSessionRecord) => {
     setError(null);
@@ -153,6 +170,9 @@ function Sessions({
   };
   return (
     <Section title={title}>
+      {path === "/admin/v1/admins/sessions" && (
+        <ListBar list="admin-sessions" columns={SESSION_COLUMNS} tags={false} />
+      )}
       <QueryView
         query={sessions}
         what={title.toLowerCase()}
@@ -161,7 +181,11 @@ function Sessions({
         empty={<Empty title="No live session">Nobody is signed in.</Empty>}
       >
         {(found) => (
-          <Table caption={title} columns={["Started", "Last used", "From", "Browser", "Admin", ""]}>
+          <Table
+            caption={title}
+            sorts={path === "/admin/v1/admins/sessions" ? { Started: "startedAt" } : {}}
+            columns={SESSION_COLUMNS}
+          >
             {found.sessions.map((session) => (
               <Row key={session.id}>
                 <Cell>
@@ -191,17 +215,20 @@ type RoleChange = { admin: AdminAccount; role: string; give: boolean };
 
 /** Who holds which role, for an Owner. Changing one goes to another admin, and ends that admin's sessions when it runs. */
 function Admins() {
-  const admins = useQuery({
-    queryKey: [ADMIN, "admins"],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/admins")),
-  });
+  const view = useListView();
+  const admins = useListQuery([ADMIN, "admins", view], "admins", (cursor?: string) =>
+    adminData(
+      adminApi.GET("/admin/v1/admins", { params: { query: { ...view, ...(cursor ? { cursor } : {}) } } }),
+    ),
+  );
   const [changing, setChanging] = useState<RoleChange | null>(null);
   return (
     <Section title="Admins and their roles">
+      <ListBar list="admins" columns={ADMIN_COLUMNS} tags={false} />
       <QueryView query={admins} what="the admins" skeleton={<TableSkeleton what="the admins" rows={2} />}>
         {(found) => (
           <>
-            <Table caption="Admins" columns={["Admin", "Can sign in", "Roles", ""]}>
+            <Table caption="Admins" sorts={{ Admin: "email" }} columns={ADMIN_COLUMNS}>
               {found.admins.map((admin) => (
                 <Row key={admin.id}>
                   <Cell>

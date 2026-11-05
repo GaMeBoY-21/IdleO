@@ -7,6 +7,9 @@ import { formatDateTime } from "@/lib/time";
 import { ActionSheet, refusal, shownValue } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, adminFile, type AdminApproval } from "./api";
 import { ActionButton } from "./permissions";
+import { useMe } from "@/api/queries";
+import { ListBar } from "./Lists";
+import { useListView } from "./listView";
 import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallSelect, Table } from "./ui";
 
 /** A change, as the approver reads it. */
@@ -23,6 +26,8 @@ function Changes({ request }: { request: AdminApproval }) {
   );
 }
 
+const COLUMNS = ["Asked", "What", "Will change", "Why", "State", ""];
+
 type Decision = { request: AdminApproval; kind: "approve" | "reject" | "cancel" };
 
 const TITLES = { approve: "Approve this?", reject: "Reject this?", cancel: "Cancel this?" };
@@ -38,12 +43,14 @@ export function Approvals() {
   const [which, setWhich] = useState("pending");
   const [deciding, setDeciding] = useState<Decision | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const view = useListView();
+  const me = useMe();
   const requests = useInfiniteQuery({
-    queryKey: [ADMIN, "approvals", which],
+    queryKey: [ADMIN, "approvals", which, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/approvals", {
-          params: { query: { which, ...(pageParam ? { cursor: pageParam } : {}) } },
+          params: { query: { which, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
         }),
       ),
     initialPageParam: "",
@@ -82,6 +89,12 @@ export function Approvals() {
         }
       >
         {error !== null && <Banner tone="danger">{refusal(error)}</Banner>}
+        <ListBar
+          list="approvals"
+          columns={COLUMNS}
+          tags={false}
+          extra={which === "mine" ? (me.data ? { requestedBy: me.data.id } : {}) : { which }}
+        />
         <PagedView
           query={requests}
           what="the approvals"
@@ -89,7 +102,11 @@ export function Approvals() {
           empty={<Empty title="Nothing here">Actions that need a second admin wait here.</Empty>}
         >
           {(rows) => (
-            <Table caption="Approval requests" columns={["Asked", "What", "Will change", "Why", "State", ""]}>
+            <Table
+              caption="Approval requests"
+              sorts={{ Asked: "createdAt", What: "kind", State: "state" }}
+              columns={COLUMNS}
+            >
               {rows.map((request) => (
                 <Row key={request.id}>
                   <Cell>

@@ -1,4 +1,4 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useQuery, type UseInfiniteQueryResult, type UseQueryResult } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
@@ -7,6 +7,7 @@ import { LinkedAccounts, RecordHead, RecordNotes } from "./Notes";
 import { RecordTabs, type RecordTab } from "./RecordTabs";
 import { Timeline } from "./Timeline";
 import { AdminPage, BackLink, Cell, Empty, Fields, Id, Pill, QueryView, Row, Section, Table } from "./ui";
+import { useListQuery } from "./listView";
 
 /** One list in a tab, with its states. */
 function Listed<T, R>({
@@ -16,7 +17,7 @@ function Listed<T, R>({
   columns,
   row,
 }: {
-  query: UseQueryResult<T>;
+  query: UseQueryResult<T> | UseInfiniteQueryResult<T>;
   what: string;
   rows: (data: T) => R[];
   columns: string[];
@@ -382,11 +383,13 @@ function AbuseItems({ renter, host }: { renter?: string; host?: string }) {
 }
 
 function SignIns({ id }: { id: string }) {
-  const query = useQuery({
-    queryKey: [ADMIN, "record-signins", id],
-    queryFn: () =>
-      adminData(adminApi.GET("/admin/v1/users/{id}/security-events", { params: { path: { id } } })),
-  });
+  const query = useListQuery([ADMIN, "record-signins", id], "events", (cursor?: string) =>
+    adminData(
+      adminApi.GET("/admin/v1/users/{id}/security-events", {
+        params: { path: { id }, query: cursor ? { cursor } : {} },
+      }),
+    ),
+  );
   return (
     <Listed
       query={query}
@@ -430,11 +433,13 @@ function AuditAbout({ type, id }: { type: string; id: string }) {
 }
 
 function WhoViewed({ id }: { id: string }) {
-  const query = useQuery({
-    queryKey: [ADMIN, "record-viewers", id],
-    queryFn: () =>
-      adminData(adminApi.GET("/admin/v1/personal-data/access-log", { params: { query: { subject: id } } })),
-  });
+  const query = useListQuery([ADMIN, "record-viewers", id], "entries", (cursor?: string) =>
+    adminData(
+      adminApi.GET("/admin/v1/personal-data/access-log", {
+        params: { query: { subject: id, ...(cursor ? { cursor } : {}) } },
+      }),
+    ),
+  );
   return (
     <Listed
       query={query}

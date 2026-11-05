@@ -12,4 +12,9 @@ class HostsListings {
     AdminListing hostsListing() {
         return AdminHostsController.LIST;
     }
+
+    @Bean
+    AdminListing installsListing() {
+        return HostInstalls.LIST;
+    }
 }

@@ -1,5 +1,6 @@
 package com.idleo.controlplane.sessions.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -151,6 +152,7 @@ class AdminSessionsController {
      * ({@code RUNNING}), and {@code from} and {@code to} when it was booked.
      */
     @RequiresPermission(AdminPermission.SESSIONS_READ)
+    @AdminList("sessions")
     @GetMapping
     AdminSessionPage search(
             @RequestParam(required = false) @Nullable UUID id,

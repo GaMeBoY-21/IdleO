@@ -2,11 +2,14 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useState } from "react";
 import { Banner } from "@/components/ui/Banner";
 import { RelativeTime } from "@/components/ui/Time";
-import { ActionSheet } from "./ActionSheet";
-import { ADMIN, adminApi, adminData, adminFile, type AuditStanding } from "./api";
+import { ADMIN, adminApi, adminData, type AuditStanding } from "./api";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { ListScope, useListView } from "./listView";
 import { AdminPage, Cell, Empty, Filters, PagedView, Row, Section, SmallField, Table, QueryView } from "./ui";
 import { Reveal } from "./Reveal";
+
+const ACCESS_COLUMNS = ["When", "Admin", "Whose", "Field", "Why"];
 
 /** A change, as its JSON, short enough for a row. */
 function change(value: Record<string, unknown> | null | undefined): string {
@@ -18,13 +21,13 @@ function change(value: Record<string, unknown> | null | undefined): string {
  * or a user id), what (an action, or the start of one: `host.`), the target, the dates, the approval and the request.
  */
 export function Audit() {
+  const view = useListView();
   const empty = { actor: "", action: "", targetId: "", approvalId: "", requestId: "", from: "", to: "" };
   const [form, setForm] = useState(empty);
-  const [exporting, setExporting] = useState(false);
   const [asked, setAsked] = useState(form);
   const set = (field: keyof typeof form) => (value: string) => setForm({ ...form, [field]: value });
   const entries = useInfiniteQuery({
-    queryKey: [ADMIN, "audit", asked],
+    queryKey: [ADMIN, "audit", asked, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/audit", {
@@ -37,6 +40,7 @@ export function Audit() {
               ...(asked.requestId ? { requestId: asked.requestId } : {}),
               ...(asked.from ? { from: new Date(asked.from).toISOString() } : {}),
               ...(asked.to ? { to: new Date(asked.to).toISOString() } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -45,6 +49,7 @@ export function Audit() {
     initialPageParam: "",
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
+  const columns = ["When", "Who", "Action", "Target", "Reason", "Before", "After", "From"];
   return (
     <AdminPage title="Audit log">
       <Standing />
@@ -65,14 +70,23 @@ export function Audit() {
         <SmallField label="From" value={form.from} onChange={set("from")} placeholder="2026-11-01" />
         <SmallField label="To" value={form.to} onChange={set("to")} placeholder="2026-11-30" />
       </Filters>
-      <Section
-        title="Entries"
-        action={
-          <ActionButton permission="export.create" variant="ghost" onClick={() => setExporting(true)}>
-            Export as CSV
-          </ActionButton>
-        }
-      >
+      <Section title="Entries">
+        <ListBar
+          list="audit"
+          columns={columns}
+          tags={false}
+          extra={Object.fromEntries(
+            Object.entries({
+              actor: asked.actor,
+              action: asked.action,
+              targetId: asked.targetId,
+              approvalId: asked.approvalId,
+              requestId: asked.requestId,
+              from: asked.from && new Date(asked.from).toISOString(),
+              to: asked.to && new Date(asked.to).toISOString(),
+            }).filter(([, value]) => value),
+          )}
+        />
         <PagedView
           query={entries}
           what="the audit log"
@@ -84,10 +98,7 @@ export function Audit() {
           }
         >
           {(rows) => (
-            <Table
-              caption="Audit log"
-              columns={["When", "Who", "Action", "Target", "Reason", "Before", "After", "From"]}
-            >
+            <Table caption="Audit log" sorts={{ When: "createdAt", Action: "action" }} columns={columns}>
               {rows.map((entry) => (
                 <Row key={entry.id}>
                   <Cell>
@@ -123,32 +134,9 @@ export function Audit() {
           )}
         </PagedView>
       </Section>
-      <AccessLog />
-      <ActionSheet
-        open={exporting}
-        onOpenChange={setExporting}
-        title="Export this search as CSV?"
-        change="Up to 50,000 rows, with addresses masked as on screen. The export itself goes into this log."
-        confirm="Export"
-        onConfirm={(reason) =>
-          adminFile(
-            adminApi.POST("/admin/v1/audit/export", {
-              body: {
-                reason,
-                ...(asked.actor ? { actor: asked.actor } : {}),
-                ...(asked.action ? { action: asked.action } : {}),
-                ...(asked.targetId ? { targetId: asked.targetId } : {}),
-                ...(asked.approvalId ? { approvalId: asked.approvalId } : {}),
-                ...(asked.requestId ? { requestId: asked.requestId } : {}),
-                ...(asked.from ? { from: new Date(asked.from).toISOString() } : {}),
-                ...(asked.to ? { to: new Date(asked.to).toISOString() } : {}),
-              },
-              parseAs: "blob",
-            }),
-            "idleo-audit.csv",
-          )
-        }
-      />
+      <ListScope.Provider value="access">
+        <AccessLog />
+      </ListScope.Provider>
     </AdminPage>
   );
 }
@@ -213,14 +201,16 @@ function Standing() {
 function AccessLog() {
   const [subject, setSubject] = useState("");
   const [asked, setAsked] = useState("");
+  const view = useListView();
   const entries = useInfiniteQuery({
-    queryKey: [ADMIN, "access-log", asked],
+    queryKey: [ADMIN, "access-log", asked, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/personal-data/access-log", {
           params: {
             query: {
               ...(asked ? { subject: asked } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -234,6 +224,12 @@ function AccessLog() {
       <Filters onSubmit={() => setAsked(subject.trim())}>
         <SmallField label="Person's id" value={subject} onChange={setSubject} width="w-72" />
       </Filters>
+      <ListBar
+        list="access-log"
+        columns={ACCESS_COLUMNS}
+        tags={false}
+        extra={asked ? { subject: asked } : {}}
+      />
       <PagedView
         query={entries}
         what="the access log"
@@ -245,7 +241,7 @@ function AccessLog() {
         }
       >
         {(rows) => (
-          <Table caption="Access log" columns={["When", "Admin", "Whose", "Field", "Why"]}>
+          <Table caption="Access log" sorts={{ When: "at", Field: "field" }} columns={ACCESS_COLUMNS}>
             {rows.map((entry) => (
               <Row key={entry.id}>
                 <Cell>

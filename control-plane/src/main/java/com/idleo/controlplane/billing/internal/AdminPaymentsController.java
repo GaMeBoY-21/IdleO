@@ -1,5 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -158,7 +159,9 @@ class AdminPaymentsController {
             @Nullable String failure) {}
 
     record AdminPaymentReconciliation(
-            List<AdminPaymentReconciliationRun> runs, List<AdminPaymentMismatch> mismatches) {}
+            List<AdminPaymentReconciliationRun> runs,
+            List<AdminPaymentMismatch> mismatches,
+            @Nullable String nextCursor) {}
 
     /** Runs {@code day} (India's; today when left out) again now. */
     record RunPaymentReconciliation(
@@ -195,6 +198,7 @@ class AdminPaymentsController {
 
     /** {@code query}: a renter's id, a top-up's id, or Razorpay's order or payment id. */
     @RequiresPermission(AdminPermission.PAYMENTS_READ)
+    @AdminList("payments")
     @GetMapping("/payments")
     AdminPaymentList payments(
             @RequestParam(required = false) @Nullable String query,
@@ -232,15 +236,20 @@ class AdminPaymentsController {
 
     /** {@code state}: open (the default), fixed, accepted or all. */
     @RequiresPermission(AdminPermission.PAYMENTS_READ)
+    @AdminList("payment-mismatches")
     @GetMapping("/payments/reconciliation")
-    AdminPaymentReconciliation reconciliation(@RequestParam(defaultValue = "open") String state) {
+    AdminPaymentReconciliation reconciliation(
+            @RequestParam(defaultValue = "open") String state,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = reconciliation.mismatches(state, sort, cursor, limit);
         return new AdminPaymentReconciliation(
                 reconciliation.runs(14).stream()
                         .map(AdminPaymentsController::run)
                         .toList(),
-                reconciliation.mismatches(state, 200).stream()
-                        .map(AdminPaymentsController::mismatch)
-                        .toList());
+                page.rows().stream().map(AdminPaymentsController::mismatch).toList(),
+                page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.RECONCILIATION_RUN)
@@ -264,6 +273,7 @@ class AdminPaymentsController {
 
     /** The open ones by the date evidence is due (the default), or {@code all}, the newest first. */
     @RequiresPermission(AdminPermission.PAYMENTS_READ)
+    @AdminList("chargebacks")
     @GetMapping("/chargebacks")
     AdminChargebackList chargebacks(
             @RequestParam(defaultValue = "open") String state,

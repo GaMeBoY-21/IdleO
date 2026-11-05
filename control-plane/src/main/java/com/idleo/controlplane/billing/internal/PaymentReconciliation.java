@@ -1,5 +1,7 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminListing;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.identity.AuditTrail;
@@ -700,16 +702,34 @@ class PaymentReconciliation {
                 .optional();
     }
 
-    /** {@code state}: open, fixed, accepted or all; the newest found first. */
-    List<Mismatch> mismatches(String state, int limit) {
-        return jdbc.sql("""
-                        select * from billing.payment_mismatches where (:state = 'all' or state = :state)
-                        order by last_found_at desc, id desc limit :limit
-                        """)
-                .param("state", state)
-                .param("limit", limit)
-                .query(PaymentReconciliation::mismatch)
-                .list();
+    /** What's been found, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing MISMATCHES = AdminListing.of("payment-mismatches", AdminPermission.PAYMENTS_READ, true)
+            .from("billing.payment_mismatches")
+            .sort("lastFoundAt", AdminListing.Type.TIME, "last_found_at")
+            .sort("kind", AdminListing.Type.TEXT, "kind")
+            .sortedBy("lastFoundAt", true)
+            .filter("state", "state = cast(:state as text)")
+            .csv("id", "id")
+            .csv("kind", "kind")
+            .csv("subject", "subject")
+            .csv("paymentId", "payment_id")
+            .csv("userId", "user_id")
+            .csv("ourPaise", "our_paise")
+            .csv("theirPaise", "their_paise")
+            .csv("detail", "detail")
+            .csv("state", "state")
+            .csv("foundAt", "found_at")
+            .csv("lastFoundAt", "last_found_at")
+            .build();
+
+    AdminListing.Page<Mismatch> mismatches(
+            @Nullable String state, @Nullable String sort, @Nullable String cursor, @Nullable Integer limit) {
+        return MISMATCHES.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "state", "all".equals(state) ? null : state),
+                cursor,
+                limit,
+                PaymentReconciliation::mismatch);
     }
 
     private static OurPart part(ResultSet rs, int row) throws SQLException {

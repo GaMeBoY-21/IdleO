@@ -47,7 +47,7 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 | `disputes.decide` |  | `POST /admin/v1/disputes/{id}/no-refund` | Owner, Support, Trust & Safety |
 | `disputes.read` |  | `GET /admin/v1/disputes`, `GET /admin/v1/disputes/host-flags`, `GET /admin/v1/disputes/{id}` | Owner, Support, Trust & Safety, Finance, Auditor |
 | `disputes.refund` | yes | `POST /admin/v1/disputes/{id}/refund` | Owner, Finance |
-| `export.create` | yes | `POST /admin/v1/audit/export`, `POST /admin/v1/payouts/tds-export` | Owner, Finance |
+| `export.create` | yes | `POST /admin/v1/exports`, `POST /admin/v1/payouts/tds-export` | Owner, Finance |
 | `hosts.activate` |  | `POST /admin/v1/hosts/{id}/activate` | Owner, Operations |
 | `hosts.certificates.revoke` |  | `POST /admin/v1/hosts/{id}/revoke-certificates` | Owner, Operations, Trust & Safety |
 | `hosts.read` |  | `GET /admin/v1/hosts`, `GET /admin/v1/hosts/{id}`, `GET /admin/v1/hosts/{id}/self-test`, `GET /admin/v1/installs` | Owner, Operations, Support, Trust & Safety, Auditor |
@@ -175,7 +175,7 @@ Through the existing alerting, as ticket-level digests, from counters that carry
 
 **The off-site copy.** `AuditOffsiteCopies` writes each finished India day's rows and the chain head after them as two files, in chain order, so the files join with no gaps. A file is written once with `If-None-Match: *` and never replaced; finding other bytes under the key is an error, not an overwrite. Missed days catch up in order, and a day with no rows still gets its head. In S5 the store is an R2 bucket with a lock on the prefix for 8 years (`ops/backup/r2-audit-lock.json`, docs/runbooks/audit-chain.md). R2 has no object versions, so write-once plus the lock is what keeps each version. The prod profile refuses to start without the store. A day with no copy tells the digest (`AuditCopyMissing`).
 
-**Search and export.** `GET /admin/v1/audit` also filters by approval and request id. `POST /admin/v1/audit/export` gives the same search as CSV, up to 50,000 rows, with addresses masked, under `export.create`, and is itself logged. Cells can't be read as spreadsheet formulas.
+**Search and export.** `GET /admin/v1/audit` also filters by approval and request id. `POST /admin/v1/exports` with the list `audit` gives the same search as CSV, up to 50,000 rows, with addresses masked, under `export.create`, and is itself logged; it needs no second admin, since an auditor's reading of the log doesn't wait on the people in it. Cells can't be read as spreadsheet formulas.
 
 **Still append-only for the application:** a test reads the database's privileges for `idleo_application`: no `UPDATE`, `DELETE` or `TRUNCATE` on the log, and no `UPDATE` on the head.
 

@@ -1,5 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -147,6 +148,7 @@ class AdminRefundsController {
 
     /** {@code status}: requested (the default), refunding, refunded, failed, declined or all. */
     @RequiresPermission(AdminPermission.REFUNDS_READ)
+    @AdminList("refunds")
     @GetMapping
     AdminCreditRefundList list(
             @RequestParam(defaultValue = "requested") String status,

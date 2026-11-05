@@ -1,6 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
@@ -8,17 +8,19 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,21 +50,19 @@ class ApprovalsController {
 
     /** {@code which}: pending (the default), mine or decided. */
     @RequiresPermission(AdminPermission.APPROVALS_READ)
+    @AdminList("approvals")
     @GetMapping
     ApprovalPage list(
             @AuthenticationPrincipal CurrentUser admin,
             @RequestParam(defaultValue = "pending") String which,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         if (!List.of("pending", "mine", "decided").contains(which)) {
             throw ApiProblem.invalid("which", "must be pending, mine or decided.");
         }
-        int size = AdminPages.limit(limit);
-        var rows = approvals.list(which, admin.id(), AdminPages.after(cursor), size + 1);
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
-        return new ApprovalPage(
-                List.copyOf(page),
-                rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+        var page = approvals.list(which, admin.id(), sort, cursor, limit);
+        return new ApprovalPage(page.rows(), page.nextCursor());
     }
 
     /** How many wait, for the sidebar. */
@@ -110,18 +110,21 @@ class ApprovalsController {
         return approvals.cancel(admin, id, request.reason());
     }
 
-    /** The file an approved export makes, once, for whoever asked for it, within a day. */
+    /** The file an approved export makes, once, for whoever asked for it, within a day. It's written as it's sent. */
     @RequiresPermission(value = AdminPermission.APPROVALS_DECIDE, shownOnce = true)
     @PostMapping(value = "/{id}/download", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     @ApiResponse(
             responseCode = "200",
             description = "The file",
             content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string")))
-    ResponseEntity<byte[]> download(@AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id) {
+    void download(
+            @AuthenticationPrincipal CurrentUser admin,
+            @PathVariable UUID id,
+            @Parameter(hidden = true) HttpServletResponse response)
+            throws IOException {
         var file = approvals.download(admin, id);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.name() + "\"")
-                .contentType(MediaType.parseMediaType(file.contentType()))
-                .body(file.bytes());
+        response.setContentType(file.contentType());
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.name() + "\"");
+        file.writer().writeTo(response.getOutputStream());
     }
 }

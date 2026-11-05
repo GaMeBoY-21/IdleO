@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -25,7 +25,9 @@ import {
 import { ActionButton } from "./permissions";
 import { PaymentRecord } from "./Records";
 import { ListBar } from "./Lists";
-import { useListParams, useListView } from "./listView";
+import { ListScope, useListParams, useListQuery, useListView } from "./listView";
+
+const MISMATCH_COLUMNS = ["Found", "Kind", "Razorpay's id", "Renter", "Ours", "Razorpay's", "Detail", ""];
 
 /** What each kind of disagreement means, for the admin who has to put it right (docs/runbooks/payments.md). */
 export const MISMATCH_WORDS: Record<string, string> = {
@@ -58,7 +60,9 @@ function PaymentSearch() {
   return (
     <AdminPage title="Payments">
       <Search />
-      <Reconciliation />
+      <ListScope.Provider value="recon">
+        <Reconciliation />
+      </ListScope.Provider>
     </AdminPage>
   );
 }
@@ -192,11 +196,17 @@ function Reconciliation() {
   const [running, setRunning] = useState(false);
   const [day, setDay] = useState("");
   const [accepting, setAccepting] = useState<AdminPaymentMismatch | null>(null);
-  const reconciliation = useQuery({
-    queryKey: [ADMIN, "payment-reconciliation", state],
-    queryFn: () =>
-      adminData(adminApi.GET("/admin/v1/payments/reconciliation", { params: { query: { state } } })),
-  });
+  const view = useListView();
+  const reconciliation = useListQuery(
+    [ADMIN, "payment-reconciliation", state, view],
+    "mismatches",
+    (cursor?: string) =>
+      adminData(
+        adminApi.GET("/admin/v1/payments/reconciliation", {
+          params: { query: { state, ...view, ...(cursor ? { cursor } : {}) } },
+        }),
+      ),
+  );
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   return (
     <Section
@@ -220,6 +230,12 @@ function Reconciliation() {
           ]}
         />
       </div>
+      <ListBar
+        list="payment-mismatches"
+        columns={MISMATCH_COLUMNS}
+        tags={false}
+        extra={state === "all" ? {} : { state }}
+      />
       <QueryView query={reconciliation} what="the reconciliation">
         {(found) => (
           <>
@@ -231,7 +247,8 @@ function Reconciliation() {
             ) : (
               <Table
                 caption="What disagrees"
-                columns={["Found", "Kind", "Razorpay's id", "Renter", "Ours", "Razorpay's", "Detail", ""]}
+                sorts={{ Found: "lastFoundAt", Kind: "kind" }}
+                columns={MISMATCH_COLUMNS}
               >
                 {found.mismatches.map((item) => (
                   <Row key={item.id}>

@@ -1,5 +1,7 @@
 package com.idleo.controlplane.trust.internal;
 
+import com.idleo.controlplane.AdminListing;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.hosts.Blocklists;
 import com.idleo.controlplane.identity.AuditTrail;
@@ -11,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -157,18 +160,41 @@ class LearnedBuilds {
     List<Addition> list() {
         Set<String> listed = published.learnedBuilds();
         return jdbc.sql("select * from trust.blocklist_additions order by created_at desc, id desc")
-                .query((rs, n) -> new Addition(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("item_id", UUID.class),
-                        rs.getString("sha256"),
-                        rs.getString("name"),
-                        rs.getString("kind"),
-                        rs.getString("reason"),
-                        rs.getObject("added_by", UUID.class),
-                        rs.getTimestamp("created_at").toInstant(),
-                        listed.contains(rs.getString("sha256")),
-                        rs.getLong("version")))
+                .query((rs, n) -> addition(rs, listed))
                 .list();
+    }
+
+    /** What's been added, its orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("blocklist-additions", AdminPermission.ABUSE_READ, false)
+            .from("trust.blocklist_additions")
+            .sort("createdAt", AdminListing.Type.TIME, "created_at")
+            .sort("name", AdminListing.Type.TEXT, "name")
+            .sortedBy("createdAt", true)
+            .csv("id", "id")
+            .csv("sha256", "sha256")
+            .csv("filename", "name")
+            .csv("kind", "kind")
+            .csv("reason", "reason")
+            .csv("createdAt", "created_at")
+            .build();
+
+    AdminListing.Page<Addition> page(@Nullable String sort, @Nullable String cursor, @Nullable Integer limit) {
+        Set<String> listed = published.learnedBuilds();
+        return LIST.page(jdbc, AdminListing.Asked.of(sort), cursor, limit, (rs, n) -> addition(rs, listed));
+    }
+
+    private static Addition addition(java.sql.ResultSet rs, Set<String> listed) throws java.sql.SQLException {
+        return new Addition(
+                rs.getObject("id", UUID.class),
+                rs.getObject("item_id", UUID.class),
+                rs.getString("sha256"),
+                rs.getString("name"),
+                rs.getString("kind"),
+                rs.getString("reason"),
+                rs.getObject("added_by", UUID.class),
+                rs.getTimestamp("created_at").toInstant(),
+                listed.contains(rs.getString("sha256")),
+                rs.getLong("version"));
     }
 
     /** The additions as {@code idleo-release blocklist --additions} reads them: {@code {sha256, name, kind, item}}. */

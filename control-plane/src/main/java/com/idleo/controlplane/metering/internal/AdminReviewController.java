@@ -1,6 +1,7 @@
 package com.idleo.controlplane.metering.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminList;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.ApiProblem;
@@ -10,10 +11,7 @@ import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.sessions.MeteredSessions;
 import jakarta.validation.Valid;
-import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -75,102 +73,81 @@ class AdminReviewController {
     record AdminReviewPage(
             List<AdminReviewMinute> minutes, @Nullable String nextCursor) {}
 
+    /** The minutes in review, their filters, orders and CSV (ADR 0052). The oldest is the next to decide. */
+    static final AdminListing LIST = AdminListing.of("review-minutes", AdminPermission.REVIEW_READ, true)
+            .select("r.*, m.renter_id")
+            .from("metering.review_minutes r join metering.metered_sessions m on m.session_id = r.session_id")
+            .id("r.session_id::text || ':' || lpad(r.minute_index::text, 10, '0')", AdminListing.Type.TEXT)
+            .sort("queuedAt", AdminListing.Type.TIME, "r.created_at")
+            .sort("minuteAt", AdminListing.Type.TIME, "r.minute_at")
+            .sort("reason", AdminListing.Type.TEXT, "r.reason")
+            .sortedBy("queuedAt", false)
+            .filter("state", """
+                    (cast(:state as text) = 'open' and r.resolution is null)
+                    or (cast(:state as text) = 'decided' and r.resolution is not null)""")
+            .filter("session", "r.session_id = cast(:session as uuid)")
+            .csv("sessionId", "r.session_id")
+            .csv("minuteIndex", "r.minute_index")
+            .csv("minuteAt", "r.minute_at")
+            .csv("renterId", "m.renter_id")
+            .csv("attempt", "r.attempt")
+            .csv("reason", "r.reason")
+            .csv("queuedAt", "r.created_at")
+            .csv("resolution", "r.resolution")
+            .csv("resolutionReason", "r.resolution_reason")
+            .csv("resolvedBy", "r.resolved_by")
+            .csv("resolvedAt", "r.resolved_at")
+            .build();
+
     /** {@code state} is {@code open} (the default), {@code decided} or {@code all}; {@code session} keeps one session's. */
     @RequiresPermission(AdminPermission.REVIEW_READ)
+    @AdminList("review-minutes")
     @GetMapping
     AdminReviewPage list(
             @RequestParam(required = false) @Nullable String state,
             @RequestParam(required = false) @Nullable UUID session,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
         var which = state == null || state.isBlank() ? "open" : state.strip();
         if (!List.of("open", "decided", "all").contains(which)) {
             throw ApiProblem.invalid("state", "must be open, decided or all.");
         }
-        var after = Position.decode(cursor);
-        record Row(
-                UUID sessionId,
-                int minuteIndex,
-                Instant minuteAt,
-                UUID renterId,
-                @Nullable Integer attempt,
-                String reason,
-                Instant queuedAt,
-                @Nullable String resolution,
-                @Nullable String resolutionReason,
-                @Nullable String resolvedBy,
-                @Nullable Instant resolvedAt,
-                @Nullable UUID settlementTxn,
-                long version) {}
-        var rows = jdbc.sql("""
-                        select r.*, m.renter_id from metering.review_minutes r
-                        join metering.metered_sessions m on m.session_id = r.session_id
-                        where (:which = 'all' or (r.resolution is null) = (:which = 'open'))
-                          and (cast(:session as uuid) is null or r.session_id = cast(:session as uuid))
-                          and (cast(:afterAt as timestamptz) is null
-                               or (r.created_at, r.session_id, r.minute_index)
-                                  > (cast(:afterAt as timestamptz), cast(:afterSession as uuid), :afterIndex))
-                        order by r.created_at, r.session_id, r.minute_index
-                        limit :limit
-                        """)
-                .param("which", which)
-                .param("session", session)
-                .param("afterAt", after == null ? null : Timestamp.from(after.queuedAt()))
-                .param("afterSession", after == null ? null : after.sessionId())
-                .param("afterIndex", after == null ? 0 : after.minuteIndex())
-                .param("limit", size + 1)
-                .query((rs, n) -> new Row(
-                        rs.getObject("session_id", UUID.class),
-                        rs.getInt("minute_index"),
-                        rs.getTimestamp("minute_at").toInstant(),
-                        rs.getObject("renter_id", UUID.class),
-                        rs.getObject("attempt", Integer.class),
-                        rs.getString("reason"),
-                        rs.getTimestamp("created_at").toInstant(),
-                        rs.getString("resolution"),
-                        rs.getString("resolution_reason"),
-                        rs.getString("resolved_by"),
-                        rs.getTimestamp("resolved_at") == null
-                                ? null
-                                : rs.getTimestamp("resolved_at").toInstant(),
-                        rs.getObject("settlement_txn", UUID.class),
-                        rs.getLong("version")))
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
         var attempts = new HashMap<UUID, List<MeteredSessions.Attempt>>();
-        var minutes = page.stream()
-                .map(row -> {
-                    var ran = row.attempt() == null
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "state", which.equals("all") ? null : which, "session", session),
+                cursor,
+                limit,
+                (rs, n) -> {
+                    var sessionId = rs.getObject("session_id", UUID.class);
+                    var attempt = rs.getObject("attempt", Integer.class);
+                    var ran = attempt == null
                             ? null
-                            : attempts.computeIfAbsent(row.sessionId(), sessions::attempts).stream()
-                                    .filter(attempt -> attempt.attempt() == row.attempt())
+                            : attempts.computeIfAbsent(sessionId, sessions::attempts).stream()
+                                    .filter(each -> each.attempt() == attempt)
                                     .findFirst()
                                     .orElse(null);
                     return new AdminReviewMinute(
-                            row.sessionId(),
-                            row.minuteIndex(),
-                            row.minuteAt(),
-                            row.renterId(),
-                            row.attempt(),
+                            sessionId,
+                            rs.getInt("minute_index"),
+                            rs.getTimestamp("minute_at").toInstant(),
+                            rs.getObject("renter_id", UUID.class),
+                            attempt,
                             ran == null ? null : ran.hostId(),
                             ran == null ? null : ran.pricePaisePerMin(),
-                            row.reason(),
-                            row.queuedAt(),
-                            row.resolution(),
-                            row.resolutionReason(),
-                            row.resolvedBy(),
-                            row.resolvedAt(),
-                            row.settlementTxn(),
-                            row.version());
-                })
-                .toList();
-        var last = page.isEmpty() ? null : page.getLast();
-        return new AdminReviewPage(
-                minutes,
-                rows.size() > size && last != null
-                        ? new Position(last.queuedAt(), last.sessionId(), last.minuteIndex()).encode()
-                        : null);
+                            rs.getString("reason"),
+                            rs.getTimestamp("created_at").toInstant(),
+                            rs.getString("resolution"),
+                            rs.getString("resolution_reason"),
+                            rs.getString("resolved_by"),
+                            rs.getTimestamp("resolved_at") == null
+                                    ? null
+                                    : rs.getTimestamp("resolved_at").toInstant(),
+                            rs.getObject("settlement_txn", UUID.class),
+                            rs.getLong("version"));
+                });
+        return new AdminReviewPage(page.rows(), page.nextCursor());
     }
 
     /** Charges the minute at its attempt's price, as a settlement of its own, within the cap and the credit. */
@@ -207,34 +184,5 @@ class AdminReviewController {
                 throw ApiProblem.of(Problem.NOT_FOUND, "There's no such minute in the review queue.");
             case ReviewQueue.Outcome.Refused refused -> throw ApiProblem.of(Problem.ACTION_REFUSED, refused.why());
         };
-    }
-
-    /** Where a page ends in the queue's order: when the minute was queued, its session and its index. */
-    private record Position(Instant queuedAt, UUID sessionId, int minuteIndex) {
-
-        String encode() {
-            var raw = "r:" + queuedAt.getEpochSecond() + "." + queuedAt.getNano() + ":" + sessionId + ":" + minuteIndex;
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
-        }
-
-        static @Nullable Position decode(@Nullable String cursor) {
-            if (cursor == null || cursor.isBlank()) {
-                return null;
-            }
-            try {
-                var parts =
-                        new String(Base64.getUrlDecoder().decode(cursor.strip()), StandardCharsets.UTF_8).split(":");
-                if (parts.length == 4 && parts[0].equals("r")) {
-                    var time = parts[1].split("\\.");
-                    return new Position(
-                            Instant.ofEpochSecond(Long.parseLong(time[0]), Long.parseLong(time[1])),
-                            UUID.fromString(parts[2]),
-                            Integer.parseInt(parts[3]));
-                }
-            } catch (IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-                // Refused below.
-            }
-            throw ApiProblem.invalid("cursor", "isn't a cursor this API gave out.");
-        }
     }
 }

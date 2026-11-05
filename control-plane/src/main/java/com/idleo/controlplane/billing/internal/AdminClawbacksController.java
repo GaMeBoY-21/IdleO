@@ -1,5 +1,6 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -117,6 +118,7 @@ class AdminClawbacksController {
 
     /** {@code state}: owed (the default), recovered, waived or all; newest first. */
     @RequiresPermission(AdminPermission.CLAWBACKS_READ)
+    @AdminList("clawbacks")
     @GetMapping
     AdminClawbackPage list(
             @RequestParam(defaultValue = "owed") String state,

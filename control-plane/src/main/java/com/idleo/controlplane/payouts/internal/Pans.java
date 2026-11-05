@@ -1,12 +1,13 @@
 package com.idleo.controlplane.payouts.internal;
 
+import com.idleo.controlplane.AdminListing;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.billing.VerifiedPans;
 import com.idleo.controlplane.identity.AuditTrail;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -245,11 +246,25 @@ class Pans implements VerifiedPans {
         return find(userId).orElseThrow();
     }
 
-    /** PANs waiting for an admin, oldest first. */
-    List<Pan> inReview(int limit) {
-        return jdbc.sql("select * from payouts.pans where state = 'review' order by submitted_at limit " + limit)
-                .query(Pans::pan)
-                .list();
+    /** PANs and how they stand, their filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("verification-pans", AdminPermission.VERIFICATIONS_READ, true)
+            .from("payouts.pans")
+            .id("user_id")
+            .sort("submittedAt", AdminListing.Type.TIME, "submitted_at")
+            .sort("checked", AdminListing.Type.TEXT, "checked")
+            .sortedBy("submittedAt", false)
+            .filter("state", "state = cast(:state as text)")
+            .csv("userId", "user_id")
+            .csv("pan", "pan_last4")
+            .csv("name", "name")
+            .csv("holder", "holder")
+            .csv("state", "state")
+            .csv("checked", "checked")
+            .csv("submittedAt", "submitted_at")
+            .build();
+
+    AdminListing.Page<Pan> inReview(@Nullable String sort, @Nullable String cursor, @Nullable Integer limit) {
+        return LIST.page(jdbc, AdminListing.Asked.of(sort, "state", "review"), cursor, limit, Pans::pan);
     }
 
     private static Pan pan(java.sql.ResultSet rs, int row) throws java.sql.SQLException {

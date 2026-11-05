@@ -33,7 +33,9 @@ import {
 } from "./ui";
 import { ActionButton } from "./permissions";
 import { ListBar } from "./Lists";
-import { useListParam, useListView } from "./listView";
+import { ListScope, useListQuery, useListParam, useListView } from "./listView";
+
+const BUILD_COLUMNS = ["Program", "Build", "What it is", "Reason", "Added", "State", ""];
 
 /** What a signal is, in the admin's words. */
 const SIGNALS: Record<string, string> = {
@@ -155,7 +157,9 @@ function AbuseQueue() {
           </Table>
         )}
       </PagedView>
-      <WaitingBuilds />
+      <ListScope.Provider value="builds">
+        <WaitingBuilds />
+      </ListScope.Provider>
     </AdminPage>
   );
 }
@@ -177,7 +181,8 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
   const client = useQueryClient();
   const additions = useQuery({
     queryKey: [ADMIN, "blocklist-additions"],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/abuse/blocklist-additions")),
+    queryFn: () =>
+      adminData(adminApi.GET("/admin/v1/abuse/blocklist-additions", { params: { query: { limit: 200 } } })),
   });
   const [adding, setAdding] = useState<{ sha256: string; name: string } | null>(null);
   const [kind, setKind] = useState("miner");
@@ -248,13 +253,18 @@ function LearnableBuilds({ found, itemId }: { found: AbuseDetail; itemId: string
 /** Builds waiting to go on the signed blocklist, and which the published list already names; each can be taken back. */
 function WaitingBuilds() {
   const client = useQueryClient();
-  const additions = useQuery({
-    queryKey: [ADMIN, "blocklist-additions"],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/abuse/blocklist-additions")),
-  });
+  const view = useListView();
+  const additions = useListQuery([ADMIN, "blocklist-additions", view], "additions", (cursor?: string) =>
+    adminData(
+      adminApi.GET("/admin/v1/abuse/blocklist-additions", {
+        params: { query: { ...view, ...(cursor ? { cursor } : {}) } },
+      }),
+    ),
+  );
   const [removing, setRemoving] = useState<BlocklistAddition | null>(null);
   return (
     <Section title="Blocklist additions">
+      <ListBar list="blocklist-additions" columns={BUILD_COLUMNS} tags={false} />
       <QueryView
         query={additions}
         what="the blocklist additions"
@@ -268,7 +278,8 @@ function WaitingBuilds() {
         {(data) => (
           <Table
             caption="Blocklist additions"
-            columns={["Program", "Build", "What it is", "Reason", "Added", "State", ""]}
+            sorts={{ Added: "createdAt", Name: "name" }}
+            columns={BUILD_COLUMNS}
           >
             {data.additions.map((entry) => (
               <Row key={entry.id}>

@@ -1,5 +1,6 @@
 package com.idleo.controlplane.trust.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -198,7 +199,8 @@ class AdminAbuseController {
             boolean published,
             long version) {}
 
-    record BlocklistAdditionList(List<BlocklistAddition> additions) {}
+    record BlocklistAdditionList(
+            List<BlocklistAddition> additions, @Nullable String nextCursor) {}
 
     private final AbuseReviews reviews;
     private final AuditTrail audit;
@@ -223,6 +225,7 @@ class AdminAbuseController {
 
     /** {@code state} is {@code open} (the default), {@code confirmed}, {@code cleared} or {@code all}; oldest first. */
     @RequiresPermission(AdminPermission.ABUSE_READ)
+    @AdminList("abuse")
     @GetMapping
     AbusePage list(
             @RequestParam(required = false) @Nullable String state,
@@ -366,26 +369,33 @@ class AdminAbuseController {
             case LearnedBuilds.Result.NotFound _ -> throw notFound();
             case LearnedBuilds.Result.Refused refused -> throw ApiProblem.of(Problem.ACTION_REFUSED, refused.why());
         }
-        return additions();
+        return additions(null, null, null);
     }
 
     /** Every build waiting to go on the blocklist, newest first, and whether the published list names it. */
     @RequiresPermission(AdminPermission.ABUSE_READ)
+    @AdminList("blocklist-additions")
     @GetMapping("/blocklist-additions")
-    BlocklistAdditionList additions() {
-        return new BlocklistAdditionList(blocklist.list().stream()
-                .map(addition -> new BlocklistAddition(
-                        addition.id(),
-                        addition.itemId(),
-                        addition.sha256(),
-                        addition.name(),
-                        addition.kind(),
-                        addition.reason(),
-                        addition.addedBy(),
-                        addition.createdAt(),
-                        addition.published(),
-                        addition.version()))
-                .toList());
+    BlocklistAdditionList additions(
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = blocklist.page(sort, cursor, limit);
+        return new BlocklistAdditionList(
+                page.rows().stream()
+                        .map(addition -> new BlocklistAddition(
+                                addition.id(),
+                                addition.itemId(),
+                                addition.sha256(),
+                                addition.name(),
+                                addition.kind(),
+                                addition.reason(),
+                                addition.addedBy(),
+                                addition.createdAt(),
+                                addition.published(),
+                                addition.version()))
+                        .toList(),
+                page.nextCursor());
     }
 
     /** Takes a build back off: the next signed file leaves it out. Audited with the admin's reason. */
@@ -402,7 +412,7 @@ class AdminAbuseController {
             case LearnedBuilds.Result.NotFound _ -> throw ApiProblem.of(Problem.NOT_FOUND, "There's no such entry.");
             case LearnedBuilds.Result.Refused refused -> throw ApiProblem.of(Problem.ACTION_REFUSED, refused.why());
         }
-        return additions();
+        return additions(null, null, null);
     }
 
     /** Adds a note to the item. */

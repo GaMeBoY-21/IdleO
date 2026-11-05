@@ -72,7 +72,7 @@ export function QueryView<T>({
   skeleton,
   children,
 }: {
-  query: UseQueryResult<T>;
+  query: UseQueryResult<T> | UseInfiniteQueryResult<T>;
   what: string;
   isEmpty?: (data: T) => boolean;
   empty?: ReactNode;
@@ -97,6 +97,16 @@ export function QueryView<T>({
     <div className="flex flex-col gap-3">
       {stale !== null && <StaleNotice updatedAt={stale} />}
       {isEmpty?.(query.data) ? empty : children(query.data)}
+      {"hasNextPage" in query && query.hasNextPage && (
+        <Button
+          variant="ghost"
+          className="self-start"
+          busy={query.isFetchingNextPage}
+          onClick={() => void query.fetchNextPage()}
+        >
+          Show more
+        </Button>
+      )}
     </div>
   );
 }

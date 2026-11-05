@@ -1,5 +1,6 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -228,6 +229,7 @@ class AdminHostsController {
      * suspended or removed.
      */
     @RequiresPermission(AdminPermission.HOSTS_READ)
+    @AdminList("hosts")
     @GetMapping
     AdminHostPage search(
             @RequestParam(required = false) @Nullable String query,

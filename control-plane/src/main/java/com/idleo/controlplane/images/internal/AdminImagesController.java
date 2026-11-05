@@ -1,5 +1,6 @@
 package com.idleo.controlplane.images.internal;
 
+import com.idleo.controlplane.AdminList;
 import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
@@ -135,6 +136,7 @@ class AdminImagesController {
             List<ImageController.ImageWarning> warnings) {}
 
     @RequiresPermission(AdminPermission.IMAGES_READ)
+    @AdminList("images")
     @GetMapping
     AdminImagePage list(
             @RequestParam(required = false) @Nullable String state,

@@ -1,5 +1,7 @@
 package com.idleo.controlplane.hosts.internal;
 
+import com.idleo.controlplane.AdminListing;
+import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.Problem;
@@ -84,9 +86,57 @@ class HostInstalls {
             int opened,
             int listed,
             List<AdminInstall> recent,
-            List<InstallFailures> failures) {}
+            List<InstallFailures> failures,
+            @Nullable String nextCursor) {}
+
+    /** Each install's story, from its events. */
+    private static final String STORIES = """
+            (select o.install_id, o.opened_at,
+                    (select min(at) from hosts.install_events e
+                     where e.install_id = o.install_id and e.step = '%1$s') as listed_at,
+                    (select count(*) from hosts.install_events e
+                     where e.install_id = o.install_id and e.step = '%2$s') as clicks,
+                    last.step as last_step, last.outcome as last_outcome, last.reason as last_reason,
+                    (select max(setup_version) from hosts.install_events e
+                     where e.install_id = o.install_id) as setup_version,
+                    (select max(windows_build) from hosts.install_events e
+                     where e.install_id = o.install_id) as windows_build,
+                    (select max(gpu_model) from hosts.install_events e
+                     where e.install_id = o.install_id) as gpu_model,
+                    (select l.host_id from hosts.host_links l
+                     where l.install_id = o.install_id and l.host_id is not null
+                     order by l.approved_at desc limit 1) as host_id
+             from (select install_id, min(at) as opened_at from hosts.install_events
+                   where step = '%3$s' group by install_id) o
+             left join lateral (
+                 select step, outcome, reason from hosts.install_events e
+                 where e.install_id = o.install_id and e.step not in ('%2$s', '%4$s')
+                 order by e.at desc, e.received_at desc limit 1
+             ) last on true) stories
+            """.formatted(LISTED, CLICK, OPENED, FACTS);
+
+    /** The installs, their filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("installs", AdminPermission.HOSTS_READ, true)
+            .from(STORIES)
+            .id("install_id")
+            .sort("openedAt", AdminListing.Type.TIME, "opened_at")
+            .sort("clicks", AdminListing.Type.NUMBER, "clicks")
+            .sortedBy("openedAt", true)
+            .filter("since", "opened_at >= cast(:since as timestamptz)")
+            .csv("installId", "install_id")
+            .csv("openedAt", "opened_at")
+            .csv("listedAt", "listed_at")
+            .csv("clicks", "clicks")
+            .csv("lastStep", "last_step")
+            .csv("lastOutcome", "last_outcome")
+            .csv("setupVersion", "setup_version")
+            .csv("windowsBuild", "windows_build")
+            .csv("gpuModel", "gpu_model")
+            .csv("hostId", "host_id")
+            .build();
 
     static final Duration WINDOW = Duration.ofDays(30);
+    private static final int RECENT = 20;
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -180,91 +230,40 @@ class HostInstalls {
                 .list();
     }
 
-    InstallsSummary summary() {
+    InstallsSummary summary(@Nullable String sort, @Nullable String cursor, @Nullable Integer limit) {
         var since = Timestamp.from(Instant.now(clock).minus(WINDOW));
-        record Row(
-                UUID installId,
-                Instant openedAt,
-                @Nullable Instant listedAt,
-                int clicks,
-                @Nullable String lastStep,
-                @Nullable String lastOutcome,
-                @Nullable String lastReason,
-                @Nullable String setupVersion,
-                @Nullable Integer windowsBuild,
-                @Nullable String gpuModel,
-                @Nullable UUID hostId) {}
-        var rows = jdbc.sql("""
-                        with opened as (
-                            select install_id, min(at) as opened_at from hosts.install_events
-                            where step = :opened group by install_id having min(at) >= :since
-                        )
-                        select o.install_id, o.opened_at,
-                               (select min(at) from hosts.install_events e
-                                where e.install_id = o.install_id and e.step = :listed) as listed_at,
-                               (select count(*) from hosts.install_events e
-                                where e.install_id = o.install_id and e.step = :click) as clicks,
-                               last.step as last_step, last.outcome as last_outcome, last.reason as last_reason,
-                               (select max(setup_version) from hosts.install_events e
-                                where e.install_id = o.install_id) as setup_version,
-                               (select max(windows_build) from hosts.install_events e
-                                where e.install_id = o.install_id) as windows_build,
-                               (select max(gpu_model) from hosts.install_events e
-                                where e.install_id = o.install_id) as gpu_model,
-                               (select l.host_id from hosts.host_links l
-                                where l.install_id = o.install_id and l.host_id is not null
-                                order by l.approved_at desc limit 1) as host_id
-                        from opened o
-                        left join lateral (
-                            select step, outcome, reason from hosts.install_events e
-                            where e.install_id = o.install_id and e.step not in (:click, :facts)
-                            order by e.at desc, e.received_at desc limit 1
-                        ) last on true
-                        order by o.opened_at desc
-                        """)
-                .param("opened", OPENED)
-                .param("listed", LISTED)
-                .param("click", CLICK)
-                .param("facts", FACTS)
-                .param("since", since)
-                .query((rs, n) -> new Row(
-                        rs.getObject("install_id", UUID.class),
-                        rs.getTimestamp("opened_at").toInstant(),
-                        rs.getTimestamp("listed_at") == null
-                                ? null
-                                : rs.getTimestamp("listed_at").toInstant(),
-                        rs.getInt("clicks"),
-                        rs.getString("last_step"),
-                        rs.getString("last_outcome"),
-                        rs.getString("last_reason"),
-                        rs.getString("setup_version"),
-                        (Integer) rs.getObject("windows_build"),
-                        rs.getString("gpu_model"),
-                        rs.getObject("host_id", UUID.class)))
-                .list();
         var minutes = new ArrayList<Double>();
-        var recent = new ArrayList<AdminInstall>();
-        for (var row : rows) {
-            Double took = row.listedAt() == null
-                    ? null
-                    : Duration.between(row.openedAt(), row.listedAt()).toMillis() / 60_000.0;
-            if (took != null) {
-                minutes.add(took);
-            }
-            if (recent.size() < 20) {
-                recent.add(new AdminInstall(
-                        row.installId(),
-                        row.openedAt(),
-                        took,
-                        row.clicks(),
-                        stoppedAt(row.listedAt() != null, row.lastStep(), row.lastOutcome(), row.lastReason()),
-                        row.setupVersion(),
-                        row.windowsBuild(),
-                        row.gpuModel(),
-                        row.hostId(),
-                        detailsOf(row.installId())));
-            }
-        }
+        var opened = jdbc.sql("select opened_at, listed_at from " + STORIES + " where opened_at >= :since")
+                .param("since", since)
+                .query((rs, n) -> {
+                    var listedAt = rs.getTimestamp("listed_at");
+                    if (listedAt != null) {
+                        minutes.add(minutes(rs.getTimestamp("opened_at").toInstant(), listedAt.toInstant()));
+                    }
+                    return listedAt != null;
+                })
+                .list();
+        var page = LIST.page(
+                jdbc, AdminListing.Asked.of(sort, "since", since), cursor, limit == null ? RECENT : limit, (rs, n) -> {
+                    var installId = rs.getObject("install_id", UUID.class);
+                    var openedAt = rs.getTimestamp("opened_at").toInstant();
+                    var listedAt = rs.getTimestamp("listed_at");
+                    return new AdminInstall(
+                            installId,
+                            openedAt,
+                            listedAt == null ? null : minutes(openedAt, listedAt.toInstant()),
+                            rs.getInt("clicks"),
+                            stoppedAt(
+                                    listedAt != null,
+                                    rs.getString("last_step"),
+                                    rs.getString("last_outcome"),
+                                    rs.getString("last_reason")),
+                            rs.getString("setup_version"),
+                            (Integer) rs.getObject("windows_build"),
+                            rs.getString("gpu_model"),
+                            rs.getObject("host_id", UUID.class),
+                            detailsOf(installId));
+                });
         var failures = jdbc.sql("""
                         select step, coalesce(reason, 'unknown') as reason, count(*) as count
                         from hosts.install_events where outcome = 'failed' and received_at >= :since
@@ -273,7 +272,12 @@ class HostInstalls {
                 .param("since", since)
                 .query((rs, n) -> new InstallFailures(rs.getString("step"), rs.getString("reason"), rs.getInt("count")))
                 .list();
-        return new InstallsSummary(median(minutes), rows.size(), minutes.size(), recent, failures);
+        return new InstallsSummary(
+                median(minutes), opened.size(), minutes.size(), page.rows(), failures, page.nextCursor());
+    }
+
+    private static double minutes(Instant from, Instant to) {
+        return Duration.between(from, to).toMillis() / 60_000.0;
     }
 
     /** {@code listed}, or the last step and how it went: {@code drivers failed: driver_too_old}. */

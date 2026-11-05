@@ -6,11 +6,15 @@ import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { ActionSheet, refusal } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
-import { useAddress } from "./listView";
+import { useAddress, useListName } from "./listView";
 import { useCan } from "./permissions";
 
 /** What a list's export gives: the filters in the address, under the names the server's list knows them by. */
-function filtersFromAddress(params: URLSearchParams, known: Record<string, string>): Record<string, string> {
+function filtersFromAddress(
+  params: URLSearchParams,
+  known: Record<string, string>,
+  tagName: string,
+): Record<string, string> {
   const filters: Record<string, string> = {};
   Object.entries(known).forEach(([param, filter]) => {
     const value = params.get(param);
@@ -18,7 +22,7 @@ function filtersFromAddress(params: URLSearchParams, known: Record<string, strin
       filters[filter] = value;
     }
   });
-  const tag = params.get("tag");
+  const tag = params.get(tagName);
   if (tag) {
     filters.tag = tag;
   }
@@ -49,13 +53,14 @@ export function ListBar({
   const client = useQueryClient();
   const id = useId();
   const [params, write] = useAddress();
+  const name = useListName();
   const [path, navigate] = useLocation();
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState("");
   const [shared, setShared] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
   const details = useRef<HTMLDetailsElement>(null);
-  const hidden = new Set(params.get("hide")?.split(",").filter(Boolean) ?? []);
+  const hidden = new Set(params.get(name("hide"))?.split(",").filter(Boolean) ?? []);
   const views = useQuery({
     queryKey: [ADMIN, "views", list],
     queryFn: () => adminData(adminApi.GET("/admin/v1/views", { params: { query: { list } } })),
@@ -69,16 +74,16 @@ export function ListBar({
   });
   const toggle = (column: string) =>
     write((next) => {
-      const now = new Set(next.get("hide")?.split(",").filter(Boolean) ?? []);
+      const now = new Set(next.get(name("hide"))?.split(",").filter(Boolean) ?? []);
       if (now.has(column)) {
         now.delete(column);
       } else {
         now.add(column);
       }
       if (now.size === 0) {
-        next.delete("hide");
+        next.delete(name("hide"));
       } else {
-        next.set("hide", [...now].join(","));
+        next.set(name("hide"), [...now].join(","));
       }
     });
   const save = async () => {
@@ -122,7 +127,12 @@ export function ListBar({
             .filter((column) => column !== "")
             .map((column) => (
               <label key={column} className="flex items-center gap-2 whitespace-nowrap">
-                <input type="checkbox" checked={!hidden.has(column)} onChange={() => toggle(column)} />
+                <input
+                  type="checkbox"
+                  aria-label={`Show the ${column} column`}
+                  checked={!hidden.has(column)}
+                  onChange={() => toggle(column)}
+                />
                 {column}
               </label>
             ))}
@@ -132,13 +142,13 @@ export function ListBar({
         <label className="flex flex-col gap-1 text-caption text-text-2">
           Tag
           <select
-            value={params.get("tag") ?? ""}
+            value={params.get(name("tag")) ?? ""}
             onChange={(event) =>
               write((next) => {
                 if (event.target.value === "") {
-                  next.delete("tag");
+                  next.delete(name("tag"));
                 } else {
-                  next.set("tag", event.target.value);
+                  next.set(name("tag"), event.target.value);
                 }
               })
             }
@@ -224,8 +234,8 @@ export function ListBar({
         onConfirm={async (reason) => {
           await fetchExport(
             list,
-            { ...filtersFromAddress(params, filters), ...extra },
-            params.get("sort"),
+            { ...filtersFromAddress(params, filters, name("tag")), ...extra },
+            params.get(name("sort")),
             reason,
           );
         }}

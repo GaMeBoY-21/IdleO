@@ -42,7 +42,8 @@ GET /admin/v1/payments/reconciliation,payments.read,allow,403,allow,403,allow,al
 GET /admin/v1/payments/{id},payments.read,allow,403,allow,403,allow,allow
 GET /admin/v1/payouts,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/reconciliation,payouts.read,allow,403,403,403,allow,allow
-GET /admin/v1/payouts/verifications,verifications.read,allow,403,403,403,allow,allow
+GET /admin/v1/payouts/verifications/pans,verifications.read,allow,403,403,403,allow,allow
+GET /admin/v1/payouts/verifications/upi-ids,verifications.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/{id},payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/personal-data/access-log,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/ratings,ratings.read,allow,allow,allow,allow,403,allow
@@ -83,7 +84,6 @@ POST /admin/v1/approvals/{id}/approve,approvals.decide,allow,allow,allow,allow,a
 POST /admin/v1/approvals/{id}/cancel,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/approvals/{id}/download,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/approvals/{id}/reject,approvals.decide,allow,allow,allow,allow,allow,403
-POST /admin/v1/audit/export,export.create,allow,403,403,403,allow,403
 POST /admin/v1/audit/verify,audit.read,allow,403,403,403,403,allow
 POST /admin/v1/clawbacks/{id}/waive,clawbacks.waive,allow,403,403,403,allow,403
 POST /admin/v1/credit-grants,money.adjust,allow,403,403,403,allow,403

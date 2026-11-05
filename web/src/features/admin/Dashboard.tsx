@@ -5,6 +5,10 @@ import { RelativeTime } from "@/components/ui/Time";
 import { useCan } from "./permissions";
 import { ADMIN, adminApi, adminData, type AdminDashboard, type AdminInstalls } from "./api";
 import { AdminPage, Cell, Empty, QueryView, Row, Section, Table } from "./ui";
+import { ListBar } from "./Lists";
+import { ListScope, useListQuery, useListView } from "./listView";
+
+const INSTALL_COLUMNS = ["Opened", "Minutes", "Clicks", "Where it got to", "GPU", "Windows", "Why it failed"];
 
 const FIGURES: [keyof AdminDashboard, string, string][] = [
   ["hostsOnline", "Hosts online", "with a connected agent now"],
@@ -82,7 +86,11 @@ export function Dashboard() {
           </>
         )}
       </QueryView>
-      {can("hosts.read") && <Installs />}
+      {can("hosts.read") && (
+        <ListScope.Provider value="installs">
+          <Installs />
+        </ListScope.Provider>
+      )}
     </AdminPage>
   );
 }
@@ -95,13 +103,19 @@ const minutes = (value: number | null | undefined) => (value == null ? "—" : `
  * listed, the last 20 with their clicks and where each stopped, and the failures by reason, over the last 30 days.
  */
 function Installs() {
-  const installs = useQuery({
-    queryKey: [ADMIN, "installs"],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/installs")),
-    refetchInterval: 60_000,
-  });
+  const view = useListView();
+  const installs = useListQuery(
+    [ADMIN, "installs", view],
+    "recent",
+    (cursor?: string) =>
+      adminData(
+        adminApi.GET("/admin/v1/installs", { params: { query: { ...view, ...(cursor ? { cursor } : {}) } } }),
+      ),
+    { refetchInterval: 60_000 },
+  );
   return (
     <Section title="Installs">
+      <ListBar list="installs" columns={INSTALL_COLUMNS} tags={false} />
       <QueryView
         query={installs}
         what="the installs"
@@ -118,8 +132,9 @@ function Installs() {
               setup to listed, over {data.listed} of {data.opened} installs in the last 30 days.
             </p>
             <Table
-              caption="The last 20 installs"
-              columns={["Opened", "Minutes", "Clicks", "Where it got to", "GPU", "Windows", "Why it failed"]}
+              caption="Recent installs"
+              sorts={{ Opened: "openedAt", Clicks: "clicks" }}
+              columns={INSTALL_COLUMNS}
             >
               {data.recent.map((install) => (
                 <InstallRow key={install.installId} install={install} />

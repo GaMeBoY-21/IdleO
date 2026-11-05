@@ -24,7 +24,9 @@ import {
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
 import { ListBar } from "./Lists";
-import { useListParam, useListView } from "./listView";
+import { ListScope, useListParam, useListQuery, useListView } from "./listView";
+
+const MISMATCH_COLUMNS = ["Found", "Kind", "RazorpayX's id", "Host", "Ours", "RazorpayX's", "Detail", ""];
 
 /** What each kind of payout disagreement means (docs/runbooks/payouts.md, "Reconciliation"). */
 export const PAYOUT_MISMATCH_WORDS: Record<string, string> = {
@@ -67,7 +69,9 @@ function PayoutList() {
   return (
     <AdminPage title="Payouts">
       <RunsAndPayouts />
-      <Reconciliation />
+      <ListScope.Provider value="recon">
+        <Reconciliation />
+      </ListScope.Provider>
     </AdminPage>
   );
 }
@@ -304,11 +308,17 @@ function Reconciliation() {
   const [running, setRunning] = useState(false);
   const [day, setDay] = useState("");
   const [accepting, setAccepting] = useState<AdminPayoutMismatch | null>(null);
-  const reconciliation = useQuery({
-    queryKey: [ADMIN, "payout-reconciliation", state],
-    queryFn: () =>
-      adminData(adminApi.GET("/admin/v1/payouts/reconciliation", { params: { query: { state } } })),
-  });
+  const view = useListView();
+  const reconciliation = useListQuery(
+    [ADMIN, "payout-reconciliation", state, view],
+    "mismatches",
+    (cursor?: string) =>
+      adminData(
+        adminApi.GET("/admin/v1/payouts/reconciliation", {
+          params: { query: { state, ...view, ...(cursor ? { cursor } : {}) } },
+        }),
+      ),
+  );
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   return (
     <Section
@@ -343,7 +353,8 @@ function Reconciliation() {
             ) : (
               <Table
                 caption="What disagrees"
-                columns={["Found", "Kind", "RazorpayX's id", "Host", "Ours", "RazorpayX's", "Detail", ""]}
+                sorts={{ Found: "foundAt", Kind: "kind" }}
+                columns={MISMATCH_COLUMNS}
               >
                 {found.mismatches.map((item) => (
                   <Row key={item.id}>

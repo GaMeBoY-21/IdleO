@@ -236,16 +236,17 @@ class AuditChainTests {
     void anExportIsCsvWithTheAddressMaskedAndIsLogged() throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
         var target = record("=SUM(a formula)");
-        var answer = mvc.perform(admin.as(post("/admin/v1/audit/export"))
+        var answer = mvc.perform(admin.as(post("/admin/v1/exports"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"targetId\":\"" + target + "\",\"reason\":\"quarterly review\"}"))
+                        .content("{\"list\":\"audit\",\"filters\":{\"targetId\":\"" + target
+                                + "\"},\"reason\":\"quarterly review\"}"))
                 .andReturn()
                 .getResponse();
         assertThat(answer.getStatus()).isEqualTo(200);
         assertThat(answer.getContentType()).startsWith("text/csv");
-        assertThat(answer.getContentAsString()).startsWith("seq,id,").contains("\"'=SUM(a formula)\"");
+        assertThat(answer.getContentAsString()).startsWith("seq,id,").contains("'=SUM(a formula)");
         assertThat(jdbc.queryForObject(
-                        "select reason from identity.audit_log where action = 'audit.export' and actor_user_id = ?",
+                        "select reason from identity.audit_log where action = 'list.export' and actor_user_id = ?",
                         String.class,
                         admin.id()))
                 .isEqualTo("quarterly review");
