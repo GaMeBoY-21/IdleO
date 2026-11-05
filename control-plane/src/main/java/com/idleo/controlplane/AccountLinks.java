@@ -21,7 +21,7 @@ public interface AccountLinks {
     /**
      * Another account that shares something with this one.
      *
-     * @param signal what they share: same_device, same_network, same_pan, same_upi, same_email
+     * @param signal what they share: same_device, same_network, same_pan, same_upi, same_email, same_payer
      * @param evidence the shared thing, as a mask would show it, in words
      * @param at when it was last seen, when that's known
      */
