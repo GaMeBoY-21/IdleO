@@ -130,6 +130,7 @@ class ProductionSettingsGuard implements BeanFactoryPostProcessor {
             "identity.invite-code-key",
             "notifications.email.webhook-secret",
             "payouts.pan.key",
+            "billing.payer-hash.pepper",
             "images.scanner.token",
             "images.registry-token.key");
 

@@ -60,6 +60,10 @@ identity:
     totp-key: dGVzdHMtb25seS1hZG1pbi10b3RwLWtleS0zMmJ5dGU=
 
 # PANs sealed under the tests' committed key (the prod profile refuses it), checked by the fake (ADR 0040).
+billing:
+  payer-hash:
+    pepper: dGVzdHMtb25seS1wYXllci1wZXBwZXItMzItYnl0ZXM=
+
 payouts:
   pan:
     key: dGVzdHMtb25seS1wYXlvdXRzLXBhbi1rZXktMzJieXQ=

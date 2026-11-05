@@ -57,6 +57,7 @@ class TopUps {
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final IdGenerator ids;
+    private final PayerHashes payers;
     private final Clock clock;
     private final UserDirectory users;
     private final LegalSettings legal;
@@ -68,6 +69,7 @@ class TopUps {
     private final VerifiedPans pans;
 
     TopUps(
+            PayerHashes payers,
             RazorpayClient razorpay,
             RazorpayProperties settings,
             Ledger ledger,
@@ -87,6 +89,7 @@ class TopUps {
         this.billingDetails = billingDetails;
         this.gst = gst;
         this.invoices = invoices;
+        this.payers = payers;
         this.razorpay = razorpay;
         this.settings = settings;
         this.ledger = ledger;
@@ -352,6 +355,7 @@ class TopUps {
                     .param("now", Timestamp.from(now()))
                     .param("id", locked.id())
                     .update();
+            payers.keep(locked.id(), locked.userId(), payment.vpa());
             invoices.forTopUp(find(locked.id()).orElseThrow());
             metrics.paid(payment.method(), Duration.between(payment.createdAt(), clock.instant()));
             return true;

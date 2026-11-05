@@ -29,7 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
  * HTTP status, Razorpay's error code and description; one that can't be made throws {@link Unreachable}.
  */
 @Component
-@EnableConfigurationProperties(RazorpayProperties.class)
+@EnableConfigurationProperties({RazorpayProperties.class, PayerHashProperties.class})
 class RazorpayClient {
 
     /** The most a list call returns at once (the documentation's maximum). */
@@ -67,6 +67,7 @@ class RazorpayClient {
             long amountRefunded,
             @Nullable String cardNetwork,
             @Nullable String cardLast4,
+            @Nullable String vpa,
             @Nullable String errorCode,
             @Nullable String errorDescription,
             Instant createdAt) {}
@@ -199,6 +200,7 @@ class RazorpayClient {
                 node.path("amount_refunded").asLong(0),
                 card.isObject() ? optional(card, "network") : null,
                 card.isObject() ? optional(card, "last4") : null,
+                optional(node, "vpa"),
                 optional(node, "error_code"),
                 optional(node, "error_description"),
                 created.isNumber() ? Instant.ofEpochSecond(created.asLong()) : Instant.EPOCH);

@@ -13,6 +13,8 @@ The control plane reads three settings from its environment, never from a file i
 | `RAZORPAY_KEY_SECRET` | Its secret: it signs our calls and checks Checkout's payment signature |
 | `RAZORPAY_WEBHOOK_SECRET` | The secret set on the webhook in the dashboard |
 
+Optionally `BILLING_PAYER_PEPPER`, which turns on the same-payer signal (see [the payer pepper](payer-upi-pepper.md)).
+
 Optionally `RAZORPAY_PREVIOUS_WEBHOOK_SECRET` and `RAZORPAY_PREVIOUS_WEBHOOK_SECRET_UNTIL` (an ISO time), for a rotation.
 Without a key id, payments are off and top-ups answer `payments-unavailable`. Locally, put them in the gitignored
 `control-plane/.env` (`scripts/run-local.sh` loads it); the stack (`./start.sh`) and the end-to-end test use the fake

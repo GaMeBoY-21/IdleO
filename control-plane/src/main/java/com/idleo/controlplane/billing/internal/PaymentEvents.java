@@ -127,6 +127,7 @@ class PaymentEvents {
                         fetched.amountRefunded(),
                         fromEvent.cardNetwork(),
                         fromEvent.cardLast4(),
+                        fetched.vpa(),
                         fetched.errorCode(),
                         fetched.errorDescription(),
                         fetched.createdAt())

@@ -279,6 +279,13 @@ billing:
     previous-webhook-secret: ${RAZORPAY_PREVIOUS_WEBHOOK_SECRET:}
     previous-webhook-secret-until: ${RAZORPAY_PREVIOUS_WEBHOOK_SECRET_UNTIL:}
     timeout: 10s
+  # The pepper for payers' keyed hashes (docs/runbooks/payer-upi-pepper.md), from a SOPS Secret only. Without one, no hash
+  # is kept and the same-payer signal is off.
+  payer-hash:
+    pepper: ${BILLING_PAYER_PEPPER:}
+    pepper-version: ${BILLING_PAYER_PEPPER_VERSION:1}
+    previous-pepper: ${BILLING_PAYER_PREVIOUS_PEPPER:}
+    previous-pepper-version: ${BILLING_PAYER_PREVIOUS_PEPPER_VERSION:0}
   # Refund parts Razorpay hasn't accepted yet (it couldn't be reached) are sent again this often (ADR 0039).
   refunds:
     send-every: 1m

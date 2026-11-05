@@ -44,7 +44,7 @@ An admin answering one question opened five screens and searched each by hand. T
 
 **Budgets, on seeded data** (`seed-console`: 100k users, 2k hosts, 1M sessions, 300k payments, by each module into its own tables, refused without `console.seed.allowed`, which `ProductionSettingsGuard` refuses in production). The search box under 150 ms, the first 50 of a busy person's timeline under 300 ms, a list's page under 200 ms, each at p95 on the server (`ConsoleBudgetTests`, weekly in `.github/workflows/budgets.yml`); a record's first paint under 1 s on desktop.
 
-**Linked accounts** (`trust.read`: the Owner and Trust & Safety), worked out on the read by the module that holds each signal, which hands over who matched, how strong it is and masked evidence, never the raw value. Nothing acts on them.
+**Linked accounts** (`trust.read`: the Owner and Trust & Safety), worked out on the read by the module that holds each signal, which hands over who matched, how strong it is and masked evidence, never the raw value. Nothing acts on them. A UPI payment adds one more, "same payer", from a keyed hash of the UPI ID it came from, never the ID (docs/runbooks/payer-upi-pepper.md).
 
 | Signal | Strength | From |
 |---|---|---|
