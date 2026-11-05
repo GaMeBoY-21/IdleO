@@ -39,6 +39,11 @@ management:
 # The development sign-in server from compose.yaml (ADR 0013). To test against
 # a real Identity Platform project instead, set IDENTITY_ISSUERS_0_ISSUERURI and
 # IDENTITY_ISSUERS_0_AUDIENCE, which replace this list.
+# Made-up data to measure the console on: scripts/ops seed-console (ADR 0052). ProductionSettingsGuard refuses it.
+console:
+  seed:
+    allowed: true
+
 identity:
   issuers:
     - issuer-uri: http://localhost:${LOCAL_SIGN_IN_PORT:8099}/idleo-local
