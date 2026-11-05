@@ -184,6 +184,21 @@ vulnerabilities:
     paths: ["app/cmd/controller/controller"]
     statement: in cert-manager v1.21.3, its latest release; taken in the release that fixes it (Renovate)
     expired_at: 2026-12-30
+  # Flux's kustomize-controller v1.10.1, its latest release (2026-10-26), is on Alpine 3.24.3 with libexpat 2.9.0-r0 (fixed
+  # in 2.10.0-r0). The controller parses YAML and JSON from our own Git repository, never XML, and it takes no traffic
+  # from outside the cluster (deploy/flux's network policies).
+  - id: CVE-2026-113351
+    purls: ["pkg:apk/alpine/libexpat@2.9.0-r0"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-117610
+    purls: ["pkg:apk/alpine/libexpat@2.9.0-r0"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
+  - id: CVE-2026-118370
+    purls: ["pkg:apk/alpine/libexpat@2.9.0-r0"]
+    statement: in Flux's kustomize-controller v1.10.1, its latest release; taken in the release that fixes it (Renovate)
+    expired_at: 2027-01-03
 secrets:
   # CloudNativePG's PostgreSQL image (ghcr.io/cloudnative-pg/postgresql) ships Debian's ssl-cert snakeoil key, made when
   # the image was built and so the same in every copy. Nothing uses it: CloudNativePG serves the certificates it issues.
