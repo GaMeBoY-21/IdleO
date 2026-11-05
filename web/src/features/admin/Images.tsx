@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearch } from "wouter";
 import { RelativeTime } from "@/components/ui/Time";
 import { imageSize } from "@/lib/images";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminImage } from "./api";
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
+import { PlainRecord } from "./Records";
 
 type Acting = { image: AdminImage; action: "block" | "unblock" };
 
@@ -15,6 +17,22 @@ type Acting = { image: AdminImage; action: "block" | "unblock" };
  * own block. Both take a reason and are audited.
  */
 export function Images() {
+  const id = new URLSearchParams(useSearch()).get("id");
+  return id ? (
+    <PlainRecord
+      title="Image"
+      back="/admin/images/"
+      backLabel="← All images"
+      page="image"
+      id={id}
+      read={() => adminData(adminApi.GET("/admin/v1/images/{id}", { params: { path: { id } } }))}
+    />
+  ) : (
+    <ImageList />
+  );
+}
+
+function ImageList() {
   const client = useQueryClient();
   const [state, setState] = useState("");
   const [acting, setActing] = useState<Acting | null>(null);
@@ -96,7 +114,7 @@ function ImageRow({ image, onAct }: { image: AdminImage; onAct: (acting: Acting)
         <RelativeTime value={image.createdAt} />
       </Cell>
       <Cell>
-        <Id value={image.userId} />
+        <Id value={image.userId} page="user" />
       </Cell>
       <Cell>
         <span className="break-all">{image.reference}</span>

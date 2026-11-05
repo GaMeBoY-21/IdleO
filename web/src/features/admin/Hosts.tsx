@@ -25,6 +25,7 @@ import {
   Table,
 } from "./ui";
 import { usePaletteActions } from "./Palette";
+import { HostTabs } from "./Records";
 import { ActionButton } from "./permissions";
 
 /** Hosts (ADR 0027): find them; one opens with its history, GPUs, certificates and telemetry, and what can be done. */
@@ -94,7 +95,7 @@ function HostSearch() {
                 </Cell>
                 <Cell>{host.gpuModels.join(", ") || "—"}</Cell>
                 <Cell>
-                  <Id value={host.ownerId} />
+                  <Id value={host.ownerId} page="user" />
                 </Cell>
                 <Cell>{host.lastSeenAt ? <RelativeTime value={host.lastSeenAt} /> : "never"}</Cell>
                 <Cell>
@@ -518,6 +519,7 @@ function HostRecord({ id }: { id: string }) {
           </>
         )}
       </QueryView>
+      <HostTabs id={id} />
     </AdminPage>
   );
 }

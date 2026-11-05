@@ -102,17 +102,17 @@ function DisputeQueue() {
             {rows.map((dispute) => (
               <Row key={dispute.id}>
                 <Cell>
-                  <Id value={dispute.id} />
+                  <Id value={dispute.id} page="report" />
                 </Cell>
                 <Cell>
                   <StatePill dispute={dispute} />
                 </Cell>
                 <Cell>{reasonTitle(dispute.reason)}</Cell>
                 <Cell>
-                  <Id value={dispute.sessionId} />
+                  <Id value={dispute.sessionId} page="session" />
                 </Cell>
                 <Cell>
-                  <Id value={dispute.renterId} />
+                  <Id value={dispute.renterId} page="user" />
                 </Cell>
                 <Cell>
                   <RelativeTime value={dispute.createdAt} />

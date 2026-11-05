@@ -2589,6 +2589,34 @@ paths:
         idToken: []
       tags:
       - adminPayouts
+  /admin/v1/payouts/{id}:
+    get:
+      operationId: adminPayoutsGet
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayout"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayouts
   /admin/v1/personal-data/access-log:
     get:
       operationId: adminPersonalDataAccessLog

@@ -48,7 +48,7 @@ export function Verification() {
                         <RelativeTime value={pan.submittedAt} />
                       </Cell>
                       <Cell>
-                        <Id value={pan.userId} />
+                        <Id value={pan.userId} page="user" />
                       </Cell>
                       <Cell className="tabular">
                         {revealed?.userId === pan.userId ? revealed.pan : `••••••${pan.last4}`}
@@ -104,7 +104,7 @@ export function Verification() {
                     <Row key={upi.id}>
                       <Cell>{upi.confirmedAt ? <RelativeTime value={upi.confirmedAt} /> : "—"}</Cell>
                       <Cell>
-                        <Id value={upi.userId} />
+                        <Id value={upi.userId} page="user" />
                       </Cell>
                       <Cell className="break-all">
                         {upi.vpa ? <Reveal field="upi" id={upi.id} masked={upi.vpa} /> : "—"}

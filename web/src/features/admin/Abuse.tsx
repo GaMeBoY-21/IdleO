@@ -118,7 +118,7 @@ function AbuseQueue() {
             {rows.map((item) => (
               <Row key={item.id}>
                 <Cell>
-                  <Id value={item.id} />
+                  <Id value={item.id} page="abuse" />
                 </Cell>
                 <Cell>
                   <StatePill item={item} />
@@ -130,9 +130,9 @@ function AbuseQueue() {
                   )}
                 </Cell>
                 <Cell>
-                  <Id value={item.renterId} />
+                  <Id value={item.renterId} page="user" />
                 </Cell>
-                <Cell>{item.hostId ? <Id value={item.hostId} /> : "—"}</Cell>
+                <Cell>{item.hostId ? <Id value={item.hostId} page="host" /> : "—"}</Cell>
                 <Cell>
                   <RelativeTime value={item.createdAt} />
                 </Cell>

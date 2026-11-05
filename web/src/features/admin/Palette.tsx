@@ -18,20 +18,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { problemMessage } from "@/lib/problems";
 import { cn } from "@/lib/cn";
 import { ADMIN, adminApi, adminData, type AdminSearchHit } from "./api";
+import { recordHref } from "./links";
 import { useCan } from "./permissions";
-
-/** Where each kind of thing found opens. */
-const PAGES: Record<string, string> = {
-  user: "/admin/users/",
-  host: "/admin/hosts/",
-  session: "/admin/sessions/",
-  payment: "/admin/payments/",
-  refund: "/admin/refunds/",
-  invoice: "/admin/invoices/",
-  payout: "/admin/payouts/",
-  ticket: "/admin/tickets/",
-  image: "/admin/images/",
-};
 
 /** Each group's heading, in the words the console uses. */
 const GROUP_NAMES: Record<string, string> = {
@@ -47,11 +35,6 @@ const GROUP_NAMES: Record<string, string> = {
   upi: "UPI IDs",
   pan: "PANs",
 };
-
-/** The page a thing found opens: one address for one thing, wherever its id appears. */
-export function recordHref(page: string, id: string): string {
-  return `${PAGES[page] ?? "/admin/"}?id=${encodeURIComponent(id)}`;
-}
 
 /** An action the palette offers: going somewhere, or what the page behind it can do. */
 export type PaletteAction = {

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearch } from "wouter";
 import { ApiError } from "@/api/errors";
 import { Money } from "@/components/ui/Money";
 import { parseRupees } from "@/lib/money";
@@ -8,6 +9,7 @@ import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminInvoice } from "./api";
 import { AdminPage, Cell, Empty, Filters, Id, QueryView, Row, Section, SmallField, Table } from "./ui";
 import { ActionButton } from "./permissions";
+import { PlainRecord } from "./Records";
 
 /** Saves one document's PDF, fetched with the admin session when asked. */
 export async function downloadAdminInvoice(id: string, number: string): Promise<void> {
@@ -35,6 +37,22 @@ export async function downloadAdminInvoice(id: string, number: string): Promise<
  * it, with a reason that's audited.
  */
 export function Invoices() {
+  const id = new URLSearchParams(useSearch()).get("id");
+  return id ? (
+    <PlainRecord
+      title="Invoice"
+      back="/admin/invoices/"
+      backLabel="← Invoices"
+      page="invoice"
+      id={id}
+      read={() => adminData(adminApi.GET("/admin/v1/invoices/{id}", { params: { path: { id } } }))}
+    />
+  ) : (
+    <InvoiceSearch />
+  );
+}
+
+function InvoiceSearch() {
   const client = useQueryClient();
   const [form, setForm] = useState({ number: "", userId: "" });
   const [asked, setAsked] = useState(form);
@@ -91,7 +109,7 @@ export function Invoices() {
                     <Cell className="tabular">{item.invoice.number}</Cell>
                     <Cell>{item.invoice.title}</Cell>
                     <Cell>
-                      <Id value={item.userId} />
+                      <Id value={item.userId} page="user" />
                     </Cell>
                     <Cell className="tabular">{formatDay(item.invoice.issuedAt)}</Cell>
                     <Cell>

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
@@ -20,6 +21,7 @@ import {
   Table,
 } from "./ui";
 import { ActionButton } from "./permissions";
+import { PlainRecord } from "./Records";
 
 /** What each kind of payout disagreement means (docs/runbooks/payouts.md, "Reconciliation"). */
 export const PAYOUT_MISMATCH_WORDS: Record<string, string> = {
@@ -43,6 +45,22 @@ const STATUS_TONE: Record<string, "running" | "danger" | "plain"> = {
  * payouts, a day at a time. Every action takes a reason and is audited.
  */
 export function Payouts() {
+  const id = new URLSearchParams(useSearch()).get("id");
+  return id ? (
+    <PlainRecord
+      title="Payout"
+      back="/admin/payouts/"
+      backLabel="← All payouts"
+      page="payout"
+      id={id}
+      read={() => adminData(adminApi.GET("/admin/v1/payouts/{id}", { params: { path: { id } } }))}
+    />
+  ) : (
+    <PayoutList />
+  );
+}
+
+function PayoutList() {
   return (
     <AdminPage title="Payouts">
       <RunsAndPayouts />
@@ -214,7 +232,7 @@ function PayoutRow({ payout, onRetry }: { payout: AdminPayout; onRetry: () => vo
         <RelativeTime value={payout.createdAt} />
       </Cell>
       <Cell>
-        <Id value={payout.userId} />
+        <Id value={payout.userId} page="user" />
       </Cell>
       <Cell>{payout.kind}</Cell>
       <Cell>
@@ -309,7 +327,7 @@ function Reconciliation() {
                       </Pill>
                     </Cell>
                     <Cell className="tabular">{item.subject}</Cell>
-                    <Cell>{item.userId ? <Id value={item.userId} /> : "—"}</Cell>
+                    <Cell>{item.userId ? <Id value={item.userId} page="user" /> : "—"}</Cell>
                     <Cell>
                       {item.ourPaise != null ? <Money paise={item.ourPaise} /> : "—"} {item.ourStatus ?? ""}
                     </Cell>

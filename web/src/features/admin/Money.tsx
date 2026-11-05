@@ -92,7 +92,7 @@ function Reconciliation() {
                     <ul className="flex flex-col gap-1">
                       {run.mismatches.map((mismatch, index) => (
                         <li key={index} className="text-danger">
-                          {mismatch.kind} for <Id value={mismatch.userId} />:{" "}
+                          {mismatch.kind} for <Id value={mismatch.userId} page="user" />:{" "}
                           <Paise paise={mismatch.walletPaise} /> against{" "}
                           <Paise paise={mismatch.expectedPaise} />
                         </li>
@@ -184,7 +184,7 @@ function Ledger({ owner }: { owner: string }) {
                     <Id value={entry.txnId} />
                   </Cell>
                   <Cell>{entry.account}</Cell>
-                  <Cell>{entry.ownerId ? <Id value={entry.ownerId} /> : "—"}</Cell>
+                  <Cell>{entry.ownerId ? <Id value={entry.ownerId} page="user" /> : "—"}</Cell>
                   <Cell className="tabular">
                     {entry.direction === "debit" ? "−" : "+"}
                     <Paise paise={entry.amountPaise} />

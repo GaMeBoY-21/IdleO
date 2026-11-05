@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatPaise, parseRupees, rupeeInput } from "@/lib/money";
@@ -8,6 +9,7 @@ import { ADMIN, adminApi, adminData, type AdminCreditRefund } from "./api";
 import { refundProblem } from "./rules";
 import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, SmallField, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
+import { PlainRecord } from "./Records";
 
 /**
  * Refunds of bought credit (ADR 0039): requests waiting for an answer, oldest first, each with what the renter can have
@@ -15,6 +17,22 @@ import { ActionButton } from "./permissions";
  * from, newest first, or decline with a reason the renter reads.
  */
 export function Refunds() {
+  const id = new URLSearchParams(useSearch()).get("id");
+  return id ? (
+    <PlainRecord
+      title="Refund"
+      back="/admin/refunds/"
+      backLabel="← All refunds"
+      page="refund"
+      id={id}
+      read={() => adminData(adminApi.GET("/admin/v1/refunds/{id}", { params: { path: { id } } }))}
+    />
+  ) : (
+    <RefundList />
+  );
+}
+
+function RefundList() {
   const client = useQueryClient();
   const [status, setStatus] = useState("requested");
   const [acting, setActing] = useState<{ refund: AdminCreditRefund; approve: boolean } | null>(null);
@@ -69,7 +87,7 @@ export function Refunds() {
                   )}
                 </Cell>
                 <Cell>
-                  <Id value={refund.userId} />
+                  <Id value={refund.userId} page="user" />
                 </Cell>
                 <Cell>{refund.cause === "deletion" ? "Account deletion" : (refund.note ?? "—")}</Cell>
                 <Cell>
