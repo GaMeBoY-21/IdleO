@@ -7,6 +7,7 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.PersonalDataAccess;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -41,11 +42,13 @@ class AdminInvoicesController {
     private final Invoices invoices;
     private final InvoicePdf pdf;
     private final Approvals approvals;
+    private final PersonalDataAccess accessLog;
 
-    AdminInvoicesController(Invoices invoices, InvoicePdf pdf, Approvals approvals) {
+    AdminInvoicesController(Invoices invoices, InvoicePdf pdf, Approvals approvals, PersonalDataAccess accessLog) {
         this.invoices = invoices;
         this.pdf = pdf;
         this.approvals = approvals;
+        this.accessLog = accessLog;
     }
 
     record AdminInvoiceList(java.util.List<AdminInvoice> invoices) {}
@@ -76,7 +79,8 @@ class AdminInvoicesController {
         return found(id).document();
     }
 
-    @RequiresPermission(AdminPermission.INVOICES_READ)
+    /** The document as issued, the buyer's name and details whole: it can't be masked, so each download is logged. */
+    @RequiresPermission(AdminPermission.INVOICES_PDF)
     @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
@@ -85,8 +89,9 @@ class AdminInvoicesController {
                     @io.swagger.v3.oas.annotations.media.Content(
                             mediaType = MediaType.APPLICATION_PDF_VALUE,
                             schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string")))
-    ResponseEntity<byte[]> pdf(@PathVariable UUID id) {
+    ResponseEntity<byte[]> pdf(@AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id) {
         var invoice = found(id);
+        accessLog.read(admin, invoice.userId(), "invoice_pdf", id.toString(), "downloaded invoice " + invoice.number());
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + invoice.number() + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)

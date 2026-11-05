@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError } from "@/api/errors";
-import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { parseRupees } from "@/lib/money";
 import { formatDay } from "@/lib/time";
@@ -106,12 +105,13 @@ export function Invoices() {
                     </Cell>
                     <Cell>
                       <div className="flex gap-1">
-                        <Button
+                        <ActionButton
+                          permission="invoices.pdf.read"
                           variant="quiet"
                           onClick={() => void downloadAdminInvoice(item.invoice.id, item.invoice.number)}
                         >
                           Download<span className="sr-only"> {item.invoice.number}</span>
-                        </Button>
+                        </ActionButton>
                         {item.invoice.kind !== "credit_note" && (
                           <ActionButton
                             permission="invoices.credit-note"

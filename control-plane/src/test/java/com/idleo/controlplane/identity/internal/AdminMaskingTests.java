@@ -35,8 +35,8 @@ import tools.jackson.databind.json.JsonMapper;
 @ControlPlaneTest
 class AdminMaskingTests {
 
-    /** What has no JSON to mask: a document people are entitled to as issued, recorded by its own permission. */
-    private static final Set<String> FILES = Set.of("/admin/v1/invoices/{id}/pdf");
+    /** What this test can't mask, by the access log's field each read must write instead. */
+    private static final Map<String, String> LOGGED_INSTEAD = Map.of("/admin/v1/invoices/{id}/pdf", "invoice_pdf");
 
     @Autowired
     MockMvc mvc;
@@ -142,18 +142,24 @@ class AdminMaskingTests {
 
         var whole = Set.of(person.email(), upi, replyTo, phone, pan, ip);
         var read = new ArrayList<String>();
+        var skipped = new ArrayList<String>();
         var problems = new ArrayList<String>();
         for (var entry : mappings.getHandlerMethods().entrySet()) {
             var declared = entry.getValue().getMethodAnnotation(RequiresPermission.class);
-            if (declared == null || declared.unmasked()) {
+            if (declared == null) {
                 continue;
             }
             if (entry.getKey().getMethodsCondition().getMethods().stream()
                     .noneMatch(method -> method.name().equals("GET"))) {
                 continue;
             }
+            if (declared.unmasked()) {
+                problems.add(entry.getKey() + " is a GET that goes out unmasked: it must log access instead");
+                continue;
+            }
             for (var path : entry.getKey().getPatternValues()) {
-                if (FILES.contains(path)) {
+                if (LOGGED_INSTEAD.containsKey(path)) {
+                    skipped.add(path);
                     continue;
                 }
                 var address = ids.getOrDefault(path, null) != null
@@ -184,6 +190,26 @@ class AdminMaskingTests {
         // Every list and detail endpoint there is: this is the coverage the report gives.
         assertThat(read).hasSizeGreaterThanOrEqualTo(40);
         System.out.println("masking test read " + read.size() + " admin endpoints");
+
+        // What it skipped each write the access log, about the person, instead.
+        assertThat(skipped).containsExactlyInAnyOrderElementsOf(LOGGED_INSTEAD.keySet());
+        var invoice = ids.get("/admin/v1/invoices/{id}");
+        for (var path : skipped) {
+            var response = mvc.perform(admin.as(get(path.replace("{id}", invoice))))
+                    .andReturn()
+                    .getResponse();
+            assertThat(response.getStatus()).as(path).isEqualTo(200);
+            assertThat(jdbc.queryForObject(
+                            "select count(*) from identity.personal_data_access"
+                                    + " where admin_id = ? and subject_user_id = ? and field = ? and record_id = ?",
+                            Integer.class,
+                            admin.id(),
+                            user,
+                            LOGGED_INSTEAD.get(path),
+                            invoice))
+                    .as(path + " logs access")
+                    .isEqualTo(1);
+        }
 
         // And the values really were there to find, masked.
         var thread = mvc.perform(admin.as(get("/admin/v1/tickets/" + ticket)))

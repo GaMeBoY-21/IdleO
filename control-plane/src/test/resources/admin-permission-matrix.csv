@@ -28,7 +28,7 @@ GET /admin/v1/installs,hosts.read,allow,allow,allow,allow,403,allow
 GET /admin/v1/invites,invites.read,allow,allow,allow,403,403,allow
 GET /admin/v1/invoices,invoices.read,allow,403,allow,403,allow,allow
 GET /admin/v1/invoices/{id},invoices.read,allow,403,allow,403,allow,allow
-GET /admin/v1/invoices/{id}/pdf,invoices.read,allow,403,allow,403,allow,allow
+GET /admin/v1/invoices/{id}/pdf,invoices.pdf.read,allow,403,403,403,allow,allow
 GET /admin/v1/ledger,money.read,allow,403,403,403,allow,allow
 GET /admin/v1/me/sessions,self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/passkeys,self,allow,allow,allow,allow,allow,allow
