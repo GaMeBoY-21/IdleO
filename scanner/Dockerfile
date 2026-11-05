@@ -28,13 +28,13 @@ RUN git init -q && git remote add origin https://github.com/aquasecurity/trivy.g
     && test "$(git rev-parse 'v0.76.1^{commit}')" = e713f67f7d54decdcd9b3132c9751833dcced698 && git checkout -q v0.76.1
 # The raise is committed on top of the tag, at a fixed time, so Go stamps the binary with what it is (a pseudo-version
 # just after v0.76.1, which is how Trivy's own scan of it knows its fixes are in) and the build is the same every time.
-# The modules are fetched first, with tries of their own: a stream error from Go's proxy mid-download fails a build
-# with nothing wrong in it, and Go doesn't try again by itself. What's fetched already stays in the module cache.
-RUN go get github.com/go-jose/go-jose/v4@v4.1.6 \
-    && for try in 1 2 3 4 5; do go mod download && break; [ "$try" != 5 ] || exit 1; sleep $((try * 5)); done \
+# Fetching and building get tries of their own: a stream error from Go's proxy mid-download fails a build with nothing
+# wrong in it, and Go doesn't try again by itself. What's fetched already stays in the module cache.
+RUN tries() { for try in 1 2 3 4 5; do "$@" && return 0; [ "$try" = 5 ] || sleep $((try * 5)); done; return 1; } \
+    && tries go get github.com/go-jose/go-jose/v4@v4.1.6 \
     && git add go.mod go.sum && GIT_AUTHOR_DATE=2026-10-31T00:00:00Z GIT_COMMITTER_DATE=2026-10-31T00:00:00Z \
       git -c user.name=idleo -c user.email=idleo@users.noreply.github.com commit -q -m "raise go-jose to 4.1.6" \
-    && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/aquasecurity/trivy/pkg/version/app.ver=0.76.1" \
+    && CGO_ENABLED=0 tries go build -trimpath -ldflags "-s -w -X github.com/aquasecurity/trivy/pkg/version/app.ver=0.76.1" \
       -o /trivy ./cmd/trivy && go version -m /trivy | grep -E 'mod.*aquasecurity/trivy|go-jose/v4'
 
 # Trivy 0.76.1 (aquasec/trivy:0.76.1), its multi-platform index.
