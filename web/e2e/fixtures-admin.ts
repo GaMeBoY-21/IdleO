@@ -48,6 +48,7 @@ export const EVERY_PERMISSION = [
   "invites.create",
   "invites.read",
   "invoices.credit-note",
+  "invoices.pdf.read",
   "invoices.read",
   "money.adjust",
   "money.read",

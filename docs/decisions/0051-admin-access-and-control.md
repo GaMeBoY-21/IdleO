@@ -59,7 +59,8 @@ An admin without the permission gets **403 `admin-permission-required`**, naming
 | `invites.create` |  | `POST /admin/v1/invites` | Owner, Operations |
 | `invites.read` |  | `GET /admin/v1/invites` | Owner, Operations, Support, Auditor |
 | `invoices.credit-note` | yes | `POST /admin/v1/invoices/{id}/credit-notes` | Owner, Finance |
-| `invoices.read` |  | `GET /admin/v1/invoices`, `GET /admin/v1/invoices/{id}`, `GET /admin/v1/invoices/{id}/pdf` | Owner, Support, Finance, Auditor |
+| `invoices.pdf.read` |  | `GET /admin/v1/invoices/{id}/pdf` | Owner, Finance, Auditor |
+| `invoices.read` |  | `GET /admin/v1/invoices`, `GET /admin/v1/invoices/{id}` | Owner, Support, Finance, Auditor |
 | `money.adjust` | yes | `POST /admin/v1/credit-grants`, `POST /admin/v1/credit-grants/{id}/reverse` | Owner, Finance |
 | `money.read` |  | `GET /admin/v1/credit-grants`, `GET /admin/v1/ledger`, `GET /admin/v1/reconciliation` | Owner, Finance, Auditor |
 | `notices.publish` |  | `POST /admin/v1/notices` | Owner, Operations |

@@ -46,6 +46,8 @@ public enum AdminPermission {
     REFUNDS_APPROVE("refunds.approve", true),
     REFUNDS_DECLINE("refunds.decline", false),
     INVOICES_READ("invoices.read", false),
+    /** The document itself, with the buyer's name and details whole. */
+    INVOICES_PDF("invoices.pdf.read", false),
     INVOICES_CREDIT_NOTE("invoices.credit-note", true),
     CLAWBACKS_READ("clawbacks.read", false),
     CLAWBACKS_WAIVE("clawbacks.waive", true),

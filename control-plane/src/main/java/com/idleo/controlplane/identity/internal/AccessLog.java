@@ -3,6 +3,7 @@ package com.idleo.controlplane.identity.internal;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.PersonalDataAccess;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -19,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * security log, shown to whoever holds {@code audit.read}, and in the person's own export.
  */
 @Component
-class AccessLog {
+class AccessLog implements PersonalDataAccess {
 
     /** The field of an entry for opening a person's page, which reveals nothing whole. */
     static final String VIEW = "view";
@@ -41,6 +42,12 @@ class AccessLog {
     /** An admin opened this person's page. */
     void viewed(CurrentUser admin, UUID subject) {
         write(admin.id(), subject, VIEW, subject.toString(), "opened their page");
+    }
+
+    @Override
+    public void read(CurrentUser admin, UUID subject, String field, String recordId, String reason) {
+        write(admin.id(), subject, field, recordId, reason);
+        insider.revealed(admin.id());
     }
 
     /** An admin read this field whole, with this reason. */

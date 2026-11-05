@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
@@ -128,12 +127,13 @@ function Search() {
                   <Cell>{payment.creditedBy ?? "—"}</Cell>
                   <Cell>
                     {payment.invoiceId && payment.invoiceNumber ? (
-                      <Button
+                      <ActionButton
+                        permission="invoices.pdf.read"
                         variant="quiet"
                         onClick={() => void downloadAdminInvoice(payment.invoiceId!, payment.invoiceNumber!)}
                       >
                         {payment.invoiceNumber}
-                      </Button>
+                      </ActionButton>
                     ) : (
                       "—"
                     )}
