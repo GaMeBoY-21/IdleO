@@ -11,6 +11,9 @@ public interface PersonalDataAccess {
     /** This admin opened a page about this person: a host, a session or a payment of theirs. */
     void viewed(CurrentUser admin, UUID subject, String recordId);
 
+    /** This admin exported a list, which names no one person. */
+    void exported(CurrentUser admin, String list, String reason);
+
     /** This admin searched the console, for this text, already masked. */
     void searched(CurrentUser admin, String maskedQuery);
 }

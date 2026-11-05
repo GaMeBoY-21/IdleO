@@ -1,7 +1,8 @@
 package com.idleo.controlplane.trust.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.RequiresPermission;
 import java.time.Instant;
 import java.util.List;
@@ -23,9 +24,30 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminRatingsController {
 
-    private final JdbcClient jdbc;
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("ratings", AdminPermission.RATINGS_READ, true)
+            .select("session_id, renter_id, host_id, stars, comment, rated_at, changed_at")
+            .from("trust.ratings")
+            .id("session_id")
+            .sort("session", AdminListing.Type.UUID, "session_id")
+            .sort("stars", AdminListing.Type.NUMBER, "stars")
+            .sortedBy("session", true)
+            .filter("host", "host_id = cast(:host as uuid)")
+            .filter("session", "session_id = cast(:session as uuid)")
+            .filter("tagged", "renter_id in (:tagged)")
+            .csv("sessionId", "session_id")
+            .csv("renterId", "renter_id")
+            .csv("hostId", "host_id")
+            .csv("stars", "stars")
+            .csv("comment", "comment")
+            .csv("ratedAt", "rated_at")
+            .build();
 
-    AdminRatingsController(JdbcClient jdbc) {
+    private final JdbcClient jdbc;
+    private final AdminTagged tagged;
+
+    AdminRatingsController(JdbcClient jdbc, AdminTagged tagged) {
+        this.tagged = tagged;
         this.jdbc = jdbc;
     }
 
@@ -48,33 +70,23 @@ class AdminRatingsController {
     AdminRatingPage list(
             @RequestParam(required = false) @Nullable UUID host,
             @RequestParam(required = false) @Nullable UUID session,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
-        var rows = jdbc.sql("""
-                        select session_id, renter_id, host_id, stars, comment, rated_at, changed_at from trust.ratings
-                        where (cast(:host as uuid) is null or host_id = cast(:host as uuid))
-                          and (cast(:session as uuid) is null or session_id = cast(:session as uuid))
-                          and (cast(:after as uuid) is null or session_id < cast(:after as uuid))
-                        order by session_id desc
-                        limit :limit
-                        """)
-                .param("host", host)
-                .param("session", session)
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query((rs, n) -> new AdminRating(
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "host", host, "session", session, "tagged", tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                (rs, n) -> new AdminRating(
                         rs.getObject("session_id", UUID.class),
                         rs.getObject("renter_id", UUID.class),
                         rs.getObject("host_id", UUID.class),
                         rs.getInt("stars"),
                         rs.getString("comment"),
                         rs.getTimestamp("rated_at").toInstant(),
-                        rs.getTimestamp("changed_at").toInstant()))
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
-        return new AdminRatingPage(
-                List.copyOf(page),
-                rows.size() > size ? AdminPages.cursorAfter(page.getLast().sessionId()) : null);
+                        rs.getTimestamp("changed_at").toInstant()));
+        return new AdminRatingPage(page.rows(), page.nextCursor());
     }
 }

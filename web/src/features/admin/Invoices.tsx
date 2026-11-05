@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { ApiError } from "@/api/errors";
@@ -7,9 +7,11 @@ import { parseRupees } from "@/lib/money";
 import { formatDay } from "@/lib/time";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminInvoice } from "./api";
-import { AdminPage, Cell, Empty, Filters, Id, QueryView, Row, Section, SmallField, Table } from "./ui";
+import { AdminPage, Cell, Empty, Filters, Id, PagedView, Row, Section, SmallField, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
+import { ListBar } from "./Lists";
+import { useListParams, useListView } from "./listView";
 
 /** Saves one document's PDF, fetched with the admin session when asked. */
 export async function downloadAdminInvoice(id: string, number: string): Promise<void> {
@@ -54,27 +56,37 @@ export function Invoices() {
 
 function InvoiceSearch() {
   const client = useQueryClient();
-  const [form, setForm] = useState({ number: "", userId: "" });
-  const [asked, setAsked] = useState(form);
+  const [asked, setAsked] = useListParams({ number: "", userId: "" });
+  const [form, setForm] = useState(asked);
+  const view = useListView();
   const [noting, setNoting] = useState<AdminInvoice | null>(null);
   const [rupees, setRupees] = useState("");
-  const found = useQuery({
-    queryKey: [ADMIN, "invoices", asked],
-    queryFn: () =>
+  const found = useInfiniteQuery({
+    queryKey: [ADMIN, "invoices", asked, view],
+    queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/invoices", {
           params: {
             query: {
               ...(asked.number ? { number: asked.number } : {}),
               ...(asked.userId ? { userId: asked.userId } : {}),
+              ...view,
+              ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
         }),
       ),
-    enabled: asked.number !== "" || asked.userId !== "",
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    enabled: asked.number !== "" || asked.userId !== "" || view.tag !== undefined,
   });
   return (
     <AdminPage title="Invoices">
+      <ListBar
+        list="invoices"
+        columns={["Number", "Kind", "Renter", "Issued", "Taxable", "GST", "Total", ""]}
+        filters={{ number: "number", userId: "user" }}
+      />
       <Filters onSubmit={() => setAsked({ number: form.number.trim(), userId: form.userId.trim() })}>
         <SmallField
           label="Number"
@@ -89,22 +101,23 @@ function InvoiceSearch() {
           width="w-80"
         />
       </Filters>
-      {asked.number === "" && asked.userId === "" ? (
+      {asked.number === "" && asked.userId === "" && view.tag === undefined ? (
         <Empty title="Look a document up">Give its number, or the renter&apos;s id for all of theirs.</Empty>
       ) : (
         <Section title="Documents">
-          <QueryView
+          <PagedView
             query={found}
             what="the invoices"
-            isEmpty={(list) => list.invoices.length === 0}
+            items={(page) => page.invoices}
             empty={<Empty title="Nothing found">No document matches that.</Empty>}
           >
-            {(list) => (
+            {(rows) => (
               <Table
                 caption="Invoices, receipts and credit notes"
+                sorts={{ Number: "number", Issued: "issuedAt", Total: "total" }}
                 columns={["Number", "Kind", "Renter", "Issued", "Taxable", "GST", "Total", ""]}
               >
-                {list.invoices.map((item) => (
+                {rows.map((item) => (
                   <Row key={item.invoice.id}>
                     <Cell className="tabular">{item.invoice.number}</Cell>
                     <Cell>{item.invoice.title}</Cell>
@@ -145,7 +158,7 @@ function InvoiceSearch() {
                 ))}
               </Table>
             )}
-          </QueryView>
+          </PagedView>
         </Section>
       )}
       <ActionSheet

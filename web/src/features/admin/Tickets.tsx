@@ -26,6 +26,8 @@ import {
 } from "./ui";
 import { ActionButton, useCan } from "./permissions";
 import { Reveal } from "./Reveal";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /** The topics, as the server lists them (Tickets.TOPICS), for the filter. */
 const TOPICS: [string, string][] = [
@@ -58,11 +60,13 @@ export function Tickets() {
 }
 
 function TicketQueue() {
-  const [topic, setTopic] = useState("");
-  const [status, setStatus] = useState("open");
-  const [age, setAge] = useState("");
+  const [topic, setTopic] = useListParam("topic", "");
+  const [status, setStatus] = useListParam("status", "open");
+  const [age, setAge] = useListParam("age", "");
+  const [now] = useState(() => Date.now());
+  const view = useListView();
   const tickets = useInfiniteQuery({
-    queryKey: [ADMIN, "tickets", topic, status, age],
+    queryKey: [ADMIN, "tickets", topic, status, age, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/tickets", {
@@ -71,6 +75,7 @@ function TicketQueue() {
               ...(topic ? { topic } : {}),
               ...(status ? { status } : {}),
               ...(age ? { olderThanDays: Number(age) } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -81,6 +86,12 @@ function TicketQueue() {
   });
   return (
     <AdminPage title="Tickets">
+      <ListBar
+        list="tickets"
+        columns={["Ticket", "Topic", "Status", "Due", "Arrived"]}
+        filters={{ topic: "topic", status: "status" }}
+        extra={age ? { before: new Date(now - Number(age) * 86_400_000).toISOString() } : {}}
+      />
       <div className="flex flex-wrap gap-3">
         <SmallSelect label="Topic" value={topic} onChange={setTopic} options={TOPICS} />
         <SmallSelect
@@ -113,7 +124,11 @@ function TicketQueue() {
         empty={<Empty title="No tickets here">Messages from the Contact page and Help show here.</Empty>}
       >
         {(rows) => (
-          <Table caption="Tickets" columns={["Ticket", "Topic", "Status", "Due", "Arrived"]}>
+          <Table
+            caption="Tickets"
+            sorts={{ Ticket: "number", Due: "due", Arrived: "createdAt" }}
+            columns={["Ticket", "Topic", "Status", "Due", "Arrived"]}
+          >
             {rows.map((ticket) => (
               <Row key={ticket.id} className={ticket.overdue ? "bg-danger-soft" : undefined}>
                 <Cell>

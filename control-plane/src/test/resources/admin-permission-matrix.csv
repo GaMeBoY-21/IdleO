@@ -1,6 +1,7 @@
 endpoint,permission,owner,operations,support,trust_safety,finance,auditor
 DELETE /admin/v1/passkeys/{id},self,allow,allow,allow,allow,allow,allow
 DELETE /admin/v1/session,self,allow,allow,allow,allow,allow,allow
+DELETE /admin/v1/views/{id},self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/abuse,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/blocklist-additions,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/{id},abuse.read,allow,403,403,allow,403,allow
@@ -69,6 +70,7 @@ GET /admin/v1/users/{id}/deletion,privacy.read,allow,403,allow,allow,403,allow
 GET /admin/v1/users/{id}/linked-accounts,trust.read,allow,403,403,allow,403,403
 GET /admin/v1/users/{id}/payout-details,verifications.read,allow,403,403,403,allow,allow
 GET /admin/v1/users/{id}/security-events,users.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/views,self,allow,allow,allow,allow,allow,allow
 POST /admin/v1/abuse/blocklist-additions/{additionId}/remove,abuse.blocklist,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/blocklist,abuse.blocklist,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/clear,abuse.clear,allow,403,403,allow,403,403
@@ -88,6 +90,7 @@ POST /admin/v1/credit-grants,money.adjust,allow,403,403,403,allow,403
 POST /admin/v1/credit-grants/{id}/reverse,money.adjust,allow,403,403,403,allow,403
 POST /admin/v1/disputes/{id}/no-refund,disputes.decide,allow,403,allow,allow,403,403
 POST /admin/v1/disputes/{id}/refund,disputes.refund,allow,403,403,403,allow,403
+POST /admin/v1/exports,export.create,allow,403,403,403,allow,403
 POST /admin/v1/hosts/{id}/activate,hosts.activate,allow,allow,403,403,403,403
 POST /admin/v1/hosts/{id}/revoke-certificates,hosts.certificates.revoke,allow,allow,403,allow,403,403
 POST /admin/v1/hosts/{id}/self-tests,hosts.self-test,allow,allow,403,403,403,403
@@ -135,3 +138,4 @@ POST /admin/v1/users/{id}/deletion/legal-order,privacy.legal-order,allow,403,403
 POST /admin/v1/users/{id}/exports,privacy.export,allow,403,allow,403,403,403
 POST /admin/v1/users/{id}/suspend,users.suspend,allow,allow,403,allow,403,403
 POST /admin/v1/users/{id}/unsuspend,users.unsuspend,allow,403,403,allow,403,403
+POST /admin/v1/views,self,allow,allow,allow,allow,allow,allow

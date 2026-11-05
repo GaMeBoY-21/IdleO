@@ -1,11 +1,13 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminClawback } from "./api";
-import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, Pill, PagedView, Row, Section, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /**
  * Clawbacks (ADR 0040): a report refunded after the session's earnings were paid out. What the host's balance covered,
@@ -14,11 +16,19 @@ import { ActionButton } from "./permissions";
  */
 export function Clawbacks() {
   const client = useQueryClient();
-  const [state, setState] = useState("owed");
+  const [state, setState] = useListParam("state", "owed");
+  const view = useListView();
   const [waiving, setWaiving] = useState<AdminClawback | null>(null);
-  const clawbacks = useQuery({
-    queryKey: [ADMIN, "clawbacks", state],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/clawbacks", { params: { query: { state } } })),
+  const clawbacks = useInfiniteQuery({
+    queryKey: [ADMIN, "clawbacks", state, view],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/clawbacks", {
+          params: { query: { state, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   return (
     <AdminPage title="Clawbacks">
@@ -36,19 +46,35 @@ export function Clawbacks() {
             ]}
           />
         </div>
-        <QueryView
+        <ListBar
+          list="clawbacks"
+          columns={[
+            "When",
+            "Host's owner",
+            "Session",
+            "Refunded",
+            "From balance",
+            "Owed",
+            "Recovered",
+            "",
+            "",
+          ]}
+          filters={{ state: "state" }}
+        />
+        <PagedView
           query={clawbacks}
           what="the clawbacks"
-          isEmpty={(page) => page.clawbacks.length === 0}
+          items={(page) => page.clawbacks}
           empty={
             <Empty title="Nothing here">
               A report refunded after its session was paid out is listed here.
             </Empty>
           }
         >
-          {(page) => (
+          {(rows) => (
             <Table
               caption="Clawbacks"
+              sorts={{ When: "createdAt", Refunded: "amount" }}
               columns={[
                 "When",
                 "Host's owner",
@@ -61,7 +87,7 @@ export function Clawbacks() {
                 "",
               ]}
             >
-              {page.clawbacks.map((clawback) => (
+              {rows.map((clawback) => (
                 <Row key={clawback.id}>
                   <Cell>
                     <RelativeTime value={clawback.createdAt} />
@@ -107,7 +133,7 @@ export function Clawbacks() {
               ))}
             </Table>
           )}
-        </QueryView>
+        </PagedView>
       </Section>
       <ActionSheet
         open={waiving !== null}

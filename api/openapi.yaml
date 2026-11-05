@@ -31,6 +31,16 @@ paths:
           type: string
           format: uuid
       - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -795,6 +805,27 @@ paths:
         schema:
           type: string
           default: open
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -851,6 +882,16 @@ paths:
         schema:
           type: string
           default: owed
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
       - in: query
         name: cursor
         required: false
@@ -1045,6 +1086,16 @@ paths:
           type: string
           format: uuid
       - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -1203,6 +1254,37 @@ paths:
         idToken: []
       tags:
       - adminDisputes
+  /admin/v1/exports:
+    post:
+      operationId: adminListExportExport
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            text/csv: {}
+          description: The CSV
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: It goes to another admin
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminListExport
   /admin/v1/hosts:
     get:
       operationId: adminHostsSearch
@@ -1214,6 +1296,16 @@ paths:
           type: string
       - in: query
         name: status
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
         required: false
         schema:
           type: string
@@ -1516,6 +1608,16 @@ paths:
           type: string
           format: uuid
       - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: limit
         required: false
         schema:
@@ -1671,6 +1773,11 @@ paths:
         schema:
           type: boolean
       - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -1741,6 +1848,32 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: kind
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -2223,9 +2356,35 @@ paths:
       parameters:
       - in: query
         name: query
-        required: true
+        required: false
         schema:
           type: string
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -2382,6 +2541,16 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
       - in: query
         name: cursor
         required: false
@@ -2854,6 +3023,16 @@ paths:
           type: string
           format: uuid
       - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -3061,6 +3240,27 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -3540,6 +3740,16 @@ paths:
           type: string
           format: date-time
       - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -3833,6 +4043,16 @@ paths:
           type: string
           format: uuid
       - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
         name: cursor
         required: false
         schema:
@@ -4024,6 +4244,16 @@ paths:
           type: string
       - in: query
         name: status
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
         required: false
         schema:
           type: string
@@ -4371,6 +4601,83 @@ paths:
         idToken: []
       tags:
       - adminUsers
+  /admin/v1/views:
+    get:
+      operationId: adminSavedViewsList
+      parameters:
+      - in: query
+        name: list
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSavedViews"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSavedViews
+    post:
+      operationId: adminSavedViewsSave
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSavedView"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSavedViews"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSavedViews
+  /admin/v1/views/{id}:
+    delete:
+      operationId: adminSavedViewsDelete
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSavedViews
   /v1/agent-releases/latest:
     get:
       operationId: agentReleaseLatest
@@ -7665,6 +7972,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminChargeback"
+        nextCursor:
+          type:
+          - string
+          - "null"
       required:
       - chargebacks
     AdminChargebackSession:
@@ -7975,6 +8286,10 @@ components:
     AdminCreditRefundList:
       type: object
       properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
         refunds:
           type: array
           items:
@@ -8859,6 +9174,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminInvoice"
+        nextCursor:
+          type:
+          - string
+          - "null"
       required:
       - invoices
     AdminLedgerEntry:
@@ -9230,6 +9549,10 @@ components:
     AdminPaymentList:
       type: object
       properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
         payments:
           type: array
           items:
@@ -10063,6 +10386,35 @@ components:
       - id
       - name
       - permissions
+    AdminSavedView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mine:
+          type: boolean
+        name:
+          type: string
+        query:
+          type: string
+        shared:
+          type: boolean
+      required:
+      - id
+      - mine
+      - name
+      - query
+      - shared
+    AdminSavedViews:
+      type: object
+      properties:
+        views:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSavedView"
+      required:
+      - views
     AdminScore:
       type: object
       properties:
@@ -12094,6 +12446,32 @@ components:
             $ref: "#/components/schemas/Export"
       required:
       - exports
+    ExportRequest:
+      type: object
+      properties:
+        filters:
+          type:
+          - object
+          - "null"
+          additionalProperties:
+            type: string
+        list:
+          type: string
+          maxLength: 40
+          minLength: 0
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        sort:
+          type:
+          - string
+          - "null"
+          maxLength: 60
+          minLength: 0
+      required:
+      - list
+      - reason
     FailureDetail:
       type: object
       properties:
@@ -13156,6 +13534,28 @@ components:
       - openInvestigation
       - pinned
       - subject
+    NewSavedView:
+      type: object
+      properties:
+        list:
+          type: string
+          maxLength: 40
+          minLength: 0
+        name:
+          type: string
+          maxLength: 80
+          minLength: 0
+        query:
+          type: string
+          maxLength: 2000
+          minLength: 0
+        shared:
+          type: boolean
+      required:
+      - list
+      - name
+      - query
+      - shared
     NewTicket:
       type: object
       properties:

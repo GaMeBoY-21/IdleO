@@ -1,8 +1,9 @@
 package com.idleo.controlplane.billing.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,12 +38,32 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminClawbacksController {
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("clawbacks", AdminPermission.CLAWBACKS_READ, false)
+            .from("billing.clawbacks")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("amount", AdminListing.Type.NUMBER, "amount_paise")
+            .sort("state", AdminListing.Type.TEXT, "state")
+            .sortedBy("createdAt", true)
+            .filter("state", "state = cast(:state as text)")
+            .filter("tagged", "owner_id in (:tagged)")
+            .csv("id", "id")
+            .csv("ownerId", "owner_id")
+            .csv("amountPaise", "amount_paise")
+            .csv("owedPaise", "owed_paise")
+            .csv("state", "state")
+            .build();
+
     private static final Set<String> STATES = Set.of("owed", "recovered", "waived", "all");
 
     private final Clawbacks clawbacks;
+    private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final Approvals approvals;
 
-    AdminClawbacksController(Clawbacks clawbacks, Approvals approvals) {
+    AdminClawbacksController(Clawbacks clawbacks, Approvals approvals, JdbcClient jdbc, AdminTagged tagged) {
+        this.jdbc = jdbc;
+        this.tagged = tagged;
         this.clawbacks = clawbacks;
         this.approvals = approvals;
     }
@@ -98,17 +120,22 @@ class AdminClawbacksController {
     @GetMapping
     AdminClawbackPage list(
             @RequestParam(defaultValue = "owed") String state,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         if (!STATES.contains(state)) {
             throw ApiProblem.invalid("state", "must be owed, recovered, waived or all.");
         }
-        int size = AdminPages.limit(limit);
-        var rows = clawbacks.list(state, AdminPages.after(cursor), size + 1);
-        var shown = rows.size() > size ? rows.subList(0, size) : rows;
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort, "state", state.equals("all") ? null : state, "tagged", tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                Clawbacks::clawback);
         return new AdminClawbackPage(
-                shown.stream().map(AdminClawbacksController::view).toList(),
-                rows.size() > size ? AdminPages.cursorAfter(shown.getLast().id()) : null);
+                page.rows().stream().map(AdminClawbacksController::view).toList(), page.nextCursor());
     }
 
     @RequiresPermission(value = AdminPermission.CLAWBACKS_WAIVE, record = "clawback")

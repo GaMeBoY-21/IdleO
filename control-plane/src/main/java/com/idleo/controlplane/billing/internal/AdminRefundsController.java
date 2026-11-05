@@ -1,7 +1,9 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
@@ -25,6 +27,7 @@ import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,10 +48,15 @@ import org.springframework.web.bind.annotation.RestController;
 class AdminRefundsController {
 
     private final CreditRefunds refunds;
+    private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final AuditTrail audit;
     private final Approvals approvals;
 
-    AdminRefundsController(CreditRefunds refunds, AuditTrail audit, Approvals approvals) {
+    AdminRefundsController(
+            CreditRefunds refunds, AuditTrail audit, Approvals approvals, JdbcClient jdbc, AdminTagged tagged) {
+        this.jdbc = jdbc;
+        this.tagged = tagged;
         this.approvals = approvals;
         this.refunds = refunds;
         this.audit = audit;
@@ -80,7 +88,8 @@ class AdminRefundsController {
             List<AdminCreditRefundPart> parts,
             long version) {}
 
-    record AdminCreditRefundList(List<AdminCreditRefund> refunds) {}
+    record AdminCreditRefundList(
+            List<AdminCreditRefund> refunds, @Nullable String nextCursor) {}
 
     /** Approves {@code amountPaise} of the request: at most what the renter can have back now. */
     record ApproveCreditRefund(
@@ -117,14 +126,49 @@ class AdminRefundsController {
                 refund.version());
     }
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("refunds", AdminPermission.REFUNDS_READ, true)
+            .from("billing.credit_refunds")
+            .sort("requestedAt", AdminListing.Type.TIME, "requested_at")
+            .sort("status", AdminListing.Type.TEXT, "status")
+            .sortedBy("requestedAt", true)
+            .filter("status", "status = cast(:status as text)")
+            .filter("user", "user_id = cast(:user as uuid)")
+            .filter("tagged", "user_id in (:tagged)")
+            .csv("id", "id")
+            .csv("userId", "user_id")
+            .csv("cause", "cause")
+            .csv("requestedPaise", "requested_paise")
+            .csv("approvedPaise", "approved_paise")
+            .csv("status", "status")
+            .csv("requestedAt", "requested_at")
+            .csv("finishedAt", "finished_at")
+            .build();
+
     /** {@code status}: requested (the default), refunding, refunded, failed, declined or all. */
     @RequiresPermission(AdminPermission.REFUNDS_READ)
     @GetMapping
     AdminCreditRefundList list(
             @RequestParam(defaultValue = "requested") String status,
-            @RequestParam(required = false) @Nullable UUID user) {
-        var found = user == null ? refunds.list(status, 100) : refunds.ofPerson(user, 100);
-        return new AdminCreditRefundList(found.stream().map(this::view).toList());
+            @RequestParam(required = false) @Nullable UUID user,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "status",
+                        status.equals("all") || user != null ? null : status,
+                        "user",
+                        user,
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                CreditRefunds::refund);
+        return new AdminCreditRefundList(page.rows().stream().map(this::view).toList(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.REFUNDS_READ)

@@ -1,8 +1,9 @@
 package com.idleo.controlplane.images.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
@@ -42,9 +43,27 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminImagesController {
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("images", AdminPermission.IMAGES_READ, false)
+            .from("images.images")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("state", AdminListing.Type.TEXT, "state")
+            .sortedBy("createdAt", true)
+            .filter("state", "state = cast(:state as text)")
+            .filter("user", "user_id = cast(:user as uuid)")
+            .filter("tagged", "user_id in (:tagged)")
+            .csv("id", "id")
+            .csv("userId", "user_id")
+            .csv("reference", "reference")
+            .csv("digest", "digest")
+            .csv("state", "state")
+            .csv("createdAt", "created_at")
+            .build();
+
     static final String UNBLOCK = "image.unblock";
 
     private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final ImageStore images;
     private final ScanStore scans;
     private final ImageJudge judge;
@@ -61,7 +80,9 @@ class AdminImagesController {
             AuditTrail audit,
             PlatformTransactionManager transactionManager,
             Clock clock,
-            Approvals approvals) {
+            Approvals approvals,
+            AdminTagged tagged) {
+        this.tagged = tagged;
         this.approvals = approvals;
         this.jdbc = jdbc;
         this.images = images;
@@ -118,31 +139,21 @@ class AdminImagesController {
     AdminImagePage list(
             @RequestParam(required = false) @Nullable String state,
             @RequestParam(required = false) @Nullable UUID user,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable Integer limit,
             @RequestParam(required = false) @Nullable String cursor) {
         if (state != null
                 && !List.of("queued", "checking", "ready", "blocked", "failed").contains(state)) {
             throw ApiProblem.invalid("state", "must be queued, checking, ready, blocked or failed.");
         }
-        int size = AdminPages.limit(limit);
-        var after = AdminPages.after(cursor);
-        var rows = jdbc.sql("""
-                        select * from images.images
-                        where (cast(:state as text) is null or state = :state)
-                          and (cast(:user as uuid) is null or user_id = cast(:user as uuid))
-                          and (cast(:after as uuid) is null or id < :after)
-                        order by id desc
-                        limit :limit
-                        """)
-                .param("state", state)
-                .param("user", user)
-                .param("after", after)
-                .param("limit", size + 1)
-                .query(ImageStore::row)
-                .list();
-        var page = rows.stream().limit(size).map(this::summary).toList();
-        return new AdminImagePage(
-                page, rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "state", state, "user", user, "tagged", tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                ImageStore::row);
+        return new AdminImagePage(page.rows().stream().map(this::summary).toList(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.IMAGES_READ)

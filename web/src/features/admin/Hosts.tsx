@@ -27,6 +27,8 @@ import {
 import { usePaletteActions } from "./Palette";
 import { HostTabs } from "./Records";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { useListParams, useListView } from "./listView";
 
 /** Hosts (ADR 0027): find them; one opens with its history, GPUs, certificates and telemetry, and what can be done. */
 export function Hosts() {
@@ -44,11 +46,12 @@ const STATUSES: [string, string][] = [
 ];
 
 function HostSearch() {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [asked, setAsked] = useState({ query: "", status: "" });
+  const [asked, setAsked] = useListParams({ query: "", status: "" });
+  const [query, setQuery] = useState(asked.query);
+  const [status, setStatus] = useState(asked.status);
+  const view = useListView();
   const hosts = useInfiniteQuery({
-    queryKey: [ADMIN, "hosts", asked],
+    queryKey: [ADMIN, "hosts", asked, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/hosts", {
@@ -56,6 +59,7 @@ function HostSearch() {
             query: {
               ...(asked.query ? { query: asked.query } : {}),
               ...(asked.status ? { status: asked.status } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -66,6 +70,11 @@ function HostSearch() {
   });
   return (
     <AdminPage title="Hosts">
+      <ListBar
+        list="hosts"
+        columns={["Name", "Status", "Agent", "GPUs", "Owner", "Last seen", ""]}
+        filters={{ query: "query", status: "status" }}
+      />
       <Filters onSubmit={() => setAsked({ query: query.trim(), status })}>
         <SmallField label="Name, host id or owner id" value={query} onChange={setQuery} width="w-72" />
         <SmallSelect label="Status" value={status} onChange={setStatus} options={STATUSES} />
@@ -77,7 +86,11 @@ function HostSearch() {
         empty={<Empty title="No hosts match">Try part of a name, or a whole host or owner id.</Empty>}
       >
         {(rows) => (
-          <Table caption="Hosts" columns={["Name", "Status", "Agent", "GPUs", "Owner", "Last seen", ""]}>
+          <Table
+            caption="Hosts"
+            sorts={{ Name: "name", Status: "status" }}
+            columns={["Name", "Status", "Agent", "GPUs", "Owner", "Last seen", ""]}
+          >
             {rows.map((host) => (
               <Row key={host.id}>
                 <Cell>{host.name}</Cell>

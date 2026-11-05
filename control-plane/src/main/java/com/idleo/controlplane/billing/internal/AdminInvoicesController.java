@@ -1,6 +1,8 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
@@ -20,6 +22,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,19 +42,49 @@ import tools.jackson.databind.JsonNode;
 @ConditionalOnWebApplication
 class AdminInvoicesController {
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("invoices", AdminPermission.INVOICES_READ, true)
+            .from("billing.invoices")
+            .sort("issuedAt", AdminListing.Type.TIME, "issued_at")
+            .sort("number", AdminListing.Type.TEXT, "number")
+            .sort("total", AdminListing.Type.NUMBER, "total_paise")
+            .sortedBy("issuedAt", true)
+            .filter("number", "number = cast(:number as text)")
+            .filter("user", "user_id = cast(:user as uuid)")
+            .filter("kind", "kind = cast(:kind as text)")
+            .filter("tagged", "user_id in (:tagged)")
+            .csv("id", "id")
+            .csv("number", "number")
+            .csv("kind", "kind")
+            .csv("userId", "user_id")
+            .csv("totalPaise", "total_paise")
+            .csv("issuedAt", "issued_at")
+            .build();
+
     private final Invoices invoices;
+    private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final InvoicePdf pdf;
     private final Approvals approvals;
     private final PersonalDataAccess accessLog;
 
-    AdminInvoicesController(Invoices invoices, InvoicePdf pdf, Approvals approvals, PersonalDataAccess accessLog) {
+    AdminInvoicesController(
+            Invoices invoices,
+            InvoicePdf pdf,
+            Approvals approvals,
+            PersonalDataAccess accessLog,
+            JdbcClient jdbc,
+            AdminTagged tagged) {
+        this.jdbc = jdbc;
+        this.tagged = tagged;
         this.invoices = invoices;
         this.pdf = pdf;
         this.approvals = approvals;
         this.accessLog = accessLog;
     }
 
-    record AdminInvoiceList(java.util.List<AdminInvoice> invoices) {}
+    record AdminInvoiceList(
+            java.util.List<AdminInvoice> invoices, @Nullable String nextCursor) {}
 
     record AdminInvoice(InvoiceController.InvoiceSummary invoice, UUID userId, long version) {}
 
@@ -66,11 +99,33 @@ class AdminInvoicesController {
     @GetMapping
     AdminInvoiceList search(
             @RequestParam(required = false) @Nullable String number,
-            @RequestParam(required = false) @Nullable UUID userId) {
-        return new AdminInvoiceList(invoices.search(number, userId, 50).stream()
-                .map(invoice ->
-                        new AdminInvoice(InvoiceController.summary(invoice), invoice.userId(), version(invoice)))
-                .toList());
+            @RequestParam(required = false) @Nullable UUID userId,
+            @RequestParam(required = false) @Nullable String kind,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "number",
+                        number == null ? null : number.strip().toUpperCase(java.util.Locale.ROOT),
+                        "user",
+                        userId,
+                        "kind",
+                        kind,
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                (rs, n) -> invoices.mapped(rs));
+        return new AdminInvoiceList(
+                page.rows().stream()
+                        .map(invoice -> new AdminInvoice(
+                                InvoiceController.summary(invoice), invoice.userId(), version(invoice)))
+                        .toList(),
+                page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.INVOICES_READ)

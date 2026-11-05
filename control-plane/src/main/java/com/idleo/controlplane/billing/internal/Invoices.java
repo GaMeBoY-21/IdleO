@@ -11,8 +11,6 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -481,26 +479,9 @@ class Invoices {
                 .list();
     }
 
-    /** For the admin console: by number, user, or the latest. */
-    List<Invoice> search(@Nullable String number, @Nullable UUID userId, int limit) {
-        var conditions = new ArrayList<String>();
-        var params = new LinkedHashMap<String, Object>();
-        if (number != null && !number.isBlank()) {
-            conditions.add("number = :number");
-            params.put("number", number.strip().toUpperCase(java.util.Locale.ROOT));
-        }
-        if (userId != null) {
-            conditions.add("user_id = :userId");
-            params.put("userId", userId);
-        }
-        var sql = "select * from billing.invoices"
-                + (conditions.isEmpty() ? "" : " where " + String.join(" and ", conditions))
-                + " order by issued_at desc, id desc limit :limit";
-        var statement = jdbc.sql(sql).param("limit", limit);
-        for (var param : params.entrySet()) {
-            statement = statement.param(param.getKey(), param.getValue());
-        }
-        return statement.query((rs, n) -> invoice(rs)).list();
+    /** One row of {@code billing.invoices} as a document. */
+    Invoice mapped(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return invoice(rs);
     }
 
     private Invoice invoice(java.sql.ResultSet rs) throws java.sql.SQLException {

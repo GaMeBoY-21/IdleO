@@ -1,5 +1,5 @@
 import type { UseInfiniteQueryResult, UseQueryResult } from "@tanstack/react-query";
-import { useId, type ReactNode } from "react";
+import { Children, createContext, useContext, useId, type ReactNode } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/time";
 import { useTitle } from "@/lib/title";
 import { recordHref } from "./links";
+import { useTableView } from "./listView";
 
 /**
  * The console's building blocks (ADR 0027, ADR 0043): the same tokens as the app, but dense (smaller type, tighter
@@ -155,15 +156,22 @@ export function Empty({ title, children }: { title: string; children: ReactNode 
  * A dense table: a caption for screen readers, column headers, and a divider between rows. It scrolls sideways on a
  * phone, and holds its screen-reader-only words, which are positioned, inside it, so they never widen the page.
  */
+const HiddenCells = createContext<ReadonlySet<number>>(new Set());
+
 export function Table({
   caption,
   columns,
+  sorts,
   children,
 }: {
   caption: string;
   columns: string[];
+  /** A column's order on the server, by its heading: its header then sorts, and the address keeps it. */
+  sorts?: Record<string, string>;
   children: ReactNode;
 }) {
+  const view = useTableView();
+  const hidden = new Set(columns.flatMap((column, index) => (view.hidden.has(column) ? [index] : [])));
   return (
     <div
       className="relative overflow-x-auto rounded-panel border border-edge bg-panel px-3 py-1.5"
@@ -177,21 +185,47 @@ export function Table({
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-line text-left text-caption tracking-wider text-text-3 uppercase">
-            {columns.map((column) => (
-              <th key={column} scope="col" className="px-2 py-2.5 font-semibold">
-                {column}
-              </th>
-            ))}
+            {columns.map((column, index) => {
+              if (hidden.has(index)) {
+                return null;
+              }
+              const key = sorts?.[column];
+              const now = key && view.sort?.startsWith(`${key}:`) ? view.sort.slice(key.length + 1) : null;
+              return (
+                <th
+                  key={column || index}
+                  scope="col"
+                  aria-sort={now === "asc" ? "ascending" : now === "desc" ? "descending" : undefined}
+                  className="px-2 py-2.5 font-semibold"
+                >
+                  {key ? (
+                    <button type="button" onClick={() => view.sortBy(key)} className="uppercase underline">
+                      {column}
+                      {now === "asc" ? " ↑" : now === "desc" ? " ↓" : ""}
+                    </button>
+                  ) : (
+                    column
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <HiddenCells.Provider value={hidden}>
+          <tbody>{children}</tbody>
+        </HiddenCells.Provider>
       </table>
     </div>
   );
 }
 
 export function Row({ children, className }: { children: ReactNode; className?: string }) {
-  return <tr className={cn("border-b border-line align-top last:border-b-0", className)}>{children}</tr>;
+  const hidden = useContext(HiddenCells);
+  return (
+    <tr className={cn("border-b border-line align-top last:border-b-0", className)}>
+      {hidden.size === 0 ? children : Children.toArray(children).filter((_, index) => !hidden.has(index))}
+    </tr>
+  );
 }
 
 export function Cell({ children, className }: { children: ReactNode; className?: string }) {

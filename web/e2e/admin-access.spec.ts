@@ -129,7 +129,7 @@ test.describe("finding anything", () => {
   }) => {
     test.setTimeout(180_000);
     await signIn(page, finder!, "/admin/");
-    await enrol(page);
+    const secret = await enrol(page);
     await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
 
     await page.keyboard.press("Control+k");
@@ -166,5 +166,21 @@ test.describe("finding anything", () => {
 
     // The address says which tab: it can be linked.
     await expect(page).toHaveURL(/tab=linked/);
+
+    // Any list's view is in its address: an order, a column left out, and a file of it, asked for with a recent factor.
+    await page.goto("/admin/invites/?sort=createdAt:asc&hide=Lapses");
+    await expect(page.getByRole("heading", { level: 1, name: "Admin sign-in" }).or(page.getByRole("heading", { level: 1, name: "Invites" }))).toBeVisible();
+    if (await page.getByRole("heading", { level: 1, name: "Admin sign-in" }).isVisible()) {
+      await page.getByLabel("Code from your authenticator app").fill(codeNow(secret, 1));
+      await page.getByRole("button", { name: "Continue" }).click();
+    }
+    await expect(page.getByRole("heading", { level: 1, name: "Invites" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Lapses" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Export CSV" }).click();
+    await page.getByLabel("Reason").fill("counting the invites");
+    const file = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    // A session this new has its factor; after 5 minutes the step-up dialog asks first.
+    expect((await file).suggestedFilename()).toBe("invites.csv");
   });
 });

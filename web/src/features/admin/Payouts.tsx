@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -12,6 +12,7 @@ import {
   Empty,
   Fields,
   Id,
+  PagedView,
   Pill,
   QueryView,
   Row,
@@ -22,6 +23,8 @@ import {
 } from "./ui";
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /** What each kind of payout disagreement means (docs/runbooks/payouts.md, "Reconciliation"). */
 export const PAYOUT_MISMATCH_WORDS: Record<string, string> = {
@@ -71,14 +74,27 @@ function PayoutList() {
 
 function RunsAndPayouts() {
   const client = useQueryClient();
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useListParam("status", "all");
+  const view = useListView();
   const [running, setRunning] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [retryUser, setRetryUser] = useState("");
   const [outcome, setOutcome] = useState<string | null>(null);
+  // The runs and balance come with any page: a page of one is enough for them.
   const payouts = useQuery({
-    queryKey: [ADMIN, "payouts", status],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/payouts", { params: { query: { status } } })),
+    queryKey: [ADMIN, "payouts", "summary"],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/payouts", { params: { query: { limit: 1 } } })),
+  });
+  const list = useInfiniteQuery({
+    queryKey: [ADMIN, "payouts", status, view],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/payouts", {
+          params: { query: { status, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   const refresh = () => client.invalidateQueries({ queryKey: [ADMIN] });
   return (
@@ -169,20 +185,33 @@ function RunsAndPayouts() {
                 </Row>
               ))}
             </Table>
-            {found.payouts.length === 0 ? (
-              <Empty title="No payouts">
-                Payouts made by the weekly run, a retry or a deletion are listed here.
-              </Empty>
-            ) : (
-              <Table
-                caption="Payouts"
-                columns={["Made", "Host", "Kind", "Gross", "Tax", "Net", "Status", "RazorpayX", ""]}
-              >
-                {found.payouts.map((payout) => (
-                  <PayoutRow key={payout.id} payout={payout} onRetry={() => setRetrying(payout.userId)} />
-                ))}
-              </Table>
-            )}
+            <ListBar
+              list="payouts"
+              columns={["Made", "Host", "Kind", "Gross", "Tax", "Net", "Status", "RazorpayX", ""]}
+              filters={{ status: "status" }}
+            />
+            <PagedView
+              query={list}
+              what="the payouts"
+              items={(page) => page.payouts}
+              empty={
+                <Empty title="No payouts">
+                  Payouts made by the weekly run, a retry or a deletion are listed here.
+                </Empty>
+              }
+            >
+              {(rows) => (
+                <Table
+                  caption="Payouts"
+                  sorts={{ Made: "createdAt", Net: "net", Status: "status" }}
+                  columns={["Made", "Host", "Kind", "Gross", "Tax", "Net", "Status", "RazorpayX", ""]}
+                >
+                  {rows.map((payout) => (
+                    <PayoutRow key={payout.id} payout={payout} onRetry={() => setRetrying(payout.userId)} />
+                  ))}
+                </Table>
+              )}
+            </PagedView>
           </>
         )}
       </QueryView>

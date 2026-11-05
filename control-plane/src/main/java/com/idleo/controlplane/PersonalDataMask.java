@@ -149,7 +149,7 @@ public final class PersonalDataMask {
     }
 
     /** One named value: by what its field holds, or else by what's in it. */
-    static String field(String name, String value) {
+    public static String field(String name, String value) {
         var key = name.toLowerCase(Locale.ROOT);
         if (TECHNICAL.contains(key) || key.endsWith("version")) {
             return value;

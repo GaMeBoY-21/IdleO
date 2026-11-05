@@ -1,6 +1,6 @@
 package com.idleo.controlplane.identity.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.RequiresPermission;
@@ -112,26 +112,34 @@ class AdminInvitesController {
                 .body(new AdminInvitesCreated(created.codes(), created.expiresAt()));
     }
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("invites", AdminPermission.INVITES_READ, false)
+            .select("i.id, i.note, i.created_by, i.created_at, i.expires_at, i.used_by, u.email, i.used_at")
+            .from("identity.invite_codes i left join identity.users u on u.id = i.used_by")
+            .id("i.id")
+            .sort("createdAt", AdminListing.Type.UUID, "i.id")
+            .sortedBy("createdAt", true)
+            .filter("used", "(i.used_at is not null) = cast(:used as boolean)")
+            .csv("id", "i.id")
+            .csv("note", "i.note")
+            .csv("createdAt", "i.created_at")
+            .csv("usedAt", "i.used_at")
+            .build();
+
     /** Every code, newest first; {@code used} true or false keeps only the used or the unused ones. */
     @RequiresPermission(AdminPermission.INVITES_READ)
     @GetMapping
     AdminInvitePage list(
             @RequestParam(required = false) @Nullable Boolean used,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
-        var rows = jdbc.sql("""
-                        select i.id, i.note, i.created_by, i.created_at, i.expires_at, i.used_by, i.used_at, u.email
-                        from identity.invite_codes i left join identity.users u on u.id = i.used_by
-                        where (cast(:used as boolean) is null or (i.used_at is not null) = cast(:used as boolean))
-                          and (cast(:after as uuid) is null or i.id < cast(:after as uuid))
-                        order by i.id desc
-                        limit :limit
-                        """)
-                .param("used", used)
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query((rs, n) -> new AdminInvite(
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(sort, "used", used),
+                cursor,
+                limit,
+                (rs, n) -> new AdminInvite(
                         rs.getObject("id", UUID.class),
                         rs.getString("note"),
                         rs.getString("created_by"),
@@ -143,11 +151,7 @@ class AdminInvitesController {
                         rs.getString("email"),
                         rs.getTimestamp("used_at") == null
                                 ? null
-                                : rs.getTimestamp("used_at").toInstant()))
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
-        return new AdminInvitePage(
-                List.copyOf(page),
-                rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+                                : rs.getTimestamp("used_at").toInstant()));
+        return new AdminInvitePage(page.rows(), page.nextCursor());
     }
 }

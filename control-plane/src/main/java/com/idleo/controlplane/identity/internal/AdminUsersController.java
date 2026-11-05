@@ -1,8 +1,10 @@
 package com.idleo.controlplane.identity.internal;
 
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPages;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
@@ -39,8 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminUsersController {
 
-    private static final String SELECT = """
-            select u.id, u.version, u.email, u.display_name, u.status, u.created_at,
+    private static final String SELECT_COLUMNS = """
+            u.id, u.version, u.email, u.display_name, u.status, u.created_at,
                    (select max(e.last_sign_in_at) from identity.external_identities e where e.user_id = u.id)
                        as last_sign_in_at,
                    exists (select 1 from identity.admins a where a.user_id = u.id) as admin,
@@ -48,17 +50,25 @@ class AdminUsersController {
                        as api_keys,
                    (select i.note from identity.invite_codes i where i.used_by = u.id) as invite_note,
                    u.suspension_cause
-            from identity.users u
             """;
+
+    private static final String SELECT = "select " + SELECT_COLUMNS + " from identity.users u ";
 
     private final JdbcClient jdbc;
     private final UserSuspensions suspensions;
     private final AuditTrail audit;
     private final AccessLog accessLog;
+    private final AdminTagged tagged;
     private final Approvals approvals;
 
     AdminUsersController(
-            JdbcClient jdbc, UserSuspensions suspensions, AuditTrail audit, AccessLog accessLog, Approvals approvals) {
+            JdbcClient jdbc,
+            UserSuspensions suspensions,
+            AuditTrail audit,
+            AccessLog accessLog,
+            Approvals approvals,
+            AdminTagged tagged) {
+        this.tagged = tagged;
         this.approvals = approvals;
         this.accessLog = accessLog;
         this.jdbc = jdbc;
@@ -104,36 +114,56 @@ class AdminUsersController {
 
     record AdminUserPage(List<AdminUser> users, @Nullable String nextCursor) {}
 
-    /** {@code query} is part of an email, a name, or a whole user id; {@code status} is waiting, active or suspended. */
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("users", AdminPermission.USERS_READ, true)
+            .select(SELECT_COLUMNS)
+            .from("identity.users u")
+            .id("u.id")
+            .sort("createdAt", AdminListing.Type.UUID, "u.id")
+            .sort("email", AdminListing.Type.TEXT, "coalesce(u.email, '')")
+            .sort("name", AdminListing.Type.TEXT, "coalesce(u.display_name, '')")
+            .sort("status", AdminListing.Type.TEXT, "u.status")
+            .sortedBy("createdAt", true)
+            .filter("query", """
+                    u.email ilike '%' || cast(:query as text) || '%'
+                    or u.display_name ilike '%' || cast(:query as text) || '%'
+                    or u.id::text = lower(cast(:query as text))""")
+            .filter("status", "u.status = cast(:status as text)")
+            .filter("tagged", "u.id in (:tagged)")
+            .csv("id", "u.id")
+            .csv("email", "u.email")
+            .csv("displayName", "u.display_name")
+            .csv("status", "u.status")
+            .csv("createdAt", "u.created_at")
+            .build();
+
+    /**
+     * {@code query} is part of an email, a name, or a whole user id; {@code status} is waiting, active or suspended;
+     * {@code sort} is createdAt, email, name or status, with {@code :asc} or {@code :desc}.
+     */
     @RequiresPermission(AdminPermission.USERS_READ)
     @GetMapping
     AdminUserPage search(
             @RequestParam(required = false) @Nullable String query,
             @RequestParam(required = false) @Nullable String status,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
-        var text = query == null || query.isBlank() ? null : query.strip();
-        var users = jdbc.sql(SELECT + """
-                        where (cast(:query as text) is null
-                               or u.email ilike '%' || cast(:query as text) || '%'
-                               or u.display_name ilike '%' || cast(:query as text) || '%'
-                               or u.id::text = lower(cast(:query as text)))
-                          and (cast(:status as text) is null or u.status = cast(:status as text))
-                          and (cast(:after as uuid) is null or u.id < cast(:after as uuid))
-                        order by u.id desc
-                        limit :limit
-                        """)
-                .param("query", text)
-                .param("status", status == null || status.isBlank() ? null : status.strip())
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query(AdminUsersController::user)
-                .list();
-        var page = users.size() > size ? users.subList(0, size) : users;
-        return new AdminUserPage(
-                List.copyOf(page),
-                users.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "query",
+                        query == null ? null : query.strip(),
+                        "status",
+                        status == null ? null : status.strip(),
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                AdminUsersController::user);
+        return new AdminUserPage(page.rows(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.USERS_READ)

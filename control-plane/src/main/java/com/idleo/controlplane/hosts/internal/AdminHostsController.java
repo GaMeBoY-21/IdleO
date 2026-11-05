@@ -1,8 +1,9 @@
 package com.idleo.controlplane.hosts.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
@@ -58,6 +59,7 @@ class AdminHostsController {
     private final SelfTestRuns selfTests;
     private final Approvals approvals;
     private final PersonalDataAccess accessLog;
+    private final AdminTagged tagged;
     private final JsonMapper json = JsonMapper.builder().build();
     private static final TypeReference<List<AdminSelfTestCheck>> SELF_TEST_CHECKS = new TypeReference<>() {};
 
@@ -72,8 +74,10 @@ class AdminHostsController {
             HostScoreService scores,
             SelfTestRuns selfTests,
             Approvals approvals,
-            PersonalDataAccess accessLog) {
+            PersonalDataAccess accessLog,
+            AdminTagged tagged) {
         this.accessLog = accessLog;
+        this.tagged = tagged;
         this.approvals = approvals;
         this.scores = scores;
         this.selfTests = selfTests;
@@ -193,6 +197,32 @@ class AdminHostsController {
             @Nullable AdminScore score,
             long version) {}
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("hosts", AdminPermission.HOSTS_READ, false)
+            .select("""
+                    h.id, h.version, h.owner_user_id, h.name, h.status, h.created_at, h.last_seen_at,
+                    coalesce((select array_agg(g.model order by g.model) from hosts.host_gpus g
+                              where g.host_id = h.id and g.gone_at is null), '{}') as models""")
+            .from("hosts.hosts h")
+            .id("h.id")
+            .sort("createdAt", AdminListing.Type.UUID, "h.id")
+            .sort("name", AdminListing.Type.TEXT, "h.name")
+            .sort("status", AdminListing.Type.TEXT, "h.status")
+            .sortedBy("createdAt", true)
+            .filter("query", """
+                    h.name ilike '%' || cast(:query as text) || '%'
+                    or h.id::text = lower(cast(:query as text))
+                    or h.owner_user_id::text = lower(cast(:query as text))""")
+            .filter("status", "h.status = cast(:status as text)")
+            .filter("tagged", "h.id in (:tagged)")
+            .csv("id", "h.id")
+            .csv("ownerId", "h.owner_user_id")
+            .csv("name", "h.name")
+            .csv("status", "h.status")
+            .csv("createdAt", "h.created_at")
+            .csv("lastSeenAt", "h.last_seen_at")
+            .build();
+
     /**
      * {@code query} is part of a host's name, or a whole host or owner id; {@code status} is pending, verified, active,
      * suspended or removed.
@@ -202,9 +232,10 @@ class AdminHostsController {
     AdminHostPage search(
             @RequestParam(required = false) @Nullable String query,
             @RequestParam(required = false) @Nullable String status,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
         record Row(
                 UUID id,
                 UUID ownerId,
@@ -214,25 +245,19 @@ class AdminHostsController {
                 Instant createdAt,
                 @Nullable Instant lastSeenAt,
                 long version) {}
-        var rows = jdbc.sql("""
-                        select h.id, h.version, h.owner_user_id, h.name, h.status, h.created_at, h.last_seen_at,
-                               coalesce((select array_agg(g.model order by g.model) from hosts.host_gpus g
-                                         where g.host_id = h.id and g.gone_at is null), '{}') as models
-                        from hosts.hosts h
-                        where (cast(:query as text) is null
-                               or h.name ilike '%' || cast(:query as text) || '%'
-                               or h.id::text = lower(cast(:query as text))
-                               or h.owner_user_id::text = lower(cast(:query as text)))
-                          and (cast(:status as text) is null or h.status = cast(:status as text))
-                          and (cast(:after as uuid) is null or h.id < cast(:after as uuid))
-                        order by h.id desc
-                        limit :limit
-                        """)
-                .param("query", blankToNull(query))
-                .param("status", blankToNull(status))
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query((rs, n) -> new Row(
+        var found = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "query",
+                        blankToNull(query),
+                        "status",
+                        blankToNull(status),
+                        "tagged",
+                        tagged.subjects("host", tag)),
+                cursor,
+                limit,
+                (rs, n) -> new Row(
                         rs.getObject("id", UUID.class),
                         rs.getObject("owner_user_id", UUID.class),
                         rs.getString("name"),
@@ -242,9 +267,8 @@ class AdminHostsController {
                         rs.getTimestamp("last_seen_at") == null
                                 ? null
                                 : rs.getTimestamp("last_seen_at").toInstant(),
-                        rs.getLong("version")))
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
+                        rs.getLong("version")));
+        var page = found.rows();
         var seen = presence.seen(page.stream().map(Row::id).toList());
         return new AdminHostPage(
                 page.stream()
@@ -260,7 +284,7 @@ class AdminHostsController {
                                 row.lastSeenAt(),
                                 row.version()))
                         .toList(),
-                rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+                found.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.HOSTS_READ)
