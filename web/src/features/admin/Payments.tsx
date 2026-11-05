@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -13,6 +13,7 @@ import {
   Empty,
   Filters,
   Id,
+  PagedView,
   Pill,
   QueryView,
   Row,
@@ -23,6 +24,8 @@ import {
 } from "./ui";
 import { ActionButton } from "./permissions";
 import { PaymentRecord } from "./Records";
+import { ListBar } from "./Lists";
+import { useListParams, useListView } from "./listView";
 
 /** What each kind of disagreement means, for the admin who has to put it right (docs/runbooks/payments.md). */
 export const MISMATCH_WORDS: Record<string, string> = {
@@ -61,16 +64,35 @@ function PaymentSearch() {
 }
 
 function Search() {
-  const [typed, setTyped] = useState("");
-  const [asked, setAsked] = useState("");
-  const found = useQuery({
-    queryKey: [ADMIN, "payments", asked],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/payments", { params: { query: { query: asked } } })),
-    enabled: asked !== "",
+  const [{ query: asked }, setAsked] = useListParams({ query: "" });
+  const [typed, setTyped] = useState(asked);
+  const view = useListView();
+  const found = useInfiniteQuery({
+    queryKey: [ADMIN, "payments", asked, view],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/payments", {
+          params: {
+            query: {
+              ...(asked ? { query: asked } : {}),
+              ...view,
+              ...(pageParam ? { cursor: pageParam } : {}),
+            },
+          },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    enabled: asked !== "" || view.tag !== undefined,
   });
   return (
     <Section title="Find a payment">
-      <Filters onSubmit={() => setAsked(typed.trim())}>
+      <ListBar
+        list="payments"
+        extra={asked ? { [/^[0-9a-f-]{36}$/i.test(asked) ? "id" : "razorpay"]: asked } : {}}
+        columns={["Ordered", "Renter", "Amount", "State", "Razorpay", "Method", "Credited by", "Document"]}
+      />
+      <Filters onSubmit={() => setAsked({ query: typed.trim() })}>
         <SmallField
           label="Renter's id, top-up id, order or payment id"
           value={typed}
@@ -78,20 +100,21 @@ function Search() {
           width="w-96"
         />
       </Filters>
-      {asked === "" ? (
+      {asked === "" && view.tag === undefined ? (
         <Empty title="Look a payment up">
           Give a renter&apos;s id, or Razorpay&apos;s order or payment id.
         </Empty>
       ) : (
-        <QueryView
+        <PagedView
           query={found}
           what="the payments"
-          isEmpty={(list) => list.payments.length === 0}
+          items={(page) => page.payments}
           empty={<Empty title="Nothing found">No top-up matches that.</Empty>}
         >
-          {(list) => (
+          {(rows) => (
             <Table
               caption="Top-ups"
+              sorts={{ Ordered: "createdAt", Amount: "amount", State: "status" }}
               columns={[
                 "Ordered",
                 "Renter",
@@ -103,7 +126,7 @@ function Search() {
                 "Document",
               ]}
             >
-              {list.payments.map((payment) => (
+              {rows.map((payment) => (
                 <Row key={payment.id}>
                   <Cell>
                     <RelativeTime value={payment.createdAt} />
@@ -157,7 +180,7 @@ function Search() {
               ))}
             </Table>
           )}
-        </QueryView>
+        </PagedView>
       )}
     </Section>
   );

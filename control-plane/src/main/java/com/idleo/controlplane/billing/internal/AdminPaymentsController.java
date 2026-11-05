@@ -1,7 +1,9 @@
 package com.idleo.controlplane.billing.internal;
 
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
@@ -18,6 +20,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,10 +40,52 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminPaymentsController {
 
+    /** The list of payments, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing PAYMENTS = AdminListing.of("payments", AdminPermission.PAYMENTS_READ, true)
+            .from("billing.topups")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("amount", AdminListing.Type.NUMBER, "amount_paise")
+            .sort("status", AdminListing.Type.TEXT, "status")
+            .sortedBy("createdAt", true)
+            .filter("id", "user_id = cast(:id as uuid) or id = cast(:id as uuid)")
+            .filter("razorpay", "order_id = cast(:razorpay as text) or payment_id = cast(:razorpay as text)")
+            .filter("status", "status = cast(:status as text)")
+            .filter("tagged", "id in (:tagged)")
+            .csv("id", "id")
+            .csv("userId", "user_id")
+            .csv("amountPaise", "amount_paise")
+            .csv("status", "status")
+            .csv("orderId", "order_id")
+            .csv("paymentId", "payment_id")
+            .csv("method", "method")
+            .csv("createdAt", "created_at")
+            .csv("paidAt", "paid_at")
+            .build();
+
+    /** The list of chargebacks, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing CHARGEBACKS = AdminListing.of("chargebacks", AdminPermission.PAYMENTS_READ, true)
+            .from("billing.chargebacks")
+            .sort("receivedAt", AdminListing.Type.TIME, "received_at")
+            .sort("amount", AdminListing.Type.NUMBER, "amount_paise")
+            .sortedBy("receivedAt", true)
+            .filter("open", "outcome is null and cast(:open as boolean)")
+            .filter("tagged", "user_id in (:tagged)")
+            .csv("id", "id")
+            .csv("disputeId", "dispute_id")
+            .csv("paymentId", "payment_id")
+            .csv("userId", "user_id")
+            .csv("amountPaise", "amount_paise")
+            .csv("status", "status")
+            .csv("outcome", "outcome")
+            .csv("receivedAt", "received_at")
+            .build();
+
     private final TopUps topUps;
     private final Invoices invoices;
     private final PaymentReconciliation reconciliation;
     private final Chargebacks chargebacks;
+    private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final AuditTrail audit;
 
     AdminPaymentsController(
@@ -48,7 +93,11 @@ class AdminPaymentsController {
             Invoices invoices,
             PaymentReconciliation reconciliation,
             Chargebacks chargebacks,
-            AuditTrail audit) {
+            AuditTrail audit,
+            JdbcClient jdbc,
+            AdminTagged tagged) {
+        this.jdbc = jdbc;
+        this.tagged = tagged;
         this.topUps = topUps;
         this.invoices = invoices;
         this.reconciliation = reconciliation;
@@ -73,7 +122,8 @@ class AdminPaymentsController {
             Instant createdAt,
             @Nullable Instant paidAt) {}
 
-    record AdminPaymentList(List<AdminPayment> payments) {}
+    record AdminPaymentList(
+            List<AdminPayment> payments, @Nullable String nextCursor) {}
 
     record AdminPaymentMismatch(
             UUID id,
@@ -140,14 +190,44 @@ class AdminPaymentsController {
             @Nullable AdminPayment payment,
             List<AdminChargebackSession> sessions) {}
 
-    record AdminChargebackList(List<AdminChargeback> chargebacks) {}
+    record AdminChargebackList(
+            List<AdminChargeback> chargebacks, @Nullable String nextCursor) {}
 
     /** {@code query}: a renter's id, a top-up's id, or Razorpay's order or payment id. */
     @RequiresPermission(AdminPermission.PAYMENTS_READ)
     @GetMapping("/payments")
-    AdminPaymentList payments(@RequestParam String query) {
-        return new AdminPaymentList(
-                topUps.search(query, 50).stream().map(this::payment).toList());
+    AdminPaymentList payments(
+            @RequestParam(required = false) @Nullable String query,
+            @RequestParam(required = false) @Nullable String status,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var text = query == null ? "" : query.strip();
+        var page = PAYMENTS.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "id",
+                        uuidOrNull(text),
+                        "razorpay",
+                        uuidOrNull(text) == null ? text : null,
+                        "status",
+                        status,
+                        "tagged",
+                        tagged.subjects("payment", tag)),
+                cursor,
+                limit,
+                TopUps::topUp);
+        return new AdminPaymentList(page.rows().stream().map(this::payment).toList(), page.nextCursor());
+    }
+
+    private static @Nullable UUID uuidOrNull(String text) {
+        try {
+            return UUID.fromString(text);
+        } catch (IllegalArgumentException notOne) {
+            return null;
+        }
     }
 
     /** {@code state}: open (the default), fixed, accepted or all. */
@@ -185,10 +265,25 @@ class AdminPaymentsController {
     /** The open ones by the date evidence is due (the default), or {@code all}, the newest first. */
     @RequiresPermission(AdminPermission.PAYMENTS_READ)
     @GetMapping("/chargebacks")
-    AdminChargebackList chargebacks(@RequestParam(defaultValue = "open") String state) {
-        return new AdminChargebackList(chargebacks.list(!state.equals("all"), 100).stream()
-                .map(this::chargeback)
-                .toList());
+    AdminChargebackList chargebacks(
+            @RequestParam(defaultValue = "open") String state,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
+            @RequestParam(required = false) @Nullable String cursor,
+            @RequestParam(required = false) @Nullable Integer limit) {
+        var page = CHARGEBACKS.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "open",
+                        state.equals("all") ? null : Boolean.TRUE,
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                Chargebacks::chargeback);
+        return new AdminChargebackList(
+                page.rows().stream().map(this::chargeback).toList(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.PAYMENTS_READ)

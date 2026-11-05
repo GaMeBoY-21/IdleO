@@ -36,6 +36,8 @@ import {
   Timeline,
 } from "./ui";
 import { ActionButton, useCan } from "./permissions";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /**
  * Reports (ADR 0028, ADR 0039): the renters' reports on their sessions, open ones first and the oldest first. One opens
@@ -57,13 +59,14 @@ function StatePill({ dispute }: { dispute: Pick<AdminDisputeSummary, "state"> })
 }
 
 function DisputeQueue() {
-  const [state, setState] = useState("all");
+  const [state, setState] = useListParam("state", "all");
+  const view = useListView();
   const disputes = useInfiniteQuery({
-    queryKey: [ADMIN, "disputes", state],
+    queryKey: [ADMIN, "disputes", state, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/disputes", {
-          params: { query: { state, ...(pageParam ? { cursor: pageParam } : {}) } },
+          params: { query: { state, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
         }),
       ),
     initialPageParam: "",
@@ -72,6 +75,11 @@ function DisputeQueue() {
   return (
     <AdminPage title="Reports">
       <div className="flex">
+        <ListBar
+          list="reports"
+          columns={["Report", "State", "Reason", "Session", "Renter", "Sent", "Refund", ""]}
+          extra={state === "all" ? {} : { open: String(state === "open") }}
+        />
         <SmallSelect
           label="Show"
           value={state}
@@ -97,6 +105,7 @@ function DisputeQueue() {
         {(rows) => (
           <Table
             caption="Reports"
+            sorts={{ Sent: "createdAt" }}
             columns={["Report", "State", "Reason", "Session", "Renter", "Sent", "Refund", ""]}
           >
             {rows.map((dispute) => (

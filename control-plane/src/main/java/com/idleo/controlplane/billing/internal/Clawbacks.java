@@ -336,16 +336,7 @@ class Clawbacks {
     }
 
     /** For the admin console: {@code state} owed, recovered, waived or all, newest first, a page after {@code after}. */
-    List<Clawback> list(String state, @Nullable UUID after, int limit) {
-        return jdbc.sql("select * from billing.clawbacks where (:state = 'all' or state = :state)"
-                        + " and (cast(:after as uuid) is null or id < :after) order by id desc limit " + limit)
-                .param("state", state)
-                .param("after", after)
-                .query(Clawbacks::clawback)
-                .list();
-    }
-
-    private static Clawback clawback(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+    static Clawback clawback(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
         var settled = rs.getTimestamp("settled_at");
         return new Clawback(
                 rs.getObject("id", UUID.class),

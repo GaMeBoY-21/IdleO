@@ -6,6 +6,8 @@ import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData } from "./api";
 import { AdminPage, Cell, Empty, PagedView, Pill, Row, Section, SmallField, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /**
  * Invite codes (ADR 0024, ADR 0027): made by the same service as `create-invites` and shown once, here, in this page's
@@ -17,15 +19,17 @@ export function Invites() {
   const [count, setCount] = useState("1");
   const [days, setDays] = useState("30");
   const [made, setMade] = useState<{ codes: string[]; note: string } | null>(null);
-  const [used, setUsed] = useState("");
+  const [used, setUsed] = useListParam("used", "");
+  const view = useListView();
   const invites = useInfiniteQuery({
-    queryKey: [ADMIN, "invites", used],
+    queryKey: [ADMIN, "invites", used, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/invites", {
           params: {
             query: {
               ...(used ? { used: used === "used" } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -115,6 +119,12 @@ export function Invites() {
       />
       <Section title="Codes">
         <div className="flex">
+          <ListBar
+            list="invites"
+            tags={false}
+            columns={["For", "Made by", "Made", "Lapses", "Used by"]}
+            extra={used ? { used: String(used === "used") } : {}}
+          />
           <SmallSelect
             label="Show"
             value={used}
@@ -133,7 +143,11 @@ export function Invites() {
           empty={<Empty title="No codes here">Make some, and they show here with who used each.</Empty>}
         >
           {(rows) => (
-            <Table caption="Invite codes" columns={["For", "Made by", "Made", "Lapses", "Used by"]}>
+            <Table
+              caption="Invite codes"
+              sorts={{ Made: "createdAt" }}
+              columns={["For", "Made by", "Made", "Lapses", "Used by"]}
+            >
               {rows.map((invite) => (
                 <Row key={invite.id}>
                   <Cell>{invite.note ?? "Erased account"}</Cell>

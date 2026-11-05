@@ -1,7 +1,8 @@
 package com.idleo.controlplane.trust.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Paise;
@@ -19,12 +20,10 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,12 +51,33 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminDisputesController {
 
+    /** The queue, open ones first and then the oldest; its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("reports", AdminPermission.DISPUTES_READ, true)
+            .from("trust.disputes")
+            .sort("queue", AdminListing.Type.TEXT, "case when state = 'open' then '0' else '1' end")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sortedBy("queue", false)
+            .filter("open", "(state = 'open') = cast(:open as boolean)")
+            .filter("session", "session_id = cast(:session as uuid)")
+            .filter("renter", "renter_id = cast(:renter as uuid)")
+            .filter("tagged", "renter_id in (:tagged)")
+            .csv("id", "id")
+            .csv("sessionId", "session_id")
+            .csv("renterId", "renter_id")
+            .csv("reason", "reason")
+            .csv("state", "state")
+            .csv("refundPaise", "refund_paise")
+            .csv("createdAt", "created_at")
+            .csv("resolvedAt", "resolved_at")
+            .build();
+
     private final Disputes disputes;
     private final EndedSessions sessions;
     private final Ratings ratings;
     private final SessionRefunds refunds;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final Approvals approvals;
 
     AdminDisputesController(
@@ -67,7 +87,9 @@ class AdminDisputesController {
             SessionRefunds refunds,
             AuditTrail audit,
             JdbcClient jdbc,
-            Approvals approvals) {
+            Approvals approvals,
+            AdminTagged tagged) {
+        this.tagged = tagged;
         this.approvals = approvals;
         this.disputes = disputes;
         this.sessions = sessions;
@@ -173,39 +195,30 @@ class AdminDisputesController {
             @RequestParam(required = false) @Nullable String state,
             @RequestParam(required = false) @Nullable UUID session,
             @RequestParam(required = false) @Nullable UUID renter,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
         var which = state == null || state.isBlank() ? "all" : state.strip();
         if (!List.of("open", "resolved", "all").contains(which)) {
             throw ApiProblem.invalid("state", "must be open, resolved or all.");
         }
-        var after = Position.decode(cursor);
-        var rows = jdbc.sql("""
-                        select * from trust.disputes
-                        where (:which = 'all' or (state = 'open') = (:which = 'open'))
-                          and (cast(:session as uuid) is null or session_id = cast(:session as uuid))
-                          and (cast(:renter as uuid) is null or renter_id = cast(:renter as uuid))
-                          and (cast(:afterId as uuid) is null
-                               or ((state <> 'open')::int, id) > (:afterRank, cast(:afterId as uuid)))
-                        order by (state <> 'open')::int, id
-                        limit :limit
-                        """)
-                .param("which", which)
-                .param("session", session)
-                .param("renter", renter)
-                .param("afterRank", after == null ? 0 : after.rank())
-                .param("afterId", after == null ? null : after.id())
-                .param("limit", size + 1)
-                .query(AdminDisputesController::summary)
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
-        var last = page.isEmpty() ? null : page.getLast();
-        return new AdminDisputePage(
-                List.copyOf(page),
-                rows.size() > size && last != null
-                        ? new Position(last.state().equals(Disputes.OPEN) ? 0 : 1, last.id()).encode()
-                        : null);
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "open",
+                        which.equals("all") ? null : Boolean.valueOf(which.equals("open")),
+                        "session",
+                        session,
+                        "renter",
+                        renter,
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                AdminDisputesController::summary);
+        return new AdminDisputePage(page.rows(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.DISPUTES_READ)
@@ -341,30 +354,5 @@ class AdminDisputesController {
                 rs.getObject("host_refund_paise", Long.class),
                 rs.getObject("refund_txn", UUID.class),
                 rs.getLong("version"));
-    }
-
-    /** Where a page ends in the queue's order: open (0) or resolved (1), then the report's id. */
-    private record Position(int rank, UUID id) {
-
-        String encode() {
-            var raw = "q:" + rank + ":" + id;
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
-        }
-
-        static @Nullable Position decode(@Nullable String cursor) {
-            if (cursor == null || cursor.isBlank()) {
-                return null;
-            }
-            try {
-                var parts =
-                        new String(Base64.getUrlDecoder().decode(cursor.strip()), StandardCharsets.UTF_8).split(":");
-                if (parts.length == 3 && parts[0].equals("q") && (parts[1].equals("0") || parts[1].equals("1"))) {
-                    return new Position(Integer.parseInt(parts[1]), UUID.fromString(parts[2]));
-                }
-            } catch (IllegalArgumentException e) {
-                // Refused below.
-            }
-            throw ApiProblem.invalid("cursor", "isn't a cursor this API gave out.");
-        }
     }
 }

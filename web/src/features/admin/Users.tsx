@@ -28,6 +28,8 @@ import { usePaletteActions } from "./Palette";
 import { ActionButton, useCan } from "./permissions";
 import { UserTabs } from "./Records";
 import { Reveal } from "./Reveal";
+import { ListBar } from "./Lists";
+import { useListParams, useListView } from "./listView";
 
 /** Users (ADR 0027): find them by email, name or id; one opens with what can be done to it. */
 export function Users() {
@@ -36,11 +38,12 @@ export function Users() {
 }
 
 function UserSearch() {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [asked, setAsked] = useState({ query: "", status: "" });
+  const [asked, setAsked] = useListParams({ query: "", status: "" });
+  const [query, setQuery] = useState(asked.query);
+  const [status, setStatus] = useState(asked.status);
+  const view = useListView();
   const users = useInfiniteQuery({
-    queryKey: [ADMIN, "users", asked],
+    queryKey: [ADMIN, "users", asked, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/users", {
@@ -48,6 +51,7 @@ function UserSearch() {
             query: {
               ...(asked.query ? { query: asked.query } : {}),
               ...(asked.status ? { status: asked.status } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -58,6 +62,11 @@ function UserSearch() {
   });
   return (
     <AdminPage title="Users">
+      <ListBar
+        list="users"
+        columns={["Email", "Name", "Status", "Signed up", "Last sign-in", ""]}
+        filters={{ query: "query", status: "status" }}
+      />
       <Filters onSubmit={() => setAsked({ query: query.trim(), status })}>
         <SmallField label="Email, name or id" value={query} onChange={setQuery} width="w-72" />
         <SmallSelect
@@ -79,7 +88,11 @@ function UserSearch() {
         empty={<Empty title="No users match">Try part of an email or a name, or a whole user id.</Empty>}
       >
         {(rows) => (
-          <Table caption="Users" columns={["Email", "Name", "Status", "Signed up", "Last sign-in", ""]}>
+          <Table
+            caption="Users"
+            sorts={{ Email: "email", Name: "name", Status: "status", "Signed up": "createdAt" }}
+            columns={["Email", "Name", "Status", "Signed up", "Last sign-in", ""]}
+          >
             {rows.map((user) => (
               <Row key={user.id}>
                 <Cell>{user.email ?? "—"}</Cell>

@@ -28,6 +28,8 @@ import {
 import { usePaletteActions } from "./Palette";
 import { SessionTabs } from "./Records";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { useListParams, useListView } from "./listView";
 
 /** Sessions (ADR 0027): find them; one opens with its timeline and attempts, and can be stopped while it runs. */
 export function Sessions() {
@@ -60,11 +62,12 @@ function indiaMidnight(date: string): string {
 }
 
 function SessionSearch({ user, host }: { user: string; host: string }) {
-  const [form, setForm] = useState({ id: "", user, host, state: "", from: "", to: "" });
-  const [asked, setAsked] = useState(form);
+  const [asked, setAsked] = useListParams({ id: "", user, host, state: "", from: "", to: "" });
+  const [form, setForm] = useState(asked);
+  const view = useListView();
   const set = (field: keyof typeof form) => (value: string) => setForm({ ...form, [field]: value });
   const sessions = useInfiniteQuery({
-    queryKey: [ADMIN, "sessions", asked],
+    queryKey: [ADMIN, "sessions", asked, view],
     queryFn: ({ pageParam }) => {
       const from = indiaMidnight(asked.from);
       const to = indiaMidnight(asked.to);
@@ -78,6 +81,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
               ...(asked.state ? { state: asked.state } : {}),
               ...(from ? { from } : {}),
               ...(to ? { to } : {}),
+              ...view,
               ...(pageParam ? { cursor: pageParam } : {}),
             },
           },
@@ -89,6 +93,16 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
   });
   return (
     <AdminPage title="Sessions">
+      <ListBar
+        list="sessions"
+        columns={["Session", "State", "Template", "Renter", "Host", "Price", "Booked", ""]}
+        filters={{ id: "id", user: "user", host: "host" }}
+        extra={{
+          ...(asked.state ? { state: asked.state.toUpperCase() } : {}),
+          ...(indiaMidnight(asked.from) ? { from: indiaMidnight(asked.from) } : {}),
+          ...(indiaMidnight(asked.to) ? { to: indiaMidnight(asked.to) } : {}),
+        }}
+      />
       <Filters
         onSubmit={() =>
           setAsked({ ...form, id: form.id.trim(), user: form.user.trim(), host: form.host.trim() })
@@ -117,6 +131,7 @@ function SessionSearch({ user, host }: { user: string; host: string }) {
         {(rows) => (
           <Table
             caption="Sessions"
+            sorts={{ State: "state", Booked: "createdAt" }}
             columns={["Session", "State", "Template", "Renter", "Host", "Price", "Booked", ""]}
           >
             {rows.map((session) => (

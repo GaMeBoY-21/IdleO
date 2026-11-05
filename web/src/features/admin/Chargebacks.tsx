@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -12,6 +12,7 @@ import {
   Cell,
   Empty,
   Fields,
+  PagedView,
   Id,
   Pill,
   QueryView,
@@ -21,6 +22,8 @@ import {
   SmallSelect,
   Table,
 } from "./ui";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /** Whether a chargeback's evidence is due within two days, or already late. */
 const dueSoon = (chargeback: AdminChargeback, now: number) =>
@@ -46,12 +49,20 @@ function OutcomePill({ chargeback }: { chargeback: AdminChargeback }) {
 }
 
 function ChargebackList() {
-  const [state, setState] = useState("open");
+  const [state, setState] = useListParam("state", "open");
+  const view = useListView();
   // Read once, so "due soon" doesn't change under a reader.
   const [now] = useState(() => Date.now());
-  const chargebacks = useQuery({
-    queryKey: [ADMIN, "chargebacks", state],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/chargebacks", { params: { query: { state } } })),
+  const chargebacks = useInfiniteQuery({
+    queryKey: [ADMIN, "chargebacks", state, view],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/chargebacks", {
+          params: { query: { state, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   return (
     <AdminPage title="Chargebacks">
@@ -66,20 +77,25 @@ function ChargebackList() {
           ]}
         />
       </div>
-      <QueryView
+      <ListBar
+        list="chargebacks"
+        columns={["Evidence due", "Opened", "Renter", "Disputed", "Frozen", "Reason", "State", ""]}
+      />
+      <PagedView
         query={chargebacks}
         what="the chargebacks"
-        isEmpty={(list) => list.chargebacks.length === 0}
+        items={(page) => page.chargebacks}
         empty={
           <Empty title="No chargebacks">When a renter&apos;s bank disputes a payment, it arrives here.</Empty>
         }
       >
-        {(list) => (
+        {(rows) => (
           <Table
             caption="Chargebacks"
+            sorts={{ Opened: "receivedAt", Disputed: "amount" }}
             columns={["Evidence due", "Opened", "Renter", "Disputed", "Frozen", "Reason", "State", ""]}
           >
-            {list.chargebacks.map((chargeback) => (
+            {rows.map((chargeback) => (
               <Row key={chargeback.id}>
                 <Cell className={dueSoon(chargeback, now) ? "font-semibold text-danger tabular" : "tabular"}>
                   {chargeback.respondBy ? formatDateTime(chargeback.respondBy) : "—"}
@@ -109,7 +125,7 @@ function ChargebackList() {
             ))}
           </Table>
         )}
-      </QueryView>
+      </PagedView>
     </AdminPage>
   );
 }

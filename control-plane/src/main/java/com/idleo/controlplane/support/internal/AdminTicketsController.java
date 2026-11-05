@@ -1,7 +1,8 @@
 package com.idleo.controlplane.support.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
@@ -11,12 +12,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,11 +39,40 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminTicketsController {
 
+    /** The list by due date, overdue first, then the oldest; resolved ones after; and its CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("tickets", AdminPermission.TICKETS_READ, true)
+            .from("support.tickets")
+            .sort(
+                    "due",
+                    AdminListing.Type.TIME,
+                    "case when status = 'resolved' then timestamptz 'infinity' else coalesce(due_at, timestamptz 'infinity') end")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("number", AdminListing.Type.NUMBER, "number")
+            .sortedBy("due", false)
+            .filter("topic", "topic = cast(:topic as text)")
+            .filter("status", "status = cast(:status as text)")
+            .filter("before", "created_at < cast(:before as timestamptz)")
+            .filter("user", "user_id = cast(:user as uuid)")
+            .filter("tagged", "user_id in (:tagged)")
+            .csv("id", "id")
+            .csv("number", "number")
+            .csv("topic", "topic")
+            .csv("status", "status")
+            .csv("userId", "user_id")
+            .csv("createdAt", "created_at")
+            .csv("dueAt", "due_at")
+            .csv("resolvedAt", "resolved_at")
+            .build();
+
     private final Tickets tickets;
+    private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final AuditTrail audit;
     private final Clock clock;
 
-    AdminTicketsController(Tickets tickets, AuditTrail audit, Clock clock) {
+    AdminTicketsController(Tickets tickets, AuditTrail audit, Clock clock, JdbcClient jdbc, AdminTagged tagged) {
+        this.jdbc = jdbc;
+        this.tagged = tagged;
         this.tickets = tickets;
         this.audit = audit;
         this.clock = clock;
@@ -106,18 +139,30 @@ class AdminTicketsController {
             @RequestParam(required = false) @Nullable String status,
             @RequestParam(required = false) @Nullable Integer olderThanDays,
             @RequestParam(required = false) @Nullable UUID user,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
-        int offset = cursor == null || cursor.isBlank() ? 0 : Integer.parseInt(cursor.replaceAll("[^0-9]", "0"));
         var now = Instant.now(clock);
-        var page = tickets.list(blank(topic), blank(status), olderThanDays, user, size + 1, offset);
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "topic",
+                        blank(topic),
+                        "status",
+                        blank(status),
+                        "before",
+                        olderThanDays == null ? null : Timestamp.from(now.minus(Duration.ofDays(olderThanDays))),
+                        "user",
+                        user,
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                Tickets::ticket);
         return new AdminTicketPage(
-                page.stream()
-                        .limit(size)
-                        .map(ticket -> AdminTicket.of(ticket, now))
-                        .toList(),
-                page.size() > size ? String.valueOf(offset + size) : null);
+                page.rows().stream().map(ticket -> AdminTicket.of(ticket, now)).toList(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.TICKETS_READ)

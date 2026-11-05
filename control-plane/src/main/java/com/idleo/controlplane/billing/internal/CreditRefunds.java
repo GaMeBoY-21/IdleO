@@ -608,18 +608,6 @@ class CreditRefunds {
                 .list();
     }
 
-    /** One person's refunds, newest first. */
-    List<Refund> ofPerson(UUID userId, int limit) {
-        return jdbc.sql("""
-                        select * from billing.credit_refunds where user_id = :user
-                        order by requested_at desc limit :limit
-                        """)
-                .param("user", userId)
-                .param("limit", limit)
-                .query(CreditRefunds::refund)
-                .list();
-    }
-
     List<Part> parts(UUID refundId) {
         return jdbc.sql("select * from billing.refund_parts where refund_id = :id order by created_at, id")
                 .param("id", refundId)
@@ -646,7 +634,7 @@ class CreditRefunds {
         return UUID.nameUUIDFromBytes((kind + ":" + cause).getBytes(StandardCharsets.UTF_8));
     }
 
-    private static Refund refund(ResultSet rs, int row) throws SQLException {
+    static Refund refund(ResultSet rs, int row) throws SQLException {
         var requested = (Long) rs.getObject("requested_paise");
         var approved = (Long) rs.getObject("approved_paise");
         var decided = rs.getTimestamp("decided_at");

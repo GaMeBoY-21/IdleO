@@ -1,8 +1,9 @@
 package com.idleo.controlplane.sessions.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
@@ -39,6 +40,36 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminSessionsController {
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("sessions", AdminPermission.SESSIONS_READ, false)
+            .select("""
+                    id, version, renter_id, host_id, template_id, state, attempt, price_paise_per_min,
+                    max_price_paise_per_min, max_spend_paise, created_at, started_at, state_changed_at, error_code""")
+            .from("sessions.sessions")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("state", AdminListing.Type.TEXT, "state")
+            .sort("stateChangedAt", AdminListing.Type.TIME, "state_changed_at")
+            .sortedBy("createdAt", true)
+            .filter("id", "id = cast(:id as uuid)")
+            .filter("user", "renter_id = cast(:user as uuid)")
+            .filter("host", """
+                    host_id = cast(:host as uuid)
+                    or exists (select 1 from sessions.attempts a
+                               where a.session_id = sessions.id and a.host_id = cast(:host as uuid))""")
+            .filter("state", "state = cast(:state as text)")
+            .filter("from", "created_at >= cast(:from as timestamptz)")
+            .filter("to", "created_at < cast(:to as timestamptz)")
+            .filter("tagged", "id in (:tagged)")
+            .csv("id", "id")
+            .csv("renterId", "renter_id")
+            .csv("hostId", "host_id")
+            .csv("templateId", "template_id")
+            .csv("state", "state")
+            .csv("pricePaisePerMin", "price_paise_per_min")
+            .csv("createdAt", "created_at")
+            .csv("stateChangedAt", "state_changed_at")
+            .build();
+
     private static final String SELECT = """
             select id, version, renter_id, host_id, template_id, state, attempt, price_paise_per_min, max_price_paise_per_min,
                    max_spend_paise, created_at, started_at, state_changed_at, error_code
@@ -51,6 +82,7 @@ class AdminSessionsController {
     private final AuditTrail audit;
     private final SessionLogReviews logs;
     private final PersonalDataAccess accessLog;
+    private final AdminTagged tagged;
 
     AdminSessionsController(
             JdbcClient jdbc,
@@ -58,8 +90,10 @@ class AdminSessionsController {
             SessionCosts costs,
             AuditTrail audit,
             SessionLogReviews logs,
-            PersonalDataAccess accessLog) {
+            PersonalDataAccess accessLog,
+            AdminTagged tagged) {
         this.accessLog = accessLog;
+        this.tagged = tagged;
         this.logs = logs;
         this.jdbc = jdbc;
         this.forceStops = forceStops;
@@ -125,38 +159,32 @@ class AdminSessionsController {
             @RequestParam(required = false) @Nullable String state,
             @RequestParam(required = false) @Nullable Instant from,
             @RequestParam(required = false) @Nullable Instant to,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
-        var sessions = jdbc.sql(SELECT + """
-                        where (cast(:id as uuid) is null or id = cast(:id as uuid))
-                          and (cast(:user as uuid) is null or renter_id = cast(:user as uuid))
-                          and (cast(:host as uuid) is null or host_id = cast(:host as uuid)
-                               or exists (select 1 from sessions.attempts a
-                                          where a.session_id = sessions.id and a.host_id = cast(:host as uuid)))
-                          and (cast(:state as text) is null or state = cast(:state as text))
-                          and (cast(:from as timestamptz) is null or created_at >= cast(:from as timestamptz))
-                          and (cast(:to as timestamptz) is null or created_at < cast(:to as timestamptz))
-                          and (cast(:after as uuid) is null or id < cast(:after as uuid))
-                        order by id desc
-                        limit :limit
-                        """)
-                .param("id", id)
-                .param("user", user)
-                .param("host", host)
-                .param(
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "id",
+                        id,
+                        "user",
+                        user,
+                        "host",
+                        host,
                         "state",
-                        state == null || state.isBlank() ? null : state.strip().toUpperCase(Locale.ROOT))
-                .param("from", from == null ? null : Timestamp.from(from))
-                .param("to", to == null ? null : Timestamp.from(to))
-                .param("after", AdminPages.after(cursor))
-                .param("limit", size + 1)
-                .query(AdminSessionsController::summary)
-                .list();
-        var page = sessions.size() > size ? sessions.subList(0, size) : sessions;
-        return new AdminSessionPage(
-                List.copyOf(page),
-                sessions.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+                        state == null || state.isBlank() ? null : state.strip().toUpperCase(Locale.ROOT),
+                        "from",
+                        from == null ? null : Timestamp.from(from),
+                        "to",
+                        to == null ? null : Timestamp.from(to),
+                        "tagged",
+                        tagged.subjects("session", tag)),
+                cursor,
+                limit,
+                AdminSessionsController::summary);
+        return new AdminSessionPage(page.rows(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.SESSIONS_READ)

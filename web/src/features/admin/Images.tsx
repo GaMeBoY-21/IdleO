@@ -1,13 +1,15 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { RelativeTime } from "@/components/ui/Time";
 import { imageSize } from "@/lib/images";
 import { ActionSheet } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminImage } from "./api";
-import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, Section, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, Pill, PagedView, Row, Section, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 type Acting = { image: AdminImage; action: "block" | "unblock" };
 
@@ -34,11 +36,21 @@ export function Images() {
 
 function ImageList() {
   const client = useQueryClient();
-  const [state, setState] = useState("");
+  const [state, setState] = useListParam("state", "");
+  const view = useListView();
   const [acting, setActing] = useState<Acting | null>(null);
-  const images = useQuery({
-    queryKey: [ADMIN, "images", state],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/images", { params: { query: state ? { state } : {} } })),
+  const images = useInfiniteQuery({
+    queryKey: [ADMIN, "images", state, view],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/images", {
+          params: {
+            query: { ...(state ? { state } : {}), ...view, ...(pageParam ? { cursor: pageParam } : {}) },
+          },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   return (
     <AdminPage title="Images">
@@ -57,23 +69,29 @@ function ImageList() {
             ]}
           />
         </div>
-        <QueryView
+        <ListBar
+          list="images"
+          columns={["When", "Renter", "Image", "State", "Size", "Critical", "High", "Secrets", ""]}
+          filters={{ state: "state" }}
+        />
+        <PagedView
           query={images}
           what="the images"
-          isEmpty={(page) => page.items.length === 0}
+          items={(page) => page.items}
           empty={<Empty title="Nothing here">An image a renter submits is listed here.</Empty>}
         >
-          {(page) => (
+          {(rows) => (
             <Table
               caption="Images"
+              sorts={{ When: "createdAt", State: "state" }}
               columns={["When", "Renter", "Image", "State", "Size", "Critical", "High", "Secrets", ""]}
             >
-              {page.items.map((image) => (
+              {rows.map((image) => (
                 <ImageRow key={image.id} image={image} onAct={setActing} />
               ))}
             </Table>
           )}
-        </QueryView>
+        </PagedView>
       </Section>
       <ActionSheet
         open={acting !== null}

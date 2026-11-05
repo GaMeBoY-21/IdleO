@@ -1,8 +1,9 @@
 package com.idleo.controlplane.trust.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
@@ -41,6 +42,29 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/admin/v1/abuse")
 @ConditionalOnWebApplication
 class AdminAbuseController {
+
+    /** The list, oldest first, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("abuse", AdminPermission.ABUSE_READ, false)
+            .select("""
+                    i.*, coalesce((select array_agg(s.kind order by s.at, s.id) from trust.abuse_signals s
+                                   where s.item_id = i.id), '{}') kinds""")
+            .from("trust.abuse_items i")
+            .id("i.id")
+            .sort("createdAt", AdminListing.Type.UUID, "i.id")
+            .sort("state", AdminListing.Type.TEXT, "i.state")
+            .sortedBy("createdAt", false)
+            .filter("state", "i.state = cast(:state as text)")
+            .filter("renter", "i.renter_id = cast(:renter as uuid)")
+            .filter("host", "i.host_id = cast(:host as uuid)")
+            .filter("tagged", "i.renter_id in (:tagged)")
+            .csv("id", "i.id")
+            .csv("sessionId", "i.session_id")
+            .csv("renterId", "i.renter_id")
+            .csv("hostId", "i.host_id")
+            .csv("state", "i.state")
+            .csv("action", "i.action")
+            .csv("createdAt", "i.created_at")
+            .build();
 
     private final Approvals approvals;
 
@@ -179,10 +203,17 @@ class AdminAbuseController {
     private final AbuseReviews reviews;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
+    private final AdminTagged tagged;
     private final LearnedBuilds blocklist;
 
     AdminAbuseController(
-            AbuseReviews reviews, AuditTrail audit, JdbcClient jdbc, LearnedBuilds blocklist, Approvals approvals) {
+            AbuseReviews reviews,
+            AuditTrail audit,
+            JdbcClient jdbc,
+            LearnedBuilds blocklist,
+            Approvals approvals,
+            AdminTagged tagged) {
+        this.tagged = tagged;
         this.approvals = approvals;
         this.reviews = reviews;
         this.audit = audit;
@@ -197,36 +228,30 @@ class AdminAbuseController {
             @RequestParam(required = false) @Nullable String state,
             @RequestParam(required = false) @Nullable UUID renter,
             @RequestParam(required = false) @Nullable UUID host,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
-        int size = AdminPages.limit(limit);
         var which = state == null || state.isBlank() ? "open" : state.strip();
         if (!List.of("open", "confirmed", "cleared", "all").contains(which)) {
             throw ApiProblem.invalid("state", "must be open, confirmed, cleared or all.");
         }
-        var after = AdminPages.after(cursor);
-        var rows = jdbc.sql("""
-                        select i.*, coalesce((select array_agg(s.kind order by s.at, s.id) from trust.abuse_signals s
-                                              where s.item_id = i.id), '{}') kinds
-                        from trust.abuse_items i
-                        where (:which = 'all' or i.state = :which)
-                          and (cast(:renter as uuid) is null or i.renter_id = cast(:renter as uuid))
-                          and (cast(:host as uuid) is null or i.host_id = cast(:host as uuid))
-                          and (cast(:after as uuid) is null or i.id > cast(:after as uuid))
-                        order by i.id
-                        limit :limit
-                        """)
-                .param("which", which)
-                .param("renter", renter)
-                .param("host", host)
-                .param("after", after)
-                .param("limit", size + 1)
-                .query(AdminAbuseController::summary)
-                .list();
-        var page = rows.size() > size ? rows.subList(0, size) : rows;
-        return new AbusePage(
-                List.copyOf(page),
-                rows.size() > size ? AdminPages.cursorAfter(page.getLast().id()) : null);
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "state",
+                        which.equals("all") ? null : which,
+                        "renter",
+                        renter,
+                        "host",
+                        host,
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                AdminAbuseController::summary);
+        return new AbusePage(page.rows(), page.nextCursor());
     }
 
     @RequiresPermission(AdminPermission.ABUSE_READ)

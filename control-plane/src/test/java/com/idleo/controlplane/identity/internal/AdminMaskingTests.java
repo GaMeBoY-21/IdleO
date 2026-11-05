@@ -136,6 +136,7 @@ class AdminMaskingTests {
                 Map.entry("/admin/v1/search", "q=" + person.email()),
                 Map.entry("/admin/v1/timeline", "subject=user&id=" + user),
                 Map.entry("/admin/v1/notes", "subject=user&id=" + user),
+                Map.entry("/admin/v1/views", "list=users"),
                 Map.entry("/admin/v1/users", "query=" + marker),
                 Map.entry("/admin/v1/payments", "query=" + user),
                 Map.entry("/admin/v1/credit-grants", "user=" + user),

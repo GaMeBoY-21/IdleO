@@ -59,6 +59,11 @@ class AccessLog implements PersonalDataAccess {
     }
 
     @Override
+    public void exported(CurrentUser admin, String list, String reason) {
+        write(admin.id(), null, "export", list, reason);
+    }
+
+    @Override
     public void searched(CurrentUser admin, String maskedQuery) {
         write(admin.id(), null, SEARCH, maskedQuery, "searched the console");
     }

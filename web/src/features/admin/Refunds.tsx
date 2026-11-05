@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
@@ -7,9 +7,11 @@ import { formatPaise, parseRupees, rupeeInput } from "@/lib/money";
 import { ActionSheet, SheetProblem } from "./ActionSheet";
 import { ADMIN, adminApi, adminData, type AdminCreditRefund } from "./api";
 import { refundProblem } from "./rules";
-import { AdminPage, Cell, Empty, Id, Pill, QueryView, Row, SmallField, SmallSelect, Table } from "./ui";
+import { AdminPage, Cell, Empty, Id, Pill, PagedView, Row, SmallField, SmallSelect, Table } from "./ui";
 import { ActionButton } from "./permissions";
 import { PlainRecord } from "./Records";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /**
  * Refunds of bought credit (ADR 0039): requests waiting for an answer, oldest first, each with what the renter can have
@@ -34,12 +36,20 @@ export function Refunds() {
 
 function RefundList() {
   const client = useQueryClient();
-  const [status, setStatus] = useState("requested");
+  const [status, setStatus] = useListParam("status", "requested");
+  const view = useListView();
   const [acting, setActing] = useState<{ refund: AdminCreditRefund; approve: boolean } | null>(null);
   const [rupees, setRupees] = useState("");
-  const refunds = useQuery({
-    queryKey: [ADMIN, "refunds", status],
-    queryFn: () => adminData(adminApi.GET("/admin/v1/refunds", { params: { query: { status } } })),
+  const refunds = useInfiniteQuery({
+    queryKey: [ADMIN, "refunds", status, view],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/refunds", {
+          params: { query: { status, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   const close = () => {
     setActing(null);
@@ -62,10 +72,15 @@ function RefundList() {
           ]}
         />
       </div>
-      <QueryView
+      <ListBar
+        list="refunds"
+        columns={["Asked", "Renter", "Why", "Asked for", "Can have back", "State", "Parts", ""]}
+        filters={{ status: "status" }}
+      />
+      <PagedView
         query={refunds}
         what="the refunds"
-        isEmpty={(list) => list.refunds.length === 0}
+        items={(page) => page.refunds}
         empty={
           <Empty title="Nothing here">
             A renter asks from Credit, Refund unused credit; it arrives here and as a money message in
@@ -73,12 +88,13 @@ function RefundList() {
           </Empty>
         }
       >
-        {(list) => (
+        {(rows) => (
           <Table
             caption="Refunds of bought credit"
+            sorts={{ Asked: "requestedAt", State: "status" }}
             columns={["Asked", "Renter", "Why", "Asked for", "Can have back", "State", "Parts", ""]}
           >
-            {list.refunds.map((refund) => (
+            {rows.map((refund) => (
               <Row key={refund.id}>
                 <Cell>
                   <RelativeTime value={refund.requestedAt} />
@@ -161,7 +177,7 @@ function RefundList() {
             ))}
           </Table>
         )}
-      </QueryView>
+      </PagedView>
       <ActionSheet
         open={acting?.approve === true}
         onOpenChange={(next) => !next && close()}

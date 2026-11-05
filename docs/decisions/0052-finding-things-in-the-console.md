@@ -35,6 +35,13 @@ An admin answering one question opened five screens and searched each by hand. T
 
 **A note about a person is their personal data.** `AdminSubject` says who a host, session or payment is about, so a note on one is in that person's export and goes when they do. LEGAL(confirm): the export includes notes and tags, except a note written for a fraud investigation while it's open.
 
+**One list engine** (`AdminListing`, in the kernel). A list is declared once by its module: its rows, filters, orders and CSV. Its endpoint and its export run the same query, so a file is exactly what the screen shows. Paging is by keyset, the sort's value and the row's id, and a cursor belongs to one order. Users, hosts, sessions, payments, refunds, invoices, payouts, tickets, reports, abuse, images, chargebacks, clawbacks, ratings and invites are on it. The tickets list was the one offset left; it's gone.
+- Three lists keep their own query and a fixed order, with a cursor: the audit log, which has its own search and CSV (ADR 0051); approvals, whose "mine" depends on who's asking; and review minutes, a queue with a three-part key.
+- A list's filters, order and hidden columns live in its address, so any view can be linked. A saved view (`console.saved_views`) is a name for that address, private or shared. Opening one still asks the server.
+- A tag filters any list: the module asks `AdminTagged` for what carries it, by the person where the row is someone's.
+
+**CSV of any list** (`POST /admin/v1/exports`). It needs `export.create`, which is sensitive so a recent factor comes with it, and the list's own read permission. A list holding personal data goes through approval (ADR 0051), and its requester fetches the file once. Every value is masked, and a cell can't become a spreadsheet formula. It's written row by row up to 50,000, and a last line says how many were left out. Each is in the access log (`export`) and the audit log.
+
 **Linked accounts** (`trust.read`: the Owner and Trust & Safety), worked out on the read by the module that holds each signal, which hands over who matched, how strong it is and masked evidence, never the raw value. Nothing acts on them.
 
 | Signal | Strength | From |

@@ -1,8 +1,9 @@
 package com.idleo.controlplane.payouts.internal;
 
-import com.idleo.controlplane.AdminPages;
+import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
+import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.FinancialYear;
 import com.idleo.controlplane.NoContactDetails;
@@ -58,6 +59,28 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnWebApplication
 class AdminPayoutsController {
 
+    /** The list, its filters, orders and CSV (ADR 0052). */
+    static final AdminListing LIST = AdminListing.of("payouts", AdminPermission.PAYOUTS_READ, true)
+            .from("payouts.payouts")
+            .sort("createdAt", AdminListing.Type.UUID, "id")
+            .sort("net", AdminListing.Type.NUMBER, "net_paise")
+            .sort("status", AdminListing.Type.TEXT, "status")
+            .sortedBy("createdAt", true)
+            .filter("status", "status = cast(:status as text)")
+            .filter("run", "run_id = cast(:run as uuid)")
+            .filter("user", "user_id = cast(:user as uuid)")
+            .filter("tagged", "user_id in (:tagged)")
+            .csv("id", "id")
+            .csv("userId", "user_id")
+            .csv("kind", "kind")
+            .csv("grossPaise", "gross_paise")
+            .csv("tdsPaise", "tds_paise")
+            .csv("netPaise", "net_paise")
+            .csv("status", "status")
+            .csv("createdAt", "created_at")
+            .csv("processedAt", "processed_at")
+            .build();
+
     static final String RELEASE = "payout.release";
     static final String TDS_EXPORT = "tds.export";
 
@@ -83,6 +106,7 @@ class AdminPayoutsController {
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final Approvals approvals;
+    private final AdminTagged tagged;
 
     AdminPayoutsController(
             PayoutService payouts,
@@ -94,7 +118,9 @@ class AdminPayoutsController {
             AuditTrail audit,
             JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
-            Approvals approvals) {
+            Approvals approvals,
+            AdminTagged tagged) {
+        this.tagged = tagged;
         this.approvals = approvals;
         this.payouts = payouts;
         this.runs = runs;
@@ -207,18 +233,32 @@ class AdminPayoutsController {
             @RequestParam(defaultValue = "all") String status,
             @RequestParam(required = false) @Nullable UUID run,
             @RequestParam(required = false) @Nullable UUID user,
+            @RequestParam(required = false) @Nullable String tag,
+            @RequestParam(required = false) @Nullable String sort,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         if (!STATUSES.contains(status)) {
             throw ApiProblem.invalid("status", "isn't a payout status.");
         }
-        int size = AdminPages.limit(limit);
-        var rows = payouts.list(status, run, user, AdminPages.after(cursor), size + 1);
-        var shown = rows.size() > size ? rows.subList(0, size) : rows;
+        var page = LIST.page(
+                jdbc,
+                AdminListing.Asked.of(
+                        sort,
+                        "status",
+                        status.equals("all") ? null : status,
+                        "run",
+                        run,
+                        "user",
+                        user,
+                        "tagged",
+                        tagged.subjects("user", tag)),
+                cursor,
+                limit,
+                PayoutService::payout);
         return new AdminPayouts(
                 runs.latest(10).stream().map(AdminPayoutRun::of).toList(),
-                shown.stream().map(AdminPayout::of).toList(),
-                rows.size() > size ? AdminPages.cursorAfter(shown.getLast().id()) : null,
+                page.rows().stream().map(AdminPayout::of).toList(),
+                page.nextCursor(),
                 balance.latest()
                         .map(check -> new AdminBalanceCheck(
                                 check.payday(),

@@ -463,7 +463,7 @@ class Chargebacks {
         return UUID.nameUUIDFromBytes((kind + ":" + cause).getBytes(StandardCharsets.UTF_8));
     }
 
-    private static Chargeback chargeback(ResultSet rs, int row) throws SQLException {
+    static Chargeback chargeback(ResultSet rs, int row) throws SQLException {
         var respondBy = rs.getTimestamp("respond_by");
         var lost = (Long) rs.getObject("lost_paise");
         var released = (Long) rs.getObject("released_paise");

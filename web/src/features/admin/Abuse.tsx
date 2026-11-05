@@ -32,6 +32,8 @@ import {
   Table,
 } from "./ui";
 import { ActionButton } from "./permissions";
+import { ListBar } from "./Lists";
+import { useListParam, useListView } from "./listView";
 
 /** What a signal is, in the admin's words. */
 const SIGNALS: Record<string, string> = {
@@ -72,13 +74,14 @@ function StatePill({ item }: { item: Pick<AbuseSummary, "state" | "banned"> }) {
 }
 
 function AbuseQueue() {
-  const [state, setState] = useState("open");
+  const [state, setState] = useListParam("state", "open");
+  const view = useListView();
   const items = useInfiniteQuery({
-    queryKey: [ADMIN, "abuse", state],
+    queryKey: [ADMIN, "abuse", state, view],
     queryFn: ({ pageParam }) =>
       adminData(
         adminApi.GET("/admin/v1/abuse", {
-          params: { query: { state, ...(pageParam ? { cursor: pageParam } : {}) } },
+          params: { query: { state, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
         }),
       ),
     initialPageParam: "",
@@ -87,6 +90,11 @@ function AbuseQueue() {
   return (
     <AdminPage title="Abuse">
       <div className="flex">
+        <ListBar
+          list="abuse"
+          columns={["Review", "State", "What was seen", "Renter", "Host", "Since", ""]}
+          extra={state === "all" ? {} : { state }}
+        />
         <SmallSelect
           label="Show"
           value={state}
@@ -113,6 +121,7 @@ function AbuseQueue() {
         {(rows) => (
           <Table
             caption="Abuse reviews"
+            sorts={{ Since: "createdAt", State: "state" }}
             columns={["Review", "State", "What was seen", "Renter", "Host", "Since", ""]}
           >
             {rows.map((item) => (
