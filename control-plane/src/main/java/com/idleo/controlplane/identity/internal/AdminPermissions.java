@@ -51,6 +51,19 @@ class AdminPermissions implements AdminAccess {
         return of(admin);
     }
 
+    @Override
+    public List<Mentionable> mentionable() {
+        return jdbc.sql("""
+                        select a.user_id, coalesce(u.display_name, u.email, a.user_id::text) as name
+                        from identity.admins a
+                        join identity.users u on u.id = a.user_id
+                        where a.locked_at is null and a.totp_confirmed_at is not null and u.status = 'active'
+                        order by name
+                        """)
+                .query((rs, n) -> new Mentionable(rs.getObject("user_id", UUID.class), rs.getString("name")))
+                .list();
+    }
+
     boolean has(UUID userId, AdminPermission permission) {
         return permission == AdminPermission.SELF || of(userId).contains(permission);
     }

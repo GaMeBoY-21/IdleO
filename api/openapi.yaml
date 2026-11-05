@@ -1944,6 +1944,154 @@ paths:
         idToken: []
       tags:
       - adminSessionRecords
+  /admin/v1/notes:
+    get:
+      operationId: adminNotesList
+      parameters:
+      - in: query
+        name: subject
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotes"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
+    post:
+      operationId: adminNotesAdd
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewNote"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNote"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
+  /admin/v1/notes/mentionable:
+    get:
+      operationId: adminNotesMentionable
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMentionables"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
+  /admin/v1/notes/{id}/change:
+    post:
+      operationId: adminNotesChange
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteChange"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNote"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
+  /admin/v1/notes/{id}/edit:
+    post:
+      operationId: adminNotesEdit
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteEdit"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNote"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
   /admin/v1/notices:
     post:
       operationId: adminNoticesSend
@@ -2788,6 +2936,115 @@ paths:
         idToken: []
       tags:
       - adminMoney
+  /admin/v1/records/{subject}/{id}/tags:
+    get:
+      operationId: adminNotesTagsOn
+      parameters:
+      - in: path
+        name: subject
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTags"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
+  /admin/v1/records/{subject}/{id}/tags/{tag}:
+    post:
+      operationId: adminNotesAssign
+      parameters:
+      - in: path
+        name: subject
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: tag
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTags"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
+  /admin/v1/records/{subject}/{id}/tags/{tag}/remove:
+    post:
+      operationId: adminNotesUnassign
+      parameters:
+      - in: path
+        name: subject
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: tag
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTags"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
   /admin/v1/refunds:
     get:
       operationId: adminRefundsList
@@ -3502,6 +3759,53 @@ paths:
         idToken: []
       tags:
       - adminUsage
+  /admin/v1/tags:
+    get:
+      operationId: adminNotesVocabulary
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTags"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
+    post:
+      operationId: adminNotesDefine
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagDefinition"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTags"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminNotes
   /admin/v1/tickets:
     get:
       operationId: adminTicketsList
@@ -3904,6 +4208,34 @@ paths:
         idToken: []
       tags:
       - adminDeletions
+  /admin/v1/users/{id}/linked-accounts:
+    get:
+      operationId: adminLinkedAccountsLinked
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkedAccounts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminLinkedAccounts
   /admin/v1/users/{id}/payout-details:
     get:
       operationId: adminPayoutDetailsDetails
@@ -7000,6 +7332,32 @@ components:
           - "null"
       required:
       - entries
+    AccountLink:
+      type: object
+      properties:
+        at:
+          type:
+          - string
+          - "null"
+          format: date-time
+        evidence:
+          type: string
+        otherUser:
+          type: string
+          format: uuid
+        signal:
+          type: string
+        strength:
+          type: string
+          enum:
+          - STRONG
+          - MEDIUM
+          - WEAK
+      required:
+      - evidence
+      - otherUser
+      - signal
+      - strength
     ActivateRequest:
       type: object
       properties:
@@ -8554,6 +8912,26 @@ components:
           - "null"
       required:
       - entries
+    AdminMentionable:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    AdminMentionables:
+      type: object
+      properties:
+        admins:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMentionable"
+      required:
+      - admins
     AdminNoRefund:
       type: object
       properties:
@@ -8567,6 +8945,52 @@ components:
           minLength: 5
       required:
       - reason
+    AdminNote:
+      type: object
+      properties:
+        authorId:
+          type: string
+          format: uuid
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        editable:
+          type: boolean
+        editedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        openInvestigation:
+          type: boolean
+        pinned:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+      required:
+      - authorId
+      - body
+      - createdAt
+      - editable
+      - id
+      - openInvestigation
+      - pinned
+      - version
+    AdminNotes:
+      type: object
+      properties:
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNote"
+      required:
+      - notes
     AdminNotice:
       type: object
       properties:
@@ -10155,6 +10579,32 @@ components:
           format: date-time
       required:
       - until
+    AdminTag:
+      type: object
+      properties:
+        colour:
+          type: string
+          enum:
+          - plain
+          - running
+          - danger
+        id:
+          type: string
+        label:
+          type: string
+      required:
+      - colour
+      - id
+      - label
+    AdminTags:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTag"
+      required:
+      - tags
     AdminTicket:
       type: object
       properties:
@@ -12495,6 +12945,32 @@ components:
       - machineName
       - os
       - state
+    LinkedAccount:
+      type: object
+      properties:
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountLink"
+        userId:
+          type: string
+          format: uuid
+      required:
+      - signals
+      - userId
+    LinkedAccounts:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedAccount"
+        unanswered:
+          type: integer
+          format: int32
+      required:
+      - accounts
+      - unanswered
     Listing:
       type: object
       properties:
@@ -12645,6 +13121,41 @@ components:
           minLength: 0
       required:
       - reference
+    NewNote:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 4000
+          minLength: 0
+        id:
+          type: string
+          format: uuid
+        mentions:
+          type:
+          - array
+          - "null"
+          items:
+            type: string
+            format: uuid
+        openInvestigation:
+          type: boolean
+        pinned:
+          type: boolean
+        subject:
+          type: string
+          enum:
+          - user
+          - host
+          - session
+          - payment
+          minLength: 1
+      required:
+      - body
+      - id
+      - openInvestigation
+      - pinned
+      - subject
     NewTicket:
       type: object
       properties:
@@ -12684,6 +13195,26 @@ components:
       - message
       - replyTo
       - topic
+    NoteChange:
+      type: object
+      properties:
+        openInvestigation:
+          type:
+          - boolean
+          - "null"
+        pinned:
+          type:
+          - boolean
+          - "null"
+    NoteEdit:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 4000
+          minLength: 0
+      required:
+      - body
     NoticeStanding:
       type: object
       properties:
@@ -14415,6 +14946,28 @@ components:
           minLength: 5
       required:
       - reason
+    TagDefinition:
+      type: object
+      properties:
+        colour:
+          type: string
+          enum:
+          - plain
+          - running
+          - danger
+          minLength: 1
+        id:
+          type: string
+          maxLength: 40
+          minLength: 0
+        label:
+          type: string
+          maxLength: 40
+          minLength: 0
+      required:
+      - colour
+      - id
+      - label
     TdsExport:
       type: object
       properties:

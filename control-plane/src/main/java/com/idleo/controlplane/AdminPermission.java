@@ -83,6 +83,11 @@ public enum AdminPermission {
     APPROVALS_READ("approvals.read", false),
     APPROVALS_DECIDE("approvals.decide", true),
     AUDIT_READ("audit.read", false),
+    NOTES_READ("notes.read", false),
+    NOTES_WRITE("notes.write", false),
+    TAGS_MANAGE("tags.manage", false),
+    /** Who might be the same person as whom (ADR 0052): shown to Trust &amp; Safety, and it never acts by itself. */
+    TRUST_READ("trust.read", false),
     EXPORT_CREATE("export.create", true);
 
     private final String key;

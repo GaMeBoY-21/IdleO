@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { ActionSheet, whatChanged } from "./ActionSheet";
 import { CodeField } from "./CodeField";
+import { NoteBody } from "./Notes";
 import { isTotp } from "./rules";
 
 function Sheet({
@@ -131,5 +132,19 @@ describe("the code field", () => {
     await userEvent.clear(field);
     await userEvent.type(field, "123 456");
     expect(field).not.toHaveAttribute("aria-invalid");
+  });
+});
+
+describe("a note's words", () => {
+  it("are text with a few marks, and never HTML", () => {
+    const { container } = render(
+      <NoteBody body={"**bold** and *italic* and `code`\n<img src=x onerror=alert(1)> stays words"} />,
+    );
+    expect(container.querySelector("strong")).toHaveTextContent("bold");
+    expect(container.querySelector("em")).toHaveTextContent("italic");
+    expect(container.querySelector("code")).toHaveTextContent("code");
+    expect(container.querySelector("br")).not.toBeNull();
+    expect(container.querySelector("img")).toBeNull();
+    expect(container).toHaveTextContent("<img src=x onerror=alert(1)> stays words");
   });
 });
