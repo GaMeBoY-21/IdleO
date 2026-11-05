@@ -63,8 +63,8 @@ Main is protected: changes reach it only through a pull request whose required c
 1. Branch from an up-to-date main, named after the round (for example `deploy`). Commit there, with the commit rules above.
 2. Locally run `scripts/check-changed.sh` only. The full suites run in CI, which is free for this public repository.
 3. Push the branch and open a pull request with `gh pr create`. Title and body read like a person wrote them: what changed and how it was tested, following `.github/pull_request_template.md`. Never mention Claude, a prompt or a review.
-4. Wait for every suite that runs on the pull request, required or not (`gh pr checks --watch`), and fix failures on the branch. **A pull request isn't merged while any suite that ran on it is red, required or not.** When all are green, merge with `gh pr merge --rebase --delete-branch`.
-5. Then look at the long suites on main (web browser, e2e, hostile), and fix anything they catch in a follow-up pull request.
+4. Wait for the required checks (`gh pr checks --required --watch`) and fix failures on the branch. Merge when the required checks pass, with `gh pr merge --rebase --delete-branch`. **Never merge a pull request on which any suite has already failed.**
+5. Long suites (e2e, web-browser, k8s, gitops, hostile, failover, security) don't need to finish before merging. If one goes red on main afterwards, fixing it comes before anything else.
 Never push to main directly, never force-push it, never weaken a check or the ruleset to get a merge through: stop and report. The required checks are listed in ADR 0044; a new workflow whose check should gate merges has no `paths:` filter on `pull_request`, or the check never starts for a change outside its paths and blocks the merge.
 
 ## Working rules
