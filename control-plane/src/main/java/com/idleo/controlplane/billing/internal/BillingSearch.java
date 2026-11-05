@@ -2,6 +2,8 @@ package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminSearch;
+import com.idleo.controlplane.AdminSubject;
+import java.util.UUID;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -9,6 +11,16 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 /** The console's search over money (ADR 0052): Razorpay's payment, order and refund ids, and document numbers. */
 @Configuration(proxyBeanMethods = false)
 class BillingSearch {
+
+    @Bean
+    AdminSubject paymentSubject(JdbcClient jdbc) {
+        return AdminSubject.of(
+                "payment",
+                id -> jdbc.sql("select user_id from billing.topups where id = :id")
+                        .param("id", id)
+                        .query(UUID.class)
+                        .optional());
+    }
 
     @Bean
     AdminSearch paymentsAdminSearch(JdbcClient jdbc) {

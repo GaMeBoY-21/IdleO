@@ -2,7 +2,9 @@ package com.idleo.controlplane.hosts.internal;
 
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminSearch;
+import com.idleo.controlplane.AdminSubject;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -12,6 +14,16 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 class HostsSearch {
 
     private static final int SHORTEST_NAME = 3;
+
+    @Bean
+    AdminSubject hostSubject(JdbcClient jdbc) {
+        return AdminSubject.of(
+                "host",
+                id -> jdbc.sql("select owner_user_id from hosts.hosts where id = :id")
+                        .param("id", id)
+                        .query(UUID.class)
+                        .optional());
+    }
 
     @Bean
     AdminSearch hostsAdminSearch(JdbcClient jdbc) {

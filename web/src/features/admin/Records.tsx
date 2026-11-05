@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { ADMIN, adminApi, adminData } from "./api";
+import { LinkedAccounts, RecordHead, RecordNotes } from "./Notes";
 import { RecordTabs, type RecordTab } from "./RecordTabs";
 import { Timeline } from "./Timeline";
 import { AdminPage, BackLink, Cell, Empty, Fields, Id, Pill, QueryView, Row, Section, Table } from "./ui";
@@ -481,9 +482,21 @@ export function UserTabs({ id, can }: { id: string; can: (permission: string) =>
     { id: "abuse", label: "Abuse", needs: "abuse.read", render: () => <AbuseItems renter={id} /> },
     { id: "sign-ins", label: "Sign-ins", needs: "users.read", render: () => <SignIns id={id} /> },
     { id: "audit", label: "Audit", needs: "audit.read", render: () => <AuditAbout type="user" id={id} /> },
+    {
+      id: "notes",
+      label: "Notes",
+      needs: "notes.read",
+      render: () => <RecordNotes subject="user" id={id} />,
+    },
+    { id: "linked", label: "Linked accounts", needs: "trust.read", render: () => <LinkedAccounts id={id} /> },
     { id: "viewed", label: "Who viewed", needs: "audit.read", render: () => <WhoViewed id={id} /> },
   ];
-  return <RecordTabs label="About this person" tabs={tabs} />;
+  return (
+    <div className="flex flex-col gap-4">
+      <RecordHead subject="user" id={id} />
+      <RecordTabs label="About this person" tabs={tabs} />
+    </div>
+  );
 }
 
 function HostHistory({ id }: { id: string }) {
@@ -558,32 +571,41 @@ function HostEarnings({ id }: { id: string }) {
 /** A host's page (ADR 0052). */
 export function HostTabs({ id }: { id: string }) {
   return (
-    <RecordTabs
-      label="About this host"
-      tabs={[
-        { id: "timeline", label: "Timeline", needs: "", render: () => <Timeline subject="host" id={id} /> },
-        {
-          id: "history",
-          label: "Score and tests",
-          needs: "hosts.read",
-          render: () => <HostHistory id={id} />,
-        },
-        { id: "sessions", label: "Sessions", needs: "sessions.read", render: () => <Sessions host={id} /> },
-        { id: "earnings", label: "Earnings", needs: "money.read", render: () => <HostEarnings id={id} /> },
-        {
-          id: "abuse",
-          label: "Blocklist and abuse",
-          needs: "abuse.read",
-          render: () => <AbuseItems host={id} />,
-        },
-        {
-          id: "audit",
-          label: "Audit",
-          needs: "audit.read",
-          render: () => <AuditAbout type="host" id={id} />,
-        },
-      ]}
-    />
+    <div className="flex flex-col gap-4">
+      <RecordHead subject="host" id={id} />
+      <RecordTabs
+        label="About this host"
+        tabs={[
+          { id: "timeline", label: "Timeline", needs: "", render: () => <Timeline subject="host" id={id} /> },
+          {
+            id: "history",
+            label: "Score and tests",
+            needs: "hosts.read",
+            render: () => <HostHistory id={id} />,
+          },
+          { id: "sessions", label: "Sessions", needs: "sessions.read", render: () => <Sessions host={id} /> },
+          { id: "earnings", label: "Earnings", needs: "money.read", render: () => <HostEarnings id={id} /> },
+          {
+            id: "abuse",
+            label: "Blocklist and abuse",
+            needs: "abuse.read",
+            render: () => <AbuseItems host={id} />,
+          },
+          {
+            id: "notes",
+            label: "Notes",
+            needs: "notes.read",
+            render: () => <RecordNotes subject="host" id={id} />,
+          },
+          {
+            id: "audit",
+            label: "Audit",
+            needs: "audit.read",
+            render: () => <AuditAbout type="host" id={id} />,
+          },
+        ]}
+      />
+    </div>
   );
 }
 
@@ -700,38 +722,52 @@ function SessionRatings({ id }: { id: string }) {
 /** A session's page (ADR 0052): its log, with its own permission, stays on the page above. */
 export function SessionTabs({ id }: { id: string }) {
   return (
-    <RecordTabs
-      label="About this session"
-      tabs={[
-        {
-          id: "timeline",
-          label: "Timeline",
-          needs: "",
-          render: () => <Timeline subject="session" id={id} />,
-        },
-        {
-          id: "life",
-          label: "Attempts and lease",
-          needs: "sessions.read",
-          render: () => <SessionLife id={id} />,
-        },
-        { id: "minutes", label: "Minutes", needs: "sessions.read", render: () => <SessionMinutes id={id} /> },
-        {
-          id: "commands",
-          label: "Commands",
-          needs: "sessions.read",
-          render: () => <SessionCommands id={id} />,
-        },
-        { id: "rating", label: "Rating", needs: "ratings.read", render: () => <SessionRatings id={id} /> },
-        { id: "reports", label: "Reports", needs: "disputes.read", render: () => <Reports session={id} /> },
-        {
-          id: "audit",
-          label: "Audit",
-          needs: "audit.read",
-          render: () => <AuditAbout type="session" id={id} />,
-        },
-      ]}
-    />
+    <div className="flex flex-col gap-4">
+      <RecordHead subject="session" id={id} />
+      <RecordTabs
+        label="About this session"
+        tabs={[
+          {
+            id: "timeline",
+            label: "Timeline",
+            needs: "",
+            render: () => <Timeline subject="session" id={id} />,
+          },
+          {
+            id: "life",
+            label: "Attempts and lease",
+            needs: "sessions.read",
+            render: () => <SessionLife id={id} />,
+          },
+          {
+            id: "minutes",
+            label: "Minutes",
+            needs: "sessions.read",
+            render: () => <SessionMinutes id={id} />,
+          },
+          {
+            id: "commands",
+            label: "Commands",
+            needs: "sessions.read",
+            render: () => <SessionCommands id={id} />,
+          },
+          { id: "rating", label: "Rating", needs: "ratings.read", render: () => <SessionRatings id={id} /> },
+          { id: "reports", label: "Reports", needs: "disputes.read", render: () => <Reports session={id} /> },
+          {
+            id: "notes",
+            label: "Notes",
+            needs: "notes.read",
+            render: () => <RecordNotes subject="session" id={id} />,
+          },
+          {
+            id: "audit",
+            label: "Audit",
+            needs: "audit.read",
+            render: () => <AuditAbout type="session" id={id} />,
+          },
+        ]}
+      />
+    </div>
   );
 }
 
@@ -746,6 +782,7 @@ export function PaymentRecord({ id }: { id: string }) {
       <QueryView query={query} what="this payment">
         {(payment) => (
           <div className="flex flex-col gap-6">
+            <RecordHead subject="payment" id={id} />
             <div className="flex flex-wrap items-center gap-2">
               <Money paise={payment.amountPaise} />
               <Pill
@@ -779,6 +816,12 @@ export function PaymentRecord({ id }: { id: string }) {
                   label: "Timeline",
                   needs: "",
                   render: () => <Timeline subject="payment" id={id} />,
+                },
+                {
+                  id: "notes",
+                  label: "Notes",
+                  needs: "notes.read",
+                  render: () => <RecordNotes subject="payment" id={id} />,
                 },
                 {
                   id: "credit",
