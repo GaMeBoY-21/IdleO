@@ -206,13 +206,14 @@ class AdminPayoutsController {
     AdminPayouts list(
             @RequestParam(defaultValue = "all") String status,
             @RequestParam(required = false) @Nullable UUID run,
+            @RequestParam(required = false) @Nullable UUID user,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         if (!STATUSES.contains(status)) {
             throw ApiProblem.invalid("status", "isn't a payout status.");
         }
         int size = AdminPages.limit(limit);
-        var rows = payouts.list(status, run, AdminPages.after(cursor), size + 1);
+        var rows = payouts.list(status, run, user, AdminPages.after(cursor), size + 1);
         var shown = rows.size() > size ? rows.subList(0, size) : rows;
         return new AdminPayouts(
                 runs.latest(10).stream().map(AdminPayoutRun::of).toList(),

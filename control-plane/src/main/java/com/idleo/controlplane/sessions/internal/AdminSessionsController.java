@@ -8,6 +8,7 @@ import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.PersonalDataAccess;
 import com.idleo.controlplane.sessions.SessionCosts;
 import jakarta.validation.Valid;
 import java.sql.ResultSet;
@@ -49,13 +50,16 @@ class AdminSessionsController {
     private final SessionCosts costs;
     private final AuditTrail audit;
     private final SessionLogReviews logs;
+    private final PersonalDataAccess accessLog;
 
     AdminSessionsController(
             JdbcClient jdbc,
             SessionForceStops forceStops,
             SessionCosts costs,
             AuditTrail audit,
-            SessionLogReviews logs) {
+            SessionLogReviews logs,
+            PersonalDataAccess accessLog) {
+        this.accessLog = accessLog;
         this.logs = logs;
         this.jdbc = jdbc;
         this.forceStops = forceStops;
@@ -157,7 +161,13 @@ class AdminSessionsController {
 
     @RequiresPermission(AdminPermission.SESSIONS_READ)
     @GetMapping("/{id}")
-    AdminSession get(@PathVariable UUID id) {
+    AdminSession get(@AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id) {
+        var session = find(id);
+        accessLog.viewed(admin, session.session().renterId(), id.toString());
+        return session;
+    }
+
+    private AdminSession find(UUID id) {
         var summary = jdbc.sql(SELECT + " where id = :id")
                 .param("id", id)
                 .query(AdminSessionsController::summary)
@@ -242,7 +252,7 @@ class AdminSessionsController {
                 // Shown below as it is now.
             }
         }
-        return get(id);
+        return find(id);
     }
 
     private static AdminSessionSummary summary(ResultSet rs, int row) throws SQLException {

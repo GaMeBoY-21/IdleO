@@ -129,16 +129,20 @@ class AdminMaskingTests {
                 "/admin/v1/approvals/{id}",
                 any("select id::text from identity.approval_requests where params::text like ?", "%" + user + "%"));
 
-        var parameters = Map.of(
-                "/admin/v1/users", "query=" + marker,
-                "/admin/v1/payments", "query=" + user,
-                "/admin/v1/credit-grants", "user=" + user,
-                "/admin/v1/ledger", "account=renter_wallet&owner=" + user,
-                "/admin/v1/sessions/{id}/log", "reason=checking the masking",
-                "/admin/v1/hosts", "query=" + host,
-                "/admin/v1/disputes/host-flags", "host=" + host,
-                "/admin/v1/ratings", "session=" + session,
-                "/admin/v1/personal-data/access-log", "subject=" + user);
+        ids.put("/admin/v1/payments/{id}", any("select id::text from billing.topups where user_id = ?", user));
+
+        var parameters = Map.ofEntries(
+                Map.entry("/admin/v1/search", "q=" + person.email()),
+                Map.entry("/admin/v1/timeline", "subject=user&id=" + user),
+                Map.entry("/admin/v1/users", "query=" + marker),
+                Map.entry("/admin/v1/payments", "query=" + user),
+                Map.entry("/admin/v1/credit-grants", "user=" + user),
+                Map.entry("/admin/v1/ledger", "account=renter_wallet&owner=" + user),
+                Map.entry("/admin/v1/sessions/{id}/log", "reason=checking the masking"),
+                Map.entry("/admin/v1/hosts", "query=" + host),
+                Map.entry("/admin/v1/disputes/host-flags", "host=" + host),
+                Map.entry("/admin/v1/ratings", "session=" + session),
+                Map.entry("/admin/v1/personal-data/access-log", "subject=" + user));
 
         var whole = Set.of(person.email(), upi, replyTo, phone, pan, ip);
         var read = new ArrayList<String>();

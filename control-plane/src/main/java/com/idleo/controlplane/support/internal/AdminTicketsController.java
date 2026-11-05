@@ -105,12 +105,13 @@ class AdminTicketsController {
             @RequestParam(required = false) @Nullable String topic,
             @RequestParam(required = false) @Nullable String status,
             @RequestParam(required = false) @Nullable Integer olderThanDays,
+            @RequestParam(required = false) @Nullable UUID user,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         int size = AdminPages.limit(limit);
         int offset = cursor == null || cursor.isBlank() ? 0 : Integer.parseInt(cursor.replaceAll("[^0-9]", "0"));
         var now = Instant.now(clock);
-        var page = tickets.list(blank(topic), blank(status), olderThanDays, size + 1, offset);
+        var page = tickets.list(blank(topic), blank(status), olderThanDays, user, size + 1, offset);
         return new AdminTicketPage(
                 page.stream()
                         .limit(size)

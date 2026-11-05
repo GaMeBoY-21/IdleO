@@ -172,6 +172,7 @@ class AdminDisputesController {
     AdminDisputePage list(
             @RequestParam(required = false) @Nullable String state,
             @RequestParam(required = false) @Nullable UUID session,
+            @RequestParam(required = false) @Nullable UUID renter,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         int size = AdminPages.limit(limit);
@@ -184,6 +185,7 @@ class AdminDisputesController {
                         select * from trust.disputes
                         where (:which = 'all' or (state = 'open') = (:which = 'open'))
                           and (cast(:session as uuid) is null or session_id = cast(:session as uuid))
+                          and (cast(:renter as uuid) is null or renter_id = cast(:renter as uuid))
                           and (cast(:afterId as uuid) is null
                                or ((state <> 'open')::int, id) > (:afterRank, cast(:afterId as uuid)))
                         order by (state <> 'open')::int, id
@@ -191,6 +193,7 @@ class AdminDisputesController {
                         """)
                 .param("which", which)
                 .param("session", session)
+                .param("renter", renter)
                 .param("afterRank", after == null ? 0 : after.rank())
                 .param("afterId", after == null ? null : after.id())
                 .param("limit", size + 1)

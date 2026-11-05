@@ -28,7 +28,7 @@ class PayoutsSearch {
             return statement
                     .query((rs, n) -> {
                         var theirs = rs.getString("razorpayx_id");
-                        return new AdminSearch.Hit(
+                        return new AdminSearch.SearchHit(
                                 "payout",
                                 rs.getObject("id").toString(),
                                 theirs != null ? theirs : "Payout",
@@ -52,7 +52,7 @@ class PayoutsSearch {
                             """)
                     .param("vpa", query.lower())
                     .param("limit", limit)
-                    .query((rs, n) -> new AdminSearch.Hit(
+                    .query((rs, n) -> new AdminSearch.SearchHit(
                             "user", rs.getObject("user_id").toString(), rs.getString("vpa"), rs.getString("state")))
                     .list();
         });
@@ -66,7 +66,7 @@ class PayoutsSearch {
             }
             return jdbc.sql("select user_id, pan_last4, state from payouts.pans where pan_lookup = :lookup")
                     .param("lookup", seal.lookup(query.upper()))
-                    .query((rs, n) -> new AdminSearch.Hit(
+                    .query((rs, n) -> new AdminSearch.SearchHit(
                             "user",
                             rs.getObject("user_id").toString(),
                             "PAN ending " + rs.getString("pan_last4"),

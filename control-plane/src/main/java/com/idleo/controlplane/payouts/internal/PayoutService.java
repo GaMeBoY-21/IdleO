@@ -523,12 +523,14 @@ class PayoutService {
     }
 
     /** Payouts for the admin console: by status ({@code all} for any), newest first. */
-    List<Payout> list(String status, @Nullable UUID runId, @Nullable UUID after, int limit) {
+    List<Payout> list(String status, @Nullable UUID runId, @Nullable UUID user, @Nullable UUID after, int limit) {
         return jdbc.sql("select * from payouts.payouts where (:status = 'all' or status = :status)"
                         + " and (cast(:runId as uuid) is null or run_id = :runId)"
+                        + " and (cast(:user as uuid) is null or user_id = :user)"
                         + " and (cast(:after as uuid) is null or id < :after) order by id desc limit " + limit)
                 .param("status", status)
                 .param("runId", runId)
+                .param("user", user)
                 .param("after", after)
                 .query(PayoutService::payout)
                 .list();

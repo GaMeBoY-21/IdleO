@@ -195,6 +195,8 @@ class AdminAbuseController {
     @GetMapping
     AbusePage list(
             @RequestParam(required = false) @Nullable String state,
+            @RequestParam(required = false) @Nullable UUID renter,
+            @RequestParam(required = false) @Nullable UUID host,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(required = false) @Nullable Integer limit) {
         int size = AdminPages.limit(limit);
@@ -208,11 +210,15 @@ class AdminAbuseController {
                                               where s.item_id = i.id), '{}') kinds
                         from trust.abuse_items i
                         where (:which = 'all' or i.state = :which)
+                          and (cast(:renter as uuid) is null or i.renter_id = cast(:renter as uuid))
+                          and (cast(:host as uuid) is null or i.host_id = cast(:host as uuid))
                           and (cast(:after as uuid) is null or i.id > cast(:after as uuid))
                         order by i.id
                         limit :limit
                         """)
                 .param("which", which)
+                .param("renter", renter)
+                .param("host", host)
                 .param("after", after)
                 .param("limit", size + 1)
                 .query(AdminAbuseController::summary)

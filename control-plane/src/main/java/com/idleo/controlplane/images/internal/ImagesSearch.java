@@ -28,7 +28,7 @@ class ImagesSearch {
                             .param("digest", query.lower().startsWith(PREFIX) ? query.lower() : PREFIX + query.lower())
                             .param("limit", limit);
             return statement
-                    .query((rs, n) -> new AdminSearch.Hit(
+                    .query((rs, n) -> new AdminSearch.SearchHit(
                             "image", rs.getObject("id").toString(), rs.getString("reference"), rs.getString("state")))
                     .list();
         });

@@ -6,6 +6,7 @@ import com.idleo.controlplane.hosts.HostTrustSignals;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 class HostScoreService implements HostScores {
 
     private static final Logger log = LoggerFactory.getLogger(HostScoreService.class);
+    private static final int HISTORY_DAYS = 180;
 
     private final JdbcClient jdbc;
     private final Clock clock;
@@ -230,6 +232,29 @@ class HostScoreService implements HostScores {
                 .param("flags", b.flags())
                 .param("speed", speed)
                 .param("now", Timestamp.from(now))
+                .update();
+        keepHistory(hostId, b, bandwidth, now);
+    }
+
+    /** One line a day for each host's page (ADR 0052), the day's last figures, for {@value #HISTORY_DAYS} days. */
+    private void keepHistory(UUID hostId, HostReliability.Breakdown b, double bandwidth, Instant now) {
+        var day = now.truncatedTo(ChronoUnit.DAYS);
+        jdbc.sql("""
+                        insert into hosts.host_score_history (host_id, day, reliability, bandwidth, penalty)
+                        values (:hostId, :day, :reliability, :bandwidth, :penalty)
+                        on conflict (host_id, day) do update
+                        set reliability = excluded.reliability, bandwidth = excluded.bandwidth,
+                            penalty = excluded.penalty
+                        """)
+                .param("hostId", hostId)
+                .param("day", Timestamp.from(day))
+                .param("reliability", b.reliability())
+                .param("bandwidth", bandwidth)
+                .param("penalty", b.penalty())
+                .update();
+        jdbc.sql("delete from hosts.host_score_history where host_id = :hostId and day < :oldest")
+                .param("hostId", hostId)
+                .param("oldest", Timestamp.from(day.minus(HISTORY_DAYS, ChronoUnit.DAYS)))
                 .update();
     }
 }

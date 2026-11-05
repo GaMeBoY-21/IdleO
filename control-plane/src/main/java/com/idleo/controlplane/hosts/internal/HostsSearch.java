@@ -30,7 +30,7 @@ class HostsSearch {
                                     limit :limit
                                     """).param("name", query.text()).param("limit", limit);
             return statement
-                    .query((rs, n) -> new AdminSearch.Hit(
+                    .query((rs, n) -> new AdminSearch.SearchHit(
                             "host", rs.getObject("id").toString(), rs.getString("name"), rs.getString("status")))
                     .list();
         });

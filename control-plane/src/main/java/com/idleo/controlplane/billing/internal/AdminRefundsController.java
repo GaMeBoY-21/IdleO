@@ -120,9 +120,11 @@ class AdminRefundsController {
     /** {@code status}: requested (the default), refunding, refunded, failed, declined or all. */
     @RequiresPermission(AdminPermission.REFUNDS_READ)
     @GetMapping
-    AdminCreditRefundList list(@RequestParam(defaultValue = "requested") String status) {
-        return new AdminCreditRefundList(
-                refunds.list(status, 100).stream().map(this::view).toList());
+    AdminCreditRefundList list(
+            @RequestParam(defaultValue = "requested") String status,
+            @RequestParam(required = false) @Nullable UUID user) {
+        var found = user == null ? refunds.list(status, 100) : refunds.ofPerson(user, 100);
+        return new AdminCreditRefundList(found.stream().map(this::view).toList());
     }
 
     @RequiresPermission(AdminPermission.REFUNDS_READ)

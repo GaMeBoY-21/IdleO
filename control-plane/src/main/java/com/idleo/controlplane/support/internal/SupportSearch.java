@@ -26,7 +26,7 @@ class SupportSearch {
                     : jdbc.sql("select id, number, topic, status from support.tickets where number = :number")
                             .param("number", Long.parseLong(query.text().replace("#", "")));
             return statement
-                    .query((rs, n) -> new AdminSearch.Hit(
+                    .query((rs, n) -> new AdminSearch.SearchHit(
                             "ticket",
                             rs.getObject("id").toString(),
                             "#" + rs.getLong("number"),

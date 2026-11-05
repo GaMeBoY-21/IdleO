@@ -11,6 +11,7 @@ import com.idleo.controlplane.hosts.HostTelemetry;
 import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.PersonalDataAccess;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -56,6 +57,7 @@ class AdminHostsController {
     private final HostScoreService scores;
     private final SelfTestRuns selfTests;
     private final Approvals approvals;
+    private final PersonalDataAccess accessLog;
     private final JsonMapper json = JsonMapper.builder().build();
     private static final TypeReference<List<AdminSelfTestCheck>> SELF_TEST_CHECKS = new TypeReference<>() {};
 
@@ -69,7 +71,9 @@ class AdminHostsController {
             AuditTrail audit,
             HostScoreService scores,
             SelfTestRuns selfTests,
-            Approvals approvals) {
+            Approvals approvals,
+            PersonalDataAccess accessLog) {
+        this.accessLog = accessLog;
         this.approvals = approvals;
         this.scores = scores;
         this.selfTests = selfTests;
@@ -261,8 +265,10 @@ class AdminHostsController {
 
     @RequiresPermission(AdminPermission.HOSTS_READ)
     @GetMapping("/{id}")
-    AdminHost get(@PathVariable UUID id) {
-        return find(id);
+    AdminHost get(@AuthenticationPrincipal CurrentUser admin, @PathVariable UUID id) {
+        var host = find(id);
+        accessLog.viewed(admin, host.ownerId(), id.toString());
+        return host;
     }
 
     /** Activates a host whose agent has enrolled, listed and reported a GPU. */
