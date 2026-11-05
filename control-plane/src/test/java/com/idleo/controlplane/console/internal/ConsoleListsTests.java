@@ -192,7 +192,7 @@ class ConsoleListsTests {
                         .getStatus())
                 .isEqualTo(202);
         var finance = TestAdmins.signInAs(mvc, jdbc, clock, "finance");
-        assertThat(export(finance, Map.of("list", "users", "reason", "for the board's count"))
+        assertThat(export(finance, Map.of("list", "abuse", "reason", "for the board's count"))
                         .getStatus())
                 .isEqualTo(403);
         assertThat(export(owner, Map.of("list", "nothing", "reason", "for the board's count"))
