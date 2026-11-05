@@ -130,7 +130,7 @@ Stopping things needs no approval: suspending, blocking an image, stopping a ses
 
 ## Finding someone
 
-Cmd-K or Ctrl-K anywhere in the console. It takes an id, a whole email, UPI ID or PAN, part of a name, a Razorpay id, a document or ticket number, or an image's digest. A part of an email, UPI ID or PAN finds nothing, on purpose. Every search is in the access log with its text masked. If it says a kind didn't answer in time, that kind's results may be missing: search again, and see "Admin endpoints failing" in alerts.md if it stays.
+Cmd-K or Ctrl-K anywhere in the console. It takes an id, a whole email, UPI ID or PAN, part of a name, a Razorpay id, a document or ticket number, or an image's digest. A part of an email, UPI ID or PAN finds nothing, on purpose. Every search is in the access log with its text masked. If it says a kind didn't answer in time, that kind's results may be missing: search again, and see "API errors" in alerts.md if it stays.
 
 Over 120 searches a minute is refused with `rate-limited` (`limits.admin-searches-per-minute`).
 
