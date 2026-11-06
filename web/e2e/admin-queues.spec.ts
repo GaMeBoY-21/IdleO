@@ -33,7 +33,9 @@ test("inbox, claim, a macro's reply, resolved", async ({ page }) => {
   await page.getByRole("button", { name: "Confirm" }).click();
   await page.getByRole("button", { name: "I've saved them" }).click();
 
-  await page.goto("/admin/inbox/?type=ticket");
+  // In the page, not by loading it again: a reload asks for a code again (the admin session is held in memory only).
+  await expect(page.getByRole("heading", { level: 1, name: "Inbox" })).toBeVisible();
+  await page.getByLabel("Kind of work").selectOption("ticket");
   const row = page.getByRole("row").filter({ hasText: ticket! });
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.getByRole("button", { name: /^Claim/ }).click();
