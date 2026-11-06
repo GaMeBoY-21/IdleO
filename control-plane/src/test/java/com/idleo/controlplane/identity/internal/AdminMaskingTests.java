@@ -131,6 +131,17 @@ class AdminMaskingTests {
 
         ids.put("/admin/v1/payouts/{id}", any("select id::text from payouts.payouts where user_id = ?", user));
         ids.put("/admin/v1/payments/{id}", any("select id::text from billing.topups where user_id = ?", user));
+        ids.put(
+                "/admin/v1/ledger/transactions/{id}",
+                any("select txn_id::text from billing.ledger_entries where owner_id = ?", user));
+        // An adjustment by hand, as the billing module's own tests post them through an approval.
+        var adjustment = UUID.randomUUID();
+        jdbc.update("""
+                insert into billing.adjustments
+                    (id, template, reason, reference, approval_id, txn_id, requested_by, created_at)
+                values (?, 'journal', 'a fee Razorpay kept', 'ticket 1', ?, ?, 'admin test', now())
+                """, adjustment, UUID.randomUUID(), UUID.randomUUID());
+        ids.put("/admin/v1/adjustments/{id}", adjustment.toString());
 
         // The inbox's records, by hand: the passes that bring it up to date are the queues module's.
         var queueItem = UUID.randomUUID();
@@ -219,7 +230,9 @@ class AdminMaskingTests {
                                 path.contains("/users/")
                                         ? user.toString()
                                         : path.contains("/hosts/") ? host.toString() : session.toString());
-                address = address.replace("{subject}", "user").replace("{macro}", macro.toString());
+                address = address.replace("{subject}", "user")
+                        .replace("{macro}", macro.toString())
+                        .replace("{month}", "2019-03");
                 var query = parameters.get(path);
                 var response = mvc.perform(admin.as(get(query == null ? address : address + "?" + query)))
                         .andReturn()

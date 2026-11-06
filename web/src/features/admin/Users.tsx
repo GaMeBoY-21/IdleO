@@ -253,7 +253,10 @@ function UserRecord({ id }: { id: string }) {
               <Link href={`/admin/sessions/?user=${found.id}`} className={buttonClasses("ghost")}>
                 Their sessions
               </Link>
-              <Link href={`/admin/money/?owner=${found.id}`} className={buttonClasses("ghost")}>
+              <Link
+                href={`/admin/ledger/?account=renter_wallet&owner=${found.id}`}
+                className={buttonClasses("ghost")}
+              >
                 Their wallet in the ledger
               </Link>
             </div>

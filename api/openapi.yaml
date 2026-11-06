@@ -305,6 +305,137 @@ paths:
         idToken: []
       tags:
       - adminAbuse
+  /admin/v1/adjustments:
+    get:
+      operationId: adminAdjustmentsList
+      parameters:
+      - in: query
+        name: template
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAdjustmentPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAdjustments
+    post:
+      operationId: adminAdjustmentsAsk
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAdjustmentRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAdjustments
+  /admin/v1/adjustments/{id}:
+    get:
+      operationId: adminAdjustmentsOne
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAdjustment"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAdjustments
+  /admin/v1/adjustments/{id}/reverse:
+    post:
+      operationId: adminAdjustmentsReverse
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAdjustmentReversal"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminAdjustments
   /admin/v1/admins:
     get:
       operationId: adminRolesAdmins
@@ -2286,7 +2417,7 @@ paths:
       - adminInvoices
   /admin/v1/ledger:
     get:
-      operationId: adminMoneyLedger
+      operationId: adminLedgerLedger
       parameters:
       - in: query
         name: txn
@@ -2305,6 +2436,21 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: refType
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
       - in: query
         name: sort
         required: false
@@ -2338,7 +2484,95 @@ paths:
       - adminSession: []
         idToken: []
       tags:
-      - adminMoney
+      - adminLedger
+  /admin/v1/ledger/accounts:
+    get:
+      operationId: adminLedgerAccounts
+      parameters:
+      - in: query
+        name: at
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: owner
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChartOfAccounts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminLedger
+  /admin/v1/ledger/transactions/{id}:
+    get:
+      operationId: adminLedgerTransaction
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLedgerTransaction"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminLedger
+  /admin/v1/ledger/trial-balance:
+    get:
+      operationId: adminLedgerTrialBalance
+      parameters:
+      - in: query
+        name: at
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTrialBalance"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminLedger
   /admin/v1/me/sessions:
     get:
       operationId: adminSessionRecordsMine
@@ -2384,6 +2618,74 @@ paths:
         idToken: []
       tags:
       - adminSessionRecords
+  /admin/v1/money/liabilities:
+    get:
+      operationId: adminMoneyReportsLiabilities
+      parameters:
+      - in: query
+        name: at
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLiabilities"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoneyReports
+  /admin/v1/money/report:
+    get:
+      operationId: adminMoneyReportsReport
+      parameters:
+      - in: query
+        name: interval
+        required: false
+        schema:
+          type: string
+          enum:
+          - day
+          - week
+          - month
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMoneyReport"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminMoneyReports
   /admin/v1/notes:
     get:
       operationId: adminNotesList
@@ -3328,6 +3630,127 @@ paths:
         idToken: []
       tags:
       - adminPayouts
+  /admin/v1/periods:
+    get:
+      operationId: adminPeriodsList
+      parameters:
+      - in: query
+        name: months
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPeriods"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPeriods
+  /admin/v1/periods/{month}:
+    get:
+      operationId: adminPeriodsOne
+      parameters:
+      - in: path
+        name: month
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPeriod"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPeriods
+  /admin/v1/periods/{month}/close:
+    post:
+      operationId: adminPeriodsClose
+      parameters:
+      - in: path
+        name: month
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPeriods
+  /admin/v1/periods/{month}/reopen:
+    post:
+      operationId: adminPeriodsReopen
+      parameters:
+      - in: path
+        name: month
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPeriods
   /admin/v1/personal-data/access-log:
     get:
       operationId: adminPersonalDataAccessLog
@@ -8827,6 +9250,167 @@ components:
       required:
       - admins
       - roles
+    AdminAdjustment:
+      type: object
+      properties:
+        approvalId:
+          type: string
+          format: uuid
+        correctsMonth:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        legs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAdjustmentLeg"
+        reason:
+          type: string
+        reference:
+          type: string
+        requestedBy:
+          type: string
+        reversedById:
+          type:
+          - string
+          - "null"
+          format: uuid
+        reversesId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        template:
+          type: string
+        txnId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+      required:
+      - approvalId
+      - createdAt
+      - id
+      - legs
+      - reason
+      - reference
+      - requestedBy
+      - template
+      - txnId
+      - version
+    AdminAdjustmentLeg:
+      type: object
+      properties:
+        account:
+          type: string
+          minLength: 1
+        amountPaise:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        direction:
+          type: string
+          enum:
+          - debit
+          - credit
+          minLength: 1
+        ownerId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - account
+      - amountPaise
+      - direction
+    AdminAdjustmentPage:
+      type: object
+      properties:
+        adjustments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAdjustment"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - adjustments
+    AdminAdjustmentRequest:
+      type: object
+      properties:
+        correctsMonth:
+          type:
+          - string
+          - "null"
+        legs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAdjustmentLeg"
+          maxItems: 20
+          minItems: 2
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        reference:
+          type: string
+          maxLength: 200
+          minLength: 0
+        template:
+          type: string
+          enum:
+          - journal
+          - goodwill_credit
+          - fee_correction
+          - write_off
+          minLength: 1
+      required:
+      - legs
+      - reason
+      - reference
+      - template
+    AdminAdjustmentReversal:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        reference:
+          type: string
+          maxLength: 200
+          minLength: 0
+      required:
+      - reason
+      - reference
+    AdminAgedPayables:
+      type: object
+      properties:
+        days15To30Paise:
+          type: integer
+          format: int64
+        days8To14Paise:
+          type: integer
+          format: int64
+        over30DaysPaise:
+          type: integer
+          format: int64
+        upTo7DaysPaise:
+          type: integer
+          format: int64
+      required:
+      - days15To30Paise
+      - days8To14Paise
+      - over30DaysPaise
+      - upTo7DaysPaise
     AdminAgentCommand:
       type: object
       properties:
@@ -9077,6 +9661,21 @@ components:
       - duePaise
       - isShort
       - payday
+    AdminBreakage:
+      type: object
+      properties:
+        expiredPaise:
+          type: integer
+          format: int64
+        month:
+          type: string
+        toExpirePaise:
+          type: integer
+          format: int64
+      required:
+      - expiredPaise
+      - month
+      - toExpirePaise
     AdminBulkAction:
       type: object
       properties:
@@ -9254,6 +9853,24 @@ components:
       required:
       - paidFromThisPaymentPaise
       - sessionId
+    AdminChartOfAccounts:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminLedgerAccount"
+        at:
+          type: string
+          format: date-time
+        owner:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - accounts
+      - at
     AdminClawback:
       type: object
       properties:
@@ -9901,6 +10518,40 @@ components:
       - expiresAt
       - recoveryCodes
       - token
+    AdminFigure:
+      type: object
+      properties:
+        name:
+          type: string
+        terms:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFigureTerm"
+      required:
+      - name
+      - terms
+    AdminFigureTerm:
+      type: object
+      properties:
+        account:
+          type: string
+        refType:
+          type:
+          - string
+          - "null"
+        side:
+          type: string
+          enum:
+          - debits
+          - credits
+          - net
+        sign:
+          type: integer
+          format: int32
+      required:
+      - account
+      - side
+      - sign
     AdminHost:
       type: object
       properties:
@@ -10542,6 +11193,52 @@ components:
           - "null"
       required:
       - invoices
+    AdminLedgerAccount:
+      type: object
+      properties:
+        account:
+          type: string
+        balancePaise:
+          type: integer
+          format: int64
+        creditsPaise:
+          type: integer
+          format: int64
+        debitsPaise:
+          type: integer
+          format: int64
+        description:
+          type: string
+        normalSide:
+          type: string
+        owned:
+          type: boolean
+        type:
+          type: string
+      required:
+      - account
+      - balancePaise
+      - creditsPaise
+      - debitsPaise
+      - description
+      - normalSide
+      - owned
+      - type
+    AdminLedgerCheck:
+      type: object
+      properties:
+        found:
+          type: integer
+          format: int64
+        name:
+          type: string
+        position:
+          type: integer
+          format: int32
+      required:
+      - found
+      - name
+      - position
     AdminLedgerEntry:
       type: object
       properties:
@@ -10580,6 +11277,34 @@ components:
       - refId
       - refType
       - txnId
+    AdminLedgerLeg:
+      type: object
+      properties:
+        account:
+          type: string
+        amountPaise:
+          type: integer
+          format: int64
+        direction:
+          type: string
+        id:
+          type: string
+          format: uuid
+        lotId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        ownerId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - account
+      - amountPaise
+      - direction
+      - id
     AdminLedgerPage:
       type: object
       properties:
@@ -10593,6 +11318,74 @@ components:
           - "null"
       required:
       - entries
+    AdminLedgerSource:
+      type: object
+      properties:
+        page:
+          type:
+          - string
+          - "null"
+        pageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        refId:
+          type: string
+          format: uuid
+        refType:
+          type: string
+      required:
+      - refId
+      - refType
+    AdminLedgerTransaction:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        legs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminLedgerLeg"
+        source:
+          $ref: "#/components/schemas/AdminLedgerSource"
+        txnId:
+          type: string
+          format: uuid
+      required:
+      - createdAt
+      - legs
+      - source
+      - txnId
+    AdminLiabilities:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        breakage:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBreakage"
+        hostPayableAged:
+          $ref: "#/components/schemas/AdminAgedPayables"
+        hostPayablePaise:
+          type: integer
+          format: int64
+        renterFreePaise:
+          type: integer
+          format: int64
+        renterPurchasedPaise:
+          type: integer
+          format: int64
+      required:
+      - at
+      - breakage
+      - hostPayableAged
+      - hostPayablePaise
+      - renterFreePaise
+      - renterPurchasedPaise
     AdminMacro:
       type: object
       properties:
@@ -10668,6 +11461,45 @@ components:
             $ref: "#/components/schemas/AdminMentionable"
       required:
       - admins
+    AdminMoneyReport:
+      type: object
+      properties:
+        figures:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFigure"
+        from:
+          type: string
+          format: date
+        interval:
+          type: string
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMoneyRow"
+        to:
+          type: string
+          format: date
+      required:
+      - figures
+      - from
+      - interval
+      - rows
+      - to
+    AdminMoneyRow:
+      type: object
+      properties:
+        figures:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        start:
+          type: string
+          format: date
+      required:
+      - figures
+      - start
     AdminNoRefund:
       type: object
       properties:
@@ -11534,6 +12366,75 @@ components:
       - nextPayday
       - payouts
       - runs
+    AdminPeriod:
+      type: object
+      properties:
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPeriodCheck"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPeriodEvent"
+        month:
+          type: string
+        over:
+          type: boolean
+        state:
+          type: string
+        version:
+          type: integer
+          format: int64
+      required:
+      - checklist
+      - events
+      - month
+      - over
+      - state
+      - version
+    AdminPeriodCheck:
+      type: object
+      properties:
+        detail:
+          type: string
+        done:
+          type: boolean
+        name:
+          type: string
+      required:
+      - detail
+      - done
+      - name
+    AdminPeriodEvent:
+      type: object
+      properties:
+        action:
+          type: string
+        actor:
+          type: string
+        at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+      required:
+      - action
+      - actor
+      - at
+      - reason
+    AdminPeriods:
+      type: object
+      properties:
+        current:
+          type: string
+        months:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPeriod"
+      required:
+      - current
+      - months
     AdminQueueCounts:
       type: object
       properties:
@@ -11738,6 +12639,10 @@ components:
     AdminReconciliationRun:
       type: object
       properties:
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminLedgerCheck"
         finishedAt:
           type: string
           format: date-time
@@ -11762,6 +12667,7 @@ components:
         trigger:
           type: string
       required:
+      - checks
       - finishedAt
       - id
       - ledgerBalanced
@@ -12650,6 +13556,48 @@ components:
       required:
       - messages
       - ticket
+    AdminTrialBalance:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTrialBalanceRow"
+        at:
+          type: string
+          format: date-time
+        balanced:
+          type: boolean
+        creditsPaise:
+          type: integer
+          format: int64
+        debitsPaise:
+          type: integer
+          format: int64
+      required:
+      - accounts
+      - at
+      - balanced
+      - creditsPaise
+      - debitsPaise
+    AdminTrialBalanceRow:
+      type: object
+      properties:
+        account:
+          type: string
+        creditPaise:
+          type: integer
+          format: int64
+        debitPaise:
+          type: integer
+          format: int64
+        type:
+          type: string
+      required:
+      - account
+      - creditPaise
+      - debitPaise
+      - type
     AdminUpdateResult:
       type: object
       properties:

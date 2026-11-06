@@ -35,7 +35,12 @@ class BillingListings {
 
     @Bean
     AdminListing ledgerListing() {
-        return AdminMoneyController.LEDGER;
+        return AdminLedgerController.LEDGER;
+    }
+
+    @Bean
+    AdminListing adjustmentsListing() {
+        return AdminAdjustmentsController.LIST;
     }
 
     @Bean
