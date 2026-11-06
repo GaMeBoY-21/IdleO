@@ -6,7 +6,8 @@ import { cn } from "@/lib/cn";
 /**
  * The account at the foot of the sidebar (web/DESIGN.md "Navigation"): an ion avatar and the person's name, a link to
  * Account, which holds what the phone's "More" menu does. The name is what the app already knows (the account's, or
- * the start of the email); the box is the same whatever has arrived, so nothing moves.
+ * the start of the email); the box is the same whatever has arrived, so nothing moves. The link is named by what it shows
+ * ("Asha, account"), so someone who says what they see on screen to a voice control finds it (WCAG 2.5.3).
  */
 export function AccountLink() {
   const [pathname] = useLocation();
@@ -18,7 +19,6 @@ export function AccountLink() {
   return (
     <Link
       href="/account/"
-      aria-label="Account"
       aria-current={current ? "page" : undefined}
       className={cn(
         "flex min-h-touch min-w-0 flex-1 items-center gap-3 rounded-control px-3.5 py-2 text-small font-semibold",
@@ -32,6 +32,7 @@ export function AccountLink() {
         {name.charAt(0).toUpperCase()}
       </span>
       <span className="truncate">{name}</span>
+      {name !== "Account" && <span className="sr-only">, account</span>}
     </Link>
   );
 }
