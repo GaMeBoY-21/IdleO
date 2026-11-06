@@ -9,6 +9,10 @@ updates:
       # Each instrumentation release is built on one OpenTelemetry SDK; this one moves with the SDK Spring Boot manages
       # (pom.xml), or the enforcer's convergence rule refuses the build.
       - dependency-name: io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0
+      # springdoc 3.2 writes every optional query parameter as nullable (type: [string, "null"]), which changes the
+      # contract the web app, the SDK and the CLI are generated from: a decision of its own, not a routine update.
+      - dependency-name: org.springdoc:springdoc-openapi-starter-webmvc-api
+        versions: ["3.2.x"]
     groups:
       maven:
         patterns: ["*"]
