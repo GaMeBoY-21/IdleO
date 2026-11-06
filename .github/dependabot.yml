@@ -20,6 +20,10 @@ updates:
   - package-ecosystem: cargo
     directories: [/agent, /cli, /scanner]
     schedule: { interval: weekly, day: monday }
+    ignore:
+      # The CLI's build script hands typify a schemars schema, so schemars moves with the one typify is built on.
+      - dependency-name: schemars
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       cargo:
         patterns: ["*"]

@@ -36,7 +36,7 @@ uuid = { version = "1.27.0", features = ["serde", "v7"] }
 
 [build-dependencies]
 prettyplease = "0.3.0"
-schemars = "1.2.3"
+schemars = "0.8.22"
 serde_json = "1.0.151"
 serde_norway = "0.9.42"
 syn = "3.0.8"
