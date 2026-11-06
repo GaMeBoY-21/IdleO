@@ -164,6 +164,11 @@ class CreateSessionRequest(BaseModel):
     vram_needed_mb: Annotated[int | None, Field(alias="vramNeededMb", ge=1)] = None
 
 
+class Purpose(Enum):
+    files = "files"
+    appeal = "appeal"
+
+
 class CreatedApiKey(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -1734,6 +1739,7 @@ class CreateUploadRequest(BaseModel):
     )
     files: Annotated[list[UploadFileRequest], Field(max_length=10000, min_length=0)]
     name: Annotated[str, Field(min_length=1)]
+    purpose: Purpose | None = None
 
 
 class DataGroup(BaseModel):

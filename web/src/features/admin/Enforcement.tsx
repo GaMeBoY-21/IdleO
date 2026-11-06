@@ -273,6 +273,7 @@ function AppealRecord({ id }: { id: string }) {
     queryFn: () => adminData(adminApi.GET("/admin/v1/appeals/{id}", { params: { path: { id } } })),
   });
   const [outcome, setOutcome] = useState<"uphold" | "reverse" | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
   return (
     <AdminPage title="Appeal">
       <BackLink href="/admin/appeals/">← All appeals</BackLink>
@@ -282,7 +283,24 @@ function AppealRecord({ id }: { id: string }) {
             <Section title="What they said">
               <p className="text-body whitespace-pre-wrap">{found.appeal.body ?? "—"}</p>
               {found.appeal.attachments.length > 0 && (
-                <p className="text-small text-text-2">{found.appeal.attachments.length} files attached.</p>
+                <div className="flex flex-col gap-1 text-small">
+                  <p className="text-text-2">
+                    Files they attached. They aren&apos;t checked for malware: each opens as a download, and
+                    each opening is logged.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {found.appeal.attachments.map((file, index) => (
+                      <ActionButton
+                        key={file}
+                        permission="appeals.decide"
+                        variant="quiet"
+                        onClick={() => setOpening(file)}
+                      >
+                        Open file {index + 1}
+                      </ActionButton>
+                    ))}
+                  </div>
+                </div>
               )}
             </Section>
             <Section title="The decision they're appealing">
@@ -336,6 +354,29 @@ function AppealRecord({ id }: { id: string }) {
                 Decided: {found.appeal.state}. {found.appeal.decisionReason}
               </p>
             )}
+            <ActionSheet
+              open={opening !== null}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setOpening(null);
+                }
+              }}
+              title="Open this file?"
+              change="It downloads, through a link that works for 5 minutes. Opening it goes in the access log with your reason."
+              confirm="Open it"
+              onConfirm={async (reason) => {
+                if (opening) {
+                  const link = await adminData(
+                    adminApi.POST("/admin/v1/appeals/{id}/attachments/{upload}/open", {
+                      params: { path: { id, upload: opening } },
+                      body: { reason },
+                    }),
+                  );
+                  window.location.assign(link.url);
+                  setOpening(null);
+                }
+              }}
+            />
             <ActionSheet
               open={outcome !== null}
               onOpenChange={(open) => {

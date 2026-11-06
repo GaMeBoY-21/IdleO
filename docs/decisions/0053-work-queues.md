@@ -85,5 +85,5 @@ One per step, from the person's account (Reports, or the held page) or the email
 
 - An item changed on its own screen can take up to 30 s to show in the inbox.
 - Each pass reads every open item of every kind. That's fine at today's volumes; a kind that grows past tens of thousands open needs a cheaper `open()`.
-- A held account can't make new uploads (ADR 0038), so it can attach only what it uploaded before. Allowing more is a security decision for later.
+- A held account may upload only an appeal's files, through the same path as any upload: one file of at most 10 MB, at most 3 in 30 days. Uploads aren't checked for malware, these included, so an admin opens one as a download through a 5-minute link, and each opening is in the access log.
 - Report and appeal targets are our defaults, and the legal ones and the templates' clauses wait for a lawyer.

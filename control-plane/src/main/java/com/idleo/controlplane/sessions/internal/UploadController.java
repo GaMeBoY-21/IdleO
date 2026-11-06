@@ -2,6 +2,7 @@ package com.idleo.controlplane.sessions.internal;
 
 import com.idleo.controlplane.IdempotentRequests;
 import com.idleo.controlplane.identity.CurrentUser;
+import com.idleo.controlplane.identity.OpenToHeldAccounts;
 import com.idleo.controlplane.identity.RequiresAcceptedTerms;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -52,7 +53,11 @@ class UploadController {
     private final UploadStore store;
     private final UploadFileStore files;
 
-    UploadController(UploadService uploads, UploadParts parts, UploadStore store, UploadFileStore files) {
+    private final AppealUploads appeals;
+
+    UploadController(
+            UploadService uploads, UploadParts parts, UploadStore store, UploadFileStore files, AppealUploads appeals) {
+        this.appeals = appeals;
         this.uploads = uploads;
         this.parts = parts;
         this.store = store;
@@ -69,7 +74,10 @@ class UploadController {
      */
     record CreateUploadRequest(
             @NotBlank String name,
-            @NotEmpty @Size(max = MAX_PARTS) List<@Valid @NotNull UploadFileRequest> files) {}
+            @NotEmpty @Size(max = MAX_PARTS) List<@Valid @NotNull UploadFileRequest> files,
+
+            @Schema(allowableValues = {"files", "appeal"}) @Nullable
+            String purpose) {}
 
     /** Part links for one file: its path as created, and up to 100 part numbers. */
     record PartLinksRequest(
@@ -149,7 +157,9 @@ class UploadController {
     record UploadList(
             List<UploadResponse> uploads, @Nullable String nextCursor) {}
 
+    /** {@code purpose} appeal makes it a file for an appeal: the one upload a suspended account may make (ADR 0053). */
     @RequiresAcceptedTerms
+    @OpenToHeldAccounts
     @PostMapping
     @ApiResponse(
             responseCode = "201",
@@ -165,13 +175,15 @@ class UploadController {
             @RequestHeader(name = IdempotentRequests.HEADER, required = false) @Nullable String idempotencyKey,
             @Valid @RequestBody CreateUploadRequest request) {
         var key = IdempotentRequests.parseKey(idempotencyKey);
-        var created = uploads.create(
-                user.id(),
-                key,
-                request.name(),
-                request.files().stream()
-                        .map(file -> new UploadService.FileSpec(file.path(), file.sizeBytes()))
-                        .toList());
+        var specs = request.files().stream()
+                .map(file -> new UploadService.FileSpec(file.path(), file.sizeBytes()))
+                .toList();
+        var forAppeal = "appeal".equals(request.purpose());
+        appeals.checkCreate(user.id(), forAppeal, specs);
+        var created = uploads.create(user.id(), key, request.name(), specs);
+        if (forAppeal) {
+            appeals.mark(user.id(), created.upload().id());
+        }
         var body = detail(created.upload());
         return created.created()
                 ? ResponseEntity.created(
@@ -180,11 +192,13 @@ class UploadController {
                 : ResponseEntity.ok(body);
     }
 
+    @OpenToHeldAccounts
     @PostMapping("/{id}/part-urls")
     UploadPartLinks partUrls(
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID id,
             @Valid @RequestBody PartLinksRequest request) {
+        appeals.checkSend(user.id(), id);
         var links = parts.links(user.id(), id, request.path(), request.partNumbers());
         return new UploadPartLinks(
                 links.parts().stream()
@@ -193,11 +207,13 @@ class UploadController {
                 links.expireAt());
     }
 
+    @OpenToHeldAccounts
     @PostMapping("/{id}/complete")
     UploadDetail complete(
             @AuthenticationPrincipal CurrentUser user,
             @PathVariable UUID id,
             @Valid @RequestBody CompleteUploadRequest request) {
+        appeals.checkSend(user.id(), id);
         return detail(parts.complete(
                 user.id(),
                 id,

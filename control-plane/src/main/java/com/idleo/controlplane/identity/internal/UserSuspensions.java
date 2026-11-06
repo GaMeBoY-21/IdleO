@@ -77,6 +77,15 @@ class UserSuspensions implements AccountHolds, AccountStandings {
     }
 
     @Override
+    public boolean held(UUID userId) {
+        return jdbc.sql(
+                        "select exists (select 1 from identity.users where id = :id and status in ('suspended', 'banned'))")
+                .param("id", userId)
+                .query(Boolean.class)
+                .single();
+    }
+
+    @Override
     public boolean payoutsHeld(UUID userId) {
         return jdbc.sql("""
                         select exists (select 1 from identity.users

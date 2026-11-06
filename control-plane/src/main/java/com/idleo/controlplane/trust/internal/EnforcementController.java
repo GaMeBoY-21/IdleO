@@ -12,6 +12,8 @@ import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
 import com.idleo.controlplane.identity.OpenToHeldAccounts;
+import com.idleo.controlplane.identity.PersonalDataAccess;
+import com.idleo.controlplane.sessions.UserUploads;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -46,9 +48,22 @@ class EnforcementController {
     private final Approvals approvals;
     private final AuditTrail audit;
     private final JdbcClient jdbc;
+    private final UserUploads uploads;
+    private final PersonalDataAccess accessLog;
+    private final java.time.Clock clock;
 
     EnforcementController(
-            Enforcements enforcements, Appeals appeals, Approvals approvals, AuditTrail audit, JdbcClient jdbc) {
+            Enforcements enforcements,
+            Appeals appeals,
+            Approvals approvals,
+            AuditTrail audit,
+            JdbcClient jdbc,
+            UserUploads uploads,
+            PersonalDataAccess accessLog,
+            java.time.Clock clock) {
+        this.uploads = uploads;
+        this.accessLog = accessLog;
+        this.clock = clock;
         this.enforcements = enforcements;
         this.appeals = appeals;
         this.approvals = approvals;
@@ -282,6 +297,31 @@ class EnforcementController {
             }
             default -> throw ApiProblem.invalid("outcome", "must be uphold or reverse.");
         };
+    }
+
+    record AttachmentLink(String url, Instant expiresAt) {}
+
+    /**
+     * Opens one of an appeal's attachments: a link that works for 5 minutes, saved as a file, never shown in the page.
+     * Each opening goes in the personal-data access log with its reason. Uploads aren't checked for malware, so open it
+     * with care.
+     */
+    @RequiresPermission(value = AdminPermission.APPEALS_DECIDE, shownOnce = true)
+    @PostMapping("/admin/v1/appeals/{id}/attachments/{upload}/open")
+    AttachmentLink openAttachment(
+            @AuthenticationPrincipal CurrentUser admin,
+            @PathVariable UUID id,
+            @PathVariable UUID upload,
+            @Valid @RequestBody AdminReason request) {
+        var appeal = appeals.find(id).orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "There's no such appeal."));
+        if (!appeal.attachments().contains(upload)) {
+            throw ApiProblem.of(Problem.NOT_FOUND, "That isn't one of this appeal's files.");
+        }
+        var ttl = java.time.Duration.ofMinutes(5);
+        var link = uploads.link(appeal.userId(), upload, ttl)
+                .orElseThrow(() -> ApiProblem.of(Problem.NOT_FOUND, "That file isn't there any more."));
+        accessLog.read(admin, appeal.userId(), "appeal_attachment", upload.toString(), request.reason());
+        return new AttachmentLink(link.toString(), clock.instant().plus(ttl));
     }
 
     // ---- The person's own.

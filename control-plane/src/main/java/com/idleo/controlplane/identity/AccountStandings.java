@@ -11,4 +11,7 @@ public interface AccountStandings {
 
     /** Whether this account is suspended with the cause {@code host_misconduct}, which holds its payouts. */
     boolean payoutsHeld(UUID userId);
+
+    /** Whether this account is suspended or banned (ADR 0038). */
+    boolean held(UUID userId);
 }
