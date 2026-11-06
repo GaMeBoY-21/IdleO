@@ -28,7 +28,7 @@
         <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
         <bouncycastle.version>1.86</bouncycastle.version>
         <!-- springdoc 3.1 is built on Spring Boot 4.1 (its parent pom: spring-boot-starter-parent 4.1.0). -->
-        <springdoc.version>3.1.1</springdoc.version>
+        <springdoc.version>3.2.0</springdoc.version>
         <!-- Built on opentelemetry-bom 1.62.0, the SDK Spring Boot 4.1.1 manages. -->
         <!-- Off unless a run skips the tests; the log scan's enforcer rule reads it. -->
         <skipTests>false</skipTests>
