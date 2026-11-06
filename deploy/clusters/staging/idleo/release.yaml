@@ -7,8 +7,8 @@ metadata:
   namespace: idleo
 spec:
   ref:
-    # ghcr.io/gameboy-21/charts/idleo:0.1.0-62556443a3658251c9b9a46559c299dd1b3ce7bf
-    digest: sha256:a97f4847b11e2f932875d9c56efb82531eb1ba495dd75ab70097f24a7de1ce99
+    # ghcr.io/gameboy-21/charts/idleo:0.1.0-0d2511bc6ab058e91c8be7a2ab40237170a7f08d
+    digest: sha256:2b09d976980bd5e618194879a0c2f06a58e82437718507e77815bdfda09ff32e
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -18,8 +18,8 @@ metadata:
 spec:
   values:
     images:
-      tag: "62556443a3658251c9b9a46559c299dd1b3ce7bf"
+      tag: "0d2511bc6ab058e91c8be7a2ab40237170a7f08d"
       digests:
-        control-plane: sha256:343454c0a3b810299c455655f14edd7d2537dc3067f88f13f4b0fb0b3ed91ebf
-        web: sha256:690c14b44909ac5fcc6629f8dd7e2834f93f447e150e5bb907dcbb83e959b830
-        scanner: sha256:598c60f5ca57d34254e12d92f95d83ca60381704e741cc3075ec8b9639ed5c74
+        control-plane: sha256:3ab4e3015f2fea289368548c6e41944f1938bf875e33e6c18cbbf9086a6c60e5
+        web: sha256:dd4409445085469a8562c165d8aa0da6a90eca2bfdbbf26a6bc93ffb3ee8f4e8
+        scanner: sha256:d846d9364701543c005926b7be1136ea2a340b5db68b025f3e2371d31ac63747
