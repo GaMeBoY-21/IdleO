@@ -99,7 +99,8 @@ jobs:
 
   agent-online:
     needs: shards
-    if: always()
+    # A run a newer push cancelled says nothing about the code: it neither passes nor fails.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

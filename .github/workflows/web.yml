@@ -227,7 +227,8 @@ jobs:
   browser-result:
     name: web browser
     needs: [changes, browser]
-    if: ${{ always() && needs.changes.outputs.browser == 'true' }}
+    # A run a newer push cancelled says nothing about the code: it neither passes nor fails.
+    if: ${{ !cancelled() && needs.changes.outputs.browser == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
