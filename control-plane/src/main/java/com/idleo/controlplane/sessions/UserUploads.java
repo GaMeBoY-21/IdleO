@@ -6,4 +6,7 @@ import java.util.UUID;
 public interface UserUploads {
 
     boolean owns(UUID user, UUID upload);
+
+    /** A short-lived link to a ready upload of one file, saved under its name; empty for anything else. */
+    java.util.Optional<java.net.URL> link(UUID user, UUID upload, java.time.Duration ttl);
 }

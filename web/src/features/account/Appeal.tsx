@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { oneFile } from "@/features/book/chosen-files";
+import { Upload } from "@/features/book/upload";
+import { uploadApi } from "@/features/book/useUploads";
 import { useSearch } from "wouter";
 import { api, data } from "@/api/client";
 import { AccountFrame } from "@/components/shell/AccountFrame";
@@ -15,6 +18,20 @@ import { useTitle } from "@/lib/title";
 
 const MAX = 5000;
 const MOST_FILES = 3;
+/** The most an appeal's file may be: the same cap the server holds it to. */
+const MOST_BYTES = 10 * 1024 * 1024;
+
+/** The upload path every file takes, marked as an appeal's: the one a suspended account may still use. */
+const appealUploads = {
+  ...uploadApi,
+  create: (name: string, files: { path: string; sizeBytes: number }[], key: string) =>
+    data(
+      api.POST("/v1/uploads", {
+        params: { header: { "Idempotency-Key": key } },
+        body: { name, files, purpose: "appeal" },
+      }),
+    ),
+};
 
 const OUTCOME: Record<string, string> = {
   open: "We have your appeal. Someone other than whoever decided this will look at it, and we'll write to you.",
@@ -42,6 +59,23 @@ export function Appeal() {
   const [body, setBody] = useState("");
   const [flagged, setFlagged] = useState(false);
   const [attachments, setAttachments] = useState<ReadonlySet<string>>(new Set());
+  const [sending, setSending] = useState<{ name: string; failed: boolean } | null>(null);
+  const [added, setAdded] = useState<{ id: string; name: string }[]>([]);
+  const addFile = async (file: File) => {
+    if (file.size > MOST_BYTES) {
+      setSending({ name: file.name, failed: true });
+      return;
+    }
+    setSending({ name: file.name, failed: false });
+    try {
+      const id = await new Upload(oneFile(file), { api: appealUploads }, () => undefined).start();
+      setAdded((now) => [...now, { id, name: file.name }]);
+      setAttachments((now) => new Set([...now, id]));
+      setSending(null);
+    } catch {
+      setSending({ name: file.name, failed: true });
+    }
+  };
   const send = useMutation({
     mutationFn: () =>
       data(
@@ -126,6 +160,36 @@ export function Appeal() {
                     </label>
                   ))}
                 </fieldset>
+              )}
+              {attachments.size < MOST_FILES && (
+                <label className="flex flex-col gap-1 text-small">
+                  <span className="font-medium">Add a file (at most 10 MB)</span>
+                  <input
+                    type="file"
+                    disabled={sending !== null && !sending.failed}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        void addFile(file);
+                      }
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+              {sending && (
+                <p role={sending.failed ? "alert" : "status"} className="text-small">
+                  {sending.failed
+                    ? `${sending.name} couldn't be added: it's over 10 MB, or the upload failed.`
+                    : `Adding ${sending.name}…`}
+                </p>
+              )}
+              {added.length > 0 && (
+                <ul className="flex flex-col gap-1 text-small">
+                  {added.map((file) => (
+                    <li key={file.id}>Attached: {file.name}</li>
+                  ))}
+                </ul>
               )}
               {send.isError && <Banner tone="danger">{problemMessage(send.error)}</Banner>}
               <Button type="submit" busy={send.isPending} className="self-start">

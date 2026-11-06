@@ -86,6 +86,7 @@ One schema per module. Backups hold the same data for 30 days (see "Backups").
 | `sessions.checkpoints` | id, session_id, attempt, object_key, step, created_at, completed_at | `session_id in (:sessions)` | files: sessionFiles | Where a checkpoint is | With its objects: `rule: checkpoints` | Deleted with the objects |
 | `sessions.session_inputs` | session_id, **name**, upload_id, **url** | `session_id in (:sessions)` | sessions: inputs | What a session took as input (ADR 0022) | With the session | Deleted |
 | `sessions.uploads` | id, user_id, **name**, size_bytes, part_size_bytes, status, idempotency_key, request_hash, created_at, completed_at, expires_at, version, file_count, last_used_at | `user_id = :user` | files: uploads | My files | `rule: uploads` (30 days after a session last used it; unfinished, a day) | Deleted, with its objects |
+| `sessions.appeal_uploads` | upload_id, user_id, created_at | `user_id = :user` | — | Which of a person's uploads are for an appeal (ADR 0053): the one kind a suspended account may make, at most 3 in 30 days | With its upload | Deleted, with the upload |
 | `sessions.upload_files` | upload_id, **path**, stored_path, size_bytes, object_key, multipart_id, completed_at | `upload_id in (:uploads)` | files: uploads | Each file of an upload | With the upload | Deleted |
 
 ### metering, billing (money records)

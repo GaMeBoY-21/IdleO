@@ -554,6 +554,46 @@ paths:
         idToken: []
       tags:
       - enforcement
+  /admin/v1/appeals/{id}/attachments/{upload}/open:
+    post:
+      operationId: enforcementOpenAttachment
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: upload
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttachmentLink"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - enforcement
   /admin/v1/appeals/{id}/decide:
     post:
       operationId: enforcementDecide
@@ -13081,6 +13121,17 @@ components:
       required:
       - assignee
       - reason
+    AttachmentLink:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+      required:
+      - expiresAt
+      - url
     AuditChainCheck:
       type: object
       properties:
@@ -13775,6 +13826,13 @@ components:
         name:
           type: string
           minLength: 1
+        purpose:
+          type:
+          - string
+          - "null"
+          enum:
+          - files
+          - appeal
       required:
       - files
       - name

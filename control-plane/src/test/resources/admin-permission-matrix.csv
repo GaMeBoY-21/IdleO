@@ -91,6 +91,7 @@ POST /admin/v1/abuse/{id}/notes,abuse.decide,allow,403,403,allow,403,403
 POST /admin/v1/admins/sessions/{id}/end,admins.manage,allow,403,403,403,403,403
 POST /admin/v1/admins/{id}/roles/{role}/grant,admins.manage,allow,403,403,403,403,403
 POST /admin/v1/admins/{id}/roles/{role}/remove,admins.manage,allow,403,403,403,403,403
+POST /admin/v1/appeals/{id}/attachments/{upload}/open,appeals.decide,allow,403,403,allow,403,403
 POST /admin/v1/appeals/{id}/decide,appeals.decide,allow,403,403,allow,403,403
 POST /admin/v1/approvals/{id}/approve,approvals.decide,allow,allow,allow,allow,allow,403
 POST /admin/v1/approvals/{id}/cancel,approvals.decide,allow,allow,allow,allow,allow,403

@@ -70,6 +70,7 @@ pub async fn upload(ctx: &Context, resume: &ResumeStore, root: &std::path::Path,
                 })
             })
             .collect::<Result<_>>()?,
+        purpose: None,
     };
     ctx.note(format!("{label}: {} file(s), {}", files.len(), format_bytes(total)));
     let (opened, mut record) = open(ctx, resume, &fp, &specs).await?;

@@ -382,6 +382,93 @@ class EnforcementTests {
                 .isZero();
     }
 
+    private MockHttpServletResponse upload(TestUsers.TestUser person, String body) throws Exception {
+        return mvc.perform(post("/v1/uploads")
+                        .header("Authorization", person.bearer())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andReturn()
+                .getResponse();
+    }
+
+    @Test
+    void aSuspendedAccountUploadsOnlyAnAppealsFileWithinItsCaps() throws Exception {
+        var owner = TestAdmins.signInAs(mvc, jdbc, clock, "owner");
+        var person = TestUsers.signUpLasting(mvc, Duration.ofDays(1));
+        step(owner, person.id(), Map.of("template", "renter-ban"));
+
+        var files = upload(person, "{\"name\":\"model\",\"files\":[{\"path\":\"a.bin\",\"sizeBytes\":10}]}");
+        assertThat(files.getStatus()).isEqualTo(403);
+        assertThat(files.getContentAsString()).contains("account-suspended");
+        var two = upload(
+                person,
+                "{\"name\":\"proof\",\"purpose\":\"appeal\",\"files\":[{\"path\":\"a.png\",\"sizeBytes\":10},"
+                        + "{\"path\":\"b.png\",\"sizeBytes\":10}]}");
+        assertThat(two.getStatus()).isEqualTo(400);
+        var big = upload(
+                person,
+                "{\"name\":\"proof\",\"purpose\":\"appeal\",\"files\":[{\"path\":\"a.png\",\"sizeBytes\":"
+                        + (10L * 1024 * 1024 + 1) + "}]}");
+        assertThat(big.getStatus()).isEqualTo(400);
+        for (int i = 0; i < 3; i++) {
+            var made = upload(
+                    person,
+                    "{\"name\":\"proof " + i
+                            + "\",\"purpose\":\"appeal\",\"files\":[{\"path\":\"proof.png\",\"sizeBytes\":10}]}");
+            assertThat(made.getStatus()).as(made.getContentAsString()).isEqualTo(201);
+        }
+        var fourth = upload(
+                person,
+                "{\"name\":\"proof 4\",\"purpose\":\"appeal\",\"files\":[{\"path\":\"proof.png\",\"sizeBytes\":10}]}");
+        assertThat(fourth.getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    void anAdminOpensAnAttachmentByALinkAndEachOpeningIsLogged() throws Exception {
+        var owner = TestAdmins.signInAs(mvc, jdbc, clock, "owner");
+        var reviewer = TestAdmins.signInAs(mvc, jdbc, clock, "owner");
+        var person = TestUsers.signUpLasting(mvc, Duration.ofDays(1));
+        var made = upload(
+                person,
+                "{\"name\":\"proof\",\"purpose\":\"appeal\",\"files\":[{\"path\":\"receipt.png\",\"sizeBytes\":10}]}");
+        assertThat(made.getStatus()).as(made.getContentAsString()).isEqualTo(201);
+        var file =
+                json.readTree(made.getContentAsString()).get("upload").get("id").asString();
+        jdbc.update(
+                "update sessions.uploads set status = 'ready', completed_at = now() where id = ?",
+                UUID.fromString(file));
+        var enforcement = step(owner, person.id(), Map.of("template", "renter-warn"))
+                .get("id")
+                .asString();
+        body(mvc.perform(post("/v1/me/enforcements/" + enforcement + "/appeal")
+                        .header("Authorization", person.bearer())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"body\":\"Here's the receipt.\",\"attachments\":[\"" + file + "\"]}"))
+                .andReturn()
+                .getResponse());
+        var id = appealId(enforcement);
+
+        var opened = body(send(
+                reviewer,
+                "/admin/v1/appeals/" + id + "/attachments/" + file + "/open",
+                Map.of("reason", "reading the appeal's receipt")));
+        assertThat(opened.get("url").asString()).contains("receipt.png");
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from identity.personal_data_access where admin_id = ? and subject_user_id = ? and field = 'appeal_attachment'",
+                        Integer.class,
+                        reviewer.id(),
+                        person.id()))
+                .isEqualTo(1);
+        assertThat(send(
+                                reviewer,
+                                "/admin/v1/appeals/" + id + "/attachments/" + UUID.randomUUID() + "/open",
+                                Map.of("reason", "reading the appeal's receipt"))
+                        .getStatus())
+                .isEqualTo(404);
+    }
+
     @Test
     void whoeverEnforcedCantDecideItsAppealWhileAnotherAdminCan() throws Exception {
         var enforcer = TestAdmins.signInAs(mvc, jdbc, clock, "owner");
