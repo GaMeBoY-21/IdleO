@@ -36,6 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # uv fetches the Python itself, so the runner's own is never used.
       - name: Install uv
+        working-directory: .
         run: python3 -m pip install --require-hashes -r .github/requirements/uv.txt
       # The same checks as scripts/check-all.sh: the locked dependencies, format, lint, types, tests, the generated
       # layer and the docs page against their sources.
