@@ -1,4 +1,4 @@
-import { expect, test, type Request } from "@playwright/test";
+import { expect, test, type Page, type Request } from "@playwright/test";
 import * as data from "./fixtures";
 import * as credit from "./fixtures-credit";
 import * as hosting from "./fixtures-hosting";
@@ -14,6 +14,36 @@ import { fakeApi, recordLayoutShifts, signIn, type Answer } from "./support";
  * afresh with the API slowed down, so its skeleton paints first and the data replaces it; the font swap counts
  * too. Measured in every screens project: phone and laptop, light and dark.
  */
+/**
+ * Waits until this browser has kept the signed-in account (src/api/persisted-cache.ts saves at most once a second), as
+ * it has for anyone who comes back: the screen then paints from it. Without the wait, a screen opened within that second
+ * painted its skeleton instead and moved when the account came.
+ */
+async function waitForKeptAccount(page: Page): Promise<void> {
+  const kept = () =>
+    page.evaluate(
+      () =>
+        new Promise<string>((resolve) => {
+          // idb-keyval's own database and store, made the same way if this is the first to open it.
+          const opened = indexedDB.open("keyval-store");
+          opened.onupgradeneeded = () => opened.result.createObjectStore("keyval");
+          opened.onerror = () => resolve("");
+          opened.onsuccess = () => {
+            const read = opened.result.transaction("keyval").objectStore("keyval").get("idleo.home-cache");
+            read.onsuccess = () => {
+              opened.result.close();
+              resolve(typeof read.result === "string" ? read.result : "");
+            };
+            read.onerror = () => {
+              opened.result.close();
+              resolve("");
+            };
+          };
+        }),
+    );
+  await expect.poll(kept, { timeout: 5_000 }).toContain('"kept-me"');
+}
+
 const screens = [
   // The phone's "Book again" tile, and the laptop's "Run again" in the recent sessions: both come with the sessions.
   { name: "home", path: "/", ready: () => /Book again|Run again/ },
@@ -161,6 +191,7 @@ for (const screen of screens) {
     }
     await fakeApi(page, answers);
     await signIn(page, "asha");
+    await waitForKeptAccount(page);
     await page.unrouteAll({ behavior: "wait" });
     await fakeApi(page, answers, { delayMs: 600 });
     const shifts = await recordLayoutShifts(page);
