@@ -40,7 +40,7 @@ reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
 rustls-platform-verifier = "0.7.1"
 # Signs S3 requests with a storage grant's temporary keys; does no I/O of its own (ADR 0016).
-rusty-s3 = { version = "0.10.2", default-features = false, features = ["rustcrypto", "full"] }
+rusty-s3 = { version = "0.11.0", default-features = false, features = ["rustcrypto", "full"] }
 serde = { version = "1.0.229", features = ["derive"] }
 # The development runner's SHA-256 of a staged input, which proves the job saw the exact file (ADR 0019).
 sha2 = "0.11.0"
