@@ -23,7 +23,7 @@ Versions and the reasons for them are in `docs/decisions/0008-control-plane-buil
 
 That one command runs everything, and any failure fails the build:
 - the compile, with `-Xlint:all -Werror`
-- the enforcer: Java 25, Maven 3.9.16, dependency convergence, no duplicate dependencies
+- the enforcer: Java 25, Maven 3.10.0, dependency convergence, no duplicate dependencies
 - every test, including Flyway against a real PostgreSQL 18 in Testcontainers and the Spring Modulith boundary check
 - the Spotless format check
 - a JaCoCo report in `target/site/jacoco/`
