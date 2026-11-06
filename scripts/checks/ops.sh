@@ -50,7 +50,7 @@ python3 "$root/scripts/ops/report-suite-test.py"
 python3 - "$root" <<'PY'
 import re, sys, yaml
 root = sys.argv[1]
-SUITES = {"hostile": "hostile", "failover": "failover", "k8s": "k8s", "gitops": "gitops", "security": "security",
+SUITES = {"next-runner": "next-runner", "hostile": "hostile", "failover": "failover", "k8s": "k8s", "gitops": "gitops", "security": "security",
           "e2e": "e2e", "web-browser": "web", "scan": "scan"}
 rules = [rule for name in ("long-suites", "security")
          for group in yaml.safe_load(open(f"{root}/ops/alerts/{name}.yaml"))["groups"] for rule in group["rules"]]

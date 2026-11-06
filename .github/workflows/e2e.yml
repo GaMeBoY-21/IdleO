@@ -30,7 +30,7 @@ jobs:
   # Parallel jobs, each with its own stack, and one check over them all below. Groups that build on each other share a job.
   shards:
     name: e2e ${{ matrix.shard }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -101,7 +101,7 @@ jobs:
     needs: shards
     # A run a newer push cancelled says nothing about the code: it neither passes nor fails.
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

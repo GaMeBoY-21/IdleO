@@ -118,3 +118,17 @@ groups:
         annotations:
           summary: The web app's browser run hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
+      - alert: NextRunnerSuiteFailing
+        expr: last_over_time(idleo_suite_passed{suite="next-runner"}[8d]) == 0
+        labels:
+          severity: digest
+        annotations:
+          summary: The fast suites failed on ubuntu-latest, so moving the runners' pin from ubuntu-24.04 isn't safe yet.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
+      - alert: NextRunnerSuiteMissing
+        expr: absent_over_time(idleo_suite_passed{suite="next-runner"}[8d])
+        labels:
+          severity: digest
+        annotations:
+          summary: The fast suites on ubuntu-latest haven't reported for 8 days.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
