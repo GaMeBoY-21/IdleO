@@ -128,7 +128,9 @@ node_can_take_pods() {
 }
 
 # 3. The images, built from this tree for this machine and pushed to the cluster's registry, tagged with the commit
-#    (and the time, when the tree has changes, so a rebuild always rolls out), each one's digest kept.
+#    (and the time, when the tree has changes, so a rebuild always rolls out), each one's digest kept. The tag goes to
+#    Helm as a string: a commit whose short id is all digits otherwise became a number, and an image name Kubernetes
+#    couldn't parse.
 tag="$(git rev-parse --short=12 HEAD)"
 [[ -z "$(git status --porcelain)" ]] || tag="$tag-$(date +%Y%m%d%H%M%S)"
 for image in control-plane web scanner; do
@@ -154,7 +156,7 @@ if [[ "$gitops" == false ]]; then
   # 5. The chart. Helm waits for the migration Job (a hook); the rollouts are waited for after.
   log "installing the idleo chart ($tag)"
   helm upgrade --install idleo deploy/helm/idleo --namespace "$namespace" -f deploy/helm/idleo/values-local.yaml \
-    --set images.tag="$tag" --timeout 15m >>"$logs/up.log" 2>&1 ||
+    --set-string images.tag="$tag" --timeout 15m >>"$logs/up.log" 2>&1 ||
     fail "the chart didn't install; see private/k8s/logs/up.log and kubectl -n $namespace get pods"
   control_plane=deployment/idleo-control-plane
 else
