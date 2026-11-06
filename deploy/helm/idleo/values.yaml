@@ -227,14 +227,14 @@ development:
   # A ConfigMap holding templates/development.yaml, for the agent's development runner.
   catalog: ""
   signIn:
-    image: ghcr.io/navikt/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
+    image: ghcr.io/navikt/mock-oauth2-server:6.1.4@sha256:647dd8c78a54f0e6fcd58d79c884e612f8f998a0662276f3e1db22e464a50192
     port: 18099
   storage:
     image: docker.io/pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     port: 19100
     allowedOrigins: ""
   mail:
-    image: docker.io/axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+    image: docker.io/axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
     port: 18025
 
 # An operator command (docs/runbooks/granting-credits.md, hosts.md), as a one-off pod: scripts/k8s/ops.sh renders

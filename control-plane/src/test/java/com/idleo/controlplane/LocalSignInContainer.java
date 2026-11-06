@@ -13,7 +13,7 @@ class LocalSignInContainer extends GenericContainer<LocalSignInContainer> {
 
     /** Same image as compose.yaml; {@link ComposeImageTests} keeps the two identical. */
     static final String IMAGE =
-            "ghcr.io/navikt/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0";
+            "ghcr.io/navikt/mock-oauth2-server:6.1.4@sha256:647dd8c78a54f0e6fcd58d79c884e612f8f998a0662276f3e1db22e464a50192";
 
     /** The issuer id in local-sign-in.json, which is also the audience it writes into tokens. */
     static final String ISSUER_ID = "idleo-local";

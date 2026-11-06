@@ -9,8 +9,8 @@ quiet_entry ops "$@"
 set -- ${QUIET_ARGS[@]+"${QUIET_ARGS[@]}"}
 cd "$(dirname "$0")/../.."
 root="$(pwd)"
-lgtm=grafana/otel-lgtm:0.35.0@sha256:2de1094c593c671cbfca878a28ffcd7e46ff5e32f2ce966c0cf33003f6cf4266
-alertmanager=prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+lgtm=grafana/otel-lgtm:0.39.0@sha256:4c8056c9c05fcb3c8fd93800e85334bfd79b4d0271b47a54a121a64af41fe1fe
+alertmanager=prom/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
 for image in "$lgtm" "$alertmanager"; do
   grep -qF "$image" control-plane/compose.yaml || { echo "ops: $image isn't compose.yaml's" >&2; exit 1; }
 done
