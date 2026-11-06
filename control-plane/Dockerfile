@@ -24,10 +24,10 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -Dmaven.test.skip=true
     && java -Djarmode=tools -jar target/control-plane-*.jar extract --layers --destination /layers \
     && mv /layers/application/control-plane-*.jar /layers/application/control-plane.jar
 
-FROM eclipse-temurin:25.0.4.1_1-jre-noble@sha256:ce8543ddd3070ccbeaac2106a74c9387ddeb8d47a1c43348345715c1ef245c7f AS jre
+FROM eclipse-temurin:26.0.2.1_1-jre-noble@sha256:adfd44c114916dc79fa9a24087fbac34252096edb9892d1c2d9d82db3f8947b3 AS jre
 
 # glibc, libstdc++ and CA certificates, and nothing else: no shell, no package manager.
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:08476c244888bfb425bae1ae4dd7c17f093e972aab8426883d97f3c6f280f7c1
 ARG VERSION=development
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="idleo-control-plane" \
