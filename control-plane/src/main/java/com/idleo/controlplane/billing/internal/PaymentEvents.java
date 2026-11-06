@@ -1,6 +1,7 @@
 package com.idleo.controlplane.billing.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.LogText;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
@@ -72,7 +73,7 @@ class PaymentEvents {
         }
         var id = eventId == null || eventId.isBlank() ? "body:" + sha256(body) : eventId.strip();
         if (seen(id)) {
-            log.info("Razorpay event {} ({}) was handled already", id, event);
+            log.info("Razorpay event {} ({}) was handled already", LogText.of(id), LogText.of(event));
             return;
         }
         var payload = root.path("payload");
@@ -89,7 +90,7 @@ class PaymentEvents {
                     "payment.dispute.lost",
                     "payment.dispute.closed" ->
                 chargebacks.fromWebhook(payload.path("dispute").path("entity"));
-            default -> log.info("Razorpay event {} ({}) needs nothing from us", id, event);
+            default -> log.info("Razorpay event {} ({}) needs nothing from us", LogText.of(id), LogText.of(event));
         }
         record(id, event, payload);
     }

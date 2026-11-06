@@ -51,6 +51,11 @@ updates:
       python:
         patterns: ["*"]
 
+  # uv for the workflows, pinned by hash (.github/requirements/uv.txt).
+  - package-ecosystem: pip
+    directory: /.github/requirements
+    schedule: { interval: weekly, day: monday }
+
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: monday }

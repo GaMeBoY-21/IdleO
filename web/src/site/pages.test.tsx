@@ -56,7 +56,7 @@ describe("the public pages", () => {
       }
       // Every way into the app leads to the app's own address, never to a path on the website.
       expect(html).toContain(`href="${APP}/sign-in/"`);
-      expect(html).toContain(`href="${APP}/sign-in/?start=1"`.replace("&", "&amp;"));
+      expect(html).toContain(`href="${APP}/sign-in/?start=1"`.replaceAll("&", "&amp;"));
       expect(html.match(/href="\/(sign-in|hosting|book|credit|account)\/[^"]*"/g) ?? [], page.path).toEqual(
         [],
       );

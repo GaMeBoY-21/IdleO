@@ -1,5 +1,6 @@
 package com.idleo.controlplane.payouts.internal;
 
+import com.idleo.controlplane.LogText;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
@@ -64,7 +65,7 @@ class PayoutEvents {
         }
         var id = eventId == null || eventId.isBlank() ? "body:" + sha256(body) : eventId.strip();
         if (seen(id)) {
-            log.info("RazorpayX event {} ({}) was handled already", id, event);
+            log.info("RazorpayX event {} ({}) was handled already", LogText.of(id), LogText.of(event));
             return;
         }
         var payload = root.path("payload");
@@ -85,7 +86,7 @@ class PayoutEvents {
                 }
                 methods.applyValidation(razorpayx.validation(validation));
             }
-            default -> log.info("RazorpayX event {} ({}) needs nothing from us", id, event);
+            default -> log.info("RazorpayX event {} ({}) needs nothing from us", LogText.of(id), LogText.of(event));
         }
         record(id, event, payout, validation);
     }
