@@ -57,13 +57,17 @@ Grafana bills metrics as the larger of active series and data points a minute ov
    - `OTLP_AUTHORIZATION` = `Basic ` followed by the base64 of `<instance id>:<token>` (`printf '%s:%s' "$ID" "$TOKEN" | base64`).
    The prod profile refuses to start without an HTTPS endpoint (`ProductionSettingsGuard`). Within two minutes of a start, Explore → Metrics shows `jvm_memory_used_bytes{job="control-plane"}`.
 3. **Dashboards:** Dashboards → New → Import, upload each of `ops/grafana/dashboards/*.json`, and choose the stack's Prometheus (`grafanacloud-<stack>-prom`) for the `datasource` variable.
-4. **Alerts:** `scripts/ops/load-alerts.sh` loads the same rule files into the stack's Prometheus (Mimir) and the routing, `ops/alertmanager/production.yaml`, into its Alertmanager, with Grafana's `mimirtool`. It reads, from your shell only:
-   - `MIMIR_ADDRESS`: the stack's Prometheus URL, without `/api/prom` (stack page → Prometheus → Details);
-   - `MIMIR_TENANT_ID` and `MIMIR_API_USER`: the Prometheus instance id, from the same page;
-   - `MIMIR_API_KEY`: an access policy token with `rules:read`, `rules:write`, `alerts:read` and `alerts:write`;
-   - `ALERTS_TO`: where alerts go (your email); `ALERTS_FROM`: an address on our sending domain, for example `alerts@mail.<domain>`;
-   - `ALERTS_SMTP_HOST`, `ALERTS_SMTP_USERNAME`, `ALERTS_SMTP_PASSWORD`: the email provider's SMTP relay, the same as the product's (docs/runbooks/email.md: Resend's are `smtp.resend.com`, `resend` and an API key).
-   Run it again whenever `ops/alerts/` or the routing changes. Then Alerting → Alert rules lists the 14 rules under the stack's Prometheus.
+4. **Alerts:** `ops/grafana/apply-rules.sh` loads every rule in `ops/alerts/` into the stack's own alerting (ADR 0054). Pages go in the folder *IdleO pages* and tickets (`severity: digest`) in *IdleO tickets*. It also sets one email contact point, *IdleO email*, and the routing: a page at once, and again every 4 hours while it lasts; tickets in one email a day. Grafana Cloud sends the email itself, so no mail provider is involved. Once:
+   - In the stack, go to Administration → Users and access → Service accounts. Add `alert-rules` with the Editor role, then add a service account token. It shows only once: keep it in your password manager, never in the repo or in CI.
+   - In your own terminal, from the repo:
+     ```
+     read -rsp 'Grafana token: ' GRAFANA_TOKEN; echo; export GRAFANA_TOKEN
+     GRAFANA_URL=https://<stack>.grafana.net ALERTS_TO=<your address> ops/grafana/apply-rules.sh --test
+     ```
+     It prints how many rules it loaded and sends one test alert, `IdleOTestAlert`. Check that it arrived. `read -s` keeps the token out of your shell history.
+   - If a call is refused with 403, the Editor role isn't enough for alert provisioning on that stack. Add the fixed role *Alerting provisioning writer* to the same service account; the script names the call that was refused.
+   - If the stack has more than one Prometheus data source, set `GRAFANA_PROMETHEUS_UID` to the one to use.
+   Run it again, without `--test`, whenever `ops/alerts/` changes; a second run changes nothing. Alerting → Alert rules then lists the 65 rules in their two folders. They can't be edited in the browser: change the files.
 5. **Phone:** alerts are email; turn on notifications for that address in your phone's mail app, or forward it to one. The external uptime check below pushes to its app too, for when everything is down.
 6. **Test it:** stop the control plane on the server for 5 minutes. `ControlPlaneSilent` should email you within about 3 to 4 minutes (measured locally: see "What it takes to hear" below), and the uptime check within 5. Start it again; both say resolved.
 
@@ -96,4 +100,4 @@ Most of the first is the alert's own 3-minute window (meters come once a minute,
 
 - **No data in Grafana Cloud, the control plane up:** its log says why an export failed. The usual cause is an expired or revoked token in `OTLP_AUTHORIZATION`.
 - **Over the free tier:** Grafana Cloud's usage page names the metric. A new meter with an unbounded tag (an id, a path) is a bug: tags are codes, routes and versions only.
-- **The rules changed but Grafana Cloud's didn't:** run `scripts/ops/load-alerts.sh` again.
+- **The rules changed but Grafana Cloud's didn't:** run `ops/grafana/apply-rules.sh` again.

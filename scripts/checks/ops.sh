@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Operations' checks (ADR 0036; scripts/check-all.sh runs this): the alert rules are valid Prometheus rules and each
-# fires when its tests say (promtool), Grafana Cloud's ruler accepts them (mimirtool), both alert routings are valid
-# (amtool), the dashboards are valid JSON on the one data source variable and read only our own meters' labels, and
+# fires when its tests say (promtool), each converts into Grafana Cloud's alerting and its loader changes nothing on a
+# second run (ADR 0054), development's routing is valid (amtool), the dashboards are valid JSON on the one data source variable and read only our own meters' labels, and
 # the scripts parse. Every tool is the image development already runs, pinned.
 set -euo pipefail
 . "$(dirname "$0")/../lib/quiet.sh"
@@ -42,7 +42,9 @@ for path in sorted(glob.glob(f"{root}/ops/alerts/*.yaml")):
                 problems.append(f"{rule['alert']} has no severity page or digest")
 sys.exit("\n".join(problems) if problems else 0)
 PY
-scripts/ops/load-alerts.sh --check
+# Every rule converts into Grafana Cloud's alerting, and the loader is idempotent against a fake Grafana (ADR 0054).
+ops/grafana/apply-rules.sh --check
+python3 "$root/ops/grafana/rules-test.py"
 
 # Every long suite reports through the one reporter, runs on a schedule, and has both alerts, with a window of its interval
 # plus a margin: weekly plus a day, nightly plus a few hours (ADR 0050).
@@ -72,9 +74,6 @@ sys.exit("\n".join(problems) if problems else 0)
 PY
 
 docker run --rm -v "$root/ops/alertmanager:/config:ro" --entrypoint amtool "$alertmanager" check-config /config/development.yaml
-# Production's routing with stand-in values: its ${…} are filled from the environment only when it's loaded.
-sed -e 's/\${ALERTS_SMTP_HOST}/smtp.example.invalid/' -e 's/\${ALERTS_[A-Z_]*}/x@example.invalid/g' ops/alertmanager/production.yaml |
-  docker run --rm -i --entrypoint sh "$alertmanager" -c 'cat > /tmp/am.yaml && amtool check-config /tmp/am.yaml'
 
 python3 - "$root" <<'PY'
 import glob, json, re, sys
