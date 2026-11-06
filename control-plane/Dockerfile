@@ -10,7 +10,7 @@
 
 # The build: Temurin's JDK 25 with the Maven release ./mvnw pins (.mvn/wrapper/maven-wrapper.properties; the pom's
 # enforcer refuses any other).
-FROM maven:3.9.16-eclipse-temurin-25-noble@sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976 AS build
+FROM maven:3.10.0-eclipse-temurin-25-noble@sha256:a5e81a8c9b3ff0e745d8f208d9733ad542cf7d9c83d29fd79b4a5f2467274746 AS build
 WORKDIR /src/control-plane
 COPY control-plane/pom.xml ./
 # Dependencies first, in their own cached step, so a source change doesn't download them again.

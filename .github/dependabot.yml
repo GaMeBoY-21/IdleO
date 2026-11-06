@@ -5,6 +5,10 @@ updates:
   - package-ecosystem: maven
     directory: /control-plane
     schedule: { interval: weekly, day: monday }
+    ignore:
+      # Each instrumentation release is built on one OpenTelemetry SDK; this one moves with the SDK Spring Boot manages
+      # (pom.xml), or the enforcer's convergence rule refuses the build.
+      - dependency-name: io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0
     groups:
       maven:
         patterns: ["*"]
@@ -67,6 +71,9 @@ updates:
       # with web/.node-version (engine-strict).
       - dependency-name: maven
       - dependency-name: node
+      # The JRE stays on the long-term release the build pins (Java 25, the enforcer's requireJavaVersion).
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
     groups:
       docker:
         patterns: ["*"]
