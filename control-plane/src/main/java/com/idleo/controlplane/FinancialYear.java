@@ -10,6 +10,13 @@ import java.time.ZoneId;
  */
 public record FinancialYear(int startYear) {
 
+    /** A year this service can have records in: four digits, so the name's arithmetic can't run over. */
+    public FinancialYear {
+        if (startYear < 2000 || startYear > 2998) {
+            throw new IllegalArgumentException("a financial year starts between 2000 and 2998");
+        }
+    }
+
     public static final ZoneId INDIA = ZoneId.of("Asia/Kolkata");
 
     public static FinancialYear of(Instant at) {

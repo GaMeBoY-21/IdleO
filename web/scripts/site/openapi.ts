@@ -117,7 +117,7 @@ function typeOf(schema: Schema | undefined, page = ""): string {
 }
 
 const cell = (text: string | undefined): string =>
-  (text ?? "").replace(/\s+/g, " ").replace(/\|/g, "\\|").trim();
+  (text ?? "").replace(/\s+/g, " ").replace(/\\/g, "\\\\").replace(/\|/g, "\\|").trim();
 
 /** Every schema name an operation reaches, directly or through other schemas. */
 function reachable(spec: Spec, start: Iterable<string>): Set<string> {

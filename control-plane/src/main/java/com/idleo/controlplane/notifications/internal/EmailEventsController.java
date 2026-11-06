@@ -1,6 +1,7 @@
 package com.idleo.controlplane.notifications.internal;
 
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.LogText;
 import com.idleo.controlplane.Problem;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -83,7 +84,7 @@ class EmailEventsController {
         // Never the address: it's the person's.
         log.info(
                 "Email event {}: {} for {} address(es)",
-                event.id(),
+                LogText.of(event.id()),
                 event.kind(),
                 event.addresses().size());
     }
