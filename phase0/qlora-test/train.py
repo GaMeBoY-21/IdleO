@@ -138,7 +138,7 @@ def main():
         max_length=128 if args.smoke else 512,
         learning_rate=2e-4,
         lr_scheduler_type="cosine",
-        warmup_ratio=0.03,
+        warmup_steps=0.03,  # under 1, a share of max_steps (transformers 5 folds warmup_ratio into it)
         logging_steps=5,
         gradient_checkpointing=not args.smoke,
         bf16=not args.smoke,
