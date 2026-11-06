@@ -12,7 +12,7 @@ updates:
       # springdoc 3.2 writes every optional query parameter as nullable (type: [string, "null"]), which changes the
       # contract the web app, the SDK and the CLI are generated from: a decision of its own, not a routine update.
       - dependency-name: org.springdoc:springdoc-openapi-starter-webmvc-api
-        versions: ["3.2.x"]
+        versions: ["[3.2,3.3)"]
     groups:
       maven:
         patterns: ["*"]
