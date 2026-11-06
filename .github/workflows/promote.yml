@@ -17,7 +17,7 @@ permissions:
 jobs:
   production:
     name: Promote staging to production
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The branch and its pull request are the deploy app's, with a token of its own; this job's own token only reads.
     permissions:
@@ -30,7 +30,8 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ vars.DEPLOY_APP_ID }}
+          # The app id works here too until the repository has DEPLOY_APP_CLIENT_ID.
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID || vars.DEPLOY_APP_ID }}
           private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write

@@ -37,7 +37,7 @@ env:
 jobs:
   build:
     name: image ${{ matrix.image }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +86,7 @@ jobs:
     name: publish ${{ matrix.image }}
     needs: build
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -146,7 +146,7 @@ jobs:
     name: publish chart
     needs: publish
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -189,7 +189,7 @@ jobs:
     name: deploy to staging
     needs: chart
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The deploy branch and its pull request are the deploy app's, with a token of its own; this job's own token only
     # reads (and checks the attestations).
     permissions:
@@ -202,7 +202,8 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ vars.DEPLOY_APP_ID }}
+          # The app id works here too until the repository has DEPLOY_APP_CLIENT_ID.
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID || vars.DEPLOY_APP_ID }}
           private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
