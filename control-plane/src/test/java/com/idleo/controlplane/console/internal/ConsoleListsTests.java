@@ -72,6 +72,14 @@ class ConsoleListsTests {
      */
     private static final Map<String, String> NOT_LISTS = Map.ofEntries(
             Map.entry("/admin/v1/abuse/{id}", "one record"),
+            Map.entry("/admin/v1/adjustments/{id}", "one record, with its legs"),
+            Map.entry("/admin/v1/ledger/accounts", "the chart of accounts: one row an account, a fixed list"),
+            Map.entry("/admin/v1/ledger/trial-balance", "one row an account, a fixed list"),
+            Map.entry("/admin/v1/ledger/transactions/{id}", "one transaction, with its legs"),
+            Map.entry("/admin/v1/money/report", "a report: one row a day, week or month, at most 400 days"),
+            Map.entry("/admin/v1/money/liabilities", "one report, with a fixed sixteen months of breakage"),
+            Map.entry("/admin/v1/periods", "the last few months, at most 24"),
+            Map.entry("/admin/v1/periods/{month}", "one month, with its checklist and history"),
             Map.entry("/admin/v1/approvals/{id}", "one record"),
             Map.entry("/admin/v1/audit/standing", "the chain's state and its newest copies"),
             Map.entry("/admin/v1/chargebacks/{id}", "one record"),

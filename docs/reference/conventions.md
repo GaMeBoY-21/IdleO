@@ -8,7 +8,7 @@ The detail behind CLAUDE.md's rules, one section per area, moved here word for w
 
 ## The ledger
 
-Money moves only through billing's Ledger.post: one balanced transaction of two or more entries, with the wallet cache updated in the same database transaction. txn_id is derived from what caused the posting, so a retry is a no-op. Ledger entries are never edited or deleted; a correction is a new reversing transaction. The database enforces balance, append-only and non-negative wallets, and a test fails if anything but Ledger writes billing.ledger_entries or billing.wallets (ADR 0014).
+Money moves only through billing's Ledger.post: one balanced transaction of two or more entries, with the wallet cache updated in the same database transaction. txn_id is derived from what caused the posting, so a retry is a no-op. Ledger entries are never edited or deleted; a correction is a new reversing transaction. The database enforces balance, append-only and non-negative wallets, and a test fails if anything but Ledger writes billing.ledger_entries or billing.wallets (ADR 0014). Money operations (ADR 0055): every account is one value of `Account` (its type, normal side and what it holds), and the database's check constraint names the same list, held equal by a test. The ledger's checks are V78's functions (`billing.ledger_checks()`), the one list the nightly run, the console and `verify-ledger.sh` read. A manual correction is an adjustment another admin approves (`Adjustments`), posted only as approved and never on a renter's lots, refunds, frozen credit or payouts; a goodwill credit is a grant. A closed month refuses every entry dated in it, by trigger; a month-close item is a module's `MonthCloseCheck` bean.
 
 ## Charging (ADR 0017)
 

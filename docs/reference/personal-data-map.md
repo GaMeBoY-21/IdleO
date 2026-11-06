@@ -127,6 +127,10 @@ Money records are kept for `legal.retention.money-records` (8 years, LEGAL(confi
 | `billing.clawbacks` | id, owner_id, host_id, session_id, cause, cause_txn_id, amount_paise, from_balance_paise, owed_paise, recovered_paise, waived_paise, state, created_at, settled_at, waived_by, **waive_reason**, version | `owner_id = :user` | — | Earnings refunded to a renter after they were paid out: what the balance covered, what's owed and recovered, what an admin waived (ADR 0040); the waive reason is an admin's text | Money record | Kept by id; what's still owed stays a receivable |
 | `billing.reconciliation_runs` | id, trigger, finished_at, ledger_debits_paise, ledger_credits_paise, mismatches | — | — | The nightly wallet check | `rule: reconciliation-runs` | Kept |
 | `billing.reconciliation_mismatches` | run_id, position, kind, user_id, wallet_paise, expected_paise | `user_id = :user` | — | | With its run | Kept |
+| `billing.reconciliation_checks` | run_id, position, name, found | — | — | Each of the ledger's checks in a run, and how many findings (ADR 0055) | With its run | Kept: no person in it |
+| `billing.adjustments` | id, template, **reason**, **reference**, corrects_month, reverses_id, approval_id, txn_id, requested_by, created_at | — | — | Manual adjustments, each another admin's approval (ADR 0055); the reason and reference are an admin's text, about the money, and the owners are the ledger's ids | Money record | Kept |
+| `billing.periods` | month, state, version, updated_at | — | — | Closed months (ADR 0055) | Money record | Kept: no person in it |
+| `billing.period_events` | id, month, action, **reason**, actor, approval_id, created_at | — | — | Each month closed or reopened, by which admin and why | Money record | Kept |
 
 ### payouts (money records)
 

@@ -22,14 +22,16 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The nightly proof that the wallet cache equals the ledger: for
- * every renter, the cached balance must equal their {@code renter_wallet} and {@code renter_purchased} credits minus
- * debits, every credit lot what its entries leave in it (ADR 0039), the cached
- * reservation must equal the sum of their active holds (ADR 0015), every hold's changes must add up to its
- * amount (ADR 0017), and the whole ledger must balance. One control-plane instance runs it at a time, under a PostgreSQL advisory
- * lock; the others skip. Each complete run is kept, with every mismatch, for the admin console (ADR 0027). Mismatches are logged (user id and both values, nothing more) and counted in
- * {@code billing.reconciliation.mismatches}; {@code billing.reconciliation.last_success} is when the
- * last complete run finished.
+ * The nightly proof that the ledger keeps its rules (ADR 0055): every one of the ledger's checks, the same functions
+ * ops/backup/verify-ledger.sh reads after a restore ({@code billing.ledger_checks}, V78). Among them the wallet cache
+ * equals the ledger, every credit lot what its entries leave in it (ADR 0039), the cached reservation the sum of the
+ * active holds (ADR 0015), every hold its changes (ADR 0017), and every transaction and the whole ledger balance. It
+ * reads in one read-only snapshot, so the database refuses anything it might write. One control-plane instance runs it
+ * at a time, under a PostgreSQL advisory lock; the others skip. Each complete run is kept with every check's count and
+ * every wallet, hold or lot that disagrees, for the admin console (ADR 0027), and an admin can run it at any time.
+ * Mismatches are logged (user id and both values, nothing more) and counted in {@code
+ * billing.reconciliation.mismatches}; {@code billing.ledger.checks.failing} and {@code billing.ledger.unbalanced} page
+ * (ops/alerts/payments.yaml), and {@code billing.reconciliation.last_success} is when the last complete run finished.
  */
 @Component
 class WalletReconciliation {
@@ -47,6 +49,11 @@ class WalletReconciliation {
     private final Clock clock;
     private final Counter mismatches;
     private final AtomicLong lastSuccessEpochSeconds = new AtomicLong();
+    private final AtomicLong failingChecks = new AtomicLong();
+    private final AtomicLong unbalanced = new AtomicLong();
+
+    /** The checks that say the ledger itself doesn't balance: a transaction, or the whole. */
+    private static final int UNBALANCED_CHECKS = 2;
 
     WalletReconciliation(
             JdbcClient jdbc,
@@ -70,6 +77,12 @@ class WalletReconciliation {
         Gauge.builder("billing.reconciliation.last_success", lastSuccessEpochSeconds, AtomicLong::get)
                 .description("When the last complete reconciliation finished, in Unix seconds")
                 .register(registry);
+        Gauge.builder("billing.ledger.checks.failing", failingChecks, AtomicLong::get)
+                .description("How many of the ledger's checks found something in the last complete run")
+                .register(registry);
+        Gauge.builder("billing.ledger.unbalanced", unbalanced, AtomicLong::get)
+                .description("1 when the last run found a transaction, or the whole ledger, that doesn't balance")
+                .register(registry);
     }
 
     /**
@@ -77,21 +90,46 @@ class WalletReconciliation {
      * its history of changes (ADR 0017; the user id is the hold's owner).
      */
     enum Kind {
-        BALANCE,
-        RESERVED,
-        HOLD,
-        LOT
+        BALANCE(4),
+        RESERVED(5),
+        HOLD(6),
+        LOT(8);
+
+        /** Its check's position in {@code billing.ledger_check_names()}. */
+        final int check;
+
+        Kind(int check) {
+            this.check = check;
+        }
+
+        static Kind ofCheck(int position) {
+            for (var kind : values()) {
+                if (kind.check == position) {
+                    return kind;
+                }
+            }
+            throw new IllegalArgumentException("check " + position + " isn't about a wallet, hold or lot");
+        }
     }
 
     record Mismatch(Kind kind, UUID userId, long walletPaise, long expectedPaise) {}
 
+    /** One of the ledger's checks and how many findings it had: zero is a pass. */
+    record Check(int position, String name, long found) {}
+
     /** {@code ran} is false when another instance held the lock; {@code runId} names the kept run once it's recorded. */
     record Result(
             boolean ran,
+            List<Check> checks,
             List<Mismatch> mismatches,
             long ledgerDebitsPaise,
             long ledgerCreditsPaise,
             @Nullable UUID runId) {
+
+        Result {
+            checks = List.copyOf(checks);
+            mismatches = List.copyOf(mismatches);
+        }
 
         boolean ledgerBalanced() {
             return ledgerDebitsPaise == ledgerCreditsPaise;
@@ -129,85 +167,23 @@ class WalletReconciliation {
                     .query(Boolean.class)
                     .single();
             if (!Boolean.TRUE.equals(locked)) {
-                return new Result(false, List.of(), 0, 0, null);
+                return new Result(false, List.of(), List.of(), 0, 0, null);
             }
-            var walletMismatches = jdbc.sql("""
-                            with ledger as (
-                                select owner_id,
-                                       sum(case direction when 'credit' then amount_paise else -amount_paise end) as paise
-                                from billing.ledger_entries
-                                where account in ('renter_wallet', 'renter_purchased')
-                                group by owner_id
-                            )
-                            select coalesce(w.user_id, l.owner_id) as user_id,
-                                   coalesce(w.balance_paise, 0) as wallet_paise,
-                                   coalesce(l.paise, 0) as ledger_paise
-                            from billing.wallets w
-                            full join ledger l on l.owner_id = w.user_id
-                            where coalesce(w.balance_paise, 0) <> coalesce(l.paise, 0)
-                            order by 1
-                            """)
-                    .query((rs, n) -> new Mismatch(
-                            Kind.BALANCE,
-                            rs.getObject("user_id", UUID.class),
-                            rs.getLong("wallet_paise"),
-                            rs.getLong("ledger_paise")))
+            // The ledger's checks (V78's billing.ledger_check_findings, which ops/backup/verify-ledger.sh reads too):
+            // every check's count, and the findings of the four about wallets, holds and lots, one by one.
+            var checks = jdbc.sql("select check_number, name, found from billing.ledger_checks()")
+                    .query((rs, n) -> new Check(rs.getInt("check_number"), rs.getString("name"), rs.getLong("found")))
                     .list();
-            var reservedMismatches = jdbc.sql("""
-                            with held as (
-                                select user_id, sum(amount_paise) as paise
-                                from billing.reservations
-                                where status = 'active'
-                                group by user_id
-                            )
-                            select coalesce(w.user_id, h.user_id) as user_id,
-                                   coalesce(w.reserved_paise, 0) as wallet_paise,
-                                   coalesce(h.paise, 0) as held_paise
-                            from billing.wallets w
-                            full join held h on h.user_id = w.user_id
-                            where coalesce(w.reserved_paise, 0) <> coalesce(h.paise, 0)
-                            order by 1
+            var mismatches = jdbc.sql("""
+                            select check_number, subject, actual, expected from billing.ledger_check_findings()
+                            where check_number in (4, 5, 6, 8)
+                            order by check_number, subject
                             """)
                     .query((rs, n) -> new Mismatch(
-                            Kind.RESERVED,
-                            rs.getObject("user_id", UUID.class),
-                            rs.getLong("wallet_paise"),
-                            rs.getLong("held_paise")))
-                    .list();
-            var holdMismatches = jdbc.sql("""
-                            select r.user_id,
-                                   coalesce(sum(c.after_paise - c.before_paise), 0) as changes_paise,
-                                   case when r.status = 'active' then r.amount_paise else 0 end as hold_paise
-                            from billing.reservations r
-                            left join billing.reservation_changes c on c.reservation_id = r.id
-                            group by r.id, r.user_id, r.status, r.amount_paise
-                            having coalesce(sum(c.after_paise - c.before_paise), 0)
-                                   <> case when r.status = 'active' then r.amount_paise else 0 end
-                            order by 1
-                            """)
-                    .query((rs, n) -> new Mismatch(
-                            Kind.HOLD,
-                            rs.getObject("user_id", UUID.class),
-                            rs.getLong("changes_paise"),
-                            rs.getLong("hold_paise")))
-                    .list();
-            var lotMismatches = jdbc.sql("""
-                            select l.user_id, l.remaining_paise,
-                                   coalesce(sum(case e.direction when 'credit' then e.amount_paise
-                                                                 else -e.amount_paise end), 0) as entries_paise
-                            from billing.credit_lots l
-                            left join billing.ledger_entries e
-                                   on e.lot_id = l.id and e.account in ('renter_wallet', 'renter_purchased')
-                            group by l.id, l.user_id, l.remaining_paise
-                            having l.remaining_paise <> coalesce(sum(case e.direction when 'credit' then e.amount_paise
-                                                                                     else -e.amount_paise end), 0)
-                            order by 1
-                            """)
-                    .query((rs, n) -> new Mismatch(
-                            Kind.LOT,
-                            rs.getObject("user_id", UUID.class),
-                            rs.getLong("remaining_paise"),
-                            rs.getLong("entries_paise")))
+                            Kind.ofCheck(rs.getInt("check_number")),
+                            rs.getObject("subject", UUID.class),
+                            rs.getLong("actual"),
+                            rs.getLong("expected")))
                     .list();
             var totals = jdbc.sql("""
                             select coalesce(sum(amount_paise) filter (where direction = 'debit'), 0) as debits,
@@ -216,11 +192,7 @@ class WalletReconciliation {
                             """)
                     .query((rs, n) -> new long[] {rs.getLong("debits"), rs.getLong("credits")})
                     .single();
-            var mismatches = new java.util.ArrayList<Mismatch>(walletMismatches);
-            mismatches.addAll(reservedMismatches);
-            mismatches.addAll(holdMismatches);
-            mismatches.addAll(lotMismatches);
-            return new Result(true, List.copyOf(mismatches), totals[0], totals[1], null);
+            return new Result(true, checks, mismatches, totals[0], totals[1], null);
         }));
         if (!result.ran()) {
             log.info("Wallet reconciliation skipped: another instance is running it");
@@ -238,6 +210,13 @@ class WalletReconciliation {
                     mismatch.walletPaise(),
                     mismatch.expectedPaise());
         }
+        for (var check : result.checks()) {
+            if (check.found() > 0) {
+                log.error("The ledger's check \"{}\" failed: {} findings", check.name(), check.found());
+            }
+        }
+        // The run's mismatches are what it always counted: every wallet, hold and lot that disagrees, and an
+        // unbalanced ledger. Every check's count is kept beside them, and pages through its own gauge.
         int problems = result.mismatches().size();
         if (!result.ledgerBalanced()) {
             log.error(
@@ -248,6 +227,12 @@ class WalletReconciliation {
         }
         result = record(trigger, result, problems, asked);
         mismatches.increment(problems);
+        failingChecks.set(
+                result.checks().stream().filter(check -> check.found() > 0).count());
+        unbalanced.set(
+                result.checks().stream().anyMatch(check -> check.position() <= UNBALANCED_CHECKS && check.found() > 0)
+                        ? 1
+                        : 0);
         lastSuccessEpochSeconds.set(clock.instant().getEpochSecond());
         log.info("Wallet reconciliation finished: {} mismatches", problems);
         return result;
@@ -272,6 +257,17 @@ class WalletReconciliation {
                     .param("credits", result.ledgerCreditsPaise())
                     .param("mismatches", problems)
                     .update();
+            for (var check : result.checks()) {
+                jdbc.sql("""
+                                insert into billing.reconciliation_checks (run_id, position, name, found)
+                                values (:runId, :position, :name, :found)
+                                """)
+                        .param("runId", runId)
+                        .param("position", check.position())
+                        .param("name", check.name())
+                        .param("found", check.found())
+                        .update();
+            }
             int position = 0;
             for (var mismatch : result.mismatches()) {
                 jdbc.sql("""
@@ -298,6 +294,12 @@ class WalletReconciliation {
                         Map.of("mismatches", problems, "ledgerBalanced", result.ledgerBalanced())));
             }
         });
-        return new Result(true, result.mismatches(), result.ledgerDebitsPaise(), result.ledgerCreditsPaise(), runId);
+        return new Result(
+                true,
+                result.checks(),
+                result.mismatches(),
+                result.ledgerDebitsPaise(),
+                result.ledgerCreditsPaise(),
+                runId);
     }
 }

@@ -1,0 +1,40 @@
+# The ledger's own rules (ADR 0055, docs/runbooks/month-close.md): the nightly run of its checks, the same ones
+# ops/backup/verify-ledger.sh reads after a restore, and a closed month reopened. Same format and rules as platform.yaml.
+# Each gauge is the last run's, on the instance that ran it; the others read 0, so the largest is the answer.
+groups:
+  - name: ledger
+    rules:
+      - alert: LedgerUnbalanced
+        # A transaction, or the whole ledger, whose debits aren't its credits. The database refuses one at commit, so
+        # this should never fire: when it does, money is wrong somewhere and nothing about it can wait.
+        expr: max(billing_ledger_unbalanced{job="control-plane"}) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: The ledger doesn't balance.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-unbalanced
+      - alert: LedgerChecksFailing
+        expr: max(billing_ledger_checks_failing{job="control-plane"}) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $value | printf "%.0f" }} of the ledger''s checks found something in their last run.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-failing
+      - alert: LedgerChecksSilent
+        # No complete run for 30 hours, once some instance has run one since it started: the nightly run stopped.
+        expr: |
+          max(billing_reconciliation_last_success{job="control-plane"}) > 0
+          and time() - max(billing_reconciliation_last_success{job="control-plane"}) > 30 * 3600
+        labels:
+          severity: digest
+        annotations:
+          summary: The ledger's checks haven't run for 30 hours.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-silent
+      - alert: PeriodReopened
+        # A closed month was reopened, as approved: everyone who relied on it being final should know at once.
+        expr: sum(increase(billing_periods_reopened_total{job="control-plane"}[10m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: A closed month was reopened in the ledger.
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#period-reopened

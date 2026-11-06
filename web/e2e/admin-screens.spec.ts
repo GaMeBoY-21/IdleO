@@ -83,6 +83,13 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   },
   "/admin/v1/reconciliation": { json: admin.reconciliation },
   "/admin/v1/ledger": { json: admin.ledger },
+  "/admin/v1/ledger/accounts": { json: admin.ledgerAccounts },
+  "/admin/v1/ledger/trial-balance": { json: admin.trialBalance },
+  [`/admin/v1/ledger/transactions/${admin.grant.txnId}`]: { json: admin.ledgerTransaction },
+  "/admin/v1/adjustments": { json: admin.adjustments },
+  "/admin/v1/periods": { json: admin.periods },
+  "/admin/v1/money/report": { json: admin.moneyReport },
+  "/admin/v1/money/liabilities": { json: admin.liabilities },
   "/admin/v1/invites": { json: admin.invites },
   "/admin/v1/audit": { json: admin.audit },
   "/admin/v1/abuse": { json: admin.abuseQueue },
@@ -197,7 +204,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(25);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(29);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -612,12 +619,120 @@ test.describe("the console", () => {
     await capture(page, info, "admin-disputes-loading");
   });
 
-  test("shows the reconciliation runs and a wallet in the ledger", async ({ page }, info) => {
-    await open(page, `/admin/money/?owner=${admin.RENTER_ID}`);
-    await expect(page.getByRole("table", { name: "Reconciliation runs" })).toContainText("balanced");
-    await expect(page.getByRole("table", { name: "Ledger entries" })).toContainText("credit_grant");
+  test("shows the ledger's checks, each night's and an admin's", async ({ page }, info) => {
+    await open(page, "/admin/money/");
+    const runs = page.getByRole("table", { name: "Reconciliation runs" });
+    await expect(runs).toContainText("balanced");
+    await expect(runs).toContainText("all 17 pass");
     await expectAccessible(page);
     await capture(page, info, "admin-money");
+  });
+
+  test("shows the chart of accounts, the trial balance, a wallet's entries and a transaction's legs", async ({
+    page,
+  }, info) => {
+    await open(
+      page,
+      `/admin/ledger/?account=renter_wallet&owner=${admin.RENTER_ID}&txn=${admin.grant.txnId}`,
+    );
+    await expect(page.getByRole("table", { name: "Chart of accounts" })).toContainText(
+      "What the free credit we give away costs us.",
+    );
+    await expect(page.getByText("balanced", { exact: true })).toBeVisible();
+    await expect(page.getByRole("table", { name: "Every leg of the transaction" })).toContainText(
+      "promotions",
+    );
+    await expect(page.getByRole("link", { name: "credit_grant" })).toHaveAttribute(
+      "href",
+      `/admin/users/?id=${admin.RENTER_ID}`,
+    );
+    await expect(page.getByRole("table", { name: "Ledger entries" })).toContainText("credit_grant");
+    await expectAccessible(page);
+    await capture(page, info, "admin-ledger");
+  });
+
+  test("asks for a fee correction with its legs as the diff, and lists what's posted", async ({
+    page,
+  }, info) => {
+    let asked: unknown = null;
+    await open(page, "/admin/adjustments/", {
+      "/admin/v1/adjustments": (_call, request) => {
+        if (request.method() === "POST") {
+          asked = request.postDataJSON();
+          return { status: 202, json: admin.approvals.requests[0] };
+        }
+        return { json: admin.adjustments };
+      },
+    });
+    await expect(page.getByRole("table", { name: "Posted adjustments" })).toContainText(
+      "settlement setl_Pq1",
+    );
+    await page.getByLabel("Amount in ₹").fill("2.36");
+    await page.getByLabel("Reference (a ticket or a reconciliation item)").fill("settlement setl_Pq2");
+    await expect(page.getByText("Debits ₹2.36, credits ₹2.36, balanced.")).toBeVisible();
+    await expectAccessible(page);
+    await capture(page, info, "admin-adjustments");
+    await page.getByRole("button", { name: "Ask for approval" }).first().click();
+    const sheet = page.getByRole("dialog", { name: "Ask another admin to approve this adjustment?" });
+    await sheet.getByLabel("Reason").fill("Razorpay kept a fee we didn't expect");
+    await sheet.getByRole("button", { name: "Ask for approval" }).click();
+    // It goes to another admin: nothing is posted yet.
+    await expect(page.getByRole("dialog")).toContainText("waiting for another admin");
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect(asked).toEqual({
+      template: "fee_correction",
+      legs: [
+        { account: "gateway_fees", ownerId: null, amountPaise: 236, direction: "debit" },
+        { account: "gateway_clearing", ownerId: null, amountPaise: 236, direction: "credit" },
+      ],
+      reason: "Razorpay kept a fee we didn't expect",
+      reference: "settlement setl_Pq2",
+      correctsMonth: null,
+    });
+  });
+
+  test("shows each month's checklist and asks to close the one that's ready", async ({ page }, info) => {
+    let asked: unknown = null;
+    await open(page, "/admin/months/", {
+      "/admin/v1/periods/2026-10/close": (_call, request) => {
+        asked = request.postDataJSON();
+        return { status: 202, json: admin.approvals.requests[0] };
+      },
+    });
+    const months = page.getByRole("table", { name: "Months and their checklists" });
+    await expect(months).toContainText("the CA has September");
+    await expect(months).toContainText("no run of the ledger's checks since the month ended");
+    // Only the month that's over and ready can be closed; the closed one can be reopened.
+    await expect(page.getByRole("button", { name: "Close", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Reopen" })).toHaveCount(1);
+    await expectAccessible(page);
+    await capture(page, info, "admin-months");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "Close 2026-10?" });
+    await sheet.getByLabel("Reason").fill("the CA has October");
+    await sheet.getByRole("button", { name: "Ask to close" }).click();
+    await expect(page.getByRole("dialog")).toContainText("waiting for another admin");
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect(asked).toEqual({ reason: "the CA has October" });
+  });
+
+  test("shows the month's figures, each linked to its entries, and the liabilities", async ({
+    page,
+  }, info) => {
+    await open(page, "/admin/money-reports/");
+    const figures = page.getByRole("table", { name: "Headline figures" });
+    await expect(figures).toContainText("₹12,500.00");
+    await expect(figures.getByRole("link", { name: "₹2,500.00" })).toHaveAttribute(
+      "href",
+      "/admin/ledger/?account=platform_revenue&from=2026-09-30T18%3A30%3A00.000Z&to=2026-10-31T18%3A30%3A00.000Z",
+    );
+    await expect(page.getByRole("table", { name: "Free credit's breakage, by month" })).toContainText(
+      "₹400.00",
+    );
+    await expectAccessible(page);
+    await capture(page, info, "admin-money-reports");
   });
 
   test("finds a payment and shows what the reconciliation found, accepted with a reason", async ({

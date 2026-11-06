@@ -39,6 +39,10 @@ public enum AdminPermission {
 
     MONEY_READ("money.read", false),
     MONEY_ADJUST("money.adjust", true),
+    /** The ledger explorer (ADR 0055): the chart of accounts, balances at any time, every entry and the trial balance. */
+    LEDGER_READ("ledger.read", false),
+    /** Closing a month, and reopening one: the Owner's, with a factor and another admin's approval (ADR 0055). */
+    PERIODS_CLOSE("periods.close", true),
     PAYMENTS_READ("payments.read", false),
     RECONCILIATION_RUN("reconciliation.run", false),
     RECONCILIATION_ACCEPT("reconciliation.accept", true),

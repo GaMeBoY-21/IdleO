@@ -1,0 +1,81 @@
+# promtool test rules: the ledger alerts (scripts/checks/ops.sh).
+rule_files:
+  - ../ledger.yaml
+evaluation_interval: 1m
+tests:
+  # Only the instance that ran the checks has their result: an unbalanced run pages at once, failing checks too.
+  - interval: 1m
+    input_series:
+      - series: 'billing_ledger_unbalanced{job="control-plane", instance="a"}'
+        values: '0x5 1x5'
+      - series: 'billing_ledger_unbalanced{job="control-plane", instance="b"}'
+        values: '0x10'
+      - series: 'billing_ledger_checks_failing{job="control-plane", instance="a"}'
+        values: '0x5 2x5'
+      - series: 'billing_ledger_checks_failing{job="control-plane", instance="b"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: LedgerUnbalanced
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: LedgerUnbalanced
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: The ledger doesn't balance.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-unbalanced
+      - eval_time: 4m
+        alertname: LedgerChecksFailing
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: LedgerChecksFailing
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: "2 of the ledger's checks found something in their last run."
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-failing
+
+  # A run 31 hours ago is silent; an instance that has never run since it started says nothing.
+  - interval: 1h
+    input_series:
+      - series: 'billing_reconciliation_last_success{job="control-plane", instance="a"}'
+        values: '3600x40'
+      - series: 'billing_reconciliation_last_success{job="control-plane", instance="b"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: LedgerChecksSilent
+        exp_alerts: []
+      - eval_time: 32h
+        alertname: LedgerChecksSilent
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: The ledger's checks haven't run for 30 hours.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-silent
+  - interval: 1h
+    input_series:
+      - series: 'billing_reconciliation_last_success{job="control-plane", instance="a"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 32h
+        alertname: LedgerChecksSilent
+        exp_alerts: []
+
+  # One reopening pages; none says nothing.
+  - interval: 1m
+    input_series:
+      - series: 'billing_periods_reopened_total{job="control-plane", instance="a"}'
+        values: '0x5 1x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PeriodReopened
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: PeriodReopened
+        exp_alerts:
+          - exp_labels: {severity: page}
+            exp_annotations:
+              summary: A closed month was reopened in the ledger.
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#period-reopened
