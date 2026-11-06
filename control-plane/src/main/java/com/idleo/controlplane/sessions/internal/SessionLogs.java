@@ -101,7 +101,7 @@ class SessionLogs implements SessionLogProgress {
 
     Page page(UUID sessionId, int afterAttempt, int afterSeq, int limit) {
         // A cursor can't be past the last chunk there could ever be, so the next one's number always fits.
-        if (afterSeq < 0 || afterSeq == Integer.MAX_VALUE) {
+        if (afterSeq < 0 || afterSeq >= Integer.MAX_VALUE) {
             return new Page(List.of(), false);
         }
         var chunks = new ArrayList<Chunk>();
