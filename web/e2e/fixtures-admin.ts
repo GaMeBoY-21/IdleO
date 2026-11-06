@@ -50,8 +50,10 @@ export const EVERY_PERMISSION = [
   "invoices.credit-note",
   "invoices.pdf.read",
   "invoices.read",
+  "ledger.read",
   "money.adjust",
   "money.read",
+  "periods.close",
   "notes.read",
   "notes.write",
   "notices.publish",
@@ -412,6 +414,25 @@ export const reconciliation = {
       ledgerCreditsPaise: grant.amountPaise + session.chargedPaise,
       ledgerBalanced: true,
       mismatchCount: 0,
+      checks: [
+        { position: 1, name: "each transaction balances", found: 0 },
+        { position: 2, name: "all debits equal all credits", found: 0 },
+        { position: 3, name: "no wallet below zero or holding more than it has", found: 0 },
+        { position: 4, name: "every wallet equals its ledger entries", found: 0 },
+        { position: 5, name: "every wallet's reserved amount equals its active holds", found: 0 },
+        { position: 6, name: "every hold equals its recorded changes", found: 0 },
+        { position: 7, name: "no host's earnings below zero", found: 0 },
+        { position: 8, name: "every credit lot equals its entries and none is below zero", found: 0 },
+        { position: 9, name: "credit from before lots nets to zero", found: 0 },
+        { position: 10, name: "nothing frozen or refunding below zero", found: 0 },
+        { position: 11, name: "every paid top-up credited exactly once", found: 0 },
+        { position: 12, name: "every processed refund part debited exactly once", found: 0 },
+        { position: 13, name: "no payout in flight below zero", found: 0 },
+        { position: 14, name: "paid equals the sum of processed payouts", found: 0 },
+        { position: 15, name: "a receivable is only recovered, never paid out", found: 0 },
+        { position: 16, name: "no session charged past its spending cap", found: 0 },
+        { position: 17, name: "every billed minute had both witnesses", found: 0 },
+      ],
       mismatches: [],
     },
   ],
@@ -1218,4 +1239,248 @@ export const appeal: Schemas["AdminAppeal"] = {
   sameReviewer: false,
   createdAt: "2026-11-02T00:00:00Z",
   version: 1,
+};
+
+// The ledger explorer, adjustments, months and money reports (ADR 0055): a grant and a session's charge in the chart of
+// accounts, one fee correction approved and posted, last month ready to close, and a month of figures.
+export const ADJUSTMENT_ID = "01a1340a-0000-7000-8000-0000000ad001";
+const FEE_TXN = "01a1340a-0000-7000-8000-0000000ad002";
+const HOST_SHARE = Math.round(session.chargedPaise * 0.8);
+const TAKE = session.chargedPaise - HOST_SHARE;
+
+export const ledgerAccounts = {
+  at: ago(0),
+  owner: null,
+  accounts: [
+    {
+      account: "renter_wallet",
+      type: "liability",
+      owned: true,
+      normalSide: "credit",
+      description: "Free credit we owe renters service for: grants, promotions and give-backs, in lots.",
+      debitsPaise: session.chargedPaise,
+      creditsPaise: grant.amountPaise,
+      balancePaise: grant.amountPaise - session.chargedPaise,
+    },
+    {
+      account: "host_payable",
+      type: "liability",
+      owned: true,
+      normalSide: "credit",
+      description: "What we owe each machine's owner for its sessions, not paid yet.",
+      debitsPaise: 0,
+      creditsPaise: HOST_SHARE,
+      balancePaise: HOST_SHARE,
+    },
+    {
+      account: "platform_revenue",
+      type: "income",
+      owned: false,
+      normalSide: "credit",
+      description: "Our share of every session: the take.",
+      debitsPaise: 0,
+      creditsPaise: TAKE,
+      balancePaise: TAKE,
+    },
+    {
+      account: "promotions",
+      type: "expense",
+      owned: false,
+      normalSide: "debit",
+      description: "What the free credit we give away costs us.",
+      debitsPaise: grant.amountPaise,
+      creditsPaise: 0,
+      balancePaise: grant.amountPaise,
+    },
+    {
+      account: "gateway_fees",
+      type: "expense",
+      owned: false,
+      normalSide: "debit",
+      description: "Razorpay's fees on what it settles to us.",
+      debitsPaise: 236,
+      creditsPaise: 0,
+      balancePaise: 236,
+    },
+    {
+      account: "gateway_clearing",
+      type: "asset",
+      owned: false,
+      normalSide: "debit",
+      description: "Money Razorpay holds for us, until it settles to the bank.",
+      debitsPaise: 0,
+      creditsPaise: 236,
+      balancePaise: -236,
+    },
+  ],
+};
+
+export const trialBalance = {
+  at: ago(0),
+  accounts: [
+    {
+      account: "renter_wallet",
+      type: "liability",
+      debitPaise: 0,
+      creditPaise: grant.amountPaise - session.chargedPaise,
+    },
+    { account: "host_payable", type: "liability", debitPaise: 0, creditPaise: HOST_SHARE },
+    { account: "platform_revenue", type: "income", debitPaise: 0, creditPaise: TAKE },
+    { account: "promotions", type: "expense", debitPaise: grant.amountPaise, creditPaise: 0 },
+    { account: "gateway_fees", type: "expense", debitPaise: 236, creditPaise: 0 },
+    { account: "gateway_clearing", type: "asset", debitPaise: 0, creditPaise: 236 },
+  ],
+  debitsPaise: grant.amountPaise + 236,
+  creditsPaise: grant.amountPaise + 236,
+  balanced: true,
+};
+
+export const ledgerTransaction = {
+  txnId: grant.txnId,
+  source: { refType: "credit_grant", refId: GRANT_ID, page: "user", pageId: RENTER_ID },
+  createdAt: grant.createdAt,
+  legs: [
+    {
+      id: "01a1340a-0000-7000-8000-0000000e0001",
+      account: "promotions",
+      ownerId: null,
+      amountPaise: grant.amountPaise,
+      direction: "debit",
+      lotId: null,
+    },
+    {
+      id: "01a1340a-0000-7000-8000-0000000e0002",
+      account: "renter_wallet",
+      ownerId: RENTER_ID,
+      amountPaise: grant.amountPaise,
+      direction: "credit",
+      lotId: "01a1340a-0000-7000-8000-0000000e0003",
+    },
+  ],
+};
+
+export const adjustments = {
+  adjustments: [
+    {
+      id: ADJUSTMENT_ID,
+      template: "fee_correction",
+      reason: "Razorpay kept a fee on the 3 November settlement",
+      reference: "settlement setl_Pq1",
+      correctsMonth: null,
+      reversesId: null,
+      reversedById: null,
+      approvalId: "01a1340a-0000-7000-8000-0000000ad003",
+      txnId: FEE_TXN,
+      requestedBy: "admin Asha",
+      createdAt: ago(90),
+      legs: [
+        { account: "gateway_fees", ownerId: null, amountPaise: 236, direction: "debit" },
+        { account: "gateway_clearing", ownerId: null, amountPaise: 236, direction: "credit" },
+      ],
+      version: 1,
+    },
+  ],
+  nextCursor: null,
+};
+
+const DONE = [
+  { name: "The ledger's checks pass", done: true, detail: "the latest run found nothing" },
+  { name: "No open payment reconciliation items", done: true, detail: "none open" },
+];
+
+export const periods = {
+  current: "2026-11",
+  months: [
+    {
+      month: "2026-11",
+      state: "open",
+      over: false,
+      checklist: [
+        {
+          name: "The ledger's checks pass",
+          done: false,
+          detail: "no run of the ledger's checks since the month ended; run them now",
+        },
+        { name: "No open payment reconciliation items", done: true, detail: "none open" },
+      ],
+      events: [],
+      version: 0,
+    },
+    { month: "2026-10", state: "open", over: true, checklist: DONE, events: [], version: 0 },
+    {
+      month: "2026-09",
+      state: "closed",
+      over: true,
+      checklist: DONE,
+      events: [
+        { action: "closed", reason: "the CA has September", actor: "admin Asha", at: ago(30 * 24 * 60) },
+      ],
+      version: 1,
+    },
+  ],
+};
+
+export const moneyReport = {
+  interval: "month",
+  from: "2026-10-01",
+  to: "2026-10-31",
+  figures: [
+    {
+      name: "gmv",
+      terms: [
+        { account: "host_payable", refType: "session", side: "credits", sign: 1 },
+        { account: "platform_revenue", refType: "session", side: "credits", sign: 1 },
+      ],
+    },
+    { name: "take", terms: [{ account: "platform_revenue", refType: null, side: "net", sign: 1 }] },
+    {
+      name: "refunds",
+      terms: [{ account: "refunds_pending", refType: "credit_refund_processed", side: "debits", sign: 1 }],
+    },
+    {
+      name: "chargebacks",
+      terms: [{ account: "gateway_clearing", refType: "chargeback_settle", side: "credits", sign: 1 }],
+    },
+    { name: "promotions", terms: [{ account: "promotions", refType: null, side: "net", sign: 1 }] },
+    { name: "gatewayFees", terms: [{ account: "gateway_fees", refType: null, side: "net", sign: 1 }] },
+    {
+      name: "net",
+      terms: [
+        { account: "platform_revenue", refType: null, side: "net", sign: 1 },
+        { account: "promotions", refType: null, side: "net", sign: -1 },
+        { account: "gateway_fees", refType: null, side: "net", sign: -1 },
+      ],
+    },
+  ],
+  rows: [
+    {
+      start: "2026-10-01",
+      figures: {
+        gmv: 1_250_000,
+        take: 250_000,
+        refunds: 30_000,
+        chargebacks: 0,
+        promotions: 50_000,
+        gatewayFees: 23_600,
+        net: 176_400,
+      },
+    },
+  ],
+};
+
+export const liabilities = {
+  at: ago(0),
+  renterPurchasedPaise: 4_200_000,
+  renterFreePaise: 350_000,
+  hostPayablePaise: 900_000,
+  hostPayableAged: {
+    upTo7DaysPaise: 600_000,
+    days8To14Paise: 250_000,
+    days15To30Paise: 50_000,
+    over30DaysPaise: 0,
+  },
+  breakage: [
+    { month: "2026-10", expiredPaise: 12_000, toExpirePaise: 0 },
+    { month: "2026-11", expiredPaise: 0, toExpirePaise: 40_000 },
+  ],
 };

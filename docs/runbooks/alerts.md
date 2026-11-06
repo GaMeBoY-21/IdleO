@@ -280,6 +280,38 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** docs/runbooks/payments.md, "Reconciliation", says what each kind needs. Once put right, the next run marks it fixed by itself; an item that needs nothing (an authorised payment Razorpay will refund by itself) is accepted with a reason.
 
+## Ledger unbalanced
+
+**Means:** the ledger's checks (ADR 0055) found a transaction whose debits aren't its credits, or the whole ledger out of balance. The database refuses such a transaction at commit (V6's constraint trigger), so this means something got past it: a restore from a damaged backup, or an entry written by hand.
+
+**Check first:** the admin console's Ledger, Checks: the latest run, and the trial balance at now. `select * from billing.ledger_check_findings() where check_number in (1, 2)` names each transaction and its net, in paise.
+
+**Do:** stop paying out (hold the batch, docs/runbooks/payouts.md) until it's understood. Find what wrote the transaction from its `ref_type` and `ref_id`. A correction is an adjustment that brings it back to balance, approved by a second admin, never an edit: the ledger refuses one. If it came with a restore, follow docs/runbooks/backups.md and don't reopen on that database.
+
+## Ledger checks failing
+
+**Means:** one or more of the ledger's checks (ADR 0055; the same list as ops/backup/verify-ledger.sh) found something in the last run: a wallet that disagrees with its entries, a hold with the wrong changes, a lot that doesn't add up, a top-up credited twice, a payout without its ledger, a session charged past its cap, or a minute billed without both witnesses.
+
+**Check first:** the admin console's Ledger, Checks: each check's count, and each wallet, hold or lot that disagrees. `select * from billing.ledger_check_findings()` lists every finding with what it's about and the two figures.
+
+**Do:** each check names the flow it guards: docs/runbooks/payments.md for top-ups and refunds, docs/runbooks/payouts.md for payouts, ADR 0017 for metering. Put the cause right, then correct the money with an adjustment (docs/runbooks/month-close.md, "A correction"), and run the checks again from the console.
+
+## Ledger checks silent
+
+**Means:** no run of the ledger's checks has finished for 30 hours, though one has since the instance started: the nightly run (`billing.reconciliation.cron`) isn't running or isn't finishing.
+
+**Check first:** the control plane's log for "Wallet reconciliation", and whether the advisory lock is held (`select * from pg_locks where locktype = 'advisory'`).
+
+**Do:** run them from the console's Ledger, Checks, with a reason. If that run doesn't finish either, the log says why.
+
+## Period reopened
+
+**Means:** the Owner reopened a closed month, with a second admin's approval (ADR 0055). Entries can be dated in it again until it's closed once more.
+
+**Check first:** the admin console's Ledger, Months: who reopened it, when and why. The audit log has `period.reopen`.
+
+**Do:** if nobody expected it, ask the Owner. Tell the CA that a month they had is open again, and send the corrected pack once it's closed again (docs/runbooks/reopening-a-period.md).
+
 ## Webhook signatures failing
 
 **Means:** more than 5 Razorpay webhooks, or Checkout answers, in 15 minutes carried a signature that isn't Razorpay's under our secret. Nothing was credited for them: a payment is credited only when its signature checks out, or when we fetched it from Razorpay ourselves.

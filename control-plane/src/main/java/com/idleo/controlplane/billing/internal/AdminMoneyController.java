@@ -88,25 +88,16 @@ class AdminMoneyController {
     record AdminCreditGrantList(
             List<AdminCreditGrant> grants, @Nullable String nextCursor) {}
 
-    /** One ledger entry: its transaction, account and owner, amount, direction, and what caused it. */
-    record AdminLedgerEntry(
-            UUID id,
-            UUID txnId,
-            String account,
-            @Nullable UUID ownerId,
-            long amountPaise,
-            String direction,
-            String refType,
-            UUID refId,
-            Instant createdAt) {}
-
-    record AdminLedgerPage(
-            List<AdminLedgerEntry> entries, @Nullable String nextCursor) {}
-
     /** One thing a reconciliation found wrong: {@code balance}, {@code reserved} or {@code hold}. */
     record AdminReconciliationMismatch(String kind, UUID userId, long walletPaise, long expectedPaise) {}
 
-    /** A complete run: who asked, when it finished, the ledger's totals, and every mismatch. */
+    /** One of the ledger's checks in a run (ADR 0055): its place, its name and how many findings; zero is a pass. */
+    record AdminLedgerCheck(int position, String name, long found) {}
+
+    /**
+     * A complete run: who asked, when it finished, the ledger's totals, every check's count (none for a run from before
+     * the checks were kept), and every wallet, hold or lot that disagreed.
+     */
     record AdminReconciliationRun(
             UUID id,
             String trigger,
@@ -115,6 +106,7 @@ class AdminMoneyController {
             long ledgerCreditsPaise,
             boolean ledgerBalanced,
             int mismatchCount,
+            List<AdminLedgerCheck> checks,
             List<AdminReconciliationMismatch> mismatches) {}
 
     record AdminReconciliationRuns(
@@ -177,50 +169,7 @@ class AdminMoneyController {
     }
 
     /**
-     * Ledger entries, newest first: one transaction's ({@code txn}), or one account's, such as a renter's wallet
-     * ({@code account=renter_wallet&owner=<user>}) or the platform's revenue ({@code account=platform_revenue}).
-     */
-    @RequiresPermission(AdminPermission.MONEY_READ)
-    @AdminList("ledger")
-    @GetMapping("/ledger")
-    AdminLedgerPage ledger(
-            @RequestParam(required = false) @Nullable UUID txn,
-            @RequestParam(required = false) @Nullable String account,
-            @RequestParam(required = false) @Nullable UUID owner,
-            @RequestParam(required = false) @Nullable String sort,
-            @RequestParam(required = false) @Nullable String cursor,
-            @RequestParam(required = false) @Nullable Integer limit) {
-        if (txn == null && account == null) {
-            throw ApiProblem.invalid("account", "Give a transaction, or an account and, for a wallet, its owner.");
-        }
-        String accountValue = null;
-        if (account != null) {
-            try {
-                accountValue = Account.fromDb(account.strip()).dbValue;
-            } catch (IllegalArgumentException e) {
-                throw ApiProblem.invalid("account", "isn't one of the ledger's accounts.");
-            }
-        }
-        var page = LEDGER.page(
-                jdbc,
-                AdminListing.Asked.of(sort, "txn", txn, "account", accountValue, "owner", owner),
-                cursor,
-                limit,
-                (rs, n) -> new AdminLedgerEntry(
-                        rs.getObject("id", UUID.class),
-                        rs.getObject("txn_id", UUID.class),
-                        rs.getString("account"),
-                        rs.getObject("owner_id", UUID.class),
-                        rs.getLong("amount_paise"),
-                        rs.getString("direction"),
-                        rs.getString("ref_type"),
-                        rs.getObject("ref_id", UUID.class),
-                        rs.getTimestamp("created_at").toInstant()));
-        return new AdminLedgerPage(page.rows(), page.nextCursor());
-    }
-
-    /**
-     * Runs the wallet check now, as {@code reconcile-wallets} does, and returns the run. 409 {@code action-refused}
+     * Runs the ledger's checks now (ADR 0055), as {@code reconcile-wallets} and the nightly run do, and returns the run. 409 {@code action-refused}
      * while another instance is running it.
      */
     @RequiresPermission(AdminPermission.RECONCILIATION_RUN)
@@ -275,6 +224,14 @@ class AdminMoneyController {
                         rs.getLong("wallet_paise"),
                         rs.getLong("expected_paise")))
                 .list();
+        var checks = jdbc.sql("""
+                        select position, name, found from billing.reconciliation_checks
+                        where run_id = :runId order by position
+                        """)
+                .param("runId", run.id())
+                .query((rs, n) ->
+                        new AdminLedgerCheck(rs.getInt("position"), rs.getString("name"), rs.getLong("found")))
+                .list();
         return new AdminReconciliationRun(
                 run.id(),
                 run.trigger(),
@@ -283,6 +240,7 @@ class AdminMoneyController {
                 run.credits(),
                 run.debits() == run.credits(),
                 run.mismatches(),
+                checks,
                 mismatches);
     }
 
@@ -307,26 +265,6 @@ class AdminMoneyController {
             .csv("grantedBy", "g.granted_by")
             .csv("createdAt", "g.created_at")
             .csv("reversedAt", "r.created_at")
-            .build();
-
-    /** The ledger's entries, its filters, orders and CSV (ADR 0052). */
-    static final AdminListing LEDGER = AdminListing.of("ledger", AdminPermission.MONEY_READ, true)
-            .from("billing.ledger_entries")
-            .sort("createdAt", AdminListing.Type.UUID, "id")
-            .sort("amount", AdminListing.Type.NUMBER, "amount_paise")
-            .sortedBy("createdAt", true)
-            .filter("txn", "txn_id = cast(:txn as uuid)")
-            .filter("account", "account = cast(:account as text)")
-            .filter("owner", "owner_id = cast(:owner as uuid)")
-            .csv("id", "id")
-            .csv("txnId", "txn_id")
-            .csv("account", "account")
-            .csv("ownerId", "owner_id")
-            .csv("amountPaise", "amount_paise")
-            .csv("direction", "direction")
-            .csv("refType", "ref_type")
-            .csv("refId", "ref_id")
-            .csv("createdAt", "created_at")
             .build();
 
     /** The wallet check's runs, their orders and CSV (ADR 0052). */

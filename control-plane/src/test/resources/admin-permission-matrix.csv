@@ -5,6 +5,8 @@ DELETE /admin/v1/views/{id},self,allow,allow,allow,allow,allow,allow
 GET /admin/v1/abuse,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/blocklist-additions,abuse.read,allow,403,403,allow,403,allow
 GET /admin/v1/abuse/{id},abuse.read,allow,403,403,allow,403,allow
+GET /admin/v1/adjustments,ledger.read,allow,403,403,403,allow,allow
+GET /admin/v1/adjustments/{id},ledger.read,allow,403,403,403,allow,allow
 GET /admin/v1/admins,admins.manage,allow,403,403,403,403,403
 GET /admin/v1/admins/sessions,admins.manage,allow,403,403,403,403,403
 GET /admin/v1/appeals,enforcement.read,allow,allow,allow,allow,403,allow
@@ -35,8 +37,13 @@ GET /admin/v1/invites,invites.read,allow,allow,allow,403,403,allow
 GET /admin/v1/invoices,invoices.read,allow,403,allow,403,allow,allow
 GET /admin/v1/invoices/{id},invoices.read,allow,403,allow,403,allow,allow
 GET /admin/v1/invoices/{id}/pdf,invoices.pdf.read,allow,403,403,403,allow,allow
-GET /admin/v1/ledger,money.read,allow,403,403,403,allow,allow
+GET /admin/v1/ledger,ledger.read,allow,403,403,403,allow,allow
+GET /admin/v1/ledger/accounts,ledger.read,allow,403,403,403,allow,allow
+GET /admin/v1/ledger/transactions/{id},ledger.read,allow,403,403,403,allow,allow
+GET /admin/v1/ledger/trial-balance,ledger.read,allow,403,403,403,allow,allow
 GET /admin/v1/me/sessions,self,allow,allow,allow,allow,allow,allow
+GET /admin/v1/money/liabilities,money.read,allow,403,403,403,allow,allow
+GET /admin/v1/money/report,money.read,allow,403,403,403,allow,allow
 GET /admin/v1/notes,notes.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/notes/mentionable,notes.write,allow,allow,allow,allow,allow,403
 GET /admin/v1/passkeys,self,allow,allow,allow,allow,allow,allow
@@ -48,6 +55,8 @@ GET /admin/v1/payouts/reconciliation,payouts.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/verifications/pans,verifications.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/verifications/upi-ids,verifications.read,allow,403,403,403,allow,allow
 GET /admin/v1/payouts/{id},payouts.read,allow,403,403,403,allow,allow
+GET /admin/v1/periods,ledger.read,allow,403,403,403,allow,allow
+GET /admin/v1/periods/{month},ledger.read,allow,403,403,403,allow,allow
 GET /admin/v1/personal-data/access-log,audit.read,allow,403,403,403,403,allow
 GET /admin/v1/queue,queues.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/queue/bulk,queues.read,allow,allow,allow,allow,allow,allow
@@ -88,6 +97,8 @@ POST /admin/v1/abuse/{id}/blocklist,abuse.blocklist,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/clear,abuse.clear,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/confirm,abuse.decide,allow,403,403,allow,403,403
 POST /admin/v1/abuse/{id}/notes,abuse.decide,allow,403,403,allow,403,403
+POST /admin/v1/adjustments,money.adjust,allow,403,403,403,allow,403
+POST /admin/v1/adjustments/{id}/reverse,money.adjust,allow,403,403,403,allow,403
 POST /admin/v1/admins/sessions/{id}/end,admins.manage,allow,403,403,403,403,403
 POST /admin/v1/admins/{id}/roles/{role}/grant,admins.manage,allow,403,403,403,403,403
 POST /admin/v1/admins/{id}/roles/{role}/remove,admins.manage,allow,403,403,403,403,403
@@ -132,6 +143,8 @@ POST /admin/v1/payouts/verifications/pans/{userId}/reject,verifications.decide,a
 POST /admin/v1/payouts/verifications/pans/{userId}/verify,verifications.decide,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/upi-ids/{id}/approve,verifications.decide,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/upi-ids/{id}/reject,verifications.decide,allow,403,403,403,allow,403
+POST /admin/v1/periods/{month}/close,periods.close,allow,403,403,403,403,403
+POST /admin/v1/periods/{month}/reopen,periods.close,allow,403,403,403,403,403
 POST /admin/v1/personal-data/reveal,users.pii.reveal,allow,403,allow,allow,allow,403
 POST /admin/v1/queue/bulk,queues.bulk,allow,allow,allow,allow,403,403
 POST /admin/v1/queue/bulk/preview,queues.bulk,allow,allow,allow,allow,403,403

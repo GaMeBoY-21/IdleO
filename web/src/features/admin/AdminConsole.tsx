@@ -19,6 +19,10 @@ import { Hosts } from "./Hosts";
 import { Invites } from "./Invites";
 import { Invoices } from "./Invoices";
 import { Money } from "./Money";
+import { Ledger } from "./Ledger";
+import { Adjustments } from "./Adjustments";
+import { Months } from "./Months";
+import { MoneyReports } from "./MoneyReports";
 import { Payments } from "./Payments";
 import { Payouts } from "./Payouts";
 import { Verification } from "./Verification";
@@ -51,6 +55,10 @@ export const ADMIN_SCREENS = [
   { href: "/admin/images/", label: "Images", needs: "images.read" },
   { href: "/admin/tickets/", label: "Tickets", needs: "tickets.read" },
   { href: "/admin/money/", label: "Money", needs: "money.read" },
+  { href: "/admin/ledger/", label: "Ledger", needs: "ledger.read" },
+  { href: "/admin/adjustments/", label: "Adjustments", needs: "ledger.read" },
+  { href: "/admin/months/", label: "Months", needs: "ledger.read" },
+  { href: "/admin/money-reports/", label: "Money reports", needs: "money.read" },
   { href: "/admin/payments/", label: "Payments", needs: "payments.read" },
   { href: "/admin/refunds/", label: "Refunds", needs: "refunds.read" },
   { href: "/admin/invoices/", label: "Invoices", needs: "invoices.read" },
@@ -88,6 +96,10 @@ export function AdminConsole() {
             <Route path="/admin/tickets/">{guarded("/admin/tickets/", <Tickets />)}</Route>
             <Route path="/admin/notices/">{guarded("/admin/notices/", <Notices />)}</Route>
             <Route path="/admin/money/">{guarded("/admin/money/", <Money />)}</Route>
+            <Route path="/admin/ledger/">{guarded("/admin/ledger/", <Ledger />)}</Route>
+            <Route path="/admin/adjustments/">{guarded("/admin/adjustments/", <Adjustments />)}</Route>
+            <Route path="/admin/months/">{guarded("/admin/months/", <Months />)}</Route>
+            <Route path="/admin/money-reports/">{guarded("/admin/money-reports/", <MoneyReports />)}</Route>
             <Route path="/admin/payments/">{guarded("/admin/payments/", <Payments />)}</Route>
             <Route path="/admin/refunds/">{guarded("/admin/refunds/", <Refunds />)}</Route>
             <Route path="/admin/invoices/">{guarded("/admin/invoices/", <Invoices />)}</Route>
@@ -131,6 +143,10 @@ const GROUPS: { label: string; hrefs: readonly string[] }[] = [
     label: "Money",
     hrefs: [
       "/admin/money/",
+      "/admin/ledger/",
+      "/admin/adjustments/",
+      "/admin/months/",
+      "/admin/money-reports/",
       "/admin/payments/",
       "/admin/refunds/",
       "/admin/invoices/",
