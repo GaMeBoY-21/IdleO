@@ -20,6 +20,13 @@ updates:
   - package-ecosystem: npm
     directory: /web
     schedule: { interval: weekly, day: monday }
+    ignore:
+      # openapi-typescript writes the API's types with TypeScript's compiler API, which TypeScript 7 doesn't have.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # Node's types follow the Node the app runs on (web/.node-version), not the newest.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       npm:
         patterns: ["*"]
