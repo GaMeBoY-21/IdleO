@@ -17,7 +17,8 @@ COPY src src
 RUN cargo build --release --locked --bin idleo-scanner
 
 # Trivy 0.76.1 built from its release tag's own commit, as its release builds it, but with go-jose raised to 4.1.6
-# (CVE-2026-116587, HIGH: a crafted JWK set exhausts the parser), which no Trivy release carries yet: nothing found in
+# (CVE-2026-116587, HIGH: a crafted JWK set exhausts the parser) and golang.org/x/net to 0.62.0 (CVE-2026-78661, HIGH: a
+# denial of service in its HTML parser), which no Trivy release carries yet: nothing found in
 # our own images is ever accepted (ADR 0048). The base below still supplies everything else. When a Trivy release has
 # the fix, drop this stage and take that release's image.
 FROM golang:1.27.3-alpine3.24@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS trivy
@@ -31,11 +32,11 @@ RUN git init -q && git remote add origin https://github.com/aquasecurity/trivy.g
 # Fetching and building get tries of their own: a stream error from Go's proxy mid-download fails a build with nothing
 # wrong in it, and Go doesn't try again by itself. What's fetched already stays in the module cache.
 RUN tries() { for try in 1 2 3 4 5; do "$@" && return 0; [ "$try" = 5 ] || sleep $((try * 5)); done; return 1; } \
-    && tries go get github.com/go-jose/go-jose/v4@v4.1.6 \
+    && tries go get github.com/go-jose/go-jose/v4@v4.1.6 golang.org/x/net@v0.62.0 \
     && git add go.mod go.sum && GIT_AUTHOR_DATE=2026-10-31T00:00:00Z GIT_COMMITTER_DATE=2026-10-31T00:00:00Z \
-      git -c user.name=idleo -c user.email=idleo@users.noreply.github.com commit -q -m "raise go-jose to 4.1.6" \
+      git -c user.name=idleo -c user.email=idleo@users.noreply.github.com commit -q -m "raise go-jose to 4.1.6 and x/net to 0.62.0" \
     && export CGO_ENABLED=0 && tries go build -trimpath -ldflags "-s -w -X github.com/aquasecurity/trivy/pkg/version/app.ver=0.76.1" \
-      -o /trivy ./cmd/trivy && go version -m /trivy | grep -E 'mod.*aquasecurity/trivy|go-jose/v4'
+      -o /trivy ./cmd/trivy && go version -m /trivy | grep -E 'mod.*aquasecurity/trivy|go-jose/v4|golang.org/x/net'
 
 # Trivy 0.76.1 (aquasec/trivy:0.76.1), its multi-platform index.
 FROM aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
