@@ -17,7 +17,7 @@ tests:
       - eval_time: 6m
         alertname: AuditChainBroken
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: The audit log's hash chain is broken.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-chain-broken
@@ -33,7 +33,7 @@ tests:
       - eval_time: 6m
         alertname: AuditChainUnchecked
         exp_alerts:
-          - exp_labels: {severity: digest}
+          - exp_labels: {env: production, severity: digest}
             exp_annotations:
               summary: The audit log's hash chain hasn't been checked for a day.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-chain-unchecked
@@ -49,7 +49,7 @@ tests:
       - eval_time: 6m
         alertname: AuditCopyMissing
         exp_alerts:
-          - exp_labels: {severity: digest}
+          - exp_labels: {env: production, severity: digest}
             exp_annotations:
               summary: A day of the audit log has no off-site copy.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-copy-missing

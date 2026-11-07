@@ -17,7 +17,7 @@ tests:
       - eval_time: 18m
         alertname: PayoutMismatch
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: '1 disagreements between RazorpayX and our payouts are open.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-mismatch
@@ -33,7 +33,7 @@ tests:
       - eval_time: 60m
         alertname: PayoutsFailing
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: '23.08% of the payouts that ended in the last 6 hours failed.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payouts-failing
@@ -62,7 +62,7 @@ tests:
       - eval_time: 15m
         alertname: PayoutBalanceLow
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: 'RazorpayX''s balance can''t cover the next payout run; payouts will queue until it''s funded.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-balance-low
@@ -79,7 +79,7 @@ tests:
       - eval_time: 20m
         alertname: PayoutReversed
         exp_alerts:
-          - exp_labels: {severity: digest}
+          - exp_labels: {env: production, severity: digest}
             exp_annotations:
               summary: 'A payout was sent back by a host''s bank in the last hour.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-reversed

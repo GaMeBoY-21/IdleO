@@ -10,6 +10,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | printf "%.0f" }} disagreements between Razorpay and our ledger are open.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payment-mismatch
@@ -20,6 +21,7 @@ groups:
         expr: sum(increase(billing_payments_signature_failures_total{job="control-plane"}[15m])) > 5
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'About {{ printf "%.0f" $value }} payment signatures failed in the last 15 minutes.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#webhook-signatures-failing
@@ -42,6 +44,7 @@ groups:
           ) >= 10
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | humanizePercentage }} of the payments in the last hour failed.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payments-failing
@@ -51,6 +54,7 @@ groups:
         expr: sum(increase(billing_chargebacks_total{job="control-plane", event="opened"}[1h])) > 0
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'A chargeback was opened on a payment; evidence is due in Razorpay''s dashboard.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#chargeback-opened

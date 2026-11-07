@@ -17,6 +17,7 @@ groups:
         for: 1m
         labels:
           severity: page
+          env: production
         annotations:
           summary: The database isn't being backed up as it should be.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#no-backup

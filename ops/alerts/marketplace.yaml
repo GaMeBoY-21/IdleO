@@ -14,6 +14,7 @@ groups:
           sum(increase(sessions_ended_total{job="control-plane"}[1h])) >= 5
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | humanizePercentage }} of the sessions that ended in the last hour failed.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#sessions-failing
@@ -23,6 +24,7 @@ groups:
         expr: sum(increase(notifications_emails_total{job="control-plane", outcome="failed"}[15m])) > 5
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'The mail provider refused about {{ printf "%.0f" $value }} emails in the last 15 minutes.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#email-failing
@@ -37,6 +39,7 @@ groups:
           max_over_time(sum(agents_connected{job="control-plane"})[5m:30s]) >= 4
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'More than half the connected agents dropped in 5 minutes; {{ $value }} are left.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#agents-dropped
@@ -47,6 +50,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'The oldest image check has waited {{ $value | humanizeDuration }}.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-check-backlog
@@ -57,6 +61,7 @@ groups:
         expr: sum(increase(trust_abuse_stops_total{job="control-plane"}[1h])) > 3
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | printf "%.0f" }} sessions were stopped for running software that is not allowed, in the last hour.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#abuse-stops

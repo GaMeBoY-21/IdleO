@@ -10,6 +10,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | printf "%.0f" }} disagreements between RazorpayX and our payouts are open.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-mismatch
@@ -27,6 +28,7 @@ groups:
           sum(increase(payouts_status_total{job="control-plane", status=~"processed|failed|rejected|cancelled"}[6h])) >= 5
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | humanizePercentage }} of the payouts that ended in the last 6 hours failed.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payouts-failing
@@ -37,6 +39,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'RazorpayX''s balance can''t cover the next payout run; payouts will queue until it''s funded.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-balance-low
@@ -46,6 +49,7 @@ groups:
         expr: sum(increase(payouts_status_total{job="control-plane", status="reversed"}[1h])) > 0
         labels:
           severity: digest
+          env: production
         annotations:
           summary: 'A payout was sent back by a host''s bank in the last hour.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#payout-reversed

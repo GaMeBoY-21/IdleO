@@ -8,8 +8,10 @@
 #   ops/grafana/apply-rules.sh --check   only convert and check the rules, against nothing
 #
 # Reads, from the shell only and never from a file in the repo: GRAFANA_URL (the stack, https://<stack>.grafana.net),
-# GRAFANA_TOKEN (the alert-rules service account's token, Editor role) and ALERTS_TO (the address alerts go to).
-# GRAFANA_PROMETHEUS_UID picks the Prometheus data source when the stack has more than one.
+# GRAFANA_TOKEN (a token of the alert-rules service account, Admin role, made for this run and deleted after it) and
+# ALERTS_TO (the address alerts go to). GRAFANA_PROMETHEUS_UID picks the Prometheus data source when the stack has more
+# than one. PRE_LAUNCH (on unless it says off): while on, the env=production rules are muted, since there is no server
+# yet, and the CI suites' rules stay live; turning it off is a step of going live (docs/runbooks/deploying.md).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 exec python3 ops/grafana/rules.py "$@"

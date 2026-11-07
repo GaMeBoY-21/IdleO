@@ -16,7 +16,7 @@ tests:
       - eval_time: 20m
         alertname: QueueTargetBreached
         exp_alerts:
-          - exp_labels: {severity: digest, type: ticket}
+          - exp_labels: {env: production, severity: digest, type: ticket}
             exp_annotations:
               summary: 'Work of kind ticket is past its target.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-target-breached
@@ -26,7 +26,7 @@ tests:
       - eval_time: 20m
         alertname: ChargebackEvidenceDue
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: 'A chargeback''s evidence is due within 48 hours.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#chargeback-evidence-due
@@ -42,7 +42,7 @@ tests:
       - eval_time: 25m
         alertname: QueueSyncStopped
         exp_alerts:
-          - exp_labels: {severity: digest}
+          - exp_labels: {env: production, severity: digest}
             exp_annotations:
               summary: 'The inbox has not been brought up to date for 15 minutes.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-sync-stopped

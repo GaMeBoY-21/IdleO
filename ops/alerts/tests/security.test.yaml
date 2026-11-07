@@ -15,7 +15,7 @@ tests:
       - eval_time: 25h
         alertname: NightlyScanFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: scan}
+          - exp_labels: {env: ci, severity: digest, suite: scan}
             exp_annotations:
               summary: The nightly scan of what is deployed found something to fix.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-failing
@@ -37,7 +37,7 @@ tests:
       - eval_time: 40h
         alertname: NightlyScanMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: scan}
+          - exp_labels: {env: ci, severity: digest, suite: scan}
             exp_annotations:
               summary: The nightly scan of what is deployed hasn't reported for 30 hours.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-missing

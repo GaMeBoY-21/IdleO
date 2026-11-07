@@ -14,7 +14,7 @@ tests:
       - eval_time: 60m
         alertname: SessionsFailing
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: '31.43% of the sessions that ended in the last hour failed.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#sessions-failing
@@ -41,7 +41,7 @@ tests:
       - eval_time: 28m
         alertname: EmailFailing
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: 'The mail provider refused about 9 emails in the last 15 minutes.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#email-failing
@@ -60,7 +60,7 @@ tests:
       - eval_time: 11m
         alertname: AgentsDropped
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: 'More than half the connected agents dropped in 5 minutes; 4 are left.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#agents-dropped
@@ -97,7 +97,7 @@ tests:
       - eval_time: 25m
         alertname: AbuseStops
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: '4 sessions were stopped for running software that is not allowed, in the last hour.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#abuse-stops
@@ -116,7 +116,7 @@ tests:
       - eval_time: 21m
         alertname: ImageCheckBacklog
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: 'The oldest image check has waited 42m 0s.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-check-backlog

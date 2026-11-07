@@ -15,6 +15,7 @@ groups:
         for: 2m
         labels:
           severity: page
+          env: production
         annotations:
           summary: The database's standby is behind the primary, or gone.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-standby-behind
@@ -31,6 +32,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: The database's WAL isn't reaching the backups.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-archiving-failing
@@ -41,6 +43,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: The database has had no base backup for more than a day.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-no-base-backup
@@ -51,6 +54,7 @@ groups:
         expr: max(cnpg_timeline_timeline_id{job="database"}) > max(cnpg_timeline_timeline_id{job="database"} offset 15m)
         labels:
           severity: digest
+          env: production
         annotations:
           summary: The database failed over to its standby.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-failover

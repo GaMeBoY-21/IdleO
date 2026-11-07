@@ -12,6 +12,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="scan"}[30h]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The nightly scan of what is deployed found something to fix.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-failing
@@ -20,6 +21,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="scan"}[30h])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The nightly scan of what is deployed hasn't reported for 30 hours.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-missing
@@ -29,6 +31,7 @@ groups:
         expr: max(audit_chain_broken{job="control-plane"}) == 1
         labels:
           severity: page
+          env: production
         annotations:
           summary: The audit log's hash chain is broken.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-chain-broken
@@ -37,6 +40,7 @@ groups:
         expr: min(audit_chain_check_age_seconds{job="control-plane"}) > 26 * 3600
         labels:
           severity: digest
+          env: production
         annotations:
           summary: The audit log's hash chain hasn't been checked for a day.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-chain-unchecked
@@ -45,6 +49,7 @@ groups:
         expr: min(audit_offsite_age_seconds{job="control-plane"}) > 26 * 3600
         labels:
           severity: digest
+          env: production
         annotations:
           summary: A day of the audit log has no off-site copy.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#audit-copy-missing
@@ -53,6 +58,7 @@ groups:
         expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="reveal_burst"}[1h])) > 0
         labels:
           severity: digest
+          env: production
         annotations:
           summary: One admin read more than 20 people's values whole in an hour.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-reveal-burst
@@ -61,6 +67,7 @@ groups:
         expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="personal_data_export"}[1h])) > 0
         labels:
           severity: digest
+          env: production
         annotations:
           summary: An admin exported personal data.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-personal-data-export
@@ -69,6 +76,7 @@ groups:
         expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="off_hours"}[1h])) > 0
         labels:
           severity: digest
+          env: production
         annotations:
           summary: An admin acted between midnight and 06:00 India time.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-action-at-night
@@ -77,6 +85,7 @@ groups:
         expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="new_place"}[1h])) > 0
         labels:
           severity: digest
+          env: production
         annotations:
           summary: An admin signed in from a new browser or address.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#admin-new-place
@@ -85,6 +94,7 @@ groups:
         expr: sum(increase(admin_insider_signal_total{job="control-plane",kind="solo_approval"}[1h])) > 0
         labels:
           severity: digest
+          env: production
         annotations:
           summary: A gated action has no second admin to approve it.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#approval-in-solo-mode

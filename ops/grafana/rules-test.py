@@ -4,9 +4,11 @@ import copy
 import http.server
 import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import urllib.parse
 
@@ -18,7 +20,14 @@ state = {}
 
 def fresh():
     state.clear()
-    state.update(folders={}, contact_points=[], policy=None, rules={}, tests=[])
+    state.update(folders={}, contact_points=[], policy=None, rules={}, tests=[], mute_timings={})
+
+
+NAMESPACE = "stacks-123456"
+
+
+def named_mutes(policy):
+    return {name for route in (policy or {}).get("routes", []) for name in route.get("mute_time_intervals", [])}
 
 
 class Fake(http.server.BaseHTTPRequestHandler):
@@ -58,8 +67,31 @@ class Fake(http.server.BaseHTTPRequestHandler):
             names = {point["name"] for point in state["contact_points"]}
             if body["receiver"] not in names:
                 return self.answer(400, {"message": "receiver does not exist"})
+            if named_mutes(body) - set(state["mute_timings"]):
+                return self.answer(400, {"message": "mute time interval does not exist"})
             state["policy"] = body
             return self.answer(202, {"message": "policies updated"})
+        if (method, path) == ("POST", "/api/v1/provisioning/mute-timings"):
+            if body["name"] in state["mute_timings"]:
+                return self.answer(409, {"message": "mute timing already exists"})
+            state["mute_timings"][body["name"]] = body
+            return self.answer(201, body)
+        if match := re.fullmatch(r"/api/v1/provisioning/mute-timings/([\w-]+)", path):
+            held = state["mute_timings"].get(match[1])
+            if method == "GET":
+                return self.answer(200, held) if held else self.answer(404, {"message": "mute timing not found"})
+            if method == "PUT":
+                if not held:
+                    return self.answer(404, {"message": "mute timing not found"})
+                state["mute_timings"][match[1]] = body
+                return self.answer(202, body)
+            if method == "DELETE":
+                if match[1] in named_mutes(state["policy"]):
+                    return self.answer(409, {"message": "mute timing is used by a notification policy"})
+                state["mute_timings"].pop(match[1], None)
+                return self.answer(204)
+        if (method, path) == ("GET", "/api/frontend/settings"):
+            return self.answer(200, {"namespace": NAMESPACE, "appSubUrl": ""})
         if (method, path) == ("GET", "/api/v1/provisioning/alert-rules"):
             return self.answer(200, list(state["rules"].values()))
         if method == "DELETE" and (match := re.fullmatch(r"/api/v1/provisioning/alert-rules/([\w-]+)", path)):
@@ -78,9 +110,15 @@ class Fake(http.server.BaseHTTPRequestHandler):
             state["rules"].update({rule["uid"]: copy.deepcopy(rule) for rule in body["rules"]})
             return self.answer(200, body)
         if (method, path) == ("POST", "/api/alertmanager/grafana/config/api/v1/receivers/test"):
+            # Removed in Grafana 13, as the real stack answers now.
+            return self.answer(410, {"message": "Gone"})
+        if (method, path) == (
+                "POST", f"/apis/notifications.alerting.grafana.app/v1beta1/namespaces/{NAMESPACE}/receivers/-/test"):
+            if not body.get("alert") or not body.get("integration"):
+                return self.answer(400, {"message": "alert and integration are required"})
             state["tests"].append(body)
-            return self.answer(200, {"receivers": [{"name": body["receivers"][0]["name"],
-                                                    "grafana_managed_receiver_configs": [{"status": "ok"}]}]})
+            return self.answer(200, {"apiVersion": "notifications.alerting.grafana.app/v1beta1",
+                                     "kind": "CreateReceiverIntegrationTest", "status": "success", "duration": "12ms"})
         return self.answer(404, {"message": f"no {method} {path} in the fake"})
 
     def do_GET(self):
@@ -107,7 +145,7 @@ url = f"http://127.0.0.1:{server.server_port}"
 def run(*arguments, **env):
     calls.clear()
     clean = {k: v for k, v in os.environ.items()
-             if k not in ("GRAFANA_URL", "GRAFANA_TOKEN", "ALERTS_TO", "GRAFANA_PROMETHEUS_UID")}
+             if k not in ("GRAFANA_URL", "GRAFANA_TOKEN", "ALERTS_TO", "GRAFANA_PROMETHEUS_UID", "PRE_LAUNCH")}
     return subprocess.run([APPLY, *arguments], env={**clean, **env}, capture_output=True, text=True)
 
 
@@ -133,10 +171,35 @@ expect(first.returncode == 0, f"the first run failed: {first.stderr}")
 expect(set(state["folders"]) == {"idleo-pages", "idleo-tickets"}, f"folders: {sorted(state['folders'])}")
 expect([point["settings"]["addresses"] for point in state["contact_points"]] == ["alerts@example.invalid"],
        "the contact point isn't the one address")
-digest = state["policy"]["routes"][0]
-expect(digest["object_matchers"] == [["severity", "=", "digest"]] and digest["repeat_interval"] == "24h",
-       "tickets aren't routed to the daily digest")
+def route(labels):
+    """The first route whose matchers all hold, as Grafana picks it, or the root."""
+    for each in state["policy"]["routes"]:
+        if all(labels.get(name) == value for name, _, value in each["object_matchers"]):
+            return each
+    return state["policy"]
+
+
 rules = list(state["rules"].values())
+by_name = {rule["title"]: rule for rule in rules}
+expect(all(rule["labels"].get("env") in ("production", "ci") for rule in rules), "a rule has no env")
+expect(route({"severity": "digest", "env": "ci"})["repeat_interval"] == "24h"
+       and route({"severity": "digest", "env": "production"})["repeat_interval"] == "24h",
+       "tickets aren't routed to the daily digest")
+expect(route({"severity": "page", "env": "production"}).get("repeat_interval", "4h") == "4h", "pages aren't every 4 h")
+# PRE_LAUNCH on by default: every production rule goes through the mute, every CI suite's rule stays live.
+expect(set(state["mute_timings"]) == {"idleo-pre-launch"}, f"mute timings: {sorted(state['mute_timings'])}")
+expect(state["mute_timings"]["idleo-pre-launch"]["time_intervals"]
+       == [{"times": [{"start_time": "00:00", "end_time": "24:00"}]}], "the pre-launch mute isn't always on")
+for rule in rules:
+    muted = "idleo-pre-launch" in route(rule["labels"]).get("mute_time_intervals", [])
+    expect(muted == (rule["labels"]["env"] == "production"), f"{rule['title']} ({rule['labels']}) muted: {muted}")
+for name in ("ControlPlaneSilent", "DatabaseStandbyBehind", "NoBackup", "AgentsDropped", "LedgerChecksSilent"):
+    expect(by_name[name]["labels"]["env"] == "production", f"{name} isn't production's")
+for name in ("HostileSuiteFailing", "NightlyScanFailing", "FailoverSuiteMissing", "K8sSuiteFailing",
+             "GitopsSuiteFailing", "SecuritySuiteFailing", "E2eSuiteFailing", "WebBrowserSuiteFailing",
+             "BudgetsSuiteFailing"):
+    expect(by_name[name]["labels"]["env"] == "ci", f"{name} isn't a CI suite's")
+expect("production rules muted" in first.stdout, f"the run doesn't say production is muted: {first.stdout}")
 expect(len(rules) > 50, f"only {len(rules)} rules loaded")
 expect(all(rule["folderUID"] == ("idleo-pages" if rule["labels"]["severity"] == "page" else "idleo-tickets")
            for rule in rules), "a page and a ticket share a folder")
@@ -165,11 +228,49 @@ expect(third.returncode == 0, f"the third run failed: {third.stderr}")
 expect("idleo-gone" not in state["rules"] and "theirs" in state["rules"], "the stale rule wasn't the only one deleted")
 expect(state["rules"][moved["uid"]]["ruleGroup"] == moved["ruleGroup"], "the moved rule didn't come back in its group")
 
-# --test sends one alert to the contact point.
+# --test sends one alert through the contact point's email integration, on the endpoint that replaced the legacy one.
 test = run("--test", **stack)
 expect(test.returncode == 0 and len(state["tests"]) == 1, f"--test failed: {test.stderr}")
-expect(state["tests"][0]["receivers"][0]["grafana_managed_receiver_configs"][0]["settings"]["addresses"]
-       == "alerts@example.invalid", "the test alert went somewhere else")
+sent = state["tests"][0]
+expect(sent["integration"]["type"] == "email" and sent["integration"]["version"] == "v1",
+       f"the test isn't the email integration: {sent['integration']}")
+expect(sent["integration"]["settings"]["addresses"] == "alerts@example.invalid", "the test alert went somewhere else")
+expect(sent["alert"]["labels"]["alertname"] == "IdleOTestAlert", "the test alert isn't named")
+expect(("POST", "/api/alertmanager/grafana/config/api/v1/receivers/test") not in calls, "--test called the removed endpoint")
+
+# PRE_LAUNCH off (going live): nothing is muted, and the mute itself goes once no route names it.
+live = run(**stack, PRE_LAUNCH="off")
+expect(live.returncode == 0, f"PRE_LAUNCH=off failed: {live.stderr}")
+expect(not named_mutes(state["policy"]) and not state["mute_timings"], "a mute is left after PRE_LAUNCH=off")
+expect(route({"severity": "page", "env": "production"}).get("mute_time_intervals") is None, "production is still muted")
+expect("every rule live" in live.stdout, f"the run doesn't say every rule is live: {live.stdout}")
+# And on again, it comes back.
+again = run(**stack, PRE_LAUNCH="on")
+expect(again.returncode == 0 and "idleo-pre-launch" in state["mute_timings"]
+       and named_mutes(state["policy"]) == {"idleo-pre-launch"}, f"PRE_LAUNCH=on didn't mute again: {again.stderr}")
+
+# A PRE_LAUNCH that is neither on nor off is refused before anything is sent: a typo never unmutes production.
+typo = run(**stack, PRE_LAUNCH="of")
+expect(typo.returncode == 1 and "PRE_LAUNCH" in typo.stderr and not calls, f"PRE_LAUNCH=of: {typo.stderr}")
+
+# A rule without an env, or one that says ci without reading the suites' metric, is refused by the conversion.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rules as converter  # noqa: E402
+
+for labels, expr, refusal in (
+        ({"severity": "page"}, 'up{job="control-plane"}', "no env"),
+        ({"severity": "page", "env": "ci"}, 'up{job="control-plane"}', "doesn't read idleo_suite_passed"),
+        ({"severity": "digest", "env": "production"}, 'idleo_suite_passed{suite="e2e"} == 0', "a CI suite's")):
+    with tempfile.TemporaryDirectory() as root:
+        os.makedirs(os.path.join(root, "ops", "alerts"))
+        with open(os.path.join(root, "ops", "alerts", "bad.yaml"), "w") as out:
+            json.dump({"groups": [{"name": "bad", "rules": [{"alert": "Bad", "expr": expr, "labels": labels}]}]}, out)
+        converter.ROOT = pathlib.Path(root)
+        try:
+            converter.wanted_groups("check")
+            expect(False, f"a rule with {labels} on {expr} was converted")
+        except converter.Refused as error:
+            expect(refusal in str(error), f"refused for another reason: {error}")
 
 # A wrong token is refused, and says which token it needs.
 refused = run(**{**stack, "GRAFANA_TOKEN": "wrong"})

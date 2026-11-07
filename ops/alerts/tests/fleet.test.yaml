@@ -22,7 +22,7 @@ tests:
       - eval_time: 3m
         alertname: ReleaseRollingBack
         exp_alerts:
-          - exp_labels: {severity: page, version: 1.5.0}
+          - exp_labels: {env: production, severity: page, version: 1.5.0}
             exp_annotations:
               summary: 'Agent 1.5.0 was rolled back on 15% of the hosts that tried it.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#releases

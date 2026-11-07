@@ -24,22 +24,52 @@ ROOT = Path(__file__).resolve().parents[2]
 FOLDERS = {"page": ("idleo-pages", "IdleO pages"), "digest": ("idleo-tickets", "IdleO tickets")}
 CONTACT_POINT = {"uid": "idleo-email", "name": "IdleO email"}
 SUBJECT = "[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}: {{ .CommonAnnotations.summary }}"
-# Pages at once and again every 4 hours while they last; tickets once a day (ADR 0036's routing).
-POLICY = {
-    "receiver": CONTACT_POINT["name"],
-    "group_by": ["grafana_folder", "alertname"],
-    "group_wait": "30s",
-    "group_interval": "5m",
-    "repeat_interval": "4h",
-    "routes": [
-        {
-            "receiver": CONTACT_POINT["name"],
-            "object_matchers": [["severity", "=", "digest"]],
-            "group_wait": "10m",
-            "repeat_interval": "24h",
-        }
-    ],
-}
+# Every rule says what it watches: env production, the running service (the control plane, the database, backups,
+# Valkey, the agents), or env ci, a suite CI runs (each reads idleo_suite_passed, which the suites push themselves).
+ENVS = {"production", "ci"}
+CI_METRIC = "idleo_suite_passed"
+# Before go-live there is no server, so every production rule would fire (ControlPlaneSilent first): while PRE_LAUNCH
+# is on (the default), their notifications go through this mute, always on; CI's rules stay live. Turning it off is a
+# step of going live (docs/runbooks/deploying.md, "Going live").
+MUTE = {"name": "idleo-pre-launch", "time_intervals": [{"times": [{"start_time": "00:00", "end_time": "24:00"}]}]}
+# Testing a contact point: Grafana 13 removed the legacy receivers/test endpoint (it answers 410) for this one. The
+# receiver "-" is one not saved yet, so the integration is tested exactly as the request gives it.
+TEST_PATH = "/apis/notifications.alerting.grafana.app/v1beta1/namespaces/{namespace}/receivers/-/test"
+
+
+def policy(pre_launch: bool) -> dict:
+    """Pages at once and again every 4 hours while they last; tickets once a day (ADR 0036's routing). Production's
+    rules have routes of their own, first, so that they can be muted before go-live; routes don't inherit a mute."""
+    digest = {"group_wait": "10m", "repeat_interval": "24h"}
+    production = [
+        {"receiver": CONTACT_POINT["name"], "object_matchers": [["env", "=", "production"], ["severity", "=", "digest"]],
+         **digest},
+        {"receiver": CONTACT_POINT["name"], "object_matchers": [["env", "=", "production"]]},
+    ]
+    if pre_launch:
+        for route in production:
+            route["mute_time_intervals"] = [MUTE["name"]]
+    return {
+        "receiver": CONTACT_POINT["name"],
+        "group_by": ["grafana_folder", "alertname"],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "4h",
+        "routes": [
+            *production,
+            {"receiver": CONTACT_POINT["name"], "object_matchers": [["severity", "=", "digest"]], **digest},
+        ],
+    }
+
+
+def pre_launch() -> bool:
+    """PRE_LAUNCH: on unless it says off. Anything else is refused, so a typo never unmutes production."""
+    value = os.environ.get("PRE_LAUNCH", "on").strip().lower()
+    if value in ("on", "1", "true", "yes"):
+        return True
+    if value in ("off", "0", "false", "no"):
+        return False
+    raise Refused(f"PRE_LAUNCH is {value!r}; it's on (the default) or off")
 # Grafana Cloud evaluates a group once a minute at most.
 INTERVAL_SECONDS = 60
 
@@ -103,6 +133,13 @@ def wanted_groups(prometheus: str) -> dict[tuple[str, str], list[dict]]:
                     raise Refused(f"{path.name}: {name} has {', '.join(unknown)}, which the conversion doesn't carry")
                 if rule.get("labels", {}).get("severity") not in FOLDERS:
                     raise Refused(f"{path.name}: {name} has no severity page or digest")
+                env = rule.get("labels", {}).get("env")
+                if env not in ENVS:
+                    raise Refused(f"{path.name}: {name} has no env production or ci")
+                # A CI rule reads what the suites push; anything else watches the service, and is muted before go-live.
+                if (env == "ci") != (CI_METRIC in rule["expr"]):
+                    raise Refused(f"{path.name}: {name} is env {env}, but "
+                                  + (f"doesn't read {CI_METRIC}" if env == "ci" else f"reads {CI_METRIC}, a CI suite's"))
                 if name in seen:
                     raise Refused(f"{path.name}: {name} is also in {seen[name]}; Grafana needs each name once")
                 seen[name] = path.name
@@ -136,8 +173,8 @@ class Grafana:
             if error.code == 401:
                 hint = " (is GRAFANA_TOKEN the alert-rules service account's token, and unexpired?)"
             elif error.code == 403:
-                hint = (" (the alert-rules service account's role doesn't allow this call: give it the Alerting"
-                        " provisioning writer role besides Editor, docs/runbooks/monitoring.md)")
+                hint = (" (the alert-rules service account's role doesn't allow this call: it needs the Admin role,"
+                        " docs/runbooks/monitoring.md)")
             raise Refused(f"{method} {path}: {error.code} {detail}{hint}") from None
         return json.loads(text) if text.strip() else None
 
@@ -163,7 +200,7 @@ def contact_point(address: str) -> dict:
     }
 
 
-def apply(grafana: Grafana, address: str) -> str:
+def apply(grafana: Grafana, address: str, muted: bool) -> str:
     prometheus = prometheus_uid(grafana)
     groups = wanted_groups(prometheus)
 
@@ -177,7 +214,16 @@ def apply(grafana: Grafana, address: str) -> str:
         grafana.call("PUT", f"/api/v1/provisioning/contact-points/{point['uid']}", point)
     else:
         grafana.call("POST", "/api/v1/provisioning/contact-points", point)
-    grafana.call("PUT", "/api/v1/provisioning/policies", POLICY)
+    # The mute exists before a route names it, and goes only once no route does.
+    mute_path = f"/api/v1/provisioning/mute-timings/{MUTE['name']}"
+    if muted:
+        if grafana.call("GET", mute_path, missing_ok=True) is None:
+            grafana.call("POST", "/api/v1/provisioning/mute-timings", MUTE)
+        else:
+            grafana.call("PUT", mute_path, MUTE)
+    grafana.call("PUT", "/api/v1/provisioning/policies", policy(muted))
+    if not muted and grafana.call("GET", mute_path, missing_ok=True) is not None:
+        grafana.call("DELETE", mute_path)
 
     # A rule that left ops/alerts, or moved to another group or folder, goes first: a rule's id is in one group only.
     wanted = {rule["uid"]: key for key, rules in groups.items() for rule in rules}
@@ -194,25 +240,35 @@ def apply(grafana: Grafana, address: str) -> str:
             f"/api/v1/provisioning/folder/{folder}/rule-groups/{urllib.parse.quote(group, safe='')}",
             {"title": group, "folderUid": folder, "interval": INTERVAL_SECONDS, "rules": rules},
         )
-    return summary(groups) + (f"; {removed} no longer in ops/alerts deleted" if removed else "")
+    production = sum(1 for rules in groups.values() for rule in rules if rule["labels"]["env"] == "production")
+    state = (f"; PRE_LAUNCH on: {production} production rules muted, the CI suites' live" if muted
+             else "; PRE_LAUNCH off: every rule live")
+    return summary(groups) + (f"; {removed} no longer in ops/alerts deleted" if removed else "") + state
 
 
 def send_test(grafana: Grafana, address: str) -> None:
+    """One test alert through the contact point's email integration, as the contact point's Test button sends it."""
+    namespace = (grafana.call("GET", "/api/frontend/settings") or {}).get("namespace")
+    if not namespace:
+        raise Refused("the stack didn't say its API namespace (/api/frontend/settings)")
     point = contact_point(address)
     answer = grafana.call(
         "POST",
-        "/api/alertmanager/grafana/config/api/v1/receivers/test",
+        TEST_PATH.format(namespace=urllib.parse.quote(namespace, safe="")),
         {
+            "integration": {
+                "type": point["type"],
+                "version": "v1",
+                "settings": point["settings"],
+                "disableResolveMessage": point["disableResolveMessage"],
+            },
             "alert": {
                 "labels": {"alertname": "IdleOTestAlert", "severity": "page"},
                 "annotations": {"summary": "A test from ops/grafana/apply-rules.sh: alerts reach this address."},
             },
-            "receivers": [{"name": point["name"], "grafana_managed_receiver_configs": [point]}],
         },
     )
-    statuses = [config.get("status") for receiver in (answer or {}).get("receivers", [])
-                for config in receiver.get("grafana_managed_receiver_configs", [])]
-    if statuses != ["ok"]:
+    if (answer or {}).get("status") != "success":
         raise Refused(f"the test alert wasn't sent: {json.dumps(answer)[:400]}")
 
 
@@ -236,8 +292,9 @@ def main(arguments: list[str]) -> int:
         if missing:
             print(f"apply-rules: set {', '.join(missing)} (docs/runbooks/monitoring.md)", file=sys.stderr)
             return 2
+        muted = pre_launch()
         grafana = Grafana(os.environ["GRAFANA_URL"], os.environ["GRAFANA_TOKEN"])
-        print("apply-rules: " + apply(grafana, os.environ["ALERTS_TO"]))
+        print("apply-rules: " + apply(grafana, os.environ["ALERTS_TO"], muted))
         if arguments == ["--test"]:
             send_test(grafana, os.environ["ALERTS_TO"])
             print(f"apply-rules: a test alert was sent to {os.environ['ALERTS_TO']}")

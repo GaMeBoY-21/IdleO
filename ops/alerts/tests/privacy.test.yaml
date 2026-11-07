@@ -17,7 +17,7 @@ tests:
       - eval_time: 38h
         alertname: RetentionStopped
         exp_alerts:
-          - exp_labels: {severity: digest, rule: uploads}
+          - exp_labels: {env: production, severity: digest, rule: uploads}
             exp_annotations:
               summary: 'A retention rule (uploads) has stopped deleting what is due.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#retention-stopped
@@ -42,7 +42,7 @@ tests:
       - eval_time: 25m
         alertname: PrivacyRequestDue
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: 'A privacy request or grievance is due within 7 days, or overdue.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#privacy-request-due
