@@ -76,6 +76,7 @@ class ConsoleListsTests {
             Map.entry("/admin/v1/payouts/batches/{id}", "one batch: its items are their own list"),
             Map.entry("/admin/v1/settlements/{id}", "one record: its items are their own list"),
             Map.entry("/admin/v1/settlement-items/{id}", "one record"),
+            Map.entry("/admin/v1/tax/exports", "the CA's files, a fixed list, and the last twelve packs"),
             Map.entry("/admin/v1/ledger/accounts", "the chart of accounts: one row an account, a fixed list"),
             Map.entry("/admin/v1/ledger/trial-balance", "one row an account, a fixed list"),
             Map.entry("/admin/v1/ledger/transactions/{id}", "one transaction, with its legs"),
@@ -448,9 +449,9 @@ class ConsoleListsTests {
 
     @Test
     void aCellCantBecomeAFormula() {
-        assertThat(AdminListExportController.cell("=SUM(A1)")).isEqualTo("'=SUM(A1)");
-        assertThat(AdminListExportController.cell("a,b")).isEqualTo("\"a,b\"");
-        assertThat(AdminListExportController.cell(null)).isEmpty();
+        assertThat(com.idleo.controlplane.Csv.cell("=SUM(A1)")).isEqualTo("'=SUM(A1)");
+        assertThat(com.idleo.controlplane.Csv.cell("a,b")).isEqualTo("\"a,b\"");
+        assertThat(com.idleo.controlplane.Csv.cell(null)).isEmpty();
     }
 
     @Test

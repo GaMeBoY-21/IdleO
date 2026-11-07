@@ -2332,6 +2332,56 @@ PY
   [[ "$(sql "select count(*) from billing.ledger_entries where account = 'host_receivable'
       and ref_type in ('payout', 'payout_paid', 'payout_returned', 'payout_reversed')")" == 0 ]] || fail "a receivable was paid out"
   note "payout ledger: nobody's in flight below zero, payouts_paid equals the processed payouts for everyone, no receivable paid out: PASS"
+
+  # 8. The month's money (ADR 0055). Razorpay settles what the run's renters paid; fetched, the settlement matches the
+  # ledger item by item and is posted once. The month's CA pack is made by approval, every file's hash in its manifest.
+  # Last month, empty on this fresh stack, closes once its checklist holds, and the database then refuses an entry dated
+  # in it. (The month the run's money moved in can't be closed while it lasts: the stack has no clock to move.)
+  paid_ids="$(sql "select string_agg('\"' || payment_id || '\"', ',') from billing.topups where status = 'paid' and payment_id is not null")"
+  settlement="$(curl -sf -X POST "http://localhost:$razorpay_port/_fake/settle" -H 'Content-Type: application/json' \
+    -d "{\"payment_ids\":[$paid_ids],\"fee_basis_points\":200}" | json_get .id)"
+  [[ -n "$settlement" ]] || fail "the fake Razorpay didn't settle the run's payments"
+  admin_post /admin/v1/settlements/fetch '{"reason":"End-to-end settlement fetch"}' >/dev/null || fail "fetching the settlements failed"
+  [[ "$(sql "select state || ':' || (txn_id is not null) from billing.settlements where id = '$settlement'")" == "matched:true" ]] ||
+    fail "the settlement didn't match the ledger: $(sql "select match || ' ' || entity_id from billing.settlement_items where settlement_id = '$settlement' and match <> 'matched'")"
+  [[ "$(sql "select sum(case direction when 'debit' then amount_paise else -amount_paise end) from billing.ledger_entries e
+      join billing.settlements s on s.txn_id = e.txn_id where s.id = '$settlement'")" == 0 ]] || fail "the settlement's posting doesn't balance"
+  settled_items="$(sql "select count(*) from billing.settlement_items where settlement_id = '$settlement'")"
+  note "settlement: Razorpay settled the run's $settled_items payments; fetched, every item matched the ledger, and the bank, Razorpay's fees and their GST were posted once out of clearing: PASS"
+
+  this_month="$(python3 -c 'import datetime, zoneinfo; print(datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).strftime("%Y-%m"))')"
+  last_month="$(python3 -c 'import datetime, zoneinfo
+first = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).date().replace(day=1)
+print((first - datetime.timedelta(days=1)).strftime("%Y-%m"))')"
+  ca_pack() {
+    local asked
+    asked="$(admin_post /admin/v1/tax/exports "{\"export\":\"ca-pack\",\"month\":\"$1\",\"reason\":\"End-to-end CA pack\"}")" ||
+      fail "asking for the CA pack of $1 failed"
+    admin_post --save "$out/ca-pack-$1.zip" "/admin/v1/approvals/$(json_get .id <<<"$asked")/download" >/dev/null ||
+      fail "the CA pack of $1 couldn't be downloaded"
+  }
+  ca_pack "$this_month"
+  python3 - "$out/ca-pack-$this_month.zip" <<'PY' || fail "the CA pack's manifest doesn't match its files"
+import hashlib, json, sys, zipfile
+pack = zipfile.ZipFile(sys.argv[1])
+manifest = json.loads(pack.read("manifest.json"))
+assert len(manifest["files"]) >= 9, manifest
+for file in manifest["files"]:
+    assert hashlib.sha256(pack.read(file["name"])).hexdigest() == file["sha256"], file["name"]
+PY
+  [[ "$(sql "select count(*) from billing.ca_packs where month = '$this_month-01'")" == 1 ]] || fail "the CA pack wasn't kept as made"
+  note "CA pack: the month's pack made by approval and downloaded once, every file's SHA-256 in its manifest matching the file, the manifest's hash in the audit log: PASS"
+
+  admin_post /admin/v1/reconciliation '{"reason":"End-to-end ledger checks before closing"}' >/dev/null || fail "the ledger's checks didn't run"
+  ca_pack "$last_month"
+  admin_post --if-match 0 "/admin/v1/periods/$last_month/close" '{"reason":"End-to-end month close"}' >/dev/null ||
+    fail "closing $last_month failed: its checklist isn't done"
+  [[ "$(sql "select state from billing.periods where month = '$last_month-01'")" == closed ]] || fail "$last_month didn't close"
+  refused="$(sql "insert into billing.ledger_entries (id, txn_id, account, amount_paise, direction, ref_type, ref_id, created_at)
+      values (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_fees', 1, 'debit', 'e2e', gen_random_uuid(), '$last_month-15T12:00:00+05:30'),
+             (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_clearing', 1, 'credit', 'e2e', gen_random_uuid(), '$last_month-15T12:00:00+05:30')" 2>&1 || true)"
+  [[ "$refused" == *"the month is closed"* ]] || fail "an entry dated in the closed month $last_month wasn't refused: $refused"
+  note "month close: $last_month closed by the Owner with a second admin's approval once its checklist held (the ledger's checks, settlements, payout batches, the CA pack); an entry dated in it then refused by the database itself: PASS"
 }
 scenario="payouts"
 : >"$out/summary-payouts.txt"

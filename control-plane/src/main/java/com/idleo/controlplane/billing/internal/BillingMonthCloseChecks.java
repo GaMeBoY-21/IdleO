@@ -107,4 +107,27 @@ class BillingMonthCloseChecks {
             }
         };
     }
+
+    /** The month's CA pack has been made (ADR 0055). */
+    @Bean
+    MonthCloseCheck caPackMade(CaPacks packs) {
+        return new MonthCloseCheck() {
+            @Override
+            public int order() {
+                return 50;
+            }
+
+            @Override
+            public String name() {
+                return "The CA pack is generated";
+            }
+
+            @Override
+            public Result check(YearMonth month) {
+                return packs.made(month)
+                        ? Result.done("made; the CA has its files")
+                        : Result.notYet("ask for the month's CA pack on Tax");
+            }
+        };
+    }
 }

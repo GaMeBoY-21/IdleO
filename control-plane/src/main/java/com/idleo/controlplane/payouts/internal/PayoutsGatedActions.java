@@ -5,13 +5,12 @@ import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.identity.Approvals;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * What another admin approves in payouts (ADR 0051): sending a held or failed payout, releasing a batch (ADR 0055), and
- * an export with every PAN.
+ * What another admin approves in payouts (ADR 0051): sending a held or failed payout, and releasing a batch (ADR 0055).
+ * The TDS files, with every PAN, are billing's tax exports.
  */
 @Configuration(proxyBeanMethods = false)
 class PayoutsGatedActions {
@@ -42,15 +41,5 @@ class PayoutsGatedActions {
                         throw ApiProblem.of(Problem.ACTION_REFUSED, e.getMessage());
                     }
                 });
-    }
-
-    @Bean
-    @ConditionalOnWebApplication
-    Approvals.GatedAction exportTds(AdminPayoutsController payouts) {
-        return Approvals.fileAction(
-                AdminPayoutsController.TDS_EXPORT,
-                AdminPermission.EXPORT_CREATE,
-                Approvals.Cooling.MONEY,
-                run -> payouts.tdsFile(run.params().get("quarter").asString(), run.reason(), run.actor()));
     }
 }

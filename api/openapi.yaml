@@ -3543,33 +3543,6 @@ paths:
         idToken: []
       tags:
       - adminPayouts
-  /admin/v1/payouts/tds-export:
-    post:
-      operationId: adminPayoutsTdsExport
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TdsExport"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AdminApproval"
-          description: OK
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDetail"
-          description: "An error, as an RFC 9457 problem detail"
-      security:
-      - adminSession: []
-        idToken: []
-      tags:
-      - adminPayouts
   /admin/v1/payouts/verifications/pans:
     get:
       operationId: adminPayoutsPanReviews
@@ -5885,6 +5858,53 @@ paths:
         idToken: []
       tags:
       - adminNotes
+  /admin/v1/tax/exports:
+    get:
+      operationId: adminTaxExports
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxExports"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminTax
+    post:
+      operationId: adminTaxAsk
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTaxExportRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminTax
   /admin/v1/tickets:
     get:
       operationId: adminTicketsList
@@ -10204,6 +10224,27 @@ components:
           - "null"
       required:
       - actions
+    AdminCaPack:
+      type: object
+      properties:
+        actor:
+          type: string
+        at:
+          type: string
+          format: date-time
+        files:
+          type: integer
+          format: int32
+        manifestSha256:
+          type: string
+        month:
+          type: string
+      required:
+      - actor
+      - at
+      - files
+      - manifestSha256
+      - month
     AdminChargeback:
       type: object
       properties:
@@ -14123,6 +14164,53 @@ components:
             $ref: "#/components/schemas/AdminTag"
       required:
       - tags
+    AdminTaxExport:
+      type: object
+      properties:
+        contentType:
+          type: string
+        description:
+          type: string
+        inPack:
+          type: boolean
+        name:
+          type: string
+      required:
+      - contentType
+      - description
+      - inPack
+      - name
+    AdminTaxExportRequest:
+      type: object
+      properties:
+        export:
+          type: string
+          minLength: 1
+        month:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - export
+      - month
+      - reason
+    AdminTaxExports:
+      type: object
+      properties:
+        exports:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTaxExport"
+        packs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCaPack"
+      required:
+      - exports
+      - packs
     AdminTicket:
       type: object
       properties:
@@ -18934,20 +19022,6 @@ components:
       - colour
       - id
       - label
-    TdsExport:
-      type: object
-      properties:
-        quarter:
-          type: string
-          maxLength: 10
-          minLength: 10
-        reason:
-          type: string
-          maxLength: 500
-          minLength: 5
-      required:
-      - quarter
-      - reason
     Telemetry:
       type: object
       properties:

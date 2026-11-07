@@ -5,6 +5,7 @@ import com.idleo.controlplane.AdminListing;
 import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
+import com.idleo.controlplane.Csv;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.PersonalDataMask;
 import com.idleo.controlplane.Problem;
@@ -164,20 +165,11 @@ class AdminListExportController {
 
     private static void line(OutputStream out, List<@Nullable String> values) {
         try {
-            out.write((values.stream().map(AdminListExportController::cell).collect(Collectors.joining(",")) + "\n")
+            out.write((values.stream().map(Csv::cell).collect(Collectors.joining(",")) + "\n")
                     .getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    /** One CSV cell, quoted when it needs it, and never read by a spreadsheet as a formula. */
-    static String cell(@Nullable String value) {
-        if (value == null) {
-            return "";
-        }
-        var safe = !value.isEmpty() && "=+-@\t\r".indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
-        return safe.matches("(?s).*[\",\n\r].*") ? "\"" + safe.replace("\"", "\"\"") + "\"" : safe;
     }
 
     private void record(CurrentUser admin, AdminListing listing, long rows, String reason) {

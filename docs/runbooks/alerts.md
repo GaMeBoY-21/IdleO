@@ -404,7 +404,7 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Means:** an admin exported personal data: a TDS file, an audit CSV, or a person's export. Ticket level.
 
-**Do:** find it in the audit log (`tds.export`, `list.export`, `export.start`) and check its reason and, where it had one, its approval.
+**Do:** find it in the audit log (`tds.export`, `tax.export`, `tax.ca_pack`, `list.export`, `export.start`) and check its reason and, where it had one, its approval.
 
 ## Admin action at night
 

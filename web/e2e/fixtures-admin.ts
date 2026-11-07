@@ -54,6 +54,7 @@ export const EVERY_PERMISSION = [
   "money.adjust",
   "money.read",
   "periods.close",
+  "tax.export",
   "recon.read",
   "recon.resolve",
   "notes.read",
@@ -1598,4 +1599,43 @@ export const settlementItems = {
     },
   ],
   nextCursor: null,
+};
+
+// The CA's files and the packs made (ADR 0055).
+export const taxExports = {
+  exports: [
+    {
+      name: "invoice-register",
+      description: "Every tax invoice and receipt issued in the month",
+      contentType: "text/csv",
+      inPack: true,
+    },
+    {
+      name: "gstr1",
+      description: "GSTR-1's data as JSON for the GST portal's offline tool (CA(confirm) on the format)",
+      contentType: "application/json",
+      inPack: true,
+    },
+    {
+      name: "tds-26q",
+      description: "26Q's deductee records for the quarter (CA(confirm) on the format)",
+      contentType: "text/csv",
+      inPack: false,
+    },
+    {
+      name: "journal",
+      description: "Every ledger entry dated in the month, by transaction",
+      contentType: "text/csv",
+      inPack: true,
+    },
+  ],
+  packs: [
+    {
+      month: "2026-09",
+      files: 9,
+      manifestSha256: "3f2a9c0e5b7d4a1c8e6f0b2d4c6a8e0f1b3d5c7e9a0b2c4d6e8f0a1b3c5d7e9f",
+      actor: "admin Asha",
+      at: ago(30 * 24 * 60),
+    },
+  ],
 };

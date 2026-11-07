@@ -765,6 +765,21 @@ public final class FakeRazorpay implements AutoCloseable {
                                 .withBody(JSON.writeValueAsString(answer)))
                         .build();
             }
+            if (method.equals("POST") && path.equals("/_fake/settle")) {
+                // The local stack's end-to-end run settles what it paid, as Razorpay would the next day (ADR 0055).
+                var asked = JSON.readTree(body);
+                var paymentIds = new java.util.ArrayList<String>();
+                asked.path("payment_ids").forEach(id -> paymentIds.add(id.asString()));
+                var refundIds = new java.util.ArrayList<String>();
+                asked.path("refund_ids").forEach(id -> refundIds.add(id.asString()));
+                var id = settle(clock.instant(), asked.path("fee_basis_points").asLong(200), paymentIds, refundIds);
+                return cors(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(JSON.writeValueAsString(
+                                        JSON.createObjectNode().put("id", id))))
+                        .build();
+            }
             return error(404, "No such fake endpoint.");
         }
 
