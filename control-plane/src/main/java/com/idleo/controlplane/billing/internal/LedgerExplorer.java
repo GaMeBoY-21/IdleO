@@ -101,7 +101,7 @@ class LedgerExplorer {
             String refType,
             UUID refId,
             @Nullable String page,
-            @Nullable UUID pageId) {}
+            @Nullable String pageId) {}
 
     record Transaction(UUID txnId, Source source, Instant createdAt, List<Leg> legs) {}
 
@@ -130,7 +130,7 @@ class LedgerExplorer {
         var first = rows.getFirst();
         var legs = rows.stream().map(row -> (Leg) row[0]).toList();
         return Optional.of(
-                new Transaction(txnId, source((String) first[1], (UUID) first[2]), (Instant) first[3], legs));
+                new Transaction(txnId, source(txnId, (String) first[1], (UUID) first[2]), (Instant) first[3], legs));
     }
 
     /** The console page that holds what each kind of transaction is about, by its {@code ref_type}. */
@@ -148,6 +148,7 @@ class LedgerExplorer {
             Map.entry(Chargebacks.SETTLE_REF, "chargeback"),
             Map.entry(BillingPersonalData.FORFEIT_REF, "user"),
             Map.entry(Adjustments.ADJUSTMENT_REF, "adjustment"),
+            Map.entry(SessionRefundService.REFUND_REF, "session"),
             Map.entry(Adjustments.REVERSAL_REF, "adjustment"));
 
     /** A cause whose own id isn't a page's: the query that finds the page's id from it. */
@@ -166,10 +167,18 @@ class LedgerExplorer {
             FreeCreditExpiry.EXPIRY_REF,
             Map.entry("user", "select user_id from billing.credit_lots where id = :id"));
 
-    Source source(String refType, UUID refId) {
+    Source source(UUID txnId, String refType, UUID refId) {
+        if (refType.equals(RazorpaySettlements.SETTLEMENT_REF)) {
+            // A settlement's page is by Razorpay's id.
+            var settlement = jdbc.sql("select id from billing.settlements where txn_id = :txn")
+                    .param("txn", txnId)
+                    .query(String.class)
+                    .optional();
+            return new Source(refType, refId, settlement.isPresent() ? "settlement" : null, settlement.orElse(null));
+        }
         var page = PAGES.get(refType);
         if (page != null) {
-            return new Source(refType, refId, page, refId);
+            return new Source(refType, refId, page, refId.toString());
         }
         var lookup = LOOKUPS.get(refType);
         if (lookup != null) {
@@ -178,7 +187,7 @@ class LedgerExplorer {
                     .query(UUID.class)
                     .optional();
             if (found.isPresent()) {
-                return new Source(refType, refId, lookup.getKey(), found.get());
+                return new Source(refType, refId, lookup.getKey(), found.get().toString());
             }
         }
         return new Source(refType, refId, null, null);

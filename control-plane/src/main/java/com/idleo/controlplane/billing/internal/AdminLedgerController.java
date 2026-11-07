@@ -82,7 +82,7 @@ class AdminLedgerController {
             String refType,
             UUID refId,
             @Nullable String page,
-            @Nullable UUID pageId) {}
+            @Nullable String pageId) {}
 
     record AdminLedgerLeg(
             UUID id,

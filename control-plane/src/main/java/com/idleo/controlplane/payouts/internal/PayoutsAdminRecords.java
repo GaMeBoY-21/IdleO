@@ -25,6 +25,8 @@ class PayoutsAdminRecords implements AdminRecords {
                 "payout_method",
                 AdminRecords.byId(jdbc, "id", "select version from payouts.methods where id = :id"),
                 "payout_mismatch",
-                AdminRecords.byId(jdbc, "id", "select version from payouts.mismatches where id = :id"));
+                AdminRecords.byId(jdbc, "id", "select version from payouts.mismatches where id = :id"),
+                "payout_batch",
+                AdminRecords.byId(jdbc, "id", "select version from payouts.runs where id = :id"));
     }
 }

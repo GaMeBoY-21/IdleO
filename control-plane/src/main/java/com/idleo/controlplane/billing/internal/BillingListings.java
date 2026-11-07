@@ -39,6 +39,16 @@ class BillingListings {
     }
 
     @Bean
+    AdminListing settlementsListing() {
+        return AdminSettlementsController.LIST;
+    }
+
+    @Bean
+    AdminListing settlementItemsListing() {
+        return AdminSettlementsController.ITEMS;
+    }
+
+    @Bean
     AdminListing adjustmentsListing() {
         return AdminAdjustmentsController.LIST;
     }

@@ -70,6 +70,28 @@ Months are India's.
 - **Corrections:** a correction goes into an open month, as an adjustment that names the closed one (`corrects_month`).
 - **Reopening:** it takes the Owner, an approval and a reason. It's audited and pages (`PeriodReopened`).
 
+### Settlement reconciliation
+
+Every night at 04:30 India time, and when an admin asks (`reconciliation.run`), a day's settlements are fetched from Razorpay with every item they carried (the combined settlement reconciliation report), kept by Razorpay's ids, so a second fetch adds nothing.
+
+- **Matching each item** (`recon.read`):
+  - a payment with the top-up it paid, the same amount, and a fee and its GST no more than we expect (`billing.settlements.fee-basis-points`, 2%, and 18% GST on the fee);
+  - a refund with the refund part Razorpay processed;
+  - a deduction with the chargeback lost on that payment.
+- **What doesn't match** is `missing_ours`, `amount` or `unexpected_fee`. A payment we credited that no settlement carried 3 days later is `missing_theirs`, until one does (`settled_later`).
+- **A settlement** is matched, partly or unmatched; unmatched also when its items don't add up to what it settled.
+- **Posting:** a processed settlement posts once: what it moved to the bank (`bank`, a new asset account), Razorpay's fees (`gateway_fees`) and their GST (`gst_input_credit`), out of `gateway_clearing`.
+- **Resolving** (`recon.resolve`): an item is resolved by an approved adjustment whose reference names it, or as a known difference with a reason. One open for more than 3 days alerts (SettlementItemsStale), and every open one is an inbox item.
+- **RazorpayX:** its payouts were already reconciled against ours every night (ADR 0040), and that stays as it is.
+
+### Payout batches
+
+The weekly run is one batch:
+
+- **The preview:** each host's quote (`PayoutService.quote`), with the same checks and figures as the payout itself: the gross (what's available less what's owed, which is recovered first), what's held, the tax, the fee, the net and the masked UPI ID. Anyone left out is listed with why.
+- **Release** is one approved action (`payouts.release`, step-up). It takes every quote again first and pays nobody if any changed, so what's paid is what the approver saw. Then it pays each host as previewed, once. A batch is released once; the same approval run again finishes what it started.
+- **Tracking:** each item shows its payout's status, and the items' CSV is the batch report for the CA.
+
 ### Money reports
 
 `money.read` holds:
@@ -90,5 +112,7 @@ Each figure is defined once (`MoneyReports.HEADLINES`) as the entries it sums. T
 
 - A correction is always a new transaction, so the ledger's history shows what was wrong and who put it right.
 - Closing a month is final for postings. A webhook that arrives late for a closed month posts into the open one, because its entry is dated when it's posted.
-- The checklist grows with settlements, payout batches and the CA's pack, each declared by its own module.
+- The checklist grows with each module's items: settlements reconciled and the month's payout batches settled are declared by billing and payouts; the CA's pack follows.
+- Hosts are paid only once a batch is released by approval, no longer by Monday's run on its own. A week nobody releases is a week nobody is paid; the month-close checklist and the batch's place in Payouts make it hard to miss.
+- The expected fee rate is a setting. A method Razorpay charges more for shows as an unexpected fee until the rate or the method is put right.
 - Open question: whether the CA wants corrections to a closed month shown against that month in the pack, or only in the month they're posted. They're posted in the open month and name the closed one, so either can be drawn.

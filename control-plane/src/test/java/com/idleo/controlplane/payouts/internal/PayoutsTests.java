@@ -289,6 +289,16 @@ class PayoutsTests {
 
         clock.advance(Duration.ofDays(900));
         runs.weekly();
+        // The week's batch is a preview until it's released (ADR 0055): the held account is left out of it.
+        var batch = jdbc.queryForObject(
+                "select id from payouts.runs where kind = 'weekly' order by started_at desc limit 1", UUID.class);
+        assertThat(jdbc.queryForObject(
+                        "select left_out from payouts.batch_items where run_id = ? and user_id = ?",
+                        String.class,
+                        batch,
+                        held.id()))
+                .isEqualTo("account_held");
+        runs.release(batch, UUID.randomUUID(), com.idleo.controlplane.identity.AuditTrail.Actor.operator("test"));
 
         assertThat(jdbc.queryForObject(
                         "select count(*) from payouts.payouts where user_id = ?", Integer.class, held.id()))

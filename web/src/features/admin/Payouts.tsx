@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useSearch } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Money } from "@/components/ui/Money";
 import { RelativeTime } from "@/components/ui/Time";
 import { formatDateTime } from "@/lib/time";
@@ -45,12 +45,25 @@ const STATUS_TONE: Record<string, "running" | "danger" | "plain"> = {
 };
 
 /**
- * Payouts (ADR 0040): the balance RazorpayX has against the next run, the latest runs, every payout by status with
- * RazorpayX's reason, a run started now, one person paid again now (after a failure), and RazorpayX against our
- * payouts, a day at a time. Every action takes a reason and is audited.
+ * Payouts (ADR 0040, ADR 0055): the balance RazorpayX has against the next run, the latest batches (each a preview
+ * released by approval, as previewed), every payout by status with RazorpayX's reason, a batch prepared now, one person
+ * paid again now (after a failure), and RazorpayX against our payouts, a day at a time. Every action takes a reason and
+ * is audited.
  */
 export function Payouts() {
-  const id = new URLSearchParams(useSearch()).get("id");
+  const search = new URLSearchParams(useSearch());
+  const id = search.get("id");
+  const batch = search.get("batch");
+  if (batch) {
+    return (
+      <AdminPage title="Payout batch">
+        <Link href="/admin/payouts/" className="text-small underline">
+          ← All runs and payouts
+        </Link>
+        <Batch id={batch} />
+      </AdminPage>
+    );
+  }
   return id ? (
     <PlainRecord
       title="Payout"
@@ -110,7 +123,7 @@ function RunsAndPayouts() {
             Pay one person now
           </ActionButton>
           <ActionButton permission="payouts.run" variant="ghost" onClick={() => setRunning(true)}>
-            Run now
+            Prepare a batch now
           </ActionButton>
         </div>
       }
@@ -167,7 +180,7 @@ function RunsAndPayouts() {
             />
             <Table
               caption="Runs"
-              columns={["Payday", "Kind", "Asked by", "People", "Payouts", "Total", "Finished"]}
+              columns={["Payday", "Kind", "Asked by", "People", "Payouts", "Total", "Batch", "Finished"]}
             >
               {found.runs.map((run) => (
                 <Row key={run.id}>
@@ -177,6 +190,11 @@ function RunsAndPayouts() {
                   <Cell className="tabular">{run.owners ?? "—"}</Cell>
                   <Cell className="tabular">{run.payouts ?? "—"}</Cell>
                   <Cell>{run.totalPaise != null ? <Money paise={run.totalPaise} /> : "—"}</Cell>
+                  <Cell>
+                    <Link href={`/admin/payouts/?batch=${run.id}`} className="underline">
+                      {run.state === "preview" ? "Review and release" : "Released"}
+                    </Link>
+                  </Cell>
                   <Cell>
                     {run.failure ? (
                       <span className="text-danger">{run.failure}</span>
@@ -222,12 +240,12 @@ function RunsAndPayouts() {
       <ActionSheet
         open={running}
         onOpenChange={setRunning}
-        title="Start a payout run now?"
-        change="Everyone with a checked UPI ID and at least the weekly minimum available is paid now, as Monday's run does. Nobody with a payout on its way is paid twice."
-        confirm="Run it"
+        title="Prepare a payout batch now?"
+        change="A preview of everyone with a checked UPI ID and at least the weekly minimum available, as Monday's batch is: nothing is paid until another admin approves its release."
+        confirm="Prepare it"
         onConfirm={async (reason) => {
           const run = await adminData(adminApi.POST("/admin/v1/payouts/runs", { body: { reason } }));
-          setOutcome(`The run paid ${run.payouts ?? 0} people.`);
+          setOutcome(`The batch previews ${run.payouts ?? 0} payouts; review and release it to pay them.`);
           await refresh();
         }}
       />
@@ -465,5 +483,146 @@ function Reconciliation() {
         }}
       />
     </Section>
+  );
+}
+
+const BATCH_COLUMNS = ["Host", "Gross", "Recovered", "Held", "Tax", "Fee", "Net", "UPI ID", "Paid"];
+
+/**
+ * One batch (ADR 0055): each host as previewed, or why they're left out, and once released each payout's status. Its
+ * CSV is the batch report for the CA. Refreshing makes the preview again from now; releasing goes to another admin and
+ * pays each host as previewed, once.
+ */
+function Batch({ id }: { id: string }) {
+  const client = useQueryClient();
+  const [acting, setActing] = useState<"refresh" | "release" | null>(null);
+  const batch = useQuery({
+    queryKey: [ADMIN, "payout-batch", id],
+    queryFn: () => adminData(adminApi.GET("/admin/v1/payouts/batches/{id}", { params: { path: { id } } })),
+  });
+  const view = useListView();
+  const items = useInfiniteQuery({
+    queryKey: [ADMIN, "payout-batch-items", id, view],
+    queryFn: ({ pageParam }) =>
+      adminData(
+        adminApi.GET("/admin/v1/payouts/batch-items", {
+          params: { query: { batch: id, ...view, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+  return (
+    <QueryView query={batch} what="the batch">
+      {(run) => (
+        <Section
+          title={`The batch of ${run.payday}`}
+          action={
+            run.state === "preview" ? (
+              <div className="flex gap-2">
+                <ActionButton permission="payouts.run" variant="ghost" onClick={() => setActing("refresh")}>
+                  Refresh the preview
+                </ActionButton>
+                <ActionButton permission="payouts.release" onClick={() => setActing("release")}>
+                  Release
+                </ActionButton>
+              </div>
+            ) : null
+          }
+        >
+          <Fields
+            items={[
+              [
+                "State",
+                run.state === "preview" ? <Pill>preview</Pill> : <Pill tone="running">released</Pill>,
+              ],
+              ["Payouts", run.payouts ?? 0],
+              ["Total, net", <Money key="total" paise={run.totalPaise ?? 0} />],
+              [
+                "Released",
+                run.releasedAt ? `by ${run.releasedBy ?? "—"}, ${formatDateTime(run.releasedAt)}` : "not yet",
+              ],
+            ]}
+          />
+          <ListBar list="payout-batch-items" columns={BATCH_COLUMNS} tags={false} extra={{ batch: id }} />
+          <PagedView
+            query={items}
+            what="the batch's hosts"
+            items={(page) => page.items}
+            empty={<Empty title="Nobody in this batch">No host has a checked UPI ID yet.</Empty>}
+          >
+            {(rows) => (
+              <Table caption="The batch's hosts" sorts={{ Net: "net" }} columns={BATCH_COLUMNS}>
+                {rows.map((item) => (
+                  <Row key={item.userId}>
+                    <Cell>
+                      <Id value={item.userId} page="user" />
+                    </Cell>
+                    <Cell className="tabular">
+                      <Money paise={item.grossPaise} />
+                    </Cell>
+                    <Cell className="tabular">
+                      <Money paise={item.recoveredPaise} />
+                    </Cell>
+                    <Cell className="tabular">
+                      <Money paise={item.heldPaise} />
+                    </Cell>
+                    <Cell className="tabular">
+                      <Money paise={item.tdsPaise} />
+                    </Cell>
+                    <Cell className="tabular">
+                      <Money paise={item.feePaise} />
+                    </Cell>
+                    <Cell className="tabular">
+                      <Money paise={item.netPaise} />
+                    </Cell>
+                    <Cell>{item.upiMasked ?? "—"}</Cell>
+                    <Cell>
+                      {item.leftOutWords ? (
+                        <span className="text-text-2">left out: {item.leftOutWords}</span>
+                      ) : item.payoutStatus ? (
+                        <Pill tone={STATUS_TONE[item.payoutStatus] ?? "plain"}>{item.payoutStatus}</Pill>
+                      ) : (
+                        <span className="text-text-2">when released</span>
+                      )}
+                    </Cell>
+                  </Row>
+                ))}
+              </Table>
+            )}
+          </PagedView>
+          <ActionSheet
+            open={acting !== null}
+            onOpenChange={(open) => !open && setActing(null)}
+            record={run}
+            title={acting === "release" ? "Release this batch?" : "Refresh the preview?"}
+            change={
+              acting === "release"
+                ? "Another admin approves; then each host is paid as previewed, once. If anyone's figures changed since the preview, nobody is paid and the preview must be refreshed first."
+                : "Each host's figures are taken again from now. Nothing is paid."
+            }
+            confirm={acting === "release" ? "Ask to release" : "Refresh"}
+            onConfirm={async (reason) => {
+              if (acting === "release") {
+                await adminData(
+                  adminApi.POST("/admin/v1/payouts/batches/{id}/release", {
+                    params: { path: { id } },
+                    body: { reason },
+                  }),
+                );
+              } else {
+                await adminData(
+                  adminApi.POST("/admin/v1/payouts/batches/{id}/refresh", {
+                    params: { path: { id } },
+                    body: { reason },
+                  }),
+                );
+              }
+              await client.invalidateQueries({ queryKey: [ADMIN] });
+            }}
+          />
+        </Section>
+      )}
+    </QueryView>
   );
 }

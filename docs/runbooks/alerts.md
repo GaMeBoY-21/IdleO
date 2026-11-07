@@ -312,6 +312,14 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** if nobody expected it, ask the Owner. Tell the CA that a month they had is open again, and send the corrected pack once it's closed again (docs/runbooks/reopening-a-period.md).
 
+## Settlement items stale
+
+**Means:** items of Razorpay's settlements (ADR 0055) have disagreed with the ledger for more than 3 days without anyone resolving them: a payment or refund we have no record of (`missing_ours`), a payment of ours no settlement carried (`missing_theirs`), a different amount (`amount`), or a fee above the rate we expect (`unexpected_fee`).
+
+**Check first:** the admin console's Settlements: each open item with Razorpay's figures and ours. They're in the Inbox too, as `settlement`.
+
+**Do:** docs/runbooks/settlement-mismatch.md says what each kind needs and how to resolve it: an approved adjustment that names the item, or a known difference with a reason.
+
 ## Webhook signatures failing
 
 **Means:** more than 5 Razorpay webhooks, or Checkout answers, in 15 minutes carried a signature that isn't Razorpay's under our secret. Nothing was credited for them: a payment is credited only when its signature checks out, or when we fetched it from Razorpay ourselves.

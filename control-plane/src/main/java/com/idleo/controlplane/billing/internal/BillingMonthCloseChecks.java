@@ -7,7 +7,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
-/** Billing's items on the month-close checklist (ADR 0055): the ledger's checks, and its payments reconciled. */
+/**
+ * Billing's items on the month-close checklist (ADR 0055): the ledger's checks, its payments reconciled, and Razorpay's
+ * settlements reconciled.
+ */
 @Configuration(proxyBeanMethods = false)
 class BillingMonthCloseChecks {
 
@@ -77,6 +80,30 @@ class BillingMonthCloseChecks {
                         .query(Long.class)
                         .single();
                 return open == 0 ? Result.done("none open") : Result.notYet(open + " open");
+            }
+        };
+    }
+
+    /** Every item the month's settlements carried, and every payment missing from them, matches or is resolved. */
+    @Bean
+    MonthCloseCheck settlementsReconciled(RazorpaySettlements settlements) {
+        return new MonthCloseCheck() {
+            @Override
+            public int order() {
+                return 30;
+            }
+
+            @Override
+            public String name() {
+                return "Settlements reconciled";
+            }
+
+            @Override
+            public Result check(YearMonth month) {
+                long open = settlements.openIn(
+                        month.atDay(1).atStartOfDay(Periods.INDIA).toInstant(),
+                        month.plusMonths(1).atDay(1).atStartOfDay(Periods.INDIA).toInstant());
+                return open == 0 ? Result.done("every item matches or is resolved") : Result.notYet(open + " open");
             }
         };
     }
