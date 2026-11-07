@@ -26,8 +26,12 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:25.0.5_8-jre-noble@sha256:a98128a57de944a72bd31fbc79b898edd5a5864d3652071d5bbd2160ab7d7dce AS jre
 
-# glibc, libstdc++ and CA certificates, and nothing else: no shell, no package manager.
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:08476c244888bfb425bae1ae4dd7c17f093e972aab8426883d97f3c6f280f7c1
+# glibc, CA certificates and time zones, and nothing else: no shell, no package manager, and none of the libraries the
+# JRE doesn't use. Measured on 25.0.5+8: every library in Temurin's JRE needs only glibc (libc, libdl, libm, libpthread,
+# librt), libzip.so carries its own zlib, the one native library in the app (Netty's epoll) needs only glibc, and a run
+# under LD_DEBUG loads no libz, libssl, libstdc++ or libgcc_s. So distroless's cc image's zlib1g, OpenSSL, libzstd and
+# libstdc++ were only ever findings for the scanner. A new native dependency is checked the same way before it ships.
+FROM gcr.io/distroless/base-nossl-debian13:nonroot@sha256:e6b0f82595aa1edde72c8054de7a9dca30f0f8f54820c37a167c0ddfc21c5c67
 ARG VERSION=development
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="idleo-control-plane" \
