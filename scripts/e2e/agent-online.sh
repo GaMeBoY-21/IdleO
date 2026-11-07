@@ -2341,9 +2341,16 @@ PY
   local buyer_token paid_ids="" topup paid amount
   buyer_token="$(stack_token "$user")"
   [[ -n "$buyer_token" ]] || fail "no fresh token for the run's renter"
+  # A top-up needs the buyer's state for its invoice (the web journey picks it first); ₹500 and ₹300 fit a new account's
+  # limits (₹2,000 a top-up and a day).
+  curl -sf -X PUT "$api/v1/wallet/billing-details" -H "Authorization: Bearer $buyer_token" \
+    -H 'Content-Type: application/json' -d '{"stateCode":"29"}' >/dev/null || fail "the renter couldn't give their state"
   for amount in 50000 30000; do
-    topup="$(token="$buyer_token" api_post /v1/wallet/topups -H "Idempotency-Key: \"$user-settle-$amount\"" \
-      -d "{\"amountPaise\":$amount}")" || fail "the renter couldn't start a top-up of $amount paise"
+    topup="$(curl -s -X POST "$api/v1/wallet/topups" -H "Authorization: Bearer $buyer_token" \
+      -H 'Content-Type: application/json' -H "Idempotency-Key: \"$user-settle-$amount\"" \
+      -d "{\"amountPaise\":$amount}")"
+    [[ "$(json_get .status <<<"$topup" 2>/dev/null)" == pending ]] ||
+      fail "the renter couldn't start a top-up of $amount paise: $topup"
     paid="$(curl -sf -X POST "http://localhost:$razorpay_port/_fake/pay" -H 'Content-Type: application/json' \
       -d "{\"order_id\":\"$(json_get .orderId <<<"$topup")\"}")" || fail "the fake Razorpay didn't take the payment"
     [[ "$(token="$buyer_token" api_post "/v1/wallet/topups/$(json_get .id <<<"$topup")/confirm" \
