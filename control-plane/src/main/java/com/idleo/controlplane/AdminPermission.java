@@ -41,6 +41,8 @@ public enum AdminPermission {
     MONEY_ADJUST("money.adjust", true),
     /** The ledger explorer (ADR 0055): the chart of accounts, balances at any time, every entry and the trial balance. */
     LEDGER_READ("ledger.read", false),
+    /** The CA's files and monthly pack (ADR 0055): GST, TDS with whole PANs, the journal; approved, with a factor. */
+    TAX_EXPORT("tax.export", true),
     /** Closing a month, and reopening one: the Owner's, with a factor and another admin's approval (ADR 0055). */
     PERIODS_CLOSE("periods.close", true),
     PAYMENTS_READ("payments.read", false),

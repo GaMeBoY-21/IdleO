@@ -345,9 +345,10 @@ class ApprovalTests {
     void anApprovedExportIsFetchedOnceByWhoeverAskedAndIsNeverKept() throws Exception {
         var finance = TestAdmins.signInAs(mvc, jdbc, clock, "finance");
         var other = TestAdmins.signInAs(mvc, jdbc, clock, "finance");
-        var asked = mvc.perform(finance.as(post("/admin/v1/payouts/tds-export"))
+        var asked = mvc.perform(finance.as(post("/admin/v1/tax/exports"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"quarter\":\"2026-27-Q3\",\"reason\":\"for the CA this quarter\"}"))
+                        .content("{\"export\":\"tds-deductions\",\"month\":\"2026-10\","
+                                + "\"reason\":\"for the CA this quarter\"}"))
                 .andReturn()
                 .getResponse();
         assertThat(asked.getStatus()).isEqualTo(202);

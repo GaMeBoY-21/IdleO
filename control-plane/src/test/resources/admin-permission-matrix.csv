@@ -87,6 +87,7 @@ GET /admin/v1/settlement-items/{id},recon.read,allow,403,403,403,allow,allow
 GET /admin/v1/settlements,recon.read,allow,403,403,403,allow,allow
 GET /admin/v1/settlements/{id},recon.read,allow,403,403,403,allow,allow
 GET /admin/v1/tags,notes.read,allow,allow,allow,allow,allow,allow
+GET /admin/v1/tax/exports,tax.export,allow,403,403,403,allow,403
 GET /admin/v1/tickets,tickets.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/tickets/{id},tickets.read,allow,allow,allow,allow,allow,allow
 GET /admin/v1/timeline,self,allow,allow,allow,allow,allow,allow
@@ -145,7 +146,6 @@ POST /admin/v1/payouts/mismatches/{id}/accept,reconciliation.accept,allow,403,40
 POST /admin/v1/payouts/reconciliation,reconciliation.run,allow,403,403,403,allow,403
 POST /admin/v1/payouts/retry,payouts.release,allow,403,403,403,allow,403
 POST /admin/v1/payouts/runs,payouts.run,allow,403,403,403,allow,403
-POST /admin/v1/payouts/tds-export,export.create,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/pans/{userId}/reject,verifications.decide,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/pans/{userId}/verify,verifications.decide,allow,403,403,403,allow,403
 POST /admin/v1/payouts/verifications/upi-ids/{id}/approve,verifications.decide,allow,403,403,403,allow,403
@@ -181,6 +181,7 @@ POST /admin/v1/sessions/{id}/stop,sessions.stop,allow,allow,403,allow,403,403
 POST /admin/v1/settlement-items/{id}/resolve,recon.resolve,allow,403,403,403,allow,403
 POST /admin/v1/settlements/fetch,reconciliation.run,allow,403,403,403,allow,403
 POST /admin/v1/tags,tags.manage,allow,403,403,403,403,403
+POST /admin/v1/tax/exports,tax.export,allow,403,403,403,allow,403
 POST /admin/v1/tickets/{id}/answer,tickets.reply,allow,403,allow,403,403,403
 POST /admin/v1/tickets/{id}/status,tickets.reply,allow,403,allow,403,403,403
 POST /admin/v1/users/{id}/deletion/legal-order,privacy.legal-order,allow,403,403,403,403,403

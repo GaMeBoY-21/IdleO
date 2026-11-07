@@ -892,12 +892,31 @@ test.describe("the console", () => {
     expect(waived).toEqual({ reason: "the host couldn't have known" });
   });
 
-  test("exports a quarter's tax deducted at source with a reason", async ({ page }, info) => {
-    await open(page, "/admin/tax/");
+  test("lists the CA's files and asks for the month's pack with a reason", async ({ page }, info) => {
+    let asked: unknown = null;
+    await open(page, "/admin/tax/", {
+      "/admin/v1/tax/exports": (_call, request) => {
+        if (request.method() === "POST") {
+          asked = request.postDataJSON();
+          return { status: 202, json: admin.approvals.requests[0] };
+        }
+        return { json: admin.taxExports };
+      },
+    });
     await expect(page.getByRole("heading", { level: 1, name: "Tax" })).toBeVisible();
-    await expect(page.getByLabel(/^Quarter/)).toHaveValue(/^\d{4}-\d{2}-Q[1-4]$/);
+    await expect(page.getByLabel("Month (YYYY-MM)")).toHaveValue(/^\d{4}-\d{2}$/);
+    await expect(page.getByRole("table", { name: "The CA's files" })).toContainText("tds-26q");
+    await expect(page.getByRole("table", { name: "Packs made" })).toContainText("2026-09");
     await expectAccessible(page);
     await capture(page, info, "admin-tax");
+    await page.getByLabel("Month (YYYY-MM)").fill("2026-10");
+    await page.getByRole("button", { name: "Ask for the month's CA pack" }).click();
+    const sheet = page.getByRole("dialog", { name: "Ask for the CA pack of 2026-10?" });
+    await sheet.getByLabel("Reason").fill("October's pack for the CA");
+    await sheet.getByRole("button", { name: "Ask for approval" }).click();
+    await expect(page.getByRole("dialog")).toContainText("waiting for another admin");
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+    expect(asked).toEqual({ export: "ca-pack", month: "2026-10", reason: "October's pack for the CA" });
   });
 
   test("approves a refund of bought credit, never more than the renter can have back", async ({

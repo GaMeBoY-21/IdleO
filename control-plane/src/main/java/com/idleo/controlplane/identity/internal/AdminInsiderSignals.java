@@ -24,7 +24,8 @@ class AdminInsiderSignals {
     static final int REVEAL_BURST = 20;
 
     /** What takes personal data out of the system, as the audit log names it. */
-    private static final Set<String> EXPORTS = Set.of("tds.export", "list.export", "export.start");
+    private static final Set<String> EXPORTS =
+            Set.of("tds.export", "tax.export", "tax.ca_pack", "list.export", "export.start");
 
     private static final ZoneId INDIA = ZoneId.of("Asia/Kolkata");
     private static final int NIGHT_ENDS_AT_HOUR = 6;

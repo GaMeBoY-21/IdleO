@@ -393,6 +393,13 @@ class MoneyOperationsTests {
         // shortcuts,
         // which some checks find (the checklist's refusal is aMonthIsntClosedWhileTheLedgersChecksFindSomething's).
         cleanRun();
+        // The month's CA pack, as made (TaxExportsTests makes one through its approval and checks its manifest).
+        jdbc.update(
+                "insert into billing.ca_packs (id, month, files, manifest_sha256, actor, approval_id, created_at)"
+                        + " values (?, ?, 9, repeat('a', 64), 'test', ?, now())",
+                UUID.randomUUID(),
+                LONG_AGO.atDay(1),
+                UUID.randomUUID());
         var period =
                 body(mvc.perform(owner.as(get("/admin/v1/periods/" + month))).andExpect(status().isOk()));
         assertThat(period.get("state").asString()).isEqualTo("open");
