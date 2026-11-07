@@ -2173,10 +2173,16 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
   # Every machine prices a minute at 60 paise from here, so one session earns more than RazorpayX's ₹1 minimum.
   for id in "${main_hosts[@]}"; do list_host "$id" 60; done
 
-  # 1. Processed: once the window has passed, Run now pays what's available.
+  # 1. Processed: once the window has passed, a batch is prepared (a preview, nothing paid) and released by approval
+  # (ADR 0055), which pays what's available, as previewed.
   session="$(earn payouts-first 100)"
   sleep 41
-  admin_post /admin/v1/payouts/runs '{"reason":"End-to-end payout run"}' >/dev/null || fail "Run now failed"
+  batch="$(admin_post /admin/v1/payouts/runs '{"reason":"End-to-end payout run"}')" || fail "preparing a batch failed"
+  batch_id="$(json_get .id <<<"$batch")"
+  [[ "$(json_get .state <<<"$batch")" == preview ]] || fail "a prepared batch paid before it was released"
+  [[ "$(sql "select count(*) from payouts.payouts where run_id = '$batch_id'")" == 0 ]] || fail "the preview made payouts"
+  admin_post --if-match "$(json_get .version <<<"$batch")" "/admin/v1/payouts/batches/$batch_id/release" \
+    '{"reason":"End-to-end batch release"}' >/dev/null || fail "releasing the batch failed"
   payout="$(newest_payout "$owner_id" processed 60)"
   read -r net earned_to_paid <<<"$(sql "select net_paise || ' ' || extract(epoch from processed_at - earned_since)::int
       from payouts.payouts where id = '$payout'")"
@@ -2185,7 +2191,9 @@ print(" ".join(h["id"] for h in json.load(sys.stdin)["hosts"] if not h.get("remo
   [[ "$(sql "select coalesce(sum(case direction when 'credit' then amount_paise else -amount_paise end), 0) from billing.ledger_entries
       where account = 'payouts_in_flight' and owner_id = '$owner_id'")" == 0 ]] || fail "money is left in flight"
   echo "$earned_to_paid" >"$out/payouts-earned-to-paid.txt"
-  note "payouts: Run now paid the owner $net paise for everything available, in flight before RazorpayX was asked and paid once processed (fake RazorpayX's payout.processed); $earned_to_paid s from the oldest earning to paid, with a 40 s window: PASS"
+  [[ "$(sql "select net_paise from payouts.batch_items where run_id = '$batch_id' and user_id = '$owner_id'")" == "$net" ]] ||
+    fail "the payout isn't what the batch previewed"
+  note "payouts: a batch previewed the owner's payout and, released by a second admin, paid them $net paise as previewed, in flight before RazorpayX was asked and paid once processed (fake RazorpayX's payout.processed); $earned_to_paid s from the oldest earning to paid, with a 40 s window: PASS"
 
   # 2. Failed, then paid again: a UPI ID whose payouts fail.
   use_upi payoutfails@okicici

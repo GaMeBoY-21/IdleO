@@ -142,6 +142,28 @@ class AdminMaskingTests {
                 values (?, 'journal', 'a fee Razorpay kept', 'ticket 1', ?, ?, 'admin test', now())
                 """, adjustment, UUID.randomUUID(), UUID.randomUUID());
         ids.put("/admin/v1/adjustments/{id}", adjustment.toString());
+        // A settlement and its item, and a payout batch, by hand: no person in either.
+        var settlement = "setl_masking" + UUID.randomUUID().toString().substring(0, 8);
+        jdbc.update("""
+                insert into billing.settlements
+                    (id, amount_paise, fees_paise, tax_paise, status, settled_at, fetched_at, state, version)
+                values (?, 0, 0, 0, 'processed', now(), now(), 'matched', 1)
+                """, settlement);
+        var settlementItem = UUID.randomUUID();
+        jdbc.update("""
+                insert into billing.settlement_items
+                    (id, settlement_id, entity_id, type, credit_paise, debit_paise, fee_paise, tax_paise, match, state,
+                     found_at, version)
+                values (?, ?, 'pay_masking', 'payment', 0, 0, 0, 0, 'missing_ours', 'open', now(), 1)
+                """, settlementItem, settlement);
+        ids.put("/admin/v1/settlements/{id}", settlement);
+        ids.put("/admin/v1/settlement-items/{id}", settlementItem.toString());
+        var payoutBatch = UUID.randomUUID();
+        jdbc.update("""
+                insert into payouts.runs (id, kind, payday, trigger, started_at, state)
+                values (?, 'manual', current_date, 'test', now(), 'preview')
+                """, payoutBatch);
+        ids.put("/admin/v1/payouts/batches/{id}", payoutBatch.toString());
 
         // The inbox's records, by hand: the passes that bring it up to date are the queues module's.
         var queueItem = UUID.randomUUID();
@@ -195,6 +217,7 @@ class AdminMaskingTests {
                 Map.entry("/admin/v1/payments", "query=" + user),
                 Map.entry("/admin/v1/credit-grants", "user=" + user),
                 Map.entry("/admin/v1/ledger", "account=renter_wallet&owner=" + user),
+                Map.entry("/admin/v1/payouts/batch-items", "batch=" + payoutBatch),
                 Map.entry("/admin/v1/sessions/{id}/log", "reason=checking the masking"),
                 Map.entry("/admin/v1/hosts", "query=" + host),
                 Map.entry("/admin/v1/disputes/host-flags", "host=" + host),

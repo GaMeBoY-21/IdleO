@@ -304,6 +304,17 @@ billing:
   payment-reconciliation:
     cron: "0 15 3 * * *"
     count-every: 1m
+  # What Razorpay settles to the bank, against the ledger (ADR 0055, Settlements): yesterday's settlements and every item
+  # they carried, at 04:30 in India, after the payments reconciliation. A payment's fee above fee-basis-points of it (with
+  # GST at fee-tax-basis-points on the fee) is unexpected; one we credited that no settlement carried missing-after later
+  # is missing on theirs; an item open longer than stale-after alerts. Every instance reads the counts once a minute.
+  settlements:
+    cron: "0 30 4 * * *"
+    count-every: 1m
+    fee-basis-points: 200
+    fee-tax-basis-points: 1800
+    missing-after: 3d
+    stale-after: 3d
   # monthly_usage's tax invoices for the month before, on the first of each month, in India's time (ADR 0039).
   invoices:
     usage-cron: "0 0 4 1 * *"

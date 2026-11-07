@@ -3205,6 +3205,146 @@ paths:
         idToken: []
       tags:
       - adminPayouts
+  /admin/v1/payouts/batch-items:
+    get:
+      operationId: adminPayoutBatchesItems
+      parameters:
+      - in: query
+        name: batch
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBatchItems"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayoutBatches
+  /admin/v1/payouts/batches/{id}:
+    get:
+      operationId: adminPayoutBatchesBatch
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayoutRun"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayoutBatches
+  /admin/v1/payouts/batches/{id}/refresh:
+    post:
+      operationId: adminPayoutBatchesRefresh
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPayoutRun"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayoutBatches
+  /admin/v1/payouts/batches/{id}/release:
+    post:
+      operationId: adminPayoutBatchesRelease
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminPayoutBatches
   /admin/v1/payouts/mismatches/{id}/accept:
     post:
       operationId: adminPayoutsAccept
@@ -5446,6 +5586,218 @@ paths:
         idToken: []
       tags:
       - adminUsage
+  /admin/v1/settlement-items:
+    get:
+      operationId: adminSettlementsItems
+      parameters:
+      - in: query
+        name: settlement
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: match
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettlementItemPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSettlements
+  /admin/v1/settlement-items/{id}:
+    get:
+      operationId: adminSettlementsItem
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettlementItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSettlements
+  /admin/v1/settlement-items/{id}/resolve:
+    post:
+      operationId: adminSettlementsResolve
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSettlementResolve"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettlementItem"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSettlements
+  /admin/v1/settlements:
+    get:
+      operationId: adminSettlementsList
+      parameters:
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettlementPage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSettlements
+  /admin/v1/settlements/fetch:
+    post:
+      operationId: adminSettlementsFetch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSettlementFetch"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettlementFetched"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSettlements
+  /admin/v1/settlements/{id}:
+    get:
+      operationId: adminSettlementsOne
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRazorpaySettlement"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "An error, as an RFC 9457 problem detail"
+      security:
+      - adminSession: []
+        idToken: []
+      tags:
+      - adminSettlements
   /admin/v1/tags:
     get:
       operationId: adminNotesVocabulary
@@ -9661,6 +10013,72 @@ components:
       - duePaise
       - isShort
       - payday
+    AdminBatchItem:
+      type: object
+      properties:
+        feePaise:
+          type: integer
+          format: int64
+        grossPaise:
+          type: integer
+          format: int64
+        heldPaise:
+          type: integer
+          format: int64
+        leftOut:
+          type:
+          - string
+          - "null"
+        leftOutWords:
+          type:
+          - string
+          - "null"
+        netPaise:
+          type: integer
+          format: int64
+        payoutId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        payoutStatus:
+          type:
+          - string
+          - "null"
+        recoveredPaise:
+          type: integer
+          format: int64
+        tdsPaise:
+          type: integer
+          format: int64
+        upiMasked:
+          type:
+          - string
+          - "null"
+        userId:
+          type: string
+          format: uuid
+      required:
+      - feePaise
+      - grossPaise
+      - heldPaise
+      - netPaise
+      - recoveredPaise
+      - tdsPaise
+      - userId
+    AdminBatchItems:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBatchItem"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - items
     AdminBreakage:
       type: object
       properties:
@@ -11329,7 +11747,6 @@ components:
           type:
           - string
           - "null"
-          format: uuid
         refId:
           type: string
           format: uuid
@@ -12324,9 +12741,23 @@ components:
           - integer
           - "null"
           format: int32
+        releasedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        releasedBy:
+          type:
+          - string
+          - "null"
         startedAt:
           type: string
           format: date-time
+        state:
+          type: string
+          enum:
+          - preview
+          - released
         totalPaise:
           type:
           - integer
@@ -12334,12 +12765,17 @@ components:
           format: int64
         trigger:
           type: string
+        version:
+          type: integer
+          format: int64
       required:
       - id
       - kind
       - payday
       - startedAt
+      - state
       - trigger
+      - version
     AdminPayouts:
       type: object
       properties:
@@ -12591,6 +13027,44 @@ components:
             $ref: "#/components/schemas/AdminRating"
       required:
       - ratings
+    AdminRazorpaySettlement:
+      type: object
+      properties:
+        amountPaise:
+          type: integer
+          format: int64
+        feesPaise:
+          type: integer
+          format: int64
+        id:
+          type: string
+        settledAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+        status:
+          type: string
+        taxPaise:
+          type: integer
+          format: int64
+        txnId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        utr:
+          type:
+          - string
+          - "null"
+      required:
+      - amountPaise
+      - feesPaise
+      - id
+      - settledAt
+      - state
+      - status
+      - taxPaise
     AdminReason:
       type: object
       properties:
@@ -13385,6 +13859,160 @@ components:
       - settledAt
       - txnId
       - windowNumber
+    AdminSettlementFetch:
+      type: object
+      properties:
+        day:
+          type:
+          - string
+          - "null"
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+      required:
+      - reason
+    AdminSettlementFetched:
+      type: object
+      properties:
+        day:
+          type: string
+        items:
+          type: integer
+          format: int32
+        open:
+          type: integer
+          format: int32
+        settlements:
+          type: integer
+          format: int32
+      required:
+      - day
+      - items
+      - open
+      - settlements
+    AdminSettlementItem:
+      type: object
+      properties:
+        adjustmentId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        creditPaise:
+          type: integer
+          format: int64
+        debitPaise:
+          type: integer
+          format: int64
+        entityId:
+          type: string
+        feePaise:
+          type: integer
+          format: int64
+        foundAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        match:
+          type: string
+        ourPaise:
+          type:
+          - integer
+          - "null"
+          format: int64
+        reason:
+          type:
+          - string
+          - "null"
+        resolution:
+          type:
+          - string
+          - "null"
+        resolvedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        resolvedBy:
+          type:
+          - string
+          - "null"
+        settlementId:
+          type:
+          - string
+          - "null"
+        state:
+          type: string
+        taxPaise:
+          type: integer
+          format: int64
+        type:
+          type: string
+        version:
+          type: integer
+          format: int64
+      required:
+      - creditPaise
+      - debitPaise
+      - entityId
+      - feePaise
+      - foundAt
+      - id
+      - match
+      - state
+      - taxPaise
+      - type
+      - version
+    AdminSettlementItemPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSettlementItem"
+        nextCursor:
+          type:
+          - string
+          - "null"
+      required:
+      - items
+    AdminSettlementPage:
+      type: object
+      properties:
+        nextCursor:
+          type:
+          - string
+          - "null"
+        settlements:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRazorpaySettlement"
+      required:
+      - settlements
+    AdminSettlementResolve:
+      type: object
+      properties:
+        adjustmentId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 5
+        resolution:
+          type: string
+          enum:
+          - known_difference
+          - adjustment
+          minLength: 1
+      required:
+      - reason
+      - resolution
     AdminSlaTarget:
       type: object
       properties:

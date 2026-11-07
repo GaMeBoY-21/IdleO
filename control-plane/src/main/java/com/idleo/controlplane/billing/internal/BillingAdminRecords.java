@@ -47,7 +47,9 @@ class BillingAdminRecords implements AdminRecords {
                         "id",
                         "select 1 + (select count(*) from billing.adjustments r where r.reverses_id = a.id) from billing.adjustments a where a.id = :id"),
                 "period",
-                this::periodVersion);
+                this::periodVersion,
+                "settlement_item",
+                AdminRecords.byId(jdbc, "id", "select version from billing.settlement_items where id = :id"));
     }
 
     /** A month's version: 0 until it's first closed, then one more for each close and reopening (ADR 0055). */

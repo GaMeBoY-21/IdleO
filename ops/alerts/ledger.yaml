@@ -1,5 +1,5 @@
 # The ledger's own rules (ADR 0055, docs/runbooks/month-close.md): the nightly run of its checks, the same ones
-# ops/backup/verify-ledger.sh reads after a restore, and a closed month reopened. Same format and rules as platform.yaml.
+# ops/backup/verify-ledger.sh reads after a restore, a closed month reopened, and Razorpay's settlements not reconciled. Same format and rules as platform.yaml.
 # Each gauge is the last run's, on the instance that ran it; the others read 0, so the largest is the answer.
 groups:
   - name: ledger
@@ -38,3 +38,13 @@ groups:
         annotations:
           summary: A closed month was reopened in the ledger.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#period-reopened
+      - alert: SettlementItemsStale
+        # Items of Razorpay's settlements that don't match the ledger, open for more than 3 days: money that reached the
+        # bank, or didn't, without anyone saying why. Every instance reads the same count, so the largest is the count.
+        expr: max(billing_settlements_items_stale{job="control-plane"}) > 0
+        for: 10m
+        labels:
+          severity: digest
+        annotations:
+          summary: '{{ $value | printf "%.0f" }} settlement items have been open for more than 3 days.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#settlement-items-stale

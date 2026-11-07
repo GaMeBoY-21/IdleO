@@ -46,6 +46,10 @@ public enum AdminPermission {
     PAYMENTS_READ("payments.read", false),
     RECONCILIATION_RUN("reconciliation.run", false),
     RECONCILIATION_ACCEPT("reconciliation.accept", true),
+    /** Razorpay's settlements and how each item matches the ledger (ADR 0055). */
+    RECON_READ("recon.read", false),
+    /** Resolving a settlement item that doesn't match: by an approved adjustment, or as a known difference. */
+    RECON_RESOLVE("recon.resolve", true),
     REFUNDS_READ("refunds.read", false),
     REFUNDS_APPROVE("refunds.approve", true),
     REFUNDS_DECLINE("refunds.decline", false),

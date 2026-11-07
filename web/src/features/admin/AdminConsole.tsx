@@ -23,6 +23,7 @@ import { Ledger } from "./Ledger";
 import { Adjustments } from "./Adjustments";
 import { Months } from "./Months";
 import { MoneyReports } from "./MoneyReports";
+import { Settlements } from "./Settlements";
 import { Payments } from "./Payments";
 import { Payouts } from "./Payouts";
 import { Verification } from "./Verification";
@@ -59,6 +60,7 @@ export const ADMIN_SCREENS = [
   { href: "/admin/adjustments/", label: "Adjustments", needs: "ledger.read" },
   { href: "/admin/months/", label: "Months", needs: "ledger.read" },
   { href: "/admin/money-reports/", label: "Money reports", needs: "money.read" },
+  { href: "/admin/settlements/", label: "Settlements", needs: "recon.read" },
   { href: "/admin/payments/", label: "Payments", needs: "payments.read" },
   { href: "/admin/refunds/", label: "Refunds", needs: "refunds.read" },
   { href: "/admin/invoices/", label: "Invoices", needs: "invoices.read" },
@@ -100,6 +102,7 @@ export function AdminConsole() {
             <Route path="/admin/adjustments/">{guarded("/admin/adjustments/", <Adjustments />)}</Route>
             <Route path="/admin/months/">{guarded("/admin/months/", <Months />)}</Route>
             <Route path="/admin/money-reports/">{guarded("/admin/money-reports/", <MoneyReports />)}</Route>
+            <Route path="/admin/settlements/">{guarded("/admin/settlements/", <Settlements />)}</Route>
             <Route path="/admin/payments/">{guarded("/admin/payments/", <Payments />)}</Route>
             <Route path="/admin/refunds/">{guarded("/admin/refunds/", <Refunds />)}</Route>
             <Route path="/admin/invoices/">{guarded("/admin/invoices/", <Invoices />)}</Route>
@@ -147,6 +150,7 @@ const GROUPS: { label: string; hrefs: readonly string[] }[] = [
       "/admin/adjustments/",
       "/admin/months/",
       "/admin/money-reports/",
+      "/admin/settlements/",
       "/admin/payments/",
       "/admin/refunds/",
       "/admin/invoices/",

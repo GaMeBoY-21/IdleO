@@ -90,6 +90,10 @@ const routes = (overrides: Record<string, Answer> = {}): Record<string, Answer> 
   "/admin/v1/periods": { json: admin.periods },
   "/admin/v1/money/report": { json: admin.moneyReport },
   "/admin/v1/money/liabilities": { json: admin.liabilities },
+  "/admin/v1/settlements": { json: admin.settlements },
+  "/admin/v1/settlement-items": { json: admin.settlementItems },
+  [`/admin/v1/payouts/batches/${admin.BATCH_ID}`]: { json: admin.adminPayouts.runs[1] },
+  "/admin/v1/payouts/batch-items": { json: admin.batchItems },
   "/admin/v1/invites": { json: admin.invites },
   "/admin/v1/audit": { json: admin.audit },
   "/admin/v1/abuse": { json: admin.abuseQueue },
@@ -204,7 +208,7 @@ test.describe("the console", () => {
   test("opens on the dashboard, its figures counted by each module", async ({ page }, info) => {
     await open(page, "/admin/");
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(29);
+    await expect(page.getByRole("navigation", { name: "Admin" }).getByRole("link")).toHaveCount(30);
     const figures = page.getByRole("list", { name: "Figures" }).getByRole("listitem");
     await expect(figures.filter({ hasText: "Hosts online" })).toContainText(
       String(admin.dashboard.hostsOnline),
@@ -716,6 +720,55 @@ test.describe("the console", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
     await expect(page.getByRole("dialog")).toBeHidden();
     expect(asked).toEqual({ reason: "the CA has October" });
+  });
+
+  test("shows a batch's preview, who's left out and why, and asks to release it", async ({ page }, info) => {
+    let asked: unknown = null;
+    await open(page, `/admin/payouts/?batch=${admin.BATCH_ID}`, {
+      [`/admin/v1/payouts/batches/${admin.BATCH_ID}/release`]: (_call, request) => {
+        asked = request.postDataJSON();
+        return { status: 202, json: admin.approvals.requests[0] };
+      },
+    });
+    const hosts = page.getByRole("table", { name: "The batch's hosts" });
+    await expect(hosts).toContainText("₹158.40");
+    await expect(hosts).toContainText("left out: their UPI ID changed too recently");
+    await expect(hosts).toContainText("a•••@okicici");
+    await expectAccessible(page);
+    await capture(page, info, "admin-payout-batch");
+    await page.getByRole("button", { name: "Release" }).click();
+    const sheet = page.getByRole("dialog", { name: "Release this batch?" });
+    await sheet.getByLabel("Reason").fill("the week's payouts, checked");
+    await sheet.getByRole("button", { name: "Ask to release" }).click();
+    await expect(page.getByRole("dialog")).toContainText("waiting for another admin");
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+    expect(asked).toEqual({ reason: "the week's payouts, checked" });
+  });
+
+  test("shows what disagrees in Razorpay's settlements and resolves an item as a known difference", async ({
+    page,
+  }, info) => {
+    let resolved: unknown = null;
+    await open(page, "/admin/settlements/", {
+      [`/admin/v1/settlement-items/${admin.SETTLEMENT_ITEM_ID}/resolve`]: (_call, request) => {
+        resolved = request.postDataJSON();
+        return { json: { ...admin.settlementItems.items[0], state: "resolved" } };
+      },
+    });
+    await expect(page.getByRole("table", { name: "Settlement items" })).toContainText("A fee above our rate");
+    await expect(page.getByRole("table", { name: "Settlements" })).toContainText("UTR90209");
+    await expectAccessible(page);
+    await capture(page, info, "admin-settlements");
+    await page.getByRole("button", { name: "Resolve" }).click();
+    const sheet = page.getByRole("dialog", { name: "Resolve this item?" });
+    await sheet.getByLabel("Reason").fill("UPI costs more for this payment");
+    await sheet.getByRole("button", { name: "Resolve" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect(resolved).toEqual({
+      resolution: "known_difference",
+      adjustmentId: null,
+      reason: "UPI costs more for this payment",
+    });
   });
 
   test("shows the month's figures, each linked to its entries, and the liabilities", async ({

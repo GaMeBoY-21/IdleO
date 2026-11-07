@@ -76,8 +76,9 @@ Before going live, with the product owner's own test keys and a staging stack th
 3. Check a real UPI ID of yours (test mode validates real VPAs too). Note what RazorpayX returned: the registered name,
    the status, and whether the answer came as `validation_results` or `results`, and the score as a number or a string
    (ADR 0040, "Watch"). Confirm it.
-4. In the console's Payouts, Run now (the minimum is ₹100: earn that, or wait out the window on a staging stack with
-   `--legal.payouts.dispute-window=2m`). The payout is `processing`: test mode never moves it on by itself.
+4. In the console's Payouts, Prepare a batch now (the minimum is ₹100: earn that, or wait out the window on a staging
+   stack with `--legal.payouts.dispute-window=2m`), review it and Release; a second admin approves. The payout is
+   `processing`: test mode never moves it on by itself.
 5. In RazorpayX's dashboard, open the payout and move it to **processed** (test mode's own control). Within seconds our
    payout is processed, the host's Earnings shows it, and the email arrives. Check `X-Payout-Idempotency` in the
    dashboard's API logs.
@@ -85,12 +86,23 @@ Before going live, with the product owner's own test keys and a staging stack th
    and after the reversal the UPI ID asks to be checked again.
 7. The next morning, the console's Payouts, Reconciliation: 0 open. Record what you saw in ADR 0040.
 
-## The weekly run
+## The weekly batch
 
-Every Monday at 10:00 India time, everyone with an active UPI ID (and a verified PAN) who has at least ₹100 available is
-paid, one payout for all their machines; the day before, at 10:00, RazorpayX's balance is checked against it. The
-console's Payouts shows each run (how many people, payouts and rupees) and each payout with its status. Run now starts
-one at once, with a reason; nobody is paid twice, because a payout on its way stops the next.
+Every Monday at 10:00 India time a batch is prepared (ADR 0055): a preview of everyone with an active UPI ID (and a
+verified PAN) who has at least ₹100 available, one payout each for all their machines, and of everyone left out, with
+why. The day before, at 10:00, RazorpayX's balance is checked against what's due. Nothing is paid until the batch is
+released:
+
+1. In the console's Payouts, open the batch (Review and release). Each host shows the gross, what's recovered from what
+   they owe, what's held by an open report, the tax, the fee, the net and the UPI ID, masked. The totals are the batch's.
+2. Release, with a reason. A second admin approves, with a factor. Each host is then paid as previewed, once.
+3. If anyone's figures changed since the preview (more earnings became available, a report was opened), release pays
+   nobody and asks for the preview to be refreshed: Refresh the preview, check it, and release again.
+4. The batch's CSV (the list bar's export) is the report for the CA: each host, their figures and their payout's status.
+
+A batch is released once. Prepare a batch now makes one at once, with a reason; nobody is paid twice, because a payout on
+its way stops the next. Closing a month waits until its batches are released and their payouts settled
+(docs/runbooks/month-close.md).
 
 ## Funding payouts
 

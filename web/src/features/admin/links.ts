@@ -12,6 +12,8 @@ const PAGES: Record<string, string> = {
   report: "/admin/disputes/",
   abuse: "/admin/abuse/",
   chargeback: "/admin/chargebacks/",
+  settlement: "/admin/settlements/",
+  adjustment: "/admin/adjustments/",
 };
 
 export type RecordPage = keyof typeof PAGES;

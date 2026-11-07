@@ -140,6 +140,80 @@ class RazorpayClient {
         }
     }
 
+    /** A settlement to our bank (https://razorpay.com/docs/api/settlements/): its amount, Razorpay's fees and their tax. */
+    record Settlement(
+            String id,
+            long amountPaise,
+            long feesPaise,
+            long taxPaise,
+            String status,
+            @Nullable String utr,
+            Instant createdAt) {}
+
+    /**
+     * One item a settlement carried, from the combined settlement reconciliation report
+     * (https://razorpay.com/docs/api/settlements/fetch-recon/): a payment, refund, adjustment or transfer, what it
+     * credited or debited, its fee and the fee's tax.
+     */
+    record SettlementItem(
+            String entityId,
+            String type,
+            long creditPaise,
+            long debitPaise,
+            long feePaise,
+            long taxPaise,
+            @Nullable String settlementId,
+            @Nullable String paymentId) {}
+
+    /** Every settlement created from {@code from} to {@code to}, a page of 100 at a time. */
+    List<Settlement> settlements(Instant from, Instant to) {
+        var all = new ArrayList<Settlement>();
+        for (int skip = 0; ; skip += PAGE) {
+            var page = call(
+                    "GET",
+                    "/v1/settlements?from=" + from.getEpochSecond() + "&to=" + to.getEpochSecond() + "&count=" + PAGE
+                            + "&skip=" + skip,
+                    null);
+            var items = page.path("items");
+            items.forEach(item -> all.add(new Settlement(
+                    text(item, "id"),
+                    item.path("amount").asLong(),
+                    item.path("fees").asLong(),
+                    item.path("tax").asLong(),
+                    text(item, "status"),
+                    optional(item, "utr"),
+                    Instant.ofEpochSecond(item.path("created_at").asLong()))));
+            if (items.size() < PAGE) {
+                return all;
+            }
+        }
+    }
+
+    /** What the settlements of one day (India's) carried, item by item, a page of 100 at a time. */
+    List<SettlementItem> settlementItems(java.time.LocalDate day) {
+        var all = new ArrayList<SettlementItem>();
+        for (int skip = 0; ; skip += PAGE) {
+            var page = call(
+                    "GET",
+                    "/v1/settlements/recon/combined?year=" + day.getYear() + "&month=" + day.getMonthValue() + "&day="
+                            + day.getDayOfMonth() + "&count=" + PAGE + "&skip=" + skip,
+                    null);
+            var items = page.path("items");
+            items.forEach(item -> all.add(new SettlementItem(
+                    text(item, "entity_id"),
+                    text(item, "type"),
+                    item.path("credit").asLong(),
+                    item.path("debit").asLong(),
+                    item.path("fee").asLong(),
+                    item.path("tax").asLong(),
+                    optional(item, "settlement_id"),
+                    optional(item, "payment_id"))));
+            if (items.size() < PAGE) {
+                return all;
+            }
+        }
+    }
+
     /** Every refund created from {@code from} to {@code to}, a page of 100 at a time. */
     List<Refund> refunds(Instant from, Instant to) {
         var all = new ArrayList<Refund>();

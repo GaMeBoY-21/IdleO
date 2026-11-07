@@ -5,6 +5,7 @@ import com.idleo.controlplane.FinancialYear;
 import com.idleo.controlplane.IdGenerator;
 import com.idleo.controlplane.LegalSettings;
 import com.idleo.controlplane.Paise;
+import com.idleo.controlplane.PersonalDataMask;
 import com.idleo.controlplane.billing.HostPayouts;
 import com.idleo.controlplane.identity.AccountStandings;
 import com.idleo.controlplane.payouts.PayoutSettled;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -169,25 +171,12 @@ class PayoutService {
                             .query((rs, n) -> null)
                             .list();
                     var now = now();
-                    if (standings.payoutsHeld(userId) || limits.payoutsHeld(userId)) {
-                        return new Outcome(null, NotPaid.ACCOUNT_HELD);
+                    var eligible = eligibility(userId, now);
+                    if (eligible.notPaid() != null) {
+                        return new Outcome(null, eligible.notPaid());
                     }
-                    var method = methods.inUse(userId).orElse(null);
-                    if (method == null
-                            || method.fundAccountId() == null
-                            || !method.state().equals("active")) {
-                        return new Outcome(null, NotPaid.NO_METHOD);
-                    }
-                    if (!method.payable(now)) {
-                        return new Outcome(null, NotPaid.ON_HOLD);
-                    }
-                    var pan = pans.find(userId).filter(Pans.Pan::verified).orElse(null);
-                    if (pan == null && !legal.tds().payWithoutPan()) {
-                        return new Outcome(null, NotPaid.NO_PAN);
-                    }
-                    if (open(userId).isPresent()) {
-                        return new Outcome(null, NotPaid.IN_PROGRESS);
-                    }
+                    var method = Objects.requireNonNull(eligible.method());
+                    var pan = eligible.pan();
                     var id = ids.newId();
                     var deduction = new TaxDeduction.Deduction[1];
                     var started = ledger.start(id, userId, minimum, gross -> {
@@ -230,6 +219,82 @@ class PayoutService {
                     return new Outcome(find(id).orElseThrow(), null);
                 }))
                 .orElseThrow();
+    }
+
+    /** Whether the person can be paid now, and from which UPI ID and PAN: the checks {@link #create} and a quote share. */
+    private record Eligibility(
+            @Nullable NotPaid notPaid, PayoutMethods.@Nullable Method method, Pans.@Nullable Pan pan) {}
+
+    private Eligibility eligibility(UUID userId, Instant now) {
+        if (standings.payoutsHeld(userId) || limits.payoutsHeld(userId)) {
+            return new Eligibility(NotPaid.ACCOUNT_HELD, null, null);
+        }
+        var method = methods.inUse(userId).orElse(null);
+        if (method == null || method.fundAccountId() == null || !method.state().equals("active")) {
+            return new Eligibility(NotPaid.NO_METHOD, method, null);
+        }
+        if (!method.payable(now)) {
+            return new Eligibility(NotPaid.ON_HOLD, method, null);
+        }
+        var pan = pans.find(userId).filter(Pans.Pan::verified).orElse(null);
+        if (pan == null && !legal.tds().payWithoutPan()) {
+            return new Eligibility(NotPaid.NO_PAN, method, null);
+        }
+        if (open(userId).isPresent()) {
+            return new Eligibility(NotPaid.IN_PROGRESS, method, pan);
+        }
+        return new Eligibility(null, method, pan);
+    }
+
+    /**
+     * What a payout to the person would be now, without making it: a batch's preview (ADR 0055). The same checks and
+     * the same figures as {@link #create}, which posts what this says: the gross is what billing's {@code start} would
+     * move (what's available, less what's owed, which it recovers), the tax and fee are deducted the same way.
+     *
+     * @param recoveredPaise what's owed back that the payout recovers first
+     * @param heldPaise earnings held by an open report, not in it
+     * @param leftOut why the person isn't paid, or null when they are
+     * @param upiMasked the UPI ID it would go to, masked
+     */
+    record Quote(
+            long grossPaise,
+            long recoveredPaise,
+            long heldPaise,
+            long tdsPaise,
+            long feePaise,
+            long netPaise,
+            @Nullable NotPaid leftOut,
+            @Nullable String upiMasked) {}
+
+    Quote quote(UUID userId, Paise minimum) {
+        var now = now();
+        var eligible = eligibility(userId, now);
+        var position = ledger.position(userId);
+        long held = position.pending().stream()
+                .filter(HostPayouts.PendingSession::held)
+                .mapToLong(HostPayouts.PendingSession::amountPaise)
+                .sum();
+        long recovered = Math.min(position.owedPaise(), position.availablePaise());
+        var vpa = eligible.method() == null ? null : eligible.method().vpa();
+        var upi = vpa == null ? null : PersonalDataMask.upi(vpa);
+        if (eligible.notPaid() != null) {
+            return new Quote(0, recovered, held, 0, 0, 0, eligible.notPaid(), upi);
+        }
+        long gross = position.payablePaise();
+        if (gross < minimum.value() || gross <= 0) {
+            return new Quote(gross, recovered, held, 0, 0, 0, NotPaid.TOO_LITTLE, upi);
+        }
+        var deduction = tax.of(userId, Paise.of(gross), now, eligible.pan());
+        var fee = fee(Paise.of(gross).minus(deduction.tds()));
+        return new Quote(
+                gross,
+                recovered,
+                held,
+                deduction.tds().value(),
+                fee.value(),
+                gross - deduction.tds().value() - fee.value(),
+                null,
+                upi);
     }
 
     /** The owner's part of RazorpayX's charge (only when hosts pay it), never leaving less than RazorpayX's ₹1. */
