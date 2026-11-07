@@ -2364,7 +2364,7 @@ PY
   admin_post /admin/v1/settlements/fetch '{"reason":"End-to-end settlement fetch"}' >/dev/null || fail "fetching the settlements failed"
   [[ "$(sql "select state || ':' || (txn_id is not null) from billing.settlements where id = '$settlement'")" == "matched:true" ]] ||
     fail "the settlement didn't match the ledger: $(sql "select match || ' ' || entity_id from billing.settlement_items where settlement_id = '$settlement' and match <> 'matched'")"
-  [[ "$(sql "select sum(case direction when 'debit' then amount_paise else -amount_paise end) from billing.ledger_entries e
+  [[ "$(sql "select sum(case e.direction when 'debit' then e.amount_paise else -e.amount_paise end) from billing.ledger_entries e
       join billing.settlements s on s.txn_id = e.txn_id where s.id = '$settlement'")" == 0 ]] || fail "the settlement's posting doesn't balance"
   settled_items="$(sql "select count(*) from billing.settlement_items where settlement_id = '$settlement'")"
   note "settlement: Razorpay settled the run's $settled_items payments; fetched, every item matched the ledger, and the bank, Razorpay's fees and their GST were posted once out of clearing: PASS"
@@ -2394,8 +2394,9 @@ PY
 
   admin_post /admin/v1/reconciliation '{"reason":"End-to-end ledger checks before closing"}' >/dev/null || fail "the ledger's checks didn't run"
   ca_pack "$last_month"
-  admin_post --if-match 0 "/admin/v1/periods/$last_month/close" '{"reason":"End-to-end month close"}' >/dev/null ||
-    fail "closing $last_month failed: its checklist isn't done"
+  local closing
+  closing="$(admin_post --if-match 0 "/admin/v1/periods/$last_month/close" '{"reason":"End-to-end month close"}')" ||
+    fail "closing $last_month failed: $closing"
   [[ "$(sql "select state from billing.periods where month = '$last_month-01'")" == closed ]] || fail "$last_month didn't close"
   refused="$(sql "insert into billing.ledger_entries (id, txn_id, account, amount_paise, direction, ref_type, ref_id, created_at)
       values (gen_random_uuid(), '00000000-0000-7000-8000-00000000c105', 'gateway_fees', 1, 'debit', 'e2e', gen_random_uuid(), '$last_month-15T12:00:00+05:30'),
