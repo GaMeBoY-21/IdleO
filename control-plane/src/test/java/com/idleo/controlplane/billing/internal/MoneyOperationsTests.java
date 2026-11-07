@@ -257,11 +257,18 @@ class MoneyOperationsTests {
                 .isZero();
 
         TestAdmins.approve(mvc, jdbc, clock, asked.toString());
-        var posted = body(mvc.perform(admin.as(get("/admin/v1/adjustments").param("template", "fee_correction"))))
-                .get("adjustments")
-                .get(0);
-        assertThat(posted.get("approvalId").asString())
-                .isEqualTo(asked.get("id").asString());
+        // Settlement tests, in other forks on the same database, post fee corrections too: find this one by its
+        // approval.
+        JsonNode posted = null;
+        for (var each : body(mvc.perform(admin.as(get("/admin/v1/adjustments")
+                        .param("template", "fee_correction")
+                        .param("limit", "200"))))
+                .get("adjustments")) {
+            if (each.get("approvalId").asString().equals(asked.get("id").asString())) {
+                posted = each;
+            }
+        }
+        assertThat(posted).as("the adjustment this approval posted").isNotNull();
         assertThat(posted.get("legs")).hasSize(2);
         assertThat(posted.get("reference").asString()).isEqualTo("ticket 42");
         var id = posted.get("id").asString();
