@@ -10,7 +10,10 @@
 # A CRITICAL or HIGH vulnerability with a fix fails it, as at build time, but a fix published since counts; so does a
 # CRITICAL or HIGH secret in an image, or misconfiguration, RBAC or secret finding in the cluster. The accepted ones are scripts/images/trivyignore.yaml,
 # each with its reason, scope and an expiry of at most 60 days, after which it fails; nothing on our own images is.
-# It prints one line per image, and writes the findings' count to scan-findings.txt for the alert (scan.yml).
+# It prints one line per image, and writes the findings' count to scan-findings.txt for the alert (scan.yml). Staging
+# runs main's last build, so its three images' findings are main's: each one's first night is kept in
+# private/scan-first-seen.json (scan.yml carries it from night to night), and how long the oldest has stood goes to
+# private/scan-oldest-seconds.txt, which pages once it's a week (ImageFindingOld, ops/alerts/security.yaml).
 #
 #   scripts/images/scan-deployed.sh             the pinned images
 #   scripts/images/scan-deployed.sh --cluster   and the cluster
@@ -87,6 +90,18 @@ for pod in json.load(sys.stdin)["items"]:
 print("\n".join(sorted(seen)))' "$namespaces")"
 fi
 
+# Main's images: the ones staging pins.
+main_images="$(python3 - <<'PY'
+import yaml
+documents = yaml.safe_load_all(open("deploy/clusters/staging/idleo/release.yaml"))
+release = next(d for d in documents if d and d["kind"] == "HelmRelease")
+digests = release["spec"]["values"]["images"]["digests"]
+print("\n".join(f"ghcr.io/gameboy-21/idleo-{name}@{digests[name]}" for name in ("control-plane", "web", "scanner")))
+PY
+)"
+main_reports=()
+mkdir -p "$root/private/scan-main"
+
 findings=0
 for image in $(sort -u <<<"$images"); do
   # Ours are scanned as built (.github/workflows/images.yml), with nothing accepted.
@@ -94,6 +109,11 @@ for image in $(sort -u <<<"$images"); do
   [[ "$image" == ghcr.io/gameboy-21/* ]] && ignore=()
   report="$(trivy "$trivy_image" image --quiet --scanners vuln,secret --severity CRITICAL,HIGH --ignore-unfixed \
     ${ignore[@]+"${ignore[@]}"} --format json "$image")" || { echo "scan-deployed: FAIL $image: Trivy couldn't scan it" >&2; failed=1; continue; }
+  if grep -qxF "$image" <<<"$main_images"; then
+    main_report="$root/private/scan-main/$(basename "${image%@*}").json"
+    printf '%s\n' "$report" >"$main_report"
+    main_reports+=("$main_report")
+  fi
   count="$(python3 -c 'import json, sys; print(sum(len(r.get("Vulnerabilities") or []) + len(r.get("Secrets") or []) for r in json.load(sys.stdin).get("Results", [])))' <<<"$report")"
   findings=$((findings + count))
   if ((count > 0)); then
@@ -136,4 +156,12 @@ print(n)' <<<"$report")"
   echo "scan-deployed: $count CRITICAL or HIGH findings in the cluster's manifests, RBAC and secrets"
 fi
 echo "$findings" >"$root/private/scan-findings.txt"
+# How long main's oldest finding has stood. Only when every one of main's images was scanned: a night Trivy couldn't
+# read one says nothing about it, rather than forget its findings' first nights.
+if ((${#main_reports[@]} == $(grep -c . <<<"$main_images"))); then
+  oldest="$(python3 scripts/images/scan-gate.py --age "$root/private/scan-first-seen.json" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "${main_reports[@]}")"
+  echo "$oldest" >"$root/private/scan-oldest-seconds.txt"
+  echo "scan-deployed: main's oldest finding has stood $((oldest / 86400)) days ($oldest s)"
+fi
 exit "$failed"

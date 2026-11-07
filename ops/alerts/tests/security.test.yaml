@@ -41,3 +41,43 @@ tests:
             exp_annotations:
               summary: The nightly scan of what is deployed hasn't reported for 30 hours.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-missing
+  # Main's build of the control plane fails, days pass with no build, then one passes; the web image's builds pass.
+  - interval: 24h
+    input_series:
+      - series: 'idleo_suite_passed{suite="image-control-plane"}'
+        values: '1 0 _ _ 1'
+      - series: 'idleo_suite_passed{suite="image-web"}'
+        values: '1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: ImageBuildFailing
+        exp_alerts: []
+      - eval_time: 73h
+        alertname: ImageBuildFailing
+        exp_alerts:
+          - exp_labels: {severity: digest, env: ci, suite: image-control-plane}
+            exp_annotations:
+              summary: "Main's last build of image-control-plane failed: nothing new deploys until it's fixed."
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-build-failing
+      - eval_time: 97h
+        alertname: ImageBuildFailing
+        exp_alerts: []
+  # Main's oldest finding stands night after night: a page once it's a week old, nothing once it's fixed.
+  - interval: 24h
+    input_series:
+      - series: 'idleo_suite_oldest_finding_seconds{suite="scan"}'
+        values: '0 86400 172800 259200 345600 432000 518400 604800 0'
+    alert_rule_test:
+      - eval_time: 145h
+        alertname: ImageFindingOld
+        exp_alerts: []
+      - eval_time: 169h
+        alertname: ImageFindingOld
+        exp_alerts:
+          - exp_labels: {severity: page, env: ci, suite: scan}
+            exp_annotations:
+              summary: 'A fixable finding has been on main''s images for 7d 0h 0m 0s.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-finding-old
+      - eval_time: 193h
+        alertname: ImageFindingOld
+        exp_alerts: []

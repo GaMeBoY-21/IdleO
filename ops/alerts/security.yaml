@@ -23,6 +23,26 @@ groups:
         annotations:
           summary: The nightly scan of what is deployed hasn't reported for 30 hours.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#nightly-scan-missing
+      - alert: ImageBuildFailing
+        # Main's last build of one of our images failed (.github/workflows/images.yml): on main every fixable
+        # CRITICAL or HIGH finding fails it, so nothing new is published or deployed until it's fixed (ADR 0048).
+        expr: last_over_time(idleo_suite_passed{suite=~"image-.+"}[14d]) == 0
+        labels:
+          severity: digest
+          env: ci
+        annotations:
+          summary: 'Main''s last build of {{ $labels.suite }} failed: nothing new deploys until it''s fixed.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-build-failing
+      - alert: ImageFindingOld
+        # A fixable CRITICAL or HIGH finding has been on main's images (the digests staging pins) for a week of nightly
+        # scans: a ticket wasn't enough (ADR 0048).
+        expr: max by (suite) (last_over_time(idleo_suite_oldest_finding_seconds{suite="scan"}[30h])) >= 604800
+        labels:
+          severity: page
+          env: ci
+        annotations:
+          summary: 'A fixable finding has been on main''s images for {{ $value | humanizeDuration }}.'
+          runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#image-finding-old
       - alert: AuditChainBroken
         # A check of the audit log's hash chain found a row that doesn't add up: someone may have changed the log
         # (ADR 0051). The one insider alert that pages.
