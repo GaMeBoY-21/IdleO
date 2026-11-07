@@ -141,14 +141,15 @@ class RazorpaySettlements {
             throw new Refused(day + " hasn't happened yet");
         }
         var fetched = fetch(day);
-        audit.record(new AuditTrail.Entry(
+        // Each settlement was kept in a transaction of its own; the audit row that says who fetched has one too.
+        transactions.executeWithoutResult(status -> audit.record(new AuditTrail.Entry(
                 actor,
                 "settlements.fetch",
                 "settlement_day",
                 day.toString(),
                 reason,
                 null,
-                Map.of("settlements", fetched.settlements(), "open", fetched.open())));
+                Map.of("settlements", fetched.settlements(), "open", fetched.open()))));
         return fetched;
     }
 

@@ -102,7 +102,22 @@ class RazorpaySettlementsTests {
         assertThat(leg(txn, "gateway_fees", "debit")).isEqualTo(fees);
         assertThat(leg(txn, "gst_input_credit", "debit")).isEqualTo(tax);
         assertThat(leg(txn, "gateway_clearing", "credit")).isEqualTo(80_000);
-        settlements.fetch(today());
+
+        // Fetched again by an admin, as the console and the e2e journey do: nothing posts twice, and the fetch is
+        // audited.
+        var admin = TestAdmins.signIn(mvc, jdbc, clock);
+        var reason = "fetching again " + UUID.randomUUID();
+        var again = body(mvc.perform(admin.as(post("/admin/v1/settlements/fetch"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"day\":\"" + today() + "\",\"reason\":\"" + reason + "\"}"))
+                .andExpect(status().isOk()));
+        assertThat(again.get("day").asString()).isEqualTo(today().toString());
+        assertThat(jdbc.queryForObject(
+                        "select count(*) from identity.audit_log where action = 'settlements.fetch' and reason = ?",
+                        Long.class,
+                        reason))
+                .isOne();
         assertThat(jdbc.queryForObject("select count(*) from billing.ledger_entries where txn_id = ?", Long.class, txn))
                 .isEqualTo(4);
         assertThat(jdbc.queryForObject(
