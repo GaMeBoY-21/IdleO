@@ -54,6 +54,7 @@ export const SCREENS: Record<string, string | null> = {
   "/admin/adjustments/": "src/features/admin/AdminConsole.tsx",
   "/admin/months/": "src/features/admin/AdminConsole.tsx",
   "/admin/money-reports/": "src/features/admin/AdminConsole.tsx",
+  "/admin/settlements/": "src/features/admin/AdminConsole.tsx",
   "/admin/payments/": "src/features/admin/AdminConsole.tsx",
   "/admin/refunds/": "src/features/admin/AdminConsole.tsx",
   "/admin/invoices/": "src/features/admin/AdminConsole.tsx",

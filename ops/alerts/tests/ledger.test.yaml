@@ -79,3 +79,22 @@ tests:
             exp_annotations:
               summary: A closed month was reopened in the ledger.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#period-reopened
+
+  # Stale settlement items, read by two instances: a ticket once they've stayed for 10 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'billing_settlements_items_stale{job="control-plane", instance="a"}'
+        values: '0x5 2x20'
+      - series: 'billing_settlements_items_stale{job="control-plane", instance="b"}'
+        values: '0x5 2x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SettlementItemsStale
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: SettlementItemsStale
+        exp_alerts:
+          - exp_labels: {severity: digest}
+            exp_annotations:
+              summary: '2 settlement items have been open for more than 3 days.'
+              runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#settlement-items-stale

@@ -9,6 +9,11 @@ import org.springframework.context.annotation.Configuration;
 class PayoutsListings {
 
     @Bean
+    AdminListing payoutBatchItemsListing() {
+        return AdminPayoutBatchesController.ITEMS;
+    }
+
+    @Bean
     AdminListing payoutsListing() {
         return AdminPayoutsController.LIST;
     }

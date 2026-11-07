@@ -80,7 +80,8 @@ enum Account {
     GATEWAY_FEES("gateway_fees", Type.EXPENSE, false, false, "Razorpay's fees on what it settles to us."),
     GST_INPUT_CREDIT(
             "gst_input_credit", Type.ASSET, false, false, "The GST charged on Razorpay's fees, which we claim back."),
-    WRITE_OFFS("write_offs", Type.EXPENSE, false, false, "Small differences written off by an approved adjustment.");
+    WRITE_OFFS("write_offs", Type.EXPENSE, false, false, "Small differences written off by an approved adjustment."),
+    BANK("bank", Type.ASSET, false, false, "What Razorpay has settled into our bank account.");
 
     /** What an account is, on the balance sheet or in the profit and loss. */
     enum Type {

@@ -73,6 +73,9 @@ class ConsoleListsTests {
     private static final Map<String, String> NOT_LISTS = Map.ofEntries(
             Map.entry("/admin/v1/abuse/{id}", "one record"),
             Map.entry("/admin/v1/adjustments/{id}", "one record, with its legs"),
+            Map.entry("/admin/v1/payouts/batches/{id}", "one batch: its items are their own list"),
+            Map.entry("/admin/v1/settlements/{id}", "one record: its items are their own list"),
+            Map.entry("/admin/v1/settlement-items/{id}", "one record"),
             Map.entry("/admin/v1/ledger/accounts", "the chart of accounts: one row an account, a fixed list"),
             Map.entry("/admin/v1/ledger/trial-balance", "one row an account, a fixed list"),
             Map.entry("/admin/v1/ledger/transactions/{id}", "one transaction, with its legs"),

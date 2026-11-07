@@ -8,12 +8,12 @@ import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
 import com.idleo.controlplane.FinancialYear;
 import com.idleo.controlplane.NoContactDetails;
-import com.idleo.controlplane.Paise;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
 import com.idleo.controlplane.identity.Approvals;
 import com.idleo.controlplane.identity.AuditTrail;
 import com.idleo.controlplane.identity.CurrentUser;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -147,7 +147,14 @@ class AdminPayoutsController {
             @Nullable Integer owners,
             @Nullable Integer payouts,
             @Nullable Long totalPaise,
-            @Nullable String failure) {
+            @Nullable String failure,
+
+            @Schema(allowableValues = {"preview", "released"})
+            String state,
+
+            long version,
+            @Nullable Instant releasedAt,
+            @Nullable String releasedBy) {
 
         static AdminPayoutRun of(PayoutRuns.Run run) {
             return new AdminPayoutRun(
@@ -160,7 +167,11 @@ class AdminPayoutsController {
                     run.owners(),
                     run.payouts(),
                     run.totalPaise(),
-                    run.failure());
+                    run.failure(),
+                    run.state(),
+                    run.version(),
+                    run.releasedAt(),
+                    run.releasedBy());
         }
     }
 
@@ -276,12 +287,15 @@ class AdminPayoutsController {
                 runs.nextPayday());
     }
 
-    /** Starts a run now, outside the schedule: everyone who can be paid at least the weekly minimum. */
+    /**
+     * Prepares a batch now, outside the schedule: a preview of everyone who could be paid at least the weekly minimum.
+     * Nothing is paid until it's released (ADR 0055).
+     */
     @RequiresPermission(AdminPermission.PAYOUTS_RUN)
     @PostMapping("/runs")
     AdminPayoutRun run(@AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody AdminReason request) {
         var run = runs.startNow(request.reason(), audit.admin(admin));
-        return AdminPayoutRun.of(runs.pay(run, Paise.of(runs.minimum())));
+        return AdminPayoutRun.of(runs.prepare(run));
     }
 
     @RequiresPermission(AdminPermission.PAYOUTS_READ)

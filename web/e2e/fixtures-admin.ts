@@ -54,6 +54,8 @@ export const EVERY_PERMISSION = [
   "money.adjust",
   "money.read",
   "periods.close",
+  "recon.read",
+  "recon.resolve",
   "notes.read",
   "notes.write",
   "notices.publish",
@@ -893,6 +895,8 @@ const adminPayout = (
   ...extra,
 });
 
+export const BATCH_ID = "01a1340a-0000-7000-8000-000000080002";
+
 export const adminPayouts = {
   runs: [
     {
@@ -906,6 +910,26 @@ export const adminPayouts = {
       payouts: 2,
       totalPaise: 12_800 + 9_600,
       failure: null,
+      state: "released",
+      version: 3,
+      releasedAt: ago(3 * 24 * 60 - 1),
+      releasedBy: "admin Asha",
+    },
+    {
+      id: BATCH_ID,
+      kind: "manual",
+      payday: ago(60).slice(0, 10),
+      trigger: "admin Asha",
+      startedAt: ago(60),
+      finishedAt: ago(59),
+      owners: 2,
+      payouts: 1,
+      totalPaise: 15_840,
+      failure: null,
+      state: "preview",
+      version: 2,
+      releasedAt: null,
+      releasedBy: null,
     },
   ],
   payouts: [
@@ -1483,4 +1507,95 @@ export const liabilities = {
     { month: "2026-10", expiredPaise: 12_000, toExpirePaise: 0 },
     { month: "2026-11", expiredPaise: 0, toExpirePaise: 40_000 },
   ],
+};
+
+// A payout batch previewed, not yet released: one host paid as previewed, one left out (ADR 0055).
+export const batchItems = {
+  items: [
+    {
+      userId: RENTER_ID,
+      grossPaise: 16_000,
+      recoveredPaise: 0,
+      heldPaise: 0,
+      tdsPaise: 160,
+      feePaise: 0,
+      netPaise: 15_840,
+      upiMasked: "a•••@okicici",
+      leftOut: null,
+      leftOutWords: null,
+      payoutId: null,
+      payoutStatus: null,
+    },
+    {
+      userId: OWNER_ID,
+      grossPaise: 0,
+      recoveredPaise: 0,
+      heldPaise: 4_000,
+      tdsPaise: 0,
+      feePaise: 0,
+      netPaise: 0,
+      upiMasked: "r•••@ybl",
+      leftOut: "on_hold",
+      leftOutWords: "their UPI ID changed too recently",
+      payoutId: null,
+      payoutStatus: null,
+    },
+  ],
+  nextCursor: null,
+};
+
+// Razorpay's settlements (ADR 0055): one matched, one with a fee above our rate still open.
+export const SETTLEMENT_ITEM_ID = "01a1340a-0000-7000-8000-0000000c0001";
+export const settlements = {
+  settlements: [
+    {
+      id: "setl_Pq2",
+      amountPaise: 38_584,
+      feesPaise: 1_200,
+      taxPaise: 216,
+      status: "processed",
+      utr: "UTR90210",
+      settledAt: ago(24 * 60),
+      state: "unmatched",
+      txnId: null,
+    },
+    {
+      id: "setl_Pq1",
+      amountPaise: 78_112,
+      feesPaise: 1_600,
+      taxPaise: 288,
+      status: "processed",
+      utr: "UTR90209",
+      settledAt: ago(2 * 24 * 60),
+      state: "matched",
+      txnId: "01a1340a-0000-7000-8000-0000000c0002",
+    },
+  ],
+  nextCursor: null,
+};
+
+export const settlementItems = {
+  items: [
+    {
+      id: SETTLEMENT_ITEM_ID,
+      settlementId: "setl_Pq2",
+      entityId: "pay_Pq2a",
+      type: "payment",
+      creditPaise: 40_000,
+      debitPaise: 0,
+      feePaise: 1_200,
+      taxPaise: 216,
+      ourPaise: 40_000,
+      match: "unexpected_fee",
+      state: "open",
+      resolution: null,
+      adjustmentId: null,
+      reason: null,
+      resolvedBy: null,
+      resolvedAt: null,
+      foundAt: ago(23 * 60),
+      version: 1,
+    },
+  ],
+  nextCursor: null,
 };

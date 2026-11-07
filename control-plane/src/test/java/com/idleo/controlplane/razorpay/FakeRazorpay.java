@@ -66,6 +66,9 @@ public final class FakeRazorpay implements AutoCloseable {
     private final Map<String, ObjectNode> orders = new ConcurrentHashMap<>();
     private final Map<String, ObjectNode> payments = new ConcurrentHashMap<>();
     private final Map<String, ObjectNode> refunds = new ConcurrentHashMap<>();
+    private final Map<String, ObjectNode> settlements = new ConcurrentHashMap<>();
+    /** What the settlements carried, as the combined settlement reconciliation report lists it. */
+    private final List<ObjectNode> settlementItems = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** Each X-Refund-Idempotency key Razorpay has seen: the request's body and the refund it made. */
     private final Map<String, Keyed> refundKeys = new ConcurrentHashMap<>();
 
@@ -193,6 +196,96 @@ public final class FakeRazorpay implements AutoCloseable {
         refunds.get(refundId).put("status", status);
     }
 
+    /**
+     * Settles payments and refunds as Razorpay does, at {@code at}: each payment credited less its fee, at {@code
+     * feeBasisPoints} of it, and GST at 18% on the fee; each refund debited. The settlement is processed, its amount what
+     * the items leave. Returns its id.
+     */
+    public String settle(Instant at, long feeBasisPoints, List<String> paymentIds, List<String> refundIds) {
+        var id = "setl_" + nextId();
+        long amount = 0;
+        long fees = 0;
+        long tax = 0;
+        for (var paymentId : paymentIds) {
+            var payment = payments.get(paymentId);
+            long credit = payment.path("amount").asLong();
+            long fee = Math.round(credit * feeBasisPoints / 10_000.0);
+            long gst = Math.round(fee * 0.18);
+            settlementItems.add(settlementItem(id, "payment", paymentId, credit, 0, fee, gst, paymentId, at));
+            amount += credit - fee - gst;
+            fees += fee;
+            tax += gst;
+        }
+        for (var refundId : refundIds) {
+            var refund = refunds.get(refundId);
+            long debit = refund.path("amount").asLong();
+            settlementItems.add(settlementItem(id, "refund", refundId, 0, debit, 0, 0, text(refund, "payment_id"), at));
+            amount -= debit;
+        }
+        var settlement = JSON.createObjectNode();
+        settlement
+                .put("id", id)
+                .put("entity", "settlement")
+                .put("amount", amount)
+                .put("status", "processed")
+                .put("fees", fees)
+                .put("tax", tax)
+                .put("utr", "UTR" + nextId())
+                .put("created_at", at.getEpochSecond());
+        settlements.put(id, settlement);
+        return id;
+    }
+
+    /**
+     * Adds an item to a settlement as given, its amount moved by what the item leaves, as Razorpay would settle it: for
+     * the tests of an item we don't have, or an amount we didn't expect.
+     */
+    public void addSettlementItem(
+            String settlementId,
+            String type,
+            String entityId,
+            long credit,
+            long debit,
+            long fee,
+            long tax,
+            @Nullable String paymentId) {
+        var settlement = settlements.get(settlementId);
+        var at = Instant.ofEpochSecond(settlement.path("created_at").asLong());
+        settlementItems.add(settlementItem(settlementId, type, entityId, credit, debit, fee, tax, paymentId, at));
+        settlement.put("amount", settlement.path("amount").asLong() + credit - debit - fee - tax);
+        settlement.put("fees", settlement.path("fees").asLong() + fee);
+        settlement.put("tax", settlement.path("tax").asLong() + tax);
+    }
+
+    private static ObjectNode settlementItem(
+            String settlementId,
+            String type,
+            String entityId,
+            long credit,
+            long debit,
+            long fee,
+            long tax,
+            @Nullable String paymentId,
+            Instant at) {
+        var item = JSON.createObjectNode();
+        item.put("entity_id", entityId)
+                .put("type", type)
+                .put("credit", credit)
+                .put("debit", debit)
+                .put("amount", credit > 0 ? credit : debit)
+                .put("currency", "INR")
+                .put("fee", fee)
+                .put("tax", tax)
+                .put("settled", true)
+                .put("settlement_id", settlementId)
+                .put("created_at", at.getEpochSecond())
+                .put("settled_at", at.getEpochSecond());
+        if (paymentId != null) {
+            item.put("payment_id", paymentId);
+        }
+        return item;
+    }
+
     /** Forgets a payment, so it's missing on Razorpay's side (the reconciliation's test). */
     public void forget(String paymentId) {
         payments.remove(paymentId);
@@ -202,6 +295,8 @@ public final class FakeRazorpay implements AutoCloseable {
         orders.clear();
         payments.clear();
         refunds.clear();
+        settlements.clear();
+        settlementItems.clear();
         refundKeys.clear();
         refundKeysSent.clear();
         refundOutcome = "processed";
@@ -458,6 +553,32 @@ public final class FakeRazorpay implements AutoCloseable {
                 }
                 if (method.equals("GET") && path.equals("/v1/payments")) {
                     return collection(payments.values(), query);
+                }
+                if (method.equals("GET") && path.equals("/v1/settlements/recon/combined")) {
+                    // The items of the settlements made that day, in India.
+                    var day = java.time.LocalDate.of(
+                            Integer.parseInt(query.get("year")),
+                            Integer.parseInt(query.get("month")),
+                            Integer.parseInt(query.get("day")));
+                    var ofDay = settlementItems.stream()
+                            .filter(item -> java.time.LocalDate.ofInstant(
+                                            Instant.ofEpochSecond(
+                                                    item.path("created_at").asLong()),
+                                            java.time.ZoneId.of("Asia/Kolkata"))
+                                    .equals(day))
+                            .toList();
+                    var page = new java.util.ArrayList<ObjectNode>(ofDay);
+                    int skip = Integer.parseInt(query.getOrDefault("skip", "0"));
+                    int count = Integer.parseInt(query.getOrDefault("count", "10"));
+                    var root = JSON.createObjectNode();
+                    root.put("entity", "collection");
+                    ArrayNode items = root.putArray("items");
+                    page.stream().skip(skip).limit(count).forEach(items::add);
+                    root.put("count", items.size());
+                    return json(200, root);
+                }
+                if (method.equals("GET") && path.equals("/v1/settlements")) {
+                    return collection(settlements.values(), query);
                 }
                 if (method.equals("GET") && path.equals("/v1/refunds")) {
                     return collection(refunds.values(), query);
