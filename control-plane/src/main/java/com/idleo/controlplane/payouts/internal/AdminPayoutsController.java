@@ -6,7 +6,6 @@ import com.idleo.controlplane.AdminPermission;
 import com.idleo.controlplane.AdminReason;
 import com.idleo.controlplane.AdminTagged;
 import com.idleo.controlplane.ApiProblem;
-import com.idleo.controlplane.FinancialYear;
 import com.idleo.controlplane.NoContactDetails;
 import com.idleo.controlplane.Problem;
 import com.idleo.controlplane.RequiresPermission;
@@ -18,17 +17,9 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -86,7 +77,6 @@ class AdminPayoutsController {
             .build();
 
     static final String RELEASE = "payout.release";
-    static final String TDS_EXPORT = "tds.export";
 
     private static final Set<String> STATUSES = Set.of(
             "all",
@@ -577,122 +567,6 @@ class AdminPayoutsController {
     }
 
     // Tax deducted at source.
-
-    /** A financial year's quarter, {@code 2026-27-Q3} (October to December 2026), and why it's exported. */
-    record TdsExport(
-            @NotBlank @Size(min = 10, max = 10) String quarter,
-
-            @NotBlank @Size(min = 5, max = 500) @NoContactDetails
-            String reason) {}
-
-    /**
-     * Asks for the quarter's tax deducted at source as CSV, for the CA to file: each payout that didn't come back, deducted
-     * in the quarter, with the host's whole PAN and name as on it, the section and rate, the gross, the tax, the net and
-     * the dates. It holds every PAN, so another admin approves it, and whoever asked fetches it once (ADR 0051).
-     */
-    @RequiresPermission(AdminPermission.EXPORT_CREATE)
-    @PostMapping("/tds-export")
-    ResponseEntity<Approvals.AdminApproval> tdsExport(
-            @AuthenticationPrincipal CurrentUser admin, @Valid @RequestBody TdsExport request) {
-        quarterStart(request.quarter());
-        return approvals.submit(
-                admin,
-                TDS_EXPORT,
-                null,
-                null,
-                request,
-                List.of(new Approvals.ApprovalChange(
-                        "a file with every PAN of " + request.quarter(), null, "made once")),
-                request.reason());
-    }
-
-    private static LocalDate quarterStart(String quarterName) {
-        if (!quarterName.matches("[0-9]{4}-[0-9]{2}-Q[1-4]")) {
-            throw ApiProblem.invalid("quarter", "is a financial year and a quarter, like 2026-27-Q3.");
-        }
-        FinancialYear year;
-        try {
-            year = FinancialYear.parse(quarterName.substring(0, 7));
-        } catch (IllegalArgumentException e) {
-            throw ApiProblem.invalid("quarter", e.getMessage() + ".");
-        }
-        int quarter = quarterName.charAt(9) - '0';
-        return LocalDate.of(year.startYear(), 4, 1).plusMonths(3L * (quarter - 1));
-    }
-
-    /** The approved file, written as it's fetched, for this one fetch: it holds every PAN, so it's never kept. */
-    Approvals.File tdsFile(String quarterName, String reason, AuditTrail.Actor actor) {
-        var start = quarterStart(quarterName);
-        var from = Timestamp.from(start.atStartOfDay(FinancialYear.INDIA).toInstant());
-        var to = Timestamp.from(
-                start.plusMonths(3).atStartOfDay(FinancialYear.INDIA).toInstant());
-        var where = "from payouts.payouts where created_at >= :from and created_at < :to and status not in (:returned)";
-        transactions.executeWithoutResult(status -> {
-            var totals = jdbc.sql("select count(*) as payouts, coalesce(sum(tds_paise), 0) as tds " + where)
-                    .param("from", from)
-                    .param("to", to)
-                    .param("returned", TaxDeduction.RETURNED)
-                    .query()
-                    .singleRow();
-            audit.record(new AuditTrail.Entry(
-                    actor,
-                    "tds.export",
-                    "tds_quarter",
-                    quarterName,
-                    reason,
-                    null,
-                    Map.of(
-                            "payouts",
-                            ((Number) totals.get("payouts")).intValue(),
-                            "tdsPaise",
-                            ((Number) totals.get("tds")).longValue())));
-        });
-        return new Approvals.File("text/csv", "idleo-tds-" + quarterName + ".csv", out -> {
-            var day = DateTimeFormatter.ISO_LOCAL_DATE;
-            out.write(("payout,pan,name_on_pan,holder,section,rate_percent,gross_paise,tds_paise,net_paise,deducted_on,"
-                            + "paid_on,status\n")
-                    .getBytes(StandardCharsets.UTF_8));
-            var reading = new TransactionTemplate(Objects.requireNonNull(transactions.getTransactionManager()));
-            reading.setReadOnly(true);
-            reading.executeWithoutResult(status -> jdbc.sql("""
-                            select id, user_id, tds_section, tds_basis_points, gross_paise, tds_paise, net_paise, status,
-                                   created_at, processed_at
-                            """ + where + " order by created_at, id")
-                    .param("from", from)
-                    .param("to", to)
-                    .param("returned", TaxDeduction.RETURNED)
-                    .withFetchSize(500)
-                    .query((org.springframework.jdbc.core.RowCallbackHandler) rs -> {
-                        var user = rs.getObject("user_id", UUID.class);
-                        var pan = pans.find(user).orElse(null);
-                        var processed = rs.getTimestamp("processed_at");
-                        var line = String.join(
-                                ",",
-                                rs.getString("id"),
-                                pans.full(user).orElse(""),
-                                Statements.quote(pan == null ? "" : pan.name()),
-                                pan == null ? "" : pan.holder(),
-                                Statements.quote(rs.getString("tds_section")),
-                                java.math.BigDecimal.valueOf(rs.getInt("tds_basis_points"), 2)
-                                        .toPlainString(),
-                                String.valueOf(rs.getLong("gross_paise")),
-                                String.valueOf(rs.getLong("tds_paise")),
-                                String.valueOf(rs.getLong("net_paise")),
-                                day.format(ZonedDateTime.ofInstant(
-                                        rs.getTimestamp("created_at").toInstant(), FinancialYear.INDIA)),
-                                processed == null
-                                        ? ""
-                                        : day.format(
-                                                ZonedDateTime.ofInstant(processed.toInstant(), FinancialYear.INDIA)),
-                                rs.getString("status"));
-                        try {
-                            out.write((line + "\n").getBytes(StandardCharsets.UTF_8));
-                        } catch (IOException e) {
-                            throw new UncheckedIOException(e);
-                        }
-                    }));
-        });
-    }
 
     private static <T> T refusing(Supplier<T> action) {
         try {

@@ -26,6 +26,7 @@ class BillingGatedActions {
     static final String ADJUSTMENT_REVERSE = "money.adjustment.reverse";
     static final String PERIOD_CLOSE = "period.close";
     static final String PERIOD_REOPEN = "period.reopen";
+    static final String TAX_EXPORT = "tax.export";
 
     @Bean
     Approvals.GatedAction grantCredit(CreditGrants grants) {
@@ -132,6 +133,20 @@ class BillingGatedActions {
                         YearMonth.parse(run.params().get("month").asString()),
                         run.reason(),
                         run.actor()));
+    }
+
+    /** One of the CA's files, or the month's pack (ADR 0055): whole PANs and GSTINs, so another admin approves it. */
+    @Bean
+    Approvals.GatedAction exportTax(CaPacks packs) {
+        return Approvals.fileAction(TAX_EXPORT, AdminPermission.TAX_EXPORT, Approvals.Cooling.MONEY, run -> {
+            var name = run.params().get("export").asString();
+            var month = YearMonth.parse(run.params().get("month").asString());
+            if (name.equals(CaPacks.PACK)) {
+                return packs.pack(run.approvalId(), month, run.reason(), run.actor());
+            }
+            var export = packs.export(name).orElseThrow(() -> new IllegalArgumentException("no export " + name));
+            return packs.file(export, month, run.reason(), run.actor());
+        });
     }
 
     /** An adjustment's request from its approval's parameters, as {@link AdminAdjustmentsController} wrote them. */

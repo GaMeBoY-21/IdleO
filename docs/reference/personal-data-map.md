@@ -131,6 +131,7 @@ Money records are kept for `legal.retention.money-records` (8 years, LEGAL(confi
 | `billing.adjustments` | id, template, **reason**, **reference**, corrects_month, reverses_id, approval_id, txn_id, requested_by, created_at | — | — | Manual adjustments, each another admin's approval (ADR 0055); the reason and reference are an admin's text, about the money, and the owners are the ledger's ids | Money record | Kept |
 | `billing.settlements` | id, amount_paise, fees_paise, tax_paise, status, utr, settled_at, fetched_at, state, txn_id, version | — | — | Each settlement Razorpay made to our bank (ADR 0055) | Money record | Kept: no person in it |
 | `billing.settlement_items` | id, settlement_id, entity_id, type, credit_paise, debit_paise, fee_paise, tax_paise, our_paise, match, state, resolution, adjustment_id, **reason**, resolved_by, resolved_at, found_at, version | — | — | What each settlement carried, by Razorpay's ids, and how it matches ours; the reason is an admin's text | Money record | Kept |
+| `billing.ca_packs` | id, month, files, manifest_sha256, actor, approval_id, created_at | — | — | Each CA pack made, its manifest's hash; the pack itself, with whole PANs, is never kept (ADR 0055) | Money record | Kept: no person in it |
 | `billing.periods` | month, state, version, updated_at | — | — | Closed months (ADR 0055) | Money record | Kept: no person in it |
 | `billing.period_events` | id, month, action, **reason**, actor, approval_id, created_at | — | — | Each month closed or reopened, by which admin and why | Money record | Kept |
 

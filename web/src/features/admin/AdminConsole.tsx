@@ -67,7 +67,7 @@ export const ADMIN_SCREENS = [
   { href: "/admin/payouts/", label: "Payouts", needs: "payouts.read" },
   { href: "/admin/verification/", label: "Verification", needs: "verifications.read" },
   { href: "/admin/clawbacks/", label: "Clawbacks", needs: "clawbacks.read" },
-  { href: "/admin/tax/", label: "Tax", needs: "export.create" },
+  { href: "/admin/tax/", label: "Tax", needs: "tax.export" },
   { href: "/admin/invites/", label: "Invites", needs: "invites.read" },
   { href: "/admin/notices/", label: "Notices", needs: "notices.publish" },
   { href: "/admin/approvals/", label: "Approvals", needs: "approvals.read" },

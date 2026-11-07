@@ -92,6 +92,38 @@ The weekly run is one batch:
 - **Release** is one approved action (`payouts.release`, step-up). It takes every quote again first and pays nobody if any changed, so what's paid is what the approver saw. Then it pays each host as previewed, once. A batch is released once; the same approval run again finishes what it started.
 - **Tracking:** each item shows its payout's status, and the items' CSV is the batch report for the CA.
 
+### Tax exports and the CA's monthly pack
+
+Each file for the CA is a `TaxExport` bean of the module that owns its data. Billing holds GST and the ledger; payouts holds TDS.
+
+- **GST:**
+  - the invoice register;
+  - credit notes;
+  - GSTR-1's data: B2B invoice by invoice with the buyer's GSTIN, B2C summed by place of supply and rate, and credit notes to registered buyers. It comes as JSON shaped for the GST portal's offline tool (money in rupees there, written exactly from paise) and as CSV;
+  - the month's summary, the documents' GST against the ledger's tax accounts.
+- **TDS (194-O, or 206AA without a PAN):**
+  - the quarter's deductions payout by payout;
+  - 26Q's deductee records;
+  - Form 16A's data per host.
+
+  The rates come from `legal.tds`.
+- **The ledger:** the trial balance at the month's end, the journal and the settlement reconciliation.
+
+Every file says what it adds up to, and a test ties each figure to the entries behind it.
+
+Asking for a file or for the month's pack is `tax.export`, with a factor and another admin's approval: the files hold whole PANs and GSTINs. The asker downloads it once from Approvals.
+
+The pack is one zip of every file the pack takes, with a manifest of each file's SHA-256, size and totals. It's made when it's downloaded; the manifest's hash goes into the audit log and onto `billing.ca_packs`, but the pack itself, with its PANs, isn't kept. The month-close checklist waits for it.
+
+The quarterly TDS export the console had (`tds.export`) is now one of these files, written once.
+
+Every format waits on the CA (CA(confirm)), and so do:
+
+- the SAC code;
+- the place of supply;
+- the TDS rates;
+- whether IdleO, as an e-commerce operator, must collect TCS under section 52 of the CGST Act on hosts' supplies. Until the CA says so, TCS isn't built: no account and no export, and production still refuses `tcs: true` (ADR 0039).
+
 ### Money reports
 
 `money.read` holds:
