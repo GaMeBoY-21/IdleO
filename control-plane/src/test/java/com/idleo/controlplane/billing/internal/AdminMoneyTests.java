@@ -16,6 +16,7 @@ import com.idleo.controlplane.identity.AuditTrail;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -254,15 +255,27 @@ class AdminMoneyTests {
     @Test
     void showsTheLatestReconciliationRunsWithWhatTheyFound() throws Exception {
         var admin = TestAdmins.signIn(mvc, jdbc, clock);
-        assertThat(reconciliation.run("tests").ran()).isTrue();
-        var runs = body(mvc.perform(admin.as(get("/admin/v1/reconciliation").param("limit", "1")))
+        var result = reconciliation.run("tests");
+        assertThat(result.ran()).isTrue();
+        // Other test classes, in other forks on the same database, run it too: find this run among the newest.
+        var runs = body(mvc.perform(admin.as(get("/admin/v1/reconciliation").param("limit", "200")))
                         .andExpect(status().isOk()))
                 .get("runs");
-        assertThat(runs).hasSize(1);
-        assertThat(runs.get(0).get("trigger").asString()).isEqualTo("tests");
-        assertThat(runs.get(0).get("ledgerBalanced").asBoolean()).isTrue();
-        assertThat(runs.get(0).get("mismatchCount").asInt())
-                .isEqualTo(runs.get(0).get("mismatches").size());
+        JsonNode mine = null;
+        Instant previous = Instant.MAX;
+        for (var each : runs) {
+            var finished = Instant.parse(each.get("finishedAt").asString());
+            assertThat(finished).as("newest first").isBeforeOrEqualTo(previous);
+            previous = finished;
+            if (each.get("id").asString().equals(String.valueOf(result.runId()))) {
+                mine = each;
+            }
+        }
+        assertThat(mine).as("this test's run").isNotNull();
+        assertThat(mine.get("trigger").asString()).isEqualTo("tests");
+        assertThat(mine.get("ledgerBalanced").asBoolean()).isTrue();
+        assertThat(mine.get("mismatchCount").asInt())
+                .isEqualTo(mine.get("mismatches").size());
 
         // Run now from the console, as reconcile-wallets does: kept, and audited with the run it made.
         var run = body(mvc.perform(admin.as(post("/admin/v1/reconciliation"))
