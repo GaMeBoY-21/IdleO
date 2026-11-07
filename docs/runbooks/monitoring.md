@@ -58,16 +58,21 @@ Grafana bills metrics as the larger of active series and data points a minute ov
    The prod profile refuses to start without an HTTPS endpoint (`ProductionSettingsGuard`). Within two minutes of a start, Explore → Metrics shows `jvm_memory_used_bytes{job="control-plane"}`.
 3. **Dashboards:** Dashboards → New → Import, upload each of `ops/grafana/dashboards/*.json`, and choose the stack's Prometheus (`grafanacloud-<stack>-prom`) for the `datasource` variable.
 4. **Alerts:** `ops/grafana/apply-rules.sh` loads every rule in `ops/alerts/` into the stack's own alerting (ADR 0054). Pages go in the folder *IdleO pages* and tickets (`severity: digest`) in *IdleO tickets*. It also sets one email contact point, *IdleO email*, and the routing: a page at once, and again every 4 hours while it lasts; tickets in one email a day. Grafana Cloud sends the email itself, so no mail provider is involved. Once:
-   - In the stack, go to Administration → Users and access → Service accounts. Add `alert-rules` with the Editor role, then add a service account token. It shows only once: keep it in your password manager, never in the repo or in CI.
-   - In your own terminal, from the repo:
-     ```
-     read -rsp 'Grafana token: ' GRAFANA_TOKEN; echo; export GRAFANA_TOKEN
-     GRAFANA_URL=https://<stack>.grafana.net ALERTS_TO=<your address> ops/grafana/apply-rules.sh --test
-     ```
-     It prints how many rules it loaded and sends one test alert, `IdleOTestAlert`. Check that it arrived. `read -s` keeps the token out of your shell history.
-   - If a call is refused with 403, the Editor role isn't enough for alert provisioning on that stack. Add the fixed role *Alerting provisioning writer* to the same service account; the script names the call that was refused.
+   - In the stack, go to Administration → Users and access → Service accounts. Add `alert-rules` with the **Admin** role: on Grafana Cloud, Editor can't write notification policies, mute timings or contact points, and can't send the test.
+   - Each run, in your own terminal, from the repo:
+     1. Add a service account token to `alert-rules` (Add service account token, an expiry of a day). It shows only once; it never goes in a file, the repo or CI.
+     2. Run the script with it:
+        ```
+        read -rsp 'Grafana token: ' GRAFANA_TOKEN; echo; export GRAFANA_TOKEN
+        GRAFANA_URL=https://<stack>.grafana.net ALERTS_TO=<your address> ops/grafana/apply-rules.sh --test
+        unset GRAFANA_TOKEN
+        ```
+        It prints how many rules it loaded, how many production rules are muted, and sends one test alert, `IdleOTestAlert`, through the contact point. Check that it arrived. `read -s` keeps the token out of your shell history.
+     3. Delete the token in the service account's page. An Admin token is worth nothing to anyone once it's gone, and the next run makes its own.
+   - If a call is refused with 403, the service account isn't Admin; the script names the call that was refused.
    - If the stack has more than one Prometheus data source, set `GRAFANA_PROMETHEUS_UID` to the one to use.
-   Run it again, without `--test`, whenever `ops/alerts/` changes; a second run changes nothing. Alerting → Alert rules then lists the 65 rules in their two folders. They can't be edited in the browser: change the files.
+   Run it again, without `--test`, whenever `ops/alerts/` changes; a second run changes nothing. Alerting → Alert rules then lists the 70 rules in their two folders. They can't be edited in the browser: change the files.
+   - **Before go-live (`PRE_LAUNCH`):** every rule has an `env` label. `env: production` is the running service (the control plane, the database, backups, Valkey, the agents: anything on `job="control-plane"`, `database` or `flagger`); `env: ci` is a suite CI runs (hostile, the nightly scan, failover, k8s, gitops, security, e2e, web-browser, budgets and the next runner, each on `idleo_suite_passed`). With no server yet, every production rule would fire, `ControlPlaneSilent` first. So while `PRE_LAUNCH` is on, the default, the script adds the always-on mute timing *idleo-pre-launch* to the routes of `env=production`: those rules still evaluate and show in Alerting, but send nothing, while CI's rules email as usual. `PRE_LAUNCH=off ops/grafana/apply-rules.sh` takes the mute away (and deletes it); turning it off is a step of going live (docs/runbooks/deploying.md, "Going live"). Anything but on or off is refused, so a typo never unmutes production.
 5. **Phone:** alerts are email; turn on notifications for that address in your phone's mail app, or forward it to one. The external uptime check below pushes to its app too, for when everything is down.
 6. **Test it:** stop the control plane on the server for 5 minutes. `ControlPlaneSilent` should email you within about 3 to 4 minutes (measured locally: see "What it takes to hear" below), and the uptime check within 5. Start it again; both say resolved.
 

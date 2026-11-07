@@ -121,3 +121,11 @@ kubectl apply -f deploy/clusters/<env>/flux-system/sync.yaml
 ```
 
 From then on Flux follows `main` and keeps itself up to date. An upgrade of Flux is a pull request that changes `deploy/flux` (its kustomization says how to export the new release).
+
+## Going live (S5)
+
+Once production's server serves and its control plane's metrics reach Grafana Cloud (Explore → Metrics shows `jvm_memory_used_bytes{job="control-plane"}`):
+
+1. **Unmute production's alerts.** Until now `ops/grafana/apply-rules.sh` has muted every `env: production` rule, since there was no server to watch (docs/runbooks/monitoring.md, "Before go-live"). With a token made for the run, as that runbook says, run `PRE_LAUNCH=off GRAFANA_URL=… ALERTS_TO=… ops/grafana/apply-rules.sh --test`. It should say "PRE_LAUNCH off: every rule live", and Alerting → Notification policies should show no mute timing. Then delete the token.
+2. **Check nothing is firing that shouldn't.** Alerting → Alert rules, *IdleO pages*: every rule Normal. A rule still firing is a real problem on the new server: its runbook section says what to do.
+3. **Prove a page reaches you.** Stop the control plane for 5 minutes (monitoring.md, "Test it"): `ControlPlaneSilent` should email within about 4 minutes, and say resolved once it's back.

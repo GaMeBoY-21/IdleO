@@ -9,6 +9,7 @@ groups:
         for: 10m
         labels:
           severity: digest
+          env: production
         annotations:
           summary: 'Work of kind {{ $labels.type }} is past its target.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-target-breached
@@ -18,6 +19,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'A chargeback''s evidence is due within 48 hours.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#chargeback-evidence-due
@@ -27,6 +29,7 @@ groups:
         for: 5m
         labels:
           severity: digest
+          env: production
         annotations:
           summary: 'The inbox has not been brought up to date for 15 minutes.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#queue-sync-stopped

@@ -10,6 +10,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="hostile"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The hostile tests of the job sandbox failed on main or on its schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -17,6 +18,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="hostile"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The hostile tests of the job sandbox hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -24,6 +26,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="budgets"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The console's budgets failed on their schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -31,6 +34,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="budgets"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The console's budgets haven't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -38,6 +42,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="failover"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The failover test failed on main or on its schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -45,6 +50,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="failover"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The failover test hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -52,6 +58,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="k8s"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The cluster's proof failed on main or on its schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -59,6 +66,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="k8s"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The cluster's proof hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -66,6 +74,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="gitops"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The canary test failed on main or on its schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -73,6 +82,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="gitops"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The canary test hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -80,6 +90,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="security"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The attacks on the cluster failed on main or on its schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -87,6 +98,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="security"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The attacks on the cluster hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -94,6 +106,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="e2e"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The end-to-end test failed on main or on its schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -101,6 +114,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="e2e"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The end-to-end test hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -108,6 +122,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="web-browser"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The web app's browser run failed on main or on its schedule.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -115,6 +130,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="web-browser"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The web app's browser run hasn't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -122,6 +138,7 @@ groups:
         expr: last_over_time(idleo_suite_passed{suite="next-runner"}[8d]) == 0
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The fast suites failed on ubuntu-latest, so moving the runners' pin from ubuntu-24.04 isn't safe yet.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -129,6 +146,7 @@ groups:
         expr: absent_over_time(idleo_suite_passed{suite="next-runner"}[8d])
         labels:
           severity: digest
+          env: ci
         annotations:
           summary: The fast suites on ubuntu-latest haven't reported for 8 days.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing

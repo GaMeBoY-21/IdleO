@@ -11,6 +11,7 @@ groups:
         expr: absent_over_time(jvm_memory_used_bytes{job="control-plane"}[3m])
         labels:
           severity: page
+          env: production
         annotations:
           summary: The control plane has sent nothing for 3 minutes; it may be down.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#control-plane-silent
@@ -29,6 +30,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'More than 2% of API requests are failing with a server error ({{ $value | humanizePercentage }}).'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#api-errors
@@ -43,6 +45,7 @@ groups:
         for: 10m
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'API requests are slow: the 95th percentile is {{ $value | humanizeDuration }}.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#slow-api
@@ -53,6 +56,7 @@ groups:
         for: 10m
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'The server''s disk is {{ $value | humanizePercentage }} full.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#disk
@@ -63,6 +67,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'The database connection pool is {{ $value | humanizePercentage }} in use.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
@@ -73,6 +78,7 @@ groups:
         for: 1m
         labels:
           severity: page
+          env: production
         annotations:
           summary: The control plane can't reach the database.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database
@@ -84,6 +90,7 @@ groups:
         for: 5m
         labels:
           severity: page
+          env: production
         annotations:
           summary: The control plane can't reach file storage; uploads, outputs and logs are failing.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#storage-unreachable
@@ -97,6 +104,7 @@ groups:
           min by (bundle, certificate) (ssl_chain_expiry_seconds{job="control-plane"}) < 14 * 86400
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'A certificate expires in {{ $value | humanizeDuration }}.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#certificates
@@ -108,6 +116,7 @@ groups:
         expr: max(events_publications_failed_permanently{job="control-plane"}) > 0
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value }} event(s) failed every retry and are no longer retried.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#events-failing-permanently
@@ -120,6 +129,7 @@ groups:
         for: 2m
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | humanize }} host presence lookups a minute are failing; bookings are waiting.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#presence-unavailable
@@ -132,6 +142,7 @@ groups:
         expr: max by (name, namespace, environment) (flagger_canary_status{job="flagger"}) == 2
         labels:
           severity: page
+          env: production
         annotations:
           summary: 'The release of {{ $labels.name }} in {{ $labels.environment }} failed its canary and was rolled back.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#canary-failed

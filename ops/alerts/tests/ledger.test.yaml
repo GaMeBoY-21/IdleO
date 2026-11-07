@@ -21,7 +21,7 @@ tests:
       - eval_time: 7m
         alertname: LedgerUnbalanced
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: The ledger doesn't balance.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-unbalanced
@@ -31,7 +31,7 @@ tests:
       - eval_time: 7m
         alertname: LedgerChecksFailing
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: "2 of the ledger's checks found something in their last run."
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-failing
@@ -50,7 +50,7 @@ tests:
       - eval_time: 32h
         alertname: LedgerChecksSilent
         exp_alerts:
-          - exp_labels: {severity: digest}
+          - exp_labels: {env: production, severity: digest}
             exp_annotations:
               summary: The ledger's checks haven't run for 30 hours.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-silent
@@ -75,7 +75,7 @@ tests:
       - eval_time: 7m
         alertname: PeriodReopened
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: A closed month was reopened in the ledger.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#period-reopened
@@ -94,7 +94,7 @@ tests:
       - eval_time: 17m
         alertname: SettlementItemsStale
         exp_alerts:
-          - exp_labels: {severity: digest}
+          - exp_labels: {env: production, severity: digest}
             exp_annotations:
               summary: '2 settlement items have been open for more than 3 days.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#settlement-items-stale

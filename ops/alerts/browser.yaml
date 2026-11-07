@@ -9,6 +9,7 @@ groups:
         expr: sum by (app, release) (increase(browser_errors_total{job="control-plane"}[15m])) > 10
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $labels.app }} release {{ $labels.release }} threw about {{ printf "%.0f" $value }} JavaScript errors in 15 minutes.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#browser-errors
@@ -24,6 +25,7 @@ groups:
         for: 1h
         labels:
           severity: digest
+          env: production
         annotations:
           summary: '{{ $labels.app }} {{ $labels.route }} on a {{ $labels.device }}: 75% of visits paint within {{ $value | humanizeDuration }}, over 2.5 s.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#slow-page

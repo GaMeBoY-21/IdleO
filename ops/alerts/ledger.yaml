@@ -10,6 +10,7 @@ groups:
         expr: max(billing_ledger_unbalanced{job="control-plane"}) > 0
         labels:
           severity: page
+          env: production
         annotations:
           summary: The ledger doesn't balance.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-unbalanced
@@ -17,6 +18,7 @@ groups:
         expr: max(billing_ledger_checks_failing{job="control-plane"}) > 0
         labels:
           severity: page
+          env: production
         annotations:
           summary: '{{ $value | printf "%.0f" }} of the ledger''s checks found something in their last run.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-failing
@@ -27,6 +29,7 @@ groups:
           and time() - max(billing_reconciliation_last_success{job="control-plane"}) > 30 * 3600
         labels:
           severity: digest
+          env: production
         annotations:
           summary: The ledger's checks haven't run for 30 hours.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#ledger-checks-silent
@@ -35,6 +38,7 @@ groups:
         expr: sum(increase(billing_periods_reopened_total{job="control-plane"}[10m])) > 0
         labels:
           severity: page
+          env: production
         annotations:
           summary: A closed month was reopened in the ledger.
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#period-reopened
@@ -45,6 +49,7 @@ groups:
         for: 10m
         labels:
           severity: digest
+          env: production
         annotations:
           summary: '{{ $value | printf "%.0f" }} settlement items have been open for more than 3 days.'
           runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#settlement-items-stale

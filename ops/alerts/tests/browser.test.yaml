@@ -17,7 +17,7 @@ tests:
       - eval_time: 20m
         alertname: BrowserErrors
         exp_alerts:
-          - exp_labels: {severity: page, app: app, release: 2026.10.20}
+          - exp_labels: {env: production, severity: page, app: app, release: 2026.10.20}
             exp_annotations:
               summary: 'app release 2026.10.20 threw about 15 JavaScript errors in 15 minutes.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#browser-errors
@@ -43,7 +43,7 @@ tests:
       - eval_time: 26h
         alertname: SlowPage
         exp_alerts:
-          - exp_labels: {severity: digest, app: app, route: /session/, device: phone}
+          - exp_labels: {env: production, severity: digest, app: app, route: /session/, device: phone}
             exp_annotations:
               summary: 'app /session/ on a phone: 75% of visits paint within 3.625s, over 2.5 s.'
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#slow-page

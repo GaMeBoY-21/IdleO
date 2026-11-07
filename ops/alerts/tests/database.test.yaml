@@ -19,7 +19,7 @@ tests:
       - eval_time: 7m
         alertname: DatabaseStandbyBehind
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: The database's standby is behind the primary, or gone.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-standby-behind
@@ -37,7 +37,7 @@ tests:
       - eval_time: 6m
         alertname: DatabaseStandbyBehind
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: The database's standby is behind the primary, or gone.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-standby-behind
@@ -57,7 +57,7 @@ tests:
       - eval_time: 8m
         alertname: DatabaseArchivingFailing
         exp_alerts:
-          - exp_labels: {severity: page, pod: idleo-database-1}
+          - exp_labels: {env: production, severity: page, pod: idleo-database-1}
             exp_annotations:
               summary: The database's WAL isn't reaching the backups.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-archiving-failing
@@ -77,7 +77,7 @@ tests:
       - eval_time: 9m
         alertname: DatabaseArchivingFailing
         exp_alerts:
-          - exp_labels: {severity: page, pod: idleo-database-1}
+          - exp_labels: {env: production, severity: page, pod: idleo-database-1}
             exp_annotations:
               summary: The database's WAL isn't reaching the backups.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-archiving-failing
@@ -93,7 +93,7 @@ tests:
       - eval_time: 27h
         alertname: DatabaseNoBaseBackup
         exp_alerts:
-          - exp_labels: {severity: page}
+          - exp_labels: {env: production, severity: page}
             exp_annotations:
               summary: The database has had no base backup for more than a day.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-no-base-backup
@@ -109,7 +109,7 @@ tests:
       - eval_time: 25m
         alertname: DatabaseFailover
         exp_alerts:
-          - exp_labels: {severity: digest}
+          - exp_labels: {env: production, severity: digest}
             exp_annotations:
               summary: The database failed over to its standby.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#database-failover

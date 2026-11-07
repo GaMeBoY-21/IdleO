@@ -14,7 +14,7 @@ tests:
       - eval_time: 8d
         alertname: HostileSuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: hostile}
+          - exp_labels: {env: ci, severity: digest, suite: hostile}
             exp_annotations:
               summary: The hostile tests of the job sandbox failed on main or on its schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -37,7 +37,7 @@ tests:
       - eval_time: 11d
         alertname: HostileSuiteMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: hostile}
+          - exp_labels: {env: ci, severity: digest, suite: hostile}
             exp_annotations:
               summary: The hostile tests of the job sandbox hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -52,7 +52,7 @@ tests:
       - eval_time: 8d
         alertname: FailoverSuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: failover}
+          - exp_labels: {env: ci, severity: digest, suite: failover}
             exp_annotations:
               summary: The failover test failed on main or on its schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -75,7 +75,7 @@ tests:
       - eval_time: 11d
         alertname: FailoverSuiteMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: failover}
+          - exp_labels: {env: ci, severity: digest, suite: failover}
             exp_annotations:
               summary: The failover test hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -90,7 +90,7 @@ tests:
       - eval_time: 8d
         alertname: K8sSuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: k8s}
+          - exp_labels: {env: ci, severity: digest, suite: k8s}
             exp_annotations:
               summary: The cluster's proof failed on main or on its schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -113,7 +113,7 @@ tests:
       - eval_time: 11d
         alertname: K8sSuiteMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: k8s}
+          - exp_labels: {env: ci, severity: digest, suite: k8s}
             exp_annotations:
               summary: The cluster's proof hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -128,7 +128,7 @@ tests:
       - eval_time: 8d
         alertname: GitopsSuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: gitops}
+          - exp_labels: {env: ci, severity: digest, suite: gitops}
             exp_annotations:
               summary: The canary test failed on main or on its schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -151,7 +151,7 @@ tests:
       - eval_time: 11d
         alertname: GitopsSuiteMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: gitops}
+          - exp_labels: {env: ci, severity: digest, suite: gitops}
             exp_annotations:
               summary: The canary test hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -166,7 +166,7 @@ tests:
       - eval_time: 8d
         alertname: SecuritySuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: security}
+          - exp_labels: {env: ci, severity: digest, suite: security}
             exp_annotations:
               summary: The attacks on the cluster failed on main or on its schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -189,7 +189,7 @@ tests:
       - eval_time: 11d
         alertname: SecuritySuiteMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: security}
+          - exp_labels: {env: ci, severity: digest, suite: security}
             exp_annotations:
               summary: The attacks on the cluster hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -204,7 +204,7 @@ tests:
       - eval_time: 8d
         alertname: E2eSuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: e2e}
+          - exp_labels: {env: ci, severity: digest, suite: e2e}
             exp_annotations:
               summary: The end-to-end test failed on main or on its schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -227,7 +227,7 @@ tests:
       - eval_time: 11d
         alertname: E2eSuiteMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: e2e}
+          - exp_labels: {env: ci, severity: digest, suite: e2e}
             exp_annotations:
               summary: The end-to-end test hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -242,7 +242,7 @@ tests:
       - eval_time: 8d
         alertname: WebBrowserSuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: web-browser}
+          - exp_labels: {env: ci, severity: digest, suite: web-browser}
             exp_annotations:
               summary: The web app's browser run failed on main or on its schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
@@ -265,7 +265,7 @@ tests:
       - eval_time: 11d
         alertname: WebBrowserSuiteMissing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: web-browser}
+          - exp_labels: {env: ci, severity: digest, suite: web-browser}
             exp_annotations:
               summary: The web app's browser run hasn't reported for 8 days.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-missing
@@ -280,7 +280,7 @@ tests:
       - eval_time: 8d
         alertname: BudgetsSuiteFailing
         exp_alerts:
-          - exp_labels: {severity: digest, suite: budgets}
+          - exp_labels: {env: ci, severity: digest, suite: budgets}
             exp_annotations:
               summary: The console's budgets failed on their schedule.
               runbook_url: https://github.com/GaMeBoY-21/IdleO/blob/main/docs/runbooks/alerts.md#long-suite-failing
