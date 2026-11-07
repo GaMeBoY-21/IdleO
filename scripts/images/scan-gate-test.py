@@ -76,7 +76,7 @@ expect(moved.returncode == 1, "the same CVE in another package was taken as main
 # A secret always fails, even one main's scan had too.
 with_secret = write("secret-main.json", report(ZLIB, secrets=[SECRET], name=IMAGE + ":main"))
 secret = run(write("pr-secret.json", report(ZLIB, secrets=[SECRET])), "--baseline", with_secret)
-expect(secret.returncode == 1 and "FAIL CRITICAL secret github-pat" in secret.stdout, f"a secret: {secret.stdout}")
+expect(secret.returncode == 1 and "FAIL a CRITICAL or HIGH secret in /app/config.yaml" in secret.stdout and "github-pat" not in secret.stdout, f"a secret: {secret.stdout}")
 
 # No baseline: fail closed, and say why.
 missing = run(write("pr-missing.json", report(ZLIB)), "--baseline-missing", "no main run kept a scan")
