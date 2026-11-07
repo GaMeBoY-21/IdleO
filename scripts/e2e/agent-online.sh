@@ -2333,11 +2333,24 @@ PY
       and ref_type in ('payout', 'payout_paid', 'payout_returned', 'payout_reversed')")" == 0 ]] || fail "a receivable was paid out"
   note "payout ledger: nobody's in flight below zero, payouts_paid equals the processed payouts for everyone, no receivable paid out: PASS"
 
-  # 8. The month's money (ADR 0055). Razorpay settles what the run's renters paid; fetched, the settlement matches the
-  # ledger item by item and is posted once. The month's CA pack is made by approval, every file's hash in its manifest.
-  # Last month, empty on this fresh stack, closes once its checklist holds, and the database then refuses an entry dated
-  # in it. (The month the run's money moved in can't be closed while it lasts: the stack has no clock to move.)
-  paid_ids="$(sql "select string_agg('\"' || payment_id || '\"', ',') from billing.topups where status = 'paid' and payment_id is not null")"
+  # 8. The month's money (ADR 0055). The run's renter adds credit twice through the fake Razorpay (this part's stack has
+  # no other payments: the payments part runs on another), and Razorpay settles those two; fetched, the settlement
+  # matches the ledger item by item and is posted once. The month's CA pack is made by approval, every file's hash in its
+  # manifest. Last month, empty on this fresh stack, closes once its checklist holds, and the database then refuses an
+  # entry dated in it. (The month the run's money moved in can't be closed while it lasts: the stack has no clock to move.)
+  local buyer_token paid_ids="" topup paid amount
+  buyer_token="$(stack_token "$user")"
+  [[ -n "$buyer_token" ]] || fail "no fresh token for the run's renter"
+  for amount in 50000 30000; do
+    topup="$(token="$buyer_token" api_post /v1/wallet/topups -H "Idempotency-Key: \"$user-settle-$amount\"" \
+      -d "{\"amountPaise\":$amount}")" || fail "the renter couldn't start a top-up of $amount paise"
+    paid="$(curl -sf -X POST "http://localhost:$razorpay_port/_fake/pay" -H 'Content-Type: application/json' \
+      -d "{\"order_id\":\"$(json_get .orderId <<<"$topup")\"}")" || fail "the fake Razorpay didn't take the payment"
+    [[ "$(token="$buyer_token" api_post "/v1/wallet/topups/$(json_get .id <<<"$topup")/confirm" \
+      -d "{\"razorpayPaymentId\":\"$(json_get .razorpay_payment_id <<<"$paid")\",\"razorpaySignature\":\"$(json_get .razorpay_signature <<<"$paid")\"}" |
+      json_get .status)" == paid ]] || fail "the top-up of $amount paise wasn't credited"
+    paid_ids+="${paid_ids:+,}\"$(json_get .razorpay_payment_id <<<"$paid")\""
+  done
   settlement="$(curl -sf -X POST "http://localhost:$razorpay_port/_fake/settle" -H 'Content-Type: application/json' \
     -d "{\"payment_ids\":[$paid_ids],\"fee_basis_points\":200}" | json_get .id)"
   [[ -n "$settlement" ]] || fail "the fake Razorpay didn't settle the run's payments"
