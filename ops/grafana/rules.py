@@ -25,9 +25,9 @@ FOLDERS = {"page": ("idleo-pages", "IdleO pages"), "digest": ("idleo-tickets", "
 CONTACT_POINT = {"uid": "idleo-email", "name": "IdleO email"}
 SUBJECT = "[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}: {{ .CommonAnnotations.summary }}"
 # Every rule says what it watches: env production, the running service (the control plane, the database, backups,
-# Valkey, the agents), or env ci, a suite CI runs (each reads idleo_suite_passed, which the suites push themselves).
+# Valkey, the agents), or env ci, a suite CI runs (each reads an idleo_suite_ metric, which the suites push themselves).
 ENVS = {"production", "ci"}
-CI_METRIC = "idleo_suite_passed"
+CI_METRIC = "idleo_suite_"
 # Before go-live there is no server, so every production rule would fire (ControlPlaneSilent first): while PRE_LAUNCH
 # is on (the default), their notifications go through this mute, always on; CI's rules stay live. Turning it off is a
 # step of going live (docs/runbooks/deploying.md, "Going live").
@@ -139,7 +139,7 @@ def wanted_groups(prometheus: str) -> dict[tuple[str, str], list[dict]]:
                 # A CI rule reads what the suites push; anything else watches the service, and is muted before go-live.
                 if (env == "ci") != (CI_METRIC in rule["expr"]):
                     raise Refused(f"{path.name}: {name} is env {env}, but "
-                                  + (f"doesn't read {CI_METRIC}" if env == "ci" else f"reads {CI_METRIC}, a CI suite's"))
+                                  + (f"doesn't read an {CI_METRIC} metric" if env == "ci" else f"reads an {CI_METRIC} metric, a CI suite's"))
                 if name in seen:
                     raise Refused(f"{path.name}: {name} is also in {seen[name]}; Grafana needs each name once")
                 seen[name] = path.name
