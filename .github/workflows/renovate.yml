@@ -26,8 +26,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          # The app id works here too until the repository has DEPLOY_APP_CLIENT_ID.
-          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID || vars.DEPLOY_APP_ID }}
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
