@@ -259,7 +259,7 @@ import rules as converter  # noqa: E402
 
 for labels, expr, refusal in (
         ({"severity": "page"}, 'up{job="control-plane"}', "no env"),
-        ({"severity": "page", "env": "ci"}, 'up{job="control-plane"}', "doesn't read idleo_suite_passed"),
+        ({"severity": "page", "env": "ci"}, 'up{job="control-plane"}', "doesn't read an idleo_suite_ metric"),
         ({"severity": "digest", "env": "production"}, 'idleo_suite_passed{suite="e2e"} == 0', "a CI suite's")):
     with tempfile.TemporaryDirectory() as root:
         os.makedirs(os.path.join(root, "ops", "alerts"))
