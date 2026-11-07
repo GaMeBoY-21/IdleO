@@ -43,7 +43,10 @@ async function freshCode(secret: string, page: Page): Promise<string> {
 }
 
 async function go(page: Page, screen: string) {
-  await page.getByRole("navigation", { name: "Admin" }).getByRole("link", { name: screen, exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Admin" })
+    .getByRole("link", { name: screen, exact: true })
+    .click();
   await expect(page.getByRole("heading", { level: 1, name: screen })).toBeVisible();
 }
 
