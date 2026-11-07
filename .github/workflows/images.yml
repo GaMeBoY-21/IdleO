@@ -1,10 +1,11 @@
 name: images
 
 # The server's container images (ADR 0045): control-plane, web and scanner (the database's is CloudNativePG's own, ADR
-# 0047). On every pull request each is
-# built and scanned; on main (and a release tag) the very bytes that were scanned are pushed to GHCR, signed keylessly
-# with cosign (this workflow's GitHub identity; no key is stored anywhere), and given a CycloneDX bill of materials and
-# a build provenance attestation. scripts/images/verify.sh checks all three. The Helm chart (deploy/helm/idleo) is
+# 0047). Each is built and scanned on every pull request, which fails only on a fixable CRITICAL or HIGH finding
+# main's last scan doesn't have; on main every fixable finding fails it (ADR 0048; scripts/images/scan-gate.py). On
+# main (and a release tag) the very bytes that were scanned are pushed to GHCR, signed keylessly with cosign (this
+# workflow's GitHub identity; no key is stored anywhere), and given a CycloneDX bill of materials and a build
+# provenance attestation. scripts/images/verify.sh checks all three. The Helm chart (deploy/helm/idleo) is
 # published beside them as an OCI artifact, versioned with the commit and signed the same way, for Flux to verify.
 # Then, on main, staging is deployed (ADR 0046): a pull request pins this build in deploy/clusters/staging/, and merges
 # itself once the required checks pass. Only main and release tags publish: a run by hand on any other branch builds
@@ -38,6 +39,10 @@ jobs:
   build:
     name: image ${{ matrix.image }}
     runs-on: ubuntu-24.04
+    # actions: read, for a pull request to fetch main's last scan of the image (its baseline).
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -61,13 +66,57 @@ jobs:
             REVISION=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
-      # Any CRITICAL or HIGH vulnerability that has a fix, or secret, fails the build: nothing on our own images is
-      # accepted (scripts/images/trivyignore.yaml is the vendors' only). One without a fix is reported, not fatal.
+      # Trivy's report: CRITICAL and HIGH vulnerabilities that have a fix, and secrets. Nothing on our own images is ever
+      # accepted (scripts/images/trivyignore.yaml is the vendors' only, and isn't read here). The gate below judges it.
       - name: Scan with Trivy
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          mkdir -p scan
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/scan:/scan" \
             "$TRIVY_IMAGE" image --no-progress --scanners vuln,secret --severity CRITICAL,HIGH --ignore-unfixed \
-            --exit-code 1 "idleo-${{ matrix.image }}:ci"
+            --format json --output "/scan/${{ matrix.image }}.json" "idleo-${{ matrix.image }}:ci"
+      # Main keeps every scan, red or green: it's what a pull request is judged against (ADR 0048).
+      - name: Keep main's scan
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scan-${{ matrix.image }}
+          path: scan/${{ matrix.image }}.json
+          retention-days: 90
+      # A pull request: main's last scan of the image, from its newest finished run that kept one.
+      - name: Main's last scan
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ matrix.image }}
+        run: |
+          runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow images.yml --branch main --event push \
+            --status completed --limit 20 --json databaseId --jq '.[].databaseId')" || runs=""
+          for run in $runs; do
+            if gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "scan-$IMAGE" --dir scan/main 2>/dev/null; then
+              echo "main's scan of $IMAGE: run $run"
+              break
+            fi
+          done
+          [[ -s "scan/main/$IMAGE.json" ]] ||
+            echo "none of main's last 20 finished runs kept a scan of $IMAGE" >scan/main-missing
+      # Main (and a tag, or a run by hand): every fixable CRITICAL or HIGH vulnerability, and any secret, fails. A pull
+      # request: only a vulnerability main's last scan doesn't have fails, and any secret; one main has too is printed
+      # and left to main's own alerts (a ticket while it's red, a page once a finding is a week old). With no baseline,
+      # every finding fails.
+      - name: Gate
+        env:
+          IMAGE: ${{ matrix.image }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          gate=(python3 scripts/images/scan-gate.py "scan/$IMAGE.json" --count scan/findings.txt)
+          if [[ "$EVENT" == pull_request ]]; then
+            if [[ -s "scan/main/$IMAGE.json" ]]; then
+              gate+=(--baseline "scan/main/$IMAGE.json")
+            else
+              gate+=(--baseline-missing "$(cat scan/main-missing)")
+            fi
+          fi
+          "${gate[@]}"
       - name: Size
         run: |
           docker image inspect "idleo-${{ matrix.image }}:ci" --format '{{.Size}}' |
@@ -81,6 +130,17 @@ jobs:
           name: image-${{ matrix.image }}
           path: idleo-${{ matrix.image }}.tar.gz
           retention-days: 1
+      # Main's result, with its findings' count, to Grafana Cloud: a red build of main is a ticket (ImageBuildFailing,
+      # ops/alerts/security.yaml). The action reports nothing from a pull request.
+      - name: Report
+        if: always()
+        uses: ./.github/actions/report-suite
+        with:
+          suite: image-${{ matrix.image }}
+          status: ${{ job.status }}
+          endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+          authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
+          findings-file: scan/findings.txt
 
   publish:
     name: publish ${{ matrix.image }}

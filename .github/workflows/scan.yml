@@ -7,7 +7,8 @@ name: scan
 # fix, a secret in an image, or a CRITICAL or HIGH finding, fails it; the accepted ones are vendors' only, in
 # scripts/images/trivyignore.yaml, each scoped, with a reason and an expiry of at most 60 days, and an expired one fails
 # too. A fix published after an image was built shows up here the next night, and a red run is
-# a digest-level alert (NightlyScanFailing), never a page. Chosen over the Trivy Operator in the cluster, whose scans
+# a digest-level alert (NightlyScanFailing); a finding on main's images (staging's pins) that has stood a week pages
+# (ImageFindingOld). Chosen over the Trivy Operator in the cluster, whose scans
 # don't fit the server's memory at a canary's peak (ADR 0048).
 on:
   schedule:
@@ -20,6 +21,8 @@ concurrency:
 
 permissions:
   contents: read
+  # To fetch the last night's first-seen state (below).
+  actions: read
 
 jobs:
   scan:
@@ -50,10 +53,30 @@ jobs:
         env:
           GITOPS_BRANCH: ${{ github.ref_name }}
         run: scripts/k8s/up.sh --gitops
+      # Each of main's findings' first night, from the newest earlier scan that kept it: how long the oldest has stood
+      # pages at a week (ADR 0048). Without one (the first night, or 90 days without a scan) every finding starts today.
+      - name: Main's findings' first nights
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow scan.yml --status completed --limit 10 \
+            --json databaseId --jq '.[].databaseId')" || runs=""
+          for run in $runs; do
+            gh run download "$run" --repo "$GITHUB_REPOSITORY" --name scan-first-seen --dir private 2>/dev/null &&
+              { echo "first nights from run $run"; break; }
+          done
+          [[ -s private/scan-first-seen.json ]] || echo "no earlier first nights: every finding starts tonight"
       - name: Scan
         env:
           KUBECONFIG: private/k8s/kubeconfig
         run: scripts/images/scan-deployed.sh --cluster --verbose
+      - name: Keep the first nights
+        if: always() && hashFiles('private/scan-first-seen.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scan-first-seen
+          path: private/scan-first-seen.json
+          retention-days: 90
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -71,3 +94,4 @@ jobs:
           endpoint: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
           authorization: ${{ secrets.GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
           findings-file: private/scan-findings.txt
+          oldest-file: private/scan-oldest-seconds.txt

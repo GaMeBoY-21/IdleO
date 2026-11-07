@@ -15,7 +15,9 @@
 #      or development's images (the check is shown to refuse a cluster that does), and kyverno test proves what they
 #      admit and refuse, signatures included, against the real registries (scripts/deploy/policy-test.sh);
 #   7. every finding the nightly scan accepts (scripts/images/trivyignore.yaml) has a reason, a scope and an expiry
-#      within 60 days (and the check is shown to refuse one that hasn't).
+#      within 60 days (and the check is shown to refuse one that hasn't);
+#   8. the gate on our images' scans (scripts/images/scan-gate.py): main fails on every fixable finding, a pull request
+#      only on one main's last scan doesn't have, and the nightly scan keeps each finding's first night.
 #
 # Each tool runs from its own image, pinned by digest, so a laptop and CI run the same ones and neither needs them
 # installed.
@@ -289,3 +291,6 @@ if ignore_check "$work/ignore.yaml" 2>/dev/null; then
   echo "deploy: the ignore check let an unscoped, unexplained, year-long entry through" >&2
   exit 1
 fi
+
+# 8. The gate on our images' scans, on made-up Trivy reports.
+python3 scripts/images/scan-gate-test.py

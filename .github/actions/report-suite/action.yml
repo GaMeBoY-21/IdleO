@@ -18,6 +18,9 @@ inputs:
   findings-file:
     description: A file holding a count of findings to report beside the result
     required: false
+  oldest-file:
+    description: A file holding how many seconds the oldest finding has stood (the nightly scan)
+    required: false
 runs:
   using: composite
   steps:
@@ -27,6 +30,7 @@ runs:
         ENDPOINT: ${{ inputs.endpoint }}
         AUTHORIZATION: ${{ inputs.authorization }}
         FINDINGS_FILE: ${{ inputs.findings-file }}
+        OLDEST_FILE: ${{ inputs.oldest-file }}
         SUITE: ${{ inputs.suite }}
         STATUS: ${{ inputs.status }}
       run: python3 "$GITHUB_WORKSPACE/scripts/ops/report-suite.py" "$SUITE" "$STATUS"

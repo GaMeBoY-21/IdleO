@@ -31,7 +31,7 @@ endpoint = f"http://127.0.0.1:{server.server_port}"
 
 def run(status, **env):
     received.clear()
-    clean = {k: v for k, v in os.environ.items() if k not in ("ENDPOINT", "AUTHORIZATION", "FINDINGS_FILE")}
+    clean = {k: v for k, v in os.environ.items() if k not in ("ENDPOINT", "AUTHORIZATION", "FINDINGS_FILE", "OLDEST_FILE")}
     return subprocess.run([sys.executable, REPORT, "hostile", status], env={**clean, **env}, capture_output=True, text=True)
 
 
@@ -65,6 +65,17 @@ with tempfile.NamedTemporaryFile("w") as file:
     expect(figures()["idleo_suite_findings"] == ("3", "hostile"), f"the findings: {figures()}")
 run("failure", FINDINGS_FILE="/nonexistent", **secrets)
 expect(figures()["idleo_suite_findings"] == ("0", "hostile"), f"no findings file: {figures()}")
+
+# The nightly scan's oldest finding, in seconds, beside the count; nothing of it when the file isn't named.
+with tempfile.NamedTemporaryFile("w") as file:
+    file.write("604900\n")
+    file.flush()
+    run("failure", OLDEST_FILE=file.name, **secrets)
+    expect(figures()["idleo_suite_oldest_finding_seconds"] == ("604900", "hostile"), f"the oldest: {figures()}")
+run("failure", OLDEST_FILE="", **secrets)
+expect("idleo_suite_oldest_finding_seconds" not in figures(), f"an unnamed oldest file was reported: {figures()}")
+run("failure", OLDEST_FILE="/nonexistent", **secrets)
+expect("idleo_suite_oldest_finding_seconds" not in figures(), f"a missing oldest file read as 0: {figures()}")
 
 done = run("failure")
 expect(done.returncode == 0 and "::warning::" in done.stdout and not received, "with no secrets it warns and sends nothing")

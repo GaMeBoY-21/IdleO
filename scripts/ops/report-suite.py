@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 How a long suite ended, to Grafana Cloud over OTLP (ADR 0050; .github/actions/report-suite): idleo_suite_passed{suite} (1 or 0),
-and idleo_suite_findings{suite} when FINDINGS_FILE holds a count. The endpoint and its Authorization header are production's own
+idleo_suite_findings{suite} when FINDINGS_FILE holds a count, and idleo_suite_oldest_finding_seconds{suite} when
+OLDEST_FILE holds how long the oldest finding has stood (the nightly scan, ADR 0048). The endpoint and its Authorization header are production's own
 (ADR 0036), as repository secrets; until they exist this warns, and the *Missing alerts are what say so.
 
     report-suite.py SUITE STATUS    STATUS is the job's job.status
@@ -22,14 +23,17 @@ def metric(name, value, suite, now):
     return {"name": name, "gauge": {"dataPoints": [point]}}
 
 
-def findings():
-    path = os.environ.get("FINDINGS_FILE")
+def findings(variable="FINDINGS_FILE", unread=0):
+    """The number in the file the variable names; None when it names none. A file that can't be read is `unread`: no
+    findings for the count (a suite that died early is red anyway), and nothing at all for the oldest one's age, which
+    must never read as a fresh 0 on a night the scan couldn't say."""
+    path = os.environ.get(variable)
     if not path:
         return None
     try:
         return int(open(path).read().strip() or 0)
     except (OSError, ValueError):
-        return 0
+        return unread
 
 
 def main():
@@ -46,6 +50,9 @@ def main():
     count = findings()
     if count is not None:
         metrics.append(metric("idleo_suite_findings", count, suite, now))
+    oldest = findings("OLDEST_FILE", unread=None)
+    if oldest is not None:
+        metrics.append(metric("idleo_suite_oldest_finding_seconds", oldest, suite, now))
     body = {
         "resourceMetrics": [
             {

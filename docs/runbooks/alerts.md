@@ -210,6 +210,22 @@ Then Loki, `{service_name="control-plane"} |= "Invocation of listener"` with the
 
 **Do:** run it by hand (`gh workflow run scan.yml`); fix whatever stopped it. Until it reports, nobody is told about a new vulnerability.
 
+## Image build failing
+
+**Means:** main's last build of one of our images (`image-control-plane`, `image-web` or `image-scanner`; `.github/workflows/images.yml`) failed. On main every fixable CRITICAL or HIGH vulnerability, and any secret, fails the build (ADR 0048), so nothing new is published or deployed until it's fixed. Pull requests stay mergeable meanwhile: their gate fails only on what main's last scan didn't already have. A digest, not a page; it pages as *Image finding old* once a finding has stood a week.
+
+**Check first:** the failed run's "Gate" step: each `FAIL` line names the finding, its package and the fixed version. A build that failed before the scan (the Dockerfile, the base image) shows in the step that's red.
+
+**Do:** fix it on our side: a newer base or dependency with the fix, or, when we don't use the package at all, a base without it (the control plane's runs on distroless's base without OpenSSL for that reason: measured with `readelf` and `LD_DEBUG`, it never loaded cc's zlib). Never an ignore entry: nothing on our own images is accepted. Once main's next build is green, it deploys to staging as usual.
+
+## Image finding old
+
+**Means:** a fixable CRITICAL or HIGH finding has been on main's images (the digests staging pins) for at least a week of nightly scans (`scripts/images/scan-deployed.sh` keeps each finding's first night). The ticket (*Image build failing*, *Nightly scan failing*) wasn't enough. This pages.
+
+**Check first:** the latest `scan` run's log ("main's oldest finding has stood …") and its findings, and the open ticket.
+
+**Do:** as *Image build failing*: fix it today, or say in the ticket why it can't be yet and when it will be. If the fix is waiting on a vendor (a base image not rebuilt yet), measure whether we use the package and drop it if we don't.
+
 ## Long suite failing
 
 **Means:** a long suite's last run on main or on its schedule failed (ADR 0050). They're too slow to be required checks, so a red one stops nothing: `HostileSuiteFailing` (`hostile.yml`: the job sandbox's 16 attacks), `FailoverSuiteFailing` (`failover.yml`), `K8sSuiteFailing` (`k8s.yml`), `GitopsSuiteFailing` (`gitops.yml`: canaries and rollback), `SecuritySuiteFailing` (`security.yml`: the attacks on the cluster), `E2eSuiteFailing` (`e2e.yml`), `WebBrowserSuiteFailing` (`web.yml`'s browser job).
