@@ -43,10 +43,12 @@ def findings(report: dict) -> list[dict]:
                 })
         for secret in result.get("Secrets") or []:
             if secret.get("Severity") in ("CRITICAL", "HIGH"):
+                # Printed by where it is alone: nothing of the finding itself reaches the log (Trivy's own report,
+                # in the job, has the rest).
                 found.append({
                     "kind": "secret",
                     "key": f"{secret.get('RuleID')} {result.get('Target', '')}",
-                    "text": f"{secret.get('Severity')} secret {secret.get('RuleID')} in {result.get('Target', '')}",
+                    "text": f"a CRITICAL or HIGH secret in {result.get('Target', '')}",
                 })
     return found
 
